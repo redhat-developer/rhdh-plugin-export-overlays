@@ -1,0 +1,10 @@
+dynamicPlugins:
+  frontend:
+    backstage.plugin-devtools:
+      # For the sidebar link
+      dynamicRoutes:
+        - importName: DevToolsPage
+          menuItem:
+            text: DevTools
+            icon: chat
+          path: /devtools

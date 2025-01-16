@@ -1,0 +1,5 @@
+dynamicPlugins:
+  frontend:
+    backstage.plugin-api-docs-module-protoc-gen-doc:
+      apiFactories:
+        - importName: protocGenDocApiDocApi
