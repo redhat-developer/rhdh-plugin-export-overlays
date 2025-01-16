@@ -1,0 +1,198 @@
+name: Update plugins repository references
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: '0 12 * * *'    
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+
+    name: Prepare 
+    outputs:
+      workspace-keys: ${{ steps.gather-workspaces.outputs.workspace-keys }}
+
+    steps:
+      - name: Use node.js 20.x
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org/ # Needed for auth
+
+      - uses: actions/checkout@v4.2.2
+
+      - name: Get published community plugins
+        id: get-published-community-plugins
+        shell: bash
+        run: |
+          npm install semver -g
+          regexps='@backstage-community\/'
+          npmPackages=`npm search "/^(${regexps})/" --searchlimit=1000 --json --no-description --searchexclude "/^(?!(${regexps}))/" | jq -r '.[].name' | sort`
+          backstageVersions=$(cat branches.json | jq -r 'to_entries | map(.value)[]')
+          plugins=$(
+            comma=""
+            echo '['
+            for package in ${npmPackages}
+            do
+              if [[ "${package}" == *"-node" ]] || [[ "${package}" == *"-common" ]] || [[ "${package}" == *"-react" ]] 
+              then
+                echo "Skipping published package ${package}: not a plugin" >&2
+                continue
+              fi
+              if [[ "$(npm view --json ${package} | jq -r '.backstage.role')" != *"-plugin"* ]]
+              then
+                echo "Skipping published package ${package}: not a plugin" >&2
+                continue
+              fi
+              echo "Fetching published versions of plugin ${package}" >&2
+              for version in $(npm view --json ${package} versions | jq -r 'if type == "string" then . else .[] end | select(test("[^-]+-.+")|not)')
+              do
+                pluginInfo=$(npm view --json ${package}@${version} | jq '. | {name, version, directory: .repository.directory, gitHead }')
+                workspace=$(echo ${pluginInfo} | jq -r '.directory' | sed -e 's:workspaces/\([^/]*\)/plugins/.*:\1:')
+                gitHead=$(echo ${pluginInfo} | jq -r '.gitHead')
+                backstageVersion=$(curl -s https://raw.githubusercontent.com/backstage/community-plugins/${gitHead}/workspaces/${workspace}/backstage.json | jq -r '.version')
+
+                branch=""
+                for supportedBackstageVersion in ${backstageVersions}
+                do
+                  if [[ "${supportedBackstageVersion}" == "$(semver -r ~${backstageVersion} ${supportedBackstageVersion})" ]]
+                  then
+                    branch=$(cat branches.json | jq -r "to_entries | map( select(.value == \"${supportedBackstageVersion}\") | .key )[]")
+                    break
+                  fi
+                done
+
+                if [[ "${branch}" == "" ]]
+                then
+                  echo "Skipping published plugin ${package}@${version}, since the underlying Backstage version ${backstageVersion} is not used by RHDH" >&2
+                  continue
+                fi
+
+                addedFields="{\"workspace\":\"$workspace\", \"backstageVersion\": \"$backstageVersion\", \"branch\": \"$branch\"}"
+                pluginInfo=$(echo "${pluginInfo}" | jq ".+= $addedFields")
+                echo -n "${comma} ${pluginInfo}"
+                comma=','
+              done
+            done
+            echo ']'
+          )
+
+          echo "Plugins to analyze:"
+          echo "$plugins"
+          echo "$plugins" | jq -c > published-plugins.json
+
+      - name: Gather Workspaces
+        id: gather-workspaces
+        shell: bash
+        run: |
+            plugins=$(cat published-plugins.json)
+            workspaces=$(echo ${plugins} | jq 'group_by(.branch + "__" + .workspace) | map({ (.[0].branch + "__" + .[0].workspace): {"workspace": .[0].workspace, "branch": .[0].branch, "backstageVersion": .[0].backstageVersion, "plugins": (. | group_by(.name) | map(. | sort_by(.version) | last ) )} }) | add')
+  
+            echo "Workspaces:"
+            echo "$workspaces"
+  
+            echo "$workspaces" | jq -c > workspaces.json
+            echo "workspace-keys=$(echo $workspaces | jq -c keys)" >> $GITHUB_OUTPUT
+
+      - name: Upload workspaces json file
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspaces
+          path: workspaces.json
+              
+  export:
+    name: Export
+
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.prepare.outputs.workspace-keys) }}
+
+    steps:
+
+      - uses: actions/checkout@v4.2.2
+
+      - name: Download workspaces json file
+        uses: actions/download-artifact@v4
+        with:
+          name: workspaces
+
+      - name: Get workspace JSON
+        id: get-workspace-json
+        shell: bash
+        run: |
+          workspace="$(cat workspaces.json | jq '.["${{ matrix.workspace }}"]')"
+          echo "Workspace:"
+          echo "${workspace}"
+
+          echo workspace=$(echo "${workspace}" | jq -c) >> $GITHUB_OUTPUT
+
+      - name: Get workspace Commit ID
+        id: get-workspace-commit-id
+        shell: bash
+        run: |
+          workspace='${{ steps.get-workspace-json.outputs.workspace }}'
+          commits=$(echo "$workspace" | jq -r '[ .plugins[] | .gitHead ] | unique | .[]')
+          pluginDirectories=$(echo '${{ steps.get-workspace-json.outputs.workspace }}' | jq -r '.plugins[] | .directory')
+          if [[ $(echo ${commits} | wc -w) == 1 ]]
+          then
+            workspaceCommit="${commits}"
+          else
+            workspaceCommit=""
+            for commit in ${commits}
+            do
+              for pluginDirectory in ${pluginDirectories}
+              do
+                packageJson=$(curl -s https://raw.githubusercontent.com/backstage/community-plugins/${commit}/${pluginDirectory}/package.json)
+                version=$(echo "${packageJson}" | jq -r '.version')
+                workspaceVersion=$(echo "${workspace}" | jq -r ".plugins[] | select(.directory == \"${pluginDirectory}\") | .version")
+                pluginName=$(echo "${workspace}" | jq -r ".plugins[] | select(.directory == \"${pluginDirectory}\") | .name")
+                if [[ "${version}" != "${workspaceVersion}" ]]
+                then
+                  echo "Skipping commit ${commit}: plugin ${pluginName} version not the latest version: ${version} != ${workspaceVersion}"
+                  continue 2
+                fi
+              done
+              if [[ "${workspaceCommit}" != "" ]]
+              then
+                echo "Cannot decide between workspace commits: ${commit} and ${workspaceCommit}"
+                break 2
+              fi
+              workspaceCommit="${commit}"
+            done
+          fi
+          echo "Workspace commit: ${workspaceCommit}"
+          echo "workspace-commit=${workspaceCommit}" >> $GITHUB_OUTPUT
+          
+      - name: Create PR if necessary
+        id: create-pr-if-necessary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = '${{ github.repository_owner }}';
+            const repo = '${{ github.repository }}'.replace(owner + '/', '');
+            const pluginsRepoOwner = 'backstage';
+            const pluginsRepo = 'community-plugins';
+            const prBranchName = 'workspaces/${{ matrix.workspace }}';
+            const workspaceCommit = '${{ steps.get-workspace-commit-id.outputs.workspace-commit }}';
+            const workspaceJson ='${{ steps.get-workspace-json.outputs.workspace }}';
+
+            const script = require('.github/workflows/create-pr-if-necessary.js');
+            await script({
+              github,
+              core,
+              owner,
+              repo,
+              pluginsRepoOwner,
+              pluginsRepo,
+              prBranchName,
+              workspaceCommit,
+              workspaceJson,
+            });

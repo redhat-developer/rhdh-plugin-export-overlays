@@ -1,0 +1,64 @@
+name: Export Workspace as Dynamic Plugins Packages
+on:
+  workflow_dispatch:
+    inputs:
+      node-version:
+        description: node-version to execute the export
+        required: false
+        type: choice
+        default: '20.x'
+        options:
+          - '18.x'
+          - '20.x'
+
+      janus-cli-version:
+        description: Version of the janus-idp/cli package.
+        type: string
+        required: false
+        default: '^1.18.0'
+
+      upload-project-on-error:
+        description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
+        required: false
+        type: boolean
+        default: false
+
+      plugins-repo:
+        description: Target Community Plugins repository to export plugins from
+        type: string
+        required: false
+        default: 'backstage/community-plugins'
+
+      overlay-branch:
+        description: Branch of the overlay structure (current branch by default).
+        type: string
+        required: false
+        default: ''
+
+  push:
+    tags:
+      - "v*.*.*"
+
+  pull_request:
+    branches:
+      - 'releases/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parent_export:
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    with:
+      node-version: ${{ inputs.node-version }}
+      janus-cli-version: ${{ inputs.janus-cli-version }}
+      plugins-repo: ${{ inputs.plugins-repo }}
+      upload-project-on-error: ${{ inputs.upload-project-on-error == 'true' }}
+      overlay-branch: ${{ inputs.overlay-branch }}
+
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
