@@ -15,19 +15,13 @@ on:
         description: Version of the janus-idp/cli package.
         type: string
         required: false
-        default: '^1.18.0'
+        default: '^3.0.0'
 
       upload-project-on-error:
         description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
         required: false
         type: boolean
         default: false
-
-      plugins-repo:
-        description: Target Community Plugins repository to export plugins from
-        type: string
-        required: false
-        default: 'backstage/community-plugins'
 
       overlay-branch:
         description: Branch of the overlay structure (current branch by default).
@@ -49,11 +43,10 @@ concurrency:
 
 jobs:
   parent_export:
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: davidfestal/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@multi-plugins-repo
     with:
       node-version: ${{ inputs.node-version }}
       janus-cli-version: ${{ inputs.janus-cli-version }}
-      plugins-repo: ${{ inputs.plugins-repo }}
       upload-project-on-error: ${{ inputs.upload-project-on-error == 'true' }}
       overlay-branch: ${{ inputs.overlay-branch }}
 
