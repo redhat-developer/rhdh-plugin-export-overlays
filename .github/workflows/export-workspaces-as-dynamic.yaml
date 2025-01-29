@@ -35,7 +35,7 @@ on:
 
   pull_request:
     branches:
-      - 'releases/**'
+      - 'release-**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
