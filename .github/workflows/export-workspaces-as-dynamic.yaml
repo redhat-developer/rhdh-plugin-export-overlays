@@ -7,10 +7,6 @@ on:
     branches:
       - 'release-**'
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   export:
     uses: davidfestal/rhdh-dynamic-plugin-export-overlays/.github/workflows/export-workspaces-as-dynamic.yaml@main
