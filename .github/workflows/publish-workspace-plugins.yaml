@@ -1,22 +1,12 @@
 name: Publish RHDH Release Dynamic Plugin Images 
 on:
   push:
-    tags:
-      - "v*.*.*"
-      
     branches:
       - 'release-**'
 
 jobs:
   export:
-    uses: davidfestal/rhdh-dynamic-plugin-export-overlays/.github/workflows/export-workspaces-as-dynamic.yaml@main
-    with:
-      node-version: ${{ inputs.node-version }}
-      janus-cli-version: ${{ inputs.janus-cli-version }}
-      upload-project-on-error: ${{ inputs.upload-project-on-error == 'true' }}
-      overlay-branch: ${{ inputs.overlay-branch }}
-      publish-container: true
-      image-repository-prefix: ghcr.io/${{ github.repository_owner }}
+    uses: davidfestal/rhdh-dynamic-plugin-export-overlays/.github/workflows/publish-release-branch-workspace-plugins.yaml@main
     permissions:
       contents: write
       attestations: write
