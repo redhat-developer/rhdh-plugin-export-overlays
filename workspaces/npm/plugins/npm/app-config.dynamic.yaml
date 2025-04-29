@@ -1,0 +1,41 @@
+dynamicPlugins:
+  frontend:
+    backstage-community.plugin-npm:
+      entityTabs:
+        - mountPoint: entity.page.npm
+          path: /npm
+          title: npm releases
+          config:
+            if:
+              allOf:
+                - isNpmAvailable
+      mountPoints:
+        - mountPoint: entity.page.overview/cards
+          importName: EntityNpmInfoCard
+          config:
+            layout:
+              gridColumnEnd:
+                xs: "span 12"
+                md: "span 8"
+            if:
+              allOf:
+                - isNpmAvailable
+        - mountPoint: entity.page.overview/cards
+          importName: EntityNpmReleaseOverviewCard
+          config:
+            layout:
+              gridColumnEnd:
+                xs: "span 12"
+                md: "span 8"
+            if:
+              allOf:
+                - isNpmAvailable
+        - mountPoint: entity.page.npm/cards
+          importName: EntityNpmReleaseTableCard
+          config:
+            layout:
+              gridColumnEnd:
+                xs: "span 12"
+            if:
+              allOf:
+                - isNpmAvailable
