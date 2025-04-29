@@ -1,0 +1,9 @@
+npm:
+  defaultRegistry: npmjs
+  registries:
+    - name: npmjs
+      url: https://registry.npmjs.com
+    - name: github
+      url: https://npm.pkg.github.com
+    - name: gitlab
+      url: https://gitlab.com/api/v4/packages/npm
