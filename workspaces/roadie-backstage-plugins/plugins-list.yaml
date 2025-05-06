@@ -1,0 +1,10 @@
+plugins/backend/backstage-plugin-argo-cd-backend:
+plugins/frontend/backstage-plugin-argo-cd:
+plugins/frontend/backstage-plugin-datadog:
+plugins/frontend/backstage-plugin-github-insights:
+plugins/frontend/backstage-plugin-github-pull-requests:
+plugins/frontend/backstage-plugin-jira:
+plugins/frontend/backstage-plugin-security-insights:
+plugins/scaffolder-actions/scaffolder-backend-argocd: --embed-package @roadiehq/backstage-plugin-argo-cd-backend
+plugins/scaffolder-actions/scaffolder-backend-module-http-request:
+plugins/scaffolder-actions/scaffolder-backend-module-utils:
