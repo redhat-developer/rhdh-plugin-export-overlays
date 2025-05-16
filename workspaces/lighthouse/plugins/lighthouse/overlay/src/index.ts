@@ -14,4 +14,4 @@ export {
 export * from "./api";
 export * from "./components/Cards";
 
-export { default as LighthouseIcon } from "@mui/icons-material/Assessment";
+export { default as LighthouseIcon } from "@material-ui/icons/Assessment";
