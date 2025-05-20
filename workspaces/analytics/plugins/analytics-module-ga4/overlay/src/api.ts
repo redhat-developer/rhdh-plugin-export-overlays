@@ -3,7 +3,7 @@ import {
     configApiRef,
     identityApiRef,
   } from '@backstage/core-plugin-api';
-  import { GoogleAnalytics4 } from '@backstage-community/plugin-analytics-module-ga4';
+  import { GoogleAnalytics4 } from './apis/implementations/AnalyticsApi';
   
 export const googleAnalytics4Api: AnyApiFactory = createApiFactory({
   api: analyticsApiRef,

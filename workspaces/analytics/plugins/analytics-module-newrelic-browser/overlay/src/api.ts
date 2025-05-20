@@ -3,7 +3,7 @@ import {
   configApiRef,
   identityApiRef,
 } from '@backstage/core-plugin-api';
-import { NewRelicBrowser } from '@backstage-community/plugin-analytics-module-newrelic-browser';
+import { NewRelicBrowser } from './apis/implementations/AnalyticsApi';
   
 export const newRelicAnalyticsApi: AnyApiFactory = ({
   api: analyticsApiRef,
