@@ -42,6 +42,7 @@ jobs:
     with:
       overlay-branch: main
       debug: ${{ inputs.debug || false }}
+      fail-for-required-only: true
 
   create:
     needs:
