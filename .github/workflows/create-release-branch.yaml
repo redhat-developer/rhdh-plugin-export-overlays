@@ -42,6 +42,7 @@ jobs:
     with:
       overlay-branch: main
       debug: ${{ inputs.debug || false }}
+      fail-for-required-only: true
 
   create:
     needs:
@@ -85,11 +86,12 @@ jobs:
           missingPlugins=false
           for required in $(cat required-plugins)
           do
-            if [[ "$(echo $plugin | sed 's/ *//')" == "" || "$(echo $plugin | sed 's/^#.*//')" == "" ]]
+            if [[ "$(echo $required | sed 's/ *//')" == "" || "$(echo $required | sed 's/^#.*//')" == "" ]]
             then
-                echo "Skip empty or commented line"
                 continue
             fi
+
+            echo "Checking required plugin: ${required}"
 
             workspacePath="workspaces/$(echo ${required} | cut -d'/' -f1)"
             pluginPath="$(echo ${required} | cut -d'/' -f2-)"
