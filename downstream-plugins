@@ -1,10 +1,40 @@
+# overall plugin list - used to filter out things that we don't currently include in RHDH or publish as OCI artifacts on quay/rr.io
+# NOTE: include one line per plugin following the format: <workspace-folder>/plugins/<plugin-folder>
+
+# TODO: convert these to plugin paths once they're included in the overlay repo at
+# https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.y/workspaces
+# @immobiliarelabs/backstage-plugin-gitlab
+# @immobiliarelabs/backstage-plugin-gitlab-backend
+# @pagerduty/backstage-plugin
+# @pagerduty/backstage-plugin-backend
+# @parfuemerie-douglas/scaffolder-backend-module-azure-repositories
+# @red-hat-developer-hub/backstage-plugin-bulk-import
+# @red-hat-developer-hub/backstage-plugin-bulk-import-backend
+# @red-hat-developer-hub/backstage-plugin-catalog-backend-module-marketplace
+# @red-hat-developer-hub/backstage-plugin-global-floating-action-button
+# @red-hat-developer-hub/backstage-plugin-global-header
+# @red-hat-developer-hub/backstage-plugin-marketplace
+# @red-hat-developer-hub/backstage-plugin-marketplace-backend
+# @roadiehq/backstage-plugin-argo-cd
+# @roadiehq/backstage-plugin-argo-cd-backend
+# @roadiehq/backstage-plugin-datadog
+# @roadiehq/backstage-plugin-github-insights
+# @roadiehq/backstage-plugin-github-pull-requests
+# @roadiehq/backstage-plugin-jira
+# @roadiehq/backstage-plugin-security-insights
+# @roadiehq/scaffolder-backend-argocd
+# @roadiehq/scaffolder-backend-module-http-request
+# @roadiehq/scaffolder-backend-module-utils
+
 3scale/plugins/3scale-backend
 acr/plugins/acr
 analytics/plugins/analytics-provider-segment
 azure-devops/plugins/azure-devops-backend
 azure-devops/plugins/azure-devops
-azure-devops/plugins/catalog-backend-module-azure-devops-annotator-processor
+# no wrapper exists yet
+# azure-devops/plugins/catalog-backend-module-azure-devops-annotator-processor
 azure-devops/plugins/scaffolder-backend-module-azure-devops
+
 backstage/plugins/catalog-backend-module-bitbucket-cloud
 backstage/plugins/catalog-backend-module-bitbucket-server
 backstage/plugins/catalog-backend-module-github
@@ -33,12 +63,18 @@ dynatrace/plugins/dynatrace
 github-actions/plugins/github-actions
 github-issues/plugins/github-issues
 homepage/plugins/dynamic-home-page
-jenkins/plugins/scaffolder-backend-module-jenkins
+
+# no wrapper exists yet
+# jenkins/plugins/scaffolder-backend-module-jenkins
 jenkins/plugins/jenkins
 jenkins/plugins/jenkins-backend
+
 jfrog-artifactory/plugins/jfrog-artifactory
-lighthouse/plugins/lighthouse-backend
+
+# no wrapper exists yet
+# lighthouse/plugins/lighthouse-backend
 lighthouse/plugins/lighthouse
+
 nexus-repository-manager/plugins/nexus-repository-manager
 
 ocm/plugins/ocm-backend
