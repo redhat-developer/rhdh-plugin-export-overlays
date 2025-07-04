@@ -1,4 +1,5 @@
 plugins/azure-devops:
 plugins/azure-devops-backend:
-plugins/catalog-backend-module-azure-devops-annotator-processor: --embed-package @backstage-community/plugin-azure-devops-common
+plugins/catalog-backend-module-azure-devops-annotator-processor:
 plugins/scaffolder-backend-module-azure-devops:
+plugins/scaffolder-backend-module-dotnet:
