@@ -1,0 +1,139 @@
+name: Export Workspace as Dynamic Plugins Packages
+on:
+  workflow_call:
+    secrets:
+      image-registry-user:
+        description: User name to be used to push to container image registry
+        required: false
+
+      image-registry-password:
+        description: Password to be used to push to container image registry
+        required: false
+
+    inputs:
+      node-version:
+        description: node-version to execute the export
+        type: string
+        required: false
+
+      janus-cli-version:
+        description: Version of the janus-idp/cli package.
+        type: string
+        required: false
+        
+      cli-package:
+        description: Cli package to be used for the export.
+        type: string
+        required: false
+
+      upload-project-on-error:
+        description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
+        required: false
+        type: boolean
+        default: false
+      
+      workspace-path:
+        description: Relative path of a single workspace on which the export workflow should be applied.
+        required: false
+        type: string
+        default: ''
+
+      overlay-branch:
+        description: Branch of the overlay structure (current branch by default).
+        type: string
+        required: false
+        default: ''
+
+      publish-container:
+        description: Publish a container image for the dynamic plugins
+        required: true
+        type: boolean
+
+      image-repository-prefix:
+        description: Repository prefix of the dynamic plugin container images
+        type: string
+        required: false
+
+      last-publish-commit:
+        description: Optional commit ID of the last successful publishing of plugin container images
+        type: string
+        required: false
+  
+  workflow_dispatch:
+    inputs:
+      node-version:
+        description: node-version to execute the export
+        type: string
+        required: false
+        default: ''
+
+      janus-cli-version:
+        description: Version of the janus-idp/cli package.
+        type: string
+        required: false
+        default: ''
+      
+      cli-package:
+        description: Cli package to be used for the export.
+        type: string
+        required: false
+        default: ''
+
+      upload-project-on-error:
+        description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
+        required: false
+        type: boolean
+        default: false
+      
+      workspace-path:
+        description: Relative path of a single workspace on which the export workflow should be applied.
+        required: false
+        type: string
+
+      overlay-branch:
+        description: Branch of the overlay structure
+        type: string
+        required: true
+
+      publish-container:
+        description: Publish a container image for the dynamic plugins
+        required: false
+        type: boolean
+        default: false   
+
+      image-repository-prefix:
+        description: Repository prefix of the dynamic plugin container images
+        type: string
+        required: false
+  
+      last-publish-commit:
+        description: Optional commit ID of the last successful publishing of plugin container images
+        type: string
+        required: false
+  
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    with:
+      node-version: ${{ inputs.node-version }}
+      janus-cli-version: ${{ inputs.janus-cli-version }}
+      cli-package: ${{ inputs.cli-package }}
+      upload-project-on-error: ${{ inputs.upload-project-on-error }}
+      overlay-branch: ${{ inputs.overlay-branch }}
+      workspace-path: ${{ inputs.workspace-path }}
+      publish-container: ${{ inputs.publish-container }}
+      image-repository-prefix: ${{ inputs.image-repository-prefix }}
+      
+    secrets:
+      image-registry-user: ${{ secrets.image-registry-user || github.actor }}
+      image-registry-password: ${{ secrets.image-registry-password || secrets.GITHUB_TOKEN }}
+
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
