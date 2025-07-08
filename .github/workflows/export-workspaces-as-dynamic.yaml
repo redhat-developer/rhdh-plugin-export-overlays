@@ -20,6 +20,11 @@ on:
         description: Version of the janus-idp/cli package.
         type: string
         required: false
+        
+      cli-package:
+        description: Package of the cli package.
+        type: string
+        required: false
 
       upload-project-on-error:
         description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
@@ -67,6 +72,12 @@ on:
         type: string
         required: false
         default: ''
+      
+      cli-package:
+        description: Package of the cli package.
+        type: string
+        required: false
+        default: ''
 
       upload-project-on-error:
         description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
@@ -106,10 +117,11 @@ concurrency:
 
 jobs:
   export:
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@rhdh-cli
     with:
       node-version: ${{ inputs.node-version }}
       janus-cli-version: ${{ inputs.janus-cli-version }}
+      cli-package: ${{ inputs.cli-package }}
       upload-project-on-error: ${{ inputs.upload-project-on-error }}
       overlay-branch: ${{ inputs.overlay-branch }}
       workspace-path: ${{ inputs.workspace-path }}
