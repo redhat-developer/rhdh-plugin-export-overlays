@@ -20,6 +20,11 @@ on:
         description: Version of the janus-idp/cli package.
         type: string
         required: false
+        
+      cli-package:
+        description: Cli package to be used for the export.
+        type: string
+        required: false
 
       upload-project-on-error:
         description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
@@ -67,6 +72,12 @@ on:
         type: string
         required: false
         default: ''
+      
+      cli-package:
+        description: Cli package to be used for the export.
+        type: string
+        required: false
+        default: ''
 
       upload-project-on-error:
         description: Upload the complete project as a workflow artifact in case of error in order to troubleshoot.
@@ -110,6 +121,7 @@ jobs:
     with:
       node-version: ${{ inputs.node-version }}
       janus-cli-version: ${{ inputs.janus-cli-version }}
+      cli-package: ${{ inputs.cli-package }}
       upload-project-on-error: ${{ inputs.upload-project-on-error }}
       overlay-branch: ${{ inputs.overlay-branch }}
       workspace-path: ${{ inputs.workspace-path }}
