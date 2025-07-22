@@ -38,7 +38,7 @@ jobs:
     needs:
       - prepare-required-plugins
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@remove-janus
     with:
       overlay-branch: main
       debug: ${{ inputs.debug || false }}
