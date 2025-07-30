@@ -113,7 +113,7 @@ jobs:
     name: Update Branches
     needs: prepare
     if: github.event_name != 'schedule'
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@test
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       workspace-path: ${{ inputs.workspace-path }}
@@ -133,7 +133,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.branch-type == 'releases')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@test
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       workspace-path: ${{ inputs.workspace-path }}
@@ -151,7 +151,7 @@ jobs:
     needs: prepare
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 19 * * *')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@test
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       workspace-path: ${{ inputs.workspace-path }}

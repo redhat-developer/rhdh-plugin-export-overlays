@@ -38,7 +38,7 @@ jobs:
     needs:
       - prepare-required-plugins
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@test
     with:
       overlay-branch: main
       debug: ${{ inputs.debug || false }}
@@ -126,7 +126,7 @@ jobs:
       contents: write
 
   export:
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@test
     needs:
       - create
 

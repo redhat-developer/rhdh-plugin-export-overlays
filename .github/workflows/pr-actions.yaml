@@ -97,7 +97,7 @@ jobs:
 
     if: github.event.comment.body == '/publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@test
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
@@ -127,7 +127,7 @@ jobs:
 
     if: github.event.comment.body == '/publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    uses: kadel/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@test
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
