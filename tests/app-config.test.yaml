@@ -1,3 +1,5 @@
+# this global app config provides the basic configuration that's used for all tests in
+# this repository, it can be overridden/enhanced at the workspace level.
 upstream:
   backstage:
     appConfig:
