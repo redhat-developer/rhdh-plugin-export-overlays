@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: rhdh-plugin-3scale-backend
+  title: '@redhat/backstage-plugin-3scale-backend'
+  annotations:
+    janus-idp.io/lifecycle: production
+    janus-idp.io/support: supported
+    backstage.io/view-url: https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main/workspaces/3scale
+    backstage.io/edit-url: https://github.com/redhat-developer/rhdh-plugin-export-overlays/edit/main/workspaces/3scale/metadata.yaml
+spec:
+  type: backstage-backend-plugin
+  owner: group:default/rhdh-maintainers
+  lifecycle: production
