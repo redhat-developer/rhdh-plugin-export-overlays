@@ -20,10 +20,16 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression that defines the watched branches. 
+        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
         type: string
         required: false
-        default: ^main$
+        default: ""
+
+      single-branch:
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
+        type: string
+        required: false
+        default: ""
 
       verbose:
         description: enable verbose logs
@@ -61,10 +67,16 @@ on:
         required: false
 
       release-branch-pattern:
-        description: A regular expression that defines the watched branches. 
+        description: A regular expression that defines active release branches. If not provided, the last 2 release branches (release-x.x) will be used.
         type: string
         required: false
-        default: ^main$
+        default: ""
+
+      single-branch:
+        description: If provided, only the specified branch will receive updates, but the release branch pattern will still be used to find the minimum target backstage version.
+        type: string
+        required: false
+        default: ""
 
       verbose:
         description: enable verbose logs
@@ -91,23 +103,48 @@ jobs:
 
     name: Prepare 
     outputs:
-      regexps: ${{ steps.read-regexps.outputs.regexps }}
+      regexps: ${{ steps.read-regexps.outputs.REGEXPS }}
+      release-branch-pattern: ${{ steps.read-release-branch-pattern.outputs.RELEASE_BRANCH_PATTERN }}
 
     steps:
       - uses: actions/checkout@v4.2.2
 
       - name: Read Regexps
         id: read-regexps
+        env:
+          INPUT_REGEXPS: ${{ inputs.regexps }}
         shell: bash
         run: |
-            regexps="${{ inputs.regexps }}"
-            if [[ "${regexps}" == "" ]]
+            REGEXPS="${INPUT_REGEXPS}"
+            if [[ "${REGEXPS}" == "" ]]
             then
-              regexps="$(cat plugins-regexps)"
+              REGEXPS="$(cat plugins-regexps)"
             fi
             echo "Regexps of plugins to export:"
-            echo "$regexps"
-            echo "regexps=$(echo $regexps | tr '\n' ' ')" >> $GITHUB_OUTPUT
+            echo "$REGEXPS"
+            echo "REGEXPS=$(echo $REGEXPS | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Read Release Branch Pattern
+        id: read-release-branch-pattern
+        env:
+          INPUT_RELEASE_BRANCH_PATTERN: ${{ inputs.release-branch-pattern }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          RELEASE_BRANCH_PATTERN="${INPUT_RELEASE_BRANCH_PATTERN}"
+          if [[ "${RELEASE_BRANCH_PATTERN}" == "" ]]
+          then
+            # Get the last 2 release branch names, sorted by version, and build a regex like ^release-(1\.7|1\.8)$
+            RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches | \
+              jq -r '[.[].name | select(test("^release-")) | sub("^release-";"")] 
+                | sort_by(split(".") | map(tonumber)) 
+                | reverse 
+                | .[:2] 
+                | map(gsub("\\."; "\\.")) 
+                | "^release-(" + join("|") + ")$"')"
+          fi
+          echo "Release branch pattern: ${RELEASE_BRANCH_PATTERN}"
+          echo "RELEASE_BRANCH_PATTERN=$(echo $RELEASE_BRANCH_PATTERN)" >> $GITHUB_OUTPUT
 
   update-branches:
     name: Update Branches
@@ -119,10 +156,11 @@ jobs:
       workspace-path: ${{ inputs.workspace-path }}
       pr-to-update: ${{ inputs.pr-to-update }}
       overlay-repo: ${{ github.repository }}
-      release-branch-pattern: ${{ inputs.release-branch-pattern }}
+      release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
+      single-branch: ${{ inputs.single-branch }}
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
-      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
+      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}      
     permissions:
       contents: write
       pull-requests: write
@@ -131,16 +169,15 @@ jobs:
     name: Update Release Branches
     needs: prepare
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.branch-type == 'releases')
+      (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *')
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
-      workspace-path: ${{ inputs.workspace-path }}
       overlay-repo: ${{ github.repository }}
-      release-branch-pattern: ^release-(1\.6|1\.7)$
-      verbose: ${{ inputs.verbose != '' && inputs.verbose }}
-      debug: ${{ inputs.debug != '' && inputs.debug }}
+      release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
+      single-branch: "" # we want to update all release branches
+      verbose: false
+      debug: false
       allow-workspace-addition: false
     permissions:
       contents: write
@@ -154,11 +191,11 @@ jobs:
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
-      workspace-path: ${{ inputs.workspace-path }}
       overlay-repo: ${{ github.repository }}      
-      release-branch-pattern: ^main$
-      verbose: ${{ inputs.verbose != '' && inputs.verbose }}
-      debug: ${{ inputs.debug != '' && inputs.debug }}
+      release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
+      single-branch: "main" # we want to update only the main branch
+      verbose: false
+      debug: false
       allow-workspace-addition: true
     permissions:
       contents: write

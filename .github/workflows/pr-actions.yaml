@@ -415,7 +415,7 @@ jobs:
     if: github.event.comment.body == '/update-commit'
     uses: ./.github/workflows/update-plugins-repo-refs.yaml
     with:
-      release-branch-pattern: ${{ needs.prepare.outputs.target-branch }}
+      single-branch: ${{ needs.prepare.outputs.target-branch }}
       allow-workspace-addition: false
       pr-to-update: ${{ needs.prepare.outputs.pr-number }}
       workspace-path: ${{ needs.prepare.outputs.workspace }}
