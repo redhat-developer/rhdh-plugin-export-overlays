@@ -4,13 +4,13 @@
 
 ## What is the rhdh-plugin-export-overlays repository?
 
-The rhdh-plugin-export-overlays repository serves as a metadata and automation hub for managing dynamic plugins for Red Hat Developer Hub (RHDH).
+The `rhdh-plugin-export-overlays` repository serves as a metadata and automation hub for managing dynamic plugins for Red Hat Developer Hub (RHDH).
 
 This repository:
 
 - References a wide range of Backstage plugins that can or should be published as dynamic plugins for use in RHDH.
 
-- Tracks plugin versions to ensure compatibility with the latest RHDH releases.
+- Tracks plugin versions to ensure compatibility with the 2 latest RHDH releases, as well as the upcoming RHDH release.
 
 - Defines how to drive, customize, and automate the publishing process.
 
@@ -22,59 +22,77 @@ Additionally, it contains workflows to:
 
 - Publish these images to the GitHub Container Registry for easy integration with RHDH.
 
-## Repository Structure & Partitioning
-The content in this repository is structured as follows:
+## Branching Strategy and Repository Structure
 
-1. **By Workspace:**
+The content in this repository is structured by workspaces and branches to manage plugins across different RHDH releases effectively.
+
+### Workspaces
 
 Each plugin set is organized in a dedicated folder that represents a workspace—typically aligned with a monorepo hosted in a third-party GitHub repository (e.g., `@backstage-community`, `@roadiehq`, `@red-hat-developer-hub`).
 
-1. **By RHDH Target Release:**
+### Branching
 
-The repository uses long-running release branches named following the pattern `release-x.y` (e.g., `release-1.5`, `release-1.6`).
-Each branch maps to a specific RHDH release version and contains plugin data that is compatible with the Backstage version shipped in that RHDH release.
+- **`main` branch**: This is the primary development branch where all new workspaces and plugins are introduced. It hosts upcoming changes and is tied to the next RHDH release. All pull requests for adding new plugins must target `main`.
+
+- **Release branches (`release-x.y`)**: These are long-running branches, each corresponding to a specific RHDH release (e.g., `release-1.6`).
+  - They are created from `main` when a new RHDH release is released (or about to be released).
+  - After creation, they only receive pull requests for updates to existing plugins. No new workspace will be automatically added to a release branch.
+
+## Backstage Compatibility
+
+Ensuring plugin compatibility with the version of Backstage bundled in RHDH is crucial. This repository has automated checks and processes for this.
+
+### Target Backstage Compatibility Check
+
+A automated check runs, both in the main branch and in PRs, to verify if a set of mandatory plugins have backstage versions compatible with the target Backstage version (used in RHDH). This check acts as a gate for creating new release branches. A new `release-x.y` branch can only be created if all mandatory plugins are compatible with the target Backstage version for that RHDH release.
+
+The compatibility status is displayed by the badge at the top of this README.
+
+### Best-Effort Version Matching
+
+When searching for plugin versions compatible with the target Backstage version, the automation isn't strictly limited to the exact Backstage version (e.g. `1.39.0` for a `1.39.1` target backstage version). It performs a best-effort search to find the closest compatible version, which could still be `1.38.0` for a `1.39.1` target backstage version.
+
+However, best-effort backstage version matches involve some risk. When a pull request is created with a plugin version that isn't a perfect match for the target Backstage version, a comment is automatically added to the PR. This comment details the potential risks and the requirement to deeply test the plugin with the target backstage version, providing precise case-by-case guidance.
 
 ## How to use the workflows in this repository to create OCI images for your plugins
 
-### 1. Create/Look for a PR for the plugins you wish to export against the desired RHDH relase branch version 
-   
-   A GitHub workflow runs **daily at 12:00 PM UTC** to automatically generate or update PRs for plugins under the following scopes: `@backstage-community`, `@red-hat-developer-hub` and `@roadiehq`.
-   These PRs are created **per workspace, per release branch**.
-   
-   If you can't find a PR for your plugin, you can manually trigger one as explained below.
-   
-   ### Create a PR using the "Update plugins repository references" workflow
+### 1. Create or look for a Pull Request for your plugins
 
-  > [!IMPORTANT]
-  > Write access to this repository is required to run this workflow.
+GitHub workflows runs **daily** to automatically generate or update PRs for plugins under the following scopes: `@backstage-community`, `@red-hat-developer-hub` and `@roadiehq`. These PRs are created **per workspace, per release branch** for plugin updates.
 
-   - Navigate to https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-plugins-repo-refs.yaml 
-   - For "use workflow from" select main
-   - For "regexps", specify the regular expression matching the plugins you want to package. For example, to package all RBAC plugins, the regexp would be "@backstage-community/plugin-rbac"
-   - Running the workflow with the following inputs should generate a PR similar to [these ones](https://github.com/redhat-developer/rhdh-plugin-export-overlays/pulls/app%2Fgithub-actions)
-    
-   **How it works**:
-   - The workflow generates PRs against each active release branch corresponding to an RHDH release.
-   - For each release branch, it checks for published plugin versions compatible with the Backstage version that the RHDH release supports.
-   - If no compatible version is found, no PR is generated for that plugin on that branch.
+- When run on release branches, the workflow will only create PRs that propose updates to existing workspaces.
+- When run on the `main` branch, the workflow will also create PRs that add newly-discovered workspaces.
+
+If you can't find a PR for your plugin, you can manually trigger one as explained below.
+
+#### Create a PR using the "Update plugins repository references" workflow
+
+> [!IMPORTANT]
+> Write access to this repository is required to run this workflow.
+
+- Navigate to https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-plugins-repo-refs.yaml
+- For "use workflow from" select `main`.
+- For "regexps", specify the regular expression matching the plugins you want to package. For example, to package all RBAC plugins, the regexp would be "@backstage-community/plugin-rbac".
+- For "single-branch", specify the branch you want to update. if you want to add a new workspace, you would enter `main`. 
+- Running the workflow will generate PRs against the single branch you specified.
 
 ### Manually Creating a PR
 
-You can also create PRs manually by referencing existing examples: [View PR examples](https://github.com/redhat-developer/rhdh-plugin-export-overlays/pulls/app%2Fgithub-actions)
+You can also create PRs manually. For adding a **new workspace**, your PR should target the `main` branch.
 
-To add a new plugin:
+To add a new workspace with plugins:
 
 1. Create a new workspace in the overlay repository.
-2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/12acb71a1febc5567c4d12c6a28c0a11ed489273/workspaces/adoption-insights/plugins-list.yaml))
-3. Add a `source.json` file with the following fields ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/12acb71a1febc5567c4d12c6a28c0a11ed489273/workspaces/adoption-insights/source.json))
-:
-   - `repo`: URL of the source repository  (only `https://github.com/xxx` URLs are supported for now)
-   - `repo-ref`: Specific tag or commit for the target plugin/workspace version  
-   - `repo-flat`:  
-     - `false` if the plugins are inside a workspace (e.g., `backstage/community-plugins`)  
+2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/plugins-list.yaml))
+3. Add a `source.json` file with the following fields ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/source.json)):
+   - `repo`: URL of the source repository (only `https://github.com/xxx` URLs are supported for now)
+   - `repo-ref`: Specific tag or commit for the target plugin/workspace version
+   - `repo-flat`:
+     - `false` if the plugins are inside a workspace (e.g., `backstage/community-plugins`)
      - `true` if the plugins are at the root level (e.g., `backstage/backstage`)
+   - `repo-backstage-version`: The backstage version of the source repository. This is used to check if the plugin is compatible with the target backstage version.
 
-### 3. Add Additional Dynamic Plugin Export Information (If Needed)
+### 2. Add Additional Dynamic Plugin Export Information (If Needed)
 
 Sometimes, additional configuration is required in the PR:
 
@@ -83,22 +101,21 @@ Sometimes, additional configuration is required in the PR:
    - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
 
 - **Any plugin** may need:
-   - Overlay source files in an `overlay` directory  
+   - Overlay source files in an `overlay` directory
   (e.g., [`api-docs-module-protoc-gen-doc`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
-  - A patch file at the root of the workspace to modify the workspace source code before the packaging process. (Example: PR [#792](https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/792/files#diff-0b648cbca6f87e11f78832c10ac9cc789235938e944c499eb275fd8788e18ef8))
+  - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/150c9d98830039315df6b4f23bf9f85b1cf5ae55/workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
 
-> **Overlay vs. Patch**  
-> - **Overlay**: Replaces or adds entire files during the packaging process.  
-> - **Patch**: Applies precise, line-by-line changes to existing source files.  
+> **Overlay vs. Patch**
+> - **Overlay**: Replaces or adds entire files during the packaging process.
+> - **Patch**: Applies precise, line-by-line changes to existing source files.
 
 
-To add this additional configuration (excluding the patch, since the patch file is placed at the workspace [monorepo] root):
+To add this additional configuration (excluding the patches, since the patch files are placed and applied at the workspace [monorepo] level):
 - Create a `plugins/` folder within the appropriate `workspace/`
 - Inside `plugins/`, create one folder per plugin you wish to enhance with additional information
 
-
-### 4. Test the OCI image against an RHDH instance
-- To trigger a build of the OCI image for the plugins in a PR, comment: `/publish`. 
+### 3. Test the OCI image against an RHDH instance
+- To trigger a build of the OCI image for the plugins in a PR, comment: `/publish`.
 - This runs a GitHub workflow to build and publish **test OCI artifacts**. A bot will comment with the generated OCI image references, tagged as `<pr_number>_<plugin_version>`, and may also include a list of plugins for which the generation failed.
 - If you cannot test the generated images immediately, a good practice is to label the PR with `help wanted to test`.
 
