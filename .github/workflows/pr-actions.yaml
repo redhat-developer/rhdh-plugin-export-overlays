@@ -154,7 +154,6 @@ jobs:
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
-      - parse
       - prepare
       - checkPRUpToDate
 
@@ -162,7 +161,7 @@ jobs:
       group: export-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: github.event.comment.body == '/publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
@@ -182,6 +181,65 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  updateTestConfig:
+    runs-on: ubuntu-latest
+    name: Update Test Config with Published OCI References
+    needs:
+      - prepare
+      - export
+
+    concurrency:
+      group: updateTestConfig-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    if: github.event.comment.body == '/publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+
+      - name: Update dynamic-plugins.test.yaml
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          # Parse the published exports to get the OCI image reference
+          echo "Published exports: $PUBLISHED_EXPORTS"
+          
+          # Extract plugin name and version from the published exports
+          # Format is expected to be like: ghcr.io/<repo>:pr_<PR#>__<plugin_version>
+          for export in $PUBLISHED_EXPORTS; do
+            if [[ "$export" =~ ghcr\.io/([^:]+):pr_${PR_NUMBER}__(.+) ]]; then
+              IMAGE_REPO="${BASH_REMATCH[1]}"
+              PLUGIN_VERSION="${BASH_REMATCH[2]}"
+              
+              # Get plugin name from workspace path
+              PLUGIN_NAME=$(basename "$WORKSPACE")
+              
+              # Construct the OCI reference
+              OCI_REF="oci://ghcr.io/${IMAGE_REPO}:pr_${PR_NUMBER}__${PLUGIN_VERSION}!backstage-community-plugin-${PLUGIN_NAME}"
+              
+              # Update the test file if it exists
+              TEST_FILE="${WORKSPACE}/tests/dynamic-plugins.test.yaml"
+              if [ -f "$TEST_FILE" ]; then
+                echo "Updating $TEST_FILE with OCI reference: $OCI_REF"
+                sed -i "s|package: oci://.*|package: ${OCI_REF}|" "$TEST_FILE"
+              fi
+            fi
+          done
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git diff --staged --quiet || git commit -m "Update test config with PR OCI references"
+          git push
 
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
@@ -207,6 +265,7 @@ jobs:
       - prepare
       - checkPRUpToDate
       - export
+      - updateTestConfig
       - checkBackstageCompatibility
 
     concurrency:
@@ -241,7 +300,7 @@ jobs:
               filter: 'latest',
             });
             const success = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check') || j.name.startsWith('Update Test Config'))
               .every(j => j.conclusion === 'success');
 
             await github.rest.repos.createCommitStatus({
