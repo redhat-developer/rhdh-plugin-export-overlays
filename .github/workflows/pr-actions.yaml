@@ -124,7 +124,7 @@ jobs:
               });
               const workspaces = [ ... new Set(prFiles.data
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
-                .filter(match => match)
+                .filter(match => match && match[1] !== 'tests')
                 .map(match => match[1])
               )];
               if (workspaces.length === 1) {
@@ -154,7 +154,6 @@ jobs:
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
-      - parse
       - prepare
       - checkPRUpToDate
 
@@ -162,7 +161,7 @@ jobs:
       group: export-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: github.event.comment.body == '/publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
@@ -182,6 +181,39 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  updateTestConfig:
+    name: Update Test Config with Published OCI References
+    needs:
+      - parse
+      - prepare
+      - export
+
+    concurrency:
+      group: updateTestConfig-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+
+    uses: ./.github/workflows/update-test-config.yaml
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      published-exports: ${{ needs.export.outputs.published-exports }}
+
+  runIntegrationTests:
+    name: Run Plugin Integration Tests
+    needs:
+      - prepare
+      - updateTestConfig
+    if: needs.prepare.outputs.workspace != ''
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
 
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
@@ -207,6 +239,8 @@ jobs:
       - prepare
       - checkPRUpToDate
       - export
+      - updateTestConfig
+      - runIntegrationTests
       - checkBackstageCompatibility
 
     concurrency:
@@ -241,7 +275,7 @@ jobs:
               filter: 'latest',
             });
             const success = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check') || j.name.startsWith('Update Test Config') || j.name.startsWith('Run Plugin Integration Tests'))
               .every(j => j.conclusion === 'success');
 
             await github.rest.repos.createCommitStatus({
@@ -289,7 +323,7 @@ jobs:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
+    if: 1 == 0 && always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
     runs-on: ubuntu-latest
 
     steps:

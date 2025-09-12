@@ -1,0 +1,16 @@
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.39.1__1.15.2!backstage-community-plugin-acr
+    config:
+      proxy:
+        '/acr/api':
+          target: ${ACR_URL}
+          changeOrigin: true
+          headers:
+            Authorization: 'Bearer ${ACR_AUTH_TOKEN}'
+          secure: true
+        '/acr/custom/api/otherrepository':
+          target: ${ACR_URL_2}
+          changeOrigin: true
+          headers:
+            Authorization: 'Bearer ${ACR_AUTH_TOKEN}'
+          secure: true
