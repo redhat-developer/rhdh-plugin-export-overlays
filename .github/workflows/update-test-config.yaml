@@ -1,0 +1,70 @@
+name: Update Test Config with Published OCI References
+
+on:
+  workflow_call:
+    inputs:
+      overlay-branch:
+        required: true
+        type: string
+      overlay-repo:
+        required: true
+        type: string
+      workspace-path:
+        required: true
+        type: string
+      published-exports:
+        required: true
+        type: string
+
+jobs:
+  updateTestConfig:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.overlay-branch }}
+          repository: ${{ inputs.overlay-repo }}
+
+      - name: Parse config and update OCI references
+        env:
+          PUBLISHED_EXPORTS: ${{ inputs.published-exports }}
+          CONFIG_FILE: ${{ format('{0}/tests/dynamic-plugins.test.yaml', inputs.workspace-path) }}
+        run: |
+          echo "Published exports: $PUBLISHED_EXPORTS"
+          echo "Config file: $CONFIG_FILE"
+
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Config file not found: $CONFIG_FILE"
+            exit 0
+          fi
+
+          # For each published export, extract plugin name and tag, then update matching line in config
+          # Expected export format: ghcr.io/<repo_path>/<plugin_name>:<tag>
+          for export in $PUBLISHED_EXPORTS; do
+            echo "Processing export: $export"
+            if [[ "$export" =~ ^ghcr\.io/(.+):([^[:space:]]+)$ ]]; then
+              IMAGE_PATH_AND_PLUGIN="${BASH_REMATCH[1]}"   # <repo_path>/<plugin_name>
+              NEW_TAG="${BASH_REMATCH[2]}"                 # <tag>
+              PLUGIN_NAME="${IMAGE_PATH_AND_PLUGIN##*/}"
+
+              # Only update if an exact line for this plugin exists
+              if grep -q -E "package:\s*oci://ghcr\\.io/.*/${PLUGIN_NAME}:[^!]+!${PLUGIN_NAME}\s*$" "$CONFIG_FILE"; then
+                sed -i -E "s|(package:\s*oci://ghcr\\.io/.*/${PLUGIN_NAME}:)[^!]+(!${PLUGIN_NAME})(\s*$)|\\1${NEW_TAG}\\2\\3|" "$CONFIG_FILE"
+                echo "Updated '${PLUGIN_NAME}' to tag '${NEW_TAG}'"
+              else
+                echo "No matching line for plugin '${PLUGIN_NAME}', skipped"
+              fi
+            else
+              echo "Export did not match expected format, skipping: $export"
+            fi
+          done
+
+      - name: Upload the config as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-plugins-test
+          path: ${{ format('{0}/tests/dynamic-plugins.test.yaml', inputs.workspace-path) }}
+          if-no-files-found: ignore
+
+
