@@ -1,0 +1,43 @@
+app:
+  title: Backstage Test App
+  baseUrl: http://localhost:7007
+
+backend:
+  baseUrl: http://localhost:7007
+  listen:
+    port: 7007
+  database:
+    client: better-sqlite3
+    connection: ':memory:'
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+  cors:
+    origin: http://localhost:7007
+    methods: [GET, POST, PUT, DELETE]
+    credentials: true
+
+auth:
+  environment: development
+  providers:
+    guest: {}
+
+# Minimal catalog configuration.
+catalog:
+  rules:
+    - allow: [Component, API, Group, User, Template, Location]
+  locations: []
+
+# This is required by the frontend app plugin for schema validation.
+dynamicPlugins:
+  # This directory is used by the backend to unpack OCI plugins.
+  rootDirectory: /opt/app-root/src/dynamic-plugins-root
+  # Disable the default directory scanning for local plugins
+  sources:
+    local: {}
+  # A dummy frontend config is sufficient for our backend-only test.
+  frontend: {}
+
+# Disable the permission plugin for simplified testing.
+permission:
+  enabled: false
+
