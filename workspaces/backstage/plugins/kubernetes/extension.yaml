@@ -1,8 +1,4 @@
-apiVersion: extensions.backstage.io/v1alpha1
-kind: Package
-metadata:
-spec:
-  support: tech-preview
-  lifecycle: active
-  partOf:
-    - kubernetes
+support: tech-preview
+lifecycle: active
+partOf:
+  - kubernetes
