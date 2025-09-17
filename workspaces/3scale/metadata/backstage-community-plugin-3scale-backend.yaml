@@ -1,0 +1,15 @@
+packageName: @backstage-community/plugin-3scale-backend
+support: tech-preview
+lifecycle: active
+configs:
+  default:
+      catalog:
+        providers:
+          threeScaleApiEntity:
+            default:
+              baseUrl: ${THREESCALE_BASE_URL}
+              accessToken: ${THREESCALE_ACCESS_TOKEN}
+  additional:
+    - title: some title
+      content:
+        ...
