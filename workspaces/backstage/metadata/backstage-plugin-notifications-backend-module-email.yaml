@@ -1,0 +1,21 @@
+packageName: "@backstage/plugin-notifications-backend-module-email"
+configs:
+  default:
+    notifications:
+      processors:
+        email:
+          transportConfig:
+            transport: smtp
+            hostname: ${EMAIL_HOSTNAME}
+            port: 587
+            username: ${EMAIL_USERNAME}
+            password: ${EMAIL_PASSWORD}
+          sender: ${EMAIL_SENDER}
+          broadcastConfig:
+            receiver: 'users'  
+catalog:
+  metadata:
+    namespace: rhdh
+  spec:
+    support: tech-preview
+    lifecycle: active
