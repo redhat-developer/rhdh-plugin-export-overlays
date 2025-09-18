@@ -1,6 +1,4 @@
 packageName: @backstage-community/plugin-3scale-backend
-support: tech-preview
-lifecycle: active
 configs:
   default:
       catalog:
@@ -13,3 +11,9 @@ configs:
     - title: some title
       content:
         ...
+catalog:
+  metadata:
+    namespace: rhdh
+  spec:
+    support: tech-preview
+    lifecycle: active
