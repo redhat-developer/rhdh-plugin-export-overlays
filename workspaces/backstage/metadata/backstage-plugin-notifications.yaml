@@ -1,0 +1,21 @@
+packageName: "@backstage/plugin-notifications"
+configs:
+  default:
+    dynamicPlugins:
+      frontend:
+        backstage.plugin-notifications:
+          dynamicRoutes:
+            - importName: NotificationsPage
+              menuItem:
+                config:
+                  props:
+                    titleCounterEnabled: true
+                    webNotificationsEnabled: false
+                importName: NotificationsSidebarItem
+              path: /notifications
+catalog:
+  metadata:
+    namespace: rhdh
+  spec:
+    support: tech-preview
+    lifecycle: active
