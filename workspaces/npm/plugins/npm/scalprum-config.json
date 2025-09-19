@@ -1,0 +1,7 @@
+{
+  "name": "backstage-community.plugin-npm",
+  "exposedModules": {
+    "PluginRoot": "./src/index.ts",
+    "beta": "./src/beta.ts"
+  }
+}
