@@ -110,3 +110,88 @@ jobs:
 
     permissions:
       contents: write
+
+  update-wiki:
+    needs:
+      - check
+    runs-on: ubuntu-latest
+    if: always() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/RHIDP-8649')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Checkout wiki
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download compatibility report
+        uses: actions/download-artifact@v4
+        with:
+          name: compatibility-report
+          path: ./
+          
+      - name: Verify compatibility report
+        run: |
+          if [ -f "compatibility-report.md" ]; then
+            echo "Successfully downloaded compatibility-report.md"
+          else
+            echo "❌ compatibility-report.md not found, creating fallback report"
+            echo "# Backstage Compatibility Report" > compatibility-report.md
+            echo "" >> compatibility-report.md
+            echo "⚠️ **Report generation failed** - This is a fallback report." >> compatibility-report.md
+            echo "" >> compatibility-report.md
+            echo "Please check the workflow logs for more details." >> compatibility-report.md
+          fi
+
+      - name: Update wiki page
+        run: |
+          cd wiki
+          
+          # Configure git
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Copy the generated markdown to wiki (use test name for testing branches)
+          if [ "${{ github.ref }}" = "refs/heads/feat/RHIDP-8649" ]; then
+            cp ../compatibility-report.md "Backstage-Compatibility-Report-TEST.md"
+          else
+            cp ../compatibility-report.md "Backstage-Compatibility-Report.md"
+          fi
+          
+          # Check if there are changes
+          if ! git diff --quiet; then
+            # Add the appropriate file based on branch
+            if [ "${{ github.ref }}" = "refs/heads/feat/RHIDP-8649" ]; then
+              git add "Backstage-Compatibility-Report-TEST.md"
+            else
+              git add "Backstage-Compatibility-Report.md"
+            fi
+            
+            # Calculate counts for commit message
+            required_count=$(echo "${INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES}" | wc -w)
+            unrequired_count=$(echo "${INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES}" | wc -w)
+            total_count=$((required_count + unrequired_count))
+            
+            git commit -m "Update Backstage Compatibility Report
+
+            - Total incompatible: ${total_count}
+            - Required: ${required_count}
+            - Optional: ${unrequired_count}
+            
+            Generated from: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}"
+            git push
+            echo "Wiki page updated successfully"
+          else
+            echo "No changes detected, wiki page is up to date"
+          fi
+        env:
+          INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-required-workspaces }}
+          INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-unrequired-workspaces }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+    permissions:
+      contents: write
