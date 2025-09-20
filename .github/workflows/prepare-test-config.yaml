@@ -1,0 +1,118 @@
+name: Parse the Test Config modify with Published OCI References and export as artifact
+
+on:
+  workflow_call:
+    inputs:
+      overlay-branch:
+        required: true
+        type: string
+      overlay-repo:
+        required: true
+        type: string
+      workspace-path:
+        required: true
+        type: string
+      published-exports:
+        required: false
+        type: string
+
+jobs:
+  prepareTestConfig:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.overlay-branch }}
+          repository: ${{ inputs.overlay-repo }}
+
+      - name: Download last published-exports artifact (fallback)
+        if: ${{ inputs.published-exports == '' }}
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: pr-actions.yaml
+          name: published-exports
+          branch: ${{ inputs.overlay-branch }}
+          workflow_conclusion: success
+          if_no_artifact_found: warn
+
+      - name: Parse config and update OCI references
+        env:
+          PUBLISHED_EXPORTS: ${{ inputs.published-exports }}
+        run: |
+          WORKSPACE_PATH="${{ inputs.workspace-path }}"
+          echo "Published exports: $PUBLISHED_EXPORTS"
+          echo "Workspace path: $WORKSPACE_PATH"
+
+          # Fallback: read from downloaded artifact if input was empty
+          if [ -z "$PUBLISHED_EXPORTS" ]; then
+            if [ -f "published-exports/published-exports.txt" ]; then
+              PUBLISHED_EXPORTS="$(cat published-exports/published-exports.txt)"
+            else
+              file="$(find published-exports -type f 2>/dev/null | head -n1 || true)"
+              if [ -n "$file" ]; then
+                PUBLISHED_EXPORTS="$(cat "$file")"
+              fi
+            fi
+          fi
+
+          if [ -z "$PUBLISHED_EXPORTS" ]; then
+            echo "No published exports provided or found via artifact. Nothing to do."
+            exit 0
+          fi
+
+          OUT_DIR="$WORKSPACE_PATH/tests"
+          OUT_FILE="$OUT_DIR/dynamic-plugins.test.yaml"
+          mkdir -p "$OUT_DIR"
+
+          # Install yq (mikefarah) for YAML processing
+          sudo curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+          # Start the resulting YAML file
+          echo "plugins:" > "$OUT_FILE"
+
+          # For each published export, extract plugin name and read its metadata
+          # Expected export format: ghcr.io/<repo_path>/<plugin_name>:<tag>
+          for export in $PUBLISHED_EXPORTS; do
+            echo "Processing export: $export"
+            if [[ "$export" =~ ^ghcr\.io/(.+):([^[:space:]]+)$ ]]; then
+              IMAGE_PATH_AND_PLUGIN="${BASH_REMATCH[1]}"   # <repo_path>/<plugin_name>
+              NEW_TAG="${BASH_REMATCH[2]}"                 # <tag>
+              PLUGIN_NAME="${IMAGE_PATH_AND_PLUGIN##*/}"
+
+              METADATA_FILE="$WORKSPACE_PATH/metadata/${PLUGIN_NAME}.yaml"
+              if [ ! -f "$METADATA_FILE" ]; then
+                echo "Metadata file not found for $PLUGIN_NAME at $METADATA_FILE, skipping"
+                continue
+              fi
+
+              PACKAGE_NAME=$(yq -r '.packageName' "$METADATA_FILE")
+              if [ -z "$PACKAGE_NAME" ] || [ "$PACKAGE_NAME" = "null" ]; then
+                echo "packageName not found in $METADATA_FILE, skipping"
+                continue
+              fi
+
+              # Extract dynamicPlugins block under configs.default
+              if ! yq -e '.configs.default.dynamicPlugins' "$METADATA_FILE" >/dev/null 2>&1; then
+                echo "configs.default.dynamicPlugins not found in $METADATA_FILE, skipping"
+                continue
+              fi
+
+              echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${PACKAGE_NAME}\"" >> "$OUT_FILE"
+              echo "  disabled: false" >> "$OUT_FILE"
+              echo "  pluginConfig:" >> "$OUT_FILE"
+              echo "    dynamicPlugins:" >> "$OUT_FILE"
+              # Append the dynamicPlugins block indented by 6 spaces under pluginConfig.dynamicPlugins
+              yq -o=yaml '.configs.default.dynamicPlugins' "$METADATA_FILE" | sed 's/^/      /' >> "$OUT_FILE"
+            else
+              echo "Export did not match expected format, skipping: $export"
+            fi
+          done
+
+      - name: Upload the config as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-plugins-test
+          path: ${{ format('{0}/tests/dynamic-plugins.test.yaml', inputs.workspace-path) }}
+          if-no-files-found: ignore
