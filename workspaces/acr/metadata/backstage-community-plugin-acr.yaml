@@ -1,0 +1,21 @@
+packageName: "@backstage-community/plugin-acr"
+support: tech-preview
+lifecycle: active
+configs:
+  default:
+    dynamicPlugins:
+      frontend:
+        backstage-community.plugin-acr:
+          mountPoints:
+            - mountPoint: entity.page.image-registry/cards
+              importName: AcrImagesEntityContent
+              config:
+                layout:
+                  gridColumn: 1 / -1
+                if:
+                  anyOf:
+                    - isAcrAvailable 
+  additional:
+    - title: some title
+      content:
+        ...  

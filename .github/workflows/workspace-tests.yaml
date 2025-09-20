@@ -1,0 +1,56 @@
+name: Workspace Tests
+
+on:
+  workflow_run:
+    workflows: [Pull Request Actions]
+    types: [completed]
+
+jobs:
+  resolve:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      workspace: ${{ steps.meta.outputs.workspace }}
+      overlayBranch: ${{ steps.meta.outputs.overlayBranch }}
+      overlayRepo: ${{ steps.meta.outputs.overlayRepo }}
+    steps:
+      - name: Download published-exports artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: pr-actions.yaml
+          name: published-exports
+          workflow_conclusion: success
+          workflow_search: true
+          search_artifacts: true
+          check_artifacts: true
+          if_no_artifact_found: error
+
+      - name: Read meta
+        id: meta
+        run: |
+          workspace=$(jq -r .workspace meta.json)
+          overlayBranch=$(jq -r .overlayBranch meta.json)
+          overlayRepo=$(jq -r .overlayRepo meta.json)
+          test -z "$workspace" && { echo "Missing workspace in meta.json"; exit 1; }
+          echo "workspace=$workspace" >> $GITHUB_OUTPUT
+          echo "overlayBranch=$overlayBranch" >> $GITHUB_OUTPUT
+          echo "overlayRepo=$overlayRepo" >> $GITHUB_OUTPUT
+
+  prepare-test-config:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.workspace != '' }}
+    uses: ./.github/workflows/prepare-test-config.yaml
+    with:
+      overlay-branch: ${{ needs.resolve.outputs.overlayBranch }}
+      overlay-repo: ${{ needs.resolve.outputs.overlayRepo }}
+      workspace-path: ${{ needs.resolve.outputs.workspace }}
+
+  integration-tests:
+    needs: prepare-test-config
+    uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      workspace-path: ${{ needs.resolve.outputs.workspace }}
+
