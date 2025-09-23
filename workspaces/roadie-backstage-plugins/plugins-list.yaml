@@ -8,3 +8,27 @@ plugins/frontend/backstage-plugin-security-insights:
 plugins/scaffolder-actions/scaffolder-backend-argocd: --embed-package @roadiehq/backstage-plugin-argo-cd-backend
 plugins/scaffolder-actions/scaffolder-backend-module-http-request:
 plugins/scaffolder-actions/scaffolder-backend-module-utils:
+plugins/backend/backstage-aws-backend:
+plugins/backend/rag-ai-backend:
+plugins/backend/rag-ai-backend-embeddings:
+plugins/backend/rag-ai-backend-embeddings-aws:
+plugins/backend/rag-ai-backend-embeddings-openai:
+plugins/backend/rag-ai-storage-pgvector:
+plugins/backend/wiz-backend:
+plugins/backstage-plugin-prometheus:
+plugins/catalog-backend-module-aws:
+plugins/catalog-backend-module-okta:
+plugins/frontend/backstage-plugin-aws:
+plugins/frontend/backstage-plugin-aws-lambda:
+plugins/frontend/backstage-plugin-bitbucket-pullrequest:
+plugins/frontend/backstage-plugin-bugsnag:
+plugins/frontend/backstage-plugin-buildkite:
+plugins/frontend/backstage-plugin-cloudsmith:
+plugins/frontend/backstage-plugin-iframe:
+plugins/frontend/backstage-plugin-shortcut:
+plugins/frontend/backstage-plugin-travis-ci:
+plugins/frontend/backstage-plugin-wiz:
+plugins/home/backstage-plugin-home-rss:
+plugins/scaffolder-actions/backstage-plugin-home-markdown:
+plugins/scaffolder-actions/scaffolder-backend-module-aws:
+plugins/scaffolder-field-extensions/scaffolder-frontend-module-http-request-field:
