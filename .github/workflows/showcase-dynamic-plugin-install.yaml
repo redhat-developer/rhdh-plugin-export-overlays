@@ -1,0 +1,87 @@
+name: Showcase - RHDH Deployment and Dynamic Plugin Installation
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: "The workspace to test (e.g., acr)"
+        required: true
+        default: "acr"
+        type: string
+
+jobs:
+  rhdh-deployment-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start RHDH Container for Testing
+        id: start_rhdh
+        run: |
+          docker run -d --name rhdh -p 7007:7007 \
+            -v "$(pwd)/workspaces/tests/app-config.yaml:/opt/app-root/src/app-config.yaml" \
+            -v "$(pwd)/workspaces/${{ inputs.workspace }}/tests/app-config.test.yaml:/opt/app-root/src/app-config.test.yaml" \
+            -v "$(pwd)/workspaces/${{ inputs.workspace }}/tests/dynamic-plugins.test.yaml:/opt/app-root/src/dynamic-plugins.yaml" \
+            -v "$HOME/.docker/config.json:/root/.docker/config.json:ro" \
+            -e "SKIP_INTEGRITY_CHECK=true" \
+            --entrypoint "/bin/bash" \
+            quay.io/rhdh-community/rhdh:1.6 \
+            -c '
+              set -ex
+              
+              # Run the installer script, which unpacks OCI plugins into this directory.
+              mkdir -p /opt/app-root/src/dynamic-plugins-root
+              /opt/app-root/src/install-dynamic-plugins.sh /opt/app-root/src/dynamic-plugins-root
+              
+              # Start the Backstage backend, loading the original plugin definitions directly.
+              # The backend is smart enough to find the unpacked plugins in the `rootDirectory`.
+              exec node packages/backend \
+                --config /opt/app-root/src/app-config.yaml \
+                --config /opt/app-root/src/app-config.test.yaml \
+                --config /opt/app-root/src/dynamic-plugins.yaml
+            '
+
+      - name: Wait for RHDH to become healthy
+        run: |
+          for i in {1..5}; do
+            if curl -fsS http://localhost:7007/health >/dev/null; then
+              echo "::notice::RHDH container is ready."
+              exit 0
+            fi
+            echo "Waiting for RHDH container (Attempt ${i}/5)"
+            sleep 15
+          done
+          echo "::error::RHDH container did not become ready in time."
+          exit 1
+
+      - name: Verify Container State and Logs
+        if: always() # This step runs even if the wait step fails
+        run: |
+          echo "::group::Container Status"
+          docker ps -a
+          echo "::endgroup::"
+
+          echo "::group::Dynamic Plugins Directory Contents"
+          docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
+          echo "::endgroup::"
+
+          echo "::group::RHDH Container Directory Structure"
+          docker exec rhdh find /opt/app-root/src -maxdepth 3 \( -name node_modules -o -path '*/.yarn/cache*' \) -prune -o -print
+          echo "::endgroup::"
+
+          echo "::group::Container Logs"
+          docker logs rhdh
+          echo "::endgroup::"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f rhdh || true
