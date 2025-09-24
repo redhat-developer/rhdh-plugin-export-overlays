@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-translations:
+      dynamicRoutes:
+        - path: /translations
+          importName: TranslationsPage
+          menuItem:
+            text: Translations

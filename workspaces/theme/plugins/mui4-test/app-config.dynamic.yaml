@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-mui4-test:
+      dynamicRoutes:
+        - path: /mui4-test
+          importName: MUI4TestPage
+          menuItem:
+            text: MUI4 Test

@@ -1,0 +1,14 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-theme:
+      themes:
+        - id: rhdh-plugins-theme-light
+          icon: lightIcon
+          title: RHDH Plugins Light
+          variant: light
+          importName: lightThemeProvider
+        - id: rhdh-plugins-theme-dark
+          icon: darkIcon
+          title: RHDH Plugins Dark
+          variant: dark
+          importName: darkThemeProvider
