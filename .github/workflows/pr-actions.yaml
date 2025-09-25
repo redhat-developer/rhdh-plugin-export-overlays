@@ -183,6 +183,74 @@ jobs:
       packages: write
       id-token: write
 
+  updateTestConfig:
+    name: Update Test Config with Published OCI References
+    needs:
+      - parse
+      - prepare
+      - export
+
+    concurrency:
+      group: updateTestConfig-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+
+    uses: ./.github/workflows/update-test-config.yaml
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      published-exports: ${{ needs.export.outputs.published-exports }}
+
+  runIntegrationTests:
+    name: Run Plugin Integration Tests
+    needs:
+      - parse
+      - prepare
+      - updateTestConfig
+
+    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+
+    permissions:
+      contents: read
+      packages: read
+      
+    uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+
+  addTestResultComment:
+    needs:
+      - runIntegrationTests
+
+    concurrency:
+      group: addTestResultComment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post test result comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const success = '${{ needs.runIntegrationTests.outputs.success }}' === 'true';
+            const failed = `\n${{ toJSON(needs.runIntegrationTests.outputs.failed-plugins) }}`.trim();
+            let body = success
+              ? `Integration tests passed. All plugins loaded successfully.\n\n[View run](${runUrl})`
+              : `Integration tests failed. Plugins not loaded:\n${failed}\n\n[View run](${runUrl})`;
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+    
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
     needs:
@@ -218,6 +286,7 @@ jobs:
       pull-requests: write
 
     if: always() && needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+
     runs-on: ubuntu-latest
     steps:
       - name: Add completion comment
