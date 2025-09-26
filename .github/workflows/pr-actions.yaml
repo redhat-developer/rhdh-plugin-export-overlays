@@ -22,7 +22,7 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit']);
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/test']);
             const matchingCommands = lines.filter(l => allowed.has(l));
             
             if (matchingCommands.length > 1) {
@@ -58,7 +58,7 @@ jobs:
         with:
           script: |
             const errorMessage = core.getInput('error_message');
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery`;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -182,6 +182,56 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  uploadPublishedExportsArtifact:
+    name: Upload published-exports artifact
+    needs:
+      - parse
+      - prepare
+      - export
+
+    concurrency:
+      group: uploadPublishedExportsArtifact-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: false
+
+    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write published exports to file
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+        run: |
+          mkdir -p published-exports
+          cat > published-exports/published-exports.txt <<EOF
+          $PUBLISHED_EXPORTS
+          EOF
+      - name: Upload published-exports artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-exports
+          path: published-exports
+          if-no-files-found: error
+          retention-days: 7
+
+  prepareTestConfig:
+    name: Prepare test config
+    needs:
+      - parse
+      - prepare
+      - export
+
+    concurrency:
+      group: prepareTestConfig-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    if: (needs.parse.outputs.command_name == 'publish' || needs.parse.outputs.command_name == 'test') && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+
+    uses: ./.github/workflows/prepare-test-config.yaml
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      published-exports: ${{ needs.export.outputs.published-exports || '' }}
 
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
