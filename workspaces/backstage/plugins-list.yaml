@@ -45,6 +45,7 @@ plugins/example-todo-list-backend:
 plugins/home:
 plugins/kubernetes:
 plugins/kubernetes-backend:
+plugins/mcp-actions-backend:
 plugins/notifications:
 plugins/notifications-backend: --embed-package @backstage/plugin-signals-node
 plugins/notifications-backend-module-email: --embed-package @backstage/plugin-notifications-node
