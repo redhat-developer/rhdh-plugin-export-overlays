@@ -1,2 +1,2 @@
 plugins/rbac:
-plugins/rbac-backend:
+plugins/rbac-backend: --embed-package @backstage-community/plugin-rbac-common --embed-package @backstage-community/plugin-rbac-node
