@@ -1,0 +1,100 @@
+name: Workspace Tests
+
+on:
+  workflow_run:
+    workflows: [Pull Request Actions]
+    types: [completed]
+
+jobs:
+  resolve:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      workspace: ${{ steps.meta.outputs.workspace }}
+      overlayBranch: ${{ steps.meta.outputs.overlayBranch }}
+      overlayRepo: ${{ steps.meta.outputs.overlayRepo }}
+      prNumber: ${{ steps.meta.outputs.pr }}
+    steps:
+      - name: Download published-exports artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: pr-actions.yaml
+          name: published-exports
+          workflow_conclusion: success
+          workflow_search: true
+          search_artifacts: true
+          check_artifacts: true
+          if_no_artifact_found: error
+
+      - name: Read meta
+        id: meta
+        run: |
+          echo "Contents of meta.json:"
+          cat meta.json || echo "meta.json not found"
+          workspace=$(jq -r .workspace meta.json)
+          overlayBranch=$(jq -r .overlayBranch meta.json)
+          overlayRepo=$(jq -r .overlayRepo meta.json)
+          pr=$(jq -r '.pr // "null"' meta.json)
+          echo "Parsed values: workspace=$workspace, overlayBranch=$overlayBranch, overlayRepo=$overlayRepo, pr=$pr"
+          test -z "$workspace" && { echo "Missing workspace in meta.json"; exit 1; }
+          echo "workspace=$workspace" >> $GITHUB_OUTPUT
+          echo "overlayBranch=$overlayBranch" >> $GITHUB_OUTPUT
+          echo "overlayRepo=$overlayRepo" >> $GITHUB_OUTPUT
+          echo "pr=$pr" >> $GITHUB_OUTPUT
+
+      - name: Debug PR number
+        run: echo "Resolved PR number:" ${{ steps.meta.outputs.pr }}
+
+  prepare-test-config:
+    needs: resolve
+    if: ${{ needs.resolve.outputs.workspace != '' }}
+    uses: ./.github/workflows/prepare-test-config.yaml
+    with:
+      overlay-branch: ${{ needs.resolve.outputs.overlayBranch }}
+      overlay-repo: ${{ needs.resolve.outputs.overlayRepo }}
+      workspace-path: ${{ needs.resolve.outputs.workspace }}
+
+  integration-tests:
+    needs: prepare-test-config
+    uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      workspace-path: ${{ needs.resolve.outputs.workspace }}
+
+  add-test-result-comment:
+    needs:
+      - resolve
+      - integration-tests
+    concurrency:
+      group: addTestResultComment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post test result comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const success = '${{ needs.integration-tests.outputs.success }}' === 'true';
+            const failed = `\n${{ toJSON(needs.integration-tests.outputs.failed-plugins) }}`.trim();
+            const pr = Number('${{ needs.resolve.outputs.prNumber }}');
+            if (!pr) {
+              console.log('No PR associated; skipping comment');
+              return;
+            }
+            let body = success
+              ? `Integration tests passed. All plugins loaded successfully.\n\n[View run](${runUrl})`
+              : `Integration tests failed. Plugins not loaded:${failed ? `\n${failed}` : ''}\n\n[View run](${runUrl})`;
+            await github.rest.issues.createComment({
+              issue_number: pr,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
