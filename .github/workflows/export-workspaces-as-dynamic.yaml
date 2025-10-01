@@ -111,6 +111,8 @@ on:
         description: Optional commit ID of the last successful publishing of plugin container images
         type: string
         required: false
+env:
+  NODE_OPTIONS: "--experimental-specifier-resolution=node --no-warnings"
   
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.ref }}
