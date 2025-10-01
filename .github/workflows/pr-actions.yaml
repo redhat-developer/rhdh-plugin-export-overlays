@@ -164,7 +164,7 @@ jobs:
 
     if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@fix-backstage-build-error
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
