@@ -1,0 +1,11 @@
+dynamicPlugins:
+  frontend:
+    proberaum.backstage-plugin-config-viewer:
+      translationResources:
+        - importName: configViewerTranslations
+          ref: configViewerTranslationRef
+      dynamicRoutes:
+        - path: /config-viewer
+          importName: ConfigViewerPage
+          menuItem:
+            text: Config viewer

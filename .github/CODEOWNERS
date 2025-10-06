@@ -16,7 +16,7 @@
 
 *                                                                       @redhat-developer/rhdh-cope @gashcrumb @kadel
 
-/workspaces/3scale                                                      @04kash @AndrienkoAleksandr
+/workspaces/3scale                                                      @redhat-developer/rhdh-plugins @AndrienkoAleksandr
 /workspaces/acr                                                         @redhat-developer/rhdh-ui
 # /workspaces/acs
 /workspaces/adoption-insights                                           @redhat-developer/rhdh-ui @rohitkrai03 @karthikjeeyar @eswaraiahsapram
@@ -28,6 +28,7 @@
 # /workspaces/azure-devops
 /workspaces/backstage                                                   @redhat-developer/rhdh-cope
 /workspaces/bulk-import                                                 @redhat-developer/rhdh-plugins @rm3l   @redhat-developer/rhdh-ui @debsmita1 @its-mitesh-kumar
+/workspaces/config-viewer                                               @redhat-developer/rhdh-ui @christoph-jerolimov
 # /workspaces/dynatrace
 # /workspaces/dynatrace-dql
 # /workspaces/github-actions
@@ -39,11 +40,11 @@
 /workspaces/homepage                                                    @redhat-developer/rhdh-ui @eswaraiahsapram
 # /workspaces/jenkins
 /workspaces/jfrog-artifactory                                           @redhat-developer/rhdh-ui @its-mitesh-kumar   @BethGriggs
-/workspaces/keycloak                                                    @AndrienkoAleksandr @schultzp2020 @dzemanov
+/workspaces/keycloak                                                    @redhat-developer/rhdh-plugins @AndrienkoAleksandr @dzemanov
 # /workspaces/kiali
 # /workspaces/lighthouse
 /workspaces/lightspeed                                                  @redhat-developer/rhdh-ui @karthikjeeyar @rohitkrai03   @yangcao77
-/workspaces/marketplace                                                 @redhat-developer/rhdh-ui
+/workspaces/marketplace                                                 @redhat-developer/rhdh-ui @redhat-developer/rhdh-plugins
 /workspaces/nexus-repository-manager                                    @redhat-developer/rhdh-ui @debsmita1 @ciiay   @jessicajhee
 /workspaces/npm                                                         @redhat-developer/rhdh-ui @christoph-jerolimov
 /workspaces/ocm                                                         @redhat-developer/rhdh-plugins   @redhat-developer/rhdh-ui
@@ -52,21 +53,23 @@
 /workspaces/orchestrator                                                @batzionb @mareklibra @gciavarrini
 # /workspaces/pagerduty-backend
 # /workspaces/pagerduty-frontend
-/workspaces/pingidentity                                                @jessicajhee
+/workspaces/pingidentity                                                @redhat-developer/rhdh-plugins @jessicajhee
 /workspaces/quay                                                        @caugello @cryptorodeo
+/workspaces/quay/plugins/quay-actions                                   @redhat-developer/rhdh-plugins
 /workspaces/quickstart                                                  @redhat-developer/rhdh-ui @divyanshiGupta @its-mitesh-kumar
 /workspaces/rbac                                                        @redhat-developer/rhdh-plugins @PatAKnight @dzemanov @AndrienkoAleksandr   @redhat-developer/rhdh-ui @divyanshiGupta @its-mitesh-kumar
 /workspaces/redhat-argocd                                               @caugello @cryptorodeo
 # /workspaces/roadie-backstage-plugins
 /workspaces/sandbox                                                     @lucifergene @rohitkrai03 @karthikjeeyar @xcoulon @alexeykazakov @mfrancisc
-/workspaces/scaffolder-backend-module-annotator                         @debsmita1
+/workspaces/scaffolder-backend-module-annotator                         @redhat-developer/rhdh-plugins
 # /workspaces/scaffolder-backend-module-azure-repositories
-/workspaces/scaffolder-backend-module-kubernetes                        @debsmita1
-/workspaces/scaffolder-backend-module-regex                             @04kash
-/workspaces/scaffolder-backend-module-servicenow                        @schultzp2020
-/workspaces/scaffolder-backend-module-sonarqube                         @04kash @schultzp2020
-/workspaces/scaffolder-relation-processor                               @04kash
+/workspaces/scaffolder-backend-module-kubernetes                        @redhat-developer/rhdh-plugins
+/workspaces/scaffolder-backend-module-regex                             @redhat-developer/rhdh-plugins
+/workspaces/scaffolder-backend-module-servicenow                        @redhat-developer/rhdh-plugins @AndrienkoAleksandr
+/workspaces/scaffolder-backend-module-sonarqube                         @redhat-developer/rhdh-plugins
+/workspaces/scaffolder-relation-processor                               @redhat-developer/rhdh-plugins
 /workspaces/servicenow                                                  @redhat-developer/rhdh-plugins @AndrienkoAleksandr   @redhat-developer/rhdh-ui @ciiay
+/workspaces/scorecard                                                   @redhat-developer/rhdh-plugins @redhat-developer/rhdh-ui @dzemanov @eswaraiahsapram @imykhno
 # /workspaces/sonarqube
 # /workspaces/tech-insights
 # /workspaces/tech-radar

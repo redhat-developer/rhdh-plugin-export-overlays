@@ -1,4 +1,4 @@
-[![Target Backstage Compatibility Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fredhat-developer%2Frhdh-plugin-export-overlays%2Frefs%2Fheads%2Fmetadata%2Fincompatible-workspaces.json&style=flat&cacheSeconds=60)](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/check-backstage-compatibility.yaml?query=event%3Apush)
+[![Target Backstage Compatibility Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fredhat-developer%2Frhdh-plugin-export-overlays%2Frefs%2Fheads%2Fmetadata%2Fincompatible-workspaces.json&style=flat&cacheSeconds=60)](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Backstage-Compatibility-Report)
 
 [![Publish Images Badge](https://img.shields.io/github/actions/workflow/status/redhat-developer/rhdh-plugin-export-overlays/publish-workspace-plugins.yaml?branch=main&event=push&label=Publish%20RHDH%20Next%20Release%20Dynamic%20Plugin%20Images)](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/publish-workspace-plugins.yaml?query=event%3Apush)
 
