@@ -1,6 +1,8 @@
---- package.json
-+++ package.json
-@@ -35,8 +35,8 @@
+diff --git a/package.json b/package.json
+index 28fb8846..e908b0a9 100644
+--- a/package.json
++++ b/package.json
+@@ -32,8 +32,8 @@
    "workspaces": {
      "packages": [
        "packages/*",
@@ -11,8 +13,10 @@
      ]
    },
    "devDependencies": {
---- yarn.lock
-+++ yarn.lock
+diff --git a/yarn.lock b/yarn.lock
+index b9fddfdb..7396c825 100644
+--- a/yarn.lock
++++ b/yarn.lock
 @@ -12,26 +12,6 @@ __metadata:
    languageName: node
    linkType: hard
@@ -136,4 +140,3 @@
  "undici@npm:^5.28.2, undici@npm:^5.29.0":
    version: 5.29.0
    resolution: "undici@npm:5.29.0"
-
