@@ -1,13 +1,14 @@
---- package.json
-+++ package.json
-@@ -35,8 +35,8 @@
+diff --git a/package.json b/package.json
+index 28fb8846..74f93672 100644
+--- a/package.json
++++ b/package.json
+@@ -32,7 +32,8 @@
    "workspaces": {
      "packages": [
        "packages/*",
 -      "plugins/**",
--      "utils/**"
++      "plugins/*",
 +      "plugins/*/*",
-+      "utils/*/*"
+       "utils/**"
      ]
    },
-   "devDependencies": {
