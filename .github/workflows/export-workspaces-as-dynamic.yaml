@@ -118,7 +118,7 @@ concurrency:
 
 jobs:
   export:
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@debug-yarn-install
     with:
       node-version: ${{ inputs.node-version }}
       janus-cli-version: ${{ inputs.janus-cli-version }}
