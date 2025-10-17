@@ -12,25 +12,62 @@ jobs:
     permissions:
       actions: read
       contents: read
+    env:
+      TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
     outputs:
       workspace: ${{ steps.meta.outputs.workspace }}
       overlayBranch: ${{ steps.meta.outputs.overlayBranch }}
       overlayRepo: ${{ steps.meta.outputs.overlayRepo }}
       overlayCommit: ${{ steps.meta.outputs.overlayCommit }}
       prNumber: ${{ steps.meta.outputs.pr }}
+      publishedExports: ${{ steps.meta.outputs.publishedExports }}
     steps:
-      - name: Download published-exports artifact
+      - name: Download context artifact
+        id: download_context
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: pr-actions.yaml
+          name: context-${{ env.TRIGGERING_RUN_ID }}
+          run_id: ${{ env.TRIGGERING_RUN_ID }}
+          path: ./context
+          if_no_artifact_found: fail
+
+      - name: Get PR number from context artifact
+        id: find_artifact
+        run: |
+          pr_number=$(jq -r .pr ./context/meta.json)
+          echo "PR_NUMBER=$pr_number" >> $GITHUB_ENV
+
+      # The 'pr:' filter is intentionally omitted as it is unreliable for comment-triggered
+      # workflows on forks. We verify the PR manually in the next step.
+      - name: Download latest published artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
           name: published-exports
+          workflow: pr-actions.yaml
           workflow_conclusion: success
           workflow_search: true
           search_artifacts: true
-          check_artifacts: true
-          if_no_artifact_found: error
+          allow_forks: true
+          if_no_artifact_found: fail
 
-      - name: Read meta
+      - name: Handle missing artifact for /test command
+        if: ${{ failure() && steps.download_published_search.outcome == 'failure' }}
+        run: |
+          echo "::error::Could not find a 'published-exports' artifact for this PR."
+          echo "::error::Please run a successful '/publish' command on this PR before using '/test'."
+          exit 1
+
+      - name: Verify artifact belongs to current PR
+        run: |
+          expected_pr=$(jq -r .pr ./context/meta.json)
+          actual_pr=$(jq -r .pr meta.json)
+          echo "Expected PR: $expected_pr  -  Artifact PR: $actual_pr"
+          if [ "$expected_pr" != "$actual_pr" ]; then
+            echo "::error::Downloaded artifact does not belong to this PR."
+            exit 1
+          fi
+
+      - name: Read artifact metadata
         id: meta
         run: |
           echo "Contents of meta.json:"
@@ -40,6 +77,7 @@ jobs:
           overlayRepo=$(jq -r .overlayRepo meta.json)
           overlayCommit=$(jq -r .overlayCommit meta.json)
           pr=$(jq -r '.pr // "null"' meta.json)
+          publishedExports=$(cat published-exports.txt)
           echo "Parsed values: workspace=$workspace, overlayBranch=$overlayBranch, overlayRepo=$overlayRepo, overlayCommit=$overlayCommit, pr=$pr"
           test -z "$workspace" && { echo "Missing workspace in meta.json"; exit 1; }
           echo "workspace=$workspace" >> $GITHUB_OUTPUT
@@ -47,6 +85,9 @@ jobs:
           echo "overlayRepo=$overlayRepo" >> $GITHUB_OUTPUT
           echo "overlayCommit=$overlayCommit" >> $GITHUB_OUTPUT
           echo "pr=$pr" >> $GITHUB_OUTPUT
+          echo "publishedExports<<EOF" >> $GITHUB_OUTPUT
+          echo "$publishedExports" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Debug resolved metadata
         run: |
@@ -61,6 +102,7 @@ jobs:
       overlay-branch: ${{ needs.resolve.outputs.overlayBranch }}
       overlay-repo: ${{ needs.resolve.outputs.overlayRepo }}
       workspace-path: ${{ needs.resolve.outputs.workspace }}
+      published-exports: ${{ needs.resolve.outputs.publishedExports }}
 
   integration-tests:
     needs:
@@ -91,7 +133,7 @@ jobs:
               return;
             }
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `:warning: \n[Integration test workflow](${runUrl}) skipped because some plugin metadata files (\`<workspace>/metadata/*.yaml\`) were not found.\n\nAdd the corresponding metadata files to enable testing for this workspace.\n`;
+            const body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin metadata files (\`<workspace>/metadata/*.yaml\`) were not found.\n\nAdd the corresponding metadata files to enable testing for this workspace.\n`;
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -117,13 +159,18 @@ jobs:
     steps:
       - name: Post test result comment and status
         uses: actions/github-script@v7
+        env:
+          SUCCESS: ${{ needs.integration-tests.outputs.success }}
+          FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
+          PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const success = '${{ needs.integration-tests.outputs.success }}' === 'true';
-            const failed = `\n${{ toJSON(needs.integration-tests.outputs.failed-plugins) }}`.trim();
-            const pr = Number('${{ needs.resolve.outputs.prNumber }}');
-            const overlayCommit = '${{ needs.resolve.outputs.overlayCommit }}';
+            const success = process.env.SUCCESS === 'true';
+            const failed = process.env.FAILED_PLUGINS.trim();
+            const pr = Number(process.env.PR_NUMBER);
+            const overlayCommit = process.env.OVERLAY_COMMIT;
             
             if (!pr) {
               console.log('No PR associated; skipping');
@@ -152,8 +199,8 @@ jobs:
             });
             
             const body = success
-              ? `:white_check_mark: [Integration test workflow](${runUrl}) passed. All plugins loaded successfully.\n`
-              : `:x: \n[Integration test workflow](${runUrl}) failed. These plugins failed to load:${failed ? `\n${failed}` : ''}\n`;
+              ? `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`
+              : `:x: \n[Test workflow](${runUrl}) failed. These plugins failed to load:${failed ? `\n${failed}` : ''}\n`;
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
