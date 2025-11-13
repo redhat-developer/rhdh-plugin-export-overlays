@@ -20,8 +20,8 @@ metadata:
   links: # Links to useful sources etc.
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
-      title: Bugs
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: Issues
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
   annotations: # Activates backstage features
@@ -75,8 +75,8 @@ metadata:
   links: # Useful links for the plugin card when expanded
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
-      title: Bugs
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: Issues
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
   tags:
