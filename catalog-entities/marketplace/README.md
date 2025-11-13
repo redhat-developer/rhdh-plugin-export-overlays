@@ -2,7 +2,15 @@
 
 Spreadsheet for tracking the work is here: https://docs.google.com/spreadsheets/d/1K_LqKYma9nRM5teKD-uCnbB3qKC8Hk2E5jvcpMSfjTs/edit?gid=771893283#gid=771893283
 
+Note: the sheet may be out of date.
+
 ## Working with Plugin Folders & Files
+
+Packages are not located in this file tree, but are instead co-located under the `workspaces/*/metadata/` folders. 
+
+Content will be merged from those folders into this folder when reassembling the complete marketplace entities in the plugin catalog index image. 
+
+The latest of these index images will be published to quay. For example, see https://quay.io/rhdh/plugin-catalog-index
 
 Below are some practical instructions that might help you in the process of creating and updating plugins and packages for use in the RHDH Extensions catalog plugin.
 
