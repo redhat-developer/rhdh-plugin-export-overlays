@@ -1,9 +1,5 @@
 # Creating & Editing Extension Catalog Plugins
 
-Spreadsheet for tracking the work is here: https://docs.google.com/spreadsheets/d/1K_LqKYma9nRM5teKD-uCnbB3qKC8Hk2E5jvcpMSfjTs/edit?gid=771893283#gid=771893283
-
-Note: the sheet may be out of date.
-
 ## Working with Plugin Folders & Files
 
 Packages are not located in this file tree, but are instead co-located under the `workspaces/*/metadata/` folders. 
