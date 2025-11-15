@@ -1,0 +1,33 @@
+[2;33mdiff --git a/workspaces/analytics/tsconfig.json b/workspaces/analytics/tsconfig.json[m
+[2;33mindex 1a80b35a7..f47231b9f 100644[m
+[2;33m--- a/workspaces/analytics/tsconfig.json[m
+[2;33m+++ b/workspaces/analytics/tsconfig.json[m
+[1;34m@@ -1,13 +1,13 @@[m
+[2m {[m
+[2m   "extends": "@backstage/cli/config/tsconfig.json",[m
+[35m-  "include": [[m
+[35m-    "packages/*/src",[m
+[35m-    "plugins/*/src",[m
+[35m-    "plugins/*/dev",[m
+[35m-    "plugins/*/migrations"[m
+[36m+[m[36m  "include": ["packages/*/src", "plugins/*/src", "plugins/*/migrations"],[m
+[36m+[m[36m  "exclude": [[m
+[36m+[m[36m    "node_modules",[m
+[36m+[m[36m    "**/*.test.ts",[m
+[36m+[m[36m    "**/*.test.tsx",[m
+[36m+[m[36m    "**/setupTests.ts",[m
+[36m+[m[36m    "**/dev/**"[m
+[2m   ],[m
+[35m-  "files": ["node_modules/@backstage/cli/asset-types/asset-types.d.ts"],[m
+[35m-  "exclude": ["node_modules"],[m
+[2m   "compilerOptions": {[m
+[2m     "outDir": "dist-types",[m
+[2m     "rootDir": ".",[m
+[1;34m@@ -15,6 +15,6 @@[m
+[2m     "target": "ES2022",[m
+[2m     "useUnknownInCatchVariables": false,[m
+[2m     "jsx": "react-jsx",[m
+[35m-    "types": ["node"][m
+[36m+[m[36m    "types": [][m
+[2m   }[m
+[2m }[m
