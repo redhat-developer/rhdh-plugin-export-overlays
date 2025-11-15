@@ -1,0 +1,6 @@
+includes:
+  - dynamic-plugins.default.yaml
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-github-issues
+    disabled: false
+  
