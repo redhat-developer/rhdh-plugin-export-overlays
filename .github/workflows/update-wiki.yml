@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'release-*'
+      - 'feature/RHIDP-9450'
 
 permissions:
   contents: write
@@ -30,10 +31,11 @@ jobs:
         id: branch
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          # Replace slashes with dashes for filename compatibility
-          SANITIZED_BRANCH_NAME="${BRANCH_NAME//\//-}"
-          echo "name=${SANITIZED_BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "Branch: ${BRANCH_NAME} (sanitized: ${SANITIZED_BRANCH_NAME})"
+          # Sanitize branch name for filename (replace / with -)
+          SAFE_BRANCH_NAME="${BRANCH_NAME//\//-}"
+          echo "name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "safe_name=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME}"
 
       - name: Generate wiki content
         env:
@@ -52,7 +54,7 @@ jobs:
 
       - name: Copy generated wiki page to wiki repo
         run: |
-          cp "${{ steps.branch.outputs.name }}.md" wiki/
+          cp "${{ steps.branch.outputs.safe_name }}.md" wiki/
 
       - name: Commit and push wiki changes
         working-directory: wiki
@@ -66,7 +68,7 @@ jobs:
             exit 0
           fi
           
-          git add "${{ steps.branch.outputs.name }}.md"
+          git add "${{ steps.branch.outputs.safe_name }}.md"
           git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
           git push
 

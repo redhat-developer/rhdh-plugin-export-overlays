@@ -365,8 +365,9 @@ def main():
     print("Generating Markdown content...")
     markdown_content = generate_markdown(branch_name, workspaces_data)
     
-    # Write to file
-    output_file = f"{branch_name}.md"
+    # Write to file (sanitize branch name for filename)
+    safe_branch_name = branch_name.replace('/', '-')
+    output_file = f"{safe_branch_name}.md"
     with open(output_file, 'w') as f:
         f.write(markdown_content)
     
