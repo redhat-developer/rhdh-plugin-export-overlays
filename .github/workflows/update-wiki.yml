@@ -30,8 +30,10 @@ jobs:
         id: branch
         run: |
           BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-          echo "name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "Branch: ${BRANCH_NAME}"
+          # Replace slashes with dashes for filename compatibility
+          SANITIZED_BRANCH_NAME="${BRANCH_NAME//\//-}"
+          echo "name=${SANITIZED_BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME} (sanitized: ${SANITIZED_BRANCH_NAME})"
 
       - name: Generate wiki content
         env:
@@ -41,23 +43,31 @@ jobs:
         run: |
           python .github/scripts/generate-wiki-page.py
 
-      - name: Create test wiki branch
+      - name: Checkout wiki repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy generated wiki page to wiki repo
         run: |
-          # Create a test branch to store wiki pages for demonstration
-          git checkout -b wiki-test 2>/dev/null || git checkout wiki-test
-          mkdir -p wiki-pages
-          cp "${{ steps.branch.outputs.name }}.md" wiki-pages/
-          git add wiki-pages/
+          cp "${{ steps.branch.outputs.name }}.md" wiki/
+
+      - name: Commit and push wiki changes
+        working-directory: wiki
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
+          
           # Check if there are changes
-          if git diff --quiet --cached; then
+          if git diff --quiet && git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-
+          
+          git add "${{ steps.branch.outputs.name }}.md"
           git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
-          git push origin wiki-test --force
+          git push
 
 
