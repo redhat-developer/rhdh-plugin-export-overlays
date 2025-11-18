@@ -69,13 +69,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Check if there are changes
-          if git diff --quiet && git diff --cached --quiet; then
+          # Add the file first
+          git add "${{ steps.branch.outputs.safe_name }}.md"
+          
+          # Check if there are changes (after staging)
+          if git diff --cached --quiet; then
             echo "No changes to commit"
             exit 0
           fi
           
-          git add "${{ steps.branch.outputs.safe_name }}.md"
           git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
           git push
 
