@@ -43,7 +43,10 @@ jobs:
           BRANCH_NAME: ${{ steps.branch.outputs.name }}
           REPO_NAME: redhat-developer/rhdh-plugin-export-overlays
         run: |
+          echo "Running wiki generation script..."
           python .github/scripts/generate-wiki-page.py
+          echo "Files after script execution:"
+          ls -la *.md || echo "No .md files found"
 
       - name: Checkout wiki repository
         uses: actions/checkout@v4
@@ -54,7 +57,11 @@ jobs:
 
       - name: Copy generated wiki page to wiki repo
         run: |
+          echo "Looking for file: ${{ steps.branch.outputs.safe_name }}.md"
+          ls -la "${{ steps.branch.outputs.safe_name }}.md" || echo "File not found!"
           cp "${{ steps.branch.outputs.safe_name }}.md" wiki/
+          echo "Files in wiki directory:"
+          ls -la wiki/
 
       - name: Commit and push wiki changes
         working-directory: wiki
