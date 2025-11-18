@@ -41,31 +41,23 @@ jobs:
         run: |
           python .github/scripts/generate-wiki-page.py
 
-      - name: Checkout wiki repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}.wiki
-          path: wiki
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Copy generated wiki page to wiki repo
+      - name: Create test wiki branch
         run: |
-          cp "${{ steps.branch.outputs.name }}.md" wiki/
-
-      - name: Commit and push wiki changes
-        working-directory: wiki
-        run: |
+          # Create a test branch to store wiki pages for demonstration
+          git checkout -b wiki-test 2>/dev/null || git checkout wiki-test
+          mkdir -p wiki-pages
+          cp "${{ steps.branch.outputs.name }}.md" wiki-pages/
+          git add wiki-pages/
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Check if there are changes
-          if git diff --quiet && git diff --cached --quiet; then
+          if git diff --quiet --cached; then
             echo "No changes to commit"
             exit 0
           fi
-          
-          git add "${{ steps.branch.outputs.name }}.md"
+
           git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
-          git push
+          git push origin wiki-test --force
 
 
