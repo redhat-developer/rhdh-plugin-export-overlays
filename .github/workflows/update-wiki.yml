@@ -1,0 +1,71 @@
+name: Update Wiki Pages
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-*'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  update-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml requests
+
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          echo "name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME}"
+
+      - name: Generate wiki content
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ steps.branch.outputs.name }}
+          REPO_NAME: redhat-developer/rhdh-plugin-export-overlays
+        run: |
+          python .github/scripts/generate-wiki-page.py
+
+      - name: Checkout wiki repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy generated wiki page to wiki repo
+        run: |
+          cp "${{ steps.branch.outputs.name }}.md" wiki/
+
+      - name: Commit and push wiki changes
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git add "${{ steps.branch.outputs.name }}.md"
+          git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
+          git push
+
+
