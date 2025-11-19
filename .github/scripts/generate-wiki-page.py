@@ -288,8 +288,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Type | Workspace | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
-    md.append("|:----:|-----------|--------|-------------|------------------|---------|----------------|")
+    md.append("| Type | Workspace | Metadata | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
+    md.append("|:----:|-----------|:--------:|--------|-------------|------------------|---------|----------------|")
 
     for ws in workspaces_data:
         # Repo Structure Icon & Link
@@ -322,10 +322,12 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
 
-        # Check for missing metadata
+        # Metadata status
         has_metadata = ws['additional_files']['metadata'] > 0
-        if not has_metadata:
-            workspace_name = f"🔴 Missing metadata<br>{workspace_name}"
+        if has_metadata:
+            metadata_status = "✅ Available"
+        else:
+            metadata_status = "🔴 Missing"
 
         # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
@@ -380,7 +382,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             pending_updates = "✅ No"
 
         # Add table row
-        md.append(f"| {structure} | {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
+        md.append(f"| {structure} | {workspace_name} | {metadata_status} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
 
     md.append("")
     md.append("---")
