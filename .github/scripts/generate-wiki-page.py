@@ -162,20 +162,24 @@ def get_commit_details(repo_url: str, commit_sha: str) -> Tuple[str, str, str]:
 def check_pending_prs(workspace_name: str, repo_name: str, target_branch: str) -> Tuple[bool, List[str]]:
     """
     Check if there are any open PRs that modify this workspace.
+    Filters by:
+    - Base branch (target_branch)
+    - Files touching the workspace path
+    - Labels: workspace_addition or workspace_update
     Returns (has_pending, [pr_numbers])
     """
     workspace_path = f"workspaces/{workspace_name}"
     
     # Use gh CLI to search for open PRs
-    # Filter by base branch and check if files touch the workspace
+    # Filter by base branch, workspace path, and labels
     cmd = [
         "gh", "pr", "list",
         "--repo", repo_name,
         "--base", target_branch,
         "--state", "open",
         "--limit", "100",
-        "--json", "number,files",
-        "--jq", f'.[] | select(any(.files[]; .path | startswith("{workspace_path}"))) | .number'
+        "--json", "number,files,labels",
+        "--jq", f'.[] | select(any(.files[]; .path | startswith("{workspace_path}")) and (any(.labels[]; .name == "workspace_addition" or .name == "workspace_update"))) | .number'
     ]
     
     exit_code, stdout, stderr = run_command(cmd, check=False)
