@@ -411,16 +411,26 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
                 name_ver = p['details']
                 status = p['status']
 
-                status_icon = ""
+                # Define icon and tooltip based on status
                 if status == "Supported":
-                    status_icon = "✅ Supported"
+                    # Red Hat Supported
+                    icon = "🔴"
+                    tooltip = "Red Hat Supported"
                 elif status == "Community":
-                    status_icon = "🤝 Community"
+                    # Community / Dev Preview
+                    icon = "🟡"
+                    tooltip = "Community / Dev Preview"
+                else:
+                    # Pure Community / Unknown
+                    icon = "▪️"
+                    tooltip = "Community / Unknown"
 
-                plugins_list_items.append(f"`{name_ver}`{status_icon}")
+                # Format: <Icon with Tooltip> <PackageName@Version>
+                plugin_entry = f'<span title="{tooltip}">{icon}</span> `{name_ver}`'
+                plugins_list_items.append(plugin_entry)
 
-            # Use line breaks with bullet points for better visibility
-            plugins_list = "<br>🔸 ".join([""] + plugins_list_items)
+            # Join with line breaks
+            plugins_list = "<br>".join(plugins_list_items)
         else:
             plugins_list = "No plugins"
 
