@@ -318,9 +318,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    # Use shorter column headers and sub tags for compact display
-    md.append("| 🔍 | Workspace | Source | Date | Backstage | Plugins |")
-    md.append("|:----:|-----------|--------|------|-----------|---------|")
+    md.append("| Type | Workspace | Source | Backstage Version | Plugins |")
+    md.append("|:----:|-----------|--------|------------------|---------|")
 
     for ws in workspaces_data:
         # Repo Structure Icon & Link
@@ -386,12 +385,6 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         else:
             source = "N/A"
 
-        # Commit Date (use smaller text for compactness)
-        if ws['commit_date'] != "N/A":
-            commit_date = f"<sub>{ws['commit_date'].split(' ')[0]}</sub>"
-        else:
-            commit_date = ""
-
         # Backstage Version (show source repo version, highlight overrides with warning icon)
         overlay_version = ws.get('overlay_backstage_version')
         source_version = ws.get('source_backstage_version')
@@ -432,7 +425,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             plugins_list = "No plugins"
 
         # Add table row
-        md.append(f"| {structure} | {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} |")
+        md.append(f"| {structure} | {workspace_name} | {source} | {backstage_version} | {plugins_list} |")
 
     md.append("")
     md.append("---")
