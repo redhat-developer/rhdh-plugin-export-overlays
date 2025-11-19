@@ -209,26 +209,28 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Workspace | Source Repository | Pinned Commit | Backstage Version | Plugins | Pending Updates |")
-    md.append("|-----------|------------------|---------------|------------------|---------|----------------|")
+    md.append("| Workspace | Source | Backstage Version | Plugins | Pending Updates |")
+    md.append("|-----------|--------|------------------|---------|----------------|")
 
     for ws in workspaces_data:
-        # Workspace name
-        workspace_name = ws['name']
+        # Workspace name - link to workspace in overlay repo
+        overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
+        workspace_name = f"[{ws['name']}]({overlay_repo_url})"
 
-        # Source Repository
-        if ws['repo_url']:
+        # Source - repo@commit linking to source workspace or repo root for flat repos
+        if ws['repo_url'] and ws['commit_sha']:
             repo_name = ws['repo_url'].replace('https://github.com/', '')
-            source_repo = f"[{repo_name}]({ws['repo_url']})"
+            if ws['repo_flat']:
+                # Flat repos - link to repo root at commit
+                source_url = f"{ws['repo_url']}/tree/{ws['commit_sha']}"
+                source = f"[{repo_name}@{ws['commit_short']}]({source_url})"
+            else:
+                # Workspace-based repos - link to specific workspace folder
+                workspace_path = f"workspaces/{ws['name']}"
+                source_url = f"{ws['repo_url']}/tree/{ws['commit_sha']}/{workspace_path}"
+                source = f"[{repo_name}@{ws['commit_short']}]({source_url})"
         else:
-            source_repo = "N/A"
-
-        # Pinned Commit
-        if ws['commit_sha']:
-            commit_link = f"{ws['repo_url']}/commit/{ws['commit_sha']}"
-            pinned_commit = f"[{ws['commit_short']}]({commit_link})"
-        else:
-            pinned_commit = "N/A"
+            source = "N/A"
 
         # Backstage Version
         backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
@@ -247,7 +249,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             pending_updates = "✅ No"
 
         # Add table row
-        md.append(f"| {workspace_name} | {source_repo} | {pinned_commit} | {backstage_version} | {plugins_count} | {pending_updates} |")
+        md.append(f"| {workspace_name} | {source} | {backstage_version} | {plugins_count} | {pending_updates} |")
 
     md.append("")
     md.append("---")
