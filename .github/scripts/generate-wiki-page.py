@@ -16,7 +16,7 @@ import yaml
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def run_command(cmd: List[str], check: bool = True) -> Tuple[int, str, str]:
@@ -199,66 +199,87 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Header
     md.append(f"# Workspace Status: `{branch_name}`")
     md.append("")
-    md.append(f"**Last Updated:** {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+    md.append(f"**Last Updated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     md.append("")
     md.append(f"**Total Workspaces:** {len(workspaces_data)}")
     md.append("")
     md.append("---")
     md.append("")
     
-    # Table of Contents
-    md.append("## Table of Contents")
+    # Workspace Table
+    md.append("## Workspace Overview")
     md.append("")
+    md.append("| Workspace | Source Repository | Pinned Commit | Backstage Version | Plugins | Pending Updates |")
+    md.append("|-----------|------------------|---------------|------------------|---------|----------------|")
+
     for ws in workspaces_data:
-        anchor = ws['name'].lower().replace('_', '-').replace(' ', '-')
-        md.append(f"- [{ws['name']}](#{anchor})")
-    md.append("")
-    md.append("---")
-    md.append("")
-    
-    # Workspace Details
-    for ws in workspaces_data:
-        md.append(f"## {ws['name']}")
-        md.append("")
-        
+        # Workspace name
+        workspace_name = ws['name']
+
         # Source Repository
         if ws['repo_url']:
             repo_name = ws['repo_url'].replace('https://github.com/', '')
-            md.append(f"**Source Repository:** [{repo_name}]({ws['repo_url']})")
+            source_repo = f"[{repo_name}]({ws['repo_url']})"
         else:
-            md.append("**Source Repository:** N/A")
-        
-        # Commit Information
+            source_repo = "N/A"
+
+        # Pinned Commit
         if ws['commit_sha']:
             commit_link = f"{ws['repo_url']}/commit/{ws['commit_sha']}"
-            md.append(f"**Pinned Commit:** [{ws['commit_short']}]({commit_link})")
-            if ws['commit_message'] != "N/A":
-                md.append(f"**Commit Message:** {ws['commit_message']}")
+            pinned_commit = f"[{ws['commit_short']}]({commit_link})"
+        else:
+            pinned_commit = "N/A"
+
+        # Backstage Version
+        backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
+
+        # Plugins Count
+        plugins_count = f"{len(ws['plugins'])} plugins"
+
+        # Pending PRs
+        if ws['has_pending_prs']:
+            pr_links = []
+            for pr_num in ws['pr_numbers']:
+                pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
+                pr_links.append(f"[#{pr_num}]({pr_url})")
+            pending_updates = f"⚠️ {', '.join(pr_links)}"
+        else:
+            pending_updates = "✅ No"
+
+        # Add table row
+        md.append(f"| {workspace_name} | {source_repo} | {pinned_commit} | {backstage_version} | {plugins_count} | {pending_updates} |")
+
+    md.append("")
+    md.append("---")
+    md.append("")
+
+    # Detailed Workspace Information
+    md.append("## Detailed Workspace Information")
+    md.append("")
+    for ws in workspaces_data:
+        md.append(f"### {ws['name']}")
+        md.append("")
+
+        # Commit Details (if available)
+        if ws['commit_sha'] and ws['commit_message'] != "N/A":
+            md.append(f"**Latest Commit:** {ws['commit_message']}")
             if ws['commit_date'] != "N/A":
                 md.append(f"**Commit Date:** {ws['commit_date']}")
-        else:
-            md.append("**Pinned Commit:** N/A")
-        
-        # Backstage Version
-        if ws['backstage_version']:
-            md.append(f"**Backstage Version:** `{ws['backstage_version']}`")
-        
-        # Workspace Type
+            md.append("")
+
+        # Repository Structure
         workspace_type = "Monorepo (workspace-based)" if not ws['repo_flat'] else "Flat (root-level plugins)"
         md.append(f"**Repository Structure:** {workspace_type}")
-        
         md.append("")
-        
-        # Plugins
-        md.append(f"**Plugins ({len(ws['plugins'])}):**")
-        md.append("")
+
+        # Plugin List
         if ws['plugins']:
+            md.append("**Plugins:**")
+            md.append("")
             for plugin in ws['plugins']:
                 md.append(f"- `{plugin}`")
-        else:
-            md.append("- *No plugins listed*")
-        md.append("")
-        
+            md.append("")
+
         # Additional Files
         additional = ws['additional_files']
         if any(additional.values()):
@@ -273,19 +294,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             if additional['tests'] > 0:
                 md.append(f"- Test files: {additional['tests']}")
             md.append("")
-        
-        # Pending PRs
-        if ws['has_pending_prs']:
-            pr_links = []
-            for pr_num in ws['pr_numbers']:
-                pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
-                pr_links.append(f"[#{pr_num}]({pr_url})")
-            
-            md.append(f"**Pending Updates:** ⚠️ Yes - {', '.join(pr_links)}")
-        else:
-            md.append("**Pending Updates:** ✅ No")
-        
-        md.append("")
+
         md.append("---")
         md.append("")
     
