@@ -388,18 +388,22 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         # Commit Date
         commit_date = ws['commit_date'].split(' ')[0] if ws['commit_date'] != "N/A" else ""
 
-        # Backstage Version (prefer source repo version, highlight overrides)
+        # Backstage Version (show source repo version, highlight overrides with color)
         overlay_version = ws.get('overlay_backstage_version')
         source_version = ws.get('source_backstage_version')
         display_version = source_version or overlay_version
+        
         if display_version:
-            backstage_version = f"`{display_version}`"
+            # Check if there's an override
+            if overlay_version and source_version and overlay_version != source_version:
+                # Override detected - show in orange/red with tooltip
+                tooltip = f"Overlay overrides upstream version {source_version} to {overlay_version}".replace('"', '&quot;')
+                backstage_version = f'<span style="color: #ff6b35;" title="{tooltip}">`{display_version}`</span>'
+            else:
+                # No override - normal display
+                backstage_version = f"`{display_version}`"
         else:
             backstage_version = "N/A"
-
-        if overlay_version and source_version and overlay_version != source_version:
-            tooltip = f"Overlay overrides upstream version to {overlay_version}".replace('"', '&quot;')
-            backstage_version = f'{backstage_version} <span title="{tooltip}">🔧</span>'
 
         # Plugins List
         # Format: <plugin packageName>@<plugin version> [Support Status]
