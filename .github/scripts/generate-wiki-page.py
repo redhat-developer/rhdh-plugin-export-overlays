@@ -364,6 +364,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
                     status_icon = "✅ Supported"
                 elif status == "Community":
                     status_icon = "🤝 Community"
+                else:
+                    status_icon = "❓ Unknown"
                 
                 plugins_list_items.append(f"`{name_ver}` {status_icon}")
             
