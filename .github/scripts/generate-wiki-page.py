@@ -338,15 +338,17 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         # 1. Repository structure icon (linked to source.json)
         structure_badges.append(f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")")
         
-        # 2. Patches indicator
+        # 2. Patches indicator (link to patches directory)
         has_patches = ws['additional_files']['patches'] > 0
         if has_patches:
-            structure_badges.append('<span title="Has patches">🩹</span>')
+            patches_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}/patches"
+            structure_badges.append(f'[<span title="Has patches">🩹</span>]({patches_url})')
         
-        # 3. Overlays indicator
+        # 3. Overlays indicator (link to plugins directory)
         has_overlays = ws['additional_files']['plugins'] > 0
         if has_overlays:
-            structure_badges.append('<span title="Has overlays">🔄</span>')
+            plugins_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}/plugins"
+            structure_badges.append(f'[<span title="Has overlays">🔄</span>]({plugins_url})')
         
         # 4. Metadata status
         has_metadata = ws['additional_files']['metadata'] > 0
@@ -426,7 +428,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
                     tooltip = "Community / Unknown"
 
                 # Format: <Icon with Tooltip> <PackageName@Version>
-                plugin_entry = f'<span title="{tooltip}">{icon}</span> `{name_ver}`'
+                # Use sub tag for smaller text
+                plugin_entry = f'<span title="{tooltip}">{icon}</span> <sub>`{name_ver}`</sub>'
                 plugins_list_items.append(plugin_entry)
 
             # Join with line breaks
@@ -502,7 +505,16 @@ def main():
         if repo_url and commit_sha:
             print(f"  Fetching plugin details for {len(plugins)} plugins...")
             for plugin_path in plugins:
-                details = get_plugin_details(repo_url, commit_sha, plugin_path)
+                # Determine full path in source repo
+                # If it's a workspace-based monorepo (not flat), path is workspaces/{ws_name}/{plugin_path}
+                if not repo_flat:
+                    # Remove any ./ prefix to be safe
+                    clean_path = plugin_path.lstrip('./')
+                    full_plugin_path = f"workspaces/{ws_name}/{clean_path}"
+                else:
+                    full_plugin_path = plugin_path
+
+                details = get_plugin_details(repo_url, commit_sha, full_plugin_path)
                 
                 # Check support status
                 support_status = check_support_status(plugin_path, ws_name, supported_plugins, community_plugins)
