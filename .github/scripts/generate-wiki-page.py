@@ -332,44 +332,43 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             struct_icon = "🌳"
             struct_tooltip = "Monorepo (workspace-based)"
         
-        # Additional checks for icon badges
-        # Check for patches
-        has_patches = ws['additional_files']['patches'] > 0
-        # Check for overlays (plugin overlays)
-        has_overlays = ws['additional_files']['plugins'] > 0
-        
-        # Check for pending PRs
-        has_prs = ws['has_pending_prs']
-        
+        # Build Type column with all status icons
         structure_badges = []
+        
+        # 1. Repository structure icon (linked to source.json)
         structure_badges.append(f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")")
         
+        # 2. Patches indicator
+        has_patches = ws['additional_files']['patches'] > 0
         if has_patches:
-            structure_badges.append("🩹 Has patches")
+            structure_badges.append('<span title="Has patches">🩹</span>')
+        
+        # 3. Overlays indicator
+        has_overlays = ws['additional_files']['plugins'] > 0
         if has_overlays:
-            structure_badges.append("🔄 Has overlays")
+            structure_badges.append('<span title="Has overlays">🔄</span>')
+        
+        # 4. Metadata status
+        has_metadata = ws['additional_files']['metadata'] > 0
+        if has_metadata:
+            structure_badges.append('<span title="Metadata available">🟢</span>')
+        else:
+            structure_badges.append('<span title="Metadata missing">🔴</span>')
+        
+        # 5. Pending PR indicator (red icon linking to PR)
+        has_prs = ws['has_pending_prs']
         if has_prs:
-            # Add red warning icon with links to PRs
-            pr_links = []
-            for pr_num in ws['pr_numbers']:
-                pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
-                pr_links.append(f"[#{pr_num}]({pr_url})")
-            
-            pr_text = ", ".join(pr_links)
-            structure_badges.append(f"🚨 Pending PRs: {pr_text}")
+            # Link the red icon to the first PR (usually only 1 expected)
+            pr_num = ws['pr_numbers'][0]
+            pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
+            pr_tooltip = f"Pending update PR #{pr_num}"
+            structure_badges.append(f'[<span title="{pr_tooltip}">🔴</span>]({pr_url})')
             
         structure = "<br>".join(structure_badges)
 
         # Workspace name - link to workspace in overlay repo
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
-
-        # Metadata status icon
-        has_metadata = ws['additional_files']['metadata'] > 0
-        if has_metadata:
-            structure_badges.append('<span title="Metadata available">🟢</span>')
-        else:
-            structure_badges.append('<span title="Metadata missing">🔴</span>')
 
         # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
