@@ -208,6 +208,29 @@ def get_backstage_version(workspace_path: Path) -> Optional[str]:
     return None
 
 
+def get_source_backstage_version(repo_url: str, commit_sha: str) -> Optional[str]:
+    """Fetch backstage.json from the source repo to determine its version."""
+    if not repo_url or not commit_sha or not repo_url.startswith("https://github.com/"):
+        return None
+
+    repo_name = repo_url.replace("https://github.com/", "").rstrip('/')
+    api_url = f"https://api.github.com/repos/{repo_name}/contents/backstage.json"
+    headers = {
+        "Accept": "application/vnd.github.v3.raw",
+        "Authorization": f"token {os.getenv('GH_TOKEN', '')}"
+    }
+
+    try:
+        response = requests.get(api_url, headers=headers, params={"ref": commit_sha}, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("version")
+    except Exception as e:
+        print(f"Error fetching upstream backstage.json for {repo_url}: {e}", file=sys.stderr)
+
+    return None
+
+
 def load_plugin_lists() -> Tuple[List[str], List[str]]:
     """Load the list of supported and community plugins."""
     supported_plugins = []
@@ -291,8 +314,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Type | Workspace | Metadata | Source | Commit Date | Backstage Version | Plugins |")
-    md.append("|:----:|-----------|:--------:|--------|-------------|------------------|---------|")
+    md.append("| Type | Workspace | Source | Commit Date | Backstage Version | Plugins |")
+    md.append("|:----:|-----------|--------|-------------|------------------|---------|")
 
     for ws in workspaces_data:
         # Repo Structure Icon & Link
@@ -337,12 +360,12 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
 
-        # Metadata status
+        # Metadata status icon
         has_metadata = ws['additional_files']['metadata'] > 0
         if has_metadata:
-            metadata_status = "✅ Available"
+            structure_badges.append('<span title="Metadata available">🟢</span>')
         else:
-            metadata_status = "🔴 Missing"
+            structure_badges.append('<span title="Metadata missing">🔴</span>')
 
         # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
@@ -362,8 +385,18 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         # Commit Date
         commit_date = ws['commit_date'].split(' ')[0] if ws['commit_date'] != "N/A" else ""
 
-        # Backstage Version
-        backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
+        # Backstage Version (prefer source repo version, highlight overrides)
+        overlay_version = ws.get('overlay_backstage_version')
+        source_version = ws.get('source_backstage_version')
+        display_version = source_version or overlay_version
+        if display_version:
+            backstage_version = f"`{display_version}`"
+        else:
+            backstage_version = "N/A"
+
+        if overlay_version and source_version and overlay_version != source_version:
+            tooltip = f"Overlay overrides upstream version to {overlay_version}".replace('"', '&quot;')
+            backstage_version = f'{backstage_version} <span title="{tooltip}">🔧</span>'
 
         # Plugins List
         # Format: <plugin packageName>@<plugin version> [Support Status]
@@ -387,68 +420,13 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         else:
             plugins_list = "No plugins"
 
-        # Pending PRs
-        if ws['has_pending_prs']:
-            pr_links = []
-            for pr_num in ws['pr_numbers']:
-                pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
-                pr_links.append(f"[#{pr_num}]({pr_url})")
-            pending_updates = f"⚠️ {', '.join(pr_links)}"
-        else:
-            pending_updates = "✅ No"
-
         # Add table row
-        md.append(f"| {structure} | {workspace_name} | {metadata_status} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
+        md.append(f"| {structure} | {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} |")
 
     md.append("")
     md.append("---")
     md.append("")
 
-    # Detailed Workspace Information
-    md.append("## Detailed Workspace Information")
-    md.append("")
-    for ws in workspaces_data:
-        md.append(f"### {ws['name']}")
-        md.append("")
-
-        # Commit Details (if available)
-        if ws['commit_sha'] and ws['commit_message'] != "N/A":
-            md.append(f"**Latest Commit:** {ws['commit_message']}")
-            if ws['commit_date'] != "N/A":
-                md.append(f"**Commit Date:** {ws['commit_date']}")
-            md.append("")
-
-        # Repository Structure
-        workspace_type = "Monorepo (workspace-based)" if not ws['repo_flat'] else "Flat (root-level plugins)"
-        md.append(f"**Repository Structure:** {workspace_type}")
-        md.append("")
-
-        # Plugin List
-        if ws['plugins']:
-            md.append("**Plugins:**")
-            md.append("")
-            for plugin in ws['plugins']:
-                md.append(f"- `{plugin}`")
-            md.append("")
-
-        # Additional Files
-        additional = ws['additional_files']
-        if any(additional.values()):
-            md.append("**Additional Configuration:**")
-            md.append("")
-            if additional['metadata'] > 0:
-                md.append(f"- Metadata files: {additional['metadata']}")
-            if additional['plugins'] > 0:
-                md.append(f"- Plugin overlays: {additional['plugins']}")
-            if additional['patches'] > 0:
-                md.append(f"- Patches: {additional['patches']}")
-            if additional['tests'] > 0:
-                md.append(f"- Test files: {additional['tests']}")
-            md.append("")
-
-        md.append("---")
-        md.append("")
-    
     return '\n'.join(md)
 
 
@@ -503,6 +481,7 @@ def main():
         
         # Get Backstage version
         backstage_version = get_backstage_version(ws_path)
+        source_backstage_version = get_source_backstage_version(repo_url, commit_sha)
         
         # Enhance plugin list with versions from package.json
         enhanced_plugins = []
@@ -543,7 +522,8 @@ def main():
             'commit_message': commit_message,
             'commit_date': commit_date,
             'repo_flat': repo_flat,
-            'backstage_version': backstage_version,
+            'overlay_backstage_version': backstage_version,
+            'source_backstage_version': source_backstage_version,
             'plugins': enhanced_plugins,
             'additional_files': additional_files,
             'has_pending_prs': has_pending_prs,
