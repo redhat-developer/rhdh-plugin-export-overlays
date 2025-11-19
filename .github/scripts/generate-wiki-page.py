@@ -325,7 +325,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         # Check for missing metadata
         has_metadata = ws['additional_files']['metadata'] > 0
         if not has_metadata:
-            workspace_name = f"🔴 {workspace_name}"
+            workspace_name = f"🔴 Missing metadata<br>{workspace_name}"
 
         # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
