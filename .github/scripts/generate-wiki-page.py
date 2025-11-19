@@ -205,6 +205,54 @@ def get_backstage_version(workspace_path: Path) -> Optional[str]:
     return None
 
 
+def load_plugin_lists() -> Tuple[List[str], List[str]]:
+    """Load the list of supported and community plugins."""
+    supported_plugins = []
+    community_plugins = []
+    
+    try:
+        if Path("rhdh-supported-plugins.txt").exists():
+            with open("rhdh-supported-plugins.txt", 'r') as f:
+                supported_plugins = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+        
+        if Path("rhdh-community-plugins.txt").exists():
+            with open("rhdh-community-plugins.txt", 'r') as f:
+                community_plugins = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+    except Exception as e:
+        print(f"Error loading plugin lists: {e}", file=sys.stderr)
+        
+    return supported_plugins, community_plugins
+
+
+def check_support_status(plugin_path: str, workspace_name: str, supported_list: List[str], community_list: List[str]) -> str:
+    """
+    Check support status for a plugin.
+    Returns 'Supported', 'Community', or 'Unknown'
+    The path in the text files is typically <workspace-folder>/<plugin-path-from-workspace-root>
+    """
+    # Construct the full path as expected in the text files
+    # workspace_name is like "acr"
+    # plugin_path is like "plugins/acr" (relative to workspace root)
+    # Full path in text file: "acr/plugins/acr"
+    
+    # Handle potential leading slash or ./ in plugin_path
+    clean_plugin_path = plugin_path.lstrip('./').lstrip('/')
+    full_path = f"{workspace_name}/{clean_plugin_path}"
+    
+    if full_path in supported_list:
+        return "Supported"
+    if full_path in community_list:
+        return "Community"
+    
+    # Try without workspace prefix just in case
+    if clean_plugin_path in supported_list:
+        return "Supported"
+    if clean_plugin_path in community_list:
+        return "Community"
+        
+    return "Unknown"
+
+
 def count_additional_files(workspace_path: Path) -> Dict[str, int]:
     """Count additional configuration files in the workspace."""
     counts = {
@@ -254,12 +302,30 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             struct_icon = "🌳"
             struct_tooltip = "Monorepo (workspace-based)"
         
-        # Markdown link with tooltip: [icon](url "tooltip")
-        structure = f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")"
+        # Additional checks for icon badges
+        # Check for patches
+        has_patches = ws['additional_files']['patches'] > 0
+        # Check for overlays (plugin overlays)
+        has_overlays = ws['additional_files']['plugins'] > 0
+        
+        structure_badges = []
+        structure_badges.append(f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")")
+        
+        if has_patches:
+            structure_badges.append("🩹 Has patches")
+        if has_overlays:
+            structure_badges.append("🔄 Has overlays")
+            
+        structure = "<br>".join(structure_badges)
 
         # Workspace name - link to workspace in overlay repo
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
+
+        # Check for missing metadata
+        has_metadata = ws['additional_files']['metadata'] > 0
+        if not has_metadata:
+            workspace_name = f"🔴 {workspace_name}"
 
         # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
@@ -283,10 +349,23 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
 
         # Plugins List
-        # Format: <plugin packageName>@<plugin version>
+        # Format: <plugin packageName>@<plugin version> [Support Status]
         if ws['plugins']:
-            # Use <br> for line breaks within a table cell
-            plugins_list = "<br>".join([f"`{p}`" for p in ws['plugins']])
+            plugins_list_items = []
+            for p in ws['plugins']:
+                # p is now a dict with details, path, status
+                name_ver = p['details']
+                status = p['status']
+                
+                status_icon = ""
+                if status == "Supported":
+                    status_icon = "✅ Supported"
+                elif status == "Community":
+                    status_icon = "🤝 Community"
+                
+                plugins_list_items.append(f"`{name_ver}` {status_icon}")
+            
+            plugins_list = "<br>".join(plugins_list_items)
         else:
             plugins_list = "No plugins"
 
@@ -371,6 +450,10 @@ def main():
     workspace_names = get_workspace_list(workspaces_dir)
     print(f"Found {len(workspace_names)} workspaces")
     
+    # Load support lists
+    supported_plugins, community_plugins = load_plugin_lists()
+    print(f"Loaded {len(supported_plugins)} supported and {len(community_plugins)} community plugins")
+    
     # Collect data for each workspace
     workspaces_data = []
     
@@ -412,9 +495,24 @@ def main():
                 # However, in flat repos, the plugin path in plugins-list.yaml might be just "." or "plugins/x"
                 # We use it as is relative to repo root.
                 details = get_plugin_details(repo_url, commit_sha, plugin_path)
-                enhanced_plugins.append(details)
+                
+                # Check support status
+                support_status = check_support_status(plugin_path, ws_name, supported_plugins, community_plugins)
+                
+                enhanced_plugins.append({
+                    'details': details,
+                    'path': plugin_path,
+                    'status': support_status
+                })
         else:
-            enhanced_plugins = plugins
+            # If fetch fails or no repo info, create basic objects
+            for plugin_path in plugins:
+                support_status = check_support_status(plugin_path, ws_name, supported_plugins, community_plugins)
+                enhanced_plugins.append({
+                    'details': plugin_path,
+                    'path': plugin_path,
+                    'status': support_status
+                })
 
         # Count additional files
         additional_files = count_additional_files(ws_path)
