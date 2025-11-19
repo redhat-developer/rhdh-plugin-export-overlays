@@ -5,7 +5,8 @@ on:
     branches:
       - main
       - 'release-*'
-
+      - 'feature/RHIDP-9450'
+      
 permissions:
   contents: write
   pull-requests: read
