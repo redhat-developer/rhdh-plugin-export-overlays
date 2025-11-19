@@ -14,6 +14,7 @@ import sys
 import json
 import yaml
 import subprocess
+import requests
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone
@@ -86,6 +87,36 @@ def parse_plugins_list(workspace_path: Path) -> List[str]:
     except (yaml.YAMLError, IOError) as e:
         print(f"Error reading {plugins_file}: {e}", file=sys.stderr)
         return []
+
+
+def get_plugin_details(repo_url: str, commit_sha: str, plugin_path: str) -> str:
+    """
+    Fetch package.json to get plugin name and version.
+    Returns 'name@version' or just the path if fetch fails.
+    """
+    if not repo_url.startswith("https://github.com/"):
+        return plugin_path
+
+    repo_name = repo_url.replace("https://github.com/", "")
+    
+    # Use GitHub API to get raw content
+    api_url = f"https://api.github.com/repos/{repo_name}/contents/{plugin_path}/package.json"
+    headers = {
+        "Accept": "application/vnd.github.v3.raw",
+        "Authorization": f"token {os.getenv('GH_TOKEN', '')}"
+    }
+    
+    try:
+        response = requests.get(api_url, headers=headers, params={"ref": commit_sha}, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            name = data.get('name', 'unknown')
+            version = data.get('version', 'unknown')
+            return f"{name}@{version}"
+    except Exception as e:
+        print(f"Error fetching package.json for {plugin_path}: {e}", file=sys.stderr)
+    
+    return plugin_path
 
 
 def get_commit_details(repo_url: str, commit_sha: str) -> Tuple[str, str, str]:
@@ -209,15 +240,15 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Workspace | Source | Backstage Version | Plugins | Pending Updates |")
-    md.append("|-----------|--------|------------------|---------|----------------|")
+    md.append("| Workspace | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
+    md.append("|-----------|--------|-------------|------------------|---------|----------------|")
 
     for ws in workspaces_data:
         # Workspace name - link to workspace in overlay repo
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
 
-        # Source - repo@commit linking to source workspace or repo root for flat repos
+        # Source - repo@commit linking to source workspace
         if ws['repo_url'] and ws['commit_sha']:
             repo_name = ws['repo_url'].replace('https://github.com/', '')
             if ws['repo_flat']:
@@ -232,11 +263,17 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         else:
             source = "N/A"
 
+        # Commit Date
+        commit_date = ws['commit_date'] if ws['commit_date'] != "N/A" else ""
+
         # Backstage Version
         backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
 
-        # Plugins Count
-        plugins_count = f"{len(ws['plugins'])} plugins"
+        # Plugins List (formatted as list in cell)
+        if ws['plugins']:
+            plugins_list = "<br>".join([f"`{p}`" for p in ws['plugins']])
+        else:
+            plugins_list = "No plugins"
 
         # Pending PRs
         if ws['has_pending_prs']:
@@ -249,7 +286,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             pending_updates = "✅ No"
 
         # Add table row
-        md.append(f"| {workspace_name} | {source} | {backstage_version} | {plugins_count} | {pending_updates} |")
+        md.append(f"| {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
 
     md.append("")
     md.append("---")
@@ -351,6 +388,19 @@ def main():
         # Get Backstage version
         backstage_version = get_backstage_version(ws_path)
         
+        # Enhance plugin list with versions from package.json
+        enhanced_plugins = []
+        if repo_url and commit_sha:
+            print(f"  Fetching plugin details for {len(plugins)} plugins...")
+            for plugin_path in plugins:
+                # Fix path for flat repos if needed, but plugins-list usually has relative path from repo root
+                # However, in flat repos, the plugin path in plugins-list.yaml might be just "." or "plugins/x"
+                # We use it as is relative to repo root.
+                details = get_plugin_details(repo_url, commit_sha, plugin_path)
+                enhanced_plugins.append(details)
+        else:
+            enhanced_plugins = plugins
+
         # Count additional files
         additional_files = count_additional_files(ws_path)
         
@@ -366,7 +416,7 @@ def main():
             'commit_date': commit_date,
             'repo_flat': repo_flat,
             'backstage_version': backstage_version,
-            'plugins': plugins,
+            'plugins': enhanced_plugins,
             'additional_files': additional_files,
             'has_pending_prs': has_pending_prs,
             'pr_numbers': pr_numbers
