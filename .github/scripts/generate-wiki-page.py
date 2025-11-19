@@ -413,15 +413,15 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
 
                 # Define icon and tooltip based on status
                 if status == "Supported":
-                    # Red Hat Supported
-                    icon = "🔴"
+                    # Red Hat Supported - Use Green for positive status
+                    icon = "🟢"
                     tooltip = "Red Hat Supported"
                 elif status == "Community":
-                    # Community / Dev Preview
+                    # Community / Dev Preview - Use Yellow for caution/preview
                     icon = "🟡"
                     tooltip = "Community / Dev Preview"
                 else:
-                    # Pure Community / Unknown
+                    # Pure Community / Unknown - Neutral
                     icon = "▪️"
                     tooltip = "Community / Unknown"
 
