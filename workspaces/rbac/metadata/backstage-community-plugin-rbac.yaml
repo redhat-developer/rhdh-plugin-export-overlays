@@ -3,20 +3,19 @@ kind: Package
 metadata:
   name: backstage-community-plugin-rbac
   namespace: rhdh
-  title: "RBAC"
+  title: RBAC
   links:
-    - url: https://red.ht/rhdh
-      title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
-      title: Bugs
-    - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-rbac
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://issues.redhat.com/browse/RHIDP
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-rbac
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-rbac
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-rbac
   tags: []
 spec:
-  packageName: "@backstage-community/plugin-rbac"
+  packageName: '@backstage-community/plugin-rbac'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-rbac
   version: 1.45.1
   backstage:
@@ -26,23 +25,28 @@ spec:
   support: production
   lifecycle: active
   partOf:
-    - rbac
+  - rbac
   appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-rbac:
-              appIcons:
-                - name: rbacIcon
-                  importName: RbacIcon
-              dynamicRoutes:
-                - path: /rbac
-                  importName: RbacPage
-                  menuItem:
-                    icon: rbacIcon
-                    text: RBAC
-              menuItems:
-                rbac:
-                  parent: admin
-                  icon: rbacIcon
+  - title: Default configuration
+    content:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-rbac:
+            translationResources:
+            - importName: rbacTranslations
+              ref: rbacTranslationRef
+              module: Alpha
+            appIcons:
+            - name: rbacIcon
+              importName: RbacIcon
+            dynamicRoutes:
+            - path: /rbac
+              importName: RbacPage
+              menuItem:
+                icon: rbacIcon
+                text: RBAC
+                textKey: menuItem.rbac
+            menuItems:
+              rbac:
+                parent: default.admin
+                icon: rbacIcon
