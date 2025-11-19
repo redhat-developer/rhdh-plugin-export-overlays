@@ -240,10 +240,23 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Workspace | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
-    md.append("|-----------|--------|-------------|------------------|---------|----------------|")
+    md.append("| Type | Workspace | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
+    md.append("|:----:|-----------|--------|-------------|------------------|---------|----------------|")
 
     for ws in workspaces_data:
+        # Repo Structure Icon & Link
+        # 🌳 for Monorepo (workspace-based), 📄 for Flat (root-level plugins)
+        source_json_url = f"https://github.com/{os.getenv('REPO_NAME')}/blob/{branch_name}/workspaces/{ws['name']}/source.json"
+        if ws['repo_flat']:
+            struct_icon = "📄"
+            struct_tooltip = "Flat (root-level plugins)"
+        else:
+            struct_icon = "🌳"
+            struct_tooltip = "Monorepo (workspace-based)"
+        
+        # Markdown link with tooltip: [icon](url "tooltip")
+        structure = f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")"
+
         # Workspace name - link to workspace in overlay repo
         overlay_repo_url = f"https://github.com/{os.getenv('REPO_NAME')}/tree/{branch_name}/workspaces/{ws['name']}"
         workspace_name = f"[{ws['name']}]({overlay_repo_url})"
@@ -264,13 +277,15 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             source = "N/A"
 
         # Commit Date
-        commit_date = ws['commit_date'] if ws['commit_date'] != "N/A" else ""
+        commit_date = ws['commit_date'].split(' ')[0] if ws['commit_date'] != "N/A" else ""
 
         # Backstage Version
         backstage_version = f"`{ws['backstage_version']}`" if ws['backstage_version'] else "N/A"
 
-        # Plugins List (formatted as list in cell)
+        # Plugins List
+        # Format: <plugin packageName>@<plugin version>
         if ws['plugins']:
+            # Use <br> for line breaks within a table cell
             plugins_list = "<br>".join([f"`{p}`" for p in ws['plugins']])
         else:
             plugins_list = "No plugins"
@@ -286,7 +301,7 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             pending_updates = "✅ No"
 
         # Add table row
-        md.append(f"| {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
+        md.append(f"| {structure} | {workspace_name} | {source} | {commit_date} | {backstage_version} | {plugins_list} | {pending_updates} |")
 
     md.append("")
     md.append("---")
