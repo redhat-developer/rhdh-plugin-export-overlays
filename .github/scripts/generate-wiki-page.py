@@ -291,8 +291,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Type | Workspace | Metadata | Source | Commit Date | Backstage Version | Plugins | Pending Updates |")
-    md.append("|:----:|-----------|:--------:|--------|-------------|------------------|---------|----------------|")
+    md.append("| Type | Workspace | Metadata | Source | Commit Date | Backstage Version | Plugins |")
+    md.append("|:----:|-----------|:--------:|--------|-------------|------------------|---------|")
 
     for ws in workspaces_data:
         # Repo Structure Icon & Link
@@ -311,6 +311,9 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         # Check for overlays (plugin overlays)
         has_overlays = ws['additional_files']['plugins'] > 0
         
+        # Check for pending PRs
+        has_prs = ws['has_pending_prs']
+        
         structure_badges = []
         structure_badges.append(f"[{struct_icon}]({source_json_url} \"{struct_tooltip}\")")
         
@@ -318,6 +321,15 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
             structure_badges.append("🩹 Has patches")
         if has_overlays:
             structure_badges.append("🔄 Has overlays")
+        if has_prs:
+            # Add red warning icon with links to PRs
+            pr_links = []
+            for pr_num in ws['pr_numbers']:
+                pr_url = f"https://github.com/{os.getenv('REPO_NAME')}/pull/{pr_num}"
+                pr_links.append(f"[#{pr_num}]({pr_url})")
+            
+            pr_text = ", ".join(pr_links)
+            structure_badges.append(f"🚨 Pending PRs: {pr_text}")
             
         structure = "<br>".join(structure_badges)
 
