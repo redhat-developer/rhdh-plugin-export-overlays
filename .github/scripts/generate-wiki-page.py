@@ -318,8 +318,9 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
     # Workspace Table
     md.append("## Workspace Overview")
     md.append("")
-    md.append("| Type | Workspace | Source | Commit Date | Backstage Version | Plugins |")
-    md.append("|:----:|-----------|--------|-------------|------------------|---------|")
+    # Use shorter column headers and sub tags for compact display
+    md.append("| 🔍 | Workspace | Source | Date | Backstage | Plugins |")
+    md.append("|:----:|-----------|--------|------|-----------|---------|")
 
     for ws in workspaces_data:
         # Repo Structure Icon & Link
@@ -385,10 +386,13 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         else:
             source = "N/A"
 
-        # Commit Date
-        commit_date = ws['commit_date'].split(' ')[0] if ws['commit_date'] != "N/A" else ""
+        # Commit Date (use smaller text for compactness)
+        if ws['commit_date'] != "N/A":
+            commit_date = f"<sub>{ws['commit_date'].split(' ')[0]}</sub>"
+        else:
+            commit_date = ""
 
-        # Backstage Version (show source repo version, highlight overrides with color)
+        # Backstage Version (show source repo version, highlight overrides with warning icon)
         overlay_version = ws.get('overlay_backstage_version')
         source_version = ws.get('source_backstage_version')
         display_version = source_version or overlay_version
@@ -396,9 +400,9 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
         if display_version:
             # Check if there's an override
             if overlay_version and source_version and overlay_version != source_version:
-                # Override detected - show in orange/red with tooltip
+                # Override detected - show with warning icon and tooltip
                 tooltip = f"Overlay overrides upstream version {source_version} to {overlay_version}".replace('"', '&quot;')
-                backstage_version = f'<span style="color: #ff6b35;" title="{tooltip}">`{display_version}`</span>'
+                backstage_version = f'`{display_version}` <span title="{tooltip}">⚠️</span>'
             else:
                 # No override - normal display
                 backstage_version = f"`{display_version}`"
