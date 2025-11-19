@@ -358,18 +358,17 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
                 # p is now a dict with details, path, status
                 name_ver = p['details']
                 status = p['status']
-                
+
                 status_icon = ""
                 if status == "Supported":
                     status_icon = "✅ Supported"
                 elif status == "Community":
                     status_icon = "🤝 Community"
-                else:
-                    status_icon = "❓ Unknown"
-                
-                plugins_list_items.append(f"`{name_ver}` {status_icon}")
-            
-            plugins_list = "<br>".join(plugins_list_items)
+
+                plugins_list_items.append(f"`{name_ver}`{status_icon}")
+
+            # Use bullet points (•) for better visibility instead of <br>
+            plugins_list = " • ".join(plugins_list_items)
         else:
             plugins_list = "No plugins"
 
@@ -495,9 +494,6 @@ def main():
         if repo_url and commit_sha:
             print(f"  Fetching plugin details for {len(plugins)} plugins...")
             for plugin_path in plugins:
-                # Fix path for flat repos if needed, but plugins-list usually has relative path from repo root
-                # However, in flat repos, the plugin path in plugins-list.yaml might be just "." or "plugins/x"
-                # We use it as is relative to repo root.
                 details = get_plugin_details(repo_url, commit_sha, plugin_path)
                 
                 # Check support status
