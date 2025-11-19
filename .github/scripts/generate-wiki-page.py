@@ -367,8 +367,8 @@ def generate_markdown(branch_name: str, workspaces_data: List[Dict]) -> str:
 
                 plugins_list_items.append(f"`{name_ver}`{status_icon}")
 
-            # Use bullet points (•) for better visibility instead of <br>
-            plugins_list = " • ".join(plugins_list_items)
+            # Use line breaks with bullet points for better visibility
+            plugins_list = "<br>🔸 ".join([""] + plugins_list_items)
         else:
             plugins_list = "No plugins"
 
