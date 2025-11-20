@@ -1,0 +1,15 @@
+packageName: "@backstage-community/plugin-mcp-chat"
+support: tech-preview
+lifecycle: experimental
+configs:
+  default:
+    dynamicPlugins:
+      frontend:
+        backstage-community.plugin-mcp-chat:
+          dynamicRoutes:
+            - path: /mcp-chat
+              importName: McpChatPage
+              menuItem:
+                icon: MCPChatIcon
+                text: MCP Chat
+

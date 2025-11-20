@@ -1,13 +1,12 @@
 --- package.json
 +++ package.json
-@@ -35,8 +35,8 @@
+@@ -32,7 +32,8 @@
    "workspaces": {
      "packages": [
        "packages/*",
 -      "plugins/**",
--      "utils/**"
++      "plugins/*",
 +      "plugins/*/*",
-+      "utils/*/*"
+       "utils/**"
      ]
    },
-   "devDependencies": {
