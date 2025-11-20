@@ -1,0 +1,41 @@
+# RHDH Community-Supported plugin list
+# do not include plugins for which we never had wrappers / bundled the plugins in RHDH
+# NOTE: include one line per plugin following the format: <workspace-folder>/plugins/<plugin-folder>
+
+# confirmed Community @ 11/07 meeting
+3scale/plugins/3scale-backend
+azure-devops/plugins/azure-devops
+azure-devops/plugins/azure-devops-backend
+backstage/plugins/catalog-backend-module-bitbucket-cloud
+backstage/plugins/catalog-backend-module-bitbucket-server
+backstage/plugins/scaffolder-backend-module-bitbucket-cloud
+backstage/plugins/scaffolder-backend-module-bitbucket-server
+backstage/plugins/scaffolder-backend-module-gerrit
+lighthouse/plugins/lighthouse
+pagerduty/plugins/backstage-plugin
+pagerduty/plugins/backstage-plugin-backend
+scaffolder-backend-module-sonarqube/plugins/scaffolder-backend-module-sonarqube
+roadie-backstage-plugins/plugins/frontend/backstage-plugin-datadog
+roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
+roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
+
+# confirmed Community @ 11/07 meeting
+# @parfuemerie-douglas/scaffolder-backend-module-azure-repositories
+scaffolder-backend-module-azure-repositories/.
+
+# confirmed Community @ 11/07 meeting
+# @immobiliarelabs/backstage-plugin-gitlab*
+gitlab/packages/gitlab
+gitlab/packages/gitlab-backend
+
+# confirmed Community @ 11/07 meeting; the commercial ones are NOT exported from this repo (only in catalog entities by 3rd party vendor!)
+dynatrace/plugins/dynatrace
+
+### -----------??? see https://docs.google.com/spreadsheets/d/1xWOPmMNl0sF2vtkg1oDFZshpcAH81FryHanhTqLLIY4/edit?gid=610086571#gid=610086571
+
+# confirmed Community @ 11/07 meeting for 1.10 (but not 1.9?); to be confirmed at 11/21 meeting
+jenkins/plugins/jenkins
+jenkins/plugins/jenkins-backend
+
+# might be GA because other ArgoCD plugins are GA; to be confirmed at 11/21 meeting
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd

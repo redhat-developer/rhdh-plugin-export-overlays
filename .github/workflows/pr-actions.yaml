@@ -32,6 +32,15 @@ jobs:
               core.setFailed(errorMsg);
               return;
             }
+            if (matchingCommands.length === 0) {
+              core.notice('No command found in comment – cancelling workflow run');
+              await github.rest.actions.cancelWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              return;
+            }
             
             const firstMatching = matchingCommands[0] || '';
             core.setOutput('command_name', firstMatching.startsWith('/') ? firstMatching.slice(1) : firstMatching);
@@ -197,26 +206,65 @@ jobs:
     if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
     runs-on: ubuntu-latest
     steps:
-      - name: Write published exports and meta
+      - name: Write and stage meta.json
         env:
-          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
           OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         run: |
           mkdir -p published-exports
-          printf "%s\n" "$PUBLISHED_EXPORTS" > published-exports/published-exports.txt
           cat > published-exports/meta.json <<EOF
-          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${{ needs.prepare.outputs.overlay-commit }}","pr":${PR_NUMBER}}
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
           EOF
+      - name: Stage published exports content
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+        run: |
+          printf "%s\n" "$PUBLISHED_EXPORTS" > published-exports/published-exports.txt
       - name: Upload published-exports artifact
         uses: actions/upload-artifact@v4
         with:
           name: published-exports
-          path: published-exports
+          path: published-exports/
           if-no-files-found: error
           retention-days: 7
+      - name: Upload context artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-${{ github.run_id }}
+          path: published-exports/meta.json
+          if-no-files-found: error
+          retention-days: 1
+
+  create_test_context:
+    name: Create Test Context
+    needs:
+      - parse
+      - prepare
+    if: needs.parse.outputs.command_name == 'test' && needs.prepare.outputs.pr-number != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write meta.json for test context
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+        run: |
+          mkdir -p context
+          cat > context/meta.json <<EOF
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          EOF
+      - name: Upload test-context artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-${{ github.run_id }}
+          path: context/meta.json
+          if-no-files-found: error
+          retention-days: 1
 
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
@@ -255,6 +303,13 @@ jobs:
     if: always() && needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
+      - name: Download compatibility report
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: backstage-compatibility-report
+          path: ./
+
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
@@ -264,6 +319,7 @@ jobs:
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
         with:
           script: |
+            const fs = require('fs');
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -290,6 +346,14 @@ jobs:
             });
 
             let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
+            
+            // Check for compatibility report
+            const reportPath = 'backstage-compatibility-report.md';
+            if (fs.existsSync(reportPath)) {
+              const reportContent = fs.readFileSync(reportPath, 'utf8');
+              body = `${body}\n\n${reportContent}`;
+            }
+            
             const publishedExports = core.getMultilineInput('published_exports');
             if (publishedExports.length > 0) {
               body = `${body}\n- Published container images:`;

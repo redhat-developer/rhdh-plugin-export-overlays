@@ -1,0 +1,10 @@
+--- package.json
++++ package.json
+@@ -1,6 +1,7 @@
+ {
+   "name": "apic-backstage",
+   "version": "1.0.1",
++  "private": true,
+   "workspaces": [
+     "plugins/*"
+   ],

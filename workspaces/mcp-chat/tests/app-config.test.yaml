@@ -1,0 +1,30 @@
+# Test configuration for MCP Chat workspace
+# This configuration is used during integration testing
+#
+# Note: Actual API tokens should be provided via GitHub Secrets
+# during the CI/CD pipeline execution, not committed to the repository
+
+app:
+  title: Backstage Test App (MCP Chat)
+
+# MCP Chat test configuration with minimal setup for plugin loading tests
+# The backend will use environment variables for actual API keys when available
+mcpChat:
+  providers:
+    - id: openai
+      token: ${OPENAI_API_KEY:-dummy-token-for-testing}
+      model: gpt-4o-mini
+  
+  # No MCP servers configured for basic loading tests
+  mcpServers: []
+  
+  # Test-specific system prompt
+  systemPrompt: "You are a helpful test assistant."
+  
+  # Simplified quick prompts for testing
+  quickPrompts:
+    - title: 'Test Query'
+      description: 'A simple test query'
+      prompt: 'Hello, this is a test'
+      category: Test
+

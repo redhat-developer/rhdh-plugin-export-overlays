@@ -31,6 +31,12 @@ on:
         required: false
         default: ""
 
+      pr-to-update:
+        description: optional PR number of a PR to update
+        type: string
+        required: false
+        default: ""
+
       verbose:
         description: enable verbose logs
         type: boolean
@@ -157,7 +163,7 @@ jobs:
       pr-to-update: ${{ inputs.pr-to-update }}
       overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
-      single-branch: ${{ inputs.single-branch }}
+      single-branch: ${{ inputs.single-branch }}      
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
       allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}      
