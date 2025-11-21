@@ -2,17 +2,17 @@
 
 ## Working with Plugin Folders & Files
 
-Packages are not located in this file tree, but are instead co-located under the `workspaces/*/metadata/` folders. 
+Packages are not located in this file tree, but are instead co-located under the `workspaces/*/metadata/` folders.
 
-Content will be merged from those folders into this folder when reassembling the complete marketplace entities in the plugin catalog index image. 
+Content will be merged from those folders into this folder when reassembling the complete marketplace entities in the plugin catalog index image.
 
-The latest of these index images will be published to quay. For example, see https://quay.io/rhdh/plugin-catalog-index
+The latest of these index images will be published to quay. For example, see <https://quay.io/rhdh/plugin-catalog-index>
 
 Below are some practical instructions that might help you in the process of creating and updating plugins and packages for use in the RHDH Extensions catalog plugin.
 
 ## `packages/`
 
-Packages describe the frontend and backend packages that form part of a plugin. The packages folder contains the individual `package.yaml` files where you can set various details about your plugin packages. For an example, see the 3scale package details in `packages/backstage-community-plugin-3scale-backend.yaml`
+Packages describe the frontend and backend packages that form part of a plugin. The packages folder contains the individual `package.yaml` files where you can set various details about your plugin packages. For example, see the 3scale package details in `packages/backstage-community-plugin-3scale-backend.yaml`
 
 ```yaml
 apiVersion: extensions.backstage.io/v1alpha1
@@ -20,7 +20,7 @@ kind: Package # Important to set the kind
 metadata:
   name: backstage-community-plugin-3scale-backend # This name is important - it provides a linkage from the plugin record
   namespace: rhdh # This plugin package is built by us and provided in RHDH
-  title: "@backstage-community/plugin-3scale-backend"
+  title: '@backstage-community/plugin-3scale-backend'
   links: # Links to useful sources etc.
     - url: https://red.ht/rhdh
       title: Homepage
@@ -33,7 +33,7 @@ metadata:
       https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
   tags: []
 spec: # Custom information processed by the Extensions plugin
-  packageName: "@backstage-community/plugin-3scale-backend"
+  packageName: '@backstage-community/plugin-3scale-backend'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-3scale-backend-dynamic
   version: 3.2.0 # The plugin version
   backstage:
@@ -55,14 +55,13 @@ spec: # Custom information processed by the Extensions plugin
                 accessToken: ${THREESCALE_ACCESS_TOKEN}
 ```
 
-
 ## `packages/all.yaml`
 
 You **must** add your package yaml file to the list in the `packages/all.yaml` file to get it picked up by RHDH and loaded into the catalog. To check if it's loading, check the catalog.
 
 ## `plugins/`
 
-The files in the `plugins` folder describe the plugins themselves. The plugins folder contains the individual `plugin.yaml` files where you can set various details about your plugin - many of which appear on screen in RHDH in the "Extensions" catalog tab. For an example, see the 3scale package details in `plugins/3scale.yaml`.
+The files in the `plugins` folder describe the plugins themselves. The plugins folder contains the individual `plugin.yaml` files where you can set various details about your plugin - many of which appear on screen in RHDH in the "Extensions" catalog tab. For example, see the 3scale package details in `plugins/3scale.yaml`.
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
@@ -94,9 +93,9 @@ spec: # Custom information processed by the Extensions plugin
   author: Red Hat # The Author of the plugin
   support: tech-preview # The Red Hat release status of the plugin
   lifecycle: active # The backstage lifecycle stage of the plugin
-  publisher: Red Hat # Used to collect together plugins by the same author and display an extra line on the tile e/g/ "By Red Hat"
+  publisher: Red Hat # Used to collect together plugins by the same author and display an extra line on the tile e.g. "By Red Hat"
 
-  # The long description below is used in the Extension plugin's "Expanded Info" view as the plugin's long description. You should include information here about the the purpose of the plugin and how it integrates with RHDH. The description here uses Markdown fomat, but DON'T include images - they won't load if you do.
+  # The long description below is used in the Extension plugin's "Expanded Info" view as the plugin's long description. You should include information here about the purpose of the plugin and how it integrates with RHDH. The description here uses Markdown format, but DON'T include images - they won't load if you do.
   description: |
     The 3scale Backstage plugin...
     (add further text here to really describe to the user what your plugin is for and how it integrates with RHDH's frontend/backend).
@@ -122,7 +121,7 @@ spec: # Custom information processed by the Extensions plugin
     etc...
 
   # By linking to packages you enable the "Versions" section in the expanded information view
-  packages: # Links to the pacjage name you set in the packages for this plugin
+  packages: # Links to the package name you set in the packages for this plugin
     - backstage-community-plugin-3scale-backend
 
   # unused at the moment, but could allow for an image carousel later
@@ -142,7 +141,6 @@ spec: # Custom information processed by the Extensions plugin
 ## `plugins/all.yaml`
 
 You **must** add your plugin yaml file to the list in the `plugins/all.yaml` file to get it picked up by RHDH and loaded into the catalog. To check if it's loading, check the catalog.
-
 
 # Using RHDH-local
 
@@ -192,7 +190,7 @@ Some issues you may encounter and how to get around them.
 
 Because Backstage doesn't remove catalog entries when the source changes, sometimes you will end up with duplicates. For example
 if you rename a plugin file, you may end up with the old catalog entry sticking around. To fix this you need to purge the
-backstage database. If running the in-memory database, this is easily acheived by restarting the container:
+backstage database. If running the in-memory database, this is easily achieved by restarting the container:
 
 ```bash
 docker compose restart rhdh # or podman-compose restart rhdh
@@ -201,7 +199,7 @@ docker compose restart rhdh # or podman-compose restart rhdh
 ### Catalog stops loading or refreshing
 
 Sometimes you might make a mistake with a plugin yaml file. If that happens you can use commenting of lines in the `plugins/all.yaml`
-to stop certain plugins from being loaded into the catalog. You can allso search for `all.yaml` in the RHDH logs to see if you can
+to stop certain plugins from being loaded into the catalog. You can also search for `all.yaml` in the RHDH logs to see if you can
 find a clue as to what caused the catalog entries to stop loading. For example:
 
 ```bash
@@ -223,11 +221,10 @@ You can trace packages back to plugin entries using the VS Code "Find In Folder.
 If you do not find a plugin.yaml associated with this plugin ID then it is probably missing and you need to create one. The
 file `1boilerplate.yaml` has a good starting point for creating these files.
 
+## Important Notes
 
-## Important Notes:
-
-* Plugins are manually created
-* Packages are generated with the command below
+- Plugins are manually created
+- Packages are generated with the command below
 
 ```bash
 # in rhdh root
