@@ -3,21 +3,20 @@ kind: Package
 metadata:
   name: backstage-plugin-catalog-backend-module-ldap
   namespace: rhdh
-  title: "Catalog Backend Module LDAP"
+  title: Catalog Backend Module LDAP
   links:
-    - url: https://red.ht/rhdh
-      title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
-      title: Bugs
-    - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-catalog-backend-module-ldap-dynamic
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://issues.redhat.com/browse/RHIDP
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-catalog-backend-module-ldap-dynamic
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-catalog-backend-module-ldap-dynamic
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-catalog-backend-module-ldap-dynamic
   tags:
-    - software-catalog
+  - software-catalog
 spec:
-  packageName: "@backstage/plugin-catalog-backend-module-ldap"
+  packageName: '@backstage/plugin-catalog-backend-module-ldap'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
   version: 0.11.8
   backstage:
@@ -27,10 +26,30 @@ spec:
   support: production
   lifecycle: active
   partOf:
-    - ldap-catalog-integration
+  - ldap-catalog-integration
   appConfigExamples:
-    - title: Default configuration
-      content:
-        catalog:
-          providers:
-            ldapOrg: {}
+  - title: Default configuration
+    content:
+      catalog:
+        providers:
+          ldapOrg:
+            default:
+              target: ${LDAP_TARGET_URL}
+              bind:
+                dn: ${LDAP_BIND_DN}
+                secret: ${LDAP_BIND_SECRET}
+              users:
+              - dn: ${LDAP_USERS_DN}
+                options:
+                  filter: (uid=*)
+              groups:
+              - dn: ${LDAP_GROUPS_DN}
+                options:
+                  filter: (cn=*)
+              schedule:
+                frequency:
+                  minutes: 60
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 15

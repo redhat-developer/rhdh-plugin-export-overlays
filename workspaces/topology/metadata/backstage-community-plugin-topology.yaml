@@ -3,20 +3,19 @@ kind: Package
 metadata:
   name: backstage-community-plugin-topology
   namespace: rhdh
-  title: "Topology"
+  title: Topology
   links:
-    - url: https://red.ht/rhdh
-      title: Homepage
-    - url: https://github.com/janus-idp/backstage-plugins/issues
-      title: Bugs
-    - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://github.com/janus-idp/backstage-plugins/issues
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
   tags: []
 spec:
-  packageName: "@backstage-community/plugin-topology"
+  packageName: '@backstage-community/plugin-topology'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-topology
   version: 2.7.0
   backstage:
@@ -26,21 +25,25 @@ spec:
   support: production
   lifecycle: active
   partOf:
-    - topology
+  - topology
   appConfigExamples:
-    - title: Default configuration
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-topology:
-              mountPoints:
-                - mountPoint: entity.page.topology/cards
-                  importName: TopologyPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                      height: 75vh
-                    if:
-                      anyOf:
-                        - hasAnnotation: backstage.io/kubernetes-id
-                        - hasAnnotation: backstage.io/kubernetes-namespace
+  - title: Default configuration
+    content:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-topology:
+            translationResources:
+            - importName: topologyTranslations
+              ref: topologyTranslationRef
+              module: Alpha
+            mountPoints:
+            - mountPoint: entity.page.topology/cards
+              importName: TopologyPage
+              config:
+                layout:
+                  gridColumn: 1 / -1
+                  height: 75vh
+                if:
+                  anyOf:
+                  - hasAnnotation: backstage.io/kubernetes-id
+                  - hasAnnotation: backstage.io/kubernetes-namespace
