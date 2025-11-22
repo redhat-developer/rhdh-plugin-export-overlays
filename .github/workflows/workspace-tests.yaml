@@ -90,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       plugins_metadata_complete: ${{ steps.build-dynamic-plugins.outputs.plugins_metadata_complete }}
+      skip_tests_missing_env: ${{ steps.build-dynamic-plugins.outputs.skip_tests_missing_env }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,12 +107,15 @@ jobs:
           WORKSPACE_PATH="${{ needs.resolve.outputs.workspace }}"
           PUBLISHED_EXPORTS="${{ needs.resolve.outputs.publishedExports }}"
           PLUGINS_FOUND=0
+          PLUGINS_SKIPPED_MISSING_ENV=0
           TOTAL_PLUGINS=0
           PLUGINS_METADATA_COMPLETE="false"
+          SKIP_TESTS_MISSING_ENV="false"
 
           if [ -z "$PUBLISHED_EXPORTS" ]; then
             echo "No published exports provided."
             echo "plugins_metadata_complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+            echo "skip_tests_missing_env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -128,8 +132,8 @@ jobs:
           declare -A META_MAP
           for file in "$WORKSPACE_PATH"/metadata/*.yaml; do
             [ -e "$file" ] || continue
-            pkg=$(yq -r '.packageName // ""' "$file")
-            if [ -n "$pkg" ]; then
+            pkg=$(yq -r '.spec.packageName // ""' "$file")
+            if [ -n "$pkg" ] && [ "$pkg" != "null" ]; then
               stripped=$(echo "$pkg" | sed 's|^@||; s|/|-|')
               META_MAP["$stripped"]="$file"
             fi
@@ -138,6 +142,16 @@ jobs:
           # Always include the root-level default config
           ROOT_CONFIG="$GITHUB_WORKSPACE/tests/app-config.yaml"
           [ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
+          
+          # Read workspace-wide test.env if it exists
+          WORKSPACE_ENV_FILE="$WORKSPACE_PATH/tests/test.env"
+          WORKSPACE_ENV_CONTENT=""
+          if [ -f "$WORKSPACE_ENV_FILE" ]; then
+            echo "Found workspace test.env file: $WORKSPACE_ENV_FILE"
+            WORKSPACE_ENV_CONTENT=$(cat "$WORKSPACE_ENV_FILE")
+          else
+            echo "No workspace test.env file found at: $WORKSPACE_ENV_FILE"
+          fi
 
           # Start the resulting YAML file
           echo "plugins:" > "$OUT_FILE"
@@ -155,24 +169,62 @@ jobs:
                 continue
               fi
 
-              PACKAGE_NAME=$(yq -r '.packageName' "$METADATA_FILE")
+              PACKAGE_NAME=$(yq -r '.spec.packageName' "$METADATA_FILE")
               if [ -z "$PACKAGE_NAME" ] || [ "$PACKAGE_NAME" = "null" ]; then
-                echo "packageName not found in $METADATA_FILE, skipping"
+                echo "spec.packageName not found in $METADATA_FILE, skipping"
                 continue
               fi
 
-              # Extract plugin config block under configs.default
-              if ! yq -e '.configs.default' "$METADATA_FILE" >/dev/null 2>&1; then
-                echo "configs.default not found in $METADATA_FILE, skipping"
+              # Extract plugin config block from first appConfigExamples item
+              if ! yq -e '.spec.appConfigExamples[0].content' "$METADATA_FILE" >/dev/null 2>&1; then
+                echo "spec.appConfigExamples[0].content not found in $METADATA_FILE, skipping"
                 continue
               fi
+
+              # Extract config content for environment variable validation
+              CONFIG_CONTENT=$(yq -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE")
+              
+              # Extract dynamicPlugins section for environment variable checking
+              DYNAMIC_PLUGINS_CONFIG=$(yq -o=yaml '.spec.appConfigExamples[0].content.dynamicPlugins' "$METADATA_FILE" 2>/dev/null || echo "")
+              
+              # Extract environment variables from dynamicPlugins config (pattern: ${VAR} or $VAR)
+              ENV_VARS=""
+              if [ -n "$DYNAMIC_PLUGINS_CONFIG" ] && [ "$DYNAMIC_PLUGINS_CONFIG" != "null" ]; then
+                ENV_VARS=$(echo "$DYNAMIC_PLUGINS_CONFIG" | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u)
+              fi
+              
+              if [ -n "$ENV_VARS" ]; then
+                # Config contains environment variables
+                if [ -z "$WORKSPACE_ENV_CONTENT" ]; then
+                  echo "  ::warning::Config for $PLUGIN_NAME contains environment variables but workspace test.env is missing. Tests will be skipped."
+                  SKIP_TESTS_MISSING_ENV="true"
+                  PLUGINS_SKIPPED_MISSING_ENV=$((PLUGINS_SKIPPED_MISSING_ENV + 1))
+                  continue
+                else
+                  # Validate all ENVs are present in merged env file
+                  MISSING_ENVS=()
+                  while IFS= read -r env_var; do
+                    [ -z "$env_var" ] && continue
+                    if ! echo "$WORKSPACE_ENV_CONTENT" | grep -qE "^[[:space:]]*${env_var}[[:space:]]*="; then
+                      MISSING_ENVS+=("$env_var")
+                    fi
+                  done <<< "$ENV_VARS"
+                  
+                  if [ ${#MISSING_ENVS[@]} -gt 0 ]; then
+                    echo "  ::error::Environment variables missing from test.env: ${MISSING_ENVS[*]}"
+                    echo "  Config for $PLUGIN_NAME references these environment variables but they are not defined in $WORKSPACE_ENV_FILE."
+                    exit 1
+                  fi
+                fi
+              fi
+              # If no ENVs in config, continue regardless of env file existence
 
               STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
               echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${STRIPPED}\"" >> "$OUT_FILE"
               echo "  disabled: false" >> "$OUT_FILE"
               echo "  pluginConfig:" >> "$OUT_FILE"
-              # Append the configs.default block indented by 4 spaces under pluginConfig
-              yq -o=yaml '.configs.default' "$METADATA_FILE" | sed 's/^/    /' >> "$OUT_FILE"
+              # Append the first appConfigExamples content block indented by 4 spaces under pluginConfig
+              echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
               PLUGINS_FOUND=$((PLUGINS_FOUND + 1))
             else
               echo "Export did not match expected format, skipping: $export"
@@ -183,11 +235,26 @@ jobs:
             echo "[]" >> "$OUT_FILE"
           fi
 
-          if [ "$PLUGINS_FOUND" -eq "$TOTAL_PLUGINS" ] && [ "$TOTAL_PLUGINS" -gt 0 ]; then
+          # Check if all plugins were found (including those skipped due to missing env)
+          TOTAL_PROCESSED=$((PLUGINS_FOUND + PLUGINS_SKIPPED_MISSING_ENV))
+          echo ""
+          echo "=== Environment Variable Validation Summary ==="
+          echo "Total plugins: $TOTAL_PLUGINS"
+          echo "Plugins processed successfully: $PLUGINS_FOUND"
+          if [ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ]; then
+            echo "Plugins skipped (missing workspace test.env file): $PLUGINS_SKIPPED_MISSING_ENV"
+          fi
+          if [ "$SKIP_TESTS_MISSING_ENV" = "true" ]; then
+            echo "Tests will be skipped due to missing workspace test.env file"
+          fi
+          echo "================================================"
+          
+          if [ "$TOTAL_PROCESSED" -eq "$TOTAL_PLUGINS" ] && [ "$TOTAL_PLUGINS" -gt 0 ]; then
             PLUGINS_METADATA_COMPLETE="true"
           fi
 
           echo "plugins_metadata_complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+          echo "skip_tests_missing_env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
 
       - name: Upload integration-test artefact
         uses: actions/upload-artifact@v4
@@ -200,13 +267,13 @@ jobs:
     needs:
       - resolve
       - prepare-test-config
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' }}
+    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
     with:
       workspace-path: ${{ needs.resolve.outputs.workspace }}
 
   add-skipped-test-comment:
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'false' && needs.resolve.outputs.prNumber != 'null' }}
+    if: ${{ (needs.prepare-test-config.outputs.plugins_metadata_complete == 'false' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true') && needs.resolve.outputs.prNumber != 'null' }}
     needs:
       - resolve
       - prepare-test-config
@@ -217,6 +284,8 @@ jobs:
     steps:
       - name: Post skipped-test comment
         uses: actions/github-script@v7
+        env:
+          SKIP_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env }}
         with:
           script: |
             const pr = Number('${{ needs.resolve.outputs.prNumber }}');
@@ -225,7 +294,13 @@ jobs:
               return;
             }
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin metadata files (\`<workspace>/metadata/*.yaml\`) were not found.\n\nAdd the corresponding metadata files to enable testing for this workspace.\n`;
+            const skipMissingEnv = process.env.SKIP_MISSING_ENV === 'true';
+            let body;
+            if (skipMissingEnv) {
+              body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin configurations contain environment variables but the workspace \`tests/test.env\` file is missing.\n\nAdd the required \`test.env\` file to enable testing for this workspace.\n`;
+            } else {
+              body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin metadata files (\`<workspace>/metadata/*.yaml\`) were not found.\n\nAdd the corresponding metadata files to enable testing for this workspace.\n`;
+            }
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -234,7 +309,7 @@ jobs:
             });
 
   add-test-result-comment:
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' }}
+    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
