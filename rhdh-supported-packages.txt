@@ -31,7 +31,7 @@ marketplace/plugins/catalog-backend-module-marketplace
 marketplace/plugins/marketplace
 marketplace/plugins/marketplace-backend
 
-# deprecated in 1.8
+# deprecated in 1.8 - remove in 1.9 or 1.10
 ocm/plugins/ocm
 ocm/plugins/ocm-backend
 
@@ -51,9 +51,6 @@ scaffolder-backend-module-kubernetes/plugins/kubernetes-actions
 scaffolder-backend-module-regex/plugins/regex-actions
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 
-# confirmed GA for 1.9
-tech-radar/plugins/tech-radar-backend
-
 tekton/plugins/tekton
 
 topology/plugins/topology
@@ -70,13 +67,9 @@ backstage/plugins/scaffolder-backend-module-gitlab
 
 # heading to GA per 11/12 meeting
 pingidentity/plugins/catalog-backend-module-pingidentity
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-http-request
 scaffolder-relation-processor/plugins/catalog-backend-module-scaffolder-relation-processor
 
-### -----------??? see https://docs.google.com/spreadsheets/d/1xWOPmMNl0sF2vtkg1oDFZshpcAH81FryHanhTqLLIY4/edit?gid=610086571#gid=610086571
-
-
-
-
-# might go back to community; to be confirmed at 11/21 meeting
+# heading to GA per 11/21 meeting
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-http-request
 tech-radar/plugins/tech-radar
+tech-radar/plugins/tech-radar-backend
