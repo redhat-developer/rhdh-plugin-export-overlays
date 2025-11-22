@@ -1,5 +1,6 @@
-# RHDH Supported (TP or GA) plugin list
-# NOTE: include one line per plugin following the format: <workspace-folder>/plugins/<plugin-folder>
+# RHDH Supported (GA; or TP heading to GA) package list
+# do not include package for which we never had wrappers / bundled the package in RHDH
+# NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 acr/plugins/acr
 
