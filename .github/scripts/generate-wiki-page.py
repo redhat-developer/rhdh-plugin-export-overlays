@@ -165,7 +165,7 @@ def check_pending_prs(workspace_name: str, repo_name: str, target_branch: str) -
     Filters by:
     - Base branch (target_branch)
     - Files touching the workspace path
-    - Labels: workspace_addition or workspace_update
+    - Labels: workspace_update
     Returns (has_pending, [pr_numbers])
     """
     workspace_path = f"workspaces/{workspace_name}"

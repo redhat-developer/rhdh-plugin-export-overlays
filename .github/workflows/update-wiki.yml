@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'release-*'
+      - 'feature/RHIDP-9450'
       
 permissions:
   contents: write
@@ -15,16 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
-          python-version: '3.11'
+          node-version: '24'
+
 
       - name: Install dependencies
         run: |
-          pip install pyyaml requests
+          npm install @octokit/rest js-yaml
 
       - name: Get branch name
         id: branch
@@ -42,7 +44,7 @@ jobs:
           BRANCH_NAME: ${{ steps.branch.outputs.name }}
           REPO_NAME: redhat-developer/rhdh-plugin-export-overlays
         run: |
-          python .github/scripts/generate-wiki-page.py
+          node .github/scripts/generate-wiki-page.js
 
       - name: Checkout wiki repository
         uses: actions/checkout@v4
