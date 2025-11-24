@@ -1,0 +1,10 @@
+# Tech Preview packages which will eventually go GA but for now we keep as wrappers until we have a GA plan
+# do not include package for which we never had wrappers / bundled the package in RHDH
+# NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
+
+backstage/plugins/kubernetes
+backstage/plugins/notifications-backend-module-email
+backstage/plugins/signals
+backstage/plugins/scaffolder-backend-module-github
+bulk-import/plugins/bulk-import
+bulk-import/plugins/bulk-import-backend

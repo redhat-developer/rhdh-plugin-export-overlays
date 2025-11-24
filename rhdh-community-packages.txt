@@ -1,6 +1,6 @@
-# RHDH Community-Supported plugin list
-# do not include plugins for which we never had wrappers / bundled the plugins in RHDH
-# NOTE: include one line per plugin following the format: <workspace-folder>/plugins/<plugin-folder>
+# RHDH Community-Supported package list
+# do not include package for which we never had wrappers / bundled the package in RHDH
+# NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 # confirmed Community @ 11/07 meeting
 3scale/plugins/3scale-backend
@@ -31,11 +31,17 @@ gitlab/packages/gitlab-backend
 # confirmed Community @ 11/07 meeting; the commercial ones are NOT exported from this repo (only in catalog entities by 3rd party vendor!)
 dynatrace/plugins/dynatrace
 
-### -----------??? see https://docs.google.com/spreadsheets/d/1xWOPmMNl0sF2vtkg1oDFZshpcAH81FryHanhTqLLIY4/edit?gid=610086571#gid=610086571
-
-# confirmed Community @ 11/07 meeting for 1.10 (but not 1.9?); to be confirmed at 11/21 meeting
+# confirmed Community @ 11/21 meeting
 jenkins/plugins/jenkins
 jenkins/plugins/jenkins-backend
-
-# might be GA because other ArgoCD plugins are GA; to be confirmed at 11/21 meeting
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
+sonarqube/plugins/sonarqube
+sonarqube/plugins/sonarqube-backend
+github-actions/plugins/github-actions
+github-issues/plugins/github-issues
+backstage/plugins/scaffolder-backend-module-azure
+roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-insights
+roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-pull-requests
+jfrog-artifactory/plugins/jfrog-artifactory
+nexus-repository-manager/plugins/nexus-repository-manager
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils

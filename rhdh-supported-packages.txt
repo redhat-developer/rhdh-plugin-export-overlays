@@ -1,5 +1,6 @@
-# RHDH Supported (TP or GA) plugin list
-# NOTE: include one line per plugin following the format: <workspace-folder>/plugins/<plugin-folder>
+# RHDH Supported (GA; or TP heading to GA) package list
+# do not include package for which we never had wrappers / bundled the package in RHDH
+# NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 acr/plugins/acr
 
@@ -15,25 +16,15 @@ backstage/plugins/catalog-backend-module-ldap
 backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
-backstage/plugins/notifications-backend-module-email
-backstage/plugins/scaffolder-backend-module-github
-
-backstage/plugins/signals
 backstage/plugins/signals-backend
-
 backstage/plugins/techdocs
 backstage/plugins/techdocs-backend
 backstage/plugins/techdocs-module-addons-contrib
-
-bulk-import/plugins/bulk-import
-bulk-import/plugins/bulk-import-backend
 
 global-floating-action-button/plugins/global-floating-action-button
 global-header/plugins/global-header
 
 homepage/plugins/dynamic-home-page
-
-jfrog-artifactory/plugins/jfrog-artifactory
 
 keycloak/plugins/catalog-backend-module-keycloak
 
@@ -41,9 +32,7 @@ marketplace/plugins/catalog-backend-module-marketplace
 marketplace/plugins/marketplace
 marketplace/plugins/marketplace-backend
 
-nexus-repository-manager/plugins/nexus-repository-manager
-
-# deprecated in 1.8
+# deprecated in 1.8 - remove in 1.9 or 1.10
 ocm/plugins/ocm
 ocm/plugins/ocm-backend
 
@@ -63,8 +52,6 @@ scaffolder-backend-module-kubernetes/plugins/kubernetes-actions
 scaffolder-backend-module-regex/plugins/regex-actions
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 
-tech-radar/plugins/tech-radar-backend
-
 tekton/plugins/tekton
 
 topology/plugins/topology
@@ -80,28 +67,10 @@ backstage/plugins/catalog-backend-module-gitlab-org
 backstage/plugins/scaffolder-backend-module-gitlab
 
 # heading to GA per 11/12 meeting
-backstage/plugins/kubernetes
 pingidentity/plugins/catalog-backend-module-pingidentity
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-pull-requests
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-http-request
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils
 scaffolder-relation-processor/plugins/catalog-backend-module-scaffolder-relation-processor
 
-### -----------??? see https://docs.google.com/spreadsheets/d/1xWOPmMNl0sF2vtkg1oDFZshpcAH81FryHanhTqLLIY4/edit?gid=610086571#gid=610086571
-
-# remain TP despite no path to GA by 1.10; to be confirmed at 11/21 meeting
-sonarqube/plugins/sonarqube
-sonarqube/plugins/sonarqube-backend
-
-# likely heading to GA; to be confirmed at 11/21 meeting
-github-actions/plugins/github-actions
-github-issues/plugins/github-issues
-
-# other Azure stuff has moved to Community, why not zoidberg? to be confirmed at 11/21 meeting
-backstage/plugins/scaffolder-backend-module-azure
-
-# might go back to community or stay on path to GA because it's GH-related; to be confirmed at 11/21 meeting
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-insights
-
-# might go back to community; to be confirmed at 11/21 meeting
+# heading to GA per 11/21 meeting
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-http-request
 tech-radar/plugins/tech-radar
+tech-radar/plugins/tech-radar-backend

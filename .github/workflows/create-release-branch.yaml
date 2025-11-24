@@ -26,7 +26,7 @@ jobs:
       - name: Create the required-plugins file@
         continue-on-error: true
         run: |
-          cat rhdh-community-plugins.txt rhdh-supported-plugins.txt > required-plugins
+          cat rhdh-community-packages.txt rhdh-techpreview-packages.txt rhdh-supported-packages.txt > required-plugins
 
       - name: Upload required-plugins file
         uses: actions/upload-artifact@v4
