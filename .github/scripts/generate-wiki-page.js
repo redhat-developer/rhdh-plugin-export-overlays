@@ -313,7 +313,7 @@ async function loadPluginLists() {
   const community = [];
 
   try {
-    const supportedPath = 'rhdh-supported-plugins.txt';
+    const supportedPath = 'rhdh-supported-packages.txt';
     try {
       const content = await fs.readFile(supportedPath, 'utf-8');
       supported.push(...content
@@ -330,7 +330,7 @@ async function loadPluginLists() {
       }
     }
 
-    const communityPath = 'rhdh-community-plugins.txt';
+    const communityPath = 'rhdh-community-packages.txt';
     try {
       const content = await fs.readFile(communityPath, 'utf-8');
       community.push(...content
