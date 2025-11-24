@@ -5,6 +5,9 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { load } from 'js-yaml';
+// @ts-ignore
+import { Octokit } from '@octokit/rest';
+import { fileURLToPath } from 'url';
 
 function runCommand(cmd, check = true) {
   try {
@@ -539,9 +542,6 @@ function generateMarkdown(branchName, workspacesData, repoName) {
 }
 
 async function main() {
-  // @ts-ignore
-  const { Octokit } = require('@octokit/rest');
-
   const branchName = process.env.BRANCH_NAME || 'main';
   const repoName = process.env.REPO_NAME || 'unknown/unknown';
   const ghToken = process.env.GH_TOKEN || '';
@@ -659,7 +659,7 @@ async function main() {
   console.log(`Total workspaces documented: ${workspacesData.length}`);
 }
 
-if (require.main === module) {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch(error => {
     console.error('Fatal error in main:', error.message, process.stderr);
     if (error.stack) {
@@ -673,4 +673,3 @@ if (require.main === module) {
 }
 
 export default { main };
-
