@@ -24,11 +24,13 @@ metadata:
       url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/
 
 spec:
-  author: Roadie
+  authors:
+    - name: Roadie
+      url: https://roadie.io/
   publisher: Red Hat
   support:
     provider: Red Hat
-    level: tech-preview
+    level: community
   lifecycle: active
 
   categories:

@@ -23,12 +23,14 @@ metadata:
     With these additions, your templates can be more dynamic and flexible, offering more options to template authors.
 
 spec:
-  author: Roadie
+  authors:
+    - name: Roadie
+      url: https://roadie.io/
+  publisher: Red Hat
   support:
     provider: Red Hat
-    level: tech-preview
+    level: community
   lifecycle: active
-  publisher: Red Hat
 
   categories:
     - Scaffolder # One category will show up on the tile view
