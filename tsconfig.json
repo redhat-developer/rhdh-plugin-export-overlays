@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "noEmit": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": ["node", "@playwright/test"],
+    "baseUrl": ".",
+    "paths": {
+      "@e2e-test-utils": ["e2e-test-utils"],
+      "@e2e-test-utils/*": ["e2e-test-utils/*"]
+    }
+  },
+  "include": ["e2e-test-utils/**/*.ts", "workspaces/**/e2e-tests/**/*.ts", "playwright.config.ts"],
+  "exclude": ["node_modules", "e2e-test-report"]
+}
