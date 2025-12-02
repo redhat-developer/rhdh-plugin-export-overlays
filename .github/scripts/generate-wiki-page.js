@@ -311,6 +311,7 @@ async function getSourceBackstageVersion(octokit, repoUrl, commitSha) {
 async function loadPluginLists() {
   const supported = [];
   const community = [];
+  const techpreview = [];
 
   try {
     const supportedPath = 'rhdh-supported-packages.txt';
@@ -346,6 +347,23 @@ async function loadPluginLists() {
         }
       }
     }
+
+    const techpreviewPath = 'rhdh-techpreview-packages.txt';
+    try {
+      const content = await fs.readFile(techpreviewPath, 'utf-8');
+      techpreview.push(...content
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'))
+      );
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`Error reading ${techpreviewPath}: ${error.message}`, process.stderr);
+        if (error.code) {
+          console.error(`Error code: ${error.code}`, process.stderr);
+        }
+      }
+    }
   } catch (error) {
     console.error(`Error loading plugin lists: ${error.message}`, process.stderr);
     if (error.stack) {
@@ -353,15 +371,18 @@ async function loadPluginLists() {
     }
   }
 
-  return { supported, community };
+  return { supported, community, techpreview };
 }
 
-function checkSupportStatus(pluginPath, workspaceName, supportedList, communityList) {
+function checkSupportStatus(pluginPath, workspaceName, supportedList, communityList, techpreviewList) {
   const cleanPluginPath = pluginPath.replace(/^\.?\//, '').replace(/^\//, '');
   const fullPath = `${workspaceName}/${cleanPluginPath}`;
 
   if (supportedList.includes(fullPath)) {
     return 'Supported';
+  }
+  if (techpreviewList.includes(fullPath)) {
+    return 'TechPreview';
   }
   if (communityList.includes(fullPath)) {
     return 'Community';
@@ -369,6 +390,9 @@ function checkSupportStatus(pluginPath, workspaceName, supportedList, communityL
 
   if (supportedList.includes(cleanPluginPath)) {
     return 'Supported';
+  }
+  if (techpreviewList.includes(cleanPluginPath)) {
+    return 'TechPreview';
   }
   if (communityList.includes(cleanPluginPath)) {
     return 'Community';
@@ -517,12 +541,15 @@ function generateMarkdown(branchName, workspacesData, repoName) {
         if (status === 'Supported') {
           icon = '🟢';
           tooltip = 'Red Hat Supported';
+        } else if (status === 'TechPreview') {
+          icon = '🔵';
+          tooltip = 'Tech Preview';
         } else if (status === 'Community') {
           icon = '🟡';
-          tooltip = 'Community / Dev Preview';
+          tooltip = 'Community';
         } else {
           icon = '▪️';
-          tooltip = 'Community / Unknown';
+          tooltip = 'Unknown';
         }
 
         return `<span title="${tooltip}">${icon}</span> <sub>\`${nameVer}\`</sub>`;
@@ -557,8 +584,8 @@ async function main() {
   const workspaceNames = await getWorkspaceList(workspacesDir);
   console.log(`Found ${workspaceNames.length} workspaces`);
 
-  const { supported: supportedPlugins, community: communityPlugins } = await loadPluginLists();
-  console.log(`Loaded ${supportedPlugins.length} supported and ${communityPlugins.length} community plugins`);
+  const { supported: supportedPlugins, community: communityPlugins, techpreview: techpreviewPlugins } = await loadPluginLists();
+  console.log(`Loaded ${supportedPlugins.length} supported, ${techpreviewPlugins.length} tech preview, and ${communityPlugins.length} community plugins`);
 
   const workspacesData = [];
 
@@ -604,7 +631,7 @@ async function main() {
           : `workspaces/${wsName}/${cleanPath}`;
 
         const details = await getPluginDetails(octokit, repoUrl, commitSha, fullPluginPath);
-        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins);
+        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
 
         enhancedPlugins.push({
           details,
@@ -614,7 +641,7 @@ async function main() {
       }
     } else {
       for (const pluginPath of plugins) {
-        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins);
+        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
         enhancedPlugins.push({
           details: pluginPath,
           path: pluginPath,
