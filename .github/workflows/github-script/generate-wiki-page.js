@@ -63,7 +63,9 @@ async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath, core) {
 
   const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
   const [owner, repo] = repoName.split('/');
-  const filePath = `${pluginPath}/package.json`;
+  
+  const cleanPluginPath = pluginPath === '.' ? '' : pluginPath;
+  const filePath = cleanPluginPath ? `${cleanPluginPath}/package.json` : 'package.json';
 
   try {
     const response = await octokit.rest.repos.getContent({
