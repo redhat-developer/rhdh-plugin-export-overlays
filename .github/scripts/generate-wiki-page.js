@@ -1,16 +1,10 @@
-#!/usr/bin/env node
-// @ts-check
+// @ts-nocheck
 
-import { promises as fs } from 'fs';
-import { join } from 'path';
-import { load } from 'js-yaml';
-// @ts-ignore
-import { Octokit } from '@octokit/rest';
-import { fileURLToPath } from 'url';
-// @ts-ignore
-import * as core from '@actions/core';
+const fs = require('fs').promises;
+const { join } = require('path');
+const { load } = require('js-yaml');
 
-async function getWorkspaceList(workspacesDir) {
+async function getWorkspaceList(workspacesDir, core) {
   try {
     const entries = await fs.readdir(workspacesDir, { withFileTypes: true });
     return entries
@@ -23,7 +17,7 @@ async function getWorkspaceList(workspacesDir) {
   }
 }
 
-async function parseSourceJson(workspacePath) {
+async function parseSourceJson(workspacePath, core) {
   const sourceFile = join(workspacePath, 'source.json');
   try {
     const content = await fs.readFile(sourceFile, 'utf-8');
@@ -36,7 +30,7 @@ async function parseSourceJson(workspacePath) {
   }
 }
 
-async function parsePluginsList(workspacePath) {
+async function parsePluginsList(workspacePath, core) {
   const pluginsFile = join(workspacePath, 'plugins-list.yaml');
   try {
     const content = await fs.readFile(pluginsFile, 'utf-8');
@@ -62,7 +56,7 @@ async function parsePluginsList(workspacePath) {
   }
 }
 
-async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath) {
+async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath, core) {
   if (!repoUrl.startsWith('https://github.com/')) {
     return pluginPath;
   }
@@ -93,7 +87,7 @@ async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath) {
   return pluginPath;
 }
 
-async function getCommitDetails(octokit, repoUrl, commitSha) {
+async function getCommitDetails(octokit, repoUrl, commitSha, core) {
   if (!repoUrl.startsWith('https://github.com/')) {
     return {
       shortSha: commitSha.substring(0, 7),
@@ -122,7 +116,7 @@ async function getCommitDetails(octokit, repoUrl, commitSha) {
         const dt = new Date(dateStr);
         formattedDate = dt.toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
       } catch (dateError) {
-        console.error(`Error formatting date "${dateStr}": ${dateError.message}`, process.stderr);
+        core.warning(`Error formatting date "${dateStr}": ${dateError.message}`);
         formattedDate = dateStr;
       }
     }
@@ -142,7 +136,7 @@ async function getCommitDetails(octokit, repoUrl, commitSha) {
   }
 }
 
-async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch) {
+async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch, core) {
   const workspacePath = `workspaces/${workspaceName}`;
   const [owner, repo] = repoName.split('/');
 
@@ -176,9 +170,9 @@ async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch) {
           prNumbers.push(pr.number.toString());
         }
       } catch (error) {
-        console.error(`Error checking files for PR #${pr.number}: ${error.message}`, process.stderr);
+        core.warning(`Error checking files for PR #${pr.number}: ${error.message}`);
         if (error.status) {
-          console.error(`HTTP status: ${error.status}`, process.stderr);
+          core.warning(`HTTP status: ${error.status}`);
         }
         continue;
       }
@@ -194,7 +188,7 @@ async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch) {
   }
 }
 
-async function getBackstageVersion(workspacePath) {
+async function getBackstageVersion(workspacePath, core) {
   const backstageFile = join(workspacePath, 'backstage.json');
   try {
     const content = await fs.readFile(backstageFile, 'utf-8');
@@ -208,7 +202,7 @@ async function getBackstageVersion(workspacePath) {
     }
   }
 
-  const sourceData = await parseSourceJson(workspacePath);
+  const sourceData = await parseSourceJson(workspacePath, core);
   if (sourceData && sourceData['repo-backstage-version']) {
     return sourceData['repo-backstage-version'];
   }
@@ -216,7 +210,7 @@ async function getBackstageVersion(workspacePath) {
   return null;
 }
 
-async function getSourceBackstageVersion(octokit, repoUrl, commitSha) {
+async function getSourceBackstageVersion(octokit, repoUrl, commitSha, core) {
   if (!repoUrl || !commitSha || !repoUrl.startsWith('https://github.com/')) {
     return null;
   }
@@ -244,7 +238,7 @@ async function getSourceBackstageVersion(octokit, repoUrl, commitSha) {
   return null;
 }
 
-async function loadPluginLists() {
+async function loadPluginLists(core) {
   const supported = [];
   const community = [];
   const techpreview = [];
@@ -325,7 +319,7 @@ function checkSupportStatus(pluginPath, workspaceName, supportedList, communityL
   return 'Unknown';
 }
 
-async function countFilesRecursive(dirPath) {
+async function countFilesRecursive(dirPath, core) {
   let count = 0;
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
@@ -334,7 +328,7 @@ async function countFilesRecursive(dirPath) {
       if (entry.isFile()) {
         count++;
       } else if (entry.isDirectory()) {
-        count += await countFilesRecursive(fullPath);
+        count += await countFilesRecursive(fullPath, core);
       }
     }
   } catch (error) {
@@ -343,7 +337,7 @@ async function countFilesRecursive(dirPath) {
   return count;
 }
 
-async function countAdditionalFiles(workspacePath) {
+async function countAdditionalFiles(workspacePath, core) {
   const counts = {
     metadata: 0,
     plugins: 0,
@@ -356,7 +350,7 @@ async function countAdditionalFiles(workspacePath) {
     try {
       const stat = await fs.stat(dirPath);
       if (stat.isDirectory()) {
-        counts[key] = await countFilesRecursive(dirPath);
+        counts[key] = await countFilesRecursive(dirPath, core);
       }
     } catch (error) {
       if (error.code !== 'ENOENT') {
@@ -486,129 +480,123 @@ function generateMarkdown(branchName, workspacesData, repoName) {
   return md.join('\n');
 }
 
-async function main() {
-  const branchName = process.env.BRANCH_NAME || 'main';
-  const repoName = process.env.REPO_NAME || 'unknown/unknown';
-  const ghToken = process.env.GH_TOKEN || '';
+/** @param {import('@actions/github-script').AsyncFunctionArguments} AsyncFunctionArguments */
+module.exports = async ({github, context, core}) => {
+  try {
+    const branchName = core.getInput('branch_name') || 'main';
+    const repoName = core.getInput('repo_name') || `${context.repo.owner}/${context.repo.repo}`;
+    
+    core.info(`Generating wiki page for branch: ${branchName}`);
+    core.info(`Repository: ${repoName}`);
 
-  console.log(`Generating wiki page for branch: ${branchName}`);
-  console.log(`Repository: ${repoName}`);
+    const octokit = github;
 
-  const octokit = new Octokit({
-    auth: ghToken
-  });
+    const workspacesDir = 'workspaces';
+    const workspaceNames = await getWorkspaceList(workspacesDir, core);
+    core.info(`Found ${workspaceNames.length} workspaces`);
 
-  const workspacesDir = 'workspaces';
-  const workspaceNames = await getWorkspaceList(workspacesDir);
-  console.log(`Found ${workspaceNames.length} workspaces`);
+    const { supported: supportedPlugins, community: communityPlugins, techpreview: techpreviewPlugins } = await loadPluginLists(core);
+    core.info(`Loaded ${supportedPlugins.length} supported, ${techpreviewPlugins.length} tech preview, and ${communityPlugins.length} community plugins`);
 
-  const { supported: supportedPlugins, community: communityPlugins, techpreview: techpreviewPlugins } = await loadPluginLists();
-  console.log(`Loaded ${supportedPlugins.length} supported, ${techpreviewPlugins.length} tech preview, and ${communityPlugins.length} community plugins`);
+    const workspacesData = [];
 
-  const workspacesData = [];
+    for (const wsName of workspaceNames) {
+      core.info(`Processing workspace: ${wsName}`);
+      const wsPath = join(workspacesDir, wsName);
 
-  for (const wsName of workspaceNames) {
-    console.log(`Processing workspace: ${wsName}`);
-    const wsPath = join(workspacesDir, wsName);
+      const sourceData = await parseSourceJson(wsPath, core);
+      const plugins = await parsePluginsList(wsPath, core);
 
-    const sourceData = await parseSourceJson(wsPath);
-    const plugins = await parsePluginsList(wsPath);
+      let commitSha = null;
+      let commitShort = null;
+      let commitMessage = 'N/A';
+      let commitDate = 'N/A';
+      let repoUrl = null;
+      let repoFlat = false;
 
-    let commitSha = null;
-    let commitShort = null;
-    let commitMessage = 'N/A';
-    let commitDate = 'N/A';
-    let repoUrl = null;
-    let repoFlat = false;
+      if (sourceData) {
+        repoUrl = sourceData.repo || null;
+        commitSha = sourceData['repo-ref'] || null;
+        repoFlat = sourceData['repo-flat'] || false;
 
-    if (sourceData) {
-      repoUrl = sourceData.repo || null;
-      commitSha = sourceData['repo-ref'] || null;
-      repoFlat = sourceData['repo-flat'] || false;
+        if (repoUrl && commitSha) {
+          const commitDetails = await getCommitDetails(octokit, repoUrl, commitSha, core);
+          commitShort = commitDetails.shortSha;
+          commitMessage = commitDetails.message;
+          commitDate = commitDetails.date;
+        }
+      }
 
+      const backstageVersion = await getBackstageVersion(wsPath, core);
+      const sourceBackstageVersion = repoUrl && commitSha
+        ? await getSourceBackstageVersion(octokit, repoUrl, commitSha, core)
+        : null;
+
+      const enhancedPlugins = [];
       if (repoUrl && commitSha) {
-        const commitDetails = await getCommitDetails(octokit, repoUrl, commitSha);
-        commitShort = commitDetails.shortSha;
-        commitMessage = commitDetails.message;
-        commitDate = commitDetails.date;
+        core.info(`  Fetching plugin details for ${plugins.length} plugins...`);
+        for (const pluginPath of plugins) {
+          const cleanPath = pluginPath.replace(/^\.?\//, '');
+          const fullPluginPath = repoFlat
+            ? cleanPath
+            : `workspaces/${wsName}/${cleanPath}`;
+
+          const details = await getPluginDetails(octokit, repoUrl, commitSha, fullPluginPath, core);
+          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
+
+          enhancedPlugins.push({
+            details,
+            path: pluginPath,
+            status: supportStatus
+          });
+        }
+      } else {
+        for (const pluginPath of plugins) {
+          const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
+          enhancedPlugins.push({
+            details: pluginPath,
+            path: pluginPath,
+            status: supportStatus
+          });
+        }
       }
+
+      const additionalFiles = await countAdditionalFiles(wsPath, core);
+      const { hasPending: hasPendingPRs, prNumbers } = await checkPendingPRs(
+        octokit,
+        wsName,
+        repoName,
+        branchName,
+        core
+      );
+
+      workspacesData.push({
+        name: wsName,
+        repo_url: repoUrl,
+        commit_sha: commitSha,
+        commit_short: commitShort,
+        commit_message: commitMessage,
+        commit_date: commitDate,
+        repo_flat: repoFlat,
+        overlay_backstage_version: backstageVersion,
+        source_backstage_version: sourceBackstageVersion,
+        plugins: enhancedPlugins,
+        additional_files: additionalFiles,
+        has_pending_prs: hasPendingPRs,
+        pr_numbers: prNumbers
+      });
     }
 
-    const backstageVersion = await getBackstageVersion(wsPath);
-    const sourceBackstageVersion = repoUrl && commitSha
-      ? await getSourceBackstageVersion(octokit, repoUrl, commitSha)
-      : null;
+    core.info('Generating Markdown content...');
+    const markdownContent = generateMarkdown(branchName, workspacesData, repoName);
 
-    const enhancedPlugins = [];
-    if (repoUrl && commitSha) {
-      console.log(`  Fetching plugin details for ${plugins.length} plugins...`);
-      for (const pluginPath of plugins) {
-        const cleanPath = pluginPath.replace(/^\.?\//, '');
-        const fullPluginPath = repoFlat
-          ? cleanPath
-          : `workspaces/${wsName}/${cleanPath}`;
+    const safeBranchName = branchName.replace(/\//g, '-');
+    const outputFile = `${safeBranchName}.md`;
+    await fs.writeFile(outputFile, markdownContent, 'utf-8');
 
-        const details = await getPluginDetails(octokit, repoUrl, commitSha, fullPluginPath);
-        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
-
-        enhancedPlugins.push({
-          details,
-          path: pluginPath,
-          status: supportStatus
-        });
-      }
-    } else {
-      for (const pluginPath of plugins) {
-        const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
-        enhancedPlugins.push({
-          details: pluginPath,
-          path: pluginPath,
-          status: supportStatus
-        });
-      }
-    }
-
-    const additionalFiles = await countAdditionalFiles(wsPath);
-    const { hasPending: hasPendingPRs, prNumbers } = await checkPendingPRs(
-      octokit,
-      wsName,
-      repoName,
-      branchName
-    );
-
-    workspacesData.push({
-      name: wsName,
-      repo_url: repoUrl,
-      commit_sha: commitSha,
-      commit_short: commitShort,
-      commit_message: commitMessage,
-      commit_date: commitDate,
-      repo_flat: repoFlat,
-      overlay_backstage_version: backstageVersion,
-      source_backstage_version: sourceBackstageVersion,
-      plugins: enhancedPlugins,
-      additional_files: additionalFiles,
-      has_pending_prs: hasPendingPRs,
-      pr_numbers: prNumbers
-    });
-  }
-
-  console.log('Generating Markdown content...');
-  const markdownContent = generateMarkdown(branchName, workspacesData, repoName);
-
-  const safeBranchName = branchName.replace(/\//g, '-');
-  const outputFile = `${safeBranchName}.md`;
-  await fs.writeFile(outputFile, markdownContent, 'utf-8');
-
-  console.log(`Wiki page generated: ${outputFile}`);
-  console.log(`Total workspaces documented: ${workspacesData.length}`);
-}
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch(error => {
+    core.info(`Wiki page generated: ${outputFile}`);
+    core.info(`Total workspaces documented: ${workspacesData.length}`);
+  } catch (error) {
     core.setFailed(`Fatal error in main: ${error.message}`);
-    process.exit(1);
-  });
-}
-
-export default { main };
+  }
+};
