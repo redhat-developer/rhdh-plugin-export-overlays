@@ -190,7 +190,7 @@ async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch, c
   }
 }
 
-async function getBackstageVersion(workspacePath, core) {
+async function getLocalBackstageVersion(workspacePath, core) {
   const backstageFile = join(workspacePath, 'backstage.json');
   try {
     const content = await fs.readFile(backstageFile, 'utf-8');
@@ -203,16 +203,14 @@ async function getBackstageVersion(workspacePath, core) {
       core.setFailed(`Error reading backstage.json from ${workspacePath}: ${error.message}`);
     }
   }
+  return null;
+}
 
-  const sourceData = await parseSourceJson(workspacePath, core);
+async function getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData, core) {
   if (sourceData && sourceData['repo-backstage-version']) {
     return sourceData['repo-backstage-version'];
   }
 
-  return null;
-}
-
-async function getSourceBackstageVersion(octokit, repoUrl, commitSha, core) {
   if (!repoUrl || !commitSha || !repoUrl.startsWith('https://github.com/')) {
     return null;
   }
@@ -529,14 +527,9 @@ module.exports = async ({github, context, core}) => {
         }
       }
 
-      const backstageVersion = await getBackstageVersion(wsPath, core);
+      const overlayBackstageVersion = await getLocalBackstageVersion(wsPath, core);
       
-      // Only fetch sourceBackstageVersion if source.json doesn't already have repo-backstage-version
-      // This avoids unnecessary API calls to repos that don't have backstage.json at root
-      const hasLocalBackstageVersion = sourceData && sourceData['repo-backstage-version'];
-      const sourceBackstageVersion = (repoUrl && commitSha && !hasLocalBackstageVersion)
-        ? await getSourceBackstageVersion(octokit, repoUrl, commitSha, core)
-        : null;
+      const sourceBackstageVersion = await getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData, core);
 
       const enhancedPlugins = [];
       if (repoUrl && commitSha) {
@@ -584,7 +577,7 @@ module.exports = async ({github, context, core}) => {
         commit_message: commitMessage,
         commit_date: commitDate,
         repo_flat: repoFlat,
-        overlay_backstage_version: backstageVersion,
+        overlay_backstage_version: overlayBackstageVersion,
         source_backstage_version: sourceBackstageVersion,
         plugins: enhancedPlugins,
         additional_files: additionalFiles,
