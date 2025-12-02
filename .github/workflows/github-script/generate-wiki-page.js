@@ -530,7 +530,11 @@ module.exports = async ({github, context, core}) => {
       }
 
       const backstageVersion = await getBackstageVersion(wsPath, core);
-      const sourceBackstageVersion = repoUrl && commitSha
+      
+      // Only fetch sourceBackstageVersion if source.json doesn't already have repo-backstage-version
+      // This avoids unnecessary API calls to repos that don't have backstage.json at root
+      const hasLocalBackstageVersion = sourceData && sourceData['repo-backstage-version'];
+      const sourceBackstageVersion = (repoUrl && commitSha && !hasLocalBackstageVersion)
         ? await getSourceBackstageVersion(octokit, repoUrl, commitSha, core)
         : null;
 
