@@ -483,8 +483,8 @@ function generateMarkdown(branchName, workspacesData, repoName) {
 /** @param {import('@actions/github-script').AsyncFunctionArguments} AsyncFunctionArguments */
 module.exports = async ({github, context, core}) => {
   try {
-    const branchName = core.getInput('branch_name') || 'main';
-    const repoName = core.getInput('repo_name') || `${context.repo.owner}/${context.repo.repo}`;
+    const branchName = context.ref.replace('refs/heads/', '');
+    const repoName = `${context.repo.owner}/${context.repo.repo}`;
     
     core.info(`Generating wiki page for branch: ${branchName}`);
     core.info(`Repository: ${repoName}`);

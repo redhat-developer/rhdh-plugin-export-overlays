@@ -39,9 +39,6 @@ jobs:
 
       - name: Generate wiki content
         uses: actions/github-script@v7
-        env:
-          INPUT_BRANCH_NAME: ${{ steps.branch.outputs.name }}
-          INPUT_REPO_NAME: redhat-developer/rhdh-plugin-export-overlays
         with:
           script: |
             const script = require('./.github/scripts/generate-wiki-page.js');
