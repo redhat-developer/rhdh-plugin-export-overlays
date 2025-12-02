@@ -7,6 +7,8 @@ import { load } from 'js-yaml';
 // @ts-ignore
 import { Octokit } from '@octokit/rest';
 import { fileURLToPath } from 'url';
+// @ts-ignore
+import * as core from '@actions/core';
 
 async function getWorkspaceList(workspacesDir) {
   try {
@@ -16,10 +18,7 @@ async function getWorkspaceList(workspacesDir) {
       .map(entry => entry.name)
       .sort();
   } catch (error) {
-    console.error(`Error reading workspaces directory ${workspacesDir}: ${error.message}`, process.stderr);
-    if (error.code) {
-      console.error(`Error code: ${error.code}`, process.stderr);
-    }
+    core.setFailed(`Error reading workspaces directory ${workspacesDir}: ${error.message}`);
     return [];
   }
 }
@@ -31,13 +30,7 @@ async function parseSourceJson(workspacePath) {
     return JSON.parse(content);
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.error(`Error reading ${sourceFile}: ${error.message}`, process.stderr);
-      if (error.code) {
-        console.error(`Error code: ${error.code}`, process.stderr);
-      }
-      if (error.stack) {
-        console.error(`Stack trace: ${error.stack}`, process.stderr);
-      }
+      core.setFailed(`Error reading ${sourceFile}: ${error.message}`);
     }
     return null;
   }
@@ -63,13 +56,7 @@ async function parsePluginsList(workspacePath) {
     return [];
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.error(`Error reading ${pluginsFile}: ${error.message}`, process.stderr);
-      if (error.code) {
-        console.error(`Error code: ${error.code}`, process.stderr);
-      }
-      if (error.stack) {
-        console.error(`Stack trace: ${error.stack}`, process.stderr);
-      }
+      core.setFailed(`Error reading ${pluginsFile}: ${error.message}`);
     }
     return [];
   }
@@ -100,13 +87,7 @@ async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath) {
       return `${name}@${version}`;
     }
   } catch (error) {
-    console.error(`Error fetching package.json for ${pluginPath} in ${repoName}@${commitSha}: ${error.message}`, process.stderr);
-    if (error.status) {
-      console.error(`HTTP status: ${error.status}`, process.stderr);
-    }
-    if (error.response?.data) {
-      console.error(`Response: ${JSON.stringify(error.response.data)}`, process.stderr);
-    }
+    core.setFailed(`Error fetching package.json for ${pluginPath} in ${repoName}@${commitSha}: ${error.message}`);
   }
 
   return pluginPath;
@@ -152,13 +133,7 @@ async function getCommitDetails(octokit, repoUrl, commitSha) {
       date: formattedDate
     };
   } catch (error) {
-    console.error(`Error fetching commit details for ${repoName}@${commitSha}: ${error.message}`, process.stderr);
-    if (error.status) {
-      console.error(`HTTP status: ${error.status}`, process.stderr);
-    }
-    if (error.response?.data) {
-      console.error(`Response: ${JSON.stringify(error.response.data)}`, process.stderr);
-    }
+    core.setFailed(`Error fetching commit details for ${repoName}@${commitSha}: ${error.message}`);
     return {
       shortSha: commitSha.substring(0, 7),
       message: 'N/A',
@@ -214,13 +189,7 @@ async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch) {
       prNumbers
     };
   } catch (error) {
-    console.error(`Error checking pending PRs for workspace ${workspaceName} in ${repoName}: ${error.message}`, process.stderr);
-    if (error.status) {
-      console.error(`HTTP status: ${error.status}`, process.stderr);
-    }
-    if (error.response?.data) {
-      console.error(`Response: ${JSON.stringify(error.response.data)}`, process.stderr);
-    }
+    core.setFailed(`Error checking pending PRs for workspace ${workspaceName} in ${repoName}: ${error.message}`);
     return { hasPending: false, prNumbers: [] };
   }
 }
@@ -235,10 +204,7 @@ async function getBackstageVersion(workspacePath) {
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      console.error(`Error reading backstage.json from ${workspacePath}: ${error.message}`, process.stderr);
-      if (error.code) {
-        console.error(`Error code: ${error.code}`, process.stderr);
-      }
+      core.setFailed(`Error reading backstage.json from ${workspacePath}: ${error.message}`);
     }
   }
 
@@ -272,13 +238,7 @@ async function getSourceBackstageVersion(octokit, repoUrl, commitSha) {
       return data.version || null;
     }
   } catch (error) {
-    console.error(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`, process.stderr);
-    if (error.status) {
-      console.error(`HTTP status: ${error.status}`, process.stderr);
-    }
-    if (error.response?.data) {
-      console.error(`Response: ${JSON.stringify(error.response.data)}`, process.stderr);
-    }
+    core.setFailed(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
   }
 
   return null;
@@ -300,10 +260,7 @@ async function loadPluginLists() {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        console.error(`Error reading ${supportedPath}: ${error.message}`, process.stderr);
-        if (error.code) {
-          console.error(`Error code: ${error.code}`, process.stderr);
-        }
+        core.setFailed(`Error reading ${supportedPath}: ${error.message}`);
       }
     }
 
@@ -317,10 +274,7 @@ async function loadPluginLists() {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        console.error(`Error reading ${communityPath}: ${error.message}`, process.stderr);
-        if (error.code) {
-          console.error(`Error code: ${error.code}`, process.stderr);
-        }
+        core.setFailed(`Error reading ${communityPath}: ${error.message}`);
       }
     }
 
@@ -334,17 +288,11 @@ async function loadPluginLists() {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        console.error(`Error reading ${techpreviewPath}: ${error.message}`, process.stderr);
-        if (error.code) {
-          console.error(`Error code: ${error.code}`, process.stderr);
-        }
+        core.setFailed(`Error reading ${techpreviewPath}: ${error.message}`);
       }
     }
   } catch (error) {
-    console.error(`Error loading plugin lists: ${error.message}`, process.stderr);
-    if (error.stack) {
-      console.error(`Stack trace: ${error.stack}`, process.stderr);
-    }
+    core.setFailed(`Error loading plugin lists: ${error.message}`);
   }
 
   return { supported, community, techpreview };
@@ -390,10 +338,7 @@ async function countFilesRecursive(dirPath) {
       }
     }
   } catch (error) {
-    console.error(`Error counting files in ${dirPath}: ${error.message}`, process.stderr);
-    if (error.code) {
-      console.error(`Error code: ${error.code}`, process.stderr);
-    }
+    core.setFailed(`Error counting files in ${dirPath}: ${error.message}`);
   }
   return count;
 }
@@ -415,10 +360,7 @@ async function countAdditionalFiles(workspacePath) {
       }
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        console.error(`Error counting files in ${dirPath}: ${error.message}`, process.stderr);
-        if (error.code) {
-          console.error(`Error code: ${error.code}`, process.stderr);
-        }
+        core.setFailed(`Error counting files in ${dirPath}: ${error.message}`);
       }
     }
   }
@@ -664,13 +606,7 @@ async function main() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch(error => {
-    console.error('Fatal error in main:', error.message, process.stderr);
-    if (error.stack) {
-      console.error(`Stack trace: ${error.stack}`, process.stderr);
-    }
-    if (error.code) {
-      console.error(`Error code: ${error.code}`, process.stderr);
-    }
+    core.setFailed(`Fatal error in main: ${error.message}`);
     process.exit(1);
   });
 }
