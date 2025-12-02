@@ -3,34 +3,10 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
 import { load } from 'js-yaml';
 // @ts-ignore
 import { Octokit } from '@octokit/rest';
 import { fileURLToPath } from 'url';
-
-function runCommand(cmd, check = true) {
-  try {
-    const stdout = execSync(cmd.join(' '), {
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    return { exitCode: 0, stdout: stdout.trim(), stderr: '' };
-  } catch (error) {
-    const exitCode = error.status || 1;
-    const stderr = error.stderr?.toString() || error.message || '';
-    if (check && exitCode !== 0) {
-      console.error(`Command failed: ${cmd.join(' ')}`, process.stderr);
-      console.error(`Exit code: ${exitCode}`, process.stderr);
-      console.error(`Stderr: ${stderr}`, process.stderr);
-    }
-    return {
-      exitCode,
-      stdout: error.stdout?.toString().trim() || '',
-      stderr: stderr.trim()
-    };
-  }
-}
 
 async function getWorkspaceList(workspacesDir) {
   try {
