@@ -41,7 +41,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const script = require('./.github/scripts/generate-wiki-page.js');
+            const script = require('./.github/workflows/github-script/generate-wiki-page.js');
             await script({github, context, core});
 
       - name: Checkout wiki repository
