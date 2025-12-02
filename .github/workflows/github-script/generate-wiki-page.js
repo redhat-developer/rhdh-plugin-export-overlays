@@ -81,7 +81,7 @@ async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath, core) {
       return `${name}@${version}`;
     }
   } catch (error) {
-    core.setFailed(`Error fetching package.json for ${pluginPath} in ${repoName}@${commitSha}: ${error.message}`);
+    core.warning(`Error fetching package.json for ${pluginPath} in ${repoName}@${commitSha}: ${error.message}`);
   }
 
   return pluginPath;
@@ -127,7 +127,7 @@ async function getCommitDetails(octokit, repoUrl, commitSha, core) {
       date: formattedDate
     };
   } catch (error) {
-    core.setFailed(`Error fetching commit details for ${repoName}@${commitSha}: ${error.message}`);
+    core.warning(`Error fetching commit details for ${repoName}@${commitSha}: ${error.message}`);
     return {
       shortSha: commitSha.substring(0, 7),
       message: 'N/A',
@@ -183,7 +183,7 @@ async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch, c
       prNumbers
     };
   } catch (error) {
-    core.setFailed(`Error checking pending PRs for workspace ${workspaceName} in ${repoName}: ${error.message}`);
+    core.warning(`Error checking pending PRs for workspace ${workspaceName} in ${repoName}: ${error.message}`);
     return { hasPending: false, prNumbers: [] };
   }
 }
@@ -232,7 +232,7 @@ async function getSourceBackstageVersion(octokit, repoUrl, commitSha, core) {
       return data.version || null;
     }
   } catch (error) {
-    core.setFailed(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
+    core.warning(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
   }
 
   return null;
