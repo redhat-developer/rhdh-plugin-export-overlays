@@ -228,7 +228,6 @@ async function getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData
         upstreamVersion = data.version || null;
       }
     } catch (error) {
-      // Silently ignore 404 errors - upstream backstage.json is optional
       if (error.status !== 404) {
         core.warning(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
       }
