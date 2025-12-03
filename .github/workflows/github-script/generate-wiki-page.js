@@ -207,32 +207,42 @@ async function getLocalBackstageVersion(workspacePath, core) {
 }
 
 async function getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData, core) {
+  let upstreamVersion = null;
+
+  // Try to fetch from upstream backstage.json first
+  if (repoUrl && commitSha && repoUrl.startsWith('https://github.com/')) {
+    const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
+    const [owner, repo] = repoName.split('/');
+
+    try {
+      const response = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: 'backstage.json',
+        ref: commitSha
+      });
+
+      if ('content' in response.data && response.data.encoding === 'base64') {
+        const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
+        const data = JSON.parse(content);
+        upstreamVersion = data.version || null;
+      }
+    } catch (error) {
+      // Silently ignore 404 errors - upstream backstage.json is optional
+      if (error.status !== 404) {
+        core.warning(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
+      }
+    }
+  }
+
+  // If upstream found, use it (to detect overrides)
+  if (upstreamVersion) {
+    return upstreamVersion;
+  }
+
+  // Fallback to source.json's repo-backstage-version if upstream file missing
   if (sourceData && sourceData['repo-backstage-version']) {
     return sourceData['repo-backstage-version'];
-  }
-
-  if (!repoUrl || !commitSha || !repoUrl.startsWith('https://github.com/')) {
-    return null;
-  }
-
-  const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
-  const [owner, repo] = repoName.split('/');
-
-  try {
-    const response = await octokit.rest.repos.getContent({
-      owner,
-      repo,
-      path: 'backstage.json',
-      ref: commitSha
-    });
-
-    if ('content' in response.data && response.data.encoding === 'base64') {
-      const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
-      const data = JSON.parse(content);
-      return data.version || null;
-    }
-  } catch (error) {
-    core.warning(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
   }
 
   return null;
