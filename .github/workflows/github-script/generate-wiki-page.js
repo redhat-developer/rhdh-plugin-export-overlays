@@ -12,7 +12,7 @@ async function getWorkspaceList(workspacesDir, core) {
       .map(entry => entry.name)
       .sort();
   } catch (error) {
-    core.setFailed(`Error reading workspaces directory ${workspacesDir}: ${error.message}`);
+    core.warning(`Error reading workspaces directory ${workspacesDir}: ${error.message}`);
     return [];
   }
 }
@@ -24,7 +24,7 @@ async function parseSourceJson(workspacePath, core) {
     return JSON.parse(content);
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      core.setFailed(`Error reading ${sourceFile}: ${error.message}`);
+      core.warning(`Error reading ${sourceFile}: ${error.message}`);
     }
     return null;
   }
@@ -50,7 +50,7 @@ async function parsePluginsList(workspacePath, core) {
     return [];
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      core.setFailed(`Error reading ${pluginsFile}: ${error.message}`);
+      core.warning(`Error reading ${pluginsFile}: ${error.message}`);
     }
     return [];
   }
@@ -200,7 +200,7 @@ async function getLocalBackstageVersion(workspacePath, core) {
     }
   } catch (error) {
     if (error.code !== 'ENOENT') {
-      core.setFailed(`Error reading backstage.json from ${workspacePath}: ${error.message}`);
+      core.warning(`Error reading backstage.json from ${workspacePath}: ${error.message}`);
     }
   }
   return null;
@@ -263,7 +263,7 @@ async function loadPluginLists(core) {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        core.setFailed(`Error reading ${supportedPath}: ${error.message}`);
+        core.warning(`Error reading ${supportedPath}: ${error.message}`);
       }
     }
 
@@ -277,7 +277,7 @@ async function loadPluginLists(core) {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        core.setFailed(`Error reading ${communityPath}: ${error.message}`);
+        core.warning(`Error reading ${communityPath}: ${error.message}`);
       }
     }
 
@@ -291,11 +291,11 @@ async function loadPluginLists(core) {
       );
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        core.setFailed(`Error reading ${techpreviewPath}: ${error.message}`);
+        core.warning(`Error reading ${techpreviewPath}: ${error.message}`);
       }
     }
   } catch (error) {
-    core.setFailed(`Error loading plugin lists: ${error.message}`);
+    core.warning(`Error loading plugin lists: ${error.message}`);
   }
 
   return { supported, community, techpreview };
@@ -341,7 +341,7 @@ async function countFilesRecursive(dirPath, core) {
       }
     }
   } catch (error) {
-    core.setFailed(`Error counting files in ${dirPath}: ${error.message}`);
+    core.warning(`Error counting files in ${dirPath}: ${error.message}`);
   }
   return count;
 }
@@ -363,7 +363,7 @@ async function countAdditionalFiles(workspacePath, core) {
       }
     } catch (error) {
       if (error.code !== 'ENOENT') {
-        core.setFailed(`Error counting files in ${dirPath}: ${error.message}`);
+        core.warning(`Error counting files in ${dirPath}: ${error.message}`);
       }
     }
   }
