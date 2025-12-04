@@ -12,8 +12,8 @@ async function getWorkspaceList(workspacesDir, core) {
       .map(entry => entry.name)
       .sort();
   } catch (error) {
-    core.warning(`Error reading workspaces directory ${workspacesDir}: ${error.message}`);
-    return [];
+    core.setFailed(`Error reading workspaces directory ${workspacesDir}: ${error.message}`);
+    throw error;
   }
 }
 
@@ -23,10 +23,8 @@ async function parseSourceJson(workspacePath, core) {
     const content = await fs.readFile(sourceFile, 'utf-8');
     return JSON.parse(content);
   } catch (error) {
-    if (error.code !== 'ENOENT') {
-      core.warning(`Error reading ${sourceFile}: ${error.message}`);
-    }
-    return null;
+    core.setFailed(`Error reading ${sourceFile}: ${error.message}`);
+    throw error;
   }
 }
 
@@ -49,10 +47,8 @@ async function parsePluginsList(workspacePath, core) {
     }
     return [];
   } catch (error) {
-    if (error.code !== 'ENOENT') {
-      core.warning(`Error reading ${pluginsFile}: ${error.message}`);
-    }
-    return [];
+    core.setFailed(`Error reading ${pluginsFile}: ${error.message}`);
+    throw error;
   }
 }
 
@@ -252,50 +248,43 @@ async function loadPluginLists(core) {
   const community = [];
   const techpreview = [];
 
+  const supportedPath = 'rhdh-supported-packages.txt';
   try {
-    const supportedPath = 'rhdh-supported-packages.txt';
-    try {
-      const content = await fs.readFile(supportedPath, 'utf-8');
-      supported.push(...content
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#'))
-      );
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        core.warning(`Error reading ${supportedPath}: ${error.message}`);
-      }
-    }
-
-    const communityPath = 'rhdh-community-packages.txt';
-    try {
-      const content = await fs.readFile(communityPath, 'utf-8');
-      community.push(...content
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#'))
-      );
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        core.warning(`Error reading ${communityPath}: ${error.message}`);
-      }
-    }
-
-    const techpreviewPath = 'rhdh-techpreview-packages.txt';
-    try {
-      const content = await fs.readFile(techpreviewPath, 'utf-8');
-      techpreview.push(...content
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line && !line.startsWith('#'))
-      );
-    } catch (error) {
-      if (error.code !== 'ENOENT') {
-        core.warning(`Error reading ${techpreviewPath}: ${error.message}`);
-      }
-    }
+    const content = await fs.readFile(supportedPath, 'utf-8');
+    supported.push(...content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'))
+    );
   } catch (error) {
-    core.warning(`Error loading plugin lists: ${error.message}`);
+    core.setFailed(`Error reading ${supportedPath}: ${error.message}`);
+    throw error;
+  }
+
+  const communityPath = 'rhdh-community-packages.txt';
+  try {
+    const content = await fs.readFile(communityPath, 'utf-8');
+    community.push(...content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'))
+    );
+  } catch (error) {
+    core.setFailed(`Error reading ${communityPath}: ${error.message}`);
+    throw error;
+  }
+
+  const techpreviewPath = 'rhdh-techpreview-packages.txt';
+  try {
+    const content = await fs.readFile(techpreviewPath, 'utf-8');
+    techpreview.push(...content
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith('#'))
+    );
+  } catch (error) {
+    core.setFailed(`Error reading ${techpreviewPath}: ${error.message}`);
+    throw error;
   }
 
   return { supported, community, techpreview };
