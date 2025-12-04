@@ -19,6 +19,7 @@
 /workspaces/3scale                                                      @redhat-developer/rhdh-plugins @AndrienkoAleksandr
 /workspaces/acr                                                         @redhat-developer/rhdh-ui
 # /workspaces/acs
+/workspaces/adr                                                         @redhat-developer/rhdh-ui @christoph-jerolimov
 /workspaces/adoption-insights                                           @redhat-developer/rhdh-ui @rohitkrai03 @karthikjeeyar @eswaraiahsapram
 /workspaces/ai-integrations                                             @redhat-developer/rhdh-ui @rohitkrai03 @karthikjeeyar @lucifergene   @johnmcollier @gabemontero
 /workspaces/analytics                                                   @redhat-developer/rhdh-plugins   @redhat-developer/rhdh-ui
@@ -31,13 +32,16 @@
 /workspaces/config-viewer                                               @redhat-developer/rhdh-ui @christoph-jerolimov
 # /workspaces/dynatrace
 # /workspaces/dynatrace-dql
+/workspaces/env-viewer                                                  @redhat-developer/rhdh-ui @christoph-jerolimov
 # /workspaces/github-actions
 /workspaces/github-issues                                               @redhat-developer/rhdh-ui @divyanshiGupta
 /workspaces/github-notifications                                        @redhat-developer/rhdh-ui @christoph-jerolimov
+/workspaces/github-pull-requests-board                                  @redhat-developer/rhdh-ui @christoph-jerolimov @kadel
 # /workspaces/gitlab
 /workspaces/global-floating-action-button                               @redhat-developer/rhdh-ui @debsmita1 @divyanshiGupta
 /workspaces/global-header                                               @redhat-developer/rhdh-ui @ciiay @divyanshiGupta
 /workspaces/homepage                                                    @redhat-developer/rhdh-ui @eswaraiahsapram
+/workspaces/icon-viewer                                                 @redhat-developer/rhdh-ui @christoph-jerolimov
 # /workspaces/jenkins
 /workspaces/jfrog-artifactory                                           @redhat-developer/rhdh-ui @its-mitesh-kumar   @BethGriggs
 /workspaces/keycloak                                                    @redhat-developer/rhdh-plugins @AndrienkoAleksandr @dzemanov
@@ -77,3 +81,4 @@
 /workspaces/theme                                                       @redhat-developer/rhdh-ui @ciiay   @logonoff
 # /workspaces/todo
 /workspaces/topology                                                    @redhat-developer/rhdh-ui
+/workspaces/mcp-integrations                                            @gabemontero @johnmcollier

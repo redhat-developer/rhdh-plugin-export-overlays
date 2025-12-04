@@ -29,8 +29,10 @@ jobs:
           script: |
             const fs = require('fs');
             
-            // Read the downstream-plugins file to get required plugins
-            const downstreamPluginsContent = fs.readFileSync('downstream-plugins', 'utf8');
+            // read the 3 rhdh-supported-packages.txt, rhdh-techpreview-packages.txt, rhdh-community-packages.txt files to get required packages
+            const downstreamPluginsContent = fs.readFileSync('rhdh-supported-packages.txt', 'utf8') + 
+              fs.readFileSync('rhdh-techpreview-packages.txt', 'utf8') + fs.readFileSync('rhdh-community-packages.txt', 'utf8');
+
             const requiredPlugins = [];
             
             const lines = downstreamPluginsContent.split('\n');
@@ -43,7 +45,7 @@ jobs:
               requiredPlugins.push(trimmedLine);
             }
             
-            console.log(`Found ${requiredPlugins.length} required plugins in downstream-plugins`);
+            console.log(`Found ${requiredPlugins.length} required plugins in rhdh-supported-packages.txt, rhdh-techpreview-packages.txt + rhdh-community-packages.txt`);
             
             // function to check if a workspace contains required plugins
             function workspaceHasRequiredPlugins(workspace) {

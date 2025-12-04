@@ -32,6 +32,15 @@ jobs:
               core.setFailed(errorMsg);
               return;
             }
+            if (matchingCommands.length === 0) {
+              core.notice('No command found in comment – cancelling workflow run');
+              await github.rest.actions.cancelWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              return;
+            }
             
             const firstMatching = matchingCommands[0] || '';
             core.setOutput('command_name', firstMatching.startsWith('/') ? firstMatching.slice(1) : firstMatching);
