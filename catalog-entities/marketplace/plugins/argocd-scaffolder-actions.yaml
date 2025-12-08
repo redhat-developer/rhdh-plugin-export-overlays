@@ -23,12 +23,15 @@ metadata:
     - title: Source Code
       url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-argocd
 spec:
-  author: Roadie
+  authors:
+    - name: Roadie
+      url: https://roadie.io/
   publisher: Red Hat
   support:
     provider: Red Hat
-    level: tech-preview
+    level: community
   lifecycle: active
+
   categories:
     - CI/CD
     - Scaffolder

@@ -2,10 +2,6 @@ name: Run Plugin Integration Tests
 
 on:
   workflow_call:
-    inputs:
-      workspace-path:
-        required: true
-        type: string
     outputs:
       success:
         description: Overall integration test result
@@ -39,8 +35,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start RHDH with Layered Test Config
-        env:
-          WORKSPACE_PATH: ${{ inputs.workspace-path }}
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true

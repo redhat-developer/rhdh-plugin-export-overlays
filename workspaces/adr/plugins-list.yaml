@@ -1,0 +1,3 @@
+plugins/adr:
+plugins/adr-backend: --embed-package @backstage-community/plugin-adr-common --embed-package @backstage-community/search-backend-module-adr
+plugins/search-backend-module-adr: --embed-package @backstage-community/plugin-adr-common
