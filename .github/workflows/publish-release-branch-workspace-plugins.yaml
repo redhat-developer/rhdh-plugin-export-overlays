@@ -68,7 +68,8 @@ jobs:
       publish-container: true
       image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
       last-publish-commit: ${{ needs.prepare.outputs.last-published-commit }}
-      image-tag-prefix: ${{ github.ref_name == 'main' && 'next__' || '' }}
+      # use empty prefix so that we will prepend bs_1.yy.z__ instead of next__
+      image-tag-prefix: ${{ '' }}
       image-registry-user: ${{ github.actor }}
 
     secrets:
