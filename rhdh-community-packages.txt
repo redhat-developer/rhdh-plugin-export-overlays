@@ -34,7 +34,6 @@ dynatrace/plugins/dynatrace
 # confirmed Community @ 11/21 meeting
 jenkins/plugins/jenkins
 jenkins/plugins/jenkins-backend
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 sonarqube/plugins/sonarqube
 sonarqube/plugins/sonarqube-backend
 github-actions/plugins/github-actions
@@ -45,3 +44,9 @@ roadie-backstage-plugins/plugins/frontend/backstage-plugin-github-pull-requests
 jfrog-artifactory/plugins/jfrog-artifactory
 nexus-repository-manager/plugins/nexus-repository-manager
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils
+
+# confirmed Community @ 12/05 meeting - both Roadie and RH are to be community supported
+redhat-argocd/plugins/argocd
+redhat-argocd/plugins/argocd-backend
+roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
