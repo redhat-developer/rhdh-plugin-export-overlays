@@ -10,15 +10,15 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-redhat-argocd-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-redhat-argocd-backend-dynamic
+      https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   tags: []
 spec:
   packageName: "@backstage-community/plugin-redhat-argocd-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-redhat-argocd-backend-dynamic
-  version: 2.0.0
+  dynamicArtifact: https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container/rhdh-plugin-export-overlays%2Fbackstage-community-plugin-redhat-argocd-backend
+  version: 0.10.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.42.5
