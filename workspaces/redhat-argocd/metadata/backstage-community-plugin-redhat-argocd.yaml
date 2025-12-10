@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-redhat-argocd'
-  dynamicArtifact: https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container/rhdh-plugin-export-overlays%2Fbackstage-community-plugin-redhat-argocd
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-redhat-argocd:next__2.0.0
   version: 2.0.0
   backstage:
     role: frontend-plugin
