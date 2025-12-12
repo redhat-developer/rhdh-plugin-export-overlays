@@ -1,0 +1,27 @@
+{
+  "name": "tech-radar-e2e-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22",
+    "npm": ">=11"
+  },
+  "description": "E2E tests for Tech Radar plugin",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier:check": "prettier --check .",
+    "prettier:fix": "prettier --write ."
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.1",
+    "dotenv": "^16.4.7",
+    "rhdh-e2e-test-utils": "github:redhat-developer/rhdh-e2e-test-utils"
+  }
+}
