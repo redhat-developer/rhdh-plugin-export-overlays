@@ -10,19 +10,19 @@ metadata:
   - url: https://issues.redhat.com/browse/RHIDP
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-redhat-argocd
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-redhat-argocd
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd
   tags: []
 spec:
   packageName: '@backstage-community/plugin-redhat-argocd'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-redhat-argocd
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-redhat-argocd:next__2.0.0
   version: 2.0.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
   - redhat-argocd

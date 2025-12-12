@@ -1,32 +1,32 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: roadiehq-backstage-plugin-argo-cd-backend
+  name: backstage-community-plugin-redhat-argocd-backend
   namespace: rhdh
-  title: "ArgoCD"
+  title: "Red Hat ArgoCD Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-argo-cd-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-argo-cd-backend-dynamic
+      https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   tags: []
 spec:
-  packageName: "@roadiehq/backstage-plugin-argo-cd-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-backstage-plugin-argo-cd-backend-dynamic
-  version: 4.4.2
+  packageName: "@backstage-community/plugin-redhat-argocd-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-redhat-argocd-backend:next__0.10.0
+  version: 0.10.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.42.5
-  author: Roadie
+  author: Red Hat
   support: community
   lifecycle: active
   partOf:
-    - roadie-argocd
+    - redhat-argocd
   appConfigExamples:
     - title: Default configuration
       content:
@@ -39,6 +39,4 @@ spec:
                 - name: argoInstance1
                   url: ${ARGOCD_INSTANCE1_URL}
                   token: ${ARGOCD_AUTH_TOKEN}
-                - name: argoInstance2
-                  url: ${ARGOCD_INSTANCE2_URL}
-                  token: ${ARGOCD_AUTH_TOKEN2}
+

@@ -22,9 +22,9 @@ spec:
   version: 1.8.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.39.1
+    supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: production
   lifecycle: active
   partOf:
     - orchestrator
