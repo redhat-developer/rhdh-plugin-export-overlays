@@ -1,0 +1,87 @@
+--- a/plugins/orchestrator-form-widgets/src/uiPropTypes.ts
++++ b/plugins/orchestrator-form-widgets/src/uiPropTypes.ts
+@@ -13,7 +13,7 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+-import { JsonValue } from '@backstage/types/index';
++import { JsonValue } from '@backstage/types';
+ import { TypographyVariant } from '@mui/material/styles';
+ 
+ export type UiProps = {
+--- a/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts
++++ b/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts
+@@ -14,7 +14,7 @@
+  * limitations under the License.
+  */
+ 
+-import { JsonValue } from '@backstage/types/index';
++import { JsonValue } from '@backstage/types';
+ 
+ import { evaluateTemplate } from './evaluateTemplate';
+ 
+--- a/plugins/orchestrator-form-widgets/src/utils/useFetch.ts
++++ b/plugins/orchestrator-form-widgets/src/utils/useFetch.ts
+@@ -15,7 +15,7 @@
+  */
+ 
+ import { useApi } from '@backstage/core-plugin-api';
+-import { JsonObject } from '@backstage/types/index';
++import { JsonObject } from '@backstage/types';
+ 
+ import { useAsync } from 'react-use';
+ 
+--- a/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
++++ b/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
+@@ -14,7 +14,7 @@
+  * limitations under the License.
+  */
+ 
+-import { JsonObject } from '@backstage/types/index';
++import { JsonObject } from '@backstage/types';
+ 
+ import { evaluateTemplate } from './evaluateTemplate';
+ import { useFetch } from './useFetch';
+--- a/plugins/orchestrator/src/utils/deepSearchObject.ts
++++ b/plugins/orchestrator/src/utils/deepSearchObject.ts
+@@ -14,7 +14,7 @@
+  * limitations under the License.
+  */
+ 
+-import { JsonObject } from '@backstage/types/index';
++import { JsonObject } from '@backstage/types';
+ 
+ export const isJsonObject = (
+   value: unknown,
+--- a/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
++++ b/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
+@@ -16,7 +16,7 @@
+ 
+ import { resolveSafeChildPath } from '@backstage/backend-plugin-api';
+ import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
+-import { JsonObject } from '@backstage/types/index';
++import { JsonObject } from '@backstage/types';
+ 
+ import { Examples } from '../examples/getWorkflowParams';
+ import { dump } from 'js-yaml';
+--- a/plugins/orchestrator-common/package.json
++++ b/plugins/orchestrator-common/package.json
+@@ -67,6 +67,7 @@
+   "devDependencies": {
+     "@backstage/cli": "^0.34.1",
+     "@openapitools/openapi-generator-cli": "2.22.0",
++    "@types/js-yaml": "^4.0.0",
+     "@types/json-schema": "7.0.15",
+     "js-yaml-cli": "0.6.0"
+   },
+--- a/plugins/scaffolder-backend-module-orchestrator/package.json
++++ b/plugins/scaffolder-backend-module-orchestrator/package.json
+@@ -44,6 +44,7 @@
+     "@backstage/plugin-scaffolder-node-test-utils": "^0.3.4",
+     "@spotify/prettier-config": "^15.0.0",
+     "@types/jest": "^29.5.11",
++    "@types/js-yaml": "^4.0.0",
+     "typescript": "~5.8.0"
+   },
+   "files": [
+
