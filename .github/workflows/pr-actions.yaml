@@ -10,25 +10,9 @@ env:
   GH_ORGANIZATION: redhat-developer
 
 jobs:
-  generate_token:
-    runs-on: ubuntu-latest
-    name: Generate App Token
-    if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
-    outputs:
-      token: ${{ steps.app-token.outputs.token }}
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
-        with:
-          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
-          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
-
   check_authorization:
     runs-on: ubuntu-latest
     name: Verify Authorization
-    needs:
-      - generate_token
     if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
     outputs:
       is_authorized: ${{ steps.check-internal.outputs.is_internal || steps.check-membership.outputs.is_authorized }}
@@ -66,6 +50,15 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.base_ref }}
 
+      - name: Generate GitHub App Token
+        id: app-token
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_ORGANIZATION }}
+
       - name: Check team membership
         id: check-membership
         if: steps.check-internal.outputs.is_internal != 'true'
@@ -74,7 +67,7 @@ jobs:
           user: ${{ steps.determine-user.outputs.user }}
           organization: ${{ env.GH_ORGANIZATION }}
           team: ${{ env.GH_TEAM }}
-          github_token: ${{ needs.generate_token.outputs.token }}
+          github_token: ${{ steps.app-token.outputs.token }}
 
   parse:
     runs-on: ubuntu-latest
@@ -161,16 +154,24 @@ jobs:
               ? context.payload.pull_request.number 
               : context.issue.number;
             
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            
             let body = '';
             
             if (errorMessage) {
-              body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
+              body = `[Workflow run](${workflowRun.data.html_url}) failed with error.\n\n`;
+              body += `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
             } else if (isAuthorized !== 'true') {
+              body = `[Workflow run](${workflowRun.data.html_url}) requires authorization.\n\n`;
               if (isPR) {
-                body = `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
+                body += `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
                 body += `A team member can trigger a build by commenting \`/publish\` on this PR.\n\n`;
               } else {
-                body = `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
+                body += `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
                 body += `To use PR commands, you must be an active member of the \`${process.env.GH_TEAM}\` team in the \`${process.env.GH_ORGANIZATION}\` organization.\n\n`;
               }
               body += `Reason: ${reason}`;
