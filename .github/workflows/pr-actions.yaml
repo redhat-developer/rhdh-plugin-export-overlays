@@ -31,8 +31,8 @@ jobs:
       - generate_token
     if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
     outputs:
-      is_authorized: ${{ steps.check-membership.outputs.is_authorized }}
-      reason: ${{ steps.check-membership.outputs.reason }}
+      is_authorized: ${{ steps.check-internal.outputs.is_internal || steps.check-membership.outputs.is_authorized }}
+      reason: ${{ steps.check-internal.outputs.reason || steps.check-membership.outputs.reason }}
       user: ${{ steps.determine-user.outputs.user }}
     steps:
       - name: Determine user to check
@@ -44,13 +44,31 @@ jobs:
             echo "user=${{ github.event.comment.user.login }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check if internal PR from local branch
+        id: check-internal
+        # Don't perform this check for issue comments since that would defeat the purpose of the check
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$PR_REPO" == "$BASE_REPO" ]; then
+            echo "✓ Internal PR (not from fork) - auto-authorized"
+            echo "is_internal=true" >> $GITHUB_OUTPUT
+            echo "reason=Internal PR from same repository" >> $GITHUB_OUTPUT
+          else
+            echo "External PR from fork - will check team membership"
+          fi
+
       - name: Checkout repository
+        if: steps.check-internal.outputs.is_internal != 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.base_ref }}
 
       - name: Check team membership
         id: check-membership
+        if: steps.check-internal.outputs.is_internal != 'true'
         uses: ./.github/actions/check-team-membership
         with:
           user: ${{ steps.determine-user.outputs.user }}
