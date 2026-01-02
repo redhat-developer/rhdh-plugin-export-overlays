@@ -48,7 +48,7 @@ jobs:
         if: steps.check-internal.outputs.is_internal != 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.base.ref || github.base_ref }}
+          ref: main
 
       - name: Generate GitHub App Token
         id: app-token
