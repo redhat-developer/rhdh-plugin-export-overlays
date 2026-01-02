@@ -552,6 +552,10 @@ jobs:
       - check_authorization
       - parse
       - prepare
+  
+    concurrency:
+      group: add_no_workspace_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: false
     permissions:
       statuses: write
       pull-requests: write
@@ -604,7 +608,9 @@ jobs:
       - check_authorization
       - parse
       - prepare
-
+    concurrency:
+      group: checkPRUpToDate-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: false
     permissions:
       statuses: write
       pull-requests: write
