@@ -1,5 +1,5 @@
---- a/plugins/backstage-plugin/package.json
-+++ b/plugins/backstage-plugin/package.json
+--- plugins/backstage-plugin/package.json
++++ plugins/backstage-plugin/package.json
 @@ -2,8 +2,8 @@
    "name": "@pagerduty/backstage-plugin",
    "description": "A Backstage plugin that integrates towards PagerDuty",
@@ -11,8 +11,8 @@
    "license": "Apache-2.0",
    "publishConfig": {
      "access": "public"
---- a/plugins/backstage-plugin-backend/package.json
-+++ b/plugins/backstage-plugin-backend/package.json
+--- plugins/backstage-plugin-backend/package.json
++++ plugins/backstage-plugin-backend/package.json
 @@ -1,8 +1,8 @@
  {
    "name": "@pagerduty/backstage-plugin-backend",

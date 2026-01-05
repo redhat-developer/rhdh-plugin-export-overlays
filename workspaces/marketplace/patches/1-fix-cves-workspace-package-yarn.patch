@@ -1,5 +1,5 @@
---- a/workspaces/marketplace/package.json
-+++ b/workspaces/marketplace/package.json
+--- package.json
++++ package.json
 @@ -241,7 +241,8 @@
      "@backstage/plugin-user-settings-backend": "0.3.5",
      "@backstage/plugin-user-settings-common": "0.0.1",
@@ -10,8 +10,8 @@
    },
    "prettier": "@spotify/prettier-config",
    "lint-staged": {
---- a/workspaces/marketplace/yarn.lock
-+++ b/workspaces/marketplace/yarn.lock
+--- yarn.lock
++++ yarn.lock
 @@ -1486,17 +1486,17 @@ __metadata:
    languageName: node
    linkType: hard
