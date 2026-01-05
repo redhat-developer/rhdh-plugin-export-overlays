@@ -10,10 +10,10 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/red-hat-developer-hub-backstage-plugin-catalog-backend-module-marketplace-dynamic
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/marketplace
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/red-hat-developer-hub-backstage-plugin-catalog-backend-module-marketplace-dynamic
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/marketplace
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-marketplace"

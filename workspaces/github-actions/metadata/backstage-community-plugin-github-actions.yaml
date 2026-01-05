@@ -10,10 +10,10 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-github-actions
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-github-actions
+      https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
   tags: []
 spec:
   packageName: "@backstage-community/plugin-github-actions"
