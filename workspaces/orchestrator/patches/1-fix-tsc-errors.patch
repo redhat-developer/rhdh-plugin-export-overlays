@@ -126,8 +126,8 @@
 --- yarn.lock
 +++ yarn.lock
 @@ -3367,6 +3367,17 @@
-  languageName: node
-  linkType: hard
+   languageName: node
+   linkType: hard
 
 +"@backstage/config@npm:^1.3.6":
 +  version: 1.3.6
@@ -140,12 +140,12 @@
 +  languageName: node
 +  linkType: hard
 +
-"@backstage/core-app-api@npm:^1.18.0, @backstage/core-app-api@npm:^1.19.0":
-  version: 1.19.0
-  resolution: "@backstage/core-app-api@npm:1.19.0"
+ "@backstage/core-app-api@npm:^1.18.0, @backstage/core-app-api@npm:^1.19.0":
+   version: 1.19.0
+   resolution: "@backstage/core-app-api@npm:1.19.0"
 @@ -3598,6 +3609,29 @@
-  languageName: node
-  linkType: hard
+   languageName: node
+   linkType: hard
 
 +"@backstage/core-plugin-api@npm:^1.12.0":
 +  version: 1.12.1
@@ -158,7 +158,6 @@
 +    "@backstage/version-bridge": ^1.0.11
 +    history: ^5.0.0
 +    zod: ^3.22.4
-/home/runner/work/_temp/6568f880-2b81-4d38-8512-8dc00528c810.sh: line 8:  true: command not found
 +  peerDependencies:
 +    "@types/react": ^17.0.0 || ^18.0.0
 +    react: ^17.0.0 || ^18.0.0
@@ -173,41 +172,41 @@
 +  languageName: node
 +  linkType: hard
 +
-"@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:^, @red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api":
-  version: 0.0.0-use.local
-  resolution: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api"
+ "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:^, @red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api":
+   version: 0.0.0-use.local
+   resolution: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api"
 @@ -11164,7 +11265,7 @@
-    "@mui/material": ^5.17.1
-    "@mui/styles": 5.18.0
-    "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
+     "@mui/material": ^5.17.1
+     "@mui/styles": 5.18.0
+     "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
 -    "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api": "workspace:^"
 +    "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api": 2.4.0
-    "@rjsf/material-ui": ^5.21.2
-    "@rjsf/utils": ^5.21.2
-    "@testing-library/jest-dom": ^6.0.0
+     "@rjsf/material-ui": ^5.21.2
+     "@rjsf/utils": ^5.21.2
+     "@testing-library/jest-dom": ^6.0.0
 @@ -11219,8 +11320,11 @@
-    lodash: ^4.17.21
-    moment: ^2.29.4
-    prettier: 3.6.2
+     lodash: ^4.17.21
+     moment: ^2.29.4
+     prettier: 3.6.2
 +    react: ^18.0.0
 +    react-dom: ^18.0.0
-    react-json-view: ^1.21.3
-    react-moment: ^1.1.3
+     react-json-view: ^1.21.3
+     react-moment: ^1.1.3
 +    react-router-dom: ^6.3.0
-    react-use: ^17.4.0
-    swr: ^2.0.0
-    tss-react: ^4.9.18
+     react-use: ^17.4.0
+     swr: ^2.0.0
+     tss-react: ^4.9.18
 @@ -11249,6 +11353,7 @@
-    "@janus-idp/cli": 3.6.1
-    "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
-    "@spotify/prettier-config": ^15.0.0
+     "@janus-idp/cli": 3.6.1
+     "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
+     "@spotify/prettier-config": ^15.0.0
 +    "@types/js-yaml": ^4.0.0
-    axios: ^1.11.0
-    js-yaml: ^4.1.0
-  languageName: unknown
+     axios: ^1.11.0
+     js-yaml: ^4.1.0
+   languageName: unknown
 @@ -11890,6 +11995,17 @@
-  languageName: node
-  linkType: hard
+   languageName: node
+   linkType: hard
 
 +"@serverlessworkflow/sdk-typescript@npm:^0.8.4":
 +  version: 0.8.4
@@ -220,15 +219,15 @@
 +  languageName: node
 +  linkType: hard
 +
-"@severlessworkflow/sdk-typescript@npm:^3.0.3":
-  version: 3.0.3
-  resolution: "@severlessworkflow/sdk-typescript@npm:3.0.3"
+ "@severlessworkflow/sdk-typescript@npm:^3.0.3":
+   version: 3.0.3
+   resolution: "@severlessworkflow/sdk-typescript@npm:3.0.3"
 @@ -14308,7 +14424,7 @@
-  languageName: node
-  linkType: hard
+   languageName: node
+   linkType: hard
 
 -"@types/js-yaml@npm:^4.0.1":
 +"@types/js-yaml@npm:^4.0.0, @types/js-yaml@npm:^4.0.1":
-  version: 4.0.9
-  resolution: "@types/js-yaml@npm:4.0.9"
-  checksum: e5e5e49b5789a29fdb1f7d204f82de11cb9e8f6cb24ab064c616da5d6e1b3ccfbf95aa5d1498a9fbd3b9e745564e69b4a20b6c530b5a8bbb2d4eb830cda9bc69
+   version: 4.0.9
+   resolution: "@types/js-yaml@npm:4.0.9"
+   checksum: e5e5e49b5789a29fdb1f7d204f82de11cb9e8f6cb24ab064c616da5d6e1b3ccfbf95aa5d1498a9fbd3b9e745564e69b4a20b6c530b5a8bbb2d4eb830cda9bc69
