@@ -1,7 +1,5 @@
-diff --git a/plugins/orchestrator-common/package.json b/plugins/orchestrator-common/package.json
-index 3fd930a8..aeb951f9 100644
---- a/plugins/orchestrator-common/package.json
-+++ b/plugins/orchestrator-common/package.json
+--- plugins/orchestrator-common/package.json
++++ plugins/orchestrator-common/package.json
 @@ -67,6 +67,7 @@
    "devDependencies": {
      "@backstage/cli": "^0.34.1",
@@ -10,10 +8,8 @@ index 3fd930a8..aeb951f9 100644
      "@types/json-schema": "7.0.15",
      "js-yaml-cli": "0.6.0"
    },
-diff --git a/plugins/orchestrator-form-react/src/components/AuthRequester.tsx b/plugins/orchestrator-form-react/src/components/AuthRequester.tsx
-index 2710c6fe..9adfe56f 100644
---- a/plugins/orchestrator-form-react/src/components/AuthRequester.tsx
-+++ b/plugins/orchestrator-form-react/src/components/AuthRequester.tsx
+--- plugins/orchestrator-form-react/src/components/AuthRequester.tsx
++++ plugins/orchestrator-form-react/src/components/AuthRequester.tsx
 @@ -15,7 +15,7 @@
   */
  import { useEffect } from 'react';
@@ -23,10 +19,8 @@ index 2710c6fe..9adfe56f 100644
  
  import { Widget } from '@rjsf/utils';
  import type { JSONSchema7 } from 'json-schema';
-diff --git a/plugins/orchestrator-form-widgets/package.json b/plugins/orchestrator-form-widgets/package.json
-index 989088aa..f5330b86 100644
---- a/plugins/orchestrator-form-widgets/package.json
-+++ b/plugins/orchestrator-form-widgets/package.json
+--- plugins/orchestrator-form-widgets/package.json
++++ plugins/orchestrator-form-widgets/package.json
 @@ -59,7 +59,7 @@
      "@mui/material": "^5.17.1",
      "@mui/styles": "5.18.0",
@@ -36,10 +30,8 @@ index 989088aa..f5330b86 100644
      "@rjsf/material-ui": "^5.21.2",
      "@rjsf/utils": "^5.21.2",
      "clsx": "^2.1.1",
-diff --git a/plugins/orchestrator-form-widgets/src/uiPropTypes.ts b/plugins/orchestrator-form-widgets/src/uiPropTypes.ts
-index 61d4eafe..41e6e107 100644
---- a/plugins/orchestrator-form-widgets/src/uiPropTypes.ts
-+++ b/plugins/orchestrator-form-widgets/src/uiPropTypes.ts
+--- plugins/orchestrator-form-widgets/src/uiPropTypes.ts
++++ plugins/orchestrator-form-widgets/src/uiPropTypes.ts
 @@ -13,7 +13,7 @@
   * See the License for the specific language governing permissions and
   * limitations under the License.
@@ -49,8 +41,6 @@ index 61d4eafe..41e6e107 100644
  import { TypographyVariant } from '@mui/material/styles';
  
  export type UiProps = {
-diff --git a/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts b/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts
-index 2ac36335..9b6e55eb 100644
 --- a/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts
 +++ b/plugins/orchestrator-form-widgets/src/utils/evaluateTemplate.test.ts
 @@ -14,7 +14,7 @@
@@ -62,10 +52,8 @@ index 2ac36335..9b6e55eb 100644
  import { evaluateTemplate, evaluateTemplateProps } from './evaluateTemplate';
  import get from 'lodash/get';
  
-diff --git a/plugins/orchestrator-form-widgets/src/utils/useFetch.ts b/plugins/orchestrator-form-widgets/src/utils/useFetch.ts
-index ebe6f205..3b590bae 100644
---- a/plugins/orchestrator-form-widgets/src/utils/useFetch.ts
-+++ b/plugins/orchestrator-form-widgets/src/utils/useFetch.ts
+--- plugins/orchestrator-form-widgets/src/utils/useFetch.ts
++++ plugins/orchestrator-form-widgets/src/utils/useFetch.ts
 @@ -15,7 +15,7 @@
   */
  
@@ -75,10 +63,8 @@ index ebe6f205..3b590bae 100644
  import { useState } from 'react';
  import { UiProps } from '../uiPropTypes';
  import { getErrorMessage } from './errorUtils';
-diff --git a/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts b/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
-index 7e9851e3..a3bc71ca 100644
---- a/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
-+++ b/plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
+--- plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
++++ plugins/orchestrator-form-widgets/src/utils/useFetchAndEvaluate.ts
 @@ -14,7 +14,7 @@
   * limitations under the License.
   */
@@ -88,10 +74,8 @@ index 7e9851e3..a3bc71ca 100644
  import React, { useState } from 'react';
  import { UiProps } from '../uiPropTypes';
  import { getErrorMessage } from './errorUtils';
-diff --git a/plugins/orchestrator/package.json b/plugins/orchestrator/package.json
-index 2f87862d..6d515d00 100644
---- a/plugins/orchestrator/package.json
-+++ b/plugins/orchestrator/package.json
+--- plugins/orchestrator/package.json
++++ plugins/orchestrator/package.json
 @@ -94,7 +94,10 @@
      "@types/react": "^18.2.58",
      "@types/react-dom": "^18.2.19",
@@ -104,10 +88,8 @@ index 2f87862d..6d515d00 100644
    },
    "peerDependencies": {
      "@mui/icons-material": "^5.17.1",
-diff --git a/plugins/orchestrator/src/utils/deepSearchObject.ts b/plugins/orchestrator/src/utils/deepSearchObject.ts
-index 4e3872e3..0368f5c1 100644
---- a/plugins/orchestrator/src/utils/deepSearchObject.ts
-+++ b/plugins/orchestrator/src/utils/deepSearchObject.ts
+--- plugins/orchestrator/src/utils/deepSearchObject.ts
++++ plugins/orchestrator/src/utils/deepSearchObject.ts
 @@ -14,7 +14,7 @@
   * limitations under the License.
   */
@@ -117,10 +99,8 @@ index 4e3872e3..0368f5c1 100644
  
  import { isJsonObject } from '@red-hat-developer-hub/backstage-plugin-orchestrator-common';
  
-diff --git a/plugins/scaffolder-backend-module-orchestrator/package.json b/plugins/scaffolder-backend-module-orchestrator/package.json
-index f35b528c..0a889946 100644
---- a/plugins/scaffolder-backend-module-orchestrator/package.json
-+++ b/plugins/scaffolder-backend-module-orchestrator/package.json
+--- plugins/scaffolder-backend-module-orchestrator/package.json
++++ plugins/scaffolder-backend-module-orchestrator/package.json
 @@ -71,7 +71,8 @@
      "@backstage/cli": "^0.34.1",
      "@backstage/plugin-scaffolder-node-test-utils": "^0.3.2",
@@ -131,10 +111,8 @@ index f35b528c..0a889946 100644
    },
    "files": [
      "app-config.yaml",
-diff --git a/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts b/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
-index 1cc61895..1ab7cc71 100644
---- a/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
-+++ b/plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
+--- plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
++++ plugins/scaffolder-backend-module-orchestrator/src/actions/getWorkflowParams.ts
 @@ -16,7 +16,7 @@
  import { AuthService } from '@backstage/backend-plugin-api';
  import { DiscoveryApi } from '@backstage/plugin-permission-common';
@@ -144,3 +122,113 @@ index 1cc61895..1ab7cc71 100644
  
  import { isAxiosError } from 'axios';
  import { dump } from 'js-yaml';
+
+--- yarn.lock
++++ yarn.lock
+@@ -3367,6 +3367,17 @@
+  languageName: node
+  linkType: hard
+
++"@backstage/config@npm:^1.3.6":
++  version: 1.3.6
++  resolution: "@backstage/config@npm:1.3.6"
++  dependencies:
++    "@backstage/errors": ^1.2.7
++    "@backstage/types": ^1.2.2
++    ms: ^2.1.3
++  checksum: eceac228ed740f61368c959738d6b81a8c2218bb6176e5304e13f4d98f92888c1276d9b1f29f51c0eea862e6625c6c847ba93cb4fe6dab7b20f48001e6040df6
++  languageName: node
++  linkType: hard
++
+"@backstage/core-app-api@npm:^1.18.0, @backstage/core-app-api@npm:^1.19.0":
+  version: 1.19.0
+  resolution: "@backstage/core-app-api@npm:1.19.0"
+@@ -3598,6 +3609,29 @@
+  languageName: node
+  linkType: hard
+
++"@backstage/core-plugin-api@npm:^1.12.0":
++  version: 1.12.1
++  resolution: "@backstage/core-plugin-api@npm:1.12.1"
++  dependencies:
++    "@backstage/config": ^1.3.6
++    "@backstage/errors": ^1.2.7
++    "@backstage/frontend-plugin-api": ^0.13.2
++    "@backstage/types": ^1.2.2
++    "@backstage/version-bridge": ^1.0.11
++    history: ^5.0.0
++    zod: ^3.22.4
+/home/runner/work/_temp/6568f880-2b81-4d38-8512-8dc00528c810.sh: line 8:  true: command not found
++  peerDependencies:
++    "@types/react": ^17.0.0 || ^18.0.0
++    react: ^17.0.0 || ^18.0.0
++    react-dom: ^17.0.0 || ^18.0.0
++    react-router-dom: ^6.3.0
++  peerDependenciesMeta:
++    "@types/react":
++      optional: true
++  checksum: aa5d5e0c67ef04233b54630abc08eab47d129ba084893a6ab2d1ad023c75e94ef1780c880e8064c484c483455297de8e9cd278c5b8609db06680c9354e5b6609
++    react: ^16.13.1 || ^17.0.0 || ^18.0.0
++  checksum: 419f803a06bbfedaac544903d0ee301edec2c972018f2686c63a6a9de1cd48582a9ca8d64d3cddde52c77245dab5d1079c265147a2137009d90820debe1ef826
++  languageName: node
++  linkType: hard
++
+"@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:^, @red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api":
+  version: 0.0.0-use.local
+  resolution: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api@workspace:plugins/orchestrator-form-api"
+@@ -11164,7 +11265,7 @@
+    "@mui/material": ^5.17.1
+    "@mui/styles": 5.18.0
+    "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
+-    "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api": "workspace:^"
++    "@red-hat-developer-hub/backstage-plugin-orchestrator-form-api": 2.4.0
+    "@rjsf/material-ui": ^5.21.2
+    "@rjsf/utils": ^5.21.2
+    "@testing-library/jest-dom": ^6.0.0
+@@ -11219,8 +11320,11 @@
+    lodash: ^4.17.21
+    moment: ^2.29.4
+    prettier: 3.6.2
++    react: ^18.0.0
++    react-dom: ^18.0.0
+    react-json-view: ^1.21.3
+    react-moment: ^1.1.3
++    react-router-dom: ^6.3.0
+    react-use: ^17.4.0
+    swr: ^2.0.0
+    tss-react: ^4.9.18
+@@ -11249,6 +11353,7 @@
+    "@janus-idp/cli": 3.6.1
+    "@red-hat-developer-hub/backstage-plugin-orchestrator-common": "workspace:^"
+    "@spotify/prettier-config": ^15.0.0
++    "@types/js-yaml": ^4.0.0
+    axios: ^1.11.0
+    js-yaml: ^4.1.0
+  languageName: unknown
+@@ -11890,6 +11995,17 @@
+  languageName: node
+  linkType: hard
+
++"@serverlessworkflow/sdk-typescript@npm:^0.8.4":
++  version: 0.8.4
++  resolution: "@serverlessworkflow/sdk-typescript@npm:0.8.4"
++  dependencies:
++    ajv: ^8.17.1
++    ajv-formats: ^3.0.1
++    js-yaml: ^4.1.0
++  checksum: d92c0c08c34ae71b8e886edcc46752cc0deac16ab565160f11dfa9251cc016db31d35b56233a041af5f17759f3583baa8b7541e0ec7f3a14d2907a671efe2fbf
++  languageName: node
++  linkType: hard
++
+"@severlessworkflow/sdk-typescript@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "@severlessworkflow/sdk-typescript@npm:3.0.3"
+@@ -14308,7 +14424,7 @@
+  languageName: node
+  linkType: hard
+
+-"@types/js-yaml@npm:^4.0.1":
++"@types/js-yaml@npm:^4.0.0, @types/js-yaml@npm:^4.0.1":
+  version: 4.0.9
+  resolution: "@types/js-yaml@npm:4.0.9"
+  checksum: e5e5e49b5789a29fdb1f7d204f82de11cb9e8f6cb24ab064c616da5d6e1b3ccfbf95aa5d1498a9fbd3b9e745564e69b4a20b6c530b5a8bbb2d4eb830cda9bc69
