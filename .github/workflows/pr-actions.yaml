@@ -7,7 +7,13 @@ jobs:
   parse:
     runs-on: ubuntu-latest
     name: Parse PR Comment
-    if: github.event.issue.pull_request
+    if: >
+      github.event.issue.pull_request && (
+      contains(github.event.comment.body, '/publish') ||
+      contains(github.event.comment.body, '/update-versions') ||
+      contains(github.event.comment.body, '/update-commit') ||
+      contains(github.event.comment.body, '/test'))
+    
     outputs:
       command_name: ${{ steps.extract.outputs.command_name }}
       error_message: ${{ steps.extract.outputs.error_message }}
