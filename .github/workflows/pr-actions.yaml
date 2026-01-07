@@ -68,7 +68,11 @@ jobs:
           organization: ${{ env.GH_ORGANIZATION }}
           team: ${{ env.GH_TEAM }}
           github_token: ${{ steps.app-token.outputs.token }}
-
+      - name: Fail workflow if not authorized
+        if: steps.check-internal.outputs.is_internal != 'true' && steps.check-membership.outputs.is_authorized != 'true'
+        run: |
+          echo "::error::User ${{ steps.determine-user.outputs.user }} is not authorized: ${{ steps.check-membership.outputs.reason }}"
+          exit 1
   parse:
     runs-on: ubuntu-latest
     name: Parse PR Comment
