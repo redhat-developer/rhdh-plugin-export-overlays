@@ -193,8 +193,8 @@ jobs:
               # First appConfigExamples item is used for testing
               CONFIG_CONTENT=$(yq -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE" 2>/dev/null || echo "")
               if [ -z "$CONFIG_CONTENT" ] || [ "$CONFIG_CONTENT" = "null" ]; then
-                echo "spec.appConfigExamples[0].content not found in $METADATA_FILE, skipping"
-                continue
+                echo "spec.appConfigExamples[0].content not found in $METADATA_FILE: assuming empty config"
+                CONFIG_CONTENT=""
               fi
 
               ENV_VARS=$(echo "$CONFIG_CONTENT" | yq -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
@@ -228,8 +228,10 @@ jobs:
               STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
               echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${STRIPPED}\"" >> "$OUT_FILE"
               echo "  disabled: false" >> "$OUT_FILE"
-              echo "  pluginConfig:" >> "$OUT_FILE"
-              echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
+              if [ -n "$CONFIG_CONTENT" ]; then
+                echo "  pluginConfig:" >> "$OUT_FILE"
+                echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
+              fi
               PLUGINS_FOUND=$((PLUGINS_FOUND + 1))
             else
               echo "Export did not match expected format, skipping: $export"
