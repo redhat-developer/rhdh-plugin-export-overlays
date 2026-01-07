@@ -19,14 +19,14 @@ metadata:
     - title: Documentation for Red Hat Developer Hub
       url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/dynatrace
   
 spec:
 
   author: Backstage Community
   support:
-    provider: Red Hat
-    level: tech-preview
+    provider: Dynatrace
+    level: community
   lifecycle: active
   publisher: Red Hat
 

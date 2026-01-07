@@ -10,10 +10,10 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jfrog-artifactory
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/jfrog-artifactory
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jfrog-artifactory
+      https://github.com/backstage/community-plugins/tree/main/workspaces/jfrog-artifactory
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jfrog-artifactory"
@@ -23,7 +23,7 @@ spec:
     role: frontend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
     - jfrog-artifactory
