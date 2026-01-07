@@ -64,7 +64,7 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
           # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:1.6 -c '"
+          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:next -c '"
           DOCKER_CMD="$DOCKER_CMD set -ex; "
           DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
           DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "
