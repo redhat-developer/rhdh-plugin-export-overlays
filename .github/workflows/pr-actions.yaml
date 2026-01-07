@@ -337,8 +337,8 @@ jobs:
               run_id: '${{ github.run_id }}',
               filter: 'latest',
             });
-            const success = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+            const publishSuccess = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export')
               .every(j => j.conclusion === 'success');
 
             await github.rest.repos.createCommitStatus({
