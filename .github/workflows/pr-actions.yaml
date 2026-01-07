@@ -428,7 +428,33 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
-            })       
+            })
+
+  upload_no_workspace_context:
+    needs:
+      - parse
+      - prepare
+    if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write and upload context artifact
+        env:
+          OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+        run: |
+          mkdir -p context
+          cat > context/meta.json <<EOF
+          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          EOF
+      - name: Upload context artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: context-${{ github.run_id }}
+          path: context/meta.json
+          if-no-files-found: error
+          retention-days: 1
 
   checkPRUpToDate:
     name: Checks whether the PR is up-to-date with versions.json
