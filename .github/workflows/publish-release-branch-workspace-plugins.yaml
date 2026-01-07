@@ -29,10 +29,6 @@ jobs:
               per_page: 100,
             });
             for (const commit of response.data) {
-              if (commit.parents?.length == 1) {
-                core.info(`Skipping commit ${commit.sha}, not a merge commit`);
-                continue;
-              }
               if (context.payload.commits.some(c => c.id === commit.sha)) {
                 core.info(`Skipping commit ${commit.sha}, it's part of the push`);
                 continue;
