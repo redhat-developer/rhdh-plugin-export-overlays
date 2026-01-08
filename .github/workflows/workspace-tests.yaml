@@ -31,22 +31,22 @@ jobs:
           path: ./context
           if_no_artifact_found: fail
 
-      - name: Check workspace from context
+      - name: Check context for workspace and PR
         id: context
         run: |
-          workspace=$(jq -r .workspace ./context/meta.json)
+          workspace=$(jq -r '.workspace // ""' ./context/meta.json)
+          pr=$(jq -r '.pr // ""' ./context/meta.json)
           echo "workspace=$workspace" >> $GITHUB_OUTPUT
+          echo "pr=$pr" >> $GITHUB_OUTPUT
           if [ -z "$workspace" ]; then
             echo "No workspace in context - skipping tests"
           fi
 
-      # note: the 'pr:' filter is intentionally omitted as it is unreliable for comment-triggered
-      # workflows on forks. PR is verified manually in the next step.
-      - name: Download latest published-exports artifact
-        if: steps.context.outputs.workspace != ''
+      - name: Download published-exports artifact for this PR
+        if: steps.context.outputs.workspace != '' && steps.context.outputs.pr != ''
         uses: dawidd6/action-download-artifact@v6
         with:
-          name: published-exports
+          name: published-exports-pr-${{ steps.context.outputs.pr }}
           workflow: pr-actions.yaml
           workflow_conclusion: success
           workflow_search: true

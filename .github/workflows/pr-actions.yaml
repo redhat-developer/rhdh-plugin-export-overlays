@@ -232,7 +232,7 @@ jobs:
       - name: Upload published-exports artifact
         uses: actions/upload-artifact@v4
         with:
-          name: published-exports
+          name: published-exports-pr-${{ needs.prepare.outputs.pr-number }}
           path: published-exports/
           if-no-files-found: error
           retention-days: 7
