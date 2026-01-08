@@ -10,9 +10,9 @@ metadata:
   - url: https://issues.redhat.com/browse/RHIDP
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/red-hat-developer-hub-backstage-plugin-adoption-insights
+    url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/adoption-insights
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/red-hat-developer-hub-backstage-plugin-adoption-insights
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/adoption-insights
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-adoption-insights'

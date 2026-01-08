@@ -10,10 +10,10 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-notifications
+      url: https://github.com/backstage/backstage/tree/master/plugins/notifications
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-notifications
+      https://github.com/backstage/backstage/tree/master/plugins/notifications
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications"

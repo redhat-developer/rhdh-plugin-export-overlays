@@ -10,9 +10,9 @@ metadata:
   - url: https://issues.redhat.com/browse/RHIDP
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-lighthouse
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-lighthouse
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
   tags: []
 spec:
   packageName: '@backstage-community/plugin-lighthouse'
@@ -22,7 +22,7 @@ spec:
     role: frontend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
   - lighthouse

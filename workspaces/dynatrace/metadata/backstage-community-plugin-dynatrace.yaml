@@ -10,10 +10,10 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-dynatrace
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/dynatrace
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-dynatrace
+      https://github.com/backstage/community-plugins/tree/main/workspaces/dynatrace
   tags: []
 spec:
   packageName: "@backstage-community/plugin-dynatrace"
@@ -22,8 +22,8 @@ spec:
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
-  author: Red Hat
-  support: tech-preview
+  author: Dynatrace
+  support: community
   lifecycle: active
   partOf:
     - dynatrace-community
