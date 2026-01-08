@@ -28,4 +28,6 @@ spec:
   lifecycle: active
   partOf:
     - sonarqube-scaffolder-actions
-  appConfigExamples: []
+  appConfigExamples:
+    - title: Default configuration
+      content: {}
