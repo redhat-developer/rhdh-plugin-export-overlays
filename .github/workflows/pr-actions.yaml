@@ -2,12 +2,84 @@ name: Pull Request Actions
 on:
   issue_comment:
     types: [created, edited]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
-jobs:  
+env:
+  GH_TEAM: rhdh
+  GH_ORGANIZATION: redhat-developer
+
+jobs:
+  check_authorization:
+    runs-on: ubuntu-latest
+    name: Verify Authorization
+    if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
+    outputs:
+      is_authorized: ${{ steps.check-internal.outputs.is_internal || steps.check-membership.outputs.is_authorized }}
+      reason: ${{ steps.check-internal.outputs.reason || steps.check-membership.outputs.reason }}
+      user: ${{ steps.determine-user.outputs.user }}
+    steps:
+      - name: Determine user to check
+        id: determine-user
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            echo "user=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          else
+            echo "user=${{ github.event.comment.user.login }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if internal PR from local branch
+        id: check-internal
+        # Don't perform this check for issue comments since that would defeat the purpose of the check
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$PR_REPO" == "$BASE_REPO" ]; then
+            echo "✓ Internal PR (not from fork) - auto-authorized"
+            echo "is_internal=true" >> $GITHUB_OUTPUT
+            echo "reason=Internal PR from same repository" >> $GITHUB_OUTPUT
+          else
+            echo "External PR from fork - will check team membership"
+          fi
+
+      - name: Checkout repository
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Generate GitHub App Token
+        id: app-token
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_ORGANIZATION }}
+
+      - name: Check team membership
+        id: check-membership
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: ./.github/actions/check-team-membership
+        with:
+          user: ${{ steps.determine-user.outputs.user }}
+          organization: ${{ env.GH_ORGANIZATION }}
+          team: ${{ env.GH_TEAM }}
+          github_token: ${{ steps.app-token.outputs.token }}
+      - name: Fail workflow if not authorized
+        if: steps.check-internal.outputs.is_internal != 'true' && steps.check-membership.outputs.is_authorized != 'true'
+        run: |
+          echo "::error::User ${{ steps.determine-user.outputs.user }} is not authorized: ${{ steps.check-membership.outputs.reason }}"
+          exit 1
   parse:
     runs-on: ubuntu-latest
     name: Parse PR Comment
-    if: >
+    needs:
+      - check_authorization
+    if: |
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       github.event.issue.pull_request && (
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
@@ -24,6 +96,7 @@ jobs:
         with:
           script: |
             const raw = context.payload.comment?.body ?? '';
+            
             const lines = String(raw)
               .split(/\r?\n/)
               .map(l => l.trim())
@@ -53,7 +126,9 @@ jobs:
             core.setOutput('error_message', '');
 
   add_error_comment:
+    runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
 
     concurrency:
@@ -63,35 +138,73 @@ jobs:
     permissions:
       pull-requests: write
 
-    if: always() && needs.parse.outputs.error_message != ''
-    runs-on: ubuntu-latest
+    if: |
+      !cancelled() && (
+        (github.event.issue.pull_request && needs.parse.outputs.error_message != '') ||
+        (github.event.issue.pull_request && needs.check_authorization.outputs.is_authorized != 'true') ||
+        (github.event_name == 'pull_request_target' && needs.check_authorization.outputs.is_authorized != 'true')
+      )
     steps:
       - name: Add error comment
         uses: actions/github-script@v7
         env:
           INPUT_ERROR_MESSAGE: ${{ needs.parse.outputs.error_message }}
+          INPUT_USER: ${{ needs.check_authorization.outputs.user }}
+          INPUT_IS_AUTHORIZED: ${{ needs.check_authorization.outputs.is_authorized }}
+          INPUT_REASON: ${{ needs.check_authorization.outputs.reason }}
         with:
           script: |
             const errorMessage = core.getInput('error_message');
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const user = core.getInput('user');
+            const isAuthorized = core.getInput('is_authorized');
+            const reason = core.getInput('reason');
+            const isPR = context.eventName === 'pull_request_target';
+            const prNumber = isPR 
+              ? context.payload.pull_request.number 
+              : context.issue.number;
+            
+            const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              run_id: '${{ github.run_id }}'
             });
+            
+            let body = '';
+            
+            if (errorMessage) {
+              body = `[Workflow run](${workflowRun.data.html_url}) failed with error.\n\n`;
+              body += `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
+            } else if (isAuthorized !== 'true') {
+              body = `[Workflow run](${workflowRun.data.html_url}) requires authorization.\n\n`;
+              if (isPR) {
+                body += `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
+                body += `A team member can trigger a build by commenting \`/publish\` on this PR.\n\n`;
+              } else {
+                body += `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
+                body += `To use PR commands, you must be an active member of the \`${process.env.GH_TEAM}\` team in the \`${process.env.GH_ORGANIZATION}\` organization.\n\n`;
+              }
+              body += `Reason: ${reason}`;
+            }
+            
+            if (body) {
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
 
   prepare:
     runs-on: ubuntu-latest
-    name: Prepare
+    name: Prepare PR Context
     needs:
+      - check_authorization
       - parse
 
     concurrency:
       group: prepare-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
-      
-    if: needs.parse.outputs.command_name != ''
     outputs:
       target-branch: ${{ steps.get-branch.outputs.target-branch }}
       overlay-branch: ${{ steps.get-branch.outputs.overlay-branch }}
@@ -99,10 +212,15 @@ jobs:
       overlay-commit: ${{ steps.get-branch.outputs.overlay-commit }}
       workspace: ${{ steps.get-branch.outputs.workspace }}
       pr-number: ${{ steps.get-branch.outputs.pr-number }}
+      status-context: ${{ steps.get-branch.outputs.status-context }}
 
     permissions:
       statuses: write
 
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      (needs.parse.outputs.command_name != '' || github.event_name == 'pull_request_target')
     steps:
       - name: Get PR branch data
         id: get-branch
@@ -111,21 +229,34 @@ jobs:
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
         with:
           script: |
+            const isPrEvent = context.eventName === 'pull_request_target';
+            const prNumber = isPrEvent 
+              ? context.payload.pull_request.number 
+              : context.issue.number;
+            const statusContext = isPrEvent ? 'auto-publish' : core.getInput('command_name');
+            
+            core.setOutput('status-context', statusContext);
+            
             const currentPullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number
+              pull_number: prNumber
             });
+
             const targetBranch = currentPullRequest.data.base.ref;
             core.setOutput('target-branch', targetBranch);
+
             const prBranch = currentPullRequest.data.head.ref;
             core.setOutput('overlay-branch', prBranch);
+            
             const prRepo = currentPullRequest.data.head.repo.full_name;
             core.setOutput('overlay-repo', prRepo);
-            const prNumber = currentPullRequest.data.number;
+            
             core.setOutput('pr-number', prNumber);
+
             const prCommit = currentPullRequest.data.head.sha;
             core.setOutput('overlay-commit', prCommit);
+            
             let workspace = '';
 
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
@@ -135,7 +266,7 @@ jobs:
               const prFiles = await github.rest.pulls.listFiles({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.issue.number
+                pull_number: prNumber
               });
               const workspaces = [ ... new Set(prFiles.data
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
@@ -143,10 +274,12 @@ jobs:
                 .map(match => match[1])
               )];
               if (workspaces.length === 1) {
-                workspace =`workspaces/${workspaces[0]}`;
+                workspace = `workspaces/${workspaces[0]}`;
               }
             }
+            
             core.setOutput('workspace', workspace);
+
             if (workspace === '') {
               return;
             }
@@ -163,12 +296,13 @@ jobs:
               description: '${{ github.workflow }}',
               state: 'pending',
               target_url: workflowRun.data.html_url,
-              context: core.getInput('command_name')
+              context: statusContext
             });
-            
+
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
+      - check_authorization
       - parse
       - prepare
       - checkPRUpToDate
@@ -177,7 +311,11 @@ jobs:
       group: export-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
@@ -201,6 +339,7 @@ jobs:
   uploadPublishedExportsArtifact:
     name: Upload published-exports artifact
     needs:
+      - check_authorization
       - parse
       - prepare
       - export
@@ -209,7 +348,12 @@ jobs:
       group: uploadPublishedExportsArtifact-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
 
-    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target') &&
+      needs.export.outputs.published-exports != ''
     runs-on: ubuntu-latest
     steps:
       - name: Write and stage meta.json
@@ -245,12 +389,17 @@ jobs:
           retention-days: 1
 
   create_test_context:
+    runs-on: ubuntu-latest
     name: Create Test Context
     needs:
+      - check_authorization
       - parse
       - prepare
-    if: needs.parse.outputs.command_name == 'test' && needs.prepare.outputs.pr-number != ''
-    runs-on: ubuntu-latest
+
+    if: |
+      needs.parse.outputs.command_name == 'test' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.pr-number != ''
     steps:
       - name: Write meta.json for test context
         env:
@@ -275,14 +424,20 @@ jobs:
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
     needs:
+      - check_authorization
       - parse
       - prepare
+      - checkPRUpToDate
 
     concurrency:
       group: checkBackstageCompatibility-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
     with:
@@ -291,7 +446,9 @@ jobs:
       workspace-path: ${{ needs.prepare.outputs.workspace }}
 
   add_publish_completion_comment:
+    runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - checkPRUpToDate
@@ -306,8 +463,12 @@ jobs:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
-    runs-on: ubuntu-latest
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.workspace != '' &&
+      needs.prepare.outputs.overlay-branch != '' &&
+      (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
     steps:
       - name: Download compatibility report
         uses: actions/download-artifact@v4
@@ -322,23 +483,34 @@ jobs:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
+          INPUT_STATUS_CONTEXT: ${{ needs.prepare.outputs.status-context }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
             const fs = require('fs');
+            const prNumber = Number(core.getInput('pr_number'));
+            const statusContext = core.getInput('status_context');
+            
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: '${{ github.run_id }}'
             });
+            
             const jobs = await github.rest.actions.listJobsForWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: '${{ github.run_id }}',
               filter: 'latest',
             });
+            
             const success = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+              .filter(j => 
+                j.name.startsWith('Publish') || 
+                j.name.startsWith('Export') || 
+                j.name.startsWith('Check') ||
+                j.name.startsWith('export')
+              )
               .every(j => j.conclusion === 'success');
 
             await github.rest.repos.createCommitStatus({
@@ -348,7 +520,7 @@ jobs:
               description: '${{ github.workflow }}',
               state: success ? 'success' : 'failure',
               target_url: workflowRun.data.html_url,
-              context: core.getInput('command_name'),
+              context: statusContext,
             });
 
             let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
@@ -367,6 +539,7 @@ jobs:
                 body = `${body}\n  - ${line}`;
               });
             }
+            
             const failedExports = core.getMultilineInput('failed_exports');
             if (failedExports.length > 0) {
               body = `${body}\n- Plugins failed during export or container image publishing:`;
@@ -374,38 +547,45 @@ jobs:
                 body = `${body}\n  - ${line}`;
               });
             }
+            
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
-            })
-    
+            });
+
   add_no_workspace_comment:
+    runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
-
+  
     concurrency:
       group: add_no_workspace_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
-
     permissions:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
-    runs-on: ubuntu-latest
-
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.overlay-branch != '' &&
+      needs.prepare.outputs.workspace == ''
     steps:
-      - name: Add success comment
+      - name: Add skipped comment
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
-
+          INPUT_STATUS_CONTEXT: ${{ needs.prepare.outputs.status-context }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const statusContext = core.getInput('status_context');
+            
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -419,19 +599,19 @@ jobs:
               description: '${{ github.workflow }}',
               state: 'success',
               target_url: workflowRun.data.html_url,
-              context: core.getInput('command_name'),
+              context: statusContext,
             });
 
             const body = `[PR action (\`/${core.getInput('command_name')}\`)](${workflowRun.data.html_url}) cancelled: PR doesn't touch only 1 workspace.`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
             })
-
   upload_no_workspace_context:
     needs:
+      - check_authorization
       - parse
       - prepare
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
@@ -457,46 +637,55 @@ jobs:
           retention-days: 1
 
   checkPRUpToDate:
+    runs-on: ubuntu-latest
     name: Checks whether the PR is up-to-date with versions.json
     needs:
+      - check_authorization
       - parse
       - prepare
-
     concurrency:
       group: checkPRUpToDate-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
-    
     permissions:
       statuses: write
       pull-requests: write
-  
-    if: always() && needs.parse.outputs.command_name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
-    runs-on: ubuntu-latest
+
+    if: |
+      !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
     steps:
-      - name: Add update check comment
+      - name: Check versions.json matches release branch
         uses: actions/github-script@v7
         env:
           INPUT_TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
           INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
           INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
             const path = 'versions.json';
             const releaseBranch = core.getInput('target_branch');
-            if (! releaseBranch?.startsWith('release-') && ! releaseBranch?.startsWith('main') ) {
+            const prNumber = Number(core.getInput('pr_number'));
+            
+            if (!releaseBranch?.startsWith('release-') && !releaseBranch?.startsWith('main')) {
               core.notice(`Current PR is not based on a release branch.`);
               return;
             }
+            
             const { data: sourceFile } = await github.rest.repos.getContent({
               owner: context.repo.owner,
               repo: context.repo.repo,
               path,
               ref: releaseBranch,
             });
+            
             if (!('type' in sourceFile) || sourceFile.type !== 'file') {
               core.setFailed(`\`${path}\` is not a file on branch \`${releaseBranch}\``);
               return;
             }
+            
             const sourceContent = Buffer.from(
               sourceFile.content,
               (Buffer.isEncoding(sourceFile.encoding) ? sourceFile.encoding : 'utf-8')
@@ -506,16 +695,19 @@ jobs:
             const prBranch = core.getInput('overlay_branch');
             const owner = prRepository.split('/')[0];
             const repo = prRepository.split('/')[1];
+            
             const { data: targetFile } = await github.rest.repos.getContent({
               owner,
               repo,
               path,
               ref: prBranch,
             });
+            
             if (!('type' in targetFile) || targetFile.type !== 'file') {
               core.warning(`\`${path}\` is not a file on branch ${prBranch}`);
               return;
             }
+            
             const targetContent = Buffer.from(
               targetFile.content,
               (Buffer.isEncoding(targetFile.encoding) ? targetFile.encoding : 'utf-8')
@@ -523,18 +715,19 @@ jobs:
       
             if (sourceContent !== targetContent) {
               core.setFailed(`PR not up-to-date with the release branch`);
-              const body = `The \`versions.json\` file in your PR doesn't match the one in release branch #${prBranch}\nTry updating it by adding the \`/update-versions\` PR comment.`;
+              const body = `The \`versions.json\` file in your PR doesn't match the one in release branch #${releaseBranch}\nTry updating it by adding the \`/update-versions\` PR comment.`;
               await github.rest.issues.createComment({
-                issue_number: context.issue.number,
+                issue_number: prNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: body
               });
             }
-      
+
   updatePRWithVersions:
     name: Update versions on PR from release branch
     needs:
+      - check_authorization
       - parse
       - prepare
 
@@ -542,18 +735,20 @@ jobs:
       group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.parse.outputs.command_name == 'update-versions'
+    if: needs.parse.outputs.command_name == 'update-versions' && needs.check_authorization.outputs.is_authorized == 'true'
     uses: ./.github/workflows/update-prs-with-release-branch-commits.yaml
     with:
       force: true
-      pr: ${{ github.event.issue.number }}
+      pr: ${{ needs.prepare.outputs.pr-number }}
       release-branch: ${{ needs.prepare.outputs.target-branch }}
     permissions:
       contents: write
       pull-requests: write
 
   add_update_versions_completion_comment:
+    runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - updatePRWithVersions
@@ -566,17 +761,24 @@ jobs:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command_name == 'update-versions' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
-    runs-on: ubuntu-latest
+    if: |
+      !cancelled() &&
+      needs.parse.outputs.command_name == 'update-versions' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.overlay-branch != '' &&
+      needs.prepare.outputs.workspace != ''
     steps:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
-
+          INPUT_STATUS_CONTEXT: ${{ needs.prepare.outputs.status-context }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const statusContext = core.getInput('status_context');
+            
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -599,20 +801,21 @@ jobs:
               description: '${{ github.workflow }}',
               state: success ? 'success' : 'failure',
               target_url: workflowRun.data.html_url,
-              context: core.getInput('command_name'),
+              context: statusContext,
             });
 
             let body = `[Update Versions workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
-            })    
+            })
 
   updatePRWithCommit:
     name: Update commit on PR from automatic discovery
     needs:
+      - check_authorization
       - parse
       - prepare
 
@@ -620,7 +823,9 @@ jobs:
       group: updatePRWithCommit-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.parse.outputs.command_name == 'update-commit'
+    if: | 
+      needs.parse.outputs.command_name == 'update-commit' && 
+      needs.check_authorization.outputs.is_authorized == 'true'
     uses: ./.github/workflows/update-plugins-repo-refs.yaml
     with:
       single-branch: ${{ needs.prepare.outputs.target-branch }}
@@ -633,7 +838,9 @@ jobs:
       pull-requests: write
 
   add_update_commit_completion_comment:
+    runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - updatePRWithCommit
@@ -646,17 +853,24 @@ jobs:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command_name == 'update-commit' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
-    runs-on: ubuntu-latest
+    if: |
+      !cancelled() &&
+      needs.parse.outputs.command_name == 'update-commit' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
+      needs.prepare.outputs.overlay-branch != '' &&
+      needs.prepare.outputs.workspace != ''
     steps:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
-
+          INPUT_STATUS_CONTEXT: ${{ needs.prepare.outputs.status-context }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const statusContext = core.getInput('status_context');
+            
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -679,12 +893,12 @@ jobs:
               description: '${{ github.workflow }}',
               state: success ? 'success' : 'failure',
               target_url: workflowRun.data.html_url,
-              context: core.getInput('command_name'),
+              context: statusContext,
             });
 
             let body = `[Update Commit workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
