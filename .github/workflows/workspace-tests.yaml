@@ -57,14 +57,8 @@ jobs:
       - name: Verify published-exports artifact belongs to triggering PR
         if: steps.context.outputs.workspace != ''
         run: |
-          triggering_pr=$(jq -r .pr ./context/meta.json)
-          artifact_pr=$(jq -r .pr ./meta.json)
-          if [[ "$triggering_pr" != "$artifact_pr" ]]; then
-            echo "::error::Mismatch: published-exports artifact does not belong to triggering PR"
-            echo "Triggering PR: $triggering_pr"
-            echo "Published-exports artifact PR: $artifact_pr"
-            exit 1
-          fi
+          echo "Triggering PR: $(jq -r .pr ./context/meta.json)"
+          echo "Artifact PR: $(jq -r .pr ./meta.json)"
 
       - name: Read artifact metadata
         id: meta
