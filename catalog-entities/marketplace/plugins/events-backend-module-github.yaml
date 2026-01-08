@@ -40,8 +40,8 @@ spec:
 
     ## Key Features
 
-    - **GitHub Discovery Events**: Monitors push and repository events to automatically update catalog entities when `catalog-info.yaml` files are modified
-    - **Organizational Data Events**: Tracks organization, team, and membership changes to keep user and team data synchronized
+    - **GitHub Discovery Events**: Monitors push and repository events to automatically update catalog entities when `catalog-info.yaml` files are modified (Requires GitHub Discovery to be set up)
+    - **Organizational Data Events**: Tracks organization, team, and membership changes to keep user and team data synchronized (Requires GitHub Organizational Data to be set up)
 
     ## Adding The Plugin To Red Hat Developer Hub
 
