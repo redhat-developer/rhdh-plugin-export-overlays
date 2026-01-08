@@ -269,7 +269,7 @@ jobs:
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
 
   add-skipped-test-comment:
-    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
+    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
