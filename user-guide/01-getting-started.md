@@ -215,6 +215,8 @@ To re-run smoke tests manually:
 /smoketest
 ```
 
+Plugin-specific configuration is extracted from `spec.appConfigExamples[0].content` in each plugin's metadata file and placed under `pluginConfig` in the generated config. The optional workspace-level `app-config.test.yaml` is for test-only or shared workspace settings. If a plugin's config references environment variables (e.g., `${API_TOKEN}`), provide them in `workspaces/<ws>/smoke-tests/test.env`.
+
 ### Manual Testing
 
 Use the OCI references from the bot's comment to test in your own Backstage instance:

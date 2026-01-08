@@ -43,7 +43,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Start RHDH with Layered Test Config
+      - name: Start RHDH with test plugins config
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true
@@ -117,15 +117,11 @@ jobs:
           echo "RHDH did not become ready in time."
           exit 1
 
-      - name: Check plugin installation folder structure
+      - name: List installed plugins
         run: docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
 
-      - name: Check contents of app-config.dynamic-plugins.yaml
+      - name: Print generated dynamic plugins config
         run: docker exec rhdh cat /opt/app-root/src/dynamic-plugins-root/app-config.dynamic-plugins.yaml
-
-      - name: Basic health check
-        run: |
-          curl -fsS http://localhost:7007/health
 
       - name: Verify plugin loading
         id: collect-results
@@ -201,7 +197,7 @@ jobs:
           fi
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Container logs
+      - name: Print container logs
         if: always()
         run: docker logs rhdh || true
 

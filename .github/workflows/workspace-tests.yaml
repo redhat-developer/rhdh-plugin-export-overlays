@@ -17,15 +17,15 @@ jobs:
       TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
     outputs:
       workspace: ${{ steps.meta.outputs.workspace }}
-      overlayBranch: ${{ steps.meta.outputs.overlayBranch }}
-      overlayRepo: ${{ steps.meta.outputs.overlayRepo }}
-      overlayCommit: ${{ steps.meta.outputs.overlayCommit }}
-      prNumber: ${{ steps.meta.outputs.pr }}
-      publishedExports: ${{ steps.meta.outputs.publishedExports }}
-      targetBranch: ${{ steps.meta.outputs.targetBranch }}
+      overlay-branch: ${{ steps.meta.outputs.overlay-branch }}
+      overlay-repo: ${{ steps.meta.outputs.overlay-repo }}
+      overlay-commit: ${{ steps.meta.outputs.overlay-commit }}
+      pr-number: ${{ steps.meta.outputs.pr }}
+      published-exports: ${{ steps.meta.outputs.published-exports }}
+      target-branch: ${{ steps.meta.outputs.target-branch }}
     steps:
-      # the artifact of the current run contains PR number
-      - name: Download context artifact 
+      # Download context artifact from the triggering workflow run
+      - name: Download context artifact
         uses: dawidd6/action-download-artifact@v6
         with:
           name: context-${{ env.TRIGGERING_RUN_ID }}
@@ -81,17 +81,17 @@ jobs:
           fi
           {
             echo "workspace=$workspace"
-            echo "overlayBranch=$(jq -r .overlayBranch "$meta_file")"
-            echo "overlayRepo=$(jq -r .overlayRepo "$meta_file")"
-            echo "overlayCommit=$(jq -r .overlayCommit "$meta_file")"
+            echo "overlay-branch=$(jq -r .overlayBranch "$meta_file")"
+            echo "overlay-repo=$(jq -r .overlayRepo "$meta_file")"
+            echo "overlay-commit=$(jq -r .overlayCommit "$meta_file")"
             echo "pr=$(jq -r '.pr // "null"' "$meta_file")"
-            echo "targetBranch=$(jq -r '.targetBranch // "main"' "$meta_file")"
+            echo "target-branch=$(jq -r '.targetBranch // "main"' "$meta_file")"
             if [[ -n "$workspace" ]] && [[ -f "$exports_file" ]]; then
-              echo "publishedExports<<EOF"
+              echo "published-exports<<EOF"
               cat "$exports_file"
               echo "EOF"
             else
-              echo "publishedExports="
+              echo "published-exports="
             fi
           } >> $GITHUB_OUTPUT
 
@@ -99,7 +99,7 @@ jobs:
         env:
           WORKSPACE: ${{ steps.meta.outputs.workspace }}
           PR: ${{ steps.meta.outputs.pr }}
-          OVERLAY_SHA: ${{ steps.meta.outputs.overlayCommit }}
+          OVERLAY_SHA: ${{ steps.meta.outputs.overlay-commit }}
         run: |
           echo "Workspace: $WORKSPACE"
           echo "PR: $PR, Overlay SHA: $OVERLAY_SHA"
@@ -108,7 +108,7 @@ jobs:
         if: steps.meta.outputs.pr != 'null' && steps.meta.outputs.pr != ''
         uses: actions/github-script@v7
         env:
-          OVERLAY_COMMIT: ${{ steps.meta.outputs.overlayCommit }}
+          OVERLAY_COMMIT: ${{ steps.meta.outputs.overlay-commit }}
           PR_NUMBER: ${{ steps.meta.outputs.pr }}
         with:
           script: |
@@ -136,8 +136,8 @@ jobs:
         env:
           WORKSPACE: ${{ steps.meta.outputs.workspace }}
           PR_NUMBER: ${{ steps.meta.outputs.pr }}
-          OVERLAY_REPO: ${{ steps.meta.outputs.overlayRepo }}
-          OVERLAY_BRANCH: ${{ steps.meta.outputs.overlayBranch }}
+          OVERLAY_REPO: ${{ steps.meta.outputs.overlay-repo }}
+          OVERLAY_BRANCH: ${{ steps.meta.outputs.overlay-branch }}
         run: |
           {
             if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "null" ]]; then
@@ -156,20 +156,20 @@ jobs:
     if: ${{ needs.resolve.outputs.workspace != '' }}
     runs-on: ubuntu-latest
     outputs:
-      plugins_metadata_complete: ${{ steps.build-dynamic-plugins.outputs.plugins_metadata_complete }}
-      skip_tests_missing_env: ${{ steps.build-dynamic-plugins.outputs.skip_tests_missing_env }}
+      plugins-metadata-complete: ${{ steps.build-dynamic-plugins.outputs.plugins-metadata-complete }}
+      skip-tests-missing-env: ${{ steps.build-dynamic-plugins.outputs.skip-tests-missing-env }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.overlayBranch }}
-          repository: ${{ needs.resolve.outputs.overlayRepo }}
+          ref: ${{ needs.resolve.outputs.overlay-branch }}
+          repository: ${{ needs.resolve.outputs.overlay-repo }}
 
       - name: Build dynamic-plugins.test.yaml
         id: build-dynamic-plugins
         env:
           WORKSPACE_PATH: ${{ needs.resolve.outputs.workspace }}
-          PUBLISHED_EXPORTS: ${{ needs.resolve.outputs.publishedExports }}
+          PUBLISHED_EXPORTS: ${{ needs.resolve.outputs.published-exports }}
         run: |
           PLUGINS_FOUND=0
           PLUGINS_SKIPPED_MISSING_ENV=0
@@ -180,15 +180,12 @@ jobs:
 
           if [ -z "$PUBLISHED_EXPORTS" ]; then
             echo "No published exports provided."
-            echo "plugins_metadata_complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
-            echo "skip_tests_missing_env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
+            echo "plugins-metadata-complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+            echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Count total plugins from exports
-          for export in $PUBLISHED_EXPORTS; do
-            TOTAL_PLUGINS=$((TOTAL_PLUGINS + 1))
-          done
+          TOTAL_PLUGINS=$(echo $PUBLISHED_EXPORTS | wc -w)
 
           OUT_DIR="$WORKSPACE_PATH/smoke-tests"
           OUT_FILE="$OUT_DIR/dynamic-plugins.test.yaml"
@@ -265,7 +262,7 @@ jobs:
                   PLUGINS_SKIPPED_MISSING_ENV=$((PLUGINS_SKIPPED_MISSING_ENV + 1))
                   continue
                 else
-                  # Validate all ENVs are present in merged env file
+                  # Validate all ENVs are present in workspace test.env
                   MISSING_ENVS=()
                   while IFS= read -r env_var; do
                     [ -z "$env_var" ] && continue
@@ -300,7 +297,7 @@ jobs:
             echo "[]" >> "$OUT_FILE"
           fi
 
-          # Check if all plugins were found (including those skipped due to missing env)
+          # Check if all plugins were accounted for (found, skipped due to missing env, or test-only)
           TOTAL_PROCESSED=$((PLUGINS_FOUND + PLUGINS_SKIPPED_MISSING_ENV + TEST_PLUGINS_SKIPPED))
           echo "Plugins: $PLUGINS_FOUND/$TOTAL_PLUGINS processed successfully"
           [ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
@@ -309,10 +306,10 @@ jobs:
             PLUGINS_METADATA_COMPLETE="true"
           fi
 
-          echo "plugins_metadata_complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
-          echo "skip_tests_missing_env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
+          echo "plugins-metadata-complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+          echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
 
-      - name: Upload smoke-test artefact
+      - name: Upload smoke test artifacts
         uses: actions/upload-artifact@v4
         with:
           name: smoke-test-artifacts
@@ -323,13 +320,13 @@ jobs:
     needs:
       - resolve
       - prepare-test-config
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
+    if: ${{ needs.prepare-test-config.outputs.plugins-metadata-complete == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
     uses: ./.github/workflows/run-workspace-smoke-tests.yaml
     with:
-      target-branch: ${{ needs.resolve.outputs.targetBranch }}
+      target-branch: ${{ needs.resolve.outputs.target-branch }}
 
   add-skipped-test-comment:
-    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
+    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins-metadata-complete != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
@@ -339,110 +336,75 @@ jobs:
       issues: write
       statuses: write
     steps:
-      - name: Set success commit status for valid skip
+      - name: Report skipped tests
         uses: actions/github-script@v7
         env:
-          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlay-commit }}
           INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
-          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
-          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
+          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins-metadata-complete || '' }}
+          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip-tests-missing-env || '' }}
+          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
         with:
           script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const overlayCommit = process.env.OVERLAY_COMMIT;
-            if (!overlayCommit) {
-              console.log('No overlay commit; skipping status update');
-              return;
-            }
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const workspace = core.getInput('workspace');
-            const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
-            const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
-            
-            let description = 'Skipped';
-            if (!workspace || workspace === '') {
-              description = 'Skipped: PR doesn\'t touch one workspace';
-            } else if (skipTestsMissingEnv) {
-              description = 'Skipped: missing smoke-tests/test.env';
-            } else if (!pluginsMetadataComplete) {
-              description = 'Skipped: missing plugin metadata';
-            }
-            
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: overlayCommit,
-              description,
-              state: 'success',
-              target_url: runUrl,
-              context: 'smoketest',
-            });
-            console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
-
-      - name: Post skipped-test comment
-        uses: actions/github-script@v7
-        env:
-          INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
-          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
-          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
-          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
-        with:
-          script: |
             const pr = Number(core.getInput('pr_number') || '0');
-            if (!pr) {
-              console.log('No PR associated; skipping');
-              return;
-            }
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const workspace = core.getInput('workspace');
             const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
-            let body = `:warning: \n[Smoke test workflow](${runUrl})`;
-
+            
+            let statusDescription = 'Skipped';
+            let commentDetail = ' skipped for an unknown reason. Check workflow run for details.\n';
+            let summaryDetail = 'Unknown reason. Check workflow run for details.';
+            
             if (!workspace || workspace === '') {
-              body += ' skipped: PR doesn\'t touch exactly one workspace.\n';
+              statusDescription = 'Skipped: PR doesn\'t touch one workspace';
+              commentDetail = ' skipped: PR doesn\'t touch exactly one workspace.\n';
+              summaryDetail = 'PR doesn\'t touch exactly one workspace.';
             } else if (skipTestsMissingEnv) {
-              body += ' skipped: missing workspace `smoke-tests/test.env` file.\n';
+              statusDescription = 'Skipped: missing smoke-tests/test.env';
+              commentDetail = ' skipped: missing workspace `smoke-tests/test.env` file.\n';
+              summaryDetail = 'Missing workspace `smoke-tests/test.env` file.';
             } else if (!pluginsMetadataComplete) {
-              body += ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
-            } else {
-              body += ' skipped for an unknown reason. Check workflow run for details.\n';
+              statusDescription = 'Skipped: missing plugin metadata';
+              commentDetail = ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
+              summaryDetail = 'Missing plugin metadata files (`<workspace>/metadata/*.yaml`).';
             }
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr,
-              body,
-            });
-
-      - name: Write skipped summary
-        env:
-          WORKSPACE: ${{ needs.resolve.outputs.workspace }}
-          PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
-          SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
-        run: |
-          {
-            echo ""
-            echo "### Tests Skipped"
-            echo ""
-            if [[ -z "$WORKSPACE" ]]; then
-              echo "PR doesn't touch exactly one workspace."
-            elif [[ "$SKIP_TESTS_MISSING_ENV" == "true" ]]; then
-              echo "Missing workspace \`smoke-tests/test.env\` file."
-            elif [[ "$PLUGINS_METADATA_COMPLETE" != "true" ]]; then
-              echo "Missing plugin metadata files (\`<workspace>/metadata/*.yaml\`)."
-            else
-              echo "Unknown reason. Check workflow run for details."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+            
+            if (overlayCommit) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: overlayCommit,
+                description: statusDescription,
+                state: 'success',
+                target_url: runUrl,
+                context: 'smoketest',
+              });
+              console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
+            }
+            
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body: `:warning: \n[Smoke test workflow](${runUrl})${commentDetail}`,
+              });
+            }
+            
+            await core.summary
+              .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
+              .write();
 
   add-test-result-comment:
-    if: ${{ always() && needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
+    if: ${{ always() && needs.prepare-test-config.outputs.plugins-metadata-complete == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
       - run-smoke-tests
     concurrency:
-      group: addTestResultComment-${{ github.ref_name }}
+      group: add-test-result-comment-${{ github.ref_name }}
       cancel-in-progress: true
     permissions:
       contents: read
@@ -458,8 +420,8 @@ jobs:
           SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
           FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
           ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
-          PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
-          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlay-commit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
@@ -470,28 +432,43 @@ jobs:
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
-            if (!pr) {
-              console.log('No PR associated; skipping');
-              return;
-            }
-            
             const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
             
             if (!success) {
               switch (smokeTestsResult) {
                 case 'failure':
-                  failureReason = '\n\n:warning: Smoke tests failed. Check the workflow logs for details.';
+                  failureReason = 'Smoke tests failed. Check the workflow logs for details.';
                   break;
                 case 'cancelled':
-                  failureReason = '\n\n:warning: Smoke tests were cancelled.';
+                  failureReason = 'Smoke tests were cancelled.';
                   break;
                 case 'timeout':
-                  failureReason = '\n\n:warning: Smoke tests timed out.';
+                  failureReason = 'Smoke tests timed out.';
                   break;
                 default:
-                  failureReason = `\n\n:warning: Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
+                  failureReason = `Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
               }
+            }
+            
+            // Write step summary (always, even if PR is unavailable)
+            let summary;
+            if (success) {
+              summary = '### Smoke Tests Results: Passed\n\nAll plugins loaded successfully.';
+            } else {
+              summary = `### Smoke Tests Results: Failed\n\n${failureReason}`;
+              if (failed) {
+                summary += `\n\n**Failed plugins:**\n\`\`\`\n${failed}\n\`\`\``;
+              }
+              if (errorLogs) {
+                summary += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
+              }
+            }
+            await core.summary.addRaw(summary).write();
+            
+            if (!pr) {
+              console.log('No PR associated; skipping status and comment');
+              return;
             }
             
             // Get current PR head SHA
@@ -501,7 +478,7 @@ jobs:
               pull_number: pr,
             });
             
-            // Use PR head if different from overlayCommit (re-test), else use overlayCommit (immediate publish)
+            // Use PR head if different from overlayCommit (/smoketest command), else use overlayCommit (immediate publish)
             const sha = prData.head.sha !== overlayCommit ? prData.head.sha : overlayCommit;
             console.log(`Status SHA: ${sha} (PR head: ${prData.head.sha}, overlay: ${overlayCommit})`);
             
@@ -517,10 +494,9 @@ jobs:
             
             let body;
             if (success) {
-              body = `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
+              body = `:white_check_mark: [Smoke tests workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
             } else {
-              body = `:x: \n[Test workflow](${runUrl}) failed.`;
-              body += failureReason;
+              body = `:x: \n[Smoke tests workflow](${runUrl}) failed.\n\n:warning: ${failureReason}`;
               if (failed) {
                 body += `\n\nThese plugins failed to load:\n${failed}`;
               }
@@ -535,53 +511,3 @@ jobs:
               repo: context.repo.repo,
               body,
             });
-
-      - name: Write test result summary
-        env:
-          SMOKE_TESTS_RESULT: ${{ needs.run-smoke-tests.result }}
-          SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
-          FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
-          ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
-        run: |
-          {
-            echo ""
-            if [[ "$SMOKE_TESTS_RESULT" == "success" && "$SUCCESS" == "true" ]]; then
-              echo "### Test Results: Passed"
-              echo ""
-              echo "All plugins loaded successfully."
-            else
-              echo "### Test Results: Failed"
-              echo ""
-              case "$SMOKE_TESTS_RESULT" in
-                failure)
-                  echo "Smoke tests failed."
-                  ;;
-                cancelled)
-                  echo "Smoke tests were cancelled."
-                  ;;
-                timeout)
-                  echo "Smoke tests timed out."
-                  ;;
-                *)
-                  echo "Smoke tests ended in an unexpected state: $SMOKE_TESTS_RESULT"
-                  ;;
-              esac
-              if [[ -n "$FAILED_PLUGINS" ]]; then
-                echo ""
-                echo "**Failed plugins:**"
-                echo "\`\`\`"
-                echo "$FAILED_PLUGINS"
-                echo "\`\`\`"
-              fi
-              if [[ -n "$ERROR_LOGS" ]]; then
-                echo ""
-                echo "<details><summary>Error logs from container</summary>"
-                echo ""
-                echo "\`\`\`"
-                echo "$ERROR_LOGS"
-                echo "\`\`\`"
-                echo ""
-                echo "</details>"
-              fi
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"

@@ -133,14 +133,14 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata and copies other configuration files (`smoke-tests/app-config.yaml`, workspace-specific `app-config.test.yaml` and `test.env`)
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). The optional `app-config.test.yaml` is for test-only or shared workspace settings that should not appear in the user-facing `appConfigExamples` in metadata.
 3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
 **Environment Variables in Smoke Tests:**
 If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/smoke-tests/test.env`.
-- If the `.env` file is missing but required, smoke tests are skipped.
-- If the `.env` file exists but is missing variables, the workflow fails.
+- If the `test.env` file is missing but required, smoke tests are skipped.
+- If the `test.env` file exists but is missing variables, the workflow fails.
 
 - **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `smoke-tests/run` step.
 
