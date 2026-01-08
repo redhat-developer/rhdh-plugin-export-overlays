@@ -17,16 +17,16 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-techdocs-mcp-tool"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool:bs_1.42.5__0.3.0!red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool
-  version: 0.2.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool:bs_1.45.3__0.3.2!red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool
+  version: 0.3.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: dev-preview
   lifecycle: active
   partOf:
-    - mcp-tools
+    - techdocs-mcp-tool
   appConfigExamples:
     - title: Default configuration
       content:

@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+ name: software-catalog-mcp-tool
+ namespace: rhdh
+ title: Software Catalog MCP Tool
+ annotations:
+   extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+ links:
+   - title: Homepage
+     url: https://red.ht/rhdh
+   - title: Bugs
+     url: https://issues.redhat.com/browse/RHDHPAI
+   - title: Documentation for Red Hat Developer Hub
+     url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+   - title: Source Code
+     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations
+ tags:
+   - mcp
+   - developer-tools
+   - ai
+   - catalog
+   - software-catalog
+ description: |
+   Backend plugin that provides MCP tools to allow AI clients to interact with and query the software catalog
+spec:
+ author: Red Hat
+ support: dev-preview
+ lifecycle: active
+ publisher: Red Hat
+
+
+ highlights:
+   - Integrations with the software catalog for AI assistants
+   - Provides insight into the RHDH catalog, by querying catalog entities, and retrieving metadata
+   - Provides metadata about software templates
+   - Allows for the registration and unregistration of catalog entity locations
+
+
+ description: |
+     # Software Catalog MCP Tool Plugin
+
+
+     Red Hat Developer Hub provides an MCP server that can be used by AI assistants to interact with RHDH.
+
+
+     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems, enabling them to access information and workflows on those systems. MCP servers define tools which can be called by AI applications to access this data.
+     RHDH supports running MCP tools through the mcp-actions-backend plugin available in Backstage.
+
+     ### Key Features
+
+
+     - **Querying Catalog Entities**: Supports metadata retrieval for software catalog entities, with flexible options for filtering
+     - **Integrations with Software Templates**: Fetch in-depth information about Software Templates like parameters, steps, and deployable resources
+     - **Register and Unregister Catalog Entities**: Allows for AI clients to register new catalog entities, and unregister existing entities.
+
+     ## Support
+
+
+     - **MCP Server Plugin**: [MCP Server README](https://github.com/backstage/backstage/blob/master/plugins/mcp-actions-backend/README.md)
+     - **Backend Plugin**: [Backend README](https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/mcp-integrations/README.md)
+     - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+
+ packages: # link to the name used in the associated package documents in ../packages
+   - rhdh-bsp-software-ctlg-mcp-tool
+
+ installation: |
+     ## Installation
+
+     ### Installing the MCP Actions Backend Plugin
+
+     First, install the `MCP Actions Backend` plugin available in the marketplace
+
+     ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+     Add the following configuration to your dynamic plugin yaml:
+
+
+     ```yaml
+     includes:
+       - dynamic-plugins.default.yaml
+     plugins:
+       # MCP server backend plugin
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool:bs_1.45.3__0.4.1!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool
+         disabled: false
+     ```
+
+     ## RHDH Configuration
+
+     ### Complete Configuration Reference
+
+    
+     Register the MCP tools as a plugin source in your App Config:
+
+     ```yaml
+     backend:
+       actions:
+         pluginSources:
+           - software-catalog-mcp-tool
+           - techdocs-mcp-tool
+     ```
