@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Parse PR Comment
     if: >
+      github.triggering_actor != 'openshift-ci[bot]' &&
+      github.triggering_actor != 'sonarqubecloud[bot]' &&
       github.event.issue.pull_request && (
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
