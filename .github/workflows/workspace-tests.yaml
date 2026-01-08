@@ -315,7 +315,7 @@ jobs:
             });
 
   add-test-result-comment:
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
+    if: ${{ always() && needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
@@ -333,21 +333,44 @@ jobs:
       - name: Post test result comment and status
         uses: actions/github-script@v7
         env:
+          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
           SUCCESS: ${{ needs.integration-tests.outputs.success }}
           FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
           PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const success = process.env.SUCCESS === 'true';
+            const integrationTestsResult = process.env.INTEGRATION_TESTS_RESULT || '';
+            const successOutput = process.env.SUCCESS;
             const failed = (process.env.FAILED_PLUGINS || '').trim();
+            const errorLogs = (process.env.ERROR_LOGS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
             if (!pr) {
               console.log('No PR associated; skipping');
               return;
+            }
+            
+            const success = integrationTestsResult === 'success' && successOutput === 'true';
+            let failureReason = '';
+            
+            if (!success) {
+              switch (integrationTestsResult) {
+                case 'failure':
+                  failureReason = '\n\n:warning: Integration tests failed. Check the workflow logs for details.';
+                  break;
+                case 'cancelled':
+                  failureReason = '\n\n:warning: Integration tests were cancelled.';
+                  break;
+                case 'timeout':
+                  failureReason = '\n\n:warning: Integration tests timed out.';
+                  break;
+                default:
+                  failureReason = `\n\n:warning: Integration tests ended in an unexpected state: ${integrationTestsResult}. Check the workflow logs for details.`;
+              }
             }
             
             // Get current PR head SHA
@@ -371,9 +394,20 @@ jobs:
               context: 'test',
             });
             
-            const body = success
-              ? `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`
-              : `:x: \n[Test workflow](${runUrl}) failed. These plugins failed to load:${failed ? `\n${failed}` : ''}\n`;
+            let body;
+            if (success) {
+              body = `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
+            } else {
+              body = `:x: \n[Test workflow](${runUrl}) failed.`;
+              body += failureReason;
+              if (failed) {
+                body += `\n\nThese plugins failed to load:\n${failed}`;
+              }
+              if (errorLogs) {
+                body += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
+              }
+            }
+            
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
