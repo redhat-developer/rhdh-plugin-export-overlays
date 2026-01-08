@@ -1,0 +1,11 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+app:
+  title: RHDH Tech Radar Test Instance
+backend:
+  reading:
+    allow:
+      - host: ${TECH_RADAR_DATA_URL}
+techRadar:
+  url: "http://${TECH_RADAR_DATA_URL}/tech-radar"
