@@ -339,10 +339,10 @@ jobs:
               run_id: '${{ github.run_id }}',
               filter: 'latest',
             });
-            const publishSuccess = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export')
-              .every(j => j.conclusion === 'success');
-
+            const success = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+              .every(j => j.conclusion === 'success'));
+              
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -352,6 +352,10 @@ jobs:
               target_url: workflowRun.data.html_url,
               context: core.getInput('command_name'),
             });
+
+            const publishSuccess = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
+              .every(j => j.conclusion === 'success');
 
             let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
             
