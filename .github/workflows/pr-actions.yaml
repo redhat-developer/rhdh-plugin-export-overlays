@@ -348,7 +348,7 @@ jobs:
               repo: context.repo.repo,
               sha: core.getInput('overlay_commit'),
               description: '${{ github.workflow }}',
-              state: publishSuccess ? 'success' : 'failure',
+              state: success ? 'success' : 'failure',
               target_url: workflowRun.data.html_url,
               context: core.getInput('command_name'),
             });
