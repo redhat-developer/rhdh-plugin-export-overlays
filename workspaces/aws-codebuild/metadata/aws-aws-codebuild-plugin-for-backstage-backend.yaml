@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: aws-aws-codebuild-plugin-for-backstage-backend
+  namespace: community
+  title: "@aws/aws-codebuild-plugin-for-backstage-backend"
+  links:
+    - url: https://github.com/awslabs/backstage-plugins-for-aws
+      title: Homepage
+    - url: https://github.com/awslabs/backstage-plugins-for-aws/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/awslabs/backstage-plugins-for-aws/tree/main/plugins/codebuild/backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/awslabs/backstage-plugins-for-aws/tree/main/plugins/codebuild/backend
+  tags: []
+spec:
+  packageName: "@aws/aws-codebuild-plugin-for-backstage-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codebuild-plugin-for-backstage-backend:bs_1.45.3__0.9.1!aws-aws-codebuild-plugin-for-backstage-backend
+  version: 0.9.1
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: AWS
+  support: community
+  lifecycle: active
+  partOf:
+    - aws-codebuild
+  appConfigExamples:
+    - title: AWS Credentials Configuration
+      content: |
+        # Backend plugin uses AWS SDK credential chain
+        # Configure via environment variables:
+        # AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
