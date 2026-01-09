@@ -27,6 +27,7 @@ spec:
   lifecycle: active
   partOf:
     - backstage-plugin-events-backend-module-github
+  # From https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.8/html/configuring_dynamic_plugins/configuring-rhdh-events-module#proc-configuring-events-module-for-github
   appConfigExamples:
     - title: Default configuration
       content:
