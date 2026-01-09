@@ -12,6 +12,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      statuses: write
     env:
       TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
     outputs:
@@ -31,22 +32,22 @@ jobs:
           path: ./context
           if_no_artifact_found: fail
 
-      - name: Check workspace from context
+      - name: Check context for workspace and PR
         id: context
         run: |
-          workspace=$(jq -r .workspace ./context/meta.json)
+          workspace=$(jq -r '.workspace // ""' ./context/meta.json)
+          pr=$(jq -r '.pr // ""' ./context/meta.json)
           echo "workspace=$workspace" >> $GITHUB_OUTPUT
+          echo "pr=$pr" >> $GITHUB_OUTPUT
           if [ -z "$workspace" ]; then
             echo "No workspace in context - skipping tests"
           fi
 
-      # note: the 'pr:' filter is intentionally omitted as it is unreliable for comment-triggered
-      # workflows on forks. PR is verified manually in the next step.
-      - name: Download latest published-exports artifact
-        if: steps.context.outputs.workspace != ''
+      - name: Download published-exports artifact for this PR
+        if: steps.context.outputs.workspace != '' && steps.context.outputs.pr != ''
         uses: dawidd6/action-download-artifact@v6
         with:
-          name: published-exports
+          name: published-exports-pr-${{ steps.context.outputs.pr }}
           workflow: pr-actions.yaml
           workflow_conclusion: success
           workflow_search: true
@@ -100,6 +101,33 @@ jobs:
         run: |
           echo "Workspace: $WORKSPACE"
           echo "PR: $PR, Overlay SHA: $OVERLAY_SHA"
+
+      - name: Set pending commit status
+        if: steps.meta.outputs.pr != 'null' && steps.meta.outputs.pr != ''
+        uses: actions/github-script@v7
+        env:
+          OVERLAY_COMMIT: ${{ steps.meta.outputs.overlayCommit }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr }}
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const overlayCommit = process.env.OVERLAY_COMMIT;
+            const pr = Number(process.env.PR_NUMBER);
+            if (!pr || !overlayCommit) {
+              console.log('Missing PR or commit; skipping pending status');
+              return;
+            }
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description: 'Workspace Tests',
+              state: 'pending',
+              target_url: runUrl,
+              context: 'test',
+            });
+            console.log(`Set pending status on ${overlayCommit}`);
 
   prepare-test-config:
     needs: resolve
@@ -269,7 +297,7 @@ jobs:
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
 
   add-skipped-test-comment:
-    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
+    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
@@ -315,7 +343,7 @@ jobs:
             });
 
   add-test-result-comment:
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
+    if: ${{ always() && needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
@@ -333,21 +361,44 @@ jobs:
       - name: Post test result comment and status
         uses: actions/github-script@v7
         env:
+          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
           SUCCESS: ${{ needs.integration-tests.outputs.success }}
           FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
           PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const success = process.env.SUCCESS === 'true';
+            const integrationTestsResult = process.env.INTEGRATION_TESTS_RESULT || '';
+            const successOutput = process.env.SUCCESS;
             const failed = (process.env.FAILED_PLUGINS || '').trim();
+            const errorLogs = (process.env.ERROR_LOGS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
             if (!pr) {
               console.log('No PR associated; skipping');
               return;
+            }
+            
+            const success = integrationTestsResult === 'success' && successOutput === 'true';
+            let failureReason = '';
+            
+            if (!success) {
+              switch (integrationTestsResult) {
+                case 'failure':
+                  failureReason = '\n\n:warning: Integration tests failed. Check the workflow logs for details.';
+                  break;
+                case 'cancelled':
+                  failureReason = '\n\n:warning: Integration tests were cancelled.';
+                  break;
+                case 'timeout':
+                  failureReason = '\n\n:warning: Integration tests timed out.';
+                  break;
+                default:
+                  failureReason = `\n\n:warning: Integration tests ended in an unexpected state: ${integrationTestsResult}. Check the workflow logs for details.`;
+              }
             }
             
             // Get current PR head SHA
@@ -371,9 +422,20 @@ jobs:
               context: 'test',
             });
             
-            const body = success
-              ? `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`
-              : `:x: \n[Test workflow](${runUrl}) failed. These plugins failed to load:${failed ? `\n${failed}` : ''}\n`;
+            let body;
+            if (success) {
+              body = `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
+            } else {
+              body = `:x: \n[Test workflow](${runUrl}) failed.`;
+              body += failureReason;
+              if (failed) {
+                body += `\n\nThese plugins failed to load:\n${failed}`;
+              }
+              if (errorLogs) {
+                body += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
+              }
+            }
+            
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
