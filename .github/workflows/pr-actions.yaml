@@ -341,26 +341,23 @@ jobs:
             });
             const success = jobs.data.jobs
               .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
-              .every(j => j.conclusion === 'success');
-
+              .every(j => j.conclusion === 'success'));
+              
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: core.getInput('overlay_commit'),
               description: '${{ github.workflow }}',
-              state: success ? 'success' : 'failure',
+              state: publishSuccess ? 'success' : 'failure',
               target_url: workflowRun.data.html_url,
               context: core.getInput('command_name'),
             });
 
-            let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
-            
-            // Check for compatibility report
-            const reportPath = 'backstage-compatibility-report.md';
-            if (fs.existsSync(reportPath)) {
-              const reportContent = fs.readFileSync(reportPath, 'utf8');
-              body = `${body}\n\n${reportContent}`;
-            }
+            const publishSuccess = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
+              .every(j => j.conclusion === 'success');
+
+            let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
             
             const publishedExports = core.getMultilineInput('published_exports');
             if (publishedExports.length > 0) {
@@ -376,6 +373,13 @@ jobs:
                 body = `${body}\n  - ${line}`;
               });
             }
+            
+            const reportPath = 'backstage-compatibility-report.md';
+            if (fs.existsSync(reportPath)) {
+              const reportContent = fs.readFileSync(reportPath, 'utf8');
+              body = `${body}\n\n${reportContent}`;
+            }
+            
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
