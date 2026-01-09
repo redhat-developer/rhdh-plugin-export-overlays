@@ -341,7 +341,7 @@ jobs:
             });
             const success = jobs.data.jobs
               .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
-              .every(j => j.conclusion === 'success'));
+              .every(j => j.conclusion === 'success');
               
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
