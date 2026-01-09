@@ -1,0 +1,34 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-quay-backend
+  namespace: rhdh
+  title: "Quay Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay/plugins/quay-backend
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/quay/plugins/quay-backend
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-quay-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.45.3__1.6.0!backstage-community-plugin-quay-backend
+  version: 1.10.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - backstage-community-plugin-quay
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        quay:
+          apiUrl: "https://quay.io"
