@@ -52,7 +52,7 @@ spec:
     - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
     - ./lightspeed.yaml
-    - ./mcp-tools.yaml
+    - ./mcp-actions-backend.yaml
     - ./microsoft-graph-catalog-integration.yaml
     - ./nexus-repository-manager.yaml
     - ./notifications-email.yaml
@@ -77,10 +77,12 @@ spec:
     - ./servicenow.yaml
     - ./signals-backend.yaml
     - ./signals.yaml
+    - ./software-catalog-mcp-tool.yaml
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
     - ./tech-radar.yaml
     - ./techdocs.yaml
+    - ./techdocs-mcp-tool.yaml
     - ./tekton.yaml
     - ./todo.yaml
     - ./topology.yaml
