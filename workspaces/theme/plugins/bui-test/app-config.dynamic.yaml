@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-bui-test:
+      dynamicRoutes:
+        - path: /bui-test
+          importName: BUITestPage
+          menuItem:
+            text: Backstage UI Test
