@@ -9,7 +9,6 @@ metadata:
     Adds a set of actions for Quay to the Software Template system.
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
-    extensions.backstage.io/verified-by: Red Hat
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -18,17 +17,17 @@ metadata:
     - title: Documentation for Red Hat Developer Hub
       url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay/plugins/quay-actions
   tags:
     - scaffolder # Used for filtering
 spec:
   authors:
-   - name: Red Hat
-     url: https://redhat.com
+    - name: Red Hat
+      url: https://redhat.com
 
   support:
     provider: Red Hat
-    level: generally-available
+    level: community
   lifecycle: active
   publisher: Red Hat
 
