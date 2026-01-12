@@ -48,5 +48,11 @@ roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-ut
 # confirmed Community @ 12/05 meeting - both Roadie and RH are to be community supported
 argocd/plugins/argocd
 argocd/plugins/argocd-backend
-roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
+
+# continue to build in Konflux in 1.9 because we're deleting the wrapper and this was GA in 1.8 but moving to Commmunity in 1.9 (per PM/Eng sync meeting 01/12)
+# TODO remove from supported / move to community in 1.11 - https://issues.redhat.com/browse/RHIDP-11354
+# quay/plugins/quay
+# quay/plugins/quay-actions
+# roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
+# tekton/plugins/tekton

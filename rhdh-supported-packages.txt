@@ -32,12 +32,16 @@ marketplace/plugins/catalog-backend-module-marketplace
 marketplace/plugins/marketplace
 marketplace/plugins/marketplace-backend
 
-# deprecated in 1.8 - remove in 1.9 or 1.10
+# deprecated in 1.8 - TODO remove in 1.10 - https://issues.redhat.com/browse/RHIDP-9179
 ocm/plugins/ocm
 ocm/plugins/ocm-backend
 
+# build in Konflux in 1.9 because we're deleting the wrapper and this was GA in 1.8 but moving to Commmunity in 1.9 (per PM/Eng sync meeting 01/12)
+# TODO remove from supported / move to community in 1.11 - https://issues.redhat.com/browse/RHIDP-11354
 quay/plugins/quay
 quay/plugins/quay-actions
+roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
+tekton/plugins/tekton
 
 quickstart/plugins/quickstart
 
@@ -46,8 +50,6 @@ rbac/plugins/rbac
 scaffolder-backend-module-kubernetes/plugins/kubernetes-actions
 scaffolder-backend-module-regex/plugins/regex-actions
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
-
-tekton/plugins/tekton
 
 topology/plugins/topology
 
@@ -81,7 +83,7 @@ orchestrator/plugins/orchestrator-backend
 orchestrator/plugins/orchestrator-form-widgets
 orchestrator/plugins/scaffolder-backend-module-orchestrator
 
-# Events Modules (TP)
+# Events Modules (TP in 1.9)
 backstage/plugins/events-backend-module-github
 
 # Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
