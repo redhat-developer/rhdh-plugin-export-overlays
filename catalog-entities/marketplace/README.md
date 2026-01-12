@@ -4,7 +4,7 @@
 
 Packages are not located in this file tree, but are instead co-located under the `workspaces/*/metadata/` folders.
 
-Content will be merged from those folders into this folder when reassembling the complete marketplace entities in the plugin catalog index image.
+Content will be merged from those folders into this folder when reassembling the complete extensions entities in the plugin catalog index image.
 
 The latest of these index images will be published to quay. For example, see <https://quay.io/rhdh/plugin-catalog-index>
 
@@ -64,7 +64,7 @@ You **must** add your package yaml file to the list in the `packages/all.yaml` f
 The files in the `plugins` folder describe the plugins themselves. The plugins folder contains the individual `plugin.yaml` files where you can set various details about your plugin - many of which appear on screen in RHDH in the "Extensions" catalog tab. For example, see the 3scale package details in `plugins/3scale.yaml`.
 
 ```yaml
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin # Important to set the kind
 metadata:
@@ -157,11 +157,11 @@ catalog:
   locations:
     # Extensions Plugin needs this target to pull in the information about Plugins
     - type: file
-      target: /marketplace/catalog-entities/plugins/all.yaml
+      target: /extensions/catalog-entities/plugins/all.yaml
       rules:
         - allow: [Location, Plugin]
     - type: file
-      target: /marketplace/catalog-entities/packages/all.yaml
+      target: /extensions/catalog-entities/packages/all.yaml
       rules:
         - allow: [Location, Package]
 
@@ -175,11 +175,11 @@ services:
     volumes:
       # Add an Extensions overwrite
       - type: bind
-        source: <your rhdh cloned repo>/catalog-entities/marketplace/plugins/
-        target: /marketplace/catalog-entities/plugins
+        source: <your rhdh cloned repo>/catalog-entities/extensions/plugins/
+        target: /extensions/catalog-entities/plugins
       - type: bind
-        source: <your rhdh cloned repo>/catalog-entities/marketplace/packages/
-        target: /marketplace/catalog-entities/packages
+        source: <your rhdh cloned repo>/catalog-entities/extensions/packages/
+        target: /extensions/catalog-entities/packages
 ```
 
 ## Troubleshooting
@@ -203,7 +203,7 @@ to stop certain plugins from being loaded into the catalog. You can also search 
 find a clue as to what caused the catalog entries to stop loading. For example:
 
 ```bash
-rhdh  | {"entity":"location:rhdh/plugins","level":"\u001b[33mwarn\u001b[39m","location":"file:/marketplace/catalog-entities/plugins/all.yaml","message":"YAML error at file:/marketplace/catalog-entities/plugins/keycloak-catalog-integration.yaml, YAMLParseError: Map keys must be unique at line 99, column 3:\n\n  #   level: tech-preview\n  lifecycle: production\n  ^\n","plugin":"catalog","service":"backstage","timestamp":"2025-03-11 15:56:57"}
+rhdh  | {"entity":"location:rhdh/plugins","level":"\u001b[33mwarn\u001b[39m","location":"file:/extensions/catalog-entities/plugins/all.yaml","message":"YAML error at file:/extensions/catalog-entities/plugins/keycloak-catalog-integration.yaml, YAMLParseError: Map keys must be unique at line 99, column 3:\n\n  #   level: tech-preview\n  lifecycle: production\n  ^\n","plugin":"catalog","service":"backstage","timestamp":"2025-03-11 15:56:57"}
 ```
 
 ### Is my plugin here or missing?
@@ -228,5 +228,5 @@ file `1boilerplate.yaml` has a good starting point for creating these files.
 
 ```bash
 # in rhdh root
-npx --yes @red-hat-developer-hub/marketplace-cli generate --namespace rhdh -p dynamic-plugins.default.yaml -o catalog-entities/marketplace/packages
+npx --yes @red-hat-developer-hub/extensions-cli generate --namespace rhdh -p dynamic-plugins.default.yaml -o catalog-entities/extensions/packages
 ```
