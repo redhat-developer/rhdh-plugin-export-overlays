@@ -11,6 +11,7 @@ spec:
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
+    - ./aws-codebuild.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
@@ -65,7 +66,7 @@ spec:
     - ./quay-scaffolder-actions.yaml
     - ./quickstart.yaml
     - ./rbac.yaml
-    - ./redhat-argocd.yaml
+    - ./argocd.yaml
     - ./redhat-resource-optimization.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml

@@ -3,17 +3,17 @@ kind: Package
 metadata:
   name: red-hat-developer-hub-backstage-plugin-marketplace-backend
   namespace: rhdh
-  title: "Marketplace Backend"
+  title: "Extensions Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/marketplace
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/marketplace
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-marketplace-backend"
