@@ -39,3 +39,4 @@ spec:
                 - name: argoInstance1
                   url: ${ARGOCD_INSTANCE1_URL}
                   token: ${ARGOCD_AUTH_TOKEN}
+
