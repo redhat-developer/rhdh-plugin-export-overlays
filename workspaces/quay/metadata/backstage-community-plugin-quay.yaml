@@ -17,13 +17,13 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-quay"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-quay
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.45.3__1.24.0!backstage-community-plugin-quay
   version: 1.24.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
-  support: production
+  support: community
   lifecycle: active
   partOf:
     - backstage-community-plugin-quay
