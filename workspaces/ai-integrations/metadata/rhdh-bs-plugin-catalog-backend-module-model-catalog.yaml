@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-plugin-catalog-backend-module-model-catalog
+  name: rhdh-bs-plugin-catalog-backend-module-model-catalog
   namespace: rhdh
   title: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog"
   links:
@@ -16,12 +16,12 @@ metadata:
       https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-model-catalog
   tags: []
 spec:
-  packageName: "@backstage/catalog-backend-module-model-catalog"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.42.5__0.7.0!red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog
-  version: 0.7.0
+  packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.45.3__0.9.0
+  version: 0.9.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Backstage
   support: dev-preview
   lifecycle: active
