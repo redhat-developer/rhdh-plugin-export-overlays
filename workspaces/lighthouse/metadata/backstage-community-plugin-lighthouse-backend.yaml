@@ -26,4 +26,8 @@ spec:
   lifecycle: active
   partOf:
   - lighthouse
-  appConfigExamples: []
+  appConfigExamples:
+  - title: Default configuration
+    content:
+      lighthouse:
+        baseUrl: "http://localhost:4008"
