@@ -15,7 +15,7 @@ metadata:
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/github-pull-requests-board/plugins/github-pull-requests-board
 spec:
   packageName: "@backstage-community/plugin-github-pull-requests-board"
-  dynamicArtifact: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-pull-requests-board:bs_1.45.3__0.12.0!backstage-community-plugin-github-pull-requests-board
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-pull-requests-board:bs_1.45.3__0.12.0!backstage-community-plugin-github-pull-requests-board
   version: 0.12.0
   backstage:
     role: frontend-plugin
