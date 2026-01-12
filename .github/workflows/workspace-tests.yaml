@@ -12,6 +12,7 @@ jobs:
     permissions:
       actions: read
       contents: read
+      statuses: write
     env:
       TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
     outputs:
@@ -31,12 +32,22 @@ jobs:
           path: ./context
           if_no_artifact_found: fail
 
-      # note: the 'pr:' filter is intentionally omitted as it is unreliable for comment-triggered
-      # workflows on forks. PR is verified manually in the next step.
-      - name: Download latest published-exports artifact
+      - name: Check context for workspace and PR
+        id: context
+        run: |
+          workspace=$(jq -r '.workspace // ""' ./context/meta.json)
+          pr=$(jq -r '.pr // ""' ./context/meta.json)
+          echo "workspace=$workspace" >> $GITHUB_OUTPUT
+          echo "pr=$pr" >> $GITHUB_OUTPUT
+          if [ -z "$workspace" ]; then
+            echo "No workspace in context - skipping tests"
+          fi
+
+      - name: Download published-exports artifact for this PR
+        if: steps.context.outputs.workspace != '' && steps.context.outputs.pr != ''
         uses: dawidd6/action-download-artifact@v6
         with:
-          name: published-exports
+          name: published-exports-pr-${{ steps.context.outputs.pr }}
           workflow: pr-actions.yaml
           workflow_conclusion: success
           workflow_search: true
@@ -45,6 +56,7 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Verify published-exports artifact belongs to triggering PR
+        if: steps.context.outputs.workspace != ''
         run: |
           triggering_pr=$(jq -r .pr ./context/meta.json)
           artifact_pr=$(jq -r .pr ./meta.json)
@@ -55,27 +67,31 @@ jobs:
             exit 1
           fi
 
-      - name: Read published-exports artifact metadata
+      - name: Read artifact metadata
         id: meta
         run: |
-          echo "Contents of meta.json:"
-          cat meta.json || echo "meta.json not found"
-          workspace=$(jq -r .workspace meta.json)
-          overlayBranch=$(jq -r .overlayBranch meta.json)
-          overlayRepo=$(jq -r .overlayRepo meta.json)
-          overlayCommit=$(jq -r .overlayCommit meta.json)
-          pr=$(jq -r '.pr // "null"' meta.json)
-          publishedExports=$(cat published-exports.txt)
-          echo "Parsed values: workspace=$workspace, overlayBranch=$overlayBranch, overlayRepo=$overlayRepo, overlayCommit=$overlayCommit, pr=$pr"
-          test -z "$workspace" && { echo "Missing workspace in meta.json"; exit 1; }
-          echo "workspace=$workspace" >> $GITHUB_OUTPUT
-          echo "overlayBranch=$overlayBranch" >> $GITHUB_OUTPUT
-          echo "overlayRepo=$overlayRepo" >> $GITHUB_OUTPUT
-          echo "overlayCommit=$overlayCommit" >> $GITHUB_OUTPUT
-          echo "pr=$pr" >> $GITHUB_OUTPUT
-          echo "publishedExports<<EOF" >> $GITHUB_OUTPUT
-          echo "$publishedExports" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          workspace="${{ steps.context.outputs.workspace }}"
+          if [[ -n "$workspace" ]]; then
+            meta_file="./meta.json"
+            exports_file="./published-exports.txt"
+          else
+            meta_file="./context/meta.json"
+            exports_file=""
+          fi
+          {
+            echo "workspace=$workspace"
+            echo "overlayBranch=$(jq -r .overlayBranch "$meta_file")"
+            echo "overlayRepo=$(jq -r .overlayRepo "$meta_file")"
+            echo "overlayCommit=$(jq -r .overlayCommit "$meta_file")"
+            echo "pr=$(jq -r '.pr // "null"' "$meta_file")"
+            if [[ -n "$workspace" ]] && [[ -f "$exports_file" ]]; then
+              echo "publishedExports<<EOF"
+              cat "$exports_file"
+              echo "EOF"
+            else
+              echo "publishedExports="
+            fi
+          } >> $GITHUB_OUTPUT
 
       - name: Debug resolved metadata
         env:
@@ -85,6 +101,33 @@ jobs:
         run: |
           echo "Workspace: $WORKSPACE"
           echo "PR: $PR, Overlay SHA: $OVERLAY_SHA"
+
+      - name: Set pending commit status
+        if: steps.meta.outputs.pr != 'null' && steps.meta.outputs.pr != ''
+        uses: actions/github-script@v7
+        env:
+          OVERLAY_COMMIT: ${{ steps.meta.outputs.overlayCommit }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr }}
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const overlayCommit = process.env.OVERLAY_COMMIT;
+            const pr = Number(process.env.PR_NUMBER);
+            if (!pr || !overlayCommit) {
+              console.log('Missing PR or commit; skipping pending status');
+              return;
+            }
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description: 'Workspace Tests',
+              state: 'pending',
+              target_url: runUrl,
+              context: 'test',
+            });
+            console.log(`Set pending status on ${overlayCommit}`);
 
   prepare-test-config:
     needs: resolve
@@ -178,8 +221,8 @@ jobs:
               # First appConfigExamples item is used for testing
               CONFIG_CONTENT=$(yq -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE" 2>/dev/null || echo "")
               if [ -z "$CONFIG_CONTENT" ] || [ "$CONFIG_CONTENT" = "null" ]; then
-                echo "spec.appConfigExamples[0].content not found in $METADATA_FILE, skipping"
-                continue
+                echo "spec.appConfigExamples[0].content not found in $METADATA_FILE: assuming empty config"
+                CONFIG_CONTENT=""
               fi
 
               ENV_VARS=$(echo "$CONFIG_CONTENT" | yq -o=yaml '.dynamicPlugins' 2>/dev/null | grep -oE '\$\{[A-Z_][A-Z0-9_]*\}|\$[A-Z_][A-Z0-9_]*' | sed 's/\${//; s/}//; s/^\$//' | sort -u || true)
@@ -213,8 +256,10 @@ jobs:
               STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
               echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${STRIPPED}\"" >> "$OUT_FILE"
               echo "  disabled: false" >> "$OUT_FILE"
-              echo "  pluginConfig:" >> "$OUT_FILE"
-              echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
+              if [ -n "$CONFIG_CONTENT" ]; then
+                echo "  pluginConfig:" >> "$OUT_FILE"
+                echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
+              fi
               PLUGINS_FOUND=$((PLUGINS_FOUND + 1))
             else
               echo "Export did not match expected format, skipping: $export"
@@ -252,7 +297,7 @@ jobs:
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
 
   add-skipped-test-comment:
-    if: ${{ (needs.prepare-test-config.outputs.plugins_metadata_complete == 'false' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true') && needs.resolve.outputs.prNumber != 'null' }}
+    if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
@@ -264,7 +309,9 @@ jobs:
       - name: Post skipped-test comment
         uses: actions/github-script@v7
         env:
-          INPUT_SKIP_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env }}
+          INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
+          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
           INPUT_PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
         with:
           script: |
@@ -274,12 +321,19 @@ jobs:
               return;
             }
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const skipMissingEnv = core.getInput('skip_missing_env') === 'true';
-            let body;
-            if (skipMissingEnv) {
-              body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin configurations contain environment variables but the workspace \`tests/test.env\` file is missing.\n\nAdd the required \`test.env\` file to enable testing for this workspace.\n`;
+            const workspace = core.getInput('workspace');
+            const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
+            const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
+            let body = `:warning: \n[Test workflow](${runUrl})`;
+
+            if (!workspace || workspace === '') {
+              body += ' skipped: PR doesn\'t touch exactly one workspace.\n';
+            } else if (skipTestsMissingEnv) {
+              body += ' skipped: missing workspace `tests/test.env` file.\n';
+            } else if (!pluginsMetadataComplete) {
+              body += ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
             } else {
-              body = `:warning: \n[Test workflow](${runUrl}) skipped because some plugin metadata files (\`<workspace>/metadata/*.yaml\`) were not found.\n\nAdd the corresponding metadata files to enable testing for this workspace.\n`;
+              body += ' skipped for an unknown reason. Check workflow run for details.\n';
             }
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -289,7 +343,7 @@ jobs:
             });
 
   add-test-result-comment:
-    if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
+    if: ${{ always() && needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
@@ -307,21 +361,44 @@ jobs:
       - name: Post test result comment and status
         uses: actions/github-script@v7
         env:
+          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
           SUCCESS: ${{ needs.integration-tests.outputs.success }}
           FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
           PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const success = process.env.SUCCESS === 'true';
+            const integrationTestsResult = process.env.INTEGRATION_TESTS_RESULT || '';
+            const successOutput = process.env.SUCCESS;
             const failed = (process.env.FAILED_PLUGINS || '').trim();
+            const errorLogs = (process.env.ERROR_LOGS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
             if (!pr) {
               console.log('No PR associated; skipping');
               return;
+            }
+            
+            const success = integrationTestsResult === 'success' && successOutput === 'true';
+            let failureReason = '';
+            
+            if (!success) {
+              switch (integrationTestsResult) {
+                case 'failure':
+                  failureReason = '\n\n:warning: Integration tests failed. Check the workflow logs for details.';
+                  break;
+                case 'cancelled':
+                  failureReason = '\n\n:warning: Integration tests were cancelled.';
+                  break;
+                case 'timeout':
+                  failureReason = '\n\n:warning: Integration tests timed out.';
+                  break;
+                default:
+                  failureReason = `\n\n:warning: Integration tests ended in an unexpected state: ${integrationTestsResult}. Check the workflow logs for details.`;
+              }
             }
             
             // Get current PR head SHA
@@ -345,9 +422,20 @@ jobs:
               context: 'test',
             });
             
-            const body = success
-              ? `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`
-              : `:x: \n[Test workflow](${runUrl}) failed. These plugins failed to load:${failed ? `\n${failed}` : ''}\n`;
+            let body;
+            if (success) {
+              body = `:white_check_mark: [Test workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
+            } else {
+              body = `:x: \n[Test workflow](${runUrl}) failed.`;
+              body += failureReason;
+              if (failed) {
+                body += `\n\nThese plugins failed to load:\n${failed}`;
+              }
+              if (errorLogs) {
+                body += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
+              }
+            }
+            
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
