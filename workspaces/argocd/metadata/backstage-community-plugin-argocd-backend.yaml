@@ -3,17 +3,17 @@ kind: Package
 metadata:
   name: backstage-community-plugin-redhat-argocd-backend
   namespace: rhdh
-  title: "Red Hat ArgoCD Backend"
+  title: "ArgoCD Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
   annotations:
     backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
+      https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
   tags: []
 spec:
   packageName: "@backstage-community/plugin-redhat-argocd-backend"
@@ -39,4 +39,3 @@ spec:
                 - name: argoInstance1
                   url: ${ARGOCD_INSTANCE1_URL}
                   token: ${ARGOCD_AUTH_TOKEN}
-
