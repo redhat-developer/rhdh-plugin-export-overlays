@@ -11,12 +11,12 @@ metadata:
   tags:
     - planning
   links:
-    - url: https://roadie.io/backstage/plugins/jira/
-      title: Roadie Documentation
-    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
-      title: Issues
+    - title: Roadie Documentation
+      url: https://roadie.io/backstage/plugins/jira/
+    - title: Issues
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-jira
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-jira
 spec:
   authors:
     - name: Roadie
