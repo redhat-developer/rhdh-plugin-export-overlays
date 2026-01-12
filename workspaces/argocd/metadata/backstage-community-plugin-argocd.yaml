@@ -31,7 +31,7 @@ spec:
       content:
         dynamicPlugins:
           frontend:
-            backstage-community.plugin-redhat-argocd:
+            backstage-community.plugin-argocd:
               translationResources:
                 - importName: argocdTranslations
                   module: Alpha
