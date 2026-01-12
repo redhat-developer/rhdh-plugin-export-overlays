@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   tags: []
 spec:
-  packageName: '@red-hat-developer-hub/backstage-plugin-extensions'
+  packageName: '@red-hat-developer-hub/backstage-plugin-marketplace'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-marketplace
   version: 0.12.1
   backstage:
