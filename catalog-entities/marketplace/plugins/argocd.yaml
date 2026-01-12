@@ -2,7 +2,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
-  name: argocd
+  name: redhat-argocd
   namespace: rhdh
   title: Argo CD
   description: 'This plugin provides a visual overview of the application’s status, deployment details, commit message, author of the commit, container image promoted to environment and deployment history.'
@@ -110,5 +110,5 @@ spec:
     Mi0yYy4yNDMxNi0uMjQ0MTQuMjQzMTYtLjY0MDYyLDAtLjg4NDc3bC0yLTJaIi8+PC9zdmc+
 
   packages:
-    - backstage-community-plugin-argocd
-    - backstage-community-plugin-argocd-backend
+    - backstage-community-plugin-redhat-argocd
+    - backstage-community-plugin-redhat-argocd-backend

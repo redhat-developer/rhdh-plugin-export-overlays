@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-plugin-argocd
+  name: backstage-community-plugin-redhat-argocd
   namespace: rhdh
   title: ArgoCD
   links:
@@ -25,7 +25,7 @@ spec:
   support: community
   lifecycle: active
   partOf:
-    - argocd
+    - redhat-argocd
   appConfigExamples:
     - title: Default configuration
       content:

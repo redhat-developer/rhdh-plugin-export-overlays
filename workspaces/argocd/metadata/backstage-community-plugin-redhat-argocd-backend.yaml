@@ -1,22 +1,22 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-plugin-argocd-backend
+  name: backstage-community-plugin-redhat-argocd-backend
   namespace: rhdh
-  title: "ArgoCD Backend"
+  title: "Red Hat ArgoCD Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/argocd/plugins/argocd-backend
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   annotations:
     backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/argocd/plugins/argocd-backend
+      https://github.com/backstage/community-plugins/tree/main/workspaces/redhat-argocd/plugins/argocd-backend
   tags: []
 spec:
-  packageName: "@backstage-community/plugin-argocd-backend"
+  packageName: "@backstage-community/plugin-redhat-argocd-backend"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-redhat-argocd-backend:next__0.10.0
   version: 0.10.0
   backstage:
@@ -26,7 +26,7 @@ spec:
   support: community
   lifecycle: active
   partOf:
-    - argocd
+    - redhat-argocd
   appConfigExamples:
     - title: Default configuration
       content:
