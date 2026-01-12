@@ -10,9 +10,9 @@ metadata:
   - url: https://issues.redhat.com/browse/RHIDP
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-techdocs
+    url: https://github.com/backstage/backstage/tree/master/plugins/techdocs
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-techdocs
+    backstage.io/source-location: url https://github.com/backstage/backstage/tree/master/plugins/techdocs
   tags: []
 spec:
   packageName: '@backstage/plugin-techdocs'

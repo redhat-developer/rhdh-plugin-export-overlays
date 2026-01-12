@@ -9,6 +9,9 @@ on:
       failed-plugins:
         description: Newline-separated list of plugins that failed to load
         value: ${{ jobs.run.outputs.failed-plugins }}
+      error-logs:
+        description: Extracted error messages from container logs
+        value: ${{ jobs.run.outputs.error-logs }}
 
 jobs:
   run:
@@ -20,6 +23,7 @@ jobs:
     outputs:
       success: ${{ steps.collect-results.outputs.success }}
       failed-plugins: ${{ steps.collect-results.outputs.failed-plugins }}
+      error-logs: ${{ steps.capture-errors.outputs.error-logs }}
     steps:
       - name: Download integration test artifacts
         uses: actions/download-artifact@v4
@@ -64,7 +68,7 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
           # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:1.6 -c '"
+          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:next -c '"
           DOCKER_CMD="$DOCKER_CMD set -ex; "
           DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
           DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "
@@ -157,6 +161,31 @@ jobs:
           echo "The following plugins failed to load to RHDH:"
           echo "${{ steps.collect-results.outputs.failed-plugins }}"
           exit 1
+
+      - name: Capture error logs
+        if: always()
+        id: capture-errors
+        continue-on-error: true
+        run: |
+          if ! docker ps -a | grep -q rhdh; then
+            echo "error-logs<<EOF" >> "$GITHUB_OUTPUT"
+            echo "'rhdh' container was not available. Check earlier steps for startup errors." >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          LOGS=$(docker logs rhdh 2>&1 || echo "Failed to retrieve logs")
+          
+          # Extract errors from logs with short context 
+          ERROR_LINES=$(echo "$LOGS" | grep -iE -B 2 -A 2 "(error|exception|failed|failure|installException)" | grep -vE "(no errors|successfully|resolved|fixed)" | grep -v "^--$" | tail -n 100 || echo "")
+          
+          echo "error-logs<<EOF" >> "$GITHUB_OUTPUT"
+          if [ -n "$ERROR_LINES" ] && [ "$ERROR_LINES" != "" ]; then
+            echo "$ERROR_LINES" >> "$GITHUB_OUTPUT"
+          else
+            echo "No specific error patterns found in container logs. Check full workflow logs for details." >> "$GITHUB_OUTPUT"
+          fi
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Container logs
         if: always()
