@@ -13,15 +13,15 @@ metadata:
       url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jenkins-backend-dynamic
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jenkins-backend-dynamic
+      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jenkins-backend-dynamic  
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
-  version: 0.17.0
+  version: 0.22.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active
