@@ -1,1 +1,1 @@
-.: --embed-package @backstage/backend-common
+.: --embed-package @backstage/backend-common --ignore-version-check @backstage/backend-plugin-api --ignore-version-check @backstage/errors --ignore-version-check @backstage/integration --allow-native-package cpu-features
