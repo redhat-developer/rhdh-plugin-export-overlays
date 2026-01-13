@@ -1,0 +1,8 @@
+--- src/module.ts
++++ src/module.ts
+@@ -1,4 +1,4 @@
+-import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node/alpha';
++import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-node';
+ import {
+   createBackendModule,
+   coreServices,
