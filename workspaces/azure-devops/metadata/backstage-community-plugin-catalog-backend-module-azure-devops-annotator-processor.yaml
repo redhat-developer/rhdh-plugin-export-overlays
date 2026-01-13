@@ -1,0 +1,31 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: bcp-ctlg-backend-mod-azure-devops-annotator-processor
+  namespace: rhdh
+  title: "Catalog Backend Module Azure DevOps Annotator Processor"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops/plugins/catalog-backend-module-azure-devops-annotator-processor
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops/plugins/catalog-backend-module-azure-devops-annotator-processor
+  tags:
+    - software-catalog
+spec:
+  packageName: "@backstage-community/plugin-catalog-backend-module-azure-devops-annotator-processor"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-azure-devops-annotator-processor:bs_1.45.3__0.14.0
+  version: 0.14.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  partOf:
+    - azure-devops
+  appConfigExamples: []

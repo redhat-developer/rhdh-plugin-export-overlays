@@ -80,6 +80,8 @@ jobs:
       - check_authorization
     if: |
       needs.check_authorization.outputs.is_authorized == 'true' &&
+      github.triggering_actor != 'openshift-ci[bot]' &&
+      github.triggering_actor != 'sonarqubecloud[bot]' &&
       github.event.issue.pull_request && (
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
@@ -376,7 +378,7 @@ jobs:
       - name: Upload published-exports artifact
         uses: actions/upload-artifact@v4
         with:
-          name: published-exports
+          name: published-exports-pr-${{ needs.prepare.outputs.pr-number }}
           path: published-exports/
           if-no-files-found: error
           retention-days: 7
@@ -512,7 +514,7 @@ jobs:
                 j.name.startsWith('export')
               )
               .every(j => j.conclusion === 'success');
-
+              
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -523,14 +525,11 @@ jobs:
               context: statusContext,
             });
 
-            let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
-            
-            // Check for compatibility report
-            const reportPath = 'backstage-compatibility-report.md';
-            if (fs.existsSync(reportPath)) {
-              const reportContent = fs.readFileSync(reportPath, 'utf8');
-              body = `${body}\n\n${reportContent}`;
-            }
+            const publishSuccess = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
+              .every(j => j.conclusion === 'success');
+
+            let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
             
             const publishedExports = core.getMultilineInput('published_exports');
             if (publishedExports.length > 0) {
@@ -546,6 +545,12 @@ jobs:
               failedExports.forEach(line => {
                 body = `${body}\n  - ${line}`;
               });
+            }
+            
+            const reportPath = 'backstage-compatibility-report.md';
+            if (fs.existsSync(reportPath)) {
+              const reportContent = fs.readFileSync(reportPath, 'utf8');
+              body = `${body}\n\n${reportContent}`;
             }
             
             await github.rest.issues.createComment({
