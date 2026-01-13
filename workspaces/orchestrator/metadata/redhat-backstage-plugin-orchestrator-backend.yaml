@@ -17,12 +17,12 @@ metadata:
   tags:
     - automation
 spec:
-  packageName: "@redhat/backstage-plugin-orchestrator-backend"
-  dynamicArtifact: "@redhat/backstage-plugin-orchestrator-backend-dynamic@1.8.2"
+  packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-backend"
+  dynamicArtifact: "oci://quay.io/redhat-developer-hub/plugin-orchestrator-backend-dynamic-rhel9:1.8.2"
   version: 1.8.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.2
   author: Red Hat
   support: production
   lifecycle: active

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
@@ -12,8 +12,12 @@ metadata:
   tags:
     - cicd
   links:
-    - url: https://roadie.io/backstage/plugins/argo-cd/
-      title: Roadie Documentation
+    - title: Roadie Documentation
+      url: https://roadie.io/backstage/plugins/argo-cd/
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Issues
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
 spec:
   authors:
     - name: Roadie

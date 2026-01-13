@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-lighthouse-backend
+  namespace: rhdh
+  title: Lighthouse Backend
+  links:
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://issues.redhat.com/browse/RHIDP
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse/plugins/lighthouse-backend
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse/plugins/lighthouse-backend
+  tags: []
+spec:
+  packageName: '@backstage-community/plugin-lighthouse-backend'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse-backend:bs_1.45.3__0.17.0
+  version: 0.17.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  partOf:
+  - lighthouse
+  appConfigExamples:
+  - title: Default configuration
+    content:
+      lighthouse:
+        baseUrl: "http://localhost:4008"

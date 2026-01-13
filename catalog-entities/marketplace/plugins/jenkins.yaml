@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
@@ -27,7 +27,7 @@ spec:
       url: https://github.com/timja
   support:
     provider: Red Hat
-    level: tech-preview
+    level: community
   lifecycle: active
   publisher: Red Hat
   categories:

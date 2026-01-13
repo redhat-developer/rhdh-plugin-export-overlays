@@ -11,6 +11,7 @@ spec:
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
+    - ./aws-codebuild.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
@@ -52,7 +53,7 @@ spec:
     - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
     - ./lightspeed.yaml
-    - ./mcp-tools.yaml
+    - ./mcp-actions-backend.yaml
     - ./microsoft-graph-catalog-integration.yaml
     - ./nexus-repository-manager.yaml
     - ./notifications-email.yaml
@@ -65,7 +66,7 @@ spec:
     - ./quay-scaffolder-actions.yaml
     - ./quickstart.yaml
     - ./rbac.yaml
-    - ./redhat-argocd.yaml
+    - ./argocd.yaml
     - ./redhat-resource-optimization.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
@@ -77,10 +78,12 @@ spec:
     - ./servicenow.yaml
     - ./signals-backend.yaml
     - ./signals.yaml
+    - ./software-catalog-mcp-tool.yaml
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
     - ./tech-radar.yaml
     - ./techdocs.yaml
+    - ./techdocs-mcp-tool.yaml
     - ./tekton.yaml
     - ./todo.yaml
     - ./topology.yaml

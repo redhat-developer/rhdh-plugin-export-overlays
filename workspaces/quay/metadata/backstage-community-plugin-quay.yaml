@@ -10,20 +10,20 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-quay
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-quay
+      https://github.com/backstage/community-plugins/tree/main/workspaces/quay
   tags: []
 spec:
   packageName: "@backstage-community/plugin-quay"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-quay
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.45.3__1.24.0!backstage-community-plugin-quay
   version: 1.24.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
-  support: production
+  support: community
   lifecycle: active
   partOf:
     - backstage-community-plugin-quay

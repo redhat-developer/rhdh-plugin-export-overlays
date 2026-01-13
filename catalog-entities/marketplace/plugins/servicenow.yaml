@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
@@ -23,9 +23,9 @@ metadata:
     - title: Bugs
       url: https://issues.redhat.com/browse/RHDHBUGS
     - title: Documentation
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow
 
 spec:
   support:
@@ -63,7 +63,7 @@ spec:
     The plugin requires your ServiceNow instance URL and authentication details (such as Basic Auth or OAuth).
     You can optionally filter incidents by user fields like `caller_id`, `assigned_to`, or `opened_by`.
 
-    For detailed setup of both frontend and backend components, refer to the [ServiceNow plugin documentation](https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow).
+    For detailed setup of both frontend and backend components, refer to the [ServiceNow plugin documentation](https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow).
 
   packages:
     - backstage-community-plugin-servicenow-backend
