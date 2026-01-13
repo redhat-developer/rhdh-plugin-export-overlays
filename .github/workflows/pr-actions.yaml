@@ -5,11 +5,81 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
+env:
+  GH_TEAM: rhdh
+  GH_ORGANIZATION: redhat-developer
+
 jobs:
+  check_authorization:
+    runs-on: ubuntu-latest
+    name: Verify Authorization
+    if: github.event.issue.pull_request || github.event_name == 'pull_request_target'
+    outputs:
+      is_authorized: ${{ steps.check-internal.outputs.is_internal || steps.check-membership.outputs.is_authorized }}
+      reason: ${{ steps.check-internal.outputs.reason || steps.check-membership.outputs.reason }}
+      user: ${{ steps.determine-user.outputs.user }}
+    steps:
+      - name: Determine user to check
+        id: determine-user
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            echo "user=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          else
+            echo "user=${{ github.event.comment.user.login }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if internal PR from local branch
+        id: check-internal
+        # Don't perform this check for issue comments since that would defeat the purpose of the check
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$PR_REPO" == "$BASE_REPO" ]; then
+            echo "✓ Internal PR (not from fork) - auto-authorized"
+            echo "is_internal=true" >> $GITHUB_OUTPUT
+            echo "reason=Internal PR from same repository" >> $GITHUB_OUTPUT
+          else
+            echo "External PR from fork - will check team membership"
+          fi
+
+      - name: Checkout repository
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Generate GitHub App Token
+        id: app-token
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ env.GH_ORGANIZATION }}
+
+      - name: Check team membership
+        id: check-membership
+        if: steps.check-internal.outputs.is_internal != 'true'
+        uses: ./.github/actions/check-team-membership
+        with:
+          user: ${{ steps.determine-user.outputs.user }}
+          organization: ${{ env.GH_ORGANIZATION }}
+          team: ${{ env.GH_TEAM }}
+          github_token: ${{ steps.app-token.outputs.token }}
+      - name: Fail workflow if not authorized
+        if: steps.check-internal.outputs.is_internal != 'true' && steps.check-membership.outputs.is_authorized != 'true'
+        run: |
+          echo "::error::User ${{ steps.determine-user.outputs.user }} is not authorized: ${{ steps.check-membership.outputs.reason }}"
+          exit 1
   parse:
     runs-on: ubuntu-latest
     name: Parse PR Comment
+    needs:
+      - check_authorization
     if: |
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       github.triggering_actor != 'openshift-ci[bot]' &&
       github.triggering_actor != 'sonarqubecloud[bot]' &&
       github.event.issue.pull_request && (
@@ -60,6 +130,7 @@ jobs:
   add_error_comment:
     runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
 
     concurrency:
@@ -70,15 +141,25 @@ jobs:
       pull-requests: write
 
     if: |
-      !cancelled() && (github.event.issue.pull_request && needs.parse.outputs.error_message != '')
+      !cancelled() && (
+        (github.event.issue.pull_request && needs.parse.outputs.error_message != '') ||
+        (github.event.issue.pull_request && needs.check_authorization.outputs.is_authorized != 'true') ||
+        (github.event_name == 'pull_request_target' && needs.check_authorization.outputs.is_authorized != 'true')
+      )
     steps:
       - name: Add error comment
         uses: actions/github-script@v7
         env:
           INPUT_ERROR_MESSAGE: ${{ needs.parse.outputs.error_message }}
+          INPUT_USER: ${{ needs.check_authorization.outputs.user }}
+          INPUT_IS_AUTHORIZED: ${{ needs.check_authorization.outputs.is_authorized }}
+          INPUT_REASON: ${{ needs.check_authorization.outputs.reason }}
         with:
           script: |
             const errorMessage = core.getInput('error_message');
+            const user = core.getInput('user');
+            const isAuthorized = core.getInput('is_authorized');
+            const reason = core.getInput('reason');
             const isPR = context.eventName === 'pull_request_target';
             const prNumber = isPR 
               ? context.payload.pull_request.number 
@@ -95,6 +176,16 @@ jobs:
             if (errorMessage) {
               body = `[Workflow run](${workflowRun.data.html_url}) failed with error.\n\n`;
               body += `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
+            } else if (isAuthorized !== 'true') {
+              body = `[Workflow run](${workflowRun.data.html_url}) requires authorization.\n\n`;
+              if (isPR) {
+                body += `**Auto-publish skipped**: PR author \`${user}\` is not a member of the \`${process.env.GH_TEAM}\` team.\n\n`;
+                body += `A team member can trigger a build by commenting \`/publish\` on this PR.\n\n`;
+              } else {
+                body += `**Unauthorized**: User \`${user}\` is not authorized to run PR commands.\n\n`;
+                body += `To use PR commands, you must be an active member of the \`${process.env.GH_TEAM}\` team in the \`${process.env.GH_ORGANIZATION}\` organization.\n\n`;
+              }
+              body += `Reason: ${reason}`;
             }
             
             if (body) {
@@ -110,6 +201,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Prepare PR Context
     needs:
+      - check_authorization
       - parse
 
     concurrency:
@@ -129,6 +221,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       (needs.parse.outputs.command_name != '' || github.event_name == 'pull_request_target')
     steps:
       - name: Get PR branch data
@@ -211,6 +304,7 @@ jobs:
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
+      - check_authorization
       - parse
       - prepare
       - checkPRUpToDate
@@ -221,6 +315,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.workspace != '' &&
       (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
 
@@ -246,6 +341,7 @@ jobs:
   uploadPublishedExportsArtifact:
     name: Upload published-exports artifact
     needs:
+      - check_authorization
       - parse
       - prepare
       - export
@@ -256,6 +352,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.workspace != '' &&
       (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target') &&
       needs.export.outputs.published-exports != ''
@@ -297,11 +394,13 @@ jobs:
     runs-on: ubuntu-latest
     name: Create Test Context
     needs:
+      - check_authorization
       - parse
       - prepare
 
     if: |
       needs.parse.outputs.command_name == 'test' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.pr-number != ''
     steps:
       - name: Write meta.json for test context
@@ -327,6 +426,7 @@ jobs:
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
     needs:
+      - check_authorization
       - parse
       - prepare
       - checkPRUpToDate
@@ -337,6 +437,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.workspace != '' &&
       (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
 
@@ -349,6 +450,7 @@ jobs:
   add_publish_completion_comment:
     runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - checkPRUpToDate
@@ -365,6 +467,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.workspace != '' &&
       needs.prepare.outputs.overlay-branch != '' &&
       (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
@@ -460,6 +563,7 @@ jobs:
   add_no_workspace_comment:
     runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
   
@@ -472,6 +576,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.overlay-branch != '' &&
       needs.prepare.outputs.workspace == ''
     steps:
@@ -511,6 +616,7 @@ jobs:
             })
   upload_no_workspace_context:
     needs:
+      - check_authorization
       - parse
       - prepare
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace == ''
@@ -539,6 +645,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Checks whether the PR is up-to-date with versions.json
     needs:
+      - check_authorization
       - parse
       - prepare
     concurrency:
@@ -550,6 +657,7 @@ jobs:
 
     if: |
       !cancelled() &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.workspace != '' &&
       (needs.parse.outputs.command_name == 'publish' || github.event_name == 'pull_request_target')
     steps:
@@ -624,6 +732,7 @@ jobs:
   updatePRWithVersions:
     name: Update versions on PR from release branch
     needs:
+      - check_authorization
       - parse
       - prepare
 
@@ -631,8 +740,8 @@ jobs:
       group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.parse.outputs.command_name == 'update-versions'
-    uses: redhat-developer/rhdh-plugin-export-overlays/.github/workflows/update-prs-with-release-branch-commits.yaml@main
+    if: needs.parse.outputs.command_name == 'update-versions' && needs.check_authorization.outputs.is_authorized == 'true'
+    uses: ./.github/workflows/update-prs-with-release-branch-commits.yaml
     with:
       force: true
       pr: ${{ needs.prepare.outputs.pr-number }}
@@ -644,6 +753,7 @@ jobs:
   add_update_versions_completion_comment:
     runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - updatePRWithVersions
@@ -659,6 +769,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.parse.outputs.command_name == 'update-versions' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.overlay-branch != '' &&
       needs.prepare.outputs.workspace != ''
     steps:
@@ -709,6 +820,7 @@ jobs:
   updatePRWithCommit:
     name: Update commit on PR from automatic discovery
     needs:
+      - check_authorization
       - parse
       - prepare
 
@@ -717,8 +829,9 @@ jobs:
       cancel-in-progress: true
     
     if: | 
-      needs.parse.outputs.command_name == 'update-commit'
-    uses: redhat-developer/rhdh-plugin-export-overlays/.github/workflows/update-plugins-repo-refs.yaml@main
+      needs.parse.outputs.command_name == 'update-commit' && 
+      needs.check_authorization.outputs.is_authorized == 'true'
+    uses: ./.github/workflows/update-plugins-repo-refs.yaml
     with:
       single-branch: ${{ needs.prepare.outputs.target-branch }}
       allow-workspace-addition: false
@@ -732,6 +845,7 @@ jobs:
   add_update_commit_completion_comment:
     runs-on: ubuntu-latest
     needs:
+      - check_authorization
       - parse
       - prepare
       - updatePRWithCommit
@@ -747,6 +861,7 @@ jobs:
     if: |
       !cancelled() &&
       needs.parse.outputs.command_name == 'update-commit' &&
+      needs.check_authorization.outputs.is_authorized == 'true' &&
       needs.prepare.outputs.overlay-branch != '' &&
       needs.prepare.outputs.workspace != ''
     steps:
