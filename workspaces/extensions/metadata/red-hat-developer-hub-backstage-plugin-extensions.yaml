@@ -1,0 +1,51 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-marketplace
+  namespace: rhdh
+  title: Extensions Frontend
+  links:
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://issues.redhat.com/browse/RHIDP
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
+  annotations:
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
+  tags: []
+spec:
+  packageName: '@red-hat-developer-hub/backstage-plugin-marketplace'
+  dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-marketplace
+  version: 0.12.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.42.5
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+  - extensions
+  appConfigExamples:
+  - title: Default configuration
+    content:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-extensions:
+            translationResources:
+            - importName: extensionsTranslations
+              ref: extensionsTranslationRef
+              module: Alpha
+            appIcons:
+            - name: pluginsIcon
+              importName: PluginsIcon
+            dynamicRoutes:
+            - path: /extensions
+              importName: DynamicExtensionsPluginRouter
+              menuItem:
+                icon: pluginsIcon
+                text: Extensions
+                textKey: menuItem.extensions
+            menuItems:
+              extensions:
+                parent: default.admin

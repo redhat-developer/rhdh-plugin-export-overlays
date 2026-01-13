@@ -34,6 +34,7 @@
 # /workspaces/dynatrace
 # /workspaces/dynatrace-dql
 /workspaces/env-viewer                                                  @redhat-developer/rhdh-ui @christoph-jerolimov
+/workspaces/extensions                                                 @redhat-developer/rhdh-ui @redhat-developer/rhdh-plugins
 # /workspaces/github-actions
 /workspaces/github-issues                                               @redhat-developer/rhdh-ui @divyanshiGupta
 /workspaces/github-notifications                                        @redhat-developer/rhdh-ui @christoph-jerolimov
@@ -49,7 +50,6 @@
 # /workspaces/kiali
 # /workspaces/lighthouse
 /workspaces/lightspeed                                                  @redhat-developer/rhdh-ui @karthikjeeyar @rohitkrai03 @redhat-developer/rhdh-ai
-/workspaces/marketplace                                                 @redhat-developer/rhdh-ui @redhat-developer/rhdh-plugins
 /workspaces/nexus-repository-manager                                    @redhat-developer/rhdh-ui @debsmita1 @ciiay   @jessicajhee
 /workspaces/npm                                                         @redhat-developer/rhdh-ui @christoph-jerolimov
 /workspaces/ocm                                                         @redhat-developer/rhdh-plugins   @redhat-developer/rhdh-ui
@@ -63,7 +63,7 @@
 /workspaces/quay/plugins/quay-actions                                   @redhat-developer/rhdh-plugins
 /workspaces/quickstart                                                  @redhat-developer/rhdh-ui @divyanshiGupta @its-mitesh-kumar
 /workspaces/rbac                                                        @redhat-developer/rhdh-plugins @PatAKnight @dzemanov @AndrienkoAleksandr   @redhat-developer/rhdh-ui @divyanshiGupta @its-mitesh-kumar
-/workspaces/redhat-argocd                                               @caugello @cryptorodeo
+/workspaces/argocd                                                      @redhat-developer/rhdh-plugins @dzemanov @djanickova @caugello @cryptorodeo
 # /workspaces/roadie-backstage-plugins
 /workspaces/sandbox                                                     @lucifergene @rohitkrai03 @karthikjeeyar @xcoulon @alexeykazakov @mfrancisc
 /workspaces/scaffolder-backend-module-annotator                         @redhat-developer/rhdh-plugins
