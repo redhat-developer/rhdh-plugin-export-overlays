@@ -17,7 +17,7 @@ metadata:
   - automation
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-orchestrator'
-  dynamicArtifact: 'oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:1.9.0--5.3.1'
+  dynamicArtifact: 'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.45.3__5.3.1'
   version: 5.3.1
   backstage:
     role: frontend-plugin
