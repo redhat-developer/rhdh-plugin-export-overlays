@@ -1,0 +1,39 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-kiali-backend
+  namespace: rhdh
+  title: "Kiali Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/kiali
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/kiali
+  tags:
+    - software-catalog
+spec:
+  packageName: "@backstage-community/plugin-kiali-backend"
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-kiali-backend
+  version: 1.28.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - kiali
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        catalog:
+          providers:
+            kiali:
+              skipTLSVerify: true
+              url: '${KIALI_ENDPOINT}'
+              serviceAccountToken: '${KIALI_SERVICE_ACCOUNT_TOKEN}'
