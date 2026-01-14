@@ -151,6 +151,7 @@ jobs:
         run: |
           PLUGINS_FOUND=0
           PLUGINS_SKIPPED_MISSING_ENV=0
+          TEST_PLUGINS_SKIPPED=0
           TOTAL_PLUGINS=0
           PLUGINS_METADATA_COMPLETE="false"
           SKIP_TESTS_MISSING_ENV="false"
@@ -208,7 +209,14 @@ jobs:
               PLUGIN_NAME="${IMAGE_PATH_AND_PLUGIN##*/}"
               METADATA_FILE="${META_MAP[$PLUGIN_NAME]}"
               if [ -z "$METADATA_FILE" ]; then
-                echo "Metadata mapping not found for $PLUGIN_NAME, skipping"
+                # if the name of the plugin ends with -test, it is a test plugin without metadata:
+                # skip it without cancelling the test workflow
+                if [[ "$PLUGIN_NAME" =~ -test$ ]]; then
+                  echo "Plugin $PLUGIN_NAME is a test plugin without metadata, skipping this individual plugin test"
+                  TEST_PLUGINS_SKIPPED=$((TEST_PLUGINS_SKIPPED + 1))
+                else
+                  echo "Metadata mapping not found for $PLUGIN_NAME: test workflow will be skipped"
+                fi
                 continue
               fi
 
@@ -271,10 +279,10 @@ jobs:
           fi
 
           # Check if all plugins were found (including those skipped due to missing env)
-          TOTAL_PROCESSED=$((PLUGINS_FOUND + PLUGINS_SKIPPED_MISSING_ENV))
+          TOTAL_PROCESSED=$((PLUGINS_FOUND + PLUGINS_SKIPPED_MISSING_ENV + TEST_PLUGINS_SKIPPED))
           echo "Plugins: $PLUGINS_FOUND/$TOTAL_PLUGINS processed successfully"
           [ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
-          
+
           if [ "$TOTAL_PROCESSED" -eq "$TOTAL_PLUGINS" ] && [ "$TOTAL_PLUGINS" -gt 0 ]; then
             PLUGINS_METADATA_COMPLETE="true"
           fi

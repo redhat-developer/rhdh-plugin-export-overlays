@@ -228,5 +228,5 @@ file `1boilerplate.yaml` has a good starting point for creating these files.
 
 ```bash
 # in rhdh root
-npx --yes @red-hat-developer-hub/marketplace-cli generate --namespace rhdh -p dynamic-plugins.default.yaml -o catalog-entities/extensions/packages
+npx --yes @red-hat-developer-hub/extensions-cli generate --namespace rhdh -p dynamic-plugins.default.yaml -o catalog-entities/extensions/packages
 ```
