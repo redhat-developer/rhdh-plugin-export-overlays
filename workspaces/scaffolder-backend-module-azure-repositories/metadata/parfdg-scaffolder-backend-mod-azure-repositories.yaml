@@ -18,7 +18,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@parfuemerie-douglas/scaffolder-backend-module-azure-repositories"
-  dynamicArtifact: ./dynamic-plugins/dist/parfuemerie-douglas-scaffolder-backend-module-azure-repositories-dynamic
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/parfuemerie-douglas-scaffolder-backend-module-azure-repositories:bs_1.45.3__0.3.0!parfuemerie-douglas-scaffolder-backend-module-azure-repositories
   version: 0.3.0
   backstage:
     role: backend-plugin-module
