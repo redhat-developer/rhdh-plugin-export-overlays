@@ -33,7 +33,8 @@ spec:
       content:
         catalog:
           providers:
-            kiali:
-              skipTLSVerify: true
+            - name: kiali
               url: '${KIALI_ENDPOINT}'
+              skipTLSVerify: true
               serviceAccountToken: '${KIALI_SERVICE_ACCOUNT_TOKEN}'
+              sessionTime: 60
