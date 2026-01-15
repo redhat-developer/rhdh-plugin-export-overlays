@@ -18,12 +18,12 @@ metadata:
     - software-templates
     - automation
 spec:
-  packageName: "@redhat/backstage-plugin-scaffolder-backend-module-orchestrator"
-  dynamicArtifact: "@redhat/backstage-plugin-scaffolder-backend-module-orchestrator-dynamic@1.8.2"
-  version: 1.8.2
+  packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator"
+  dynamicArtifact: "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.9.0--1.3.1"
+  version: 1.3.1
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

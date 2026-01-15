@@ -10,15 +10,15 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-datadog
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-datadog
+      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-datadog"
-  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-backstage-plugin-datadog
-  version: 2.5.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog:bs_1.45.3__2.6.0!roadiehq-backstage-plugin-datadog
+  version: 2.6.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5

@@ -10,20 +10,20 @@ metadata:
     - url: https://issues.redhat.com/browse/RHIDP
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jenkins-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-jenkins-backend-dynamic
+      https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
-  version: 0.17.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.45.3__0.22.0!backstage-community-plugin-jenkins-backend
+  version: 0.22.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
     - jenkins
