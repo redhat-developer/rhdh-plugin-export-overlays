@@ -1,6 +1,7 @@
 name: Update Wiki Pages
 
 on:
+  workflow_dispatch:    
   push:
     branches:
       - main
