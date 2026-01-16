@@ -200,7 +200,7 @@ async function getOciImageUrl(packageName, core) {
  * Gets plugin details (name@version) by reading package.json from a local checkout.
  * Also checks for OCI image availability.
  */
-async function getPluginDetails(repoUrl, commitSha, pluginPath, core) {
+async function getPluginDetails(repoUrl, commitSha, pluginPath, shouldCheckImage, core) {
   const result = { details: pluginPath, packageName: null, imageUrl: null };
 
   if (!repoUrl || !repoUrl.startsWith('https://github.com/')) {
@@ -223,8 +223,11 @@ async function getPluginDetails(repoUrl, commitSha, pluginPath, core) {
     const name = packageJson.name || 'unknown';
     const version = packageJson.version || 'unknown';
     
-    // Check for OCI image
-    const imageUrl = await getOciImageUrl(name, core);
+    // Check for OCI image only if requested (e.g. for supported/tech-preview plugins)
+    let imageUrl = null;
+    if (shouldCheckImage) {
+      imageUrl = await getOciImageUrl(name, core);
+    }
     
     return {
       details: `${name}@${version}`,
@@ -461,6 +464,7 @@ function generateMarkdown(branchName, workspacesData, repoName) {
         const nameVer = p.details;
         const status = p.status;
         const imageUrl = p.imageUrl;
+        const packageName = p.packageName;
 
         let icon, tooltip;
         if (status === 'Supported') {
@@ -477,8 +481,16 @@ function generateMarkdown(branchName, workspacesData, repoName) {
           tooltip = 'Unknown';
         }
 
-        // Add OCI image link if available
-        const imageLink = imageUrl ? ` [📦](${imageUrl} "OCI Image")` : '';
+        // Add OCI image link if available, or fallback to search for Supported/TechPreview
+        let imageLink = '';
+        if (imageUrl) {
+          imageLink = ` [📦](${imageUrl} "OCI Image")`;
+        } else if ((status === 'Supported' || status === 'TechPreview') && packageName) {
+          const containerName = getContainerName(packageName) || packageName;
+          const searchUrl = `https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container?q=${encodeURIComponent(containerName)}`;
+          imageLink = ` [📦](${searchUrl} "Search OCI Image")`;
+        }
+        
         return `<span title="${tooltip}">${icon}</span> <sub>\`${nameVer}\`</sub>${imageLink}`;
       });
 
@@ -547,12 +559,17 @@ module.exports = async ({github, context, core}) => {
             ? cleanPath
             : `workspaces/${wsName}/${cleanPath}`;
 
-          const pluginInfo = await getPluginDetails(repoUrl, commitSha, fullPluginPath, core);
+          // Check support status first to determine if we should check for OCI image
           const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
+          const shouldCheckImage = supportStatus === 'Supported' || supportStatus === 'TechPreview';
+
+          // Uses local git checkout instead of API
+          const pluginInfo = await getPluginDetails(repoUrl, commitSha, fullPluginPath, shouldCheckImage, core);
 
           enhancedPlugins.push({
             details: pluginInfo.details,
             imageUrl: pluginInfo.imageUrl,
+            packageName: pluginInfo.packageName,
             path: pluginPath,
             status: supportStatus
           });
@@ -563,6 +580,7 @@ module.exports = async ({github, context, core}) => {
           enhancedPlugins.push({
             details: pluginPath,
             imageUrl: null,
+            packageName: null,
             path: pluginPath,
             status: supportStatus
           });
