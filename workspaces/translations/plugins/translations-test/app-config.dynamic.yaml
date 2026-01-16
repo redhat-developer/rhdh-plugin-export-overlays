@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-translations-test:
+      dynamicRoutes:
+        - path: /translations-test
+          importName: TranslationsTestPage
+          menuItem:
+            text: Translations Test
