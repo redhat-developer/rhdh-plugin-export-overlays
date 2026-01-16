@@ -482,13 +482,17 @@ function generateMarkdown(branchName, workspacesData, repoName) {
         }
 
         // Add OCI image link if available, or fallback to search for Supported/TechPreview
+        // For Community/Unknown, link to the general packages page
         let imageLink = '';
         if (imageUrl) {
           imageLink = ` [📦](${imageUrl} "OCI Image")`;
-        } else if ((status === 'Supported' || status === 'TechPreview') && packageName) {
+        } else if (packageName) {
           const containerName = getContainerName(packageName) || packageName;
-          const searchUrl = `https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container?q=${encodeURIComponent(containerName)}`;
+          const searchUrl = `https://github.com/orgs/redhat-developer/packages?tab=packages&q=${encodeURIComponent(containerName)}`;
           imageLink = ` [📦](${searchUrl} "Search OCI Image")`;
+        } else {
+           const generalPackagesUrl = "https://github.com/orgs/redhat-developer/packages?repo_name=rhdh-plugin-export-overlays";
+           imageLink = ` [📦](${generalPackagesUrl} "Browse Packages")`;
         }
         
         return `<span title="${tooltip}">${icon}</span> <sub>\`${nameVer}\`</sub>${imageLink}`;
