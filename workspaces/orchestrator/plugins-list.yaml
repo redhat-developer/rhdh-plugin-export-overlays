@@ -2,3 +2,4 @@ plugins/orchestrator:
 plugins/orchestrator-backend:
 plugins/orchestrator-form-widgets:
 plugins/scaffolder-backend-module-orchestrator: --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-common
+plugins/orchestrator-backend-module-loki:
