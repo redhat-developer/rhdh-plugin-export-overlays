@@ -7,8 +7,8 @@ on:
       - main
       - 'release-*'
       - 'feature/RHIDP-11416'
-    # paths:
-    #   - 'workspaces/**'
+    paths:
+      - 'workspaces/**'
       
 permissions:
   contents: write
