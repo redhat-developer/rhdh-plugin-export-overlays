@@ -10,3 +10,16 @@ backstage/plugins/scaffolder-backend-module-github
 # bulk-import/plugins/bulk-import
 # bulk-import/plugins/bulk-import-backend
 # backstage/plugins/notifications-backend-module-email
+
+# we could build these in Konflux in 1.9 but because we're moving them to Commmunity in 1.10/1.11 (per PM/Eng sync meeting 01/12)
+# might as well just keep the wrappers and NOT waste time in Konflux
+# TODO move TP plugins into the community list in 1.10 https://issues.redhat.com/browse/RHIDP-11354
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
+
+# we could build these in Konflux in 1.9 but because we're moving them to Commmunity in 1.10/1.11 (per PM/Eng sync meeting 01/12)
+# might as well just keep the wrappers and NOT waste time in Konflux
+# TODO move GA plugins to community in 1.11 https://issues.redhat.com/browse/RHIDP-11354
+quay/plugins/quay
+quay/plugins/quay-actions
+roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
+tekton/plugins/tekton
