@@ -2,7 +2,17 @@
 
 const fs = require('fs').promises;
 const { join } = require('path');
+const os = require('os');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { load } = require('js-yaml');
+
+const execFileAsync = promisify(execFile);
+
+// Cache for repo checkouts to avoid cloning the same repo+commit multiple times
+const checkoutCache = new Map();
+// Cache for OCI image URL existence checks
+const imageUrlCache = new Map();
 
 async function getWorkspaceList(workspacesDir, core) {
   try {
@@ -52,138 +62,155 @@ async function parsePluginsList(workspacePath, core) {
   }
 }
 
-async function getPluginDetails(octokit, repoUrl, commitSha, pluginPath, core) {
-  if (!repoUrl.startsWith('https://github.com/')) {
-    return pluginPath;
+/**
+ * Ensures a shallow clone of the repo at the specified commit exists in /tmp.
+ * Uses a cache to avoid re-cloning for the same repo+commit.
+ */
+async function ensureRepoCheckout(repoUrl, commitSha, core) {
+  if (!repoUrl || !commitSha || !repoUrl.startsWith('https://github.com/')) {
+    return null;
+  }
+
+  const cacheKey = `${repoUrl}@${commitSha}`;
+  if (checkoutCache.has(cacheKey)) {
+    return checkoutCache.get(cacheKey);
   }
 
   const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
-  const [owner, repo] = repoName.split('/');
-  
+  const safeRepoName = repoName.replace(/[^a-zA-Z0-9_.-]+/g, '-');
+  const checkoutPath = join(os.tmpdir(), 'rhdh-wiki-repos', safeRepoName, commitSha.substring(0, 12));
+
+  try {
+    await fs.mkdir(checkoutPath, { recursive: true });
+
+    const gitDir = join(checkoutPath, '.git');
+    let hasGit = false;
+    try {
+      const stat = await fs.stat(gitDir);
+      hasGit = stat.isDirectory();
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        core.warning(`Error checking git dir in ${checkoutPath}: ${error.message}`);
+      }
+    }
+
+    if (!hasGit) {
+      core.info(`  Cloning ${repoUrl} at ${commitSha.substring(0, 7)}...`);
+      await execFileAsync('git', ['init'], { cwd: checkoutPath });
+      await execFileAsync('git', ['remote', 'add', 'origin', repoUrl], { cwd: checkoutPath });
+    }
+
+    // Fetch only the specific commit (shallow, no history)
+    await execFileAsync('git', ['fetch', '--depth', '1', 'origin', commitSha], { cwd: checkoutPath });
+    await execFileAsync('git', ['checkout', '--force', 'FETCH_HEAD'], { cwd: checkoutPath });
+
+    checkoutCache.set(cacheKey, checkoutPath);
+    return checkoutPath;
+  } catch (error) {
+    core.warning(`Error checking out ${repoUrl}@${commitSha}: ${error.message}`);
+    checkoutCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+/**
+ * Converts a package name to a container name for ghcr.io.
+ */
+function getContainerName(packageName) {
+  if (!packageName) {
+    return null;
+  }
+
+  if (packageName.startsWith('@')) {
+    const withoutAt = packageName.substring(1);
+    return withoutAt.replace('/', '-');
+  }
+
+  return packageName;
+}
+
+/**
+ * Checks if an OCI image exists for the given package name at ghcr.io.
+ * Returns the URL if it exists, null otherwise.
+ */
+async function getOciImageUrl(packageName, core) {
+  const containerName = getContainerName(packageName);
+  if (!containerName) {
+    return null;
+  }
+
+  if (imageUrlCache.has(containerName)) {
+    return imageUrlCache.get(containerName);
+  }
+
+  const encodedPath = encodeURIComponent(`rhdh-plugin-export-overlays/${containerName}`);
+  const url = `https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container/${encodedPath}`;
+
+  try {
+    let response = await fetch(url, { method: 'HEAD' });
+    if (response.status === 405) {
+      response = await fetch(url);
+    }
+
+    if (response.status === 404) {
+      imageUrlCache.set(containerName, null);
+      return null;
+    }
+
+    if (response.ok || (response.status >= 300 && response.status < 400)) {
+      imageUrlCache.set(containerName, url);
+      return url;
+    }
+
+    imageUrlCache.set(containerName, null);
+    return null;
+  } catch (error) {
+    core.warning(`Error checking OCI image for ${containerName}: ${error.message}`);
+    imageUrlCache.set(containerName, null);
+    return null;
+  }
+}
+
+/**
+ * Gets plugin details (name@version) by reading package.json from a local checkout.
+ * Also checks for OCI image availability.
+ */
+async function getPluginDetails(repoUrl, commitSha, pluginPath, core) {
+  const result = { details: pluginPath, packageName: null, imageUrl: null };
+
+  if (!repoUrl || !repoUrl.startsWith('https://github.com/')) {
+    return result;
+  }
+
+  const repoPath = await ensureRepoCheckout(repoUrl, commitSha, core);
+  if (!repoPath) {
+    return result;
+  }
+
   const cleanPluginPath = pluginPath === '.' ? '' : pluginPath;
-  const filePath = cleanPluginPath ? `${cleanPluginPath}/package.json` : 'package.json';
+  const packageJsonPath = cleanPluginPath
+    ? join(repoPath, cleanPluginPath, 'package.json')
+    : join(repoPath, 'package.json');
 
   try {
-    const response = await octokit.rest.repos.getContent({
-      owner,
-      repo,
-      path: filePath,
-      ref: commitSha
-    });
-
-    if ('content' in response.data && response.data.encoding === 'base64') {
-      const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
-      const packageJson = JSON.parse(content);
-      const name = packageJson.name || 'unknown';
-      const version = packageJson.version || 'unknown';
-      return `${name}@${version}`;
-    }
-  } catch (error) {
-    core.warning(`Error fetching package.json for ${pluginPath} in ${repoName}@${commitSha}: ${error.message}`);
-  }
-
-  return pluginPath;
-}
-
-async function getCommitDetails(octokit, repoUrl, commitSha, core) {
-  if (!repoUrl.startsWith('https://github.com/')) {
-    return {
-      shortSha: commitSha.substring(0, 7),
-      message: 'N/A',
-      date: 'N/A'
-    };
-  }
-
-  const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
-  const [owner, repo] = repoName.split('/');
-
-  try {
-    const response = await octokit.rest.repos.getCommit({
-      owner,
-      repo,
-      ref: commitSha
-    });
-
-    const commit = response.data.commit;
-    const message = commit.message.split('\n')[0];
-    const dateStr = commit.author?.date || '';
+    const content = await fs.readFile(packageJsonPath, 'utf-8');
+    const packageJson = JSON.parse(content);
+    const name = packageJson.name || 'unknown';
+    const version = packageJson.version || 'unknown';
     
-    let formattedDate = 'N/A';
-    if (dateStr) {
-      try {
-        const dt = new Date(dateStr);
-        formattedDate = dt.toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
-      } catch (dateError) {
-        core.warning(`Error formatting date "${dateStr}": ${dateError.message}`);
-        formattedDate = dateStr;
-      }
-    }
-
+    // Check for OCI image
+    const imageUrl = await getOciImageUrl(name, core);
+    
     return {
-      shortSha: response.data.sha.substring(0, 7),
-      message,
-      date: formattedDate
+      details: `${name}@${version}`,
+      packageName: name,
+      imageUrl
     };
   } catch (error) {
-    core.warning(`Error fetching commit details for ${repoName}@${commitSha}: ${error.message}`);
-    return {
-      shortSha: commitSha.substring(0, 7),
-      message: 'N/A',
-      date: 'N/A'
-    };
+    core.warning(`Error reading package.json for ${pluginPath}: ${error.message}`);
   }
-}
 
-async function checkPendingPRs(octokit, workspaceName, repoName, targetBranch, core) {
-  const workspacePath = `workspaces/${workspaceName}`;
-  const [owner, repo] = repoName.split('/');
-
-  try {
-    const response = await octokit.rest.pulls.list({
-      owner,
-      repo,
-      base: targetBranch,
-      state: 'open',
-      per_page: 100
-    });
-
-    const prNumbers = [];
-    for (const pr of response.data) {
-      try {
-        const filesResponse = await octokit.rest.pulls.listFiles({
-          owner,
-          repo,
-          pull_number: pr.number
-        });
-
-        const hasWorkspaceFile = filesResponse.data.some(file => 
-          file.filename.startsWith(workspacePath)
-        );
-
-        const hasRequiredLabel = pr.labels?.some(label => 
-          label.name === 'workspace_addition' || label.name === 'workspace_update'
-        );
-
-        if (hasWorkspaceFile && hasRequiredLabel) {
-          prNumbers.push(pr.number.toString());
-        }
-      } catch (error) {
-        core.warning(`Error checking files for PR #${pr.number}: ${error.message}`);
-        if (error.status) {
-          core.warning(`HTTP status: ${error.status}`);
-        }
-        continue;
-      }
-    }
-
-    return {
-      hasPending: prNumbers.length > 0,
-      prNumbers
-    };
-  } catch (error) {
-    core.warning(`Error checking pending PRs for workspace ${workspaceName} in ${repoName}: ${error.message}`);
-    return { hasPending: false, prNumbers: [] };
-  }
+  return result;
 }
 
 async function getLocalBackstageVersion(workspacePath, core) {
@@ -202,44 +229,13 @@ async function getLocalBackstageVersion(workspacePath, core) {
   return null;
 }
 
-async function getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData, core) {
-  let upstreamVersion = null;
-
-  // Try to fetch from upstream backstage.json first
-  if (repoUrl && commitSha && repoUrl.startsWith('https://github.com/')) {
-    const repoName = repoUrl.replace('https://github.com/', '').replace(/\/$/, '');
-    const [owner, repo] = repoName.split('/');
-
-    try {
-      const response = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: 'backstage.json',
-        ref: commitSha
-      });
-
-      if ('content' in response.data && response.data.encoding === 'base64') {
-        const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
-        const data = JSON.parse(content);
-        upstreamVersion = data.version || null;
-      }
-    } catch (error) {
-      if (error.status !== 404) {
-        core.warning(`Error fetching upstream backstage.json for ${repoUrl}@${commitSha}: ${error.message}`);
-      }
-    }
-  }
-
-  // If upstream found, use it (to detect overrides)
-  if (upstreamVersion) {
-    return upstreamVersion;
-  }
-
-  // Fallback to source.json's repo-backstage-version if upstream file missing
+/**
+ * Gets the source backstage version directly from source.json's repo-backstage-version field.
+ */
+function getSourceBackstageVersion(sourceData) {
   if (sourceData && sourceData['repo-backstage-version']) {
     return sourceData['repo-backstage-version'];
   }
-
   return null;
 }
 
@@ -403,13 +399,6 @@ function generateMarkdown(branchName, workspacesData, repoName) {
       structureBadges.push('<span title="Metadata missing">🔴</span>');
     }
 
-    if (ws.has_pending_prs && ws.pr_numbers.length > 0) {
-      const prNum = ws.pr_numbers[0];
-      const prUrl = `https://github.com/${repoName}/pull/${prNum}`;
-      const prTooltip = `Pending update PR #${prNum}`;
-      structureBadges.push(`[<span title="${prTooltip}">🔴</span>](${prUrl})`);
-    }
-
     const structure = structureBadges.join('<br>');
     const overlayRepoUrl = `https://github.com/${repoName}/tree/${branchName}/workspaces/${ws.name}`;
     const workspaceName = `[${ws.name}](${overlayRepoUrl})`;
@@ -446,6 +435,7 @@ function generateMarkdown(branchName, workspacesData, repoName) {
       const pluginsListItems = ws.plugins.map(p => {
         const nameVer = p.details;
         const status = p.status;
+        const imageUrl = p.imageUrl;
 
         let icon, tooltip;
         if (status === 'Supported') {
@@ -462,7 +452,9 @@ function generateMarkdown(branchName, workspacesData, repoName) {
           tooltip = 'Unknown';
         }
 
-        return `<span title="${tooltip}">${icon}</span> <sub>\`${nameVer}\`</sub>`;
+        // Add OCI image link if available
+        const imageLink = imageUrl ? ` [📦](${imageUrl} "OCI Image")` : '';
+        return `<span title="${tooltip}">${icon}</span> <sub>\`${nameVer}\`</sub>${imageLink}`;
       });
 
       pluginsList = pluginsListItems.join('<br>');
@@ -487,8 +479,6 @@ module.exports = async ({github, context, core}) => {
     core.info(`Generating wiki page for branch: ${branchName}`);
     core.info(`Repository: ${repoName}`);
 
-    const octokit = github;
-
     const workspacesDir = 'workspaces';
     const workspaceNames = await getWorkspaceList(workspacesDir, core);
     core.info(`Found ${workspaceNames.length} workspaces`);
@@ -507,8 +497,6 @@ module.exports = async ({github, context, core}) => {
 
       let commitSha = null;
       let commitShort = null;
-      let commitMessage = 'N/A';
-      let commitDate = 'N/A';
       let repoUrl = null;
       let repoFlat = false;
 
@@ -517,17 +505,13 @@ module.exports = async ({github, context, core}) => {
         commitSha = sourceData['repo-ref'] || null;
         repoFlat = sourceData['repo-flat'] || false;
 
-        if (repoUrl && commitSha) {
-          const commitDetails = await getCommitDetails(octokit, repoUrl, commitSha, core);
-          commitShort = commitDetails.shortSha;
-          commitMessage = commitDetails.message;
-          commitDate = commitDetails.date;
+        if (commitSha) {
+          commitShort = commitSha.substring(0, 7);
         }
       }
 
       const overlayBackstageVersion = await getLocalBackstageVersion(wsPath, core);
-      
-      const sourceBackstageVersion = await getSourceBackstageVersion(octokit, repoUrl, commitSha, sourceData, core);
+      const sourceBackstageVersion = getSourceBackstageVersion(sourceData);
 
       const enhancedPlugins = [];
       if (repoUrl && commitSha) {
@@ -538,11 +522,12 @@ module.exports = async ({github, context, core}) => {
             ? cleanPath
             : `workspaces/${wsName}/${cleanPath}`;
 
-          const details = await getPluginDetails(octokit, repoUrl, commitSha, fullPluginPath, core);
+          const pluginInfo = await getPluginDetails(repoUrl, commitSha, fullPluginPath, core);
           const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
 
           enhancedPlugins.push({
-            details,
+            details: pluginInfo.details,
+            imageUrl: pluginInfo.imageUrl,
             path: pluginPath,
             status: supportStatus
           });
@@ -552,6 +537,7 @@ module.exports = async ({github, context, core}) => {
           const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
           enhancedPlugins.push({
             details: pluginPath,
+            imageUrl: null,
             path: pluginPath,
             status: supportStatus
           });
@@ -559,28 +545,17 @@ module.exports = async ({github, context, core}) => {
       }
 
       const additionalFiles = await countAdditionalFiles(wsPath, core);
-      const { hasPending: hasPendingPRs, prNumbers } = await checkPendingPRs(
-        octokit,
-        wsName,
-        repoName,
-        branchName,
-        core
-      );
 
       workspacesData.push({
         name: wsName,
         repo_url: repoUrl,
         commit_sha: commitSha,
         commit_short: commitShort,
-        commit_message: commitMessage,
-        commit_date: commitDate,
         repo_flat: repoFlat,
         overlay_backstage_version: overlayBackstageVersion,
         source_backstage_version: sourceBackstageVersion,
         plugins: enhancedPlugins,
-        additional_files: additionalFiles,
-        has_pending_prs: hasPendingPRs,
-        pr_numbers: prNumbers
+        additional_files: additionalFiles
       });
     }
 

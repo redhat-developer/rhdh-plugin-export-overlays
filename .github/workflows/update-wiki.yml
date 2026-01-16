@@ -6,10 +6,12 @@ on:
     branches:
       - main
       - 'release-*'
+      - 'feature/RHDH-11416'
+    paths:
+      - 'workspaces/**'
       
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
   update-wiki:
