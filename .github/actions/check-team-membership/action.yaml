@@ -1,0 +1,81 @@
+name: "Check Team Membership"
+
+description: "Checks if a user is an active member of a specified team in the organization"
+
+inputs:
+  user:
+    description: "The GitHub username to check"
+    required: true
+  organization:
+    description: "The organization to check"
+    required: true
+    default: "redhat-developer"
+  team:
+    description: "The team slug to check membership for"
+    required: true
+    default: "rhdh"
+  github_token:
+    description: "GitHub token with permissions to read organization and team membership"
+    required: true
+  whitelisted_users:
+    description: "A JSON array of whitelisted users (e.g., '[\"openshift-cherrypick-robot\"]')"
+    required: false
+    default: "[]"
+
+outputs:
+  is_authorized:
+    description: "Whether the user is authorized (team member or whitelisted)"
+    value: ${{ steps.check.outputs.is_authorized }}
+  reason:
+    description: "Reason for the authorization result"
+    value: ${{ steps.check.outputs.reason }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check authorization
+      id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        USER: ${{ inputs.user }}
+        TEAM: ${{ inputs.team }}
+        ORGANIZATION: ${{ inputs.organization }}
+        WHITELISTED_USERS: ${{ inputs.whitelisted_users }}
+      run: |
+        echo "Checking authorization for user: $USER"
+        
+        # Check if user is in whitelist
+        if echo "$WHITELISTED_USERS" | jq -e --arg user "$USER" 'index($user) != null' > /dev/null 2>&1; then
+          echo "✓ User $USER is whitelisted"
+          echo "is_authorized=true" >> "$GITHUB_OUTPUT"
+          echo "reason='Whitelisted user'" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        
+        echo "Checking if $USER is an active member of $TEAM team in $ORGANIZATION..."
+        
+        # Use the memberships endpoint to get specific membership info
+        if response=$(gh api "/orgs/${ORGANIZATION}/teams/${TEAM}/memberships/${USER}" 2>/dev/null); then
+          state=$(echo "$response" | jq -r '.state')
+          
+          if [[ "$state" == "active" ]]; then
+            echo "✓ User $USER is an active member of the $TEAM team"
+            echo "is_authorized=true" >> "$GITHUB_OUTPUT"
+            echo "reason='Active member of the $TEAM team'" >> "$GITHUB_OUTPUT"
+          elif [[ "$state" == "pending" ]]; then
+            echo "⚠ User $USER has a pending invitation to the $TEAM team (not active)"
+            echo "is_authorized=false" >> "$GITHUB_OUTPUT"
+            echo "reason='Pending invitation to the $TEAM team'" >> "$GITHUB_OUTPUT"
+          else
+            echo "✗ User $USER has unexpected membership state: $state"
+            echo "is_authorized=false" >> "$GITHUB_OUTPUT"
+            echo "reason='Unexpected membership state: $state'" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          # API call failed (user not in team)
+          echo "✗ User $USER is not a member of the $TEAM team"
+          echo "is_authorized=false" >> "$GITHUB_OUTPUT"
+          echo "reason='Not a member of the $TEAM team'" >> "$GITHUB_OUTPUT"
+        fi
+
