@@ -10,3 +10,13 @@
    },
    "files": [
      "dist"
+--- yarn.lock
++++ yarn.lock
+@@ -11488,6 +11488,7 @@
+     "@backstage/types": ^1.2.2
+     "@red-hat-developer-hub/backstage-plugin-extensions-common": "workspace:^"
+     "@types/glob": ^8.1.0
++    "@types/js-yaml": ^4.0.1
+     find-root: ^1.1.0
+     glob: ^8.1.0
+     js-yaml: ^4.1.0
