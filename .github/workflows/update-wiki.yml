@@ -51,10 +51,8 @@ jobs:
           script: |
             const script = require('./.github/workflows/github-script/generate-wiki-page.js');
             const branchName = '${{ github.ref }}'.replace('refs/heads/', '');
-            const skipOciImages = '${{ github.event.inputs.skip_oci_images }}' === 'true';
             const isMainOrRelease = branchName === 'main' || branchName.startsWith('release-');
-            // Check OCI images on main/release branches unless user explicitly skips
-            const checkOciImages = isMainOrRelease && !skipOciImages;
+            const checkOciImages = isMainOrRelease;
 
             await script({github, context, core, checkOciImages});
 
