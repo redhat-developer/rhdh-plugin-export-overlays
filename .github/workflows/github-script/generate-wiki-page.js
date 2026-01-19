@@ -488,7 +488,7 @@ function generateMarkdown(branchName, workspacesData, repoName) {
 }
 
 /** @param {import('@actions/github-script').AsyncFunctionArguments} AsyncFunctionArguments */
-module.exports = async ({github, context, core}) => {
+module.exports = async ({github, context, core, checkOciImages = false}) => {
   try {
     const branchName = context.ref.replace('refs/heads/', '');
     const repoName = `${context.repo.owner}/${context.repo.repo}`;
@@ -541,7 +541,7 @@ module.exports = async ({github, context, core}) => {
 
           // Check support status first to determine if we should check for OCI image
           const supportStatus = checkSupportStatus(pluginPath, wsName, supportedPlugins, communityPlugins, techpreviewPlugins);
-          const shouldCheckImage = supportStatus === 'Supported' || supportStatus === 'TechPreview';
+          const shouldCheckImage = checkOciImages && (supportStatus === 'Supported' || supportStatus === 'TechPreview');
 
           // Uses local git checkout instead of API
           const pluginInfo = await getPluginDetails(repoUrl, commitSha, fullPluginPath, shouldCheckImage, core);
