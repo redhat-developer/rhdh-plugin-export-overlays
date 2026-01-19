@@ -14,6 +14,25 @@ const checkoutCache = new Map();
 // Cache for OCI image URL existence checks
 const imageUrlCache = new Map();
 
+// Debug counters for API usage tracking
+const debugCounters = {
+  githubApiCalls: 0,
+  httpCalls: 0,
+  gitOperations: 0,
+  repoCacheHits: 0,
+  imageCacheHits: 0
+};
+
+function logDebugCounters(core) {
+  core.info('=== API Usage Debug Report ===');
+  core.info(`GitHub API calls: ${debugCounters.githubApiCalls}`);
+  core.info(`HTTP calls (OCI checks): ${debugCounters.httpCalls}`);
+  core.info(`Git operations: ${debugCounters.gitOperations}`);
+  core.info(`Repo cache hits: ${debugCounters.repoCacheHits}`);
+  core.info(`Image cache hits: ${debugCounters.imageCacheHits}`);
+  core.info('===============================');
+}
+
 
 async function getWorkspaceList(workspacesDir, core) {
   try {
@@ -74,6 +93,7 @@ async function ensureRepoCheckout(repoUrl, commitSha, core) {
 
   const cacheKey = `${repoUrl}@${commitSha}`;
   if (checkoutCache.has(cacheKey)) {
+    debugCounters.repoCacheHits++;
     return checkoutCache.get(cacheKey);
   }
 
@@ -97,11 +117,13 @@ async function ensureRepoCheckout(repoUrl, commitSha, core) {
 
     if (!hasGit) {
       core.info(`  Cloning ${repoUrl} at ${commitSha.substring(0, 7)}...`);
+      debugCounters.gitOperations++;
       await execFileAsync('git', ['init'], { cwd: checkoutPath });
       await execFileAsync('git', ['remote', 'add', 'origin', repoUrl], { cwd: checkoutPath });
     }
 
     // Fetch only the specific commit (shallow, no history)
+    debugCounters.gitOperations++;
     await execFileAsync('git', ['fetch', '--depth', '1', 'origin', commitSha], { cwd: checkoutPath });
     await execFileAsync('git', ['checkout', '--force', 'FETCH_HEAD'], { cwd: checkoutPath });
 
@@ -141,6 +163,7 @@ async function getOciImageUrl(packageName, core) {
   }
 
   if (imageUrlCache.has(containerName)) {
+    debugCounters.imageCacheHits++;
     return imageUrlCache.get(containerName);
   }
 
@@ -148,8 +171,10 @@ async function getOciImageUrl(packageName, core) {
   const url = `https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container/${encodedPath}`;
 
   try {
+    debugCounters.httpCalls++;
     let response = await fetch(url, { method: 'HEAD' });
     if (response.status === 405) {
+      debugCounters.httpCalls++;
       response = await fetch(url);
     }
 
@@ -589,6 +614,7 @@ module.exports = async ({github, context, core, checkOciImages = false}) => {
     const outputFile = `${safeBranchName}.md`;
     await fs.writeFile(outputFile, markdownContent, 'utf-8');
 
+    logDebugCounters(core);
     core.info(`Wiki page generated: ${outputFile}`);
     core.info(`Total workspaces documented: ${workspacesData.length}`);
   } catch (error) {
