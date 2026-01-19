@@ -8,9 +8,6 @@ on:
         required: false
         default: false
         type: boolean
-  schedule:
-    # Run full OCI check every Monday at 9 AM UTC (weekly refresh)
-    - cron: '0 9 * * 1'
   push:
     branches:
       - main
@@ -53,20 +50,11 @@ jobs:
         with:
           script: |
             const script = require('./.github/workflows/github-script/generate-wiki-page.js');
-            const skipInput = '${{ github.event.inputs.skip_oci_images }}';
-            const eventName = '${{ github.event_name }}';
             const branchName = '${{ github.ref }}'.replace('refs/heads/', '');
-            const isPush = eventName === 'push';
-            const isSchedule = eventName === 'schedule';
+            const skipOciImages = '${{ github.event.inputs.skip_oci_images }}' === 'true';
             const isMainOrRelease = branchName === 'main' || branchName.startsWith('release-');
-
-            // Smart logic: Check OCI images for:
-            // - Scheduled runs (weekly refresh of all links)
-            // - Main/release branches (important docs)
-            // - Manual runs where user explicitly unchecks "skip"
-            const checkOciImages = isSchedule ||
-                                  isMainOrRelease ||
-                                  (eventName === 'workflow_dispatch' && skipInput !== 'true');
+            // Check OCI images on main/release branches unless user explicitly skips
+            const checkOciImages = isMainOrRelease && !skipOciImages;
 
             await script({github, context, core, checkOciImages});
 
