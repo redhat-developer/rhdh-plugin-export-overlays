@@ -1,7 +1,13 @@
 name: Update Wiki Pages
 
 on:
-  workflow_dispatch:    
+  workflow_dispatch:
+    inputs:
+      skip_oci_images:
+        description: 'Skip OCI image checks to reduce HTTP calls'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
@@ -43,7 +49,9 @@ jobs:
         with:
           script: |
             const script = require('./.github/workflows/github-script/generate-wiki-page.js');
-            await script({github, context, core});
+            const skipOciImages = ${{ github.event.inputs.skip_oci_images == 'true' }};
+            const checkOciImages = !skipOciImages;
+            await script({github, context, core, checkOciImages});
 
       - name: Checkout wiki repository
         uses: actions/checkout@v5
