@@ -513,7 +513,7 @@ function generateMarkdown(branchName, workspacesData, repoName) {
 }
 
 /** @param {import('@actions/github-script').AsyncFunctionArguments} AsyncFunctionArguments */
-module.exports = async ({github, context, core, checkOciImages = false}) => {
+module.exports = async ({github, context, core, checkOciImages}) => {
   try {
     const branchName = context.ref.replace('refs/heads/', '');
     const repoName = `${context.repo.owner}/${context.repo.repo}`;
