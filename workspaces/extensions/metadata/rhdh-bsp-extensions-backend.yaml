@@ -1,9 +1,9 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: red-hat-developer-hub-backstage-plugin-catalog-backend-module-e
+  name: rhdh-bsp-extensions-backend
   namespace: rhdh
-  title: "Catalog Backend Module Extensions"
+  title: "Extensions Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,11 +16,11 @@ metadata:
       https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   tags: []
 spec:
-  packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions"
-  dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions-dynamic
-  version: 0.7.1
+  packageName: "@red-hat-developer-hub/backstage-plugin-extensions-backend"
+  dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-extensions-backend-dynamic
+  version: 0.11.0
   backstage:
-    role: backend-plugin-module
+    role: backend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
   support: tech-preview
