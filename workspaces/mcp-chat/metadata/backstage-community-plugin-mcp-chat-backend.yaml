@@ -1,6 +1,25 @@
-packageName: "@backstage-community/plugin-mcp-chat-backend"
-support: tech-preview
-lifecycle: experimental
-configs:
-  default: {}
-
+# yaml-language-server: $schema=https://github.com/redhat-developer/rhdh-plugin-catalog/blob/main/workspaces/marketplace/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-mcp-chat-backend
+  namespace: community
+  title: MCP Chat Backend
+  description: Backend plugin for MCP Chat
+  links:
+    - url: https://github.com/backstage/community-plugins/tree/main/workspaces/mcp-chat/plugins/mcp-chat-backend
+      title: Source Code
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/mcp-chat/plugins/mcp-chat-backend
+  tags:
+    - ai
+    - chat
+    - mcp
+spec:
+  packageName: '@backstage-community/plugin-mcp-chat-backend'
+  author: Backstage Community
+  support: community
+  lifecycle: experimental
+  backstage:
+    role: backend-plugin
+  appConfigExamples: []
