@@ -10,15 +10,15 @@ metadata:
     - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-azure-repositories
+      url: https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-azure
   annotations:
     backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-azure-repositories
+      https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-azure
   tags:
     - software-templates
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-azure"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.45.3__0.2.15!backstage-plugin-scaffolder-backend-module-azure
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-azure-dynamic
   version: 0.2.15
   backstage:
     role: backend-plugin-module
