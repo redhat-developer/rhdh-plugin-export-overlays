@@ -7,12 +7,12 @@ metadata:
   links:
   - url: https://red.ht/rhdh
     title: Homepage
-  - url: https://github.com/janus-idp/backstage-plugins/issues
+  - url: https://issues.redhat.com/browse/RHIDP
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-topology
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   tags: []
 spec:
   packageName: '@backstage-community/plugin-topology'

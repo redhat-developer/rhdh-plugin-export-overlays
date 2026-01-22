@@ -1,0 +1,40 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-bsp-global-floating-action-button
+  namespace: rhdh
+  title: Global Floating Action Button
+  links:
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://issues.redhat.com/browse/RHDHBUGS
+    title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+  - title: Source Code
+    url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-floating-action-button
+  annotations:
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-floating-action-button
+  tags: []
+spec:
+  packageName: '@red-hat-developer-hub/backstage-plugin-global-floating-action-button'
+  dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-floating-action-button
+  version: 1.5.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.42.5
+  author: Red Hat
+  support: production
+  lifecycle: active
+  partOf:
+  - global-floating-action-button
+  appConfigExamples:
+  - title: Default configuration
+    content:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-global-floating-action-button:
+            translationResources:
+            - importName: globalFloatingActionButtonTranslations
+              ref: globalFloatingActionButtonTranslationRef
+            mountPoints:
+            - mountPoint: application/listener
+              importName: DynamicGlobalFloatingActionButton

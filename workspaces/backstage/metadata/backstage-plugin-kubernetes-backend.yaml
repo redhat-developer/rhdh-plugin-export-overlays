@@ -7,13 +7,13 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-kubernetes-backend-dynamic
+      url: https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-kubernetes-backend-dynamic
+      https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
   tags: []
 spec:
   packageName: "@backstage/plugin-kubernetes-backend"

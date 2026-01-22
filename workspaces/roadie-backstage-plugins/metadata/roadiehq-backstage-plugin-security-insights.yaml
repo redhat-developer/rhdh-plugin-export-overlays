@@ -7,18 +7,18 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-security-insights
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/roadiehq-backstage-plugin-security-insights
+      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-security-insights"
-  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-backstage-plugin-security-insights
-  version: 3.2.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-security-insights:bs_1.45.3__3.3.1!roadiehq-backstage-plugin-security-insights
+  version: 3.3.1
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5

@@ -7,13 +7,13 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-ocm-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/ocm
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-ocm-backend-dynamic
+      https://github.com/backstage/community-plugins/tree/main/workspaces/ocm
   tags: []
 spec:
   packageName: "@backstage-community/plugin-ocm-backend"

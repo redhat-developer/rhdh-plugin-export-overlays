@@ -7,23 +7,23 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/immobiliare/backstage-plugin-gitlab/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/immobiliarelabs-backstage-plugin-gitlab
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/immobiliarelabs-backstage-plugin-gitlab
+      https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
   tags: []
 spec:
   packageName: "@immobiliarelabs/backstage-plugin-gitlab"
-  dynamicArtifact: ./dynamic-plugins/dist/immobiliarelabs-backstage-plugin-gitlab
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.45.3__6.13.0!immobiliarelabs-backstage-plugin-gitlab
   version: 6.13.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
     - backstage-catalog-cards

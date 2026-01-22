@@ -20,10 +20,6 @@ roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
 
 # confirmed Community @ 11/07 meeting
-# @parfuemerie-douglas/scaffolder-backend-module-azure-repositories
-scaffolder-backend-module-azure-repositories/.
-
-# confirmed Community @ 11/07 meeting
 # @immobiliarelabs/backstage-plugin-gitlab*
 gitlab/packages/gitlab
 gitlab/packages/gitlab-backend
@@ -46,7 +42,12 @@ nexus-repository-manager/plugins/nexus-repository-manager
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils
 
 # confirmed Community @ 12/05 meeting - both Roadie and RH are to be community supported
-redhat-argocd/plugins/argocd
-redhat-argocd/plugins/argocd-backend
+argocd/plugins/argocd
+argocd/plugins/argocd-backend
+
+# continue to use wrappers in 1.9; moving to Commmunity in 1.11 (per PM/Eng sync meeting 01/12)
+# TODO remove from supported / move to community in 1.11 - https://issues.redhat.com/browse/RHIDP-11354
+quay/plugins/quay
+quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
+tekton/plugins/tekton

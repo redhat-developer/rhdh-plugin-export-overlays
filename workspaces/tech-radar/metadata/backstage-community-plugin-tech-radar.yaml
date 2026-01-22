@@ -7,12 +7,12 @@ metadata:
   links:
   - url: https://red.ht/rhdh
     title: Homepage
-  - url: https://issues.redhat.com/browse/RHIDP
+  - url: https://github.com/backstage/community-plugins/issues
     title: Bugs
   - title: Source Code
-    url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-tech-radar
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-tech-radar
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   tags: []
 spec:
   packageName: '@backstage-community/plugin-tech-radar'

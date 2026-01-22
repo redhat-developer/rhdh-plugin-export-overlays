@@ -1,0 +1,52 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-kiali
+  namespace: rhdh
+  title: "Kiali"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/kiali
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/kiali
+  tags:
+    - software-catalog
+spec:
+  packageName: "@backstage-community/plugin-kiali"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.45.3__1.42.0"
+  version: 1.42.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - kiali
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-kiali:
+              appIcons:
+                - importName: KialiIcon
+                  name: kialiIcon
+              dynamicRoutes:
+                - importName: KialiPage
+                  menuItem:
+                    icon: kialiIcon
+                    text: Kiali
+                  path: /kiali
+              mountPoints:
+                - config:
+                    if:
+                      anyOf:
+                        - hasAnnotation: backstage.io/kubernetes-namespace
+                  importName: EntityKialiContent
+                  mountPoint: entity.page.kiali/cards

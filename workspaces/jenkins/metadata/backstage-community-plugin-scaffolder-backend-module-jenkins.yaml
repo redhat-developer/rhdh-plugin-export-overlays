@@ -1,0 +1,31 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: bcp-scaffolder-backend-mod-jenkins
+  namespace: rhdh
+  title: "Jenkins Scaffolder Backend Module"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins/plugins/scaffolder-backend-module-jenkins
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins/plugins/scaffolder-backend-module-jenkins
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage-community/plugin-scaffolder-backend-module-jenkins"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.45.3__0.16.0
+  version: 0.16.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  partOf:
+    - jenkins
+  appConfigExamples: []

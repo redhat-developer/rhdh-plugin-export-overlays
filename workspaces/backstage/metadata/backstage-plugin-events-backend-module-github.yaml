@@ -1,0 +1,40 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-events-backend-module-github
+  namespace: rhdh
+  title: "Events Backend Module GitHub"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
+  tags: []
+spec:
+  packageName: "@backstage/plugin-events-backend-module-github"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.45.3__0.4.6
+  version: 0.4.6
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.42.5
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - backstage-plugin-events-backend-module-github
+  # From https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.8/html/configuring_dynamic_plugins/configuring-rhdh-events-module#proc-configuring-events-module-for-github
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        events:
+          http:
+            topics:
+              - github
+          modules:
+              github:
+                webhookSecret: ${GITHUB_WEBHOOK_SECRET}

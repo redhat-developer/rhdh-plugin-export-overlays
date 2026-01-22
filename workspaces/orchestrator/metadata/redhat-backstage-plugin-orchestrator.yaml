@@ -7,8 +7,8 @@ metadata:
   links:
   - url: https://red.ht/rhdh
     title: Homepage
-  - url: https://issues.redhat.com/browse/RHIDP
-    title: Bugs
+  - url: https://issues.redhat.com/browse/RHDHBUGS
+    title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
   - title: Source Code
     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
   annotations:
@@ -16,12 +16,12 @@ metadata:
   tags:
   - automation
 spec:
-  packageName: '@redhat/backstage-plugin-orchestrator'
-  dynamicArtifact: '@redhat/backstage-plugin-orchestrator@1.8.2'
-  version: 1.8.2
+  packageName: '@red-hat-developer-hub/backstage-plugin-orchestrator'
+  dynamicArtifact: 'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.45.3__5.4.0'
+  version: 5.4.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

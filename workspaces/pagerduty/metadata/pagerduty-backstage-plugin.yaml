@@ -7,23 +7,23 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/pagerduty/backstage-plugin/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/pagerduty-backstage-plugin
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/pagerduty
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/pagerduty-backstage-plugin
+      https://github.com/backstage/community-plugins/tree/main/workspaces/pagerduty
   tags: []
 spec:
   packageName: "@pagerduty/backstage-plugin"
-  dynamicArtifact: ./dynamic-plugins/dist/pagerduty-backstage-plugin
-  version: 0.16.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.45.3__0.16.4!pagerduty-backstage-plugin
+  version: 0.16.4
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
     - pagerduty

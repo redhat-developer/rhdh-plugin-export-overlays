@@ -28,16 +28,13 @@ homepage/plugins/dynamic-home-page
 
 keycloak/plugins/catalog-backend-module-keycloak
 
-marketplace/plugins/catalog-backend-module-marketplace
-marketplace/plugins/marketplace
-marketplace/plugins/marketplace-backend
+extensions/plugins/catalog-backend-module-extensions
+extensions/plugins/extensions
+extensions/plugins/extensions-backend
 
-# deprecated in 1.8 - remove in 1.9 or 1.10
+# deprecated in 1.8 - TODO remove in 1.10 - https://issues.redhat.com/browse/RHIDP-9179
 ocm/plugins/ocm
 ocm/plugins/ocm-backend
-
-quay/plugins/quay
-quay/plugins/quay-actions
 
 quickstart/plugins/quickstart
 
@@ -46,8 +43,6 @@ rbac/plugins/rbac
 scaffolder-backend-module-kubernetes/plugins/kubernetes-actions
 scaffolder-backend-module-regex/plugins/regex-actions
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
-
-tekton/plugins/tekton
 
 topology/plugins/topology
 
@@ -79,7 +74,11 @@ backstage/plugins/notifications-backend-module-email
 orchestrator/plugins/orchestrator
 orchestrator/plugins/orchestrator-backend
 orchestrator/plugins/orchestrator-form-widgets
+orchestrator/plugins/orchestrator-backend-module-loki
 orchestrator/plugins/scaffolder-backend-module-orchestrator
+
+# Events Modules (TP in 1.9)
+backstage/plugins/events-backend-module-github
 
 # Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
 # lightspeed/plugins/lightspeed

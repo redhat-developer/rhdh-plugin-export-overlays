@@ -7,23 +7,23 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-nexus-repository-manager
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/nexus-repository-manager
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-nexus-repository-manager
+      https://github.com/backstage/community-plugins/tree/main/workspaces/nexus-repository-manager
   tags: []
 spec:
   packageName: "@backstage-community/plugin-nexus-repository-manager"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-nexus-repository-manager
-  version: 1.16.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.45.3__1.19.3!backstage-community-plugin-nexus-repository-manager
+  version: 1.19.3
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
-  support: tech-preview
+  support: community
   lifecycle: active
   partOf:
     - nexus-repository-manager

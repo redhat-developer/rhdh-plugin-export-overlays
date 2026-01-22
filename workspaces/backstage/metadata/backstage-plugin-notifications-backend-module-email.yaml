@@ -7,13 +7,13 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-notifications-backend-module-email-dynamic
+      url: https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-plugin-notifications-backend-module-email-dynamic
+      https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications-backend-module-email"
