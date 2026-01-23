@@ -15,3 +15,6 @@ backstage/plugins/scaffolder-backend-module-github
 # might as well just keep the wrappers and NOT waste time in Konflux
 # TODO move TP plugins into the community list in 1.10 https://issues.redhat.com/browse/RHIDP-11354
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
+
+# Orchestrator plugins - TP in 1.9 but moving to GA in 1.10
+orchestrator/plugins/orchestrator-backend-module-loki
