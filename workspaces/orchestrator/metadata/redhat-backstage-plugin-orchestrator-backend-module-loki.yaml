@@ -13,15 +13,15 @@ metadata:
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-backend-module-loki
   annotations:
     backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-backend-moule-loki
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-backend-module-loki
   tags:
     - automation
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki"
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-moule-loki:bs_1.45.3__1.0.0"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.45.3__1.0.0"
   version: 1.0.0
   backstage:
-    role: backend-plugin-moudle
+    role: backend-plugin-module
     supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
