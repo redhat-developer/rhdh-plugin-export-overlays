@@ -1,0 +1,54 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: roadiehq-backstage-plugin-argo-cd
+  namespace: rhdh
+  title: "Roadie ArgoCD"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+  tags: []
+spec:
+  packageName: "@roadiehq/backstage-plugin-argo-cd"
+  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-backstage-plugin-argo-cd
+  version: 2.12.2
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Roadie
+  support: community
+  lifecycle: active
+  partOf:
+    - roadie-argocd
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            roadiehq.backstage-plugin-argo-cd:
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityArgoCDOverviewCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        lg: span 8
+                        xs: span 12
+                    if:
+                      allOf:
+                        - isArgocdAvailable
+                - mountPoint: entity.page.cd/cards
+                  importName: EntityArgoCDContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isArgocdAvailable

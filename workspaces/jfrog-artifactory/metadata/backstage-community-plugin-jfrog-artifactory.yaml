@@ -7,7 +7,7 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/jfrog-artifactory
@@ -17,11 +17,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jfrog-artifactory"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-jfrog-artifactory
-  version: 1.18.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.45.3__1.24.0!backstage-community-plugin-jfrog-artifactory
+  version: 1.24.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: community
   lifecycle: active

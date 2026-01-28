@@ -1,15 +1,38 @@
-packageName: "@backstage-community/plugin-mcp-chat"
-support: tech-preview
-lifecycle: experimental
-configs:
-  default:
-    dynamicPlugins:
-      frontend:
-        backstage-community.plugin-mcp-chat:
-          dynamicRoutes:
-            - path: /mcp-chat
-              importName: McpChatPage
-              menuItem:
-                icon: MCPChatIcon
-                text: MCP Chat
-
+# yaml-language-server: $schema=https://github.com/redhat-developer/rhdh-plugin-catalog/blob/main/workspaces/marketplace/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-mcp-chat
+  namespace: community
+  title: MCP Chat Frontend
+  description: Frontend plugin for MCP Chat
+  links:
+    - url: https://github.com/backstage/community-plugins/tree/main/workspaces/mcp-chat/plugins/mcp-chat
+      title: Source Code
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/mcp-chat/plugins/mcp-chat
+  tags:
+    - ai
+    - chat
+    - mcp
+spec:
+  packageName: '@backstage-community/plugin-mcp-chat'
+  author: Backstage Community
+  support: community
+  lifecycle: experimental
+  backstage:
+    role: frontend-plugin
+  partOf:
+    - mcp-chat
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-mcp-chat:
+              dynamicRoutes:
+                - path: /mcp-chat
+                  importName: McpChatPage
+                  menuItem:
+                    icon: MCPChatIcon
+                    text: MCP Chat

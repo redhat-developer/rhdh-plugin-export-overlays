@@ -7,7 +7,7 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
@@ -17,7 +17,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-azure-devops
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.45.3__0.23.0!backstage-community-plugin-azure-devops
   version: 0.23.0
   backstage:
     role: frontend-plugin

@@ -84,17 +84,11 @@ jobs:
           done
 
           missingPlugins=false
-          for required in $(cat required-plugins)
-          do
-            if [[ "$(echo $required | sed 's/ *//')" == "" || "$(echo $required | sed 's/^#.*//')" == "" ]]
-            then
-                continue
-            fi
+          while IFS= read -r line; do
+            echo "Checking required plugin: ${line}"
 
-            echo "Checking required plugin: ${required}"
-
-            workspacePath="workspaces/$(echo ${required} | cut -d'/' -f1)"
-            pluginPath="$(echo ${required} | cut -d'/' -f2-)"
+            workspacePath="workspaces/$(echo ${line} | cut -d'/' -f1)"
+            pluginPath="$(echo ${line} | cut -d'/' -f2-)"
 
             if [[ ! -d "${workspacePath}" ]]
             then
@@ -105,11 +99,11 @@ jobs:
 
             if ! grep -q "${pluginPath}:" "${workspacePath}/plugins-list.yaml"
             then
-              echo ::error ::Required plugin ${pluginPath} of workspace ${workspacePath} is missing.
+              echo ::error ::Required plugin ${pluginPath} is not in ${workspacePath}/plugins-list.yaml!
               missingPlugins=true
               continue
             fi
-          done
+          done < <(grep -E -v '^ *#|^ *$' required-plugins | sort -u)
 
           if [[ "${missingPlugins}" == "true" ]]
           then

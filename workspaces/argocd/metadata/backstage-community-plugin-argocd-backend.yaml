@@ -7,7 +7,7 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
@@ -16,12 +16,12 @@ metadata:
       https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
   tags: []
 spec:
-  packageName: "@backstage-community/plugin-redhat-argocd-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-redhat-argocd-backend:bs_1.42.5__0.10.0!backstage-community-plugin-redhat-argocd-backend
-  version: 0.10.0
+  packageName: "@backstage-community/plugin-argocd-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend:bs_1.45.3__1.0.2!backstage-community-plugin-argocd-backend
+  version: 1.0.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: community
   lifecycle: active

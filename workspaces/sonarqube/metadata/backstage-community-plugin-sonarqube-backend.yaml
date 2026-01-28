@@ -7,7 +7,7 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/sonarqube
@@ -17,11 +17,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-sonarqube-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-sonarqube-backend-dynamic
-  version: 0.12.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend:bs_1.45.3__0.15.0!backstage-community-plugin-sonarqube-backend
+  version: 0.15.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: community
   lifecycle: active

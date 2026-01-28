@@ -36,13 +36,6 @@ extensions/plugins/extensions-backend
 ocm/plugins/ocm
 ocm/plugins/ocm-backend
 
-# build in Konflux in 1.9 because we're deleting the wrapper and this was GA in 1.8 but moving to Commmunity in 1.9 (per PM/Eng sync meeting 01/12)
-# TODO remove from supported / move to community in 1.11 - https://issues.redhat.com/browse/RHIDP-11354
-quay/plugins/quay
-quay/plugins/quay-actions
-roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
-tekton/plugins/tekton
-
 quickstart/plugins/quickstart
 
 rbac/plugins/rbac
@@ -82,6 +75,8 @@ orchestrator/plugins/orchestrator
 orchestrator/plugins/orchestrator-backend
 orchestrator/plugins/orchestrator-form-widgets
 orchestrator/plugins/scaffolder-backend-module-orchestrator
+# Orchestrator plugin Loki - TP in 1.9 but moving to GA in 1.10 https://issues.redhat.com/browse/RHDHPLAN-926
+orchestrator/plugins/orchestrator-backend-module-loki
 
 # Events Modules (TP in 1.9)
 backstage/plugins/events-backend-module-github

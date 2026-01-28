@@ -7,8 +7,8 @@ metadata:
   links:
   - url: https://red.ht/rhdh
     title: Homepage
-  - url: https://issues.redhat.com/browse/RHIDP
-    title: Bugs
+  - url: https://issues.redhat.com/browse/RHDHBUGS
+    title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
   - title: Source Code
     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/bulk-import
   annotations:
@@ -40,7 +40,7 @@ spec:
             - name: bulkImportIcon
               importName: BulkImportIcon
             dynamicRoutes:
-            - path: /bulk-import/repositories
+            - path: /bulk-import
               importName: BulkImportPage
               menuItem:
                 icon: bulkImportIcon

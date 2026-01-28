@@ -1,13 +1,13 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-plugin-scaffolder-backend-module-gitlab
+  name: backstage-plugin-catalog-backend-module-gitlab
   namespace: rhdh
-  title: "Scaffolder Backend Module GitLab"
+  title: "Catalog Backend Module GitLab"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/backstage/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
@@ -15,11 +15,11 @@ metadata:
     backstage.io/source-location: url
       https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
   tags:
-    - software-templates
+    - software-catalog
 spec:
-  packageName: "@backstage/plugin-scaffolder-backend-module-gitlab"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-gitlab-dynamic
-  version: 0.9.4
+  packageName: "@backstage/plugin-catalog-backend-module-gitlab"
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-dynamic
+  version: 0.7.2
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5
@@ -27,5 +27,10 @@ spec:
   support: tech-preview
   lifecycle: active
   partOf:
-    - gitlab-scaffolder-actions
-  appConfigExamples: []
+    - gitlab-catalog-integration
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        catalog:
+          providers:
+            gitlab: {}

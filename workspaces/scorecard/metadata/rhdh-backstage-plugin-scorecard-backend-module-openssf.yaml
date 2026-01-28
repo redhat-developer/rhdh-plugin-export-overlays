@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-backstage-plugin-scorecard-backend-module-openssf
+  namespace: rhdh
+  title: "Scorecard Backend Module for OpenSSF Security Scorecards"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-openssf
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-openssf
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.45.3__0.1.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
+  version: 0.1.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - scorecard
+  appConfigExamples:
+    - title: Default configuration
+      content: {}

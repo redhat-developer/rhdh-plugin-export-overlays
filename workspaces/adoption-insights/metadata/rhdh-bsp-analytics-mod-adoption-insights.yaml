@@ -1,14 +1,14 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: rhdh-backstage-plugin-analytics-module-adoption-insights
+  name: rhdh-bsp-analytics-mod-adoption-insights
   namespace: rhdh
   title: "Analytics Module Adoption Insights"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
-      title: Bugs
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/adoption-insights
   annotations:

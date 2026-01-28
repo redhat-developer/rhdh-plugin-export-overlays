@@ -7,7 +7,7 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://issues.redhat.com/browse/RHIDP
+    - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins
@@ -17,7 +17,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-jenkins-backend-dynamic
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.45.3__0.22.0!backstage-community-plugin-jenkins-backend
   version: 0.22.0
   backstage:
     role: backend-plugin
