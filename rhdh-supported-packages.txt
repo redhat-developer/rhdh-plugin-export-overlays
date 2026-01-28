@@ -68,7 +68,22 @@ tech-radar/plugins/tech-radar-backend
 # currently TP but moving to GA in 1.10
 bulk-import/plugins/bulk-import
 bulk-import/plugins/bulk-import-backend
+
+# currently TP but moving to GA in 1.10
+# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-kubernetes?tab=tags
+backstage/plugins/kubernetes
+
+# currently TP but moving to GA in 1.10
+# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-signals?tab=tags
+backstage/plugins/signals
+
+# currently TP but moving to GA in 1.10
+# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-notifications-backend-module-email?tab=tags
 backstage/plugins/notifications-backend-module-email
+
+# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-scaffolder-backend-module-github?tab=tags
+# TODO check if this works after David's refactoring
+backstage/plugins/scaffolder-backend-module-github
 
 # Orchestrator plugins
 orchestrator/plugins/orchestrator

@@ -2,17 +2,3 @@
 # do not include package for which we never had wrappers / bundled the package in RHDH
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
-backstage/plugins/kubernetes
-backstage/plugins/signals
-backstage/plugins/scaffolder-backend-module-github
-
-# currently TP but moving to GA in 1.10
-# bulk-import/plugins/bulk-import
-# bulk-import/plugins/bulk-import-backend
-# backstage/plugins/notifications-backend-module-email
-
-# we could build these in Konflux in 1.9 but because we're moving them to Commmunity in 1.10/1.11 (per PM/Eng sync meeting 01/12)
-# might as well just keep the wrappers and NOT waste time in Konflux
-# TODO move TP plugins into the community list in 1.10 https://issues.redhat.com/browse/RHIDP-11354
-roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
-
