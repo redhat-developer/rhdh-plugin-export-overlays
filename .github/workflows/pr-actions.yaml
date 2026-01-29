@@ -322,6 +322,9 @@ jobs:
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
@@ -379,7 +382,23 @@ jobs:
               const reportContent = fs.readFileSync(reportPath, 'utf8');
               body = `${body}\n\n${reportContent}`;
             }
-            
+
+            // Check if E2E tests exist by looking for package.json in e2e-tests directory
+            if (publishSuccess) {
+              const [repoOwner, repoName] = core.getInput('overlay_repo').split('/');
+              try {
+                await github.rest.repos.getContent({
+                  owner: repoOwner,
+                  repo: repoName,
+                  path: `${core.getInput('workspace')}/e2e-tests/package.json`,
+                  ref: core.getInput('overlay_branch'),
+                });
+                body += '\n\nRunning e2e tests\n/test e2e-ocp-helm';
+              } catch {
+                body += '\n\nNo E2E tests available for this workspace.';
+              }
+            }
+
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
