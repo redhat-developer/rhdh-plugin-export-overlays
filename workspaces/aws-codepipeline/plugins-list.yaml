@@ -1,2 +1,2 @@
 plugins/codepipeline/frontend:
-plugins/codepipeline/backend:
+plugins/codepipeline/backend: --embed-package @aws/aws-core-plugin-for-backstage-common --embed-package @aws/aws-core-plugin-for-backstage-node
