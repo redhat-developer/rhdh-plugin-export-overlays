@@ -221,10 +221,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p published-exports
           cat > published-exports/meta.json <<EOF
-          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Stage published exports content
         env:
@@ -261,10 +262,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p context
           cat > context/meta.json <<EOF
-          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Upload test-context artifact
         uses: actions/upload-artifact@v4
@@ -501,10 +503,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p context
           cat > context/meta.json <<EOF
-          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Upload context artifact
         uses: actions/upload-artifact@v4

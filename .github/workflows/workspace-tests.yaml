@@ -22,6 +22,7 @@ jobs:
       overlayCommit: ${{ steps.meta.outputs.overlayCommit }}
       prNumber: ${{ steps.meta.outputs.pr }}
       publishedExports: ${{ steps.meta.outputs.publishedExports }}
+      targetBranch: ${{ steps.meta.outputs.targetBranch }}
     steps:
       # the artifact of the current run contains PR number
       - name: Download context artifact 
@@ -84,6 +85,7 @@ jobs:
             echo "overlayRepo=$(jq -r .overlayRepo "$meta_file")"
             echo "overlayCommit=$(jq -r .overlayCommit "$meta_file")"
             echo "pr=$(jq -r '.pr // "null"' "$meta_file")"
+            echo "targetBranch=$(jq -r '.targetBranch // "main"' "$meta_file")"
             if [[ -n "$workspace" ]] && [[ -f "$exports_file" ]]; then
               echo "publishedExports<<EOF"
               cat "$exports_file"
@@ -303,6 +305,8 @@ jobs:
       - prepare-test-config
     if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      target-branch: ${{ needs.resolve.outputs.targetBranch }}
 
   add-skipped-test-comment:
     if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
