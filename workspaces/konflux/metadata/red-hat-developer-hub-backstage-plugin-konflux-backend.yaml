@@ -16,7 +16,7 @@ metadata:
     - cicd
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-konflux-backend"
-  dynamicArtifact: ""
+  dynamicArtifact: "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.45.3__0.1.1!red-hat-developer-hub-backstage-plugin-konflux-backend"
   version: 0.1.1
   backstage:
     role: backend-plugin
@@ -32,7 +32,7 @@ spec:
         konflux:
           authProvider: impersonationHeaders
           clusters:
-            konflux:
+            konflux-cluster-1:
               apiUrl: ${KONFLUX_CLUSTER_API_URL}
               uiUrl: ${KONFLUX_CLUSTER_UI_URL}
               kubearchiveApiUrl: ${KONFLUX_CLUSTER_KUBEARCHIVE_API_URL}
