@@ -75,7 +75,7 @@ jobs:
           # Derive image tag from target branch
           TARGET_BRANCH="${{ inputs.target-branch }}"
           if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
-            IMAGE_TAG="${BASH_REMATCH[1]}"
+            IMAGE_TAG="next-${BASH_REMATCH[1]}"
           else
             IMAGE_TAG="next"
           fi
