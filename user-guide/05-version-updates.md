@@ -8,7 +8,7 @@ This guide covers the process of updating Backstage target and minimum versions 
 
 ### Target Backstage Version
 
-The version of Backstage that RHDH is built on. Defined in `versions.json`:
+The version of Backstage that the target platform is built on. Defined in `versions.json`:
 
 ```json
 {
@@ -85,7 +85,7 @@ At minimum, update every quarter to ensure:
 
 - Security patches are included
 - Breaking changes are addressed before they accumulate
-- Plugins remain compatible with RHDH releases
+- Plugins remain compatible with platform releases
 
 ---
 
@@ -169,7 +169,7 @@ When Backstage releases a major version (e.g., 1.x → 2.x):
 1. **Update** all version references
 2. **Create patches** if source hasn't addressed breaking changes
 3. **Update** any overlays that depend on changed APIs
-4. **Test thoroughly** in a real RHDH instance
+4. **Test thoroughly** in a real Backstage instance
 
 ### Validation Phase
 
@@ -255,12 +255,12 @@ This badge shows whether mandatory plugins are compatible with the target versio
 
 ### Error: "Backstage version X is higher than target Y"
 
-**Cause:** Plugin requires newer Backstage than RHDH targets
+**Cause:** Plugin requires newer Backstage than the target platform supports
 
 **Solutions:**
 
 1. Find an older plugin version compatible with target
-2. Wait for RHDH to update target Backstage version
+2. Wait for the target platform to update its Backstage version
 3. Create a patch to backport compatibility (advanced)
 
 ### Error: "No compatible version found"
@@ -290,13 +290,13 @@ This badge shows whether mandatory plugins are compatible with the target versio
 
 ### main Branch
 
-- Tracks the **next** RHDH release
+- Tracks the **next** platform release
 - Can accept new workspaces
 - Should use latest compatible plugin versions
 
 ### release-x.y Branches
 
-- Track specific RHDH releases
+- Track specific platform releases
 - Only accept updates to **existing** workspaces
 - Must maintain compatibility with that release's Backstage version
 

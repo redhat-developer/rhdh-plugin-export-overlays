@@ -104,10 +104,10 @@ apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
   name: backstage-community-plugin-your-plugin
-  namespace: rhdh
+  namespace: default
   title: "Your Plugin"
   links:
-    - url: https://red.ht/rhdh
+    - url: https://backstage.io
       title: Homepage
     - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
@@ -122,7 +122,7 @@ spec:
   backstage:
     role: backend-plugin                                  # Must match package.json:backstage.role
     supportedVersions: 1.45.0                             # Target Backstage version
-  author: Red Hat
+  author: Your Organization
   support: community
   lifecycle: active
 ```

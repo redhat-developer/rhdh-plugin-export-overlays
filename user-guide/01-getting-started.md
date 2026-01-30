@@ -2,7 +2,7 @@
 
 ## What is this Repository?
 
-The `rhdh-plugin-export-overlays` repository serves as a **metadata and automation hub** for managing dynamic plugins for Red Hat Developer Hub (RHDH). It acts as a bridge between upstream source code and deployable OCI artifacts.
+The `rhdh-plugin-export-overlays` repository serves as a **metadata and automation hub** for managing dynamic plugins for Backstage-based platforms. It acts as a bridge between upstream source code and deployable OCI artifacts.
 
 ```
 ┌─────────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
@@ -21,7 +21,7 @@ The `rhdh-plugin-export-overlays` repository serves as a **metadata and automati
 ### What the Overlay Repository Provides
 
 1. **References** plugins from various Backstage ecosystem sources
-2. **Tracks** plugin versions for compatibility with RHDH releases
+2. **Tracks** plugin versions for compatibility with target platform releases
 3. **Automates** the discovery, packaging, and publishing of dynamic plugins
 4. **Customizes** builds via patches and overlays when upstream code needs modification
 
@@ -90,29 +90,14 @@ Lists plugins to export with optional CLI arguments:
 plugins/catalog-backend-module-github:
 plugins/catalog-backend-module-github-org: --embed-package @backstage/plugin-catalog-backend-module-github
 plugins/techdocs-backend: --embed-package @backstage/plugin-search-backend-module-techdocs --suppress-native-package cpu-features
-#plugins/scaffolder: ==> Added as a static plugin in RHDH
+#plugins/scaffolder: ==> Included as a static plugin in the host application
 ```
 
 - **Commented lines** (prefixed with `#`) indicate plugins intentionally excluded
-- **CLI arguments** after the colon customize the export behavior
+- **CLI arguments** after the colon customize the export behavior (e.g., `--embed-package`, `--shared-package`)
 
-#### The `--embed-package` Flag
-
-The `--embed-package` flag bundles a dependency directly into your dynamic plugin's output. This is necessary when:
-
-1. **The dependency isn't available as a separate dynamic plugin** – Some packages (like `@backstage/plugin-catalog-backend-module-github`) are not published as standalone dynamic plugins
-2. **The dependency is tightly coupled** – Module plugins often require their parent plugin's code at runtime
-3. **Version alignment is critical** – Embedding ensures the exact compatible version is used
-
-**Example:**
-
-```yaml
-# The github-org module REQUIRES the base github module to function
-# Without embedding, the plugin would fail at runtime with "Cannot find module"
-plugins/catalog-backend-module-github-org: --embed-package @backstage/plugin-catalog-backend-module-github
-```
-
-> **When NOT to embed:** If the dependency is already available as a dynamic plugin in RHDH (either built-in or from another workspace), you should NOT embed it. Embedding creates duplicate code and increases bundle size.
+> 📖 **CLI Reference:** For detailed documentation on all export CLI flags (`--embed-package`, `--shared-package`, `--suppress-native-package`, etc.), see the official documentation:
+> [Export Derived Dynamic Plugin Package](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/export-derived-package.md)
 
 ### Metadata Files
 
@@ -123,7 +108,7 @@ apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
   name: backstage-plugin-catalog-backend-module-github
-  namespace: rhdh
+  namespace: default
   title: "Catalog Backend Module GitHub"
 spec:
   packageName: "@backstage/plugin-catalog-backend-module-github"
@@ -131,7 +116,7 @@ spec:
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5
-  author: Red Hat
+  author: Your Organization
   support: community
   lifecycle: active
 ```
@@ -142,8 +127,8 @@ spec:
 
 | Branch | Purpose |
 |--------|---------|
-| `main` | Development branch for the **next** RHDH release |
-| `release-x.y` | Long-running branches for specific RHDH versions (e.g., `release-1.6`) |
+| `main` | Development branch for the **next** platform release |
+| `release-x.y` | Long-running branches for specific platform versions (e.g., `release-1.6`) |
 
 > **Rule:** New workspaces are **only** added to `main`. Release branches receive plugin updates only.
 
@@ -155,7 +140,7 @@ spec:
 
 1. Plugin exists in a supported source repository:
    - [`@backstage-community/`](https://github.com/backstage/community-plugins) – Backstage Community Plugins
-   - [`@red-hat-developer-hub/`](https://github.com/redhat-developer/rhdh-plugins) – Red Hat Developer Hub Plugins
+   - [`@red-hat-developer-hub/`](https://github.com/redhat-developer/rhdh-plugins) – RHDH Plugins
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
 
@@ -232,7 +217,7 @@ To re-run tests manually:
 
 ### Manual Testing
 
-Use the OCI references from the bot's comment to test in your own RHDH instance:
+Use the OCI references from the bot's comment to test in your own Backstage instance:
 
 ```yaml
 # dynamic-plugins.yaml

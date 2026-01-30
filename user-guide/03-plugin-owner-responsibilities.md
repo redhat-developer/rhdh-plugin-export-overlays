@@ -1,6 +1,6 @@
 # Plugin Owner Responsibilities
 
-As a plugin owner, you are responsible for maintaining the health and compatibility of your plugin within the RHDH ecosystem. This guide outlines your obligations and best practices.
+As a plugin owner, you are responsible for maintaining the health and compatibility of your plugin within this dynamic plugins ecosystem. This guide outlines your obligations and best practices.
 
 ---
 
@@ -54,7 +54,7 @@ See [04 - Metadata Synchronization](./04-metadata-synchronization.md) for detail
 
 ### 2. Update Backstage Versions Regularly
 
-RHDH tracks Backstage releases. Your plugin must remain compatible.
+The target platform tracks Backstage releases. Your plugin must remain compatible.
 
 **Minimum cadence:**
 
@@ -159,8 +159,8 @@ Use this checklist each quarter:
 
 ### Compatibility Review
 - [ ] Reviewed Backstage changelog for breaking changes
-- [ ] Tested plugin with minimum supported RHDH version
-- [ ] Tested plugin with current RHDH version
+- [ ] Tested plugin with minimum supported platform version
+- [ ] Tested plugin with current platform version
 - [ ] Updated `supportedVersions` range
 
 ### Dependency Audit

@@ -6,7 +6,7 @@ This guide covers the CLI tools and workflow options for exporting Backstage plu
 
 ## Overview
 
-The export process transforms a standard Backstage plugin into an OCI-packaged dynamic plugin that can be loaded at runtime by RHDH.
+The export process transforms a standard Backstage plugin into an OCI-packaged dynamic plugin that can be loaded at runtime by a Backstage-based host application.
 
 ```
 Source Plugin                     Export Process                    OCI Artifact
@@ -26,14 +26,14 @@ Source Plugin                     Export Process                    OCI Artifact
 
 The export tooling is provided by the `@red-hat-developer-hub/cli` package (specified in `versions.json`):
 
-```json
-{
-  "backstage": "1.45.3",
-  "node": "22.19.0",
-  "cli": "1.9.1",
-  "cliPackage": "@red-hat-developer-hub/cli"
-}
+<!-- AUTO:VERSIONS_TABLE -->
+
+```bash
+# Install/run the CLI
+npx {{AUTO:CLI_PACKAGE}}@{{AUTO:CLI_VERSION}} plugin export
 ```
+
+> 📖 **Version Matrix:** Ensure CLI version matches your target platform version. See [versions.json](../versions.json) for current values.
 
 ---
 
@@ -46,37 +46,29 @@ plugins/my-plugin:
 plugins/my-plugin-backend: --embed-package @backstage/some-dependency --suppress-native-package cpu-features
 ```
 
-### Common CLI Arguments
+### CLI Arguments Quick Reference
 
-| Argument | Description | When to Use |
-|----------|-------------|-------------|
-| `--embed-package <pkg>` | Embed a dependency package into the dynamic plugin | When a dependency isn't available as a separate dynamic plugin |
-| `--suppress-native-package <pkg>` | Exclude a native Node.js package from the bundle | When a native dependency causes build issues or isn't needed at runtime |
-| `--no-integrity-check` | Skip SHA integrity verification | **Use with caution** – only when source metadata differs from overlay |
-| `--clean` | Clean build artifacts before export | When troubleshooting stale build issues |
+| Argument | Description |
+|----------|-------------|
+| `--embed-package <pkg>` | Bundle a dependency into the dynamic plugin (for packages not available separately) |
+| `--shared-package <pkg>` | Mark package as shared (provided by host at runtime) |
+| `--shared-package '!<pkg>'` | Force a `@backstage/` package to be bundled instead of shared |
+| `--suppress-native-package <pkg>` | Exclude a native Node.js package from the bundle |
 
-### Example: Embedding Dependencies
+> 📖 **Full CLI Documentation:** For comprehensive details on all export flags, shared vs embedded dependencies, and frontend plugin configuration, see:
+> [Export Derived Dynamic Plugin Package](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/export-derived-package.md)
 
-Some plugins require dependencies that aren't published as standalone dynamic plugins:
+### Common Usage Examples
 
 ```yaml
-# The github-org module needs the base github module embedded
+# Embed a dependency that isn't available as a separate dynamic plugin
 plugins/catalog-backend-module-github-org: --embed-package @backstage/plugin-catalog-backend-module-github
 
-# Notifications backend needs signals-node embedded
-plugins/notifications-backend: --embed-package @backstage/plugin-signals-node
-
-# Email module needs notifications-node embedded
-plugins/notifications-backend-module-email: --embed-package @backstage/plugin-notifications-node
-```
-
-### Example: Suppressing Native Packages
-
-Some native packages cause build issues or aren't needed:
-
-```yaml
-# cpu-features is a native module that isn't required at runtime
+# Suppress a native module that causes build issues
 plugins/techdocs-backend: --embed-package @backstage/plugin-search-backend-module-techdocs --suppress-native-package cpu-features
+
+# Force a @backstage package to be bundled (not shared)
+plugins/notifications-backend: --shared-package '!/@backstage/plugin-notifications/' --embed-package @backstage/plugin-notifications-backend
 ```
 
 ---

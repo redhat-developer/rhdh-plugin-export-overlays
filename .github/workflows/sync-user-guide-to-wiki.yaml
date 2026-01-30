@@ -1,0 +1,46 @@
+name: Sync User Guide to Wiki
+
+on:
+  # Run weekly on Monday at 6:00 UTC
+  schedule:
+    - cron: '0 6 * * 1'
+  
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not push changes)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    name: Sync User Guide to Wiki
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        working-directory: .github/workflows/github-script
+        run: npm ci
+      
+      - name: Sync user guide to wiki
+        uses: actions/github-script@v7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        with:
+          script: |
+            const syncUserGuideToWiki = require('./.github/workflows/github-script/sync-user-guide-to-wiki.js');
+            await syncUserGuideToWiki({ github, context, core });

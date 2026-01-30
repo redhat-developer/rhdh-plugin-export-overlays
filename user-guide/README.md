@@ -1,6 +1,6 @@
 # Dynamic Plugins Overlay Repository - User Guide
 
-This guide covers the essential workflows for using the **rhdh-plugin-export-overlays** repository to export, maintain, and publish dynamic plugins for Red Hat Developer Hub (RHDH).
+This guide covers the essential workflows for using the **rhdh-plugin-export-overlays** repository to export, maintain, and publish dynamic plugins for Backstage-based platforms.
 
 ## Table of Contents
 
@@ -41,9 +41,17 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 
 ---
 
+## Current Versions
+
+<!-- AUTO:VERSIONS_TABLE -->
+
+> 🔄 *Auto-generated when synced to wiki*
+
+---
+
 ## Prerequisites
 
 - **Git** with access to this repository
-- **Node.js** (version specified in `versions.json`)
+- **Node.js** version `{{AUTO:NODE_VERSION}}` (or as specified in `versions.json`)
 - **GitHub CLI** (`gh`) for workflow triggers
 - Basic understanding of Backstage plugin architecture
