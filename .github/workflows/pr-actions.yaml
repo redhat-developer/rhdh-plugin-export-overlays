@@ -366,18 +366,21 @@ jobs:
             let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
             
             const publishedExports = core.getMultilineInput('published_exports');
-            if (publishedExports.length > 0) {
-              body = `${body}\n- Published container images:`;
-              publishedExports.forEach(line => {
-                body = `${body}\n  - ${line}`;
-              });
-            }
             const failedExports = core.getMultilineInput('failed_exports');
-            if (failedExports.length > 0) {
-              body = `${body}\n- Plugins failed during export or container image publishing:`;
-              failedExports.forEach(line => {
-                body = `${body}\n  - ${line}`;
-              });
+            if (publishedExports.length + failedExports.length > 0) {
+              body += '\n\n#### Publishing process\n';
+              if (publishedExports.length > 0) {
+                body = `${body}\n- Published container images:`;
+                publishedExports.forEach(line => {
+                  body = `${body}\n  - ${line}`;
+                });
+              }
+              if (failedExports.length > 0) {
+                body = `${body}\n- Plugins failed during export or container image publishing:`;
+                failedExports.forEach(line => {
+                  body = `${body}\n  - ${line}`;
+                });
+              }
             }
             
             const reportPath = 'backstage-compatibility-report.md';
@@ -392,9 +395,9 @@ jobs:
             const metadataValidationErrorsJson = core.getInput('metadata_validation_errors');
 
             if (metadataValidationPassed === 'true') {
-              body += '\n\n##### Metadata Validation\n✅ All metadata files validated successfully.';
+              body += '\n\n#### Metadata Validation\n✅ All metadata files validated successfully.';
             } else if (metadataValidationErrorCount && metadataValidationErrorCount !== '0') {
-              let metadataSection = '\n\n##### Metadata Validation\n';
+              let metadataSection = '\n\n#### Metadata Validation\n';
               metadataSection += `❌ Found **${metadataValidationErrorCount}** validation error(s):\n\n`;
               metadataSection += '| File | Kind | Message |\n|------|------|---------|\n';
               
