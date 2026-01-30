@@ -1,0 +1,86 @@
+name: Update Wiki Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_oci_images:
+        description: 'Skip OCI image checks to reduce HTTP calls'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'workspaces/**'
+      - 'versions.json'
+      
+permissions:
+  contents: write
+
+jobs:
+  update-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          npm install js-yaml
+
+      - name: Get branch name
+        id: branch
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          # Sanitize branch name for filename (replace / with -)
+          SAFE_BRANCH_NAME="${BRANCH_NAME//\//-}"
+          echo "name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "safe_name=${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Branch: ${BRANCH_NAME}"
+
+      - name: Generate wiki content
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const script = require('./.github/workflows/github-script/generate-wiki-page.js');
+            const branchName = '${{ github.ref }}'.replace('refs/heads/', '');
+            const isMainOrRelease = branchName === 'main' || branchName.startsWith('release-');
+            const checkOciImages = isMainOrRelease;
+
+            await script({github, context, core, checkOciImages});
+
+      - name: Checkout wiki repository
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Copy generated wiki page to wiki repo
+        run: |
+          cp "${{ steps.branch.outputs.safe_name }}.md" wiki/
+
+      - name: Commit and push wiki changes
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add the file first
+          git add "${{ steps.branch.outputs.safe_name }}.md"
+          
+          # Check if there are changes (after staging)
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          git commit -m "Update ${{ steps.branch.outputs.name }} workspace status [automated]"
+          git push
