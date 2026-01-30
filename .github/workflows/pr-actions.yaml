@@ -368,17 +368,19 @@ jobs:
             const publishedExports = core.getMultilineInput('published_exports');
             const failedExports = core.getMultilineInput('failed_exports');
             if (publishedExports.length + failedExports.length > 0) {
-              body += '\n\n#### Publishing process\n';
-              if (publishedExports.length > 0) {
-                body = `${body}\n- Published container images:`;
-                publishedExports.forEach(line => {
-                  body = `${body}\n  - ${line}`;
-                });
-              }
               if (failedExports.length > 0) {
-                body = `${body}\n- Plugins failed during export or container image publishing:`;
+                body += '\n\n#### Publishing process\n';
+                body += `❌ Plugins with errors during export or container image publishing:`;
                 failedExports.forEach(line => {
-                  body = `${body}\n  - ${line}`;
+                  body += `\n  - ${line}`;
+                });
+              } else {
+                body += '\n\n#### Publishing process\n✅ Finished successfully.';
+              }
+              if (publishedExports.length > 0) {
+                body += `\n- Published container images:`;
+                publishedExports.forEach(line => {
+                  body += `\n  - ${line}`;
                 });
               }
             }
