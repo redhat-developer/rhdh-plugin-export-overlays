@@ -328,6 +328,9 @@ jobs:
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
+          INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed }}
+          INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors }}
+          INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count }}
         with:
           script: |
             const fs = require('fs');
@@ -381,6 +384,31 @@ jobs:
             if (fs.existsSync(reportPath)) {
               const reportContent = fs.readFileSync(reportPath, 'utf8');
               body = `${body}\n\n${reportContent}`;
+            }
+
+            // Metadata validation results
+            const metadataValidationPassed = core.getInput('metadata_validation_passed');
+            const metadataValidationErrorCount = core.getInput('metadata_validation_error_count');
+            const metadataValidationErrorsJson = core.getInput('metadata_validation_errors');
+
+            if (metadataValidationPassed === 'true') {
+              body += '\n\n##### Metadata Validation\n✅ All metadata files validated successfully.';
+            } else if (metadataValidationErrorCount && metadataValidationErrorCount !== '0') {
+              let metadataSection = '\n\n##### Metadata Validation\n';
+              metadataSection += `❌ Found **${metadataValidationErrorCount}** validation error(s):\n\n`;
+              metadataSection += '| File | Kind | Message |\n|------|------|---------|\n';
+              
+              try {
+                const errors = JSON.parse(metadataValidationErrorsJson || '[]');
+                for (const error of errors) {
+                  const escapedMessage = (error.message || '').replace(/\|/g, '\\|');
+                  metadataSection += `| ${error.file} | ${error.kind} | ${escapedMessage} |\n`;
+                }
+              } catch (e) {
+                metadataSection += `| - | - | Failed to parse errors: ${metadataValidationErrorsJson} |\n`;
+              }
+              
+              body += metadataSection;
             }
 
             // Check if E2E tests exist by looking for package.json in e2e-tests directory
