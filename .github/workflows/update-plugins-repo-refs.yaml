@@ -206,3 +206,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+
+  label-prs:
+    name: Label PRs
+    needs: [update-branches, update-release-branches, update-main-branch]
+    if: |
+      always() && 
+      (needs.update-branches.result != 'skipped' || 
+       needs.update-release-branches.result != 'skipped' || 
+       needs.update-main-branch.result != 'skipped')
+    uses: ./.github/workflows/label-mandatory-workspace-prs.yaml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
