@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: konflux
+  namespace: rhdh
+  title: Konflux
+  description: |
+    The Konflux plugin provides CI/CD and release visibility for your applications by integrating
+    Red Hat Developer Hub with Konflux clusters.
+  annotations:
+    extensions.backstage.io/pre-installed: "true" # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+  tags:
+    - cicd
+    - konflux
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Issues
+      url: https://issues.redhat.com/browse/RHDHBUGS
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins
+
+spec:
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: dev-preview
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - CI/CD # One category will show up on the tile view
+  highlights:
+    - Visualize Konflux application pipelines
+    - Track release status and deployment readiness
+
+  description: |
+    The Konflux plugin connects Red Hat Developer Hub with Konflux clusters to show CI/CD and
+    release details directly in the software catalog.
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub)
+    for further details regarding the configuration required.
+
+  packages: # link to the name used in the associated package documents in ../packages
+    - red-hat-developer-hub-backstage-plugin-konflux-backend
+    - red-hat-developer-hub-backstage-plugin-konflux
