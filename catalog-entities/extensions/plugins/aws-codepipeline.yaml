@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: aws-codepipeline
+  namespace: community
+  title: Amazon CodePipeline
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  description: |
+    View and monitor AWS CodePipeline executions directly from your Backstage catalog.
+    Track pipeline execution status, stage progress, and execution history alongside your service entities.
+  tags:
+    - aws
+    - cloud
+    - ci-cd
+    - codepipeline
+  links:
+    - url: https://github.com/awslabs/backstage-plugins-for-aws
+      title: Homepage
+    - url: https://github.com/awslabs/backstage-plugins-for-aws/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/awslabs/backstage-plugins-for-aws/tree/main/plugins/codepipeline
+    - title: Documentation
+      url: https://github.com/awslabs/backstage-plugins-for-aws/blob/main/plugins/codepipeline/README.md
+spec:
+  authors:
+    - name: AWS
+      url: https://aws.amazon.com/
+
+  publisher: AWS
+  support:
+    provider: Community
+    level: community
+  lifecycle: active
+
+  categories:
+    - CI/CD
+
+  highlights:
+    - Real-time CodePipeline execution monitoring
+    - View pipeline stage status and progress
+    - Pipeline execution history and details
+    - Tag-based or ARN-based pipeline discovery
+    - Integration with AWS SDK credential chain
+
+  description: |
+    The Amazon CodePipeline plugin for Backstage enables developers to view and monitor their AWS CodePipeline
+    pipelines directly within the Backstage developer portal. This integration provides visibility into
+    your CI/CD pipelines alongside your service catalog entities.
+
+    ## Key Features
+
+    * **Pipeline Monitoring**: View real-time status of CodePipeline executions including stage progress and current state
+    * **Execution History**: Access detailed information about pipeline executions and their outcomes
+    * **Flexible Discovery**: Find CodePipeline pipelines using either specific ARNs or tag-based queries
+    * **AWS Integration**: Seamlessly integrates with AWS SDK credential chain for authentication
+    * **Entity Annotations**: Link Backstage catalog entities to CodePipeline pipelines using simple annotations
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    This plugin consists of both frontend and backend components that work together to provide CodePipeline integration.
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin
+
+    The AWS CodePipeline plugin requires AWS credentials to be configured. The backend plugin uses the AWS SDK credential chain,
+    which supports multiple authentication methods including environment variables, IAM roles, and AWS profiles.
+
+    ### Backend Configuration
+
+    Configure AWS credentials via environment variables:
+
+    ```bash
+    AWS_REGION=us-east-1
+    AWS_ACCESS_KEY_ID=your-access-key-id
+    AWS_SECRET_ACCESS_KEY=your-secret-access-key
+    ```
+
+    For production deployments, using IAM roles for service accounts (IRSA) or EC2 instance profiles is recommended
+    for better security.
+
+    ### Entity Annotations
+
+    Add CodePipeline information to your catalog entities using annotations:
+
+    ```yaml
+    apiVersion: backstage.io/v1alpha1
+    kind: Component
+    metadata:
+      name: my-service
+      annotations:
+        # Option 1: Specific pipeline ARN
+        aws.amazon.com/aws-codepipeline-arn: arn:aws:codepipeline:us-east-1:123456789012:my-pipeline
+
+        # Option 2: Tag-based discovery
+        # aws.amazon.com/aws-codepipeline-tags: component=my-app,environment=production
+    spec:
+      type: service
+      lifecycle: production
+      owner: platform-team
+    ```
+
+    The frontend plugin will automatically display an "AWS CodePipeline" card on catalog entities with these annotations,
+    showing the associated pipeline execution information.
+
+    ## Prerequisites
+
+    * AWS account with CodePipeline pipelines
+    * AWS credentials configured with appropriate IAM permissions
+    * IAM permissions required:
+      * `codepipeline:GetPipelineState`
+      * `codepipeline:ListPipelineExecutions`
+      * Additional permissions may be required based on your configuration
+
+    For more detailed configuration instructions, see the [plugin documentation](https://github.com/awslabs/backstage-plugins-for-aws/blob/main/plugins/codepipeline/README.md).
+
+  packages:
+    - aws-aws-codepipeline-plugin-for-backstage
+    - aws-aws-codepipeline-plugin-for-backstage-backend
+
+  history:
+    added: '2026-01-29'
