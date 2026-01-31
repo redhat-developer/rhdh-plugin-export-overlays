@@ -1,0 +1,42 @@
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:pr_1744__0.4.6
+    disabled: false
+    pluginConfig:
+      events:
+        http:
+          topics:
+            - github
+        modules:
+          github:
+            webhookSecret: ${ORG_WEBHOOK_SECRET}
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          github:
+            providerId:
+              organization: "04kash-test-org"
+              schedule:
+                frequency:
+                  hours: 24
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 10
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-org-dynamic
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          githubOrg:
+            id: production
+            githubUrl: https://github.com
+            orgs: ["04kash-test-org"]
+            schedule:
+              frequency:
+                hours: 24
+              initialDelay:
+                seconds: 15
+              timeout:
+                minutes: 10
