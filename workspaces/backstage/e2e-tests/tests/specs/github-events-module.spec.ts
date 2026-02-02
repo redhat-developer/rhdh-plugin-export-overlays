@@ -9,25 +9,26 @@ test.describe("GitHub Events Module", () => {
   let rhdhBaseUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
-    // Disable SSL verification for self-signed certificates in OpenShift
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-    
     // Configure RHDH with Guest authentication
     await rhdh.configure({ auth: "guest" });
 
     // Deploy RHDH instance
     await rhdh.deploy();
 
+    // Create request context with SSL verification disabled for self-signed certs
+    const apiContext = await request.newContext({
+      ignoreHTTPSErrors: true,
+    });
+
     // Get the guest token from RHDH auth endpoint
-    const authResponse = await fetch(`${rhdh.rhdhUrl}/api/auth/guest/refresh`, {
-      method: "GET",
+    const authResponse = await apiContext.get(`${rhdh.rhdhUrl}/api/auth/guest/refresh`, {
       headers: {
         "Content-Type": "application/json",
       },
     });
 
-    if (!authResponse.ok) {
-      throw new Error(`Failed to get guest token: ${authResponse.status}`);
+    if (!authResponse.ok()) {
+      throw new Error(`Failed to get guest token: ${authResponse.status()}`);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,6 +40,10 @@ test.describe("GitHub Events Module", () => {
         "No token found in auth response: " + JSON.stringify(authData),
       );
     }
+
+    // Clean up the API context
+    await apiContext.dispose();
+
     // Initialize GitHub events helper
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
@@ -70,7 +75,9 @@ test.describe("GitHub Events Module", () => {
       "sha256=" +
       createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
 
-    const context = await request.newContext();
+    const context = await request.newContext({
+      ignoreHTTPSErrors: true,
+    });
 
     const response = await context.post("/api/events/http/github", {
       headers: {
@@ -84,6 +91,8 @@ test.describe("GitHub Events Module", () => {
     });
 
     expect(response.status()).toBe(202);
+    
+    await context.dispose();
   });
 
   test.describe("GitHub Discovery", () => {
