@@ -7,7 +7,7 @@ events:
       - github
   modules:
     github:
-      webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
+      webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
 
 catalog:
   providers:
@@ -37,8 +37,8 @@ integrations:
   github:
     - host: github.com
       apps:
-        - appId: ${GITHUB_APP_APP_ID}
-          clientId: ${GITHUB_APP_CLIENT_ID}
-          clientSecret: ${GITHUB_APP_CLIENT_SECRET}
-          webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
-          privateKey: ${GITHUB_APP_PRIVATE_KEY}
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}

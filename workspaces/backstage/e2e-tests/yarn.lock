@@ -598,7 +598,7 @@ __metadata:
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
     prettier: ^3.7.4
-    rhdh-e2e-test-utils: 1.1.7
+    rhdh-e2e-test-utils: 1.1.8
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
   languageName: unknown
@@ -2044,9 +2044,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rhdh-e2e-test-utils@npm:1.1.7":
-  version: 1.1.7
-  resolution: "rhdh-e2e-test-utils@npm:1.1.7"
+"rhdh-e2e-test-utils@npm:1.1.8":
+  version: 1.1.8
+  resolution: "rhdh-e2e-test-utils@npm:1.1.8"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@eslint/js": ^9.39.1
@@ -2066,7 +2066,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: ed9f1ba2791908871d4f3f378fcaf84f84f4c3171c6c82189b24fd888d4069aa804624b6da85d2b742d8ba0f391accfa0d0b97385d5675527cad4b8b54286160
+  checksum: fc036ceaf69d34c46fda2093af069f35f991908b1d0f996e57f470b793dc605d10c6e5ff67e6c386892bdfef90a9bab524c9c468701d84a429020d30e5cc142c
   languageName: node
   linkType: hard
 

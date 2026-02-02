@@ -4,13 +4,7 @@
 export class CustomAPIHelper {
   private baseUrl?: string;
   private token?: string;
-  private githubToken: string;
-
   constructor() {
-    this.githubToken = process.env.GH_RHDH_QE_USER_TOKEN!;
-    if (!this.githubToken) {
-      throw new Error("GH_RHDH_QE_USER_TOKEN environment variable is required");
-    }
   }
 
   /**
@@ -59,16 +53,15 @@ export class CustomAPIHelper {
     repo: string,
     filePath: string,
     content: string,
+    token: string,
   ): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
-
     // Create repository
     const createRepoResponse = await fetch(
       `https://api.github.com/orgs/${owner}/repos`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           "Content-Type": "application/json",
           Accept: "application/vnd.github+json",
         },
@@ -97,7 +90,7 @@ export class CustomAPIHelper {
       {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           "Content-Type": "application/json",
           Accept: "application/vnd.github+json",
         },
@@ -125,15 +118,15 @@ export class CustomAPIHelper {
     filePath: string,
     content: string,
     commitMessage: string,
+    token: string,
   ): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           Accept: "application/vnd.github+json",
         },
       },
@@ -153,7 +146,7 @@ export class CustomAPIHelper {
       {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           "Content-Type": "application/json",
           Accept: "application/vnd.github+json",
         },
@@ -181,15 +174,15 @@ export class CustomAPIHelper {
     repo: string,
     filePath: string,
     commitMessage: string,
+    token: string,
   ): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           Accept: "application/vnd.github+json",
         },
       },
@@ -209,7 +202,7 @@ export class CustomAPIHelper {
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           "Content-Type": "application/json",
           Accept: "application/vnd.github+json",
         },
@@ -231,13 +224,12 @@ export class CustomAPIHelper {
   /**
    * Create a team in a GitHub organization
    */
-  static async createTeamInOrg(org: string, teamName: string): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
+  static async createTeamInOrg(org: string, teamName: string, token: string): Promise<void> {
 
     const response = await fetch(`https://api.github.com/orgs/${org}/teams`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `token ${token}`,
         "Content-Type": "application/json",
         Accept: "application/vnd.github+json",
       },
@@ -258,15 +250,14 @@ export class CustomAPIHelper {
   /**
    * Delete a team from a GitHub organization
    */
-  static async deleteTeamFromOrg(org: string, teamName: string): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
+  static async deleteTeamFromOrg(org: string, teamName: string, token: string): Promise<void> {
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}`,
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           Accept: "application/vnd.github+json",
         },
       },
@@ -287,15 +278,15 @@ export class CustomAPIHelper {
     org: string,
     teamName: string,
     username: string,
+    token: string,
   ): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,
       {
         method: "PUT",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           "Content-Type": "application/json",
           Accept: "application/vnd.github+json",
         },
@@ -320,15 +311,15 @@ export class CustomAPIHelper {
     org: string,
     teamName: string,
     username: string,
+    token: string,
   ): Promise<void> {
-    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,
       {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `token ${token}`,
           Accept: "application/vnd.github+json",
         },
       },

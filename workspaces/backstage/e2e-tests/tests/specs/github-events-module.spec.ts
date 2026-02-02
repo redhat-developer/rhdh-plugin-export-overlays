@@ -39,7 +39,7 @@ test.describe("GitHub Events Module", () => {
     // Initialize GitHub events helper
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
-      process.env.GITHUB_APP_WEBHOOK_SECRET!,
+      process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!,
     );
     rhdhBaseUrl = rhdh.rhdhUrl;
   });
@@ -62,7 +62,7 @@ test.describe("GitHub Events Module", () => {
       },
     });
 
-    const secret = process.env.GITHUB_APP_WEBHOOK_SECRET!;
+    const secret = process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!;
     const signature =
       "sha256=" +
       createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
@@ -110,6 +110,7 @@ spec:
         catalogRepoDetails.name,
         "catalog-info.yaml",
         catalogInfoYamlContent,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
 
       await githubEventsHelper.sendPushEvent(
@@ -150,6 +151,7 @@ spec:
         "catalog-info.yaml",
         updatedCatalogInfoYaml,
         "Update catalog-info.yaml description",
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
       await githubEventsHelper.sendPushEvent(
         `janus-qe/${catalogRepoName}`,
@@ -174,6 +176,7 @@ spec:
         catalogRepoDetails.name,
         "catalog-info.yaml",
         "Remove catalog-info.yaml",
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
       await githubEventsHelper.sendPushEvent(
         `janus-qe/${catalogRepoName}`,
@@ -200,7 +203,7 @@ spec:
       const teamName = "test-team-" + Date.now();
 
       test("Adding a new group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName);
+        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
         await githubEventsHelper.sendTeamEvent(
           "created",
           teamName,
@@ -218,7 +221,7 @@ spec:
       });
 
       test("Deleting a group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName);
+        await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
 
         await githubEventsHelper.sendTeamEvent(
           "deleted",
@@ -251,7 +254,7 @@ spec:
         teamName = "test-team-" + Date.now();
 
         // Create team in GitHub
-        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName);
+        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
         teamCreated = true;
 
         // Send team creation webhook to RHDH
@@ -271,12 +274,13 @@ spec:
             "janus-qe",
             teamName,
             "04kash",
+            process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
           );
           userAddedToTeam = false;
         }
 
         if (teamCreated) {
-          await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName);
+          await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
           teamCreated = false;
         }
       });
@@ -287,6 +291,7 @@ spec:
           "janus-qe",
           teamName,
           "04kash",
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = true;
 
@@ -333,6 +338,7 @@ spec:
           "janus-qe",
           teamName,
           "04kash",
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = true;
 
@@ -374,6 +380,7 @@ spec:
           "janus-qe",
           teamName,
           "04kash",
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = false;
 

@@ -8,7 +8,7 @@ plugins:
             - github
         modules:
           github:
-            webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
+            webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic
     disabled: false
     pluginConfig:
