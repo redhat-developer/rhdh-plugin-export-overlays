@@ -8,7 +8,7 @@ plugins:
             - github
         modules:
           github:
-            webhookSecret: ${ORG_WEBHOOK_SECRET}
+            webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic
     disabled: false
     pluginConfig:
@@ -16,7 +16,7 @@ plugins:
         providers:
           github:
             providerId:
-              organization: "04kash-test-org"
+              organization: "janus-qe"
               schedule:
                 frequency:
                   hours: 24
@@ -32,7 +32,7 @@ plugins:
           githubOrg:
             id: production
             githubUrl: https://github.com
-            orgs: ["04kash-test-org"]
+            orgs: ["janus-qe"]
             schedule:
               frequency:
                 hours: 24

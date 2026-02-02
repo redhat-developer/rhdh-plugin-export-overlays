@@ -7,9 +7,9 @@ export class CustomAPIHelper {
   private githubToken: string;
 
   constructor() {
-    this.githubToken = process.env.GITHUB_TOKEN!;
+    this.githubToken = process.env.GH_RHDH_QE_USER_TOKEN!;
     if (!this.githubToken) {
-      throw new Error("GITHUB_TOKEN environment variable is required");
+      throw new Error("GH_RHDH_QE_USER_TOKEN environment variable is required");
     }
   }
 
@@ -60,7 +60,7 @@ export class CustomAPIHelper {
     filePath: string,
     content: string,
   ): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     // Create repository
     const createRepoResponse = await fetch(
@@ -126,7 +126,7 @@ export class CustomAPIHelper {
     content: string,
     commitMessage: string,
   ): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     // Get current file SHA
     const getFileResponse = await fetch(
@@ -182,7 +182,7 @@ export class CustomAPIHelper {
     filePath: string,
     commitMessage: string,
   ): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     // Get current file SHA
     const getFileResponse = await fetch(
@@ -232,7 +232,7 @@ export class CustomAPIHelper {
    * Create a team in a GitHub organization
    */
   static async createTeamInOrg(org: string, teamName: string): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(`https://api.github.com/orgs/${org}/teams`, {
       method: "POST",
@@ -259,7 +259,7 @@ export class CustomAPIHelper {
    * Delete a team from a GitHub organization
    */
   static async deleteTeamFromOrg(org: string, teamName: string): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}`,
@@ -288,7 +288,7 @@ export class CustomAPIHelper {
     teamName: string,
     username: string,
   ): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,
@@ -321,7 +321,7 @@ export class CustomAPIHelper {
     teamName: string,
     username: string,
   ): Promise<void> {
-    const token = process.env.GITHUB_TOKEN!;
+    const token = process.env.GH_RHDH_QE_USER_TOKEN!;
 
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,

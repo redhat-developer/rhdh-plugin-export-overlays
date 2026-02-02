@@ -39,7 +39,7 @@ test.describe("GitHub Events Module", () => {
     // Initialize GitHub events helper
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
-      process.env.ORG_WEBHOOK_SECRET!,
+      process.env.GITHUB_APP_WEBHOOK_SECRET!,
     );
     rhdhBaseUrl = rhdh.rhdhUrl;
   });
@@ -62,7 +62,7 @@ test.describe("GitHub Events Module", () => {
       },
     });
 
-    const secret = process.env.ORG_WEBHOOK_SECRET!;
+    const secret = process.env.GITHUB_APP_WEBHOOK_SECRET!;
     const signature =
       "sha256=" +
       createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
@@ -87,9 +87,9 @@ test.describe("GitHub Events Module", () => {
     const catalogRepoName = `janus-test-github-events-test-${Date.now()}`;
     const catalogRepoDetails = {
       name: catalogRepoName,
-      url: `github.com/04kash-test-org/${catalogRepoName}`,
-      org: `github.com/04kash-test-org`,
-      owner: "04kash-test-org",
+      url: `github.com/janus-qe/${catalogRepoName}`,
+      org: `github.com/janus-qe`,
+      owner: "janus-qe",
     };
 
     test("Adding a new entity to the catalog", async ({ page, uiHelper }) => {
@@ -98,12 +98,12 @@ kind: Component
 metadata:
   name: ${catalogRepoName}
   annotations:
-    github.com/project-slug: 04kash-test-org/${catalogRepoName}
+    github.com/project-slug: janus-qe/${catalogRepoName}
   description: E2E test component for github events module
 spec:
   type: other
   lifecycle: unknown
-  owner: user:default/04kash`;
+  owner: user:default/janus-qe`;
 
       await CustomAPIHelper.createGitHubRepoWithFile(
         catalogRepoDetails.owner,
@@ -113,7 +113,7 @@ spec:
       );
 
       await githubEventsHelper.sendPushEvent(
-        `04kash-test-org/${catalogRepoName}`,
+        `janus-qe/${catalogRepoName}`,
         "added",
       );
 
@@ -138,12 +138,12 @@ kind: Component
 metadata:
   name: ${catalogRepoName}
   annotations:
-    github.com/project-slug: 04kash-test-org/${catalogRepoName}
+    github.com/project-slug: janus-qe/${catalogRepoName}
   description: ${updatedDescription}
 spec:
   type: other
   lifecycle: unknown
-  owner: user:default/04kash-test-user`;
+  owner: user:default/janus-qe`;
       await CustomAPIHelper.updateFileInRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
@@ -152,7 +152,7 @@ spec:
         "Update catalog-info.yaml description",
       );
       await githubEventsHelper.sendPushEvent(
-        `04kash-test-org/${catalogRepoName}`,
+        `janus-qe/${catalogRepoName}`,
         "modified",
       );
       await uiHelper.waitForLoad(10000);
@@ -176,7 +176,7 @@ spec:
         "Remove catalog-info.yaml",
       );
       await githubEventsHelper.sendPushEvent(
-        `04kash-test-org/${catalogRepoName}`,
+        `janus-qe/${catalogRepoName}`,
         "removed",
       );
       await uiHelper.waitForLoad(10000);
@@ -200,11 +200,11 @@ spec:
       const teamName = "test-team-" + Date.now();
 
       test("Adding a new group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.createTeamInOrg("04kash-test-org", teamName);
+        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName);
         await githubEventsHelper.sendTeamEvent(
           "created",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
 
         await uiHelper.waitForLoad(10000);
@@ -218,12 +218,12 @@ spec:
       });
 
       test("Deleting a group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.deleteTeamFromOrg("04kash-test-org", teamName);
+        await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName);
 
         await githubEventsHelper.sendTeamEvent(
           "deleted",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
         await uiHelper.waitForLoad(10000);
         await page.reload();
@@ -251,14 +251,14 @@ spec:
         teamName = "test-team-" + Date.now();
 
         // Create team in GitHub
-        await CustomAPIHelper.createTeamInOrg("04kash-test-org", teamName);
+        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName);
         teamCreated = true;
 
         // Send team creation webhook to RHDH
         await githubEventsHelper.sendTeamEvent(
           "created",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
 
         // Wait for RHDH to process team creation
@@ -268,15 +268,15 @@ spec:
       test.afterEach(async () => {
         if (userAddedToTeam) {
           await CustomAPIHelper.removeUserFromTeam(
-            "04kash-test-org",
+            "janus-qe",
             teamName,
-            process.env.TEST_GITHUB_USER!,
+            "04kash",
           );
           userAddedToTeam = false;
         }
 
         if (teamCreated) {
-          await CustomAPIHelper.deleteTeamFromOrg("04kash-test-org", teamName);
+          await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName);
           teamCreated = false;
         }
       });
@@ -284,18 +284,18 @@ spec:
       test("Adding a user to a group", async ({ uiHelper }) => {
         // Step 1: Add user to team in GitHub
         await CustomAPIHelper.addUserToTeam(
-          "04kash-test-org",
+          "janus-qe",
           teamName,
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
         );
         userAddedToTeam = true;
 
         // Step 2: Send membership "added" webhook to RHDH
         await githubEventsHelper.sendMembershipEvent(
           "added",
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
 
         await uiHelper.waitForLoad(10000);
@@ -324,24 +324,24 @@ spec:
               intervals: [3000], // Check every 3 seconds
             },
           )
-          .toContain(process.env.TEST_GITHUB_USER!);
+          .toContain("04kash");
       });
 
       test("Removing a user from a group", async ({ uiHelper }) => {
         // Setup: Add user first
         await CustomAPIHelper.addUserToTeam(
-          "04kash-test-org",
+          "janus-qe",
           teamName,
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
         );
         userAddedToTeam = true;
 
         // Send "added" webhook to sync initial state
         await githubEventsHelper.sendMembershipEvent(
           "added",
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
 
         const api = new CustomAPIHelper();
@@ -367,22 +367,22 @@ spec:
               intervals: [3000],
             },
           )
-          .toContain(process.env.TEST_GITHUB_USER!);
+          .toContain("04kash");
 
         // Step 1: Remove user from the team in GitHub
         await CustomAPIHelper.removeUserFromTeam(
-          "04kash-test-org",
+          "janus-qe",
           teamName,
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
         );
         userAddedToTeam = false;
 
         // Step 2: Send membership "removed" webhook to RHDH
         await githubEventsHelper.sendMembershipEvent(
           "removed",
-          process.env.TEST_GITHUB_USER!,
+          "04kash",
           teamName,
-          "04kash-test-org",
+          "janus-qe",
         );
 
         await uiHelper.waitForLoad(10000);
@@ -406,7 +406,7 @@ spec:
               intervals: [3000],
             },
           )
-          .not.toContain(process.env.TEST_GITHUB_USER!);
+          .not.toContain("04kash");
       });
     });
   });

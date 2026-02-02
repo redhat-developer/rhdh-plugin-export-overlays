@@ -7,13 +7,13 @@ events:
       - github
   modules:
     github:
-      webhookSecret: ${ORG_WEBHOOK_SECRET}
+      webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
 
 catalog:
   providers:
     github:
       providerId:
-        organization: "04kash-test-org" # org needed otherwise events plugin will not pick up events
+        organization: "janus-qe" # org needed otherwise events plugin will not pick up events
         schedule:
           frequency:
             hours: 24
@@ -24,7 +24,7 @@ catalog:
     githubOrg:
       id: production
       githubUrl: https://github.com
-      orgs: ["04kash-test-org"]
+      orgs: ["janus-qe"]
       schedule:
         frequency:
           hours: 24
@@ -37,8 +37,8 @@ integrations:
   github:
     - host: github.com
       apps:
-        - appId: ${ORG_APP_ID}
-          clientId: ${ORG_CLIENT_ID}
-          clientSecret: ${ORG_CLIENT_SECRET}
-          webhookSecret: ${ORG_WEBHOOK_SECRET}
-          privateKey: ${ORG_PRIVATE_KEY}
+        - appId: ${GITHUB_APP_APP_ID}
+          clientId: ${GITHUB_APP_CLIENT_ID}
+          clientSecret: ${GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${GITHUB_APP_PRIVATE_KEY}
