@@ -29,14 +29,14 @@ const FILE_MAP = {
 };
 
 // Link transformations for wiki format
+// Using standard markdown links: [Text](Page-Name) or [Text](Page-Name#anchor)
 const LINK_TRANSFORMS = [
-  { from: /\[([^\]]+)\]\(\.\/01-getting-started\.md\)/g, to: '[[Getting-Started|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/02-export-tools\.md\)/g, to: '[[Export-Tools|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/03-plugin-owner-responsibilities\.md\)/g, to: '[[Plugin-Owner-Guide|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/04-metadata-synchronization\.md\)/g, to: '[[Metadata-Synchronization|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/05-version-updates\.md\)/g, to: '[[Version-Updates|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md\)/g, to: '[[Patch-Management|$1]]' },
-  { from: /\[([^\]]+)\]\(\.\/([^#\)]+)\.md(#[^\)]+)?\)/g, to: '[[$2|$1]]' },
+  { from: /\[([^\]]+)\]\(\.\/01-getting-started\.md(#[^\)]+)?\)/g, to: '[$1](Getting-Started$2)' },
+  { from: /\[([^\]]+)\]\(\.\/02-export-tools\.md(#[^\)]+)?\)/g, to: '[$1](Export-Tools$2)' },
+  { from: /\[([^\]]+)\]\(\.\/03-plugin-owner-responsibilities\.md(#[^\)]+)?\)/g, to: '[$1](Plugin-Owner-Guide$2)' },
+  { from: /\[([^\]]+)\]\(\.\/04-metadata-synchronization\.md(#[^\)]+)?\)/g, to: '[$1](Metadata-Synchronization$2)' },
+  { from: /\[([^\]]+)\]\(\.\/05-version-updates\.md(#[^\)]+)?\)/g, to: '[$1](Version-Updates$2)' },
+  { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md(#[^\)]+)?\)/g, to: '[$1](Patch-Management$2)' },
 ];
 
 // Source repository metadata
@@ -214,18 +214,18 @@ function transformForWiki(content, dynamicContent) {
  */
 function generateSidebar(workspaceStats) {
   return `### 📚 User Guide
-* [[Home]]
-* [[Getting-Started|Getting Started]]
-* [[Export-Tools|Export Tools]]
+* [Home](Home)
+* [Getting Started](Getting-Started)
+* [Export Tools](Export-Tools)
 
 ### 🔧 Plugin Maintenance
-* [[Plugin-Owner-Guide|Plugin Owner Guide]]
-* [[Metadata-Synchronization|Metadata Synchronization]]
-* [[Version-Updates|Version Updates]]
-* [[Patch-Management|Patch Management]]
+* [Plugin Owner Guide](Plugin-Owner-Guide)
+* [Metadata Synchronization](Metadata-Synchronization)
+* [Version Updates](Version-Updates)
+* [Patch Management](Patch-Management)
 
 ### 📊 Generated Reports
-* [[Backstage-Compatibility-Report|Backstage Compatibility Report]]
+* [Backstage Compatibility Report](Backstage-Compatibility-Report)
 
 ### 📈 Stats
 * **${workspaceStats.total}** workspaces
@@ -261,20 +261,20 @@ Welcome to the documentation for the \`rhdh-plugin-export-overlays\` repository.
 
 ## Quick Start
 
-- **New to this repo?** Start with [[Getting-Started|Getting Started]]
-- **Adding a plugin?** See [[Getting-Started#adding-a-new-plugin|Adding a New Plugin]]
-- **Plugin owner?** Review [[Plugin-Owner-Guide|Plugin Owner Guide]]
+- **New to this repo?** Start with [Getting Started](Getting-Started)
+- **Adding a plugin?** See [Adding a New Plugin](Getting-Started#adding-a-new-plugin)
+- **Plugin owner?** Review [Plugin Owner Guide](Plugin-Owner-Guide)
 
 ## Documentation
 
 | Guide | Description |
 |-------|-------------|
-| [[Getting-Started|Getting Started]] | Core concepts, repository structure |
-| [[Export-Tools|Export Tools]] | CLI arguments, workflow inputs |
-| [[Plugin-Owner-Guide|Plugin Owner Guide]] | Maintenance responsibilities |
-| [[Metadata-Synchronization|Metadata Synchronization]] | Keeping source and overlay in sync |
-| [[Version-Updates|Version Updates]] | Backstage version management |
-| [[Patch-Management|Patch Management]] | Creating and maintaining patches |
+| [Getting Started](Getting-Started) | Core concepts, repository structure |
+| [Export Tools](Export-Tools) | CLI arguments, workflow inputs |
+| [Plugin Owner Guide](Plugin-Owner-Guide) | Maintenance responsibilities |
+| [Metadata Synchronization](Metadata-Synchronization) | Keeping source and overlay in sync |
+| [Version Updates](Version-Updates) | Backstage version management |
+| [Patch Management](Patch-Management) | Creating and maintaining patches |
 
 ## Repository Stats
 
@@ -287,7 +287,7 @@ Welcome to the documentation for the \`rhdh-plugin-export-overlays\` repository.
 
 ## Status & Reports
 
-- [[Backstage-Compatibility-Report|Backstage Compatibility Report]] - Current compatibility status across workspaces
+- [Backstage Compatibility Report](Backstage-Compatibility-Report) - Current compatibility status across workspaces
 
 ## External Resources
 
