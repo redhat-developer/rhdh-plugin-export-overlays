@@ -223,6 +223,8 @@ spec:
         );
 
         await uiHelper.waitForLoad(10000);
+        await page.reload();
+        await uiHelper.waitForLoad(10000);
         await uiHelper.openSidebar("Catalog");
         await uiHelper.selectMuiBox("Kind", "Group");
         await uiHelper.searchInputPlaceholder(teamName);

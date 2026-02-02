@@ -1,10 +1,26 @@
+import { request } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
+
 /**
  * Helper class for making API calls to GitHub and RHDH
  */
 export class CustomAPIHelper {
   private baseUrl?: string;
   private token?: string;
+  private apiContext?: APIRequestContext;
+
   constructor() {
+  }
+
+  /**
+   * Initialize the API request context with SSL verification disabled
+   */
+  private async ensureApiContext(): Promise<void> {
+    if (!this.apiContext) {
+      this.apiContext = await request.newContext({
+        ignoreHTTPSErrors: true,
+      });
+    }
   }
 
   /**
@@ -29,16 +45,18 @@ export class CustomAPIHelper {
       throw new Error("BaseUrl and Token must be set before making API calls");
     }
 
+    await this.ensureApiContext();
+
     const url = `${this.baseUrl}/api/catalog/entities/by-name/group/default/${groupName}`;
-    const response = await fetch(url, {
+    const response = await this.apiContext!.get(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,
       },
     });
 
-    if (!response.ok) {
+    if (!response.ok()) {
       throw new Error(
-        `Failed to get group entity: ${response.status} ${response.statusText}`,
+        `Failed to get group entity: ${response.status()} ${response.statusText()}`,
       );
     }
 
