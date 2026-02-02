@@ -9,6 +9,9 @@ test.describe("GitHub Events Module", () => {
   let rhdhBaseUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
+    // Disable SSL verification for self-signed certificates in OpenShift
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    
     // Configure RHDH with Guest authentication
     await rhdh.configure({ auth: "guest" });
 
