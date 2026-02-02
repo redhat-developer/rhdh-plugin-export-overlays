@@ -598,7 +598,7 @@ __metadata:
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
     prettier: ^3.7.4
-    rhdh-e2e-test-utils: 1.1.6
+    rhdh-e2e-test-utils: 1.1.7
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
   languageName: unknown
@@ -1577,6 +1577,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lodash.clonedeepwith@npm:^4.5.0":
+  version: 4.5.0
+  resolution: "lodash.clonedeepwith@npm:4.5.0"
+  checksum: 9fbf4ebfa04b381df226a2298eba680327bea3d0d5d19c5118de7ae218fd219186e30e9fd0d33b13729f34ffbc83c1cf09cb27aff265ba94cb602b8a2b1e71c9
+  languageName: node
+  linkType: hard
+
 "lodash.merge@npm:^4.6.2":
   version: 4.6.2
   resolution: "lodash.merge@npm:4.6.2"
@@ -2037,9 +2044,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rhdh-e2e-test-utils@npm:1.1.6":
-  version: 1.1.6
-  resolution: "rhdh-e2e-test-utils@npm:1.1.6"
+"rhdh-e2e-test-utils@npm:1.1.7":
+  version: 1.1.7
+  resolution: "rhdh-e2e-test-utils@npm:1.1.7"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@eslint/js": ^9.39.1
@@ -2050,6 +2057,7 @@ __metadata:
     eslint-plugin-playwright: ^2.4.0
     fs-extra: ^11.3.2
     js-yaml: ^4.1.1
+    lodash.clonedeepwith: ^4.5.0
     lodash.mergewith: ^4.6.2
     otplib: 12.0.1
     prettier: ^3.7.4
@@ -2058,7 +2066,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 43900554706b09f878bcae3d4a906c006530dea943a8ac136ae7ec5cf27b19d9bfaf7db3df35b68f90dfd144d3fe199c72c9af06a14779759b6d5d3dd2f4ba00
+  checksum: ed9f1ba2791908871d4f3f378fcaf84f84f4c3171c6c82189b24fd888d4069aa804624b6da85d2b742d8ba0f391accfa0d0b97385d5675527cad4b8b54286160
   languageName: node
   linkType: hard
 
