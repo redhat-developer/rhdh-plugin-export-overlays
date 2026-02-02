@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage/plugin-notifications"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-notifications
-  version: 0.5.9
+  version: 0.5.11
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
