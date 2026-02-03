@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-analytics-module-ga4
+  namespace: rhdh
+  title: "@backstage-community/plugin-analytics-module-ga4"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-ga4
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-ga4
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-analytics-module-ga4"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-module-ga4:bs_1.45.3__0.13.0!backstage-community-plugin-analytics-module-ga4
+  version: 0.13.0
+  backstage:
+    role: frontend-plugin-module
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - app
+  appConfigExamples: []

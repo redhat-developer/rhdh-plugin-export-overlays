@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: proberaum-backstage-plugin-env-viewer-backend
+  namespace: rhdh
+  title: "@proberaum/backstage-plugin-env-viewer-backend"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/proberaum/backstage-plugins/tree/main/workspaces/env-viewer/plugins/env-viewer-backend
+  annotations:
+    backstage.io/source-location: url https://github.com/proberaum/backstage-plugins/tree/main/workspaces/env-viewer/plugins/env-viewer-backend
+  tags: []
+spec:
+  packageName: "@proberaum/backstage-plugin-env-viewer-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/proberaum-backstage-plugin-env-viewer-backend:bs_1.45.3__0.2.0!proberaum-backstage-plugin-env-viewer-backend
+  version: 0.2.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - env-viewer
+  appConfigExamples: []

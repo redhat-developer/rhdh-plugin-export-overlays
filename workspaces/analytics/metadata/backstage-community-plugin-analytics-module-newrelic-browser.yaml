@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-analytics-module-newrelic-browser
+  namespace: rhdh
+  title: "@backstage-community/plugin-analytics-module-newrelic-browser"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-newrelic-browser
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-newrelic-browser
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-analytics-module-newrelic-browser"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-module-newrelic-browser:bs_1.45.3__0.13.0!backstage-community-plugin-analytics-module-newrelic-browser
+  version: 0.13.0
+  backstage:
+    role: frontend-plugin-module
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - app
+  appConfigExamples: []

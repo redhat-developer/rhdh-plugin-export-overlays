@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-bookmarks
+  namespace: rhdh
+  title: "@backstage-community/plugin-bookmarks"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/bookmarks/plugins/bookmarks
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/bookmarks/plugins/bookmarks
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-bookmarks"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-bookmarks:bs_1.45.3__0.5.0!backstage-community-plugin-bookmarks
+  version: 0.5.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - bookmarks
+  appConfigExamples: []

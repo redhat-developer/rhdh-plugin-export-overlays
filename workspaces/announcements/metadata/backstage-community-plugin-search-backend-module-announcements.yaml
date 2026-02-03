@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-search-backend-module-announcements
+  namespace: rhdh
+  title: "@backstage-community/plugin-search-backend-module-announcements"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/announcements/plugins/search-backend-module-announcements
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/announcements/plugins/search-backend-module-announcements
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-search-backend-module-announcements"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-announcements:bs_1.45.3__0.10.0!backstage-community-plugin-search-backend-module-announcements
+  version: 0.10.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - search
+  appConfigExamples: []

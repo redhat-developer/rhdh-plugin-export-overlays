@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: proberaum-backstage-plugin-icon-viewer
+  namespace: rhdh
+  title: "@proberaum/backstage-plugin-icon-viewer"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/proberaum/backstage-plugins/tree/main/workspaces/icon-viewer/plugins/icon-viewer
+  annotations:
+    backstage.io/source-location: url https://github.com/proberaum/backstage-plugins/tree/main/workspaces/icon-viewer/plugins/icon-viewer
+  tags: []
+spec:
+  packageName: "@proberaum/backstage-plugin-icon-viewer"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/proberaum-backstage-plugin-icon-viewer:bs_1.45.3__0.2.0!proberaum-backstage-plugin-icon-viewer
+  version: 0.2.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - icon-viewer
+  appConfigExamples: []

@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-translations-test
+  namespace: rhdh
+  title: "@red-hat-developer-hub/backstage-plugin-translations-test"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations-test
+  annotations:
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations-test
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-translations-test"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations-test:bs_1.45.3__0.2.1!red-hat-developer-hub-backstage-plugin-translations-test
+  version: 0.2.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - translations-test
+  appConfigExamples: []

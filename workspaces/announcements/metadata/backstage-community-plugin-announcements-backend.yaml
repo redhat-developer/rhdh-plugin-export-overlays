@@ -1,0 +1,27 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-announcements-backend
+  namespace: rhdh
+  title: "@backstage-community/plugin-announcements-backend"
+  links:
+    - url: https://backstage.io
+      title: Homepage
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/announcements/plugins/announcements-backend
+  annotations:
+    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/announcements/plugins/announcements-backend
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-announcements-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-announcements-backend:bs_1.45.3__0.17.0!backstage-community-plugin-announcements-backend
+  version: 0.17.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Community
+  support: community
+  lifecycle: active
+  partOf:
+    - announcements
+  appConfigExamples: []
