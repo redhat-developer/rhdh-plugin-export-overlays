@@ -22,6 +22,7 @@ jobs:
       overlayCommit: ${{ steps.meta.outputs.overlayCommit }}
       prNumber: ${{ steps.meta.outputs.pr }}
       publishedExports: ${{ steps.meta.outputs.publishedExports }}
+      targetBranch: ${{ steps.meta.outputs.targetBranch }}
     steps:
       # the artifact of the current run contains PR number
       - name: Download context artifact 
@@ -84,6 +85,7 @@ jobs:
             echo "overlayRepo=$(jq -r .overlayRepo "$meta_file")"
             echo "overlayCommit=$(jq -r .overlayCommit "$meta_file")"
             echo "pr=$(jq -r '.pr // "null"' "$meta_file")"
+            echo "targetBranch=$(jq -r '.targetBranch // "main"' "$meta_file")"
             if [[ -n "$workspace" ]] && [[ -f "$exports_file" ]]; then
               echo "publishedExports<<EOF"
               cat "$exports_file"
@@ -128,6 +130,26 @@ jobs:
               context: 'test',
             });
             console.log(`Set pending status on ${overlayCommit}`);
+
+      - name: Write workflow summary
+        if: steps.meta.outputs.pr != 'null' && steps.meta.outputs.pr != ''
+        env:
+          WORKSPACE: ${{ steps.meta.outputs.workspace }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr }}
+          OVERLAY_REPO: ${{ steps.meta.outputs.overlayRepo }}
+          OVERLAY_BRANCH: ${{ steps.meta.outputs.overlayBranch }}
+        run: |
+          {
+            if [[ -n "$PR_NUMBER" && "$PR_NUMBER" != "null" ]]; then
+              if [[ -n "$WORKSPACE" ]]; then
+                echo "Testing [PR #${PR_NUMBER}](https://github.com/${OVERLAY_REPO}/pull/${PR_NUMBER}) in [\`${WORKSPACE}\`](https://github.com/${OVERLAY_REPO}/tree/${OVERLAY_BRANCH}/${WORKSPACE})"
+              else
+                echo "Testing [PR #${PR_NUMBER}](https://github.com/${OVERLAY_REPO}/pull/${PR_NUMBER}) (no workspace)"
+              fi
+            else
+              echo "No PR context available"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   prepare-test-config:
     needs: resolve
@@ -303,6 +325,8 @@ jobs:
       - prepare-test-config
     if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
     uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    with:
+      target-branch: ${{ needs.resolve.outputs.targetBranch }}
 
   add-skipped-test-comment:
     if: ${{ always() && needs.resolve.outputs.prNumber != 'null' && needs.resolve.outputs.prNumber != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins_metadata_complete != 'true' || needs.prepare-test-config.outputs.skip_tests_missing_env == 'true'))) }}
@@ -349,6 +373,27 @@ jobs:
               issue_number: pr,
               body,
             });
+
+      - name: Write skipped summary
+        env:
+          WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
+          SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
+        run: |
+          {
+            echo ""
+            echo "### Tests Skipped"
+            echo ""
+            if [[ -z "$WORKSPACE" ]]; then
+              echo "PR doesn't touch exactly one workspace."
+            elif [[ "$SKIP_TESTS_MISSING_ENV" == "true" ]]; then
+              echo "Missing workspace \`tests/test.env\` file."
+            elif [[ "$PLUGINS_METADATA_COMPLETE" != "true" ]]; then
+              echo "Missing plugin metadata files (\`<workspace>/metadata/*.yaml\`)."
+            else
+              echo "Unknown reason. Check workflow run for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   add-test-result-comment:
     if: ${{ always() && needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
@@ -450,3 +495,53 @@ jobs:
               repo: context.repo.repo,
               body,
             });
+
+      - name: Write test result summary
+        env:
+          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
+          SUCCESS: ${{ needs.integration-tests.outputs.success }}
+          FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
+        run: |
+          {
+            echo ""
+            if [[ "$INTEGRATION_TESTS_RESULT" == "success" && "$SUCCESS" == "true" ]]; then
+              echo "### Test Results: Passed"
+              echo ""
+              echo "All plugins loaded successfully."
+            else
+              echo "### Test Results: Failed"
+              echo ""
+              case "$INTEGRATION_TESTS_RESULT" in
+                failure)
+                  echo "Integration tests failed."
+                  ;;
+                cancelled)
+                  echo "Integration tests were cancelled."
+                  ;;
+                timeout)
+                  echo "Integration tests timed out."
+                  ;;
+                *)
+                  echo "Integration tests ended in an unexpected state: $INTEGRATION_TESTS_RESULT"
+                  ;;
+              esac
+              if [[ -n "$FAILED_PLUGINS" ]]; then
+                echo ""
+                echo "**Failed plugins:**"
+                echo "\`\`\`"
+                echo "$FAILED_PLUGINS"
+                echo "\`\`\`"
+              fi
+              if [[ -n "$ERROR_LOGS" ]]; then
+                echo ""
+                echo "<details><summary>Error logs from container</summary>"
+                echo ""
+                echo "\`\`\`"
+                echo "$ERROR_LOGS"
+                echo "\`\`\`"
+                echo ""
+                echo "</details>"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

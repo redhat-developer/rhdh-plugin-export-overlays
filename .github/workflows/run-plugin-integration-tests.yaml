@@ -2,6 +2,11 @@ name: Run Plugin Integration Tests
 
 on:
   workflow_call:
+    inputs:
+      target-branch:
+        description: PR target branch (main or release-X.Y)
+        type: string
+        default: main
     outputs:
       success:
         description: Overall integration test result
@@ -67,8 +72,17 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -v $HOME/.docker/config.json:/root/.docker/config.json:ro"
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
+          # Derive image tag from target branch
+          TARGET_BRANCH="${{ inputs.target-branch }}"
+          if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
+            IMAGE_TAG="next-${BASH_REMATCH[1]}"
+          else
+            IMAGE_TAG="next"
+          fi
+          echo "Using RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
+          
           # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:next -c '"
+          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:${IMAGE_TAG} -c '"
           DOCKER_CMD="$DOCKER_CMD set -ex; "
           DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
           DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "

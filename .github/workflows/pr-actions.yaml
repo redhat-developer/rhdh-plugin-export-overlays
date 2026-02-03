@@ -221,10 +221,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p published-exports
           cat > published-exports/meta.json <<EOF
-          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Stage published exports content
         env:
@@ -261,10 +262,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p context
           cat > context/meta.json <<EOF
-          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Upload test-context artifact
         uses: actions/upload-artifact@v4
@@ -328,6 +330,9 @@ jobs:
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
+          INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed }}
+          INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors }}
+          INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count }}
         with:
           script: |
             const fs = require('fs');
@@ -363,24 +368,54 @@ jobs:
             let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
             
             const publishedExports = core.getMultilineInput('published_exports');
-            if (publishedExports.length > 0) {
-              body = `${body}\n- Published container images:`;
-              publishedExports.forEach(line => {
-                body = `${body}\n  - ${line}`;
-              });
-            }
             const failedExports = core.getMultilineInput('failed_exports');
-            if (failedExports.length > 0) {
-              body = `${body}\n- Plugins failed during export or container image publishing:`;
-              failedExports.forEach(line => {
-                body = `${body}\n  - ${line}`;
-              });
+            if (publishedExports.length + failedExports.length > 0) {
+              if (failedExports.length > 0) {
+                body += '\n\n#### Publishing process\n';
+                body += `❌ Plugins with errors during export or container image publishing:`;
+                failedExports.forEach(line => {
+                  body += `\n  - ${line}`;
+                });
+              } else {
+                body += '\n\n#### Publishing process\n✅ Finished successfully.';
+              }
+              if (publishedExports.length > 0) {
+                body += `\n- Published container images:`;
+                publishedExports.forEach(line => {
+                  body += `\n  - ${line}`;
+                });
+              }
             }
             
             const reportPath = 'backstage-compatibility-report.md';
             if (fs.existsSync(reportPath)) {
               const reportContent = fs.readFileSync(reportPath, 'utf8');
               body = `${body}\n\n${reportContent}`;
+            }
+
+            // Metadata validation results
+            const metadataValidationPassed = core.getInput('metadata_validation_passed');
+            const metadataValidationErrorCount = core.getInput('metadata_validation_error_count');
+            const metadataValidationErrorsJson = core.getInput('metadata_validation_errors');
+
+            if (metadataValidationPassed === 'true') {
+              body += '\n\n#### Metadata Validation\n✅ All metadata files validated successfully.';
+            } else if (metadataValidationErrorCount && metadataValidationErrorCount !== '0') {
+              let metadataSection = '\n\n#### Metadata Validation\n';
+              metadataSection += `❌ Found **${metadataValidationErrorCount}** validation error(s):\n\n`;
+              metadataSection += '| File | Kind | Message |\n|------|------|---------|\n';
+              
+              try {
+                const errors = JSON.parse(metadataValidationErrorsJson || '[]');
+                for (const error of errors) {
+                  const escapedMessage = (error.message || '').replace(/\|/g, '\\|');
+                  metadataSection += `| ${error.file} | ${error.kind} | ${escapedMessage} |\n`;
+                }
+              } catch (e) {
+                metadataSection += `| - | - | Failed to parse errors: ${metadataValidationErrorsJson} |\n`;
+              }
+              
+              body += metadataSection;
             }
 
             // Check if E2E tests exist by looking for package.json in e2e-tests directory
@@ -468,10 +503,11 @@ jobs:
           OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
           PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
         run: |
           mkdir -p context
           cat > context/meta.json <<EOF
-          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
       - name: Upload context artifact
         uses: actions/upload-artifact@v4
@@ -656,6 +692,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: read
 
   add_update_commit_completion_comment:
     needs:
