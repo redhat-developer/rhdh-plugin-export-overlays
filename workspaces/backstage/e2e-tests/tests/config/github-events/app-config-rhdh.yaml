@@ -10,6 +10,8 @@ events:
       webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
 
 catalog:
+  rules:
+    - allow: [Component, API, Resource, System, Domain, Location, Template, User, Group]
   providers:
     github:
       providerId:
