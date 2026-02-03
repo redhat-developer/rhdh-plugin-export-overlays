@@ -2,6 +2,7 @@ import { test, expect, request } from "rhdh-e2e-test-utils/test";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
 import { createHmac } from "crypto";
+import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;
@@ -10,44 +11,13 @@ test.describe("GitHub Events Module", () => {
 
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
-      auth: "guest",
+      auth: "keycloak",
       appConfig: "tests/config/github-events/app-config-rhdh.yaml",
       secrets: "tests/config/github-events/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-events/dynamic-plugins.yaml",
     });
 
     await rhdh.deploy();
-
-    // Create request context with SSL verification disabled for self-signed certs
-    const apiContext = await request.newContext({
-      ignoreHTTPSErrors: true,
-    });
-
-    // Get the guest token from RHDH auth endpoint
-    const authResponse = await apiContext.get(
-      `${rhdh.rhdhUrl}/api/auth/guest/refresh`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      },
-    );
-
-    if (!authResponse.ok()) {
-      throw new Error(`Failed to get guest token: ${authResponse.status()}`);
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const authData = (await authResponse.json()) as any;
-    staticToken = authData.backstageIdentity?.token || authData.token;
-
-    if (!staticToken) {
-      throw new Error(
-        "No token found in auth response: " + JSON.stringify(authData),
-      );
-    }
-
-    await apiContext.dispose();
 
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
@@ -57,7 +27,7 @@ test.describe("GitHub Events Module", () => {
   });
 
   test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsGuest();
+    await loginHelper.loginAsKeycloakUser();
   });
 
   test("Events endpoint accepts signed GitHub webhook payloads", async () => {
@@ -305,7 +275,45 @@ spec:
       let userAddedToTeam = false;
       let teamName: string;
 
-      test.beforeEach(async () => {
+      test.beforeEach(async ({ page, uiHelper }) => {
+        if (!staticToken) {
+          await page.goto(rhdhBaseUrl);
+
+          // Wait for page to be ready and user to be logged in
+          await uiHelper.waitForLoad();
+          await page.locator("nav").first().waitFor({ state: "visible" });
+          
+          // Wait for user settings or profile button to appear
+          await page
+            .locator('button[data-testid="user-settings-menu"], [aria-label*="user"]')
+            .first()
+            .waitFor({ state: "visible", timeout: 10000 })
+            .catch(() => {});
+
+          // Retry getting token until session is ready
+          await expect
+            .poll(
+              async () => {
+                try {
+                  const token = await RhdhAuthApiHack.getToken(page);
+                  if (token && token.length > 0) {
+                    staticToken = token;
+                    return true;
+                  }
+                  return false;
+                } catch {
+                  return false;
+                }
+              },
+              {
+                message: "Token should be retrieved after session is established",
+                timeout: 30000,
+                intervals: [2000],
+              },
+            )
+            .toBe(true);
+        }
+
         teamName = "test-team-" + Date.now();
 
         await CustomAPIHelper.createTeamInOrg(
