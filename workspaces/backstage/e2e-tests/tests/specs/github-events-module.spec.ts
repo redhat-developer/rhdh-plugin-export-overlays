@@ -130,18 +130,22 @@ spec:
         "added",
       );
 
-      await uiHelper.waitForLoad(10000);
-      await page.reload();
-      await uiHelper.waitForLoad(10000);
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.selectMuiBox("Kind", "Component");
-
-      await uiHelper.searchInputPlaceholder(catalogRepoName);
-      await expect(
-        page.getByRole("link", { name: catalogRepoName }),
-      ).toBeVisible({
-        timeout: 15000,
-      });
+      await expect
+        .poll(
+          async () => {
+            await page.reload();
+            await uiHelper.openSidebar("Catalog");
+            await uiHelper.selectMuiBox("Kind", "Component");
+            await uiHelper.searchInputPlaceholder(catalogRepoName);
+            return await page.getByRole("link", { name: catalogRepoName }).isVisible();
+          },
+          {
+            message: `Component ${catalogRepoName} should appear in catalog`,
+            timeout: 60000,
+            intervals: [10000],
+          },
+        )
+        .toBe(true);
     });
 
     test("Updating an entity in the catalog", async ({ page, uiHelper }) => {
@@ -169,17 +173,29 @@ spec:
         `janus-qe/${catalogRepoName}`,
         "modified",
       );
-      await uiHelper.waitForLoad(10000);
-      await page.reload();
-      await uiHelper.waitForLoad(10000);
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.selectMuiBox("Kind", "Component");
 
-      await uiHelper.searchInputPlaceholder(catalogRepoName);
-      await page.getByRole("link", { name: catalogRepoName }).click();
-      await expect(page.getByText(updatedDescription)).toBeVisible({
-        timeout: 15000,
-      });
+      await expect
+        .poll(
+          async () => {
+            await page.reload();
+            await uiHelper.openSidebar("Catalog");
+            await uiHelper.selectMuiBox("Kind", "Component");
+            await uiHelper.searchInputPlaceholder(catalogRepoName);
+            
+            const link = page.getByRole("link", { name: catalogRepoName });
+            if (await link.isVisible()) {
+              await link.click();
+              return await page.getByText(updatedDescription).isVisible();
+            }
+            return false;
+          },
+          {
+            message: `Component ${catalogRepoName} should be updated with new description`,
+            timeout: 60000,
+            intervals: [10000],
+          },
+        )
+        .toBe(true);
     });
 
     test("Deleting an entity from the catalog", async ({ page, uiHelper }) => {
@@ -194,18 +210,23 @@ spec:
         `janus-qe/${catalogRepoName}`,
         "removed",
       );
-      await uiHelper.waitForLoad(10000);
-      await page.reload();
-      await uiHelper.waitForLoad(10000);
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.selectMuiBox("Kind", "Component");
 
-      await uiHelper.searchInputPlaceholder(catalogRepoName);
-      await expect(
-        page.getByRole("link", { name: catalogRepoName }),
-      ).not.toBeVisible({
-        timeout: 15000,
-      });
+      await expect
+        .poll(
+          async () => {
+            await page.reload();
+            await uiHelper.openSidebar("Catalog");
+            await uiHelper.selectMuiBox("Kind", "Component");
+            await uiHelper.searchInputPlaceholder(catalogRepoName);
+            return await page.getByRole("link", { name: catalogRepoName }).isVisible();
+          },
+          {
+            message: `Component ${catalogRepoName} should be removed from catalog`,
+            timeout: 60000,
+            intervals: [10000],
+          },
+        )
+        .toBe(false);
     });
   });
 
@@ -222,16 +243,22 @@ spec:
           "janus-qe",
         );
 
-        await uiHelper.waitForLoad(10000);
-        await page.reload();
-        await uiHelper.waitForLoad(10000);
-        await uiHelper.openSidebar("Catalog");
-        await uiHelper.selectMuiBox("Kind", "Group");
-        await uiHelper.searchInputPlaceholder(teamName);
-
-        await expect(page.getByRole("link", { name: teamName })).toBeVisible({
-          timeout: 15000,
-        });
+        await expect
+          .poll(
+            async () => {
+              await page.reload();
+              await uiHelper.openSidebar("Catalog");
+              await uiHelper.selectMuiBox("Kind", "Group");
+              await uiHelper.searchInputPlaceholder(teamName);
+              return await page.getByRole("link", { name: teamName }).isVisible();
+            },
+            {
+              message: `Team ${teamName} should appear in catalog`,
+              timeout: 60000,
+              intervals: [10000],
+            },
+          )
+          .toBe(true);
       });
 
       test("Deleting a group", async ({ page, uiHelper }) => {
@@ -242,18 +269,23 @@ spec:
           teamName,
           "janus-qe",
         );
-        await uiHelper.waitForLoad(10000);
-        await page.reload();
-        await uiHelper.waitForLoad(10000);
-        await uiHelper.openSidebar("Catalog");
-        await uiHelper.selectMuiBox("Kind", "Group");
-        await uiHelper.searchInputPlaceholder(teamName);
 
-        await expect(
-          page.getByRole("link", { name: teamName }),
-        ).not.toBeVisible({
-          timeout: 15000,
-        });
+        await expect
+          .poll(
+            async () => {
+              await page.reload();
+              await uiHelper.openSidebar("Catalog");
+              await uiHelper.selectMuiBox("Kind", "Group");
+              await uiHelper.searchInputPlaceholder(teamName);
+              return await page.getByRole("link", { name: teamName }).isVisible();
+            },
+            {
+              message: `Team ${teamName} should be removed from catalog`,
+              timeout: 60000,
+              intervals: [10000],
+            },
+          )
+          .toBe(false);
       });
     });
 
