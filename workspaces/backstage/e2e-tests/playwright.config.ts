@@ -10,7 +10,8 @@ dotenv.config({ path: `${import.meta.dirname}/.env` });
 export default defineConfig({
   projects: [
     {
-      name: "backstage",
+      name: "backstage-github-events",
+      testMatch: /tests\/specs\/github-events-module\.spec\.ts/,
     },
   ],
 });

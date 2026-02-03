@@ -9,7 +9,12 @@ test.describe("GitHub Events Module", () => {
   let rhdhBaseUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "guest" });
+    await rhdh.configure({
+      auth: "guest",
+      appConfig: "tests/config/github-events/app-config-rhdh.yaml",
+      secrets: "tests/config/github-events/rhdh-secrets.yaml",
+      dynamicPlugins: "tests/config/github-events/dynamic-plugins.yaml",
+    });
 
     await rhdh.deploy();
 
@@ -184,6 +189,8 @@ spec:
             await uiHelper.searchInputPlaceholder(catalogRepoName);
 
             await page.getByRole("link", { name: catalogRepoName }).click();
+            // wait for page to load
+            await uiHelper.waitForLoad(5000);
             return await page.getByText(updatedDescription).isVisible();
           },
           {
