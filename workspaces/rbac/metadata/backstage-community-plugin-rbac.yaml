@@ -12,12 +12,12 @@ metadata:
   - title: Source Code
     url: https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   annotations:
-    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   tags: []
 spec:
   packageName: '@backstage-community/plugin-rbac'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-rbac
-  version: 1.45.1
+  version: 1.47.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5

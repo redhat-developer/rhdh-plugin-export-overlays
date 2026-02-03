@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend"
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-adoption-insights-backend-dynamic
-  version: 0.2.1
+  version: 0.6.2
   backstage:
     role: backend-plugin
     supportedVersions: 1.39.1
