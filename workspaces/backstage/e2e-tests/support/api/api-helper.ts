@@ -1,5 +1,5 @@
-import { request } from '@playwright/test';
-import type { APIRequestContext } from '@playwright/test';
+import { request } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 
 /**
  * Helper class for making API calls to GitHub and RHDH
@@ -9,8 +9,7 @@ export class CustomAPIHelper {
   private token?: string;
   private apiContext?: APIRequestContext;
 
-  constructor() {
-  }
+  constructor() {}
 
   /**
    * Initialize the API request context with SSL verification disabled
@@ -138,7 +137,6 @@ export class CustomAPIHelper {
     commitMessage: string,
     token: string,
   ): Promise<void> {
-
     // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
@@ -194,7 +192,6 @@ export class CustomAPIHelper {
     commitMessage: string,
     token: string,
   ): Promise<void> {
-
     // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
@@ -205,6 +202,12 @@ export class CustomAPIHelper {
         },
       },
     );
+
+    // If file doesn't exist, consider it already deleted
+    if (getFileResponse.status === 404) {
+      console.log(`File ${filePath} already deleted or doesn't exist`);
+      return;
+    }
 
     if (!getFileResponse.ok) {
       throw new Error(
@@ -231,7 +234,7 @@ export class CustomAPIHelper {
       },
     );
 
-    if (!deleteFileResponse.ok) {
+    if (!deleteFileResponse.ok && deleteFileResponse.status !== 404) {
       const errorText = await deleteFileResponse.text();
       throw new Error(
         `Failed to delete file: ${deleteFileResponse.status} ${errorText}`,
@@ -242,8 +245,11 @@ export class CustomAPIHelper {
   /**
    * Create a team in a GitHub organization
    */
-  static async createTeamInOrg(org: string, teamName: string, token: string): Promise<void> {
-
+  static async createTeamInOrg(
+    org: string,
+    teamName: string,
+    token: string,
+  ): Promise<void> {
     const response = await fetch(`https://api.github.com/orgs/${org}/teams`, {
       method: "POST",
       headers: {
@@ -259,17 +265,18 @@ export class CustomAPIHelper {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(
-        `Failed to create team: ${response.status} ${errorText}`,
-      );
+      throw new Error(`Failed to create team: ${response.status} ${errorText}`);
     }
   }
 
   /**
    * Delete a team from a GitHub organization
    */
-  static async deleteTeamFromOrg(org: string, teamName: string, token: string): Promise<void> {
-
+  static async deleteTeamFromOrg(
+    org: string,
+    teamName: string,
+    token: string,
+  ): Promise<void> {
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}`,
       {
@@ -283,9 +290,7 @@ export class CustomAPIHelper {
 
     if (!response.ok && response.status !== 404) {
       const errorText = await response.text();
-      throw new Error(
-        `Failed to delete team: ${response.status} ${errorText}`,
-      );
+      throw new Error(`Failed to delete team: ${response.status} ${errorText}`);
     }
   }
 
@@ -298,7 +303,6 @@ export class CustomAPIHelper {
     username: string,
     token: string,
   ): Promise<void> {
-
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,
       {
@@ -331,7 +335,6 @@ export class CustomAPIHelper {
     username: string,
     token: string,
   ): Promise<void> {
-
     const response = await fetch(
       `https://api.github.com/orgs/${org}/teams/${teamName}/memberships/${username}`,
       {
@@ -351,5 +354,3 @@ export class CustomAPIHelper {
     }
   }
 }
-
-

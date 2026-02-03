@@ -21,11 +21,14 @@ test.describe("GitHub Events Module", () => {
     });
 
     // Get the guest token from RHDH auth endpoint
-    const authResponse = await apiContext.get(`${rhdh.rhdhUrl}/api/auth/guest/refresh`, {
-      headers: {
-        "Content-Type": "application/json",
+    const authResponse = await apiContext.get(
+      `${rhdh.rhdhUrl}/api/auth/guest/refresh`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
       },
-    });
+    );
 
     if (!authResponse.ok()) {
       throw new Error(`Failed to get guest token: ${authResponse.status()}`);
@@ -91,7 +94,7 @@ test.describe("GitHub Events Module", () => {
     });
 
     expect(response.status()).toBe(202);
-    
+
     await context.dispose();
   });
 
@@ -137,7 +140,9 @@ spec:
             await uiHelper.openSidebar("Catalog");
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
-            return await page.getByRole("link", { name: catalogRepoName }).isVisible();
+            return await page
+              .getByRole("link", { name: catalogRepoName })
+              .isVisible();
           },
           {
             message: `Component ${catalogRepoName} should appear in catalog`,
@@ -181,13 +186,9 @@ spec:
             await uiHelper.openSidebar("Catalog");
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
-            
-            const link = page.getByRole("link", { name: catalogRepoName });
-            if (await link.isVisible()) {
-              await link.click();
-              return await page.getByText(updatedDescription).isVisible();
-            }
-            return false;
+
+            await page.getByRole("link", { name: catalogRepoName }).click();
+            return await page.getByText(updatedDescription).isVisible();
           },
           {
             message: `Component ${catalogRepoName} should be updated with new description`,
@@ -218,7 +219,9 @@ spec:
             await uiHelper.openSidebar("Catalog");
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
-            return await page.getByRole("link", { name: catalogRepoName }).isVisible();
+            return await page
+              .getByRole("link", { name: catalogRepoName })
+              .isVisible();
           },
           {
             message: `Component ${catalogRepoName} should be removed from catalog`,
@@ -236,12 +239,12 @@ spec:
       const teamName = "test-team-" + Date.now();
 
       test("Adding a new group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
-        await githubEventsHelper.sendTeamEvent(
-          "created",
-          teamName,
+        await CustomAPIHelper.createTeamInOrg(
           "janus-qe",
+          teamName,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
+        await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
         await expect
           .poll(
@@ -250,7 +253,9 @@ spec:
               await uiHelper.openSidebar("Catalog");
               await uiHelper.selectMuiBox("Kind", "Group");
               await uiHelper.searchInputPlaceholder(teamName);
-              return await page.getByRole("link", { name: teamName }).isVisible();
+              return await page
+                .getByRole("link", { name: teamName })
+                .isVisible();
             },
             {
               message: `Team ${teamName} should appear in catalog`,
@@ -262,13 +267,13 @@ spec:
       });
 
       test("Deleting a group", async ({ page, uiHelper }) => {
-        await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
-
-        await githubEventsHelper.sendTeamEvent(
-          "deleted",
-          teamName,
+        await CustomAPIHelper.deleteTeamFromOrg(
           "janus-qe",
+          teamName,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
+
+        await githubEventsHelper.sendTeamEvent("deleted", teamName, "janus-qe");
 
         await expect
           .poll(
@@ -277,7 +282,9 @@ spec:
               await uiHelper.openSidebar("Catalog");
               await uiHelper.selectMuiBox("Kind", "Group");
               await uiHelper.searchInputPlaceholder(teamName);
-              return await page.getByRole("link", { name: teamName }).isVisible();
+              return await page
+                .getByRole("link", { name: teamName })
+                .isVisible();
             },
             {
               message: `Team ${teamName} should be removed from catalog`,
@@ -300,15 +307,15 @@ spec:
         teamName = "test-team-" + Date.now();
 
         // Create team in GitHub
-        await CustomAPIHelper.createTeamInOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
+        await CustomAPIHelper.createTeamInOrg(
+          "janus-qe",
+          teamName,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
+        );
         teamCreated = true;
 
         // Send team creation webhook to RHDH
-        await githubEventsHelper.sendTeamEvent(
-          "created",
-          teamName,
-          "janus-qe",
-        );
+        await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
         // Wait for RHDH to process team creation
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -326,7 +333,11 @@ spec:
         }
 
         if (teamCreated) {
-          await CustomAPIHelper.deleteTeamFromOrg("janus-qe", teamName, process.env.VAULT_GH_RHDH_QE_USER_TOKEN!);
+          await CustomAPIHelper.deleteTeamFromOrg(
+            "janus-qe",
+            teamName,
+            process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
+          );
           teamCreated = false;
         }
       });
