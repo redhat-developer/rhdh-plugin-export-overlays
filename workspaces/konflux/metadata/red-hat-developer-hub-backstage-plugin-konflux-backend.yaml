@@ -16,8 +16,8 @@ metadata:
     - cicd
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-konflux-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.45.3__0.1.3!red-hat-developer-hub-backstage-plugin-konflux-backend
-  version: 0.1.3
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.45.3__0.1.4!red-hat-developer-hub-backstage-plugin-konflux-backend
+  version: 0.1.4
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
