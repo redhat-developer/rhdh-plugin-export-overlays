@@ -9,10 +9,8 @@ test.describe("GitHub Events Module", () => {
   let rhdhBaseUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
-    // Configure RHDH with Guest authentication
     await rhdh.configure({ auth: "guest" });
 
-    // Deploy RHDH instance
     await rhdh.deploy();
 
     // Create request context with SSL verification disabled for self-signed certs
@@ -44,10 +42,8 @@ test.describe("GitHub Events Module", () => {
       );
     }
 
-    // Clean up the API context
     await apiContext.dispose();
 
-    // Initialize GitHub events helper
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
       process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!,
@@ -303,10 +299,8 @@ spec:
       let teamName: string;
 
       test.beforeEach(async () => {
-        // Generate unique team name for each test
         teamName = "test-team-" + Date.now();
 
-        // Create team in GitHub
         await CustomAPIHelper.createTeamInOrg(
           "janus-qe",
           teamName,
@@ -314,10 +308,8 @@ spec:
         );
         teamCreated = true;
 
-        // Send team creation webhook to RHDH
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
-        // Wait for RHDH to process team creation
         await new Promise((resolve) => setTimeout(resolve, 2000));
       });
 
@@ -343,7 +335,6 @@ spec:
       });
 
       test("Adding a user to a group", async ({ uiHelper }) => {
-        // Step 1: Add user to team in GitHub
         await CustomAPIHelper.addUserToTeam(
           "janus-qe",
           teamName,
@@ -352,7 +343,6 @@ spec:
         );
         userAddedToTeam = true;
 
-        // Step 2: Send membership "added" webhook to RHDH
         await githubEventsHelper.sendMembershipEvent(
           "added",
           "04kash",
@@ -362,12 +352,10 @@ spec:
 
         await uiHelper.waitForLoad(10000);
 
-        // Step 3: Verify user is in the group (with polling)
         const api = new CustomAPIHelper();
         await api.useStaticToken(staticToken);
         await api.useBaseUrl(rhdhBaseUrl);
 
-        // Use expect.poll() to retry the API call
         await expect
           .poll(
             async () => {
@@ -390,7 +378,6 @@ spec:
       });
 
       test("Removing a user from a group", async ({ uiHelper }) => {
-        // Setup: Add user first
         await CustomAPIHelper.addUserToTeam(
           "janus-qe",
           teamName,
@@ -399,7 +386,6 @@ spec:
         );
         userAddedToTeam = true;
 
-        // Send "added" webhook to sync initial state
         await githubEventsHelper.sendMembershipEvent(
           "added",
           "04kash",
@@ -411,7 +397,6 @@ spec:
         await api.useStaticToken(staticToken);
         await api.useBaseUrl(rhdhBaseUrl);
 
-        // Wait for user to be added first (with polling)
         await expect
           .poll(
             async () => {
@@ -432,7 +417,6 @@ spec:
           )
           .toContain("04kash");
 
-        // Step 1: Remove user from the team in GitHub
         await CustomAPIHelper.removeUserFromTeam(
           "janus-qe",
           teamName,
@@ -441,7 +425,6 @@ spec:
         );
         userAddedToTeam = false;
 
-        // Step 2: Send membership "removed" webhook to RHDH
         await githubEventsHelper.sendMembershipEvent(
           "removed",
           "04kash",
@@ -451,7 +434,6 @@ spec:
 
         await uiHelper.waitForLoad(10000);
 
-        // Step 3: Verify user is NOT in the group (with polling)
         await expect
           .poll(
             async () => {

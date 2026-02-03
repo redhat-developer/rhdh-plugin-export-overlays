@@ -72,7 +72,6 @@ export class CustomAPIHelper {
     content: string,
     token: string,
   ): Promise<void> {
-    // Create repository
     const createRepoResponse = await fetch(
       `https://api.github.com/orgs/${owner}/repos`,
       {
@@ -98,10 +97,8 @@ export class CustomAPIHelper {
       );
     }
 
-    // Wait a bit for repo to be ready
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Create file
     const createFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
@@ -137,7 +134,6 @@ export class CustomAPIHelper {
     commitMessage: string,
     token: string,
   ): Promise<void> {
-    // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
@@ -156,7 +152,6 @@ export class CustomAPIHelper {
 
     const fileData = (await getFileResponse.json()) as { sha: string };
 
-    // Update file
     const updateFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
@@ -192,7 +187,6 @@ export class CustomAPIHelper {
     commitMessage: string,
     token: string,
   ): Promise<void> {
-    // Get current file SHA
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
@@ -203,7 +197,6 @@ export class CustomAPIHelper {
       },
     );
 
-    // If file doesn't exist, consider it already deleted
     if (getFileResponse.status === 404) {
       console.log(`File ${filePath} already deleted or doesn't exist`);
       return;
@@ -217,7 +210,6 @@ export class CustomAPIHelper {
 
     const fileData = (await getFileResponse.json()) as { sha: string };
 
-    // Delete file
     const deleteFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {

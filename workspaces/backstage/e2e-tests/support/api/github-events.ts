@@ -167,7 +167,10 @@ export class GitHubEventsHelper {
     this.webhookSecret = webhookSecret;
   }
 
-  public static async build(rhdhBaseUrl: string, webhookSecret: string): Promise<GitHubEventsHelper> {
+  public static async build(
+    rhdhBaseUrl: string,
+    webhookSecret: string,
+  ): Promise<GitHubEventsHelper> {
     const instance = new GitHubEventsHelper(rhdhBaseUrl, webhookSecret);
     instance.myContext = await request.newContext({
       ignoreHTTPSErrors: true,
@@ -238,7 +241,6 @@ export class GitHubEventsHelper {
   ): PushPayload {
     const [owner, repoName] = repo.split("/");
 
-    // Determine which array gets catalog-info.yaml based on action
     const catalogFile = "catalog-info.yaml";
     const commitFiles = {
       added: catalogAction === "added" ? [catalogFile] : [],
@@ -246,7 +248,6 @@ export class GitHubEventsHelper {
       modified: catalogAction === "modified" ? [catalogFile] : [],
     };
 
-    // Update commit message based on action
     const commitMessages = {
       added: "Add catalog-info.yaml",
       modified: "Update catalog-info.yaml",
