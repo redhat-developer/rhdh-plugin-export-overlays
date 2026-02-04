@@ -21,7 +21,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/plugin-redhat-resource-optimization-backend"
   dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:1.2.1!red-hat-developer-hub-plugin-redhat-resource-optimization-backend
-  version: 1.2.1
+  version: 2.0.2
   backstage:
     role: backend-plugin
     supportedVersions: 1.42.5
