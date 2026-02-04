@@ -1,58 +1,26 @@
 import { request } from "@playwright/test";
-import type { APIRequestContext } from "@playwright/test";
-
 /**
  * Helper class for making API calls to GitHub and RHDH
  */
 export class CustomAPIHelper {
-  private baseUrl?: string;
-  private token?: string;
-  private apiContext?: APIRequestContext;
-
-  constructor() {}
-
-  /**
-   * Initialize the API request context with SSL verification disabled
-   */
-  private async ensureApiContext(): Promise<void> {
-    if (!this.apiContext) {
-      this.apiContext = await request.newContext({
-        ignoreHTTPSErrors: true,
-      });
-    }
-  }
-
-  /**
-   * Set the RHDH base URL for API calls
-   */
-  async useBaseUrl(baseUrl: string): Promise<void> {
-    this.baseUrl = baseUrl;
-  }
-
-  /**
-   * Set the static token for RHDH API authentication
-   */
-  async useStaticToken(token: string): Promise<void> {
-    this.token = token;
-  }
-
   /**
    * Get a group entity from the RHDH catalog API
    */
-  async getGroupEntityFromAPI(groupName: string): Promise<any> {
-    if (!this.baseUrl || !this.token) {
-      throw new Error("BaseUrl and Token must be set before making API calls");
-    }
-
-    await this.ensureApiContext();
-
-    const url = `${this.baseUrl}/api/catalog/entities/by-name/group/default/${groupName}`;
-    const response = await this.apiContext!.get(url, {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-      },
+  static async getGroupEntityFromAPI(
+    baseUrl: string,
+    token: string,
+    groupName: string,
+  ): Promise<any> {
+    const context = await request.newContext({
+      ignoreHTTPSErrors: true,
     });
 
+    const url = `${baseUrl}/api/catalog/entities/by-name/group/default/${groupName}`;
+    const response = await context.get(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     if (!response.ok()) {
       throw new Error(
         `Failed to get group entity: ${response.status()} ${response.statusText()}`,
@@ -60,6 +28,28 @@ export class CustomAPIHelper {
     }
 
     return await response.json();
+  }
+
+  /**
+   * Extract group members from a group entity
+   */
+  static async getGroupMembers(
+    baseUrl: string,
+    token: string,
+    groupName: string,
+  ): Promise<string[]> {
+    const groupEntity = await CustomAPIHelper.getGroupEntityFromAPI(
+      baseUrl,
+      token,
+      groupName,
+    );
+    const members =
+      groupEntity.relations
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ?.filter((r: any) => r.type === "hasMember")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((r: any) => r.targetRef.split("/")[1]) || [];
+    return members;
   }
 
   /**

@@ -235,6 +235,82 @@ export class GitHubEventsHelper {
     return await this.sendWebhookEvent("membership", payload);
   }
 
+  private createCommit(
+    repo: string,
+    message: string,
+    commitFiles: { added: string[]; removed: string[]; modified: string[] },
+  ): Commit {
+    return {
+      id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
+      tree_id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
+      distinct: true,
+      message,
+      timestamp: new Date().toISOString(),
+      url: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 40).replace(/-/g, "0")}`,
+      author: {
+        name: "Test User",
+        email: "test@example.com",
+        date: new Date().toISOString(),
+        username: "test-user",
+      },
+      committer: {
+        name: "GitHub",
+        email: "noreply@github.com",
+        date: new Date().toISOString(),
+        username: "web-flow",
+      },
+      added: commitFiles.added,
+      removed: commitFiles.removed,
+      modified: commitFiles.modified,
+    };
+  }
+
+  private createOrganization(
+    orgName: string,
+    orgId: number,
+  ): TeamPayload["organization"] {
+    return {
+      login: orgName,
+      id: orgId,
+      node_id: "O_" + crypto.randomUUID().substring(0, 20),
+      url: `https://api.github.com/orgs/${orgName}`,
+      repos_url: `https://api.github.com/orgs/${orgName}/repos`,
+      events_url: `https://api.github.com/orgs/${orgName}/events`,
+      hooks_url: `https://api.github.com/orgs/${orgName}/hooks`,
+      issues_url: `https://api.github.com/orgs/${orgName}/issues`,
+      members_url: `https://api.github.com/orgs/${orgName}/members{/member}`,
+      public_members_url: `https://api.github.com/orgs/${orgName}/public_members{/member}`,
+      avatar_url: `https://avatars.githubusercontent.com/u/${orgId}?v=4`,
+      description: null,
+    };
+  }
+
+  private createTeam(
+    teamName: string,
+    teamId: number,
+    orgId: number,
+    orgName: string,
+  ): Team {
+    const slug = teamName.toLowerCase().replace(/\s+/g, "-");
+    return {
+      name: teamName,
+      id: teamId,
+      node_id: "T_" + crypto.randomUUID().substring(0, 20),
+      slug: slug,
+      description: "",
+      privacy: "closed",
+      notification_setting: "notifications_enabled",
+      url: `https://api.github.com/organizations/${orgId}/team/${teamId}`,
+      html_url: `https://github.com/orgs/${orgName}/teams/${slug}`,
+      members_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/members{/member}`,
+      repositories_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/repos`,
+      type: "organization",
+      organization_id: orgId,
+      permission: "pull",
+      parent: null,
+    };
+  }
+
   private createPushPayload(
     repo: string,
     catalogAction: CatalogAction = "modified",
@@ -253,6 +329,12 @@ export class GitHubEventsHelper {
       modified: "Update catalog-info.yaml",
       removed: "Remove catalog-info.yaml",
     };
+
+    const commit = this.createCommit(
+      repo,
+      commitMessages[catalogAction],
+      commitFiles,
+    );
 
     return {
       ref: "refs/heads/main",
@@ -302,54 +384,8 @@ export class GitHubEventsHelper {
       forced: false,
       base_ref: null,
       compare: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 12).replace(/-/g, "0")}`,
-      commits: [
-        {
-          id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
-          tree_id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
-          distinct: true,
-          message: commitMessages[catalogAction],
-          timestamp: new Date().toISOString(),
-          url: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 40).replace(/-/g, "0")}`,
-          author: {
-            name: "Test User",
-            email: "test@example.com",
-            date: new Date().toISOString(),
-            username: "test-user",
-          },
-          committer: {
-            name: "GitHub",
-            email: "noreply@github.com",
-            date: new Date().toISOString(),
-            username: "web-flow",
-          },
-          added: commitFiles.added,
-          removed: commitFiles.removed,
-          modified: commitFiles.modified,
-        },
-      ],
-      head_commit: {
-        id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
-        tree_id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
-        distinct: true,
-        message: commitMessages[catalogAction],
-        timestamp: new Date().toISOString(),
-        url: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 40).replace(/-/g, "0")}`,
-        author: {
-          name: "Test User",
-          email: "test@example.com",
-          date: new Date().toISOString(),
-          username: "test-user",
-        },
-        committer: {
-          name: "GitHub",
-          email: "noreply@github.com",
-          date: new Date().toISOString(),
-          username: "web-flow",
-        },
-        added: commitFiles.added,
-        removed: commitFiles.removed,
-        modified: commitFiles.modified,
-      },
+      commits: [commit],
+      head_commit: commit,
     };
   }
 
@@ -358,42 +394,12 @@ export class GitHubEventsHelper {
     teamName: string,
     orgName: string,
   ): TeamPayload {
-    const slug = teamName.toLowerCase().replace(/\s+/g, "-");
     const orgId = Math.floor(Math.random() * 1000000);
     const teamId = Math.floor(Math.random() * 100000000);
     return {
       action,
-      team: {
-        name: teamName,
-        id: teamId,
-        node_id: "T_" + crypto.randomUUID().substring(0, 20),
-        slug: slug,
-        description: "",
-        privacy: "closed",
-        notification_setting: "notifications_enabled",
-        url: `https://api.github.com/organizations/${orgId}/team/${teamId}`,
-        html_url: `https://github.com/orgs/${orgName}/teams/${slug}`,
-        members_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/members{/member}`,
-        repositories_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/repos`,
-        type: "organization",
-        organization_id: orgId,
-        permission: "pull",
-        parent: null,
-      },
-      organization: {
-        login: orgName,
-        id: orgId,
-        node_id: "O_" + crypto.randomUUID().substring(0, 20),
-        url: `https://api.github.com/orgs/${orgName}`,
-        repos_url: `https://api.github.com/orgs/${orgName}/repos`,
-        events_url: `https://api.github.com/orgs/${orgName}/events`,
-        hooks_url: `https://api.github.com/orgs/${orgName}/hooks`,
-        issues_url: `https://api.github.com/orgs/${orgName}/issues`,
-        members_url: `https://api.github.com/orgs/${orgName}/members{/member}`,
-        public_members_url: `https://api.github.com/orgs/${orgName}/public_members{/member}`,
-        avatar_url: `https://avatars.githubusercontent.com/u/${orgId}?v=4`,
-        description: null,
-      },
+      team: this.createTeam(teamName, teamId, orgId, orgName),
+      organization: this.createOrganization(orgName, orgId),
       sender: {
         login: "test-user",
         id: Math.floor(Math.random() * 100000),
@@ -415,7 +421,6 @@ export class GitHubEventsHelper {
     teamName: string,
     orgName: string,
   ): MembershipPayload {
-    const teamSlug = teamName.toLowerCase().replace(/\s+/g, "-");
     const orgId = Math.floor(Math.random() * 1000000);
     const teamId = Math.floor(Math.random() * 100000000);
     const userId = Math.floor(Math.random() * 1000000);
@@ -455,37 +460,8 @@ export class GitHubEventsHelper {
         user_view_type: "public",
         site_admin: false,
       },
-      team: {
-        name: teamName,
-        id: teamId,
-        node_id: "T_" + crypto.randomUUID().substring(0, 20),
-        slug: teamSlug,
-        description: "",
-        privacy: "closed",
-        notification_setting: "notifications_enabled",
-        url: `https://api.github.com/organizations/${orgId}/team/${teamId}`,
-        html_url: `https://github.com/orgs/${orgName}/teams/${teamSlug}`,
-        members_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/members{/member}`,
-        repositories_url: `https://api.github.com/organizations/${orgId}/team/${teamId}/repos`,
-        type: "organization",
-        organization_id: orgId,
-        permission: "pull",
-        parent: null,
-      },
-      organization: {
-        login: orgName,
-        id: orgId,
-        node_id: "O_" + crypto.randomUUID().substring(0, 20),
-        url: `https://api.github.com/orgs/${orgName}`,
-        repos_url: `https://api.github.com/orgs/${orgName}/repos`,
-        events_url: `https://api.github.com/orgs/${orgName}/events`,
-        hooks_url: `https://api.github.com/orgs/${orgName}/hooks`,
-        issues_url: `https://api.github.com/orgs/${orgName}/issues`,
-        members_url: `https://api.github.com/orgs/${orgName}/members{/member}`,
-        public_members_url: `https://api.github.com/orgs/${orgName}/public_members{/member}`,
-        avatar_url: `https://avatars.githubusercontent.com/u/${orgId}?v=4`,
-        description: null,
-      },
+      team: this.createTeam(teamName, teamId, orgId, orgName),
+      organization: this.createOrganization(orgName, orgId),
     };
   }
 }

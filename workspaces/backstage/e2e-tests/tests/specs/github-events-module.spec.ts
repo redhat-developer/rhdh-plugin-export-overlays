@@ -367,28 +367,12 @@ spec:
 
         await uiHelper.waitForLoad(10000);
 
-        const api = new CustomAPIHelper();
-        await api.useStaticToken(staticToken);
-        await api.useBaseUrl(rhdhBaseUrl);
-
         await expect
-          .poll(
-            async () => {
-              const groupEntity = await api.getGroupEntityFromAPI(teamName);
-              const members =
-                groupEntity.relations
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ?.filter((r: any) => r.type === "hasMember")
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .map((r: any) => r.targetRef.split("/")[1]) || [];
-              return members;
-            },
-            {
-              message: "User should be added to group",
-              timeout: 60000, // 60 seconds
-              intervals: [3000], // Check every 3 seconds
-            },
-          )
+          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
+            message: "User should be added to group",
+            timeout: 60000,
+            intervals: [3000],
+          })
           .toContain("04kash");
       });
 
@@ -408,28 +392,12 @@ spec:
           "janus-qe",
         );
 
-        const api = new CustomAPIHelper();
-        await api.useStaticToken(staticToken);
-        await api.useBaseUrl(rhdhBaseUrl);
-
         await expect
-          .poll(
-            async () => {
-              const groupEntity = await api.getGroupEntityFromAPI(teamName);
-              const members =
-                groupEntity.relations
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ?.filter((r: any) => r.type === "hasMember")
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .map((r: any) => r.targetRef.split("/")[1]) || [];
-              return members;
-            },
-            {
-              message: "User should be added to group before removal test",
-              timeout: 60000,
-              intervals: [3000],
-            },
-          )
+          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
+            message: "User should be added to group before removal test",
+            timeout: 60000,
+            intervals: [3000],
+          })
           .toContain("04kash");
 
         await CustomAPIHelper.removeUserFromTeam(
@@ -450,23 +418,11 @@ spec:
         await uiHelper.waitForLoad(10000);
 
         await expect
-          .poll(
-            async () => {
-              const groupEntity = await api.getGroupEntityFromAPI(teamName);
-              const members =
-                groupEntity.relations
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  ?.filter((r: any) => r.type === "hasMember")
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  .map((r: any) => r.targetRef.split("/")[1]) || [];
-              return members;
-            },
-            {
-              message: "User should be removed from group",
-              timeout: 60000,
-              intervals: [3000],
-            },
-          )
+          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
+            message: "User should be removed from group",
+            timeout: 60000,
+            intervals: [3000],
+          })
           .not.toContain("04kash");
       });
     });
