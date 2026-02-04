@@ -13,8 +13,7 @@ metadata:
     - title: Source Code
       url: https://github.com/Dynatrace/backstage-plugin
   annotations:
-    backstage.io/source-location: url
-      https://github.com/Dynatrace/backstage-plugin
+    backstage.io/source-location: url:https://github.com/Dynatrace/backstage-plugin
   tags: []
 spec:
   packageName: "@dynatrace/backstage-plugin-dql"

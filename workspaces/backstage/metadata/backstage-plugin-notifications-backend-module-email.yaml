@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications-backend-module-email"

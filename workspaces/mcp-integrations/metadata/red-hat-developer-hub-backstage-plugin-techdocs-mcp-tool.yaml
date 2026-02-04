@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations/plugins/techdocs-mcp-tool
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations/plugins/techdocs-mcp-tool
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations/plugins/techdocs-mcp-tool
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-techdocs-mcp-tool"

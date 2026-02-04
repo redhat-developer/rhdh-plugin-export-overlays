@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
   tags: []
 spec:
   packageName: "@backstage-community/plugin-analytics-provider-segment"

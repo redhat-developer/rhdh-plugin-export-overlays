@@ -10,8 +10,7 @@ metadata:
     - title: Source Code
       url: https://github.com/ibm-apiconnect/backstage/tree/main/plugins/apic-backstage
   annotations:
-    backstage.io/source-location: url
-      https://github.com/ibm-apiconnect/backstage
+    backstage.io/source-location: url:https://github.com/ibm-apiconnect/backstage
   tags: []
 spec:
   packageName: "apic-backstage"

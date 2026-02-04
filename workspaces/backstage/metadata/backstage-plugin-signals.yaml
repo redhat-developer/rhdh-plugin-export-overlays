@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/signals
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/signals
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/signals
   tags: []
 spec:
   packageName: "@backstage/plugin-signals"

@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow
   tags: []
 spec:
   packageName: "@backstage-community/plugin-servicenow"

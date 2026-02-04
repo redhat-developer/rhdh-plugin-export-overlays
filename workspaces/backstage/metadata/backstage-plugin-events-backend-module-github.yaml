@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
   tags: []
 spec:
   packageName: "@backstage/plugin-events-backend-module-github"

@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-argo-cd-backend"
