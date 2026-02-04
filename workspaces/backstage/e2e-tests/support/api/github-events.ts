@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { APIRequestContext, APIResponse, request } from "@playwright/test";
-import * as crypto from "crypto";
+import * as crypto from "node:crypto";
 
 type CatalogAction = "added" | "modified" | "removed";
 type TeamAction = "created" | "deleted";
@@ -241,12 +241,12 @@ export class GitHubEventsHelper {
     commitFiles: { added: string[]; removed: string[]; modified: string[] },
   ): Commit {
     return {
-      id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
-      tree_id: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
+      id: crypto.randomUUID().substring(0, 40).replaceAll("-", "0"),
+      tree_id: crypto.randomUUID().substring(0, 40).replaceAll("-", "0"),
       distinct: true,
       message,
       timestamp: new Date().toISOString(),
-      url: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 40).replace(/-/g, "0")}`,
+      url: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 40).replaceAll("-", "0")}`,
       author: {
         name: "Test User",
         email: "test@example.com",
@@ -291,7 +291,7 @@ export class GitHubEventsHelper {
     orgId: number,
     orgName: string,
   ): Team {
-    const slug = teamName.toLowerCase().replace(/\s+/g, "-");
+    const slug = teamName.toLowerCase().replaceAll(/\s+/g, "-");
     return {
       name: teamName,
       id: teamId,
@@ -339,7 +339,7 @@ export class GitHubEventsHelper {
     return {
       ref: "refs/heads/main",
       before: "0000000000000000000000000000000000000000",
-      after: crypto.randomUUID().substring(0, 40).replace(/-/g, "0"),
+      after: crypto.randomUUID().substring(0, 40).replaceAll("-", "0"),
       repository: {
         id: Math.floor(Math.random() * 1000000),
         node_id: "R_" + crypto.randomUUID().substring(0, 20),
@@ -383,7 +383,7 @@ export class GitHubEventsHelper {
       deleted: catalogAction === "removed",
       forced: false,
       base_ref: null,
-      compare: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 12).replace(/-/g, "0")}`,
+      compare: `https://github.com/${repo}/commit/${crypto.randomUUID().substring(0, 12).replaceAll("-", "0")}`,
       commits: [commit],
       head_commit: commit,
     };

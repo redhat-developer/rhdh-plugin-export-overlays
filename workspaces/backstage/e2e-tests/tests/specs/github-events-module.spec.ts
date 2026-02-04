@@ -1,7 +1,7 @@
 import { test, expect, request } from "rhdh-e2e-test-utils/test";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
-import { createHmac } from "crypto";
+import { createHmac } from "node:crypto";
 import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
 
 test.describe("GitHub Events Module", () => {

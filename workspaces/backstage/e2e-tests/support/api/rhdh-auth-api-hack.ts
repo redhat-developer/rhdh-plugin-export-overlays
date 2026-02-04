@@ -2,8 +2,6 @@ import { Page } from "@playwright/test";
 
 // here, we spy on the request to get the Backstage token to use APIs
 export class RhdhAuthApiHack {
-  static token: string;
-
   static async getToken(page: Page, provider: "oidc" = "oidc", environment: string = "production") {
     try {
       const response = await page.request.get(
@@ -25,10 +23,9 @@ export class RhdhAuthApiHack {
       if (
         typeof body?.backstageIdentity?.token === "string"
       ) {
-        RhdhAuthApiHack.token = body.backstageIdentity.token;
-        return RhdhAuthApiHack.token;
+        return body.backstageIdentity.token;
       } else {
-        throw new Error("Token not found in response body");
+        throw new TypeError("Token not found in response body");
       }
     } catch (error) {
       console.error("Failed to retrieve the token:", error);
