@@ -18,8 +18,8 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.45.3__2.3.4!red-hat-developer-hub-backstage-plugin-scorecard-backend
-  version: 2.3.4
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  version: 2.3.5
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
