@@ -35,5 +35,5 @@ spec:
             topics:
               - github
           modules:
-              github:
-                webhookSecret: ${GITHUB_WEBHOOK_SECRET}
+            github:
+              webhookSecret: ${GITHUB_WEBHOOK_SECRET}
