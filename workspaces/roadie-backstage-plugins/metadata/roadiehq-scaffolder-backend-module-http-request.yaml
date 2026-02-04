@@ -18,8 +18,8 @@ metadata:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-http-request"
-  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-scaffolder-backend-module-http-request-dynamic
-  version: 5.4.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.45.3__5.5.1!roadiehq-scaffolder-backend-module-http-request
+  version: 5.5.1
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5
