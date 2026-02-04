@@ -1,0 +1,39 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: roadiehq-scaffolder-backend-module-aws
+  namespace: rhdh
+  title: "Scaffolder Backend Module AWS"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-aws
+  annotations:
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-aws
+  tags:
+    - software-templates
+    - aws
+spec:
+  packageName: "@roadiehq/scaffolder-backend-module-aws"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-aws:bs_1.45.3__2.8.2!roadiehq-scaffolder-backend-module-aws
+  version: 2.8.2
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.45.3
+  author: Roadie
+  support: community
+  lifecycle: active
+  partOf:
+    - roadie-scaffolder-aws-actions
+  appConfigExamples:
+    - title: AWS Credentials (optional)
+      content:
+        # The plugin uses AWS SDK default credential chain.
+        # Optionally configure explicit credentials:
+        aws:
+          mainAccount:
+            accessKeyId: ${AWS_ACCESS_KEY_ID}
+            secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
