@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/techdocs-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/techdocs-backend
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/techdocs-backend
   tags: []
 spec:
   packageName: "@backstage/plugin-techdocs-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-techdocs-backend-dynamic
-  version: 2.0.5
+  version: 2.1.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

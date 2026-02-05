@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   tags: []
 spec:
   packageName: "@backstage-community/plugin-tech-radar-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar-backend-dynamic
-  version: 1.10.0
+  version: 1.12.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: generally-available
   lifecycle: active
