@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
   tags: []
 spec:
   packageName: "@backstage-community/plugin-analytics-provider-segment"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-analytics-provider-segment
-  version: 1.19.1
+  version: 1.22.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"
@@ -21,7 +20,7 @@ spec:
   version: 1.2.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.2
+    supportedVersions: 1.45.3
   author: Red Hat
   support: dev-preview
   lifecycle: active

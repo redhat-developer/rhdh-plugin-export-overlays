@@ -10,16 +10,15 @@ metadata:
     - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   tags:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-http-request"
   dynamicArtifact: ./dynamic-plugins/dist/roadiehq-scaffolder-backend-module-http-request-dynamic
-  version: 5.4.2
+  version: 5.5.1
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5

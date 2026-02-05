@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/notifications
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/notifications
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications"
@@ -21,7 +20,7 @@ spec:
   version: 0.5.11
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active
