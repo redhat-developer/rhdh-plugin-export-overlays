@@ -7,13 +7,12 @@ metadata:
   links:
     - url: https://red.ht/rhdh
       title: Homepage
-    - url: https://github.com/pagerduty/backstage-plugin/issues
+    - url: https://github.com/PagerDuty/backstage-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/pagerduty
+      url: https://github.com/PagerDuty/backstage-plugins/tree/main/plugins/backstage-plugin
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/pagerduty
+    backstage.io/source-location: url:https://github.com/PagerDuty/backstage-plugins/tree/main/plugins/backstage-plugin
   tags: []
 spec:
   packageName: "@pagerduty/backstage-plugin"
