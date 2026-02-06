@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.42.5__1.0.4!red-hat-developer-hub-backstage-plugin-lightspeed
-  version: 1.0.4
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.45.3__1.2.3!red-hat-developer-hub-backstage-plugin-lightspeed
+  version: 1.2.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.42.5
@@ -46,6 +46,17 @@ spec:
                 - path: /lightspeed
                   importName: LightspeedPage
                   module: LightspeedPlugin
-                  menuItem:
-                    icon: LightspeedIcon
-                    text: Lightspeed
+              mountPoints:
+                - mountPoint: application/listener
+                  importName: LightspeedFAB
+                - mountPoint: application/provider
+                  importName: LightspeedDrawerProvider
+                - mountPoint: application/internal/drawer-state
+                  importName: LightspeedDrawerStateExposer
+                  config:
+                    id: lightspeed
+                - mountPoint: application/internal/drawer-content
+                  importName: LightspeedChatContainer
+                  config:
+                    id: lightspeed
+                    priority: 100
