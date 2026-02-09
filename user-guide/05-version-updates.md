@@ -77,7 +77,7 @@ With each Backstage monthly release:
 3. **Update** `source.json:repo-backstage-version`
 4. **Update** `metadata/*.yaml:spec.version`
 5. **Update** `metadata/*.yaml:spec.backstage.supportedVersions`
-6. **Test** with `/publish` and `/test`
+6. **Test** with `/publish` and `/smoketest`
 
 ### Quarterly Updates (Minimum)
 
@@ -149,7 +149,7 @@ git push origin update-your-plugin-version
 
 # Open PR, then comment:
 # /publish
-# /test
+# /smoketest
 ```
 
 ---
@@ -173,7 +173,7 @@ When Backstage releases a major version (e.g., 1.x → 2.x):
 
 ### Validation Phase
 
-1. **Run** `/publish` and `/test`
+1. **Run** `/publish` and `/smoketest`
 2. **Perform** manual testing if automated tests pass
 3. **Document** any migration notes in PR description
 
@@ -339,7 +339,7 @@ git push origin backport-plugin-update-1.6
 ### Validation
 - [ ] Created PR
 - [ ] /publish completed successfully
-- [ ] /test passed
+- [ ] /smoketest passed
 - [ ] Manual testing completed (if best-effort match)
 - [ ] PR approved and merged
 ```

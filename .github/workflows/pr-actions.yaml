@@ -14,7 +14,7 @@ jobs:
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
       contains(github.event.comment.body, '/update-commit') ||
-      contains(github.event.comment.body, '/test'))
+      contains(github.event.comment.body, '/smoketest'))
     
     outputs:
       command_name: ${{ steps.extract.outputs.command_name }}
@@ -30,7 +30,7 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/test']);
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest']);
             const matchingCommands = lines.filter(l => allowed.has(l));
             
             if (matchingCommands.length > 1) {
@@ -75,7 +75,7 @@ jobs:
         with:
           script: |
             const errorMessage = core.getInput('error_message');
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/test\` - Run integration tests`;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests`;
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -248,14 +248,14 @@ jobs:
           retention-days: 1
 
   create_test_context:
-    name: Create Test Context
+    name: Create Smoke Test Context
     needs:
       - parse
       - prepare
-    if: needs.parse.outputs.command_name == 'test' && needs.prepare.outputs.pr-number != ''
+    if: needs.parse.outputs.command_name == 'smoketest' && needs.prepare.outputs.pr-number != ''
     runs-on: ubuntu-latest
     steps:
-      - name: Write meta.json for test context
+      - name: Write meta.json for smoke test context
         env:
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
           OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
@@ -268,7 +268,7 @@ jobs:
           cat > context/meta.json <<EOF
           {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"targetBranch":"${TARGET_BRANCH}"}
           EOF
-      - name: Upload test-context artifact
+      - name: Upload smoke-test-context artifact
         uses: actions/upload-artifact@v4
         with:
           name: context-${{ github.run_id }}

@@ -1,4 +1,4 @@
-name: Run Plugin Integration Tests
+name: Run Plugin Smoke Tests
 
 on:
   workflow_call:
@@ -9,7 +9,7 @@ on:
         default: main
     outputs:
       success:
-        description: Overall integration test result
+        description: Overall smoke test result
         value: ${{ jobs.run.outputs.success }}
       failed-plugins:
         description: Newline-separated list of plugins that failed to load
@@ -30,14 +30,14 @@ jobs:
       failed-plugins: ${{ steps.collect-results.outputs.failed-plugins }}
       error-logs: ${{ steps.capture-errors.outputs.error-logs }}
     steps:
-      - name: Download integration test artifacts
+      - name: Download smoke test artifacts
         uses: actions/download-artifact@v4
         with:
-          name: integration-test-artifacts
+          name: smoke-test-artifacts
           path: ./artifacts
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

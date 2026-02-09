@@ -102,7 +102,7 @@ When automated workflows fail on your workspace:
    - Integrity failure → Sync metadata
    - Test failure → Verify plugin loads correctly
 3. **Open a PR** with the fix
-4. **Validate** with `/publish` and `/test` commands
+4. **Validate** with `/publish` and `/smoketest` commands
 
 ---
 
@@ -144,7 +144,7 @@ Use this checklist each month:
 ### Test Validation
 - [ ] PR created with updates
 - [ ] `/publish` completed successfully
-- [ ] `/test` passed or manual testing completed
+- [ ] `/smoketest` passed or manual testing completed
 - [ ] PR merged
 ```
 
