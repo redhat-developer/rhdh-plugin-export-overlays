@@ -225,6 +225,33 @@ export class CustomAPIHelper {
   }
 
   /**
+   * Delete a GitHub repository
+   */
+  static async deleteRepo(
+    owner: string,
+    repo: string,
+    token: string,
+  ): Promise<void> {
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `token ${token}`,
+          Accept: "application/vnd.github+json",
+        },
+      },
+    );
+
+    if (!response.ok && response.status !== 404) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to delete repository: ${response.status} ${errorText}`,
+      );
+    }
+  }
+
+  /**
    * Create a team in a GitHub organization
    */
   static async createTeamInOrg(

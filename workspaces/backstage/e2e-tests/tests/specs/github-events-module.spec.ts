@@ -204,6 +204,14 @@ spec:
         )
         .toBe(false);
     });
+
+    test.afterAll(async () => {
+      await CustomAPIHelper.deleteRepo(
+        catalogRepoDetails.owner,
+        catalogRepoDetails.name,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+      );
+    });
   });
 
   test.describe("GitHub Organizational Data", () => {
@@ -333,7 +341,7 @@ spec:
           await CustomAPIHelper.removeUserFromTeam(
             "janus-qe",
             teamName,
-            "04kash",
+            "rhdh-qe",
             process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
           );
           userAddedToTeam = false;
@@ -353,14 +361,14 @@ spec:
         await CustomAPIHelper.addUserToTeam(
           "janus-qe",
           teamName,
-          "04kash",
+          "rhdh-qe",
           process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
         );
         userAddedToTeam = true;
 
         await githubEventsHelper.sendMembershipEvent(
           "added",
-          "04kash",
+          "rhdh-qe",
           teamName,
           "janus-qe",
         );
@@ -373,21 +381,21 @@ spec:
             timeout: 60000,
             intervals: [3000],
           })
-          .toContain("04kash");
+          .toContain("rhdh-qe");
       });
 
       test("Removing a user from a group", async ({ uiHelper }) => {
         await CustomAPIHelper.addUserToTeam(
           "janus-qe",
           teamName,
-          "04kash",
+          "rhdh-qe",
           process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
         );
         userAddedToTeam = true;
 
         await githubEventsHelper.sendMembershipEvent(
           "added",
-          "04kash",
+          "rhdh-qe",
           teamName,
           "janus-qe",
         );
@@ -398,19 +406,19 @@ spec:
             timeout: 60000,
             intervals: [3000],
           })
-          .toContain("04kash");
+          .toContain("rhdh-qe");
 
         await CustomAPIHelper.removeUserFromTeam(
           "janus-qe",
           teamName,
-          "04kash",
+          "rhdh-qe",
           process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
         );
         userAddedToTeam = false;
 
         await githubEventsHelper.sendMembershipEvent(
           "removed",
-          "04kash",
+          "rhdh-qe",
           teamName,
           "janus-qe",
         );
@@ -423,7 +431,7 @@ spec:
             timeout: 60000,
             intervals: [3000],
           })
-          .not.toContain("04kash");
+          .not.toContain("rhdh-qe");
       });
     });
   });
