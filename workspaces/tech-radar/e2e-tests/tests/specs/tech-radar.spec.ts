@@ -2,15 +2,30 @@ import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
 
+const secretsFileAppNext = "tests/config/rhdh-secrets-next.yaml";
+const configFileAppNext = "tests/config/app-config-rhdh-next.yaml";
 const setupScript = path.join(
   import.meta.dirname,
   "deploy-customization-provider.sh",
 );
 
+// TEMPORARY: Use RHDH image from PR 4317 for CI to validate the image. Remove when no longer needed:
+// - Delete tests/config/value_file-pr-4317.yaml
+// - Remove the valueFile line below from the rhdh.configure() call
+const valueFilePr4317 = "tests/config/value_file-pr-4317.yaml";
+
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({
+      auth: "keycloak",
+      // TEMPORARY: override Helm image to quay.io/rhdh-community/rhdh:pr-4317 (remove with valueFilePr4317)
+      valueFile: valueFilePr4317,
+      ...(project === "tech-radar-app-next" && {
+        appConfig: configFileAppNext,
+        secrets: secretsFileAppNext,
+      }),
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(
