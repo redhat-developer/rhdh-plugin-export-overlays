@@ -10,7 +10,9 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({
+      auth: "keycloak",
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(
