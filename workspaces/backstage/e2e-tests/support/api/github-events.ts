@@ -341,7 +341,7 @@ export class GitHubEventsHelper {
       before: "0000000000000000000000000000000000000000",
       after: crypto.randomUUID().substring(0, 40).replaceAll("-", "0"),
       repository: {
-        id: Math.floor(Math.random() * 1000000),
+        id: crypto.randomInt(1000000),
         node_id: "R_" + crypto.randomUUID().substring(0, 20),
         name: repoName,
         full_name: repo,
@@ -349,9 +349,9 @@ export class GitHubEventsHelper {
         owner: {
           name: owner,
           login: owner,
-          id: Math.floor(Math.random() * 100000),
+          id: crypto.randomInt(100000),
           node_id: "U_" + crypto.randomUUID().substring(0, 20),
-          avatar_url: `https://avatars.githubusercontent.com/u/${Math.floor(Math.random() * 100000)}`,
+          avatar_url: `https://avatars.githubusercontent.com/u/${crypto.randomInt(100000)}`,
           type: "Organization",
         },
         html_url: `https://github.com/${repo}`,
@@ -369,14 +369,14 @@ export class GitHubEventsHelper {
       },
       organization: {
         login: owner,
-        id: Math.floor(Math.random() * 100000),
+        id: crypto.randomInt(100000),
         node_id: "O_" + crypto.randomUUID().substring(0, 20),
         url: `https://api.github.com/orgs/${owner}`,
-        avatar_url: `https://avatars.githubusercontent.com/u/${Math.floor(Math.random() * 100000)}`,
+        avatar_url: `https://avatars.githubusercontent.com/u/${crypto.randomInt(100000)}`,
       },
       sender: {
         login: "test-user",
-        id: Math.floor(Math.random() * 100000),
+        id: crypto.randomInt(100000),
         type: "User",
       },
       created: catalogAction === "added",
@@ -394,17 +394,17 @@ export class GitHubEventsHelper {
     teamName: string,
     orgName: string,
   ): TeamPayload {
-    const orgId = Math.floor(Math.random() * 1000000);
-    const teamId = Math.floor(Math.random() * 100000000);
+    const orgId = crypto.randomInt(1000000);
+    const teamId = crypto.randomInt(100000000);
     return {
       action,
       team: this.createTeam(teamName, teamId, orgId, orgName),
       organization: this.createOrganization(orgName, orgId),
       sender: {
         login: "test-user",
-        id: Math.floor(Math.random() * 100000),
+        id: crypto.randomInt(100000),
         node_id: "U_" + crypto.randomUUID().substring(0, 20),
-        avatar_url: `https://avatars.githubusercontent.com/u/${Math.floor(Math.random() * 100000)}?v=4`,
+        avatar_url: `https://avatars.githubusercontent.com/u/${crypto.randomInt(100000)}?v=4`,
         gravatar_id: "",
         url: `https://api.github.com/users/test-user`,
         html_url: `https://github.com/test-user`,
@@ -421,9 +421,9 @@ export class GitHubEventsHelper {
     teamName: string,
     orgName: string,
   ): MembershipPayload {
-    const orgId = Math.floor(Math.random() * 1000000);
-    const teamId = Math.floor(Math.random() * 100000000);
-    const userId = Math.floor(Math.random() * 1000000);
+    const orgId = crypto.randomInt(1000000);
+    const teamId = crypto.randomInt(100000000);
+    const userId = crypto.randomInt(1000000);
     return {
       action,
       scope: "team",
@@ -450,9 +450,9 @@ export class GitHubEventsHelper {
       },
       sender: {
         login: "test-admin",
-        id: Math.floor(Math.random() * 100000),
+        id: crypto.randomInt(100000),
         node_id: "U_" + crypto.randomUUID().substring(0, 20),
-        avatar_url: `https://avatars.githubusercontent.com/u/${Math.floor(Math.random() * 100000)}?v=4`,
+        avatar_url: `https://avatars.githubusercontent.com/u/${crypto.randomInt(100000)}?v=4`,
         gravatar_id: "",
         url: `https://api.github.com/users/test-admin`,
         html_url: `https://github.com/test-admin`,
