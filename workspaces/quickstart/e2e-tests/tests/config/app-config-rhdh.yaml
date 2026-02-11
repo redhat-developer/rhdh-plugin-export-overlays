@@ -1,0 +1,8 @@
+auth:
+  environment: production
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+
+permission:
+  enabled: true
