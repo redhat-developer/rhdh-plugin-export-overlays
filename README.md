@@ -126,23 +126,23 @@ The repository includes an automated integration testing workflow that verifies 
 - PR must touch exactly one workspace
 - Each plugin must have its own metadata file in `workspaces/<modified_workspace>/metadata/`
 
-**Triggering tests:**
-- After `/publish`: Tests run automatically upon successful publish completion
-- Manual testing: Use `/test` comment on the PR to rerun the tests using the latest published artifacts
-  - For `/test` command, a previous successful `/publish` run is required
+**Triggering smoke tests:**
+- After `/publish`: Smoke tests run automatically upon successful publish completion
+- Manual testing: Use `/smoketest` comment on the PR to rerun the smoke tests using the latest published artifacts
+  - For `/smoketest` command, a previous successful `/publish` run is required
 
-**Testing workflow steps:**
+**Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata and copies other configuration files (`tests/app-config.yaml`, workspace-specific `app-config.test.yaml` and `test.env`)
-3. **Run integration tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata and copies other configuration files (`smoke-tests/app-config.yaml`, workspace-specific `app-config.test.yaml` and `test.env`)
+3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
-**Environment Variables in Tests:**
-If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/tests/test.env`.
-- If the `.env` file is missing but required, tests are skipped.
+**Environment Variables in Smoke Tests:**
+If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/smoke-tests/test.env`.
+- If the `.env` file is missing but required, smoke tests are skipped.
 - If the `.env` file exists but is missing variables, the workflow fails.
 
-- **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `integration-tests/run` step.
+- **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `smoke-tests/run` step.
 
 #### Manual Testing
 

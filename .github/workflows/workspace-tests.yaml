@@ -1,4 +1,4 @@
-name: Workspace Tests
+name: Workspace Smoke Tests
 
 on:
   workflow_run:
@@ -124,10 +124,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: overlayCommit,
-              description: 'Workspace Tests',
+              description: 'Workspace Smoke Tests',
               state: 'pending',
               target_url: runUrl,
-              context: 'test',
+              context: 'smoketest',
             });
             console.log(`Set pending status on ${overlayCommit}`);
 
@@ -190,7 +190,7 @@ jobs:
             TOTAL_PLUGINS=$((TOTAL_PLUGINS + 1))
           done
 
-          OUT_DIR="$WORKSPACE_PATH/tests"
+          OUT_DIR="$WORKSPACE_PATH/smoke-tests"
           OUT_FILE="$OUT_DIR/dynamic-plugins.test.yaml"
           mkdir -p "$OUT_DIR"
 
@@ -206,11 +206,11 @@ jobs:
           done
 
           # Always include the root-level default config
-          ROOT_CONFIG="$GITHUB_WORKSPACE/tests/app-config.yaml"
+          ROOT_CONFIG="$GITHUB_WORKSPACE/smoke-tests/app-config.yaml"
           [ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
           
           # Read workspace-wide test.env if it exists
-          WORKSPACE_ENV_FILE="$WORKSPACE_PATH/tests/test.env"
+          WORKSPACE_ENV_FILE="$WORKSPACE_PATH/smoke-tests/test.env"
           WORKSPACE_ENV_CONTENT=""
           if [ -f "$WORKSPACE_ENV_FILE" ]; then
             echo "Found workspace test.env file: $WORKSPACE_ENV_FILE"
@@ -312,11 +312,11 @@ jobs:
           echo "plugins_metadata_complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
           echo "skip_tests_missing_env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
 
-      - name: Upload integration-test artefact
+      - name: Upload smoke-test artefact
         uses: actions/upload-artifact@v4
         with:
-          name: integration-test-artifacts
-          path: ${{ format('{0}/tests', needs.resolve.outputs.workspace) }}
+          name: smoke-test-artifacts
+          path: ${{ format('{0}/smoke-tests', needs.resolve.outputs.workspace) }}
           if-no-files-found: error
 
   integration-tests:
@@ -324,7 +324,7 @@ jobs:
       - resolve
       - prepare-test-config
     if: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete == 'true' && needs.prepare-test-config.outputs.skip_tests_missing_env != 'true' }}
-    uses: ./.github/workflows/run-plugin-integration-tests.yaml
+    uses: ./.github/workflows/run-workspace-smoke-tests.yaml
     with:
       target-branch: ${{ needs.resolve.outputs.targetBranch }}
 
@@ -337,7 +337,47 @@ jobs:
     permissions:
       pull-requests: write
       issues: write
+      statuses: write
     steps:
+      - name: Set success commit status for valid skip
+        uses: actions/github-script@v7
+        env:
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins_metadata_complete || '' }}
+          INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip_tests_missing_env || '' }}
+        with:
+          script: |
+            const overlayCommit = process.env.OVERLAY_COMMIT;
+            if (!overlayCommit) {
+              console.log('No overlay commit; skipping status update');
+              return;
+            }
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const workspace = core.getInput('workspace');
+            const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
+            const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
+            
+            let description = 'Skipped';
+            if (!workspace || workspace === '') {
+              description = 'Skipped: PR doesn\'t touch one workspace';
+            } else if (skipTestsMissingEnv) {
+              description = 'Skipped: missing smoke-tests/test.env';
+            } else if (!pluginsMetadataComplete) {
+              description = 'Skipped: missing plugin metadata';
+            }
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description,
+              state: 'success',
+              target_url: runUrl,
+              context: 'smoketest',
+            });
+            console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
+
       - name: Post skipped-test comment
         uses: actions/github-script@v7
         env:
@@ -356,12 +396,12 @@ jobs:
             const workspace = core.getInput('workspace');
             const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
-            let body = `:warning: \n[Test workflow](${runUrl})`;
+            let body = `:warning: \n[Smoke test workflow](${runUrl})`;
 
             if (!workspace || workspace === '') {
               body += ' skipped: PR doesn\'t touch exactly one workspace.\n';
             } else if (skipTestsMissingEnv) {
-              body += ' skipped: missing workspace `tests/test.env` file.\n';
+              body += ' skipped: missing workspace `smoke-tests/test.env` file.\n';
             } else if (!pluginsMetadataComplete) {
               body += ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
             } else {
@@ -387,7 +427,7 @@ jobs:
             if [[ -z "$WORKSPACE" ]]; then
               echo "PR doesn't touch exactly one workspace."
             elif [[ "$SKIP_TESTS_MISSING_ENV" == "true" ]]; then
-              echo "Missing workspace \`tests/test.env\` file."
+              echo "Missing workspace \`smoke-tests/test.env\` file."
             elif [[ "$PLUGINS_METADATA_COMPLETE" != "true" ]]; then
               echo "Missing plugin metadata files (\`<workspace>/metadata/*.yaml\`)."
             else
@@ -469,10 +509,10 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha,
-              description: 'Workspace Tests',
+              description: 'Workspace Smoke Tests',
               state: success ? 'success' : 'failure',
               target_url: runUrl,
-              context: 'test',
+              context: 'smoketest',
             });
             
             let body;
