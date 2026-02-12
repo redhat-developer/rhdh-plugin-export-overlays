@@ -1,6 +1,10 @@
 dynamicPlugins:
   frontend:
     backstage-community.plugin-npm:
+      translationResources:
+        - module: alpha
+          importName: npmTranslations
+          ref: npmTranslationRef
       entityTabs:
         - mountPoint: entity.page.npm
           path: /npm
