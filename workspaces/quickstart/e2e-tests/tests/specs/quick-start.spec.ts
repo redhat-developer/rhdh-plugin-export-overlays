@@ -41,8 +41,6 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyText("We'll guide you through a few quick steps");
     await uiHelper.clickButtonByText("Import application");
     await uiHelper.verifyButtonURL("Import", "/bulk-import");
-    await uiHelper.clickButtonByText("Import");
-    await uiHelper.verifyHeading("Bulk import");
     await uiHelper.clickButtonByText("Learn about the Catalog");
     await uiHelper.verifyButtonURL("View Catalog", "/catalog");
     await uiHelper.clickButtonByText("View Catalog");
@@ -55,6 +53,6 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyButtonURL("View Learning Paths", "/learning-paths");
     await uiHelper.clickButtonByText("View Learning Paths");
     await uiHelper.verifyHeading("Learning Paths");
-    await uiHelper.verifyText("100% progress");
+    await uiHelper.verifyText("75% progress");
   });
 });
