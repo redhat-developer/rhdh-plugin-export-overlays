@@ -10,7 +10,13 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    const useNewFrontend = project === "tech-radar-app-next";
+    await rhdh.configure({
+      auth: "keycloak",
+      ...(useNewFrontend && {
+        valueFile: path.join(import.meta.dirname, "..", "config", "value-file-app-next.yaml"),
+      }),
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(

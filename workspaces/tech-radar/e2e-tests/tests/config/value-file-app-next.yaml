@@ -1,0 +1,7 @@
+upstream:
+  backstage:
+    extraEnvVars:
+      - name: APP_CONFIG_app_packageName
+        value: "app-next"
+      - name: ENABLE_STANDARD_MODULE_FEDERATION
+        value: "true"
