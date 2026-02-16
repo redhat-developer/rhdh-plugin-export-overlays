@@ -1,4 +1,4 @@
-import { test, expect, request } from "rhdh-e2e-test-utils/test";
+import { test, expect, request } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
 import { createHmac } from "node:crypto";
