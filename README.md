@@ -120,7 +120,7 @@ Plugin testing can be performed automatically via CI workflows or manually in yo
 
 #### Automatic Testing
 
-The repository includes an automated integration testing workflow that verifies plugins load correctly in RHDH.
+The repository includes an automated smoke testing workflow that verifies plugins load correctly in RHDH.
 
 **Prerequisites:**
 - PR must touch exactly one workspace

@@ -319,7 +319,7 @@ jobs:
           path: ${{ format('{0}/smoke-tests', needs.resolve.outputs.workspace) }}
           if-no-files-found: error
 
-  integration-tests:
+  run-smoke-tests:
     needs:
       - resolve
       - prepare-test-config
@@ -440,7 +440,7 @@ jobs:
     needs:
       - resolve
       - prepare-test-config
-      - integration-tests
+      - run-smoke-tests
     concurrency:
       group: addTestResultComment-${{ github.ref_name }}
       cancel-in-progress: true
@@ -454,16 +454,16 @@ jobs:
       - name: Post test result comment and status
         uses: actions/github-script@v7
         env:
-          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
-          SUCCESS: ${{ needs.integration-tests.outputs.success }}
-          FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
-          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
+          SMOKE_TESTS_RESULT: ${{ needs.run-smoke-tests.result }}
+          SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
+          FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
           PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
         with:
           script: |
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const integrationTestsResult = process.env.INTEGRATION_TESTS_RESULT || '';
+            const smokeTestsResult = process.env.SMOKE_TESTS_RESULT || '';
             const successOutput = process.env.SUCCESS;
             const failed = (process.env.FAILED_PLUGINS || '').trim();
             const errorLogs = (process.env.ERROR_LOGS || '').trim();
@@ -475,22 +475,22 @@ jobs:
               return;
             }
             
-            const success = integrationTestsResult === 'success' && successOutput === 'true';
+            const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
             
             if (!success) {
-              switch (integrationTestsResult) {
+              switch (smokeTestsResult) {
                 case 'failure':
-                  failureReason = '\n\n:warning: Integration tests failed. Check the workflow logs for details.';
+                  failureReason = '\n\n:warning: Smoke tests failed. Check the workflow logs for details.';
                   break;
                 case 'cancelled':
-                  failureReason = '\n\n:warning: Integration tests were cancelled.';
+                  failureReason = '\n\n:warning: Smoke tests were cancelled.';
                   break;
                 case 'timeout':
-                  failureReason = '\n\n:warning: Integration tests timed out.';
+                  failureReason = '\n\n:warning: Smoke tests timed out.';
                   break;
                 default:
-                  failureReason = `\n\n:warning: Integration tests ended in an unexpected state: ${integrationTestsResult}. Check the workflow logs for details.`;
+                  failureReason = `\n\n:warning: Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
               }
             }
             
@@ -538,32 +538,32 @@ jobs:
 
       - name: Write test result summary
         env:
-          INTEGRATION_TESTS_RESULT: ${{ needs.integration-tests.result }}
-          SUCCESS: ${{ needs.integration-tests.outputs.success }}
-          FAILED_PLUGINS: ${{ needs.integration-tests.outputs.failed-plugins }}
-          ERROR_LOGS: ${{ needs.integration-tests.outputs.error-logs }}
+          SMOKE_TESTS_RESULT: ${{ needs.run-smoke-tests.result }}
+          SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
+          FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
+          ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
         run: |
           {
             echo ""
-            if [[ "$INTEGRATION_TESTS_RESULT" == "success" && "$SUCCESS" == "true" ]]; then
+            if [[ "$SMOKE_TESTS_RESULT" == "success" && "$SUCCESS" == "true" ]]; then
               echo "### Test Results: Passed"
               echo ""
               echo "All plugins loaded successfully."
             else
               echo "### Test Results: Failed"
               echo ""
-              case "$INTEGRATION_TESTS_RESULT" in
+              case "$SMOKE_TESTS_RESULT" in
                 failure)
-                  echo "Integration tests failed."
+                  echo "Smoke tests failed."
                   ;;
                 cancelled)
-                  echo "Integration tests were cancelled."
+                  echo "Smoke tests were cancelled."
                   ;;
                 timeout)
-                  echo "Integration tests timed out."
+                  echo "Smoke tests timed out."
                   ;;
                 *)
-                  echo "Integration tests ended in an unexpected state: $INTEGRATION_TESTS_RESULT"
+                  echo "Smoke tests ended in an unexpected state: $SMOKE_TESTS_RESULT"
                   ;;
               esac
               if [[ -n "$FAILED_PLUGINS" ]]; then
