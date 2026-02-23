@@ -1,5 +1,9 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { TestHelper } from "e2e-tests/playwright/support/pages/adoption-insights";
+import {
+  goToAdoptionInsights,
+  goToAdoptionInsightsAndSelectToday,
+  runInteractionTrackingSetup,
+} from "../utils/adoption-insights";
 
 test.describe.serial("Test Adoption Insights", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -28,22 +32,13 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-
-        await testHelper.waitForPanelApiCalls(page);
-
+        await goToAdoptionInsights(page, uiHelper);
         await uiHelper.verifyHeading("Adoption Insights");
         expect(page.url()).toContain("adoption-insights");
       });
 
       test("Select date range", async ({ page, uiHelper }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-        await testHelper.waitForPanelApiCalls(page);
-
+        const testHelper = await goToAdoptionInsights(page, uiHelper);
         const dateRanges = ["Today", "Last week", "Last month", "Last year"];
         await testHelper.clickByText("Last 28 days");
         for (const range of dateRanges) {
@@ -68,16 +63,10 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-        await testHelper.waitForPanelApiCalls(page);
-        await testHelper.clickByText("Last 28 days");
-        await Promise.all([
-          testHelper.waitForPanelApiCalls(page),
-          testHelper.selectOption("Today"),
-        ]);
-
+        const testHelper = await goToAdoptionInsightsAndSelectToday(
+          page,
+          uiHelper,
+        );
         const panel = page.locator(".v5-MuiPaper-root", {
           hasText: "Active users",
         });
@@ -96,16 +85,7 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-        await testHelper.waitForPanelApiCalls(page);
-        await testHelper.clickByText("Last 28 days");
-        await Promise.all([
-          testHelper.waitForPanelApiCalls(page),
-          testHelper.selectOption("Today"),
-        ]);
-
+        await goToAdoptionInsightsAndSelectToday(page, uiHelper);
         const panel = page.locator(".v5-MuiPaper-root", {
           hasText: "Total number of users",
         });
@@ -118,15 +98,10 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-        await testHelper.waitForPanelApiCalls(page);
-        await testHelper.clickByText("Last 28 days");
-        await Promise.all([
-          testHelper.waitForPanelApiCalls(page),
-          testHelper.selectOption("Today"),
-        ]);
+        const testHelper = await goToAdoptionInsightsAndSelectToday(
+          page,
+          uiHelper,
+        );
         await testHelper.expectTopEntriesToBePresent("plugins");
       });
 
@@ -134,16 +109,10 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = new TestHelper(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
-        await testHelper.waitForPanelApiCalls(page);
-        await testHelper.clickByText("Last 28 days");
-        await Promise.all([
-          testHelper.waitForPanelApiCalls(page),
-          testHelper.selectOption("Today"),
-        ]);
-
+        const testHelper = await goToAdoptionInsightsAndSelectToday(
+          page,
+          uiHelper,
+        );
         const titles = ["templates", "catalog entities", "techdocs", "Searches"];
 
         for (const title of titles) {
@@ -172,156 +141,34 @@ test.describe.serial("Test Adoption Insights", () => {
         }
       });
 
-      test.describe("Interaction-based tracking tests", () => {
-        test("Visited component shows up in top catalog entities", async ({
+      test("Interaction-based tracking tests", async ({
+        page,
+        uiHelper,
+      }) => {
+        const testHelper = await runInteractionTrackingSetup(
           page,
           uiHelper,
-        }) => {
-          const testHelper = new TestHelper(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.waitForPanelApiCalls(page);
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-          await testHelper.populateMissingPanelData(
-            page,
-            uiHelper,
-            templatesFirstEntry,
-            catalogEntitiesFirstEntry,
-            techdocsFirstEntry,
-          );
-          await page.getByPlaceholder("Search...").fill("Dummy search");
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await expect(page.getByText("No results found")).toBeVisible();
-          await uiHelper.clickLink("Catalog");
-          await page.reload();
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
+          templatesFirstEntry,
+          catalogEntitiesFirstEntry,
+          techdocsFirstEntry,
+        );
 
+        await test.step("Visited component shows up in top catalog entities", async () => {
           await testHelper.expectTopEntriesToBePresent("catalog entities");
         });
-
-        test("Visited techdoc shows up in top techdocs", async ({
-          page,
-          uiHelper,
-        }) => {
-          const testHelper = new TestHelper(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.waitForPanelApiCalls(page);
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-          await testHelper.populateMissingPanelData(
-            page,
-            uiHelper,
-            templatesFirstEntry,
-            catalogEntitiesFirstEntry,
-            techdocsFirstEntry,
-          );
-          await page.getByPlaceholder("Search...").fill("Dummy search");
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.clickLink("Catalog");
-          await page.reload();
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-
+        await test.step("Visited techdoc shows up in top techdocs", async () => {
           await testHelper.expectTopEntriesToBePresent("techdocs");
         });
-
-        test("Visited templates shows in top templates", async ({
-          page,
-          uiHelper,
-        }) => {
-          const testHelper = new TestHelper(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.waitForPanelApiCalls(page);
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-          await testHelper.populateMissingPanelData(
-            page,
-            uiHelper,
-            templatesFirstEntry,
-            catalogEntitiesFirstEntry,
-            techdocsFirstEntry,
-          );
-          await page.getByPlaceholder("Search...").fill("Dummy search");
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.clickLink("Catalog");
-          await page.reload();
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-
+        await test.step("Visited templates shows in top templates", async () => {
           await testHelper.expectTopEntriesToBePresent("templates");
         });
 
-        test("Changes are Reflecting in panels", async ({
-          page,
-          uiHelper,
-        }) => {
-          const testHelper = new TestHelper(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.waitForPanelApiCalls(page);
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-          await testHelper.populateMissingPanelData(
-            page,
-            uiHelper,
-            templatesFirstEntry,
-            catalogEntitiesFirstEntry,
-            techdocsFirstEntry,
-          );
-          await page.getByPlaceholder("Search...").fill("Dummy search");
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.clickLink("Catalog");
-          await page.reload();
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-
+        await test.step("Changes are Reflecting in panels", async () => {
           const titles = ["catalog entities", "techdocs"];
-
           interface PanelState {
             firstRow?: string[];
             initialViewsCount?: number;
           }
-
           const state: Record<string, PanelState> = {
             "catalog entities": {},
             techdocs: {},
@@ -338,7 +185,6 @@ test.describe.serial("Test Adoption Insights", () => {
             ) {
               state[title].firstRow =
                 await testHelper.getVisibleFirstRowText(panel);
-
               if (title === "catalog entities")
                 catalogEntitiesFirstEntry = state[title].firstRow ?? [];
               else if (title === "techdocs")
@@ -348,15 +194,11 @@ test.describe.serial("Test Adoption Insights", () => {
               .locator("table.v5-MuiTable-root tbody tr")
               .first();
             const firstEntry = firstRow.locator("td").first();
-
             let headerTxt: string;
-
             if (title === "techdocs") {
               headerTxt = techdocsFirstEntry[0];
               state[title].initialViewsCount = Number(techdocsFirstEntry[1]);
-              if (headerTxt === "docs") {
-                headerTxt = "Documentation";
-              }
+              if (headerTxt === "docs") headerTxt = "Documentation";
               await testHelper.clickAndVerifyText(firstEntry, headerTxt);
             } else if (title === "catalog entities") {
               headerTxt = catalogEntitiesFirstEntry[0];
@@ -376,7 +218,6 @@ test.describe.serial("Test Adoption Insights", () => {
             testHelper.selectOption("Today"),
           ]);
           await testHelper.waitUntilApiCallSucceeds(page);
-
           for (const title of titles) {
             const panel = page
               .locator(".v5-MuiPaper-root", { hasText: title })
@@ -393,39 +234,7 @@ test.describe.serial("Test Adoption Insights", () => {
           }
         });
 
-        test("New data shows in searches", async ({
-          page,
-          uiHelper,
-        }) => {
-          const testHelper = new TestHelper(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.waitForPanelApiCalls(page);
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-          await testHelper.populateMissingPanelData(
-            page,
-            uiHelper,
-            templatesFirstEntry,
-            catalogEntitiesFirstEntry,
-            techdocsFirstEntry,
-          );
-          await page.getByPlaceholder("Search...").fill("Dummy search");
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.clickLink("Catalog");
-          await page.reload();
-          await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
-
+        await test.step("New data shows in searches", async () => {
           const panel = page.locator(".v5-MuiPaper-root", {
             hasText: "searches",
           });
