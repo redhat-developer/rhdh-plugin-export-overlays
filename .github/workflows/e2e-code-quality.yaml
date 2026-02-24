@@ -1,0 +1,133 @@
+name: E2E Code Quality
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'workspaces/*/e2e-tests/**'
+
+concurrency:
+  group: e2e-code-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-code-quality:
+    name: E2E Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Discover and validate e2e-tests workspaces
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA"...HEAD -- 'workspaces/*/e2e-tests/**')
+          WORKSPACES=$(echo "$CHANGED_FILES" | sed -n 's|^workspaces/\([^/]*\)/e2e-tests/.*|\1|p' | sort -u)
+
+          if [ -z "$WORKSPACES" ]; then
+            echo "No e2e-tests workspaces changed. Nothing to validate."
+            exit 0
+          fi
+
+          echo "Discovered workspaces with e2e-tests changes:"
+          echo "$WORKSPACES"
+          echo ""
+
+          FAILED=0
+          RESULTS=""
+
+          for WORKSPACE in $WORKSPACES; do
+            E2E_DIR="workspaces/${WORKSPACE}/e2e-tests"
+
+            echo ""
+            echo "========================================"
+            echo "Validating: ${WORKSPACE}"
+            echo "========================================"
+
+            echo "Installing dependencies..."
+            if ! (cd "$E2E_DIR" && yarn install --immutable); then
+              echo "::error::yarn install failed for ${WORKSPACE}"
+              RESULTS="${RESULTS}| ${WORKSPACE} | FAIL (install) | FAIL (install) | FAIL (install) |\n"
+              FAILED=1
+              continue
+            fi
+
+            LINT_RESULT="pass"
+            PRETTIER_RESULT="pass"
+            TSC_RESULT="pass"
+
+            echo ""
+            echo "--- ESLint ---"
+            if (cd "$E2E_DIR" && yarn lint:check); then
+              echo "ESLint: passed"
+            else
+              echo "::error::ESLint failed for ${WORKSPACE}"
+              LINT_RESULT="FAIL"
+              FAILED=1
+            fi
+
+            echo ""
+            echo "--- Prettier ---"
+            if (cd "$E2E_DIR" && yarn prettier:check); then
+              echo "Prettier: passed"
+            else
+              echo "::error::Prettier failed for ${WORKSPACE}"
+              PRETTIER_RESULT="FAIL"
+              FAILED=1
+            fi
+
+            echo ""
+            echo "--- TypeScript ---"
+            if (cd "$E2E_DIR" && yarn tsc:check); then
+              echo "TypeScript: passed"
+            else
+              echo "::error::TypeScript failed for ${WORKSPACE}"
+              TSC_RESULT="FAIL"
+              FAILED=1
+            fi
+
+            RESULTS="${RESULTS}| ${WORKSPACE} | ${LINT_RESULT} | ${PRETTIER_RESULT} | ${TSC_RESULT} |\n"
+          done
+
+          echo ""
+          echo "========================================"
+          echo "Summary"
+          echo "========================================"
+
+          {
+            echo "### E2E Code Quality Results"
+            echo ""
+            echo "| Workspace | ESLint | Prettier | TypeScript |"
+            echo "|-----------|--------|----------|------------|"
+            printf '%b' "$RESULTS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo ""
+          printf '%s\n' "| Workspace | ESLint | Prettier | TypeScript |"
+          printf '%s\n' "|-----------|--------|----------|------------|"
+          printf '%b' "$RESULTS"
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "One or more checks failed."
+            exit 1
+          fi
+
+          echo ""
+          echo "All checks passed."
