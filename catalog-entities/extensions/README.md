@@ -27,10 +27,9 @@ metadata:
     - url: https://issues.redhat.com/browse/RHDHBUGS
       title: Issues
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   annotations: # Activates backstage features
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
@@ -81,7 +80,7 @@ metadata:
     - url: https://issues.redhat.com/browse/RHDHBUGS
       title: Issues
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   tags:
     - apis
   # The description below is used in the Extension plugin's "Tile" view as the plugin description. Keep it to a few lines (short description)
