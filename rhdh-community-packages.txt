@@ -45,8 +45,8 @@ roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-ut
 argocd/plugins/argocd
 argocd/plugins/argocd-backend
 
-# continue to use wrappers in 1.9; moving to Commmunity in 1.11 (per PM/Eng sync meeting 01/12)
-# TODO remove from supported / move to community in 1.11 - https://issues.redhat.com/browse/RHIDP-11354
+# continue to use wrappers in 1.9; moving to Commmunity in 1.10 (per PM/Eng sync meeting 01/12; on 01/28 PM decided to move these in 1.10, not 1.11)
+# TODO remove from supported / move to community in 1.10 - https://issues.redhat.com/browse/RHIDP-11354
 quay/plugins/quay
 quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
