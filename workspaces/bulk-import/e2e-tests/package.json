@@ -18,7 +18,8 @@
     "lint:fix": "eslint . --fix",
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "check": "tsc --noEmit && yarn lint:check && yarn prettier:check"
+    "check": "tsc --noEmit && yarn lint:check && yarn prettier:check",
+    "tsc:check": "tsc --noEmit"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
