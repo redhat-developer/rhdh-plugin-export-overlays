@@ -9,13 +9,17 @@ import { $ } from "rhdh-e2e-test-utils/utils";
 
 const BEFORE_ALL_TIMEOUT_MS = 30 * 60 * 1000; // 30 min for orchestrator + RHDH deploy
 
-export const test = base.extend<{
-  rhdhDeploymentWorker: RHDHDeployment;
-  rhdh: RHDHDeployment;
-  uiHelper: UIhelper;
-  loginHelper: LoginHelper;
-  baseURL: string;
-}>({
+export const test = base.extend<
+  {
+    rhdh: RHDHDeployment;
+    uiHelper: UIhelper;
+    loginHelper: LoginHelper;
+    baseURL: string;
+  },
+  {
+    rhdhDeploymentWorker: RHDHDeployment;
+  }
+>({
   rhdhDeploymentWorker: [
     async ({}, use, workerInfo) => {
       const projectName = workerInfo.project.name;
