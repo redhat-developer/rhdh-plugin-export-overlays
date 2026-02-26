@@ -4,7 +4,7 @@
 integrations:
   github:
     - host: github.com
-      token:  ${GITHUB_TOKEN}
+      token: ${GITHUB_TOKEN}
       # apps:
       #   - appId: ${GITHUB_APP_APP_ID}
       #     clientId: ${GITHUB_APP_CLIENT_ID}
