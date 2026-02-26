@@ -14,6 +14,7 @@ backstage/plugins/scaffolder-backend-module-gerrit
 lighthouse/plugins/lighthouse
 pagerduty/plugins/backstage-plugin
 pagerduty/plugins/backstage-plugin-backend
+scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 scaffolder-backend-module-sonarqube/plugins/scaffolder-backend-module-sonarqube
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-datadog
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
@@ -50,4 +51,5 @@ argocd/plugins/argocd-backend
 quay/plugins/quay
 quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
+roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 tekton/plugins/tekton
