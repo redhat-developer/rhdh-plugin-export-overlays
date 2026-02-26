@@ -13,5 +13,9 @@ export default defineConfig({
       name: "backstage-github-events",
       testMatch: /tests\/specs\/github-events-module\.spec\.ts/,
     },
+    {
+      name: "backstage-kubernetes",
+      testMatch: /tests\/specs\/kubernetes-rbac\.spec\.ts/,
+    },
   ],
 });
