@@ -2,13 +2,13 @@ import { APIHelper } from "rhdh-e2e-test-utils/helpers";
 import { test, expect, Page } from "../fixtures";
 
 export const WAIT_OBJECTS = {
-  MuiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
-  MuiCircularProgress: '[class*="MuiCircularProgress-root"]',
+  muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
+  muiCircularProgress: '[class*="MuiCircularProgress-root"]',
 };
 
 test.describe("Bulk import tests", () => {
   const catalogRepoName = `janus-test-1-bulk-import-test-${Date.now()}`;
-  const githubOrg = 'cloud-eda';
+  const githubOrg = "cloud-eda";
   const catalogRepoDetails = {
     name: catalogRepoName,
     url: `github.com/${githubOrg}/${catalogRepoName}`,
@@ -118,9 +118,9 @@ test.describe("Bulk import tests", () => {
     });
 
     const workflowPage = await clickLinkWithNewTab(page, "View workflow");
-    await expect(workflowPage.getByRole("link", { name: "PR_URL" })).toBeVisible(
-      { timeout: 10000 },
-    );
+    await expect(
+      workflowPage.getByRole("link", { name: "PR_URL" }),
+    ).toBeVisible({ timeout: 10000 });
   });
 
   test.afterAll(async () => {
@@ -135,7 +135,9 @@ test.describe("Bulk import tests", () => {
         `[Cleanup] Deleted GitHub repository: ${catalogRepoDetails.name}`,
       );
     } catch (error) {
-      console.error(`[Cleanup] Final cleanup failed: ${(error as any).message}`);
+      console.error(
+        `[Cleanup] Final cleanup failed: ${(error as any).message}`,
+      );
     }
   });
 });

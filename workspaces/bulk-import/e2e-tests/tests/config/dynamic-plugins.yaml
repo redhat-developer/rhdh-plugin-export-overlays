@@ -33,29 +33,29 @@ plugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator:
             appIcons:
-            - importName: OrchestratorIcon
-              name: orchestratorIcon
+              - importName: OrchestratorIcon
+                name: orchestratorIcon
             dynamicRoutes:
-            - importName: OrchestratorPage
-              menuItem:
-                icon: orchestratorIcon
-                text: Orchestrator
-                textKey: menuItem.orchestrator
-              path: /orchestrator
+              - importName: OrchestratorPage
+                menuItem:
+                  icon: orchestratorIcon
+                  text: Orchestrator
+                  textKey: menuItem.orchestrator
+                path: /orchestrator
             entityTabs:
-            - path: /workflows
-              title: Workflows
-              titleKey: catalog.entityPage.workflows.title
-              mountPoint: entity.page.workflows
+              - path: /workflows
+                title: Workflows
+                titleKey: catalog.entityPage.workflows.title
+                mountPoint: entity.page.workflows
             mountPoints:
-            - mountPoint: entity.page.workflows/cards
-              importName: OrchestratorCatalogTab
-              config:
-                layout:
-                  gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                    - IsOrchestratorCatalogTabAvailable
+              - mountPoint: entity.page.workflows/cards
+                importName: OrchestratorCatalogTab
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                    if:
+                      anyOf:
+                        - IsOrchestratorCatalogTabAvailable
 
   - package: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.45.3__8.5.1"
     disabled: false
@@ -76,4 +76,4 @@ plugins:
     pluginConfig:
       dynamicPlugins:
         frontend:
-          red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: { }
+          red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
