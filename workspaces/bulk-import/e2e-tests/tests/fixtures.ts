@@ -36,7 +36,7 @@ export const test = base.extend<
         const orchestratorNamespace = "orchestrator";
         await $`bash tests/scripts/install-orchestrator.sh ${orchestratorNamespace}`;
 
-        await rhdhDeployment.deploy({ timeoutMs: BEFORE_ALL_TIMEOUT_MS });
+        await rhdhDeployment.deploy();
 
         await use(rhdhDeployment);
       } finally {
