@@ -1,0 +1,39 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-konflux-backend
+  namespace: rhdh
+  title: Konflux Backend
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux-backend
+      title: Source Code
+  annotations:
+    backstage.io/source-location: url
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux-backend
+  tags:
+    - cicd
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-konflux-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.45.3__0.1.4!red-hat-developer-hub-backstage-plugin-konflux-backend
+  version: 0.1.4
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - konflux
+  appConfigExamples:
+    - title: Default configuration
+      content: |
+        konflux:
+          authProvider: impersonationHeaders
+          clusters:
+            konflux-cluster-1:
+              apiUrl: ${KONFLUX_CLUSTER_API_URL}
+              uiUrl: ${KONFLUX_CLUSTER_UI_URL}
+              kubearchiveApiUrl: ${KONFLUX_CLUSTER_KUBEARCHIVE_API_URL}
+              serviceAccountToken: ${KONFLUX_CLUSTER_SA_TOKEN}
