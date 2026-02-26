@@ -1,7 +1,9 @@
-import { test, expect, Page } from "rhdh-e2e-test-utils/test";
-import { $ } from "rhdh-e2e-test-utils/utils";
+import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
 
+const secretsFileAppNext = "tests/config/rhdh-secrets-next.yaml";
+const configFileAppNext = "tests/config/app-config-rhdh-next.yaml";
 const setupScript = path.join(
   import.meta.dirname,
   "deploy-customization-provider.sh",
@@ -10,7 +12,13 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({
+      auth: "keycloak",
+      ...(project === "tech-radar-app-next" && {
+        appConfig: configFileAppNext,
+        secrets: secretsFileAppNext,
+      }),
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(
