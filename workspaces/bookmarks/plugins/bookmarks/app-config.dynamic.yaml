@@ -1,0 +1,23 @@
+dynamicPlugins:
+  frontend:
+    backstage-community.plugin-bookmarks:
+      translationResources:
+        - importName: bookmarksTranslations
+          ref: bookmarksTranslationRef
+      entityTabs:
+        - mountPoint: entity.page.bookmarks
+          path: /bookmarks
+          title: Bookmarks
+          titleKey: entityTab.title # does not exist yet
+          config:
+            if:
+              allOf:
+                - isBookmarksAvailable
+      mountPoints:
+        - mountPoint: entity.page.bookmarks/cards
+          importName: EntityBookmarksContent
+          config:
+            layout:
+              gridColumn: 1 / -1
+              height: calc(100vh - 300px)
+              min-height: 500px

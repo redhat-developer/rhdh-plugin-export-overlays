@@ -1,0 +1,14 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-qe-theme:
+      themes:
+        - id: rhdh-plugins-theme-qe-light
+          icon: lightIcon
+          title: RHDH Plugins QE Light
+          variant: light
+          importName: lightThemeProvider
+        - id: rhdh-plugins-theme-qe-dark
+          icon: darkIcon
+          title: RHDH Plugins QE Dark
+          variant: dark
+          importName: darkThemeProvider

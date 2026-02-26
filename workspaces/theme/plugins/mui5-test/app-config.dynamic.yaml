@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-mui5-test:
+      dynamicRoutes:
+        - path: /mui5-test
+          importName: MUI5TestPage
+          menuItem:
+            text: MUI5 Test
