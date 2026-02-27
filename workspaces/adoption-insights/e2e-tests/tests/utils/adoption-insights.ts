@@ -116,7 +116,6 @@ export class TestHelper {
     if (catalogEntitiesFirstLast.length === 0) {
       await uiHelper.clickLink("Catalog");
       await uiHelper.clickLink("Red Hat Developer Hub");
-      await page.waitForTimeout(5000);
       await expect(page.getByText("Red Hat Developer Hub")).toBeVisible();
     }
 
@@ -150,15 +149,15 @@ export class TestHelper {
     await newpage.close();
   }
 
-  async waitUntilApiCallSucceeds(
-    page: Page,
-    urlPart?: string,
-  ): Promise<void> {
+  async waitUntilApiCallSucceeds(page: Page, urlPart?: string): Promise<void> {
     await waitUntilApiCallSucceeds(page, urlPart);
   }
 }
 
-async function waitUntilApiCallIsMade(page: Page, urlPart: string): Promise<void> {
+async function waitUntilApiCallIsMade(
+  page: Page,
+  urlPart: string,
+): Promise<void> {
   await page.waitForResponse((response) => response.url().includes(urlPart), {
     timeout: 60000,
   });
@@ -182,7 +181,10 @@ async function waitUntilApiCallSucceeds(
 
 /** Navigate to Adoption Insights page and wait for panels. */
 export async function goToAdoptionInsights(
-  uiHelper: { openSidebarButton: (n: string) => Promise<void>; clickLink: (n: string) => Promise<void> },
+  uiHelper: {
+    openSidebarButton: (n: string) => Promise<void>;
+    clickLink: (n: string) => Promise<void>;
+  },
   page: Page,
 ): Promise<void> {
   await uiHelper.openSidebarButton("Administration");
@@ -192,7 +194,10 @@ export async function goToAdoptionInsights(
 
 /** Navigate to Adoption Insights and select "Today" date range. */
 export async function goToAdoptionInsightsWithToday(
-  uiHelper: { openSidebarButton: (n: string) => Promise<void>; clickLink: (n: string) => Promise<void> },
+  uiHelper: {
+    openSidebarButton: (n: string) => Promise<void>;
+    clickLink: (n: string) => Promise<void>;
+  },
   page: Page,
 ): Promise<void> {
   await goToAdoptionInsights(uiHelper, page);
@@ -225,10 +230,7 @@ export async function waitForPanelApiCalls(page: Page): Promise<void> {
 export async function selectDateRangeToday(page: Page): Promise<void> {
   const helper = new TestHelper(page);
   await helper.clickByText("Last 28 days");
-  await Promise.all([
-    waitForPanelApiCalls(page),
-    helper.selectOption("Today"),
-  ]);
+  await Promise.all([waitForPanelApiCalls(page), helper.selectOption("Today")]);
 }
 
 export async function runInteractionTrackingSetup(
