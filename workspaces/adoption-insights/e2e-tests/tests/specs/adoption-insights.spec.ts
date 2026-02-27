@@ -1,8 +1,11 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   goToAdoptionInsights,
-  goToAdoptionInsightsAndSelectToday,
+  goToAdoptionInsightsWithToday,
+  waitForPanelApiCalls,
   runInteractionTrackingSetup,
+  TestHelper,
+  type AdoptionInsightsUiHelperForPanel,
 } from "../utils/adoption-insights";
 
 test.describe.serial("Test Adoption Insights", () => {
@@ -15,6 +18,10 @@ test.describe.serial("Test Adoption Insights", () => {
     await rhdh.deploy();
   });
 
+  test.beforeEach(async ({ loginHelper }) => {
+    await loginHelper.loginAsKeycloakUser();
+  });
+
   test.describe.serial(
     "Test Adoption Insights plugin: load permission policies and conditions from files",
     () => {
@@ -23,29 +30,25 @@ test.describe.serial("Test Adoption Insights", () => {
       let catalogEntitiesFirstEntry: string[] = [];
       let techdocsFirstEntry: string[] = [];
 
-      test.beforeEach(async ({ loginHelper, page, uiHelper }) => {
-        await loginHelper.loginAsKeycloakUser();
-        await uiHelper.goToPageUrl("/", "Welcome back!");
-      });
-
       test("Check UI navigation by nav bar when adoption-insights is enabled", async ({
         page,
         uiHelper,
       }) => {
-        await goToAdoptionInsights(page, uiHelper);
+        await goToAdoptionInsights(uiHelper, page);
         await uiHelper.verifyHeading("Adoption Insights");
         expect(page.url()).toContain("adoption-insights");
       });
 
       test("Select date range", async ({ page, uiHelper }) => {
-        const testHelper = await goToAdoptionInsights(page, uiHelper);
+        await goToAdoptionInsights(uiHelper, page);
+
+        const helper = new TestHelper(page);
+        await helper.clickByText("Last 28 days");
         const dateRanges = ["Today", "Last week", "Last month", "Last year"];
-        await testHelper.clickByText("Last 28 days");
         for (const range of dateRanges) {
           await expect(page.getByRole("option", { name: range })).toBeVisible();
         }
-
-        await testHelper.selectOption("Date range...");
+        await helper.selectOption("Date range...");
         const datePicker = page.locator(".v5-MuiPaper-root", {
           hasText: "Start date",
         });
@@ -53,9 +56,10 @@ test.describe.serial("Test Adoption Insights", () => {
         await datePicker.getByRole("button", { name: "Cancel" }).click();
         await expect(datePicker).toBeHidden();
 
+        await helper.clickByText("Last 28 days");
         await Promise.all([
-          testHelper.waitForPanelApiCalls(page),
-          testHelper.selectOption("Today"),
+          waitForPanelApiCalls(page),
+          helper.selectOption("Today"),
         ]);
       });
 
@@ -63,10 +67,8 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = await goToAdoptionInsightsAndSelectToday(
-          page,
-          uiHelper,
-        );
+        await goToAdoptionInsightsWithToday(uiHelper, page);
+
         const panel = page.locator(".v5-MuiPaper-root", {
           hasText: "Active users",
         });
@@ -85,7 +87,8 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        await goToAdoptionInsightsAndSelectToday(page, uiHelper);
+        await goToAdoptionInsightsWithToday(uiHelper, page);
+
         const panel = page.locator(".v5-MuiPaper-root", {
           hasText: "Total number of users",
         });
@@ -98,10 +101,9 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = await goToAdoptionInsightsAndSelectToday(
-          page,
-          uiHelper,
-        );
+        await goToAdoptionInsightsWithToday(uiHelper, page);
+
+        const testHelper = new TestHelper(page);
         await testHelper.expectTopEntriesToBePresent("plugins");
       });
 
@@ -109,10 +111,9 @@ test.describe.serial("Test Adoption Insights", () => {
         page,
         uiHelper,
       }) => {
-        const testHelper = await goToAdoptionInsightsAndSelectToday(
-          page,
-          uiHelper,
-        );
+        await goToAdoptionInsightsWithToday(uiHelper, page);
+
+        const testHelper = new TestHelper(page);
         const titles = ["templates", "catalog entities", "techdocs", "Searches"];
 
         for (const title of titles) {
@@ -147,7 +148,7 @@ test.describe.serial("Test Adoption Insights", () => {
       }) => {
         const testHelper = await runInteractionTrackingSetup(
           page,
-          uiHelper,
+          uiHelper as AdoptionInsightsUiHelperForPanel,
           templatesFirstEntry,
           catalogEntitiesFirstEntry,
           techdocsFirstEntry,
@@ -210,13 +211,7 @@ test.describe.serial("Test Adoption Insights", () => {
           }
           await page.reload();
           await testHelper.waitUntilApiCallSucceeds(page);
-          await uiHelper.openSidebarButton("Administration");
-          await uiHelper.clickLink("Adoption Insights");
-          await testHelper.clickByText("Last 28 days");
-          await Promise.all([
-            testHelper.waitForPanelApiCalls(page),
-            testHelper.selectOption("Today"),
-          ]);
+          await goToAdoptionInsightsWithToday(uiHelper, page);
           await testHelper.waitUntilApiCallSucceeds(page);
           for (const title of titles) {
             const panel = page
