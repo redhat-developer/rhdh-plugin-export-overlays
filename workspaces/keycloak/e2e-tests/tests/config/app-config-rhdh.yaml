@@ -1,0 +1,6 @@
+# rhdh app config file
+# minimal merge for Keycloak catalog integration e2e tests
+# auth is provided by rhdh.configure({ auth: "keycloak" })
+
+app:
+  title: RHDH Keycloak Catalog Test Instance
