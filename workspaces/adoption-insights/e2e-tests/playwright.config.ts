@@ -7,6 +7,8 @@ export default defineConfig({
   projects: [
     {
       name: "adoption-insights",
+      // Allow deploy (waitUntilReady ~500s in e2e-test-utils) to complete in e2e-ocp-helm
+      timeout: 600_000,
     },
   ],
 });

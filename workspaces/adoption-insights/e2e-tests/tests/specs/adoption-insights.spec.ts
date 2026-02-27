@@ -10,6 +10,7 @@ import {
 
 test.describe.serial("Test Adoption Insights", () => {
   test.beforeAll(async ({ rhdh }) => {
+    test.setTimeout(600_000); // allow waitUntilReady (500s) to complete in e2e-ocp-helm
     test.info().annotations.push({
       type: "component",
       description: "plugins",
