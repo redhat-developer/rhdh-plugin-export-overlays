@@ -1,5 +1,10 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
+  LoginHelper,
+  UIhelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import type { BrowserContext, Page } from "@playwright/test";
+import {
   goToAdoptionInsights,
   goToAdoptionInsightsWithToday,
   waitForPanelApiCalls,
@@ -9,18 +14,33 @@ import {
 } from "../utils/adoption-insights";
 
 test.describe.serial("Test Adoption Insights", () => {
-  test.beforeAll(async ({ rhdh }) => {
-    test.setTimeout(600_000); // allow waitUntilReady (500s) to complete in e2e-ocp-helm
+  let context: BrowserContext | undefined;
+  let page: Page;
+  let uiHelper: UIhelper;
+  let testHelper: TestHelper;
+
+  test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
     test.info().annotations.push({
       type: "component",
       description: "plugins",
     });
-    await rhdh.configure({ auth: "keycloak" });
-    await rhdh.deploy();
+    await rhdhDeploymentWorker.configure({ auth: "keycloak" });
+    await rhdhDeploymentWorker.deploy();
+
+    context = await browser.newContext({
+      baseURL: rhdhDeploymentWorker.rhdhUrl,
+    });
+    page = await context.newPage();
+    uiHelper = new UIhelper(page);
+    testHelper = new TestHelper(page);
+
+    const loginHelper = new LoginHelper(page);
+    await loginHelper.loginAsKeycloakUser();
+    await uiHelper.goToPageUrl("/", "Welcome back!");
   });
 
-  test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
+  test.afterAll(async () => {
+    await context?.close();
   });
 
   test.describe
@@ -30,25 +50,19 @@ test.describe.serial("Test Adoption Insights", () => {
     let catalogEntitiesFirstEntry: string[] = [];
     let techdocsFirstEntry: string[] = [];
 
-    test("Check UI navigation by nav bar when adoption-insights is enabled", async ({
-      page,
-      uiHelper,
-    }) => {
+    test("Check UI navigation by nav bar when adoption-insights is enabled", async () => {
       await goToAdoptionInsights(uiHelper, page);
       await uiHelper.verifyHeading("Adoption Insights");
       expect(page.url()).toContain("adoption-insights");
     });
 
-    test("Select date range", async ({ page, uiHelper }) => {
-      await goToAdoptionInsights(uiHelper, page);
-
-      const helper = new TestHelper(page);
-      await helper.clickByText("Last 28 days");
+    test("Select date range", async () => {
+      await testHelper.clickByText("Last 28 days");
       const dateRanges = ["Today", "Last week", "Last month", "Last year"];
       for (const range of dateRanges) {
         await expect(page.getByRole("option", { name: range })).toBeVisible();
       }
-      await helper.selectOption("Date range...");
+      await testHelper.selectOption("Date range...");
       const datePicker = page.locator(".v5-MuiPaper-root", {
         hasText: "Start date",
       });
@@ -56,16 +70,13 @@ test.describe.serial("Test Adoption Insights", () => {
       await datePicker.getByRole("button", { name: "Cancel" }).click();
       await expect(datePicker).toBeHidden();
 
-      await helper.clickByText("Last 28 days");
       await Promise.all([
         waitForPanelApiCalls(page),
-        helper.selectOption("Today"),
+        testHelper.selectOption("Today"),
       ]);
     });
 
-    test("Active users panel shows the visitor", async ({ page, uiHelper }) => {
-      await goToAdoptionInsightsWithToday(uiHelper, page);
-
+    test("Active users panel shows the visitor", async () => {
       const panel = page.locator(".v5-MuiPaper-root", {
         hasText: "Active users",
       });
@@ -80,12 +91,7 @@ test.describe.serial("Test Adoption Insights", () => {
       ).toBeVisible();
     });
 
-    test("Total number of users panel shows visitor of 100", async ({
-      page,
-      uiHelper,
-    }) => {
-      await goToAdoptionInsightsWithToday(uiHelper, page);
-
+    test("Total number of users panel shows visitor of 100", async () => {
       const panel = page.locator(".v5-MuiPaper-root", {
         hasText: "Total number of users",
       });
@@ -94,10 +100,7 @@ test.describe.serial("Test Adoption Insights", () => {
       await expect(panel.getByText(/^\d+%have logged in$/)).toBeVisible();
     });
 
-    test("Data shows in Top plugins Entity", async ({ page, uiHelper }) => {
-      await goToAdoptionInsightsWithToday(uiHelper, page);
-
-      const testHelper = new TestHelper(page);
+    test("Data shows in Top plugins Entity", async () => {
       await testHelper.expectTopEntriesToBePresent("plugins");
       await expect(
         page
@@ -107,10 +110,7 @@ test.describe.serial("Test Adoption Insights", () => {
       ).toBeVisible();
     });
 
-    test("Rest of the panels are visible", async ({ page, uiHelper }) => {
-      await goToAdoptionInsightsWithToday(uiHelper, page);
-
-      const testHelper = new TestHelper(page);
+    test("Rest of the panels are visible", async () => {
       const titles = ["templates", "catalog entities", "techdocs", "Searches"];
 
       for (const title of titles) {
@@ -141,8 +141,8 @@ test.describe.serial("Test Adoption Insights", () => {
       }
     });
 
-    test("Interaction-based tracking tests", async ({ page, uiHelper }) => {
-      const testHelper = await runInteractionTrackingSetup(
+    test("Interaction-based tracking tests", async () => {
+      await runInteractionTrackingSetup(
         page,
         uiHelper as AdoptionInsightsUiHelperForPanel,
         templatesFirstEntry,

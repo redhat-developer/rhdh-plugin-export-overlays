@@ -66,18 +66,14 @@ export class TestHelper {
   }
 
   async populateMissingPanelData(
-    page: Page,
     uiHelper: AdoptionInsightsUiHelperForPanel,
     templatesFirstLast: string[],
     catalogEntitiesFirstLast: string[],
     techdocsFirstLast: string[],
   ): Promise<void> {
     if (templatesFirstLast.length === 0) {
-      await page.getByRole("link", { name: "Self-service" }).click();
-      await page
-        .getByText("Templates", { exact: true })
-        .waitFor({ state: "visible" });
-      const panel = page
+      await this.page.getByRole("link", { name: "Self-service" }).click();
+      const panel = this.page
         .getByRole("heading", { name: "Create a tekton CI Pipeline" })
         .first();
       const isPanelVisible = await panel
@@ -86,14 +82,16 @@ export class TestHelper {
       if (!isPanelVisible) {
         const sampleTemplate =
           "https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates/github/tekton/template.yaml";
-        await page
+        await this.page
           .getByRole("button", { name: "Import an existing Git repository" })
           .click();
-        await page.getByRole("textbox", { name: "URL" }).fill(sampleTemplate);
-        await page.getByRole("button", { name: "Analyze" }).click();
-        await page.getByRole("button", { name: "Import" }).click();
-        await page.getByRole("button", { name: "Register" }).click();
-        await page.getByRole("link", { name: "Self-service" }).click();
+        await this.page
+          .getByRole("textbox", { name: "URL" })
+          .fill(sampleTemplate);
+        await this.page.getByRole("button", { name: "Analyze" }).click();
+        await this.page.getByRole("button", { name: "Import" }).click();
+        await this.page.getByRole("button", { name: "Register" }).click();
+        await this.page.getByRole("link", { name: "Self-service" }).click();
       }
       const pipelineCard = panel.locator("..").locator("..");
       await pipelineCard.getByRole("button", { name: "Choose" }).click();
@@ -105,10 +103,10 @@ export class TestHelper {
       await uiHelper.fillTextInputByLabel("Image Builder", inputText);
       await uiHelper.fillTextInputByLabel("Image URL", inputText);
       await uiHelper.fillTextInputByLabel("Namespace", inputText);
-      await page.getByRole("spinbutton", { name: "Port" }).fill("8080");
+      await this.page.getByRole("spinbutton", { name: "Port" }).fill("8080");
       await uiHelper.clickButton("Review");
       await uiHelper.clickButton("Create");
-      await page
+      await this.page
         .getByText("Run of Create a tekton CI")
         .waitFor({ state: "visible" });
     }
@@ -116,11 +114,11 @@ export class TestHelper {
     if (catalogEntitiesFirstLast.length === 0) {
       await uiHelper.clickLink("Catalog");
       await uiHelper.clickLink("Red Hat Developer Hub");
-      await expect(page.getByText("Red Hat Developer Hub")).toBeVisible();
+      await expect(this.page.getByText("Red Hat Developer Hub")).toBeVisible();
     }
 
     if (techdocsFirstLast.length === 0) {
-      await page.goto("/docs");
+      await this.page.goto("/docs");
       await uiHelper.clickLink("Red Hat Developer Hub");
       await uiHelper.openSidebarButton("Administration");
     }
@@ -239,11 +237,9 @@ export async function runInteractionTrackingSetup(
   templates: string[],
   catalogEntities: string[],
   techdocs: string[],
-): Promise<TestHelper> {
-  await goToAdoptionInsightsWithToday(uiHelper, page);
+): Promise<void> {
   const testHelper = new TestHelper(page);
   await testHelper.populateMissingPanelData(
-    page,
     uiHelper,
     templates,
     catalogEntities,
@@ -256,5 +252,4 @@ export async function runInteractionTrackingSetup(
   await page.reload();
   await testHelper.waitUntilApiCallSucceeds(page);
   await goToAdoptionInsightsWithToday(uiHelper, page);
-  return testHelper;
 }
