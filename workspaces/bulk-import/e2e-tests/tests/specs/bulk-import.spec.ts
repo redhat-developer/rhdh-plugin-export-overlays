@@ -1,5 +1,6 @@
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { test, expect, Page } from "../fixtures";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -16,11 +17,18 @@ test.describe("Bulk import tests", () => {
     owner: githubOrg,
   };
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ rhdh }) => {
     test.info().annotations.push({
       type: "component",
       description: "plugins",
     });
+
+    await rhdh.configure({ auth: "keycloak" });
+    
+    const orchestratorNamespace = "orchestrator";
+    await $`bash tests/scripts/install-orchestrator.sh ${orchestratorNamespace}`;
+    
+    await rhdh.deploy();
 
     // Create the repository with catalog-info.yaml file dynamically
     await APIHelper.createGitHubRepoWithFile(
