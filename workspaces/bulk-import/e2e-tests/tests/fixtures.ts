@@ -3,9 +3,9 @@
  * Uses standard @playwright/test so timeout is not overridden by rhdh-e2e-test-utils (500s).
  */
 import { test as base } from "@playwright/test";
-import { RHDHDeployment } from "rhdh-e2e-test-utils/rhdh";
-import { LoginHelper, UIhelper } from "rhdh-e2e-test-utils/helpers";
-import { $ } from "rhdh-e2e-test-utils/utils";
+import { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
+import { LoginHelper, UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 const BEFORE_ALL_TIMEOUT_MS = 30 * 60 * 1000; // 30 min for orchestrator + RHDH deploy
 
