@@ -1,4 +1,4 @@
-import { APIHelper } from "rhdh-e2e-test-utils/helpers";
+import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { test, expect, Page } from "../fixtures";
 
 export const WAIT_OBJECTS = {
