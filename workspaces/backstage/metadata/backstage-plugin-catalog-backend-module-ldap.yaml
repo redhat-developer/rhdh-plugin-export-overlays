@@ -12,16 +12,16 @@ metadata:
   - title: Source Code
     url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
   annotations:
-    backstage.io/source-location: url https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
   tags:
   - software-catalog
 spec:
   packageName: '@backstage/plugin-catalog-backend-module-ldap'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
-  version: 0.11.8
+  version: 0.12.0
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

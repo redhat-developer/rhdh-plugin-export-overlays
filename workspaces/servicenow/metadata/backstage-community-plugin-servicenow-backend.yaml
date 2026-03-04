@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow-backend
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/servicenow/plugins/servicenow-backend
   tags: []
 spec:
   packageName: "@backstage-community/plugin-servicenow-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow-backend:bs_1.39.1__1.0.0!backstage-community-plugin-servicenow-backend
-  version: 1.0.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow-backend:bs_1.45.3__1.6.1!backstage-community-plugin-servicenow-backend
+  version: 1.6.1
   backstage:
     role: backend-plugin
-    supportedVersions: 1.39.1
+    supportedVersions: 1.45.3
   author: Red Hat
   support: community
   lifecycle: active

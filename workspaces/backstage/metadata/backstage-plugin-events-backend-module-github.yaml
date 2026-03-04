@@ -12,16 +12,16 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-github
   tags: []
 spec:
   packageName: "@backstage/plugin-events-backend-module-github"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.45.3__0.4.6
+  # Tag: 1.9.0--0.4.6, Build date: 2026-01-29T16:02:01Z
+  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/backstage-plugin-events-backend-module-github@sha256:2c1ccc4fb01883dc4da1aa0c417d6e28d944c6ce941454ee41698f2c1812035c"
   version: 0.4.6
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active
@@ -36,5 +36,5 @@ spec:
             topics:
               - github
           modules:
-              github:
-                webhookSecret: ${GITHUB_WEBHOOK_SECRET}
+            github:
+              webhookSecret: ${GITHUB_WEBHOOK_SECRET}

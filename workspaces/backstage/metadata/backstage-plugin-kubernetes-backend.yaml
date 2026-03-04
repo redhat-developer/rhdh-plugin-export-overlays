@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
   tags: []
 spec:
   packageName: "@backstage/plugin-kubernetes-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-  version: 0.20.1
+  version: 0.20.4
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active
