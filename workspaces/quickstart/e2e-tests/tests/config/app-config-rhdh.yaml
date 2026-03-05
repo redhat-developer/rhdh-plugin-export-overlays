@@ -1,0 +1,18 @@
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    oidc:
+      development:
+        metadataUrl: ${KEYCLOAK_METADATA_URL}
+        clientId: ${KEYCLOAK_CLIENT_ID}
+        clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+        prompt: auto
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/oidc/handler/frame
+        signIn:
+          resolvers:
+            - resolver: emailLocalPartMatchingUserEntityName
+
+permission:
+  enabled: true

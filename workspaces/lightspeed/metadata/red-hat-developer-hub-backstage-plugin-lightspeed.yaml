@@ -46,6 +46,17 @@ spec:
                 - path: /lightspeed
                   importName: LightspeedPage
                   module: LightspeedPlugin
-                  menuItem:
-                    icon: LightspeedIcon
-                    text: Lightspeed
+              mountPoints:
+                - mountPoint: application/listener
+                  importName: LightspeedFAB
+                - mountPoint: application/provider
+                  importName: LightspeedDrawerProvider
+                - mountPoint: application/internal/drawer-state
+                  importName: LightspeedDrawerStateExposer
+                  config:
+                    id: lightspeed
+                - mountPoint: application/internal/drawer-content
+                  importName: LightspeedChatContainer
+                  config:
+                    id: lightspeed
+                    priority: 100

@@ -46,7 +46,7 @@ rhdh-plugin-export-overlays/
 │       │       ├── overlay/
 │       │       ├── app-config.dynamic.yaml
 │       │       └── scalprum-config.json
-│       └── tests/             # Test configuration (optional)
+│       └── smoke-tests/       # Smoke test configuration (optional)
 │           ├── test.env
 │           └── app-config.test.yaml
 └── .github/workflows/         # CI/CD automation
@@ -203,17 +203,19 @@ Comment on your PR:
 
 This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
-### Run Integration Tests
+### Run Smoke Tests
 
-After `/publish` completes, tests run automatically if:
+After `/publish` completes, smoke tests run automatically if:
 - PR touches exactly one workspace
 - Each plugin has a metadata file
 
-To re-run tests manually:
+To re-run smoke tests manually:
 
 ```
-/test
+/smoketest
 ```
+
+Plugin-specific configuration is extracted from `spec.appConfigExamples[0].content` in each plugin's metadata file and placed under `pluginConfig` in the generated config. The optional workspace-level `app-config.test.yaml` is for test-only or shared workspace settings. If a plugin's config references environment variables (e.g., `${API_TOKEN}`), provide them in `workspaces/<ws>/smoke-tests/test.env`.
 
 ### Manual Testing
 
