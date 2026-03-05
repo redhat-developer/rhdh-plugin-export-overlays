@@ -4,15 +4,12 @@
 integrations:
   github:
     - host: github.com
-      token: ${GITHUB_TOKEN}
-      # apps:
-      #   - appId: ${GITHUB_APP_APP_ID}
-      #     clientId: ${GITHUB_APP_CLIENT_ID}
-      #     clientSecret: ${GITHUB_APP_CLIENT_SECRET}
-      #     webhookUrl: ${GITHUB_APP_WEBHOOK_URL}
-      #     webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
-      #     privateKey: |
-      #       ${GITHUB_APP_PRIVATE_KEY}
+      apps:
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}
   gitlab:
     - host: gitlab.com
       token: temp
