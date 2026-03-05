@@ -24,10 +24,10 @@ test.describe("Bulk import tests", () => {
     });
 
     await rhdh.configure({ auth: "keycloak" });
-    
+
     const orchestratorNamespace = "orchestrator";
     await $`bash tests/scripts/install-orchestrator.sh ${orchestratorNamespace}`;
-    
+
     await rhdh.deploy();
 
     // Create the repository with catalog-info.yaml file dynamically
