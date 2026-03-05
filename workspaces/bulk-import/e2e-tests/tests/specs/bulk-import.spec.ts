@@ -9,7 +9,7 @@ export const WAIT_OBJECTS = {
 
 test.describe("Bulk import tests", () => {
   const catalogRepoName = `janus-test-1-bulk-import-test-${Date.now()}`;
-  const githubOrg = "cloud-eda";
+  const githubOrg = "janus-test";
   const catalogRepoDetails = {
     name: catalogRepoName,
     url: `github.com/${githubOrg}/${catalogRepoName}`,
@@ -28,7 +28,9 @@ test.describe("Bulk import tests", () => {
     const orchestratorNamespace = "orchestrator";
     await $`bash tests/scripts/install-orchestrator.sh ${orchestratorNamespace}`;
 
-    await rhdh.deploy();
+    await rhdh.deploy({
+      timeout: 20 * 60 * 1000, // 20 min
+    });
 
     // Create the repository with catalog-info.yaml file dynamically
     await APIHelper.createGitHubRepoWithFile(
