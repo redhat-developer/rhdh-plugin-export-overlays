@@ -253,7 +253,8 @@ export class RbacPO {
     await this.openPermissionsDropdown();
 
     for (const policy of policies) {
-      await this.selectPermissionCheckbox(policy.permission!);
+      if (!policy.permission) continue;
+      await this.selectPermissionCheckbox(policy.permission);
     }
 
     await this.next();

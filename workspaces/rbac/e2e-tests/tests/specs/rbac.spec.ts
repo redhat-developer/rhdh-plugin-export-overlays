@@ -118,7 +118,7 @@ test.describe("RBAC plugin", () => {
         body: fileContent,
         contentType: "text/plain",
       });
-      const lines = fileContent!.trim().split("\n");
+      const lines = (fileContent ?? "").trim().split("\n");
 
       const header = "userEntityRef,displayName,email,lastAuthTime";
       expect(lines[0], "Header needs to match the expected header").toBe(
