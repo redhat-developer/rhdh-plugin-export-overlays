@@ -23,7 +23,7 @@ export type RBACGroup = {
  * - currentUserOwner:      Member of rhdh-qe-2-team. Tests $currentUser: can unregister own
  *                          components but not group-owned ones.
  * - conditionalManager:    Gets conditional RBAC manage permission via rbac-ownership-role
- *                          (catalog_reader in CSV). Used in the serial IsOwner suite.
+ *                          Used in the serial IsOwner suite.
  * - allowAllowUser:        catalog_reader. Both static allow AND conditional IS_ENTITY_OWNER
  *                          allow read — tests policyDecisionPrecedence allow+allow case.
  * - conditionalAllowUser:  Has static deny (all_resource_denier) but conditional policy allows
@@ -31,6 +31,16 @@ export type RBACGroup = {
  * - conditionalDenyUser:   Has static allow but conditional deny wins — sees empty catalog.
  * - conditionalDenier:     all_resource_reader + conditional_denier roles — conditional deny
  *                          overrides static allow.
+ * - childGroupMember:      Member of rhdh-qe-child-team. Tests transitive $ownerRefs: can read
+ *                          components owned by the parent group rhdh-qe-parent-team.
+ * - subChildGroupMember:   Member of rhdh-qe-sub-child-team. Tests deep transitive $ownerRefs:
+ *                          can read components owned by parent and grandparent groups.
+ *
+ * Passwords are generated at module-load time using `crypto.randomUUID()` trimmed
+ * to 21 characters with hyphens replaced by zeros.  This satisfies typical minimum
+ * length and complexity requirements while staying fully random per test run.
+ * The rbacAdmin password can be overridden via the `RBAC_ADMIN_PASSWORD` env var
+ * so that a stable value can be used in CI where needed.
  */
 export const RBAC_DESCRIPTIVE_USERS: Record<string, RbacUser> = {
   rbacAdmin: {
@@ -146,5 +156,6 @@ export const RBAC_GROUPS: Record<string, RBACGroup> = {
 export const displayName = (key: keyof typeof RBAC_DESCRIPTIVE_USERS): string =>
   `${RBAC_DESCRIPTIVE_USERS[key].firstName} ${RBAC_DESCRIPTIVE_USERS[key].lastName}`;
 
+/** Returns the Backstage entity reference string for a given user, e.g. `user:default/rbac-admin`. */
 export const userEntityRef = (user: RbacUser): string =>
   `user:default/${user.username}`;

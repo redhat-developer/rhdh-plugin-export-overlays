@@ -30,6 +30,13 @@ export class RbacPO {
     await this.uiHelper.verifyHeading("RBAC", timeout);
   }
 
+  /**
+   * Builds a regex string that matches the UI's "X users, Y groups" / "Y groups, X users"
+   * summary text in either order (the backend can return them in either sequence).
+   * Zero counts are omitted, e.g. 0 groups + 2 users → matches "2 users".
+   * The result is wrapped in a non-capturing group so it can be composed into a
+   * larger pattern by `regexpLongUsersAndGroups`.
+   */
   private readonly stringForRegexUsersAndGroups = (
     numUsers: number,
     numGroups: number,
@@ -176,9 +183,11 @@ export class RbacPO {
     await this.uiHelper.selectMuiBox("Kind", "Component");
     await this.uiHelper.searchInputPlaceholder(componentName);
     await expect(
-      this.page.getByRole("link", { name: componentName }),
+      this.page.getByRole("link", { name: componentName, exact: true }),
     ).toBeVisible();
-    await this.page.getByRole("link", { name: componentName }).click();
+    await this.page
+      .getByRole("link", { name: componentName, exact: true })
+      .click();
   }
 
   public async verifyComponentOwner(ownerPattern: string): Promise<void> {
@@ -404,6 +413,12 @@ export class RbacPO {
     }
   }
 
+  /**
+   * Adds an `IS_ENTITY_OWNER` conditional policy for each of the three
+   * policy-management permissions.  These are the permissions that allow a
+   * non-admin user to manage RBAC — the IsOwner condition scopes them to
+   * entities the user already owns so they cannot escalate their own access.
+   */
   private async createRBACConditions(owner: string) {
     const permissions = [
       "policy.entity.read",
@@ -460,7 +475,9 @@ export class RbacPO {
     numGroups: number,
   ) {
     await this.uiHelper.verifyHeading("Edit Role");
-    // If the starting next button is shown, ensure we click next
+    // When navigating from the roles list inline-edit button the form opens
+    // directly at the users/groups step, but when invoked from the overview
+    // page an initial "Next" button is shown on a preceding step — handle both
     const isNextButtonVisible = await ROLE_FORM_COMPONENTS.getNextButton(
       this.page,
     ).isVisible();
@@ -490,7 +507,9 @@ export class RbacPO {
     await expect(nextPermissionPolicyButton).toBeEnabled();
     await nextPermissionPolicyButton.click();
 
-    // Wait for review step to be ready
+    // The "users are not granted access" banner is shown while the review step
+    // is still loading; wait for it to disappear before the Save button becomes
+    // clickable
     await this.page
       .getByText("users are not granted access")
       .waitFor({ state: "hidden" });
@@ -519,7 +538,9 @@ export class RbacPO {
     await this.selectPermissionCheckbox("scaffolder.template.parameter");
     await ROLE_FORM_COMPONENTS.getPermissionPolicyNextButton(this.page).click();
 
-    // Wait for review step to be ready
+    // The "users are not granted access" banner is shown while the review step
+    // is still loading; wait for it to disappear before the Save button becomes
+    // clickable
     await this.page
       .getByText("users are not granted access")
       .waitFor({ state: "hidden" });

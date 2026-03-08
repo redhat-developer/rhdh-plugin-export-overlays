@@ -30,12 +30,15 @@ const rbacConfigmapPath = path.resolve(
   "tests/config/rbac-configmap.yaml",
 );
 
-// const RBAC_PAGE_TIMEOUT_MS: number = 30_000;
-
 test.describe("RBAC plugin", () => {
   let rbacPO: RbacPO;
   let apiToken: string;
 
+  /**
+   * Shared helper used by both `beforeAll` (to grab the API token) and each
+   * `beforeEach` that needs an admin UI session.  Extracting it avoids
+   * duplicating the login + navigation steps across multiple describe blocks.
+   */
   async function setupAdminSession({
     page,
     uiHelper,
@@ -47,11 +50,10 @@ test.describe("RBAC plugin", () => {
   }) {
     rbacPO = new RbacPO(page, uiHelper);
     await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
-    apiToken = await RhdhAuthApiHack.getToken(page);
     await rbacPO.navigateToRBACPage();
   }
 
-  test.beforeAll(async ({ rhdh }) => {
+  test.beforeAll(async ({ rhdh, browser }) => {
     await createUsersAndGroups();
     const namespace = rhdh.deploymentConfig.namespace;
     await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
@@ -64,6 +66,20 @@ test.describe("RBAC plugin", () => {
       valueFile: "tests/config/values.yaml",
     });
     await rhdh.deploy();
+
+    // `beforeAll` does not receive a `page` fixture, so a temporary browser
+    // context is created solely to perform the admin login and extract the
+    // API token used by `afterAll` for programmatic cleanup.
+    const context = await browser.newContext({
+      baseURL: process.env.RHDH_BASE_URL,
+    });
+
+    const page = await context.newPage();
+    const uiHelper = new UIhelper(page);
+    const loginHelper = new LoginHelper(page);
+    await setupAdminSession({ page, uiHelper, loginHelper });
+    apiToken = await RhdhAuthApiHack.getToken(page);
+    await context.close();
   });
 
   test.describe("RBAC plugin: admin user", () => {
@@ -316,14 +332,14 @@ test.describe("RBAC plugin", () => {
       await setupAdminSession({ page, uiHelper, loginHelper });
     });
 
-    test("Permission policies defined in a CSV file are loaded (test2-role, 3 permissions)", async ({
+    test("Permission policies defined in a CSV file are loaded (guest role, 1 permission)", async ({
       uiHelper,
     }) => {
-      await rbacPO.filterRolesList(RBAC_ROLES.test2Role.name);
+      await rbacPO.filterRolesList(RBAC_ROLES.guest.name);
       await rbacPO.verifyRoleAndSwitchToOverview(
-        RBAC_ROLES.test2Role.ref,
+        RBAC_ROLES.guest.ref,
         "csv permission policy file",
-        ["1 group", "3 permissions"],
+        ["1 user", "1 permission"],
       );
 
       const permissionPoliciesColumnsText =
@@ -336,32 +352,24 @@ test.describe("RBAC plugin", () => {
         permissionPoliciesCellsIdentifier,
       );
 
-      await uiHelper.verifyRowInTableByUniqueText("rhdh-qe-2-team", [
-        "Group",
-        "1",
+      await uiHelper.verifyRowInTableByUniqueText(displayName("noAccess"), [
+        "user",
+        "-",
       ]);
-      await uiHelper.verifyRowInTableByUniqueText("catalog.entity.read", [
-        "Read",
-        "1 rule",
-      ]);
-      await uiHelper.verifyRowInTableByUniqueText("catalog.entity.refresh", [
-        "Update",
-        "1 rule",
-      ]);
-      await uiHelper.verifyRowInTableByUniqueText("catalog.entity.delete", [
-        "Delete",
-        "1 rule",
+      await uiHelper.verifyRowInTableByUniqueText("catalog.entity.create", [
+        "create",
+        "-",
       ]);
     });
 
-    test("CSV file-sourced role (test2-role): Update policies is not available", async ({
+    test("CSV file-sourced role (guest role): Update policies is not available", async ({
       page,
     }) => {
-      await rbacPO.filterRolesList(RBAC_ROLES.catalogReader.name);
+      await rbacPO.filterRolesList(RBAC_ROLES.guest.name);
       await rbacPO.verifyRoleAndSwitchToOverview(
-        RBAC_ROLES.catalogReader.ref,
+        RBAC_ROLES.guest.ref,
         "csv permission policy file",
-        ["2 users", "1 permission"],
+        ["1 user", "1 permission"],
       );
 
       await rbacPO.editRolePermissions();
@@ -372,15 +380,11 @@ test.describe("RBAC plugin", () => {
       expect(errorAlert.count()).toBeTruthy();
     });
 
-    test("CSV file-sourced role (test2-role): Delete is not available", async ({
+    test("CSV file-sourced role (guest role): Delete is not available", async ({
       page,
     }) => {
-      await rbacPO.filterRolesList(RBAC_ROLES.catalogReader.name);
-      await rbacPO.deleteRole(
-        RBAC_ROLES.catalogReader.ref,
-        "All roles (0)",
-        true,
-      );
+      await rbacPO.filterRolesList(RBAC_ROLES.guest.name);
+      await rbacPO.deleteRole(RBAC_ROLES.guest.ref, "All roles (0)", true);
 
       const errorAlert = page
         .getByRole("alert")
@@ -441,7 +445,7 @@ test.describe("RBAC plugin", () => {
       await expect(unregisterUserOwned).toBeEnabled();
 
       await page.getByRole("menuitem", { name: "Unregister entity" }).click();
-      await expect(page.getByRole("heading")).toContainText(
+      await expect(page.getByRole("dialog")).toContainText(
         "Are you sure you want to unregister this entity?",
       );
       await page.getByRole("button", { name: "Cancel" }).click();
@@ -512,11 +516,11 @@ test.describe("RBAC plugin", () => {
   test.describe("RBAC conditional policies: IsOwner ownership rule", () => {
     test.describe.configure({ mode: "serial" });
 
-    test.beforeEach(({ page, uiHelper }) => {
+    test.beforeEach(async ({ page, uiHelper }) => {
       rbacPO = new RbacPO(page, uiHelper);
     });
 
-    test("Admin creates rbac-conditional-role with IsOwner rule for conditional-manager", async ({
+    test("Admin creates rbac-ownership-role with IsOwner rule for conditional-manager", async ({
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
@@ -525,7 +529,7 @@ test.describe("RBAC plugin", () => {
       await rbacPO.createRBACConditionRole(
         RBAC_ROLES.rbacOwnership.name,
         [displayName("conditionalManager")],
-        userEntityRef(RBAC_DESCRIPTIVE_USERS.rbacAdmin),
+        userEntityRef(RBAC_DESCRIPTIVE_USERS.conditionalManager),
       );
     });
 

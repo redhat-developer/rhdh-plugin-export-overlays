@@ -3,6 +3,13 @@ export type RbacRef = {
   ref: string;
 };
 
+/**
+ * All roles referenced by the RBAC e2e test suite.
+ *
+ * Note: `rbacAdmin` and `guest` are system-managed roles (sourced from app-config
+ * and a CSV policy file respectively) and cannot be deleted via the API — they are
+ * skipped during cleanup in `cleanupRoles`.
+ */
 export const RBAC_ROLES: Record<string, RbacRef> = {
   rbacOwnership: {
     name: "rbac-ownership-role",
@@ -32,12 +39,8 @@ export const RBAC_ROLES: Record<string, RbacRef> = {
     name: "rbac_admin",
     ref: "role:default/rbac_admin",
   },
-  test2Role: {
-    name: "test2-role",
-    ref: "role:default/test2-role",
-  },
-  catalogReader: {
-    name: "catalog_reader",
-    ref: "role:default/catalog_reader",
+  guest: {
+    name: "guests",
+    ref: "role:default/guests",
   },
 };

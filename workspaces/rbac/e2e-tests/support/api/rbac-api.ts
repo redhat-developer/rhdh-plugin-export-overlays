@@ -1,3 +1,7 @@
+import {
+  PermissionAction,
+  RoleConditionalPolicyDecision,
+} from "@backstage-community/plugin-rbac-common";
 import { APIRequestContext, APIResponse, request } from "@playwright/test";
 
 export interface Policy {
@@ -7,6 +11,11 @@ export interface Policy {
   effect: string;
 }
 
+/**
+ * Thin HTTP client for the RHDH RBAC permission API.
+ * Uses a static factory (`build`) because the Playwright `APIRequestContext`
+ * must be created asynchronously — a constructor cannot await it.
+ */
 export default class RhdhRbacApi {
   private readonly apiUrl = process.env.RHDH_BASE_URL + "/api/permission/";
   private readonly authHeader: {
@@ -24,6 +33,7 @@ export default class RhdhRbacApi {
     };
   }
 
+  /** Creates a fully-initialised instance with a live Playwright request context. */
   public static async build(token: string): Promise<RhdhRbacApi> {
     const instance = new RhdhRbacApi(token);
     instance.myContext = await request.newContext({
@@ -33,21 +43,38 @@ export default class RhdhRbacApi {
     return instance;
   }
 
-  // Used during the afterAll to ensure we clean up any policies that are left over due to failing tests
   public async getPoliciesByRole(policy: string): Promise<APIResponse> {
     return await this.myContext.get(`policies/role/default/${policy}`);
   }
 
-  // Used during the afterAll to ensure we clean up any roles that are left over due to failing tests
+  /** Fetches all conditional policies across all roles. */
+  public async getConditions(): Promise<APIResponse> {
+    return await this.myContext.get(`roles/conditions`);
+  }
+
+  /** Filters a full conditions list down to those belonging to a specific role entity ref. */
+  public async getConditionsByRole(
+    role: string,
+    remainingConditions: RoleConditionalPolicyDecision<PermissionAction>[],
+  ): Promise<RoleConditionalPolicyDecision<PermissionAction>[]> {
+    return remainingConditions.filter(
+      (condition) => condition.roleEntityRef === role,
+    );
+  }
+
   public async deleteRole(role: string): Promise<APIResponse> {
     return await this.myContext.delete(`roles/role/default/${role}`);
   }
 
-  // Used during the afterAll to ensure we clean up any policies that are left over due to failing tests
   public async deletePolicy(policy: string, policies: Policy[]) {
     return await this.myContext.delete(`policies/role/default/${policy}`, {
       data: policies,
     });
+  }
+
+  /** `id` comes from the `RoleConditionalPolicyDecision.id` field returned by the API. */
+  public async deleteCondition(id: string): Promise<APIResponse> {
+    return await this.myContext.delete(`roles/conditions/${id}`);
   }
 }
 
@@ -66,7 +93,8 @@ export class Response {
         return []; // Return an empty array as a fallback
       }
 
-      // Clean metadata from the response
+      // Strip the `metadata` field before passing policies to the delete endpoint,
+      // which rejects payloads that contain it
       const responseClean = responseJson.map((item: { metadata: unknown }) => {
         if (item.metadata) {
           delete item.metadata;
