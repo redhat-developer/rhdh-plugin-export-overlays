@@ -59,7 +59,6 @@ test.describe("RBAC plugin", () => {
     await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
 
     await rhdh.configure({
-      version: "1.10",
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
