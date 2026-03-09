@@ -6,7 +6,11 @@ test.describe("Test Quick Start plugin", () => {
     await rhdh.deploy();
   });
 
-  test("Access Quick start as Guest or Admin", async ({ loginHelper, page, uiHelper }) => {
+  test("Access Quick start as Guest or Admin", async ({
+    loginHelper,
+    page,
+    uiHelper,
+  }) => {
     await loginHelper.loginAsGuest();
     await uiHelper.verifyText("Let's get you started with Developer Hub");
     await uiHelper.verifyText("We'll guide you through a few quick steps");
