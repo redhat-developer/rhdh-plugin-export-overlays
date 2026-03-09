@@ -1,5 +1,5 @@
 {
-  "name": "acr-e2e-tests",
+  "name": "github-issues-e2e-tests",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "yarn": ">=3"
   },
   "packageManager": "yarn@3.8.7",
-  "description": "E2E tests for <your-plugin>",
+  "description": "E2E tests for github-issues",
   "scripts": {
     "test": "playwright test",
     "report": "playwright show-report",
