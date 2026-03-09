@@ -18,11 +18,10 @@ test.describe("Test ArgoCD plugin", () => {
       "openshift-gitops-server",
     );
 
-    // The framework's $ uses stdio:"inherit" which doesn't capture stdout.
-    // Use execSync to capture the output. Single quotes protect the backslash
-    // from shell interpretation so jsonpath receives the escaped dot.
+    const safePath = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
     const argoPasswordB64 = execSync(
       "oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath='{.data.admin\\.password}'",
+      { env: { ...process.env, PATH: safePath } },
     )
       .toString()
       .trim();
