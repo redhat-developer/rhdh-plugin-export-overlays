@@ -1,6 +1,5 @@
 import { test, expect } from "rhdh-e2e-test-utils/test";
 import { $ } from "rhdh-e2e-test-utils/utils";
-import { execSync } from "node:child_process";
 import path from "path";
 
 const setupScript = path.join(
@@ -18,16 +17,12 @@ test.describe("Test ArgoCD plugin", () => {
       "openshift-gitops-server",
     );
 
-    const safePath = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
-    // eslint-disable-next-line @typescript-eslint/naming-convention
-    const safeEnv = { ...process.env, PATH: safePath };
-    const argoPasswordB64 = execSync(
-      "oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath='{.data.admin\\.password}'",
-      { env: safeEnv },
-    )
-      .toString()
-      .trim();
-    const argoPassword = Buffer.from(argoPasswordB64, "base64").toString();
+    const secretResult =
+      await $`oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath={.data.admin\\.password}`;
+    const argoPassword = Buffer.from(
+      secretResult.stdout.trim(),
+      "base64",
+    ).toString();
 
     process.env.ARGOCD_INSTANCE1_URL = argoRoute;
     process.env.ARGOCD_USERNAME = "admin";
