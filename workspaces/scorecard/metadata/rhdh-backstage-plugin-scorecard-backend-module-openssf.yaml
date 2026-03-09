@@ -12,14 +12,13 @@ metadata:
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-openssf
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-openssf
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-openssf
   tags:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.45.3__0.1.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
-  version: 0.1.4
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.45.3__0.1.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
+  version: 0.1.5
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3

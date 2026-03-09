@@ -12,14 +12,13 @@ metadata:
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-github
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-github
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-github
   tags:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.45.3__2.3.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
-  version: 2.3.4
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
+  version: 2.3.5
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3

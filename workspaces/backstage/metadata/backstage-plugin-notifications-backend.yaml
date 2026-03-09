@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
-  version: 0.5.9
+  version: 0.6.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active

@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops-backend"

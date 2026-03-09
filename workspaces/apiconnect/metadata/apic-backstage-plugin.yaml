@@ -10,16 +10,15 @@ metadata:
     - title: Source Code
       url: https://github.com/ibm-apiconnect/backstage/tree/main/plugins/apic-backstage
   annotations:
-    backstage.io/source-location: url
-      https://github.com/ibm-apiconnect/backstage
+    backstage.io/source-location: url:https://github.com/ibm-apiconnect/backstage
   tags: []
 spec:
   packageName: "apic-backstage"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage:bs_1.42.5__1.0.0!apic-backstage
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage:bs_1.45.3__1.0.0!apic-backstage
   version: 1.0.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: IBM
   support: production
   lifecycle: active

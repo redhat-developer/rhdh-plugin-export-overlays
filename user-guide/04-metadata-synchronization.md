@@ -254,7 +254,7 @@ The build process may verify that the source `package.json` matches expectations
 
 - ✅ Update metadata immediately when releasing new plugin versions
 - ✅ Use exact tags (e.g., `@backstage-community/plugin-x@1.2.3`) not branches
-- ✅ Test with `/publish` and `/test` before merging
+- ✅ Test with `/publish` and `/smoketest` before merging
 - ✅ Keep descriptions and links current
 
 ### Don't

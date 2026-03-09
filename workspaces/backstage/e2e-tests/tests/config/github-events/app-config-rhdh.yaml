@@ -1,0 +1,46 @@
+app:
+  title: RHDH Backstage Test Instance
+
+events:
+  http:
+    topics:
+      - github
+  modules:
+    github:
+      webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+
+catalog:
+  rules:
+    - allow: [Component, API, Resource, System, Domain, Location, Template, User, Group]
+  providers:
+    github:
+      providerId:
+        organization: "janus-qe" # org needed otherwise events plugin will not pick up events
+        schedule:
+          frequency:
+            hours: 24
+          initialDelay:
+            seconds: 15
+          timeout:
+            minutes: 10
+    githubOrg:
+      id: production
+      githubUrl: https://github.com
+      orgs: ["janus-qe"]
+      schedule:
+        frequency:
+          hours: 24
+        initialDelay:
+          seconds: 15
+        timeout:
+          minutes: 10
+
+integrations:
+  github:
+    - host: github.com
+      apps:
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}

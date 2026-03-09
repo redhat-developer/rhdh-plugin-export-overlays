@@ -1,0 +1,42 @@
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.45.3__0.4.6
+    disabled: false
+    pluginConfig:
+      events:
+        http:
+          topics:
+            - github
+        modules:
+          github:
+            webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.45.3__0.11.2
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          github:
+            providerId:
+              organization: "janus-qe"
+              schedule:
+                frequency:
+                  hours: 24
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 10
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org:bs_1.45.3__0.3.16
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          githubOrg:
+            id: production
+            githubUrl: https://github.com
+            orgs: ["janus-qe"]
+            schedule:
+              frequency:
+                hours: 24
+              initialDelay:
+                seconds: 15
+              timeout:
+                minutes: 10

@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/quay
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/quay
   tags: []
 spec:
   packageName: "@backstage-community/plugin-quay"

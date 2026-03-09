@@ -12,15 +12,15 @@ metadata:
   - title: Source Code
     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/homepage
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/homepage
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/homepage
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-  version: 1.9.2
+  version: 1.10.4
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

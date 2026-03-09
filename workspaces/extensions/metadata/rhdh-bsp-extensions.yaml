@@ -12,15 +12,15 @@ metadata:
   - title: Source Code
     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-extensions'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-extensions
-  version: 0.12.1
+  version: 0.14.3
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active

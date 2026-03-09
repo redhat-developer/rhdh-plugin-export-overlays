@@ -12,17 +12,16 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-github
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-github
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-github
   tags:
     - software-templates
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-github"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
-  version: 0.8.2
+  version: 0.9.2
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: active

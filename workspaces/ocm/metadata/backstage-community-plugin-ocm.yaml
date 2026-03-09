@@ -12,15 +12,15 @@ metadata:
   - title: Source Code
     url: https://github.com/backstage/community-plugins/tree/main/workspaces/ocm
   annotations:
-    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/ocm
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/ocm
   tags: []
 spec:
   packageName: '@backstage-community/plugin-ocm'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-ocm
-  version: 5.8.0
+  version: 5.11.1
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.42.5
+    supportedVersions: 1.45.3
   author: Red Hat
   support: production
   lifecycle: deprecated

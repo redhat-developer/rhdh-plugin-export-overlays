@@ -118,7 +118,7 @@ When working with Pull Requests, use these comment commands:
 | Command | Action |
 |---------|--------|
 | `/publish` | Build and publish test OCI artifacts |
-| `/test` | Re-run integration tests (requires prior `/publish`) |
+| `/smoketest` | Re-run smoke tests (requires prior `/publish`) |
 
 ### What `/publish` Does
 
