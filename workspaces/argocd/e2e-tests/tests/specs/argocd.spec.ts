@@ -1,5 +1,5 @@
-import { test, expect } from "rhdh-e2e-test-utils/test";
-import { $ } from "rhdh-e2e-test-utils/utils";
+import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
 
 const setupScript = path.join(
