@@ -14,7 +14,7 @@ wait_for_crd() {
 
   echo "Waiting for CRD ${crd_name} to be registered..."
   while ! oc get crd "${crd_name}" > /dev/null 2>&1; do
-    if [ "${elapsed}" -ge "${timeout}" ]; then
+    if [[ "${elapsed}" -ge "${timeout}" ]]; then
       echo "ERROR: Timed out waiting for CRD ${crd_name}"
       return 1
     fi
@@ -33,8 +33,8 @@ wait_for_deployment() {
 
   echo "Waiting for deployment ${name} in ${namespace}..."
   while ! oc get deployment "${name}" -n "${namespace}" > /dev/null 2>&1 || \
-        [ "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" != "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.spec.replicas}' 2>/dev/null)" ]; do
-    if [ "${elapsed}" -ge "${timeout}" ]; then
+        [[ "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" != "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.spec.replicas}' 2>/dev/null)" ]]; do
+    if [[ "${elapsed}" -ge "${timeout}" ]]; then
       echo "ERROR: Timed out waiting for deployment ${name} in ${namespace}"
       return 1
     fi
@@ -63,7 +63,7 @@ install_gitops_operator() {
   local interval=10
   local elapsed=0
   while ! oc get csv -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep "Red Hat OpenShift GitOps" | grep -q "Succeeded"; do
-    if [ "${elapsed}" -ge "${timeout}" ]; then
+    if [[ "${elapsed}" -ge "${timeout}" ]]; then
       echo "ERROR: Timed out waiting for GitOps operator CSV"
       return 1
     fi
@@ -120,7 +120,7 @@ get_argocd_credentials() {
     -d "{\"username\":\"admin\",\"password\":\"${ARGOCD_PASSWORD}\"}" 2>&1) || true
   ARGOCD_TOKEN=$(echo "${session_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4 || true)
 
-  if [ -z "${ARGOCD_TOKEN}" ]; then
+  if [[ -z "${ARGOCD_TOKEN}" ]]; then
     echo "WARNING: Could not generate ArgoCD token. Tests may use password auth instead."
   else
     echo "ArgoCD auth token generated."
@@ -156,12 +156,12 @@ create_test_application() {
     health_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
     echo "  Sync: ${sync_status}, Health: ${health_status}"
 
-    if [ "${sync_status}" = "Synced" ] && [ "${health_status}" = "Healthy" ]; then
+    if [[ "${sync_status}" = "Synced" && "${health_status}" = "Healthy" ]]; then
       echo "Test application is synced and healthy."
       break
     fi
 
-    if [ "${elapsed}" -ge "${timeout}" ]; then
+    if [[ "${elapsed}" -ge "${timeout}" ]]; then
       echo "WARNING: Test application did not reach Synced/Healthy within ${timeout}s."
       echo "  Current status — Sync: ${sync_status}, Health: ${health_status}"
       break
@@ -189,12 +189,12 @@ create_rollout_manager() {
     phase=$(oc get rolloutmanager argo-rollout -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
     echo "  Phase: ${phase}"
 
-    if [ "${phase}" = "Available" ]; then
+    if [[ "${phase}" = "Available" ]]; then
       echo "RolloutManager is available."
       break
     fi
 
-    if [ "${elapsed}" -ge "${timeout}" ]; then
+    if [[ "${elapsed}" -ge "${timeout}" ]]; then
       echo "WARNING: RolloutManager did not reach Available within ${timeout}s."
       break
     fi
@@ -223,7 +223,7 @@ main() {
   echo "========================================="
   echo "ARGOCD_INSTANCE1_URL=${ARGOCD_INSTANCE1_URL}"
   echo "ARGOCD_USERNAME=${ARGOCD_USERNAME}"
-  echo "ARGOCD_AUTH_TOKEN is set: $([ -n "${ARGOCD_AUTH_TOKEN:-}" ] && echo 'yes' || echo 'no')"
+  echo "ARGOCD_AUTH_TOKEN is set: $([[ -n "${ARGOCD_AUTH_TOKEN:-}" ]] && echo 'yes' || echo 'no')"
 }
 
 main "$@"
