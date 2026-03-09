@@ -48,17 +48,6 @@ test.describe("Test ArgoCD plugin", () => {
     await page.getByText("test-argocd-component").click();
 
     await uiHelper.verifyText("test-argocd-component");
-
-    // await expect(
-    //   page.uiHelper.verifyHeading('Deployment Summary')
-    // ).toBeVisible();
-    // await page.uiHelper.verifyTableHeadingAndRows(
-    //   ['ArgoCD App', 'Namespace', 'Instance', 'Server', 'Revision']
-    // );
-    // await page.uiHelper.verifyRowsInTable(
-    //   ['test-argocd-app', 'openshift-gitops', 'argoInstance1', 'https://kubernetes.default.svc', '-'],
-    // );
-
   });
 
   test("Verify ArgoCD deployment lifecycle on CD tab", async ({
@@ -67,12 +56,6 @@ test.describe("Test ArgoCD plugin", () => {
   }) => {
     await uiHelper.openCatalogSidebar("Component");
     await page.getByText("test-argocd-component").click();
-    // await page.getByRole("tab", { name: /cd/i }).click();
-    // await page.uiHelper.verifyHeading('Deployment Lifecycle');
-    // await page.uiHelper.verifyButtonURL('test-argocd-app', new RegExp(`/applications/openshift-gitops/test-argocd-app`));
-    // await page.getByText('test-argocd-app').click();
-    
-
   });
 
   test("Verify ArgoCD link points to correct instance", async ({

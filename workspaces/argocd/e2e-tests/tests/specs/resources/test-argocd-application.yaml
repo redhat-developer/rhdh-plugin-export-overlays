@@ -8,18 +8,18 @@ metadata:
 spec:
   destination:
     namespace: openshift-gitops
-    server: 'https://kubernetes.default.svc'
+    server: "https://kubernetes.default.svc"
   project: default
   sources:
     - chart: quarkus
-      repoURL: 'https://redhat-developer.github.io/redhat-helm-charts'
+      repoURL: "https://redhat-developer.github.io/redhat-helm-charts"
       targetRevision: 0.0.3
       helm:
         parameters:
           - name: build.enabled
-            value: 'false'
+            value: "false"
           - name: deploy.route.enabled
-            value: 'false'
+            value: "false"
           - name: image.name
             value: quay.io/redhatworkshops/gitops-helm-quarkus
     - repoURL: https://github.com/janus-qe/RHDH-ArgoCD-plugin-test

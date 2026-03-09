@@ -12,12 +12,12 @@ kubernetes:
           authProvider: serviceAccount
           skipTLSVerify: true
   customResources:
-    - group: 'argoproj.io'
-      apiVersion: 'v1alpha1'
-      plural: 'rollouts'
-    - group: 'argoproj.io'
-      apiVersion: 'v1alpha1'
-      plural: 'analysisruns'
+    - group: "argoproj.io"
+      apiVersion: "v1alpha1"
+      plural: "rollouts"
+    - group: "argoproj.io"
+      apiVersion: "v1alpha1"
+      plural: "analysisruns"
 
 argocd:
   appLocatorMethods:
@@ -34,4 +34,3 @@ catalog:
       target: https://github.com/janus-qe/RHDH-ArgoCD-plugin-test/blob/main/catalog-info.yaml
       rules:
         - allow: [Component]
-    
