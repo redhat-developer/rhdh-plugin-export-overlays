@@ -19,9 +19,11 @@ test.describe("Test ArgoCD plugin", () => {
     );
 
     const safePath = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const safeEnv = { ...process.env, PATH: safePath };
     const argoPasswordB64 = execSync(
       "oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath='{.data.admin\\.password}'",
-      { env: { ...process.env, PATH: safePath } },
+      { env: safeEnv },
     )
       .toString()
       .trim();
