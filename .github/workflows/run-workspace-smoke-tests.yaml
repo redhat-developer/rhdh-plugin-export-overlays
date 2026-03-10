@@ -105,7 +105,7 @@ jobs:
           set -e
           for i in $(seq 1 10); do
             if curl -fsS http://localhost:7007/health >/dev/null; then
-              echo "RHDH is ready"; exit 0; fi
+              echo "RHDH is ready"; sleep 10; exit 0; fi
             echo "Waiting for RHDH... (Attempt ${i}/10)"
             # Check if container is still running
             if ! docker ps | grep -q rhdh; then
@@ -117,11 +117,12 @@ jobs:
           echo "RHDH did not become ready in time."
           exit 1
 
-      - name: List installed plugins
-        run: docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
-
-      - name: Print generated dynamic plugins config
-        run: docker exec rhdh cat /opt/app-root/src/dynamic-plugins-root/app-config.dynamic-plugins.yaml
+      - name: Print container debug info
+        run: |
+          echo "===== Installed plugins"
+          docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
+          echo "===== Generated dynamic plugins config"
+          docker exec rhdh cat /opt/app-root/src/dynamic-plugins-root/app-config.dynamic-plugins.yaml
 
       - name: Verify plugin loading
         id: collect-results
@@ -134,43 +135,53 @@ jobs:
             echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
             echo "(no-plugins)" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
-            exit 0
+            exit 1
           fi
-          LOGS=$(docker logs rhdh || true)
+          LOGS=$(docker logs rhdh 2>&1 || true)
           failures=()
-          echo "===== Checking logs for plugin loaded messages"
+
+          # Verify backstage startup
+          if ! echo "$LOGS" | grep -qiE "backstage info.*listening on"; then
+            echo "ERROR: Backstage startup message not found in logs"
+            failures+=("(backstage-not-started)")
+          fi
+
+          # Verify each plugin loaded
           for plugin in $PLUGINS; do
-            echo "Asserting plugin loaded: $plugin"
-            # Match either the unpack path or the canonical "loaded dynamic ... plugin '<pkg>' from" message
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'" ; then
-              echo "Plugin loaded: $plugin"
+            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'"; then
+              echo "  OK: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"
               failures+=("$plugin")
             fi
           done
-          if echo "$LOGS" | grep -E "(InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error)" >/dev/null; then
-            echo "Detected dynamic plugin loading errors in logs"
+
+          # Check for plugin loading errors
+          if echo "$LOGS" | grep -qE "(InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error)"; then
             failures+=("(log-errors)")
           fi
+
+          # Check for plugin initialization errors
+          while IFS= read -r line; do
+            plugin_name=$(echo "$line" | sed "s/.*Plugin '\([^']*\)'.*/\1/")
+            echo "  INIT ERROR: $plugin_name"
+            failures+=("$plugin_name (init-error)")
+          done < <(echo "$LOGS" | grep -oE "Unhandled rejection Plugin '[^']+' startup failed" || true)
+
+          # Write outputs and exit
           if [ ${#failures[@]} -eq 0 ]; then
             echo "success=true" >> "$GITHUB_OUTPUT"
             echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
             echo "success=false" >> "$GITHUB_OUTPUT"
             echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
             printf "%s\n" "${failures[@]}" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
+            printf "\nThese plugins failed to load to RHDH:\n"
+            printf "%s\n" "${failures[@]}"
+            exit 1
           fi
-
-      - name: Fail if any plugin failed to load
-        if: ${{ steps.collect-results.outputs.success != 'true' }}
-        run: |
-          echo "The following plugins failed to load to RHDH:"
-          echo "${{ steps.collect-results.outputs.failed-plugins }}"
-          exit 1
 
       - name: Capture error logs
         if: always()
@@ -185,21 +196,18 @@ jobs:
           fi
           
           LOGS=$(docker logs rhdh 2>&1 || echo "Failed to retrieve logs")
-          
-          # Extract errors from logs with short context 
-          ERROR_LINES=$(echo "$LOGS" | grep -iE -B 2 -A 2 "(error|exception|failed|failure|installException)" | grep -vE "(no errors|successfully|resolved|fixed)" | grep -v "^--$" | tail -n 100 || echo "")
-          
+          ERROR_LINES=$(echo "$LOGS" | grep -E "(backstage (error|warn)|InstallException|Unhandled rejection|Failed to load dynamic plugin|Error while adding OCI plugin)" || true)
           echo "error-logs<<EOF" >> "$GITHUB_OUTPUT"
-          if [ -n "$ERROR_LINES" ] && [ "$ERROR_LINES" != "" ]; then
+          if [ -n "$ERROR_LINES" ]; then
             echo "$ERROR_LINES" >> "$GITHUB_OUTPUT"
           else
-            echo "No specific error patterns found in container logs. Check full workflow logs for details." >> "$GITHUB_OUTPUT"
+            echo "No error patterns found in container logs. Check full workflow logs for details." >> "$GITHUB_OUTPUT"
           fi
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Print container logs
         if: always()
-        run: docker logs rhdh || true
+        run: docker logs rhdh 2>&1 || true
 
       - name: Cleanup
         if: always()
