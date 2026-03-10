@@ -56,7 +56,7 @@ jobs:
             core.setOutput('last-published-commit', '');
             
   export:
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     needs:
       - prepare
 

@@ -1,13 +1,12 @@
-name: Publish RHDH Release Dynamic Plugin Images
+name: Publish DevPortal Dynamic Plugin Images
 on:
   push:
     branches:
-      - 'release-**'
       - 'main'
 
 jobs:
   export:
-    uses: redhat-developer/rhdh-plugin-export-overlays/.github/workflows/publish-release-branch-workspace-plugins.yaml@main
+    uses: veecode-platform/devportal-plugin-export-overlays/.github/workflows/publish-release-branch-workspace-plugins.yaml@main
     permissions:
       contents: write
       attestations: write

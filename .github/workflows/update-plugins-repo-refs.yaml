@@ -156,7 +156,7 @@ jobs:
     name: Update Branches
     needs: prepare
     if: github.event_name != 'schedule'
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       workspace-path: ${{ inputs.workspace-path }}
@@ -176,7 +176,7 @@ jobs:
     needs: prepare
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       overlay-repo: ${{ github.repository }}
@@ -194,7 +194,7 @@ jobs:
     needs: prepare
     if: >-
       (github.event_name == 'schedule' && github.event.schedule == '0 19 * * *')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       overlay-repo: ${{ github.repository }}      

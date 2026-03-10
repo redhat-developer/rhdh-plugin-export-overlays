@@ -145,7 +145,7 @@ async function getOciImageUrl(packageName, core) {
   }
 
   const encodedPath = encodeURIComponent(`rhdh-plugin-export-overlays/${containerName}`);
-  const url = `https://github.com/redhat-developer/rhdh-plugin-export-overlays/pkgs/container/${encodedPath}`;
+  const url = `https://github.com/veecode-platform/devportal-plugin-export-overlays/pkgs/container/${encodedPath}`;
 
   try {
     let response = await fetch(url, { method: 'HEAD' });
@@ -464,10 +464,10 @@ function generateMarkdown(branchName, workspacesData, repoName) {
           imageLink = ` [📦](${imageUrl} "OCI Image")`;
         } else if (packageName) {
           const containerName = getContainerName(packageName) || packageName;
-          const searchUrl = `https://github.com/orgs/redhat-developer/packages?tab=packages&q=${encodeURIComponent(containerName)}`;
+          const searchUrl = `https://github.com/orgs/veecode-platform/packages?tab=packages&q=${encodeURIComponent(containerName)}`;
           imageLink = ` [📦](${searchUrl} "Search OCI Image")`;
         } else {
-           const generalPackagesUrl = "https://github.com/orgs/redhat-developer/packages?repo_name=rhdh-plugin-export-overlays";
+           const generalPackagesUrl = "https://github.com/orgs/veecode-platform/packages?repo_name=rhdh-plugin-export-overlays";
            imageLink = ` [📦](${generalPackagesUrl} "Browse Packages")`;
         }
         
