@@ -1,0 +1,28 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-tech-insights-maturity
+  namespace: rhdh
+  title: "Tech Insights Maturity"
+  links:
+  - url: https://red.ht/rhdh
+    title: Homepage
+  - url: https://github.com/backstage/community-plugins/issues
+    title: Bugs
+  - title: Source Code
+    url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  tags: []
+spec:
+  packageName: '@backstage-community/plugin-tech-insights-maturity'
+  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-tech-insights-maturity:bs_1.48.4__0.4.1!backstage-community-plugin-tech-insights-maturity
+  version: 0.4.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.48.4
+  author: VeeCode
+  support: community
+  lifecycle: active
+  partOf:
+  - tech-insights
