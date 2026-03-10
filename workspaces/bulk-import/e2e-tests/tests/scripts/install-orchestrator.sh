@@ -12,6 +12,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export NAME_SPACE="${1:-${NAME_SPACE:-orchestrator}}"
 
+LOWER_CASE_CLASS='[:lower:]'
+UPPER_CASE_CLASS='[:upper:]'
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -22,21 +25,35 @@ else
 fi
 : "${LOG_LEVEL:=INFO}"
 
-log::timestamp() { date -u '+%Y-%m-%dT%H:%M:%SZ'; }
+log::timestamp() {
+  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  return 0
+}
 log::level_value() {
-  local level; level="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+  local input="$1"
+  local level
+  level="$(echo "$input" | tr "$LOWER_CASE_CLASS" "$UPPER_CASE_CLASS")"
   case "${level}" in DEBUG) echo 0 ;; INFO) echo 1 ;; WARN|WARNING) echo 2 ;; ERROR|ERR) echo 3 ;; *) echo 1 ;; esac
+  return 0;
 }
 log::should_log() {
-  local requested_level config_level
-  requested_level="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
-  config_level="$(echo "${LOG_LEVEL}" | tr '[:lower:]' '[:upper:]')"
+  local input requested_level config_level
+  input="$1"
+  requested_level="$(echo "$input" | tr "$LOWER_CASE_CLASS" "$UPPER_CASE_CLASS")"
+  config_level="$(echo "${LOG_LEVEL}" | tr "$LOWER_CASE_CLASS" "$UPPER_CASE_CLASS")"
+
   [[ "$(log::level_value "${requested_level}")" -ge "$(log::level_value "${config_level}")" ]]
+  return $?
 }
-log::reset_code() { [[ "${LOG_NO_COLOR}" == "true" ]] && printf '' || printf '\033[0m'; }
+log::reset_code() { 
+  [[ "${LOG_NO_COLOR}" == "true" ]] && printf '' || printf '\033[0m'
+  return 0;
+}
 log::color_for_level() {
   [[ "${LOG_NO_COLOR}" == "true" ]] && { printf ''; return 0; }
-  local level; level="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+  local level input
+  input="$1"
+  level="$(echo "$input" | tr "$LOWER_CASE_CLASS" "$UPPER_CASE_CLASS")"
   case "${level}" in
     DEBUG) printf '\033[36m' ;; INFO) printf '\033[34m' ;; WARN|WARNING) printf '\033[33m' ;;
     ERROR|ERR) printf '\033[31m' ;; SUCCESS) printf '\033[32m' ;; SECTION) printf '\033[35m\033[1m' ;;
@@ -44,8 +61,11 @@ log::color_for_level() {
   esac
 }
 log::icon_for_level() {
-  local level; level="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+  local level input
+  input="$1"
+  level="$(echo "$input" | tr "$LOWER_CASE_CLASS" "$UPPER_CASE_CLASS")"
   case "${level}" in DEBUG) printf '🐞' ;; INFO) printf 'ℹ' ;; WARN|WARNING) printf '⚠' ;; ERROR|ERR) printf '❌' ;; SUCCESS) printf '✓' ;; *) printf '-' ;; esac
+  return 0
 }
 log::emit_line() {
   local level="$1" icon="$2" line="$3" color reset timestamp
@@ -61,17 +81,36 @@ log::emit() {
   [[ -z "${message}" ]] && return 0
   while IFS= read -r line; do log::emit_line "${level}" "${icon}" "${line}"; done <<< "${message}"
 }
-log::debug() { log::emit "DEBUG" "$@"; }
-log::info() { log::emit "INFO" "$@"; }
-log::warn() { log::emit "WARN" "$@"; }
-log::error() { log::emit "ERROR" "$@"; }
-log::success() { log::emit "SUCCESS" "$@"; }
+log::debug() {
+  log::emit "DEBUG" "$@"
+  return 0
+}
+log::info() { 
+  log::emit "INFO" "$@"
+  return 0
+}
+log::warn() { 
+  log::emit "WARN" "$@"
+  return 0
+}
+log::error() {
+  log::emit "ERROR" "$@"
+  return 0
+}
+log::success() {
+  log::emit "SUCCESS" "$@"
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 # Escape double quotes for yq string values (yq v4 mikefarah)
-escape_yq() { printf '%s' "$1" | sed 's/"/\\"/g'; }
+escape_yq() {
+  local input="$1"
+  printf '%s' "$input" | sed 's/"/\\"/g'
+  return 0
+}
 
 # ---------------------------------------------------------------------------
 # Operator subscription and status
@@ -91,6 +130,7 @@ spec:
   source: $source_name
   sourceNamespace: $source_namespace
 EOD
+  return 0
 }
 
 check_operator_status() {
@@ -108,16 +148,20 @@ check_operator_status() {
 
 install_serverless_logic_ocp_operator() {
   install_subscription logic-operator-rhel8 openshift-operators alpha logic-operator-rhel8 redhat-operators openshift-marketplace
+  return 0
 }
 waitfor_serverless_logic_ocp_operator() {
   check_operator_status 500 openshift-operators "OpenShift Serverless Logic Operator (Alpha)" Succeeded
+  return 0
 }
 
 install_serverless_ocp_operator() {
   install_subscription serverless-operator openshift-operators stable serverless-operator redhat-operators openshift-marketplace
+  return 0
 }
 waitfor_serverless_ocp_operator() {
   check_operator_status 300 openshift-operators "Red Hat OpenShift Serverless" Succeeded
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -144,6 +188,7 @@ delete_namespace() {
       force_delete_namespace "$project"
     fi
   fi
+  return 0
 }
 
 configure_namespace() {
@@ -153,6 +198,7 @@ configure_namespace() {
   oc create namespace "${project}" || { log::error "Failed to create namespace ${project}"; exit 1; }
   oc config set-context --current --namespace="${project}" || { log::error "Failed to set context"; exit 1; }
   log::info "Namespace ${project} is ready."
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -299,7 +345,7 @@ spec:
           serviceRef: { name: ${postgres_service_name}, namespace: ${namespace}, port: 5432, databaseName: backstage_plugin_orchestrator }
 EOF
   local attempt=0 max_attempts=60
-  while [ $attempt -lt $max_attempts ]; do
+  while [[ $attempt -lt $max_attempts ]]; do
     if oc get deployment sonataflow-platform-data-index-service -n "$namespace" &>/dev/null && \
        oc get deployment sonataflow-platform-jobs-service -n "$namespace" &>/dev/null; then
       log::success "SonataFlowPlatform services created"
@@ -309,7 +355,7 @@ EOF
       return 0
     fi
     attempt=$((attempt + 1))
-    [ $((attempt % 10)) -eq 0 ] && log::info "Waiting for SonataFlowPlatform... ($attempt/$max_attempts)"
+    [[ $((attempt % 10)) -eq 0 ]] && log::info "Waiting for SonataFlowPlatform... ($attempt/$max_attempts)"
     sleep 5
   done
   log::warn "SonataFlowPlatform services did not appear in time."
@@ -335,6 +381,7 @@ print_orchestrator_connection_info() {
     log::warn "Service '${data_index_service}' not found yet."
   fi
   log::info "=========================================="
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -343,13 +390,13 @@ print_orchestrator_connection_info() {
 wait_for_sonataflow_crds() {
   log::info "Waiting for SonataFlow CRDs..."
   local attempt=0 max_attempts=60
-  while [ $attempt -lt $max_attempts ]; do
+  while [[ $attempt -lt $max_attempts ]]; do
     if oc get crd sonataflows.sonataflow.org &>/dev/null; then
       log::success "SonataFlow CRD is available."
       return 0
     fi
     attempt=$((attempt + 1))
-    [ $((attempt % 6)) -eq 0 ] && log::info "Waiting for sonataflows.sonataflow.org... ($attempt/$max_attempts)"
+    [[ $((attempt % 6)) -eq 0 ]] && log::info "Waiting for sonataflows.sonataflow.org... ($attempt/$max_attempts)"
     sleep 5
   done
   log::error "Timed out waiting for SonataFlow CRD."
@@ -362,9 +409,9 @@ wait_for_sonataflow_crds() {
 # ---------------------------------------------------------------------------
 deploy_orchestrator_workflows_operator() {
   local namespace=$1
-  local WORKFLOW_REPO="https://github.com/AndrienkoAleksandr/serverless-workflows.git"
-  local WORKFLOW_DIR="/tmp/serverless-workflows"
-  local LOCAL_MANIFESTS="${SCRIPT_DIR}/yaml"
+  local workflow_repo="https://github.com/AndrienkoAleksandr/serverless-workflows.git"
+  local workflow_dir="/tmp/serverless-workflows"
+  local local_manifests="${SCRIPT_DIR}/yaml"
 
   # PostgreSQL
   if ! oc get statefulset backstage-psql -n "$namespace" &>/dev/null && ! oc get deployment backstage-psql -n "$namespace" &>/dev/null; then
@@ -412,21 +459,21 @@ deploy_orchestrator_workflows_operator() {
 
 
   # Prefer local yaml/ if it exists and has content
-  if [[ -d "${LOCAL_MANIFESTS}" ]] && [[ -n "$(ls -A "${LOCAL_MANIFESTS}" 2>/dev/null)" ]]; then
-    log::info "Using local workflow manifests from ${LOCAL_MANIFESTS}"
+  if [[ -d "${local_manifests}" ]] && [[ -n "$(ls -A "${local_manifests}" 2>/dev/null)" ]]; then
+    log::info "Using local workflow manifests from ${local_manifests}"
     # Apply all YAMLs in yaml/ with correct namespace
-    for f in "${LOCAL_MANIFESTS}"/*.yaml "${LOCAL_MANIFESTS}"/*.yml; do
+    for f in "${local_manifests}"/*.yaml "${local_manifests}"/*.yml; do
       [[ -e "$f" ]] && oc apply -f "$f" -n "$namespace" && log::info "Applied $(basename "$f")"
     done
   else
     log::info "Cloning workflow repo..."
-    rm -rf "${WORKFLOW_DIR}"
-    git clone --single-branch --branch bulk-import-workflow-sample  "${WORKFLOW_REPO}" "${WORKFLOW_DIR}"
-    local WORKFLOW_MANIFESTS="${WORKFLOW_DIR}/workflows/experimentals/bulk-import-git-repos/manifests"
-    if [[ -d "${WORKFLOW_MANIFESTS}" ]]; then
+    rm -rf "${workflow_dir}"
+    git clone --single-branch --branch bulk-import-workflow-sample  "${workflow_repo}" "${workflow_dir}"
+    local workflow_manifests="${workflow_dir}/workflows/experimentals/bulk-import-git-repos/manifests"
+    if [[ -d "${workflow_manifests}" ]]; then
       log::info "Applying workflow manifests from repo..."
 
-      snToDbPatch="${WORKFLOW_MANIFESTS}/04-sonataflow_universal-pr.yaml"
+      snToDbPatch="${workflow_manifests}/04-sonataflow_universal-pr.yaml"
       yq eval -i '.spec.persistence.postgresql.secretRef.name = "'"$(escape_yq "$pqsl_secret_name")"'"' "$snToDbPatch"
       yq eval -i '.spec.persistence.postgresql.secretRef.userKey = "'"$(escape_yq "$pqsl_user_key")"'"' "$snToDbPatch"
       yq eval -i '.spec.persistence.postgresql.secretRef.passwordKey = "'"$(escape_yq "$pqsl_password_key")"'"' "$snToDbPatch"
@@ -434,9 +481,9 @@ deploy_orchestrator_workflows_operator() {
       yq eval -i '.spec.persistence.postgresql.serviceRef.namespace = "'"$(escape_yq "$namespace")"'"' "$snToDbPatch"
       yq eval -i '.spec.persistence.postgresql.serviceRef.databaseName = "'"$(escape_yq "$sonataflow_db")"'"' "$snToDbPatch"
 
-      oc apply -f "${WORKFLOW_MANIFESTS}" -n "$namespace"
+      oc apply -f "${workflow_manifests}" -n "$namespace"
     else
-      log::warn "Manifests path not found in repo: ${WORKFLOW_MANIFESTS}"
+      log::warn "Manifests path not found in repo: ${workflow_manifests}"
     fi
   fi
 
