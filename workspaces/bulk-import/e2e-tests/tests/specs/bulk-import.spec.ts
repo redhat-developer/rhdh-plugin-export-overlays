@@ -1,6 +1,6 @@
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { CustomAPIHelper } from "./custon-github-api-helper";
+import { CustomAPIHelper } from "./custom-github-api-helper";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
