@@ -168,6 +168,7 @@ ${repoLines.join('\n')}`;
   content.WORKFLOW_EXPORT = `${baseUrl}/actions/workflows/export-workspaces-as-dynamic.yaml`;
   content.WORKFLOW_UPDATE_REFS = `${baseUrl}/actions/workflows/update-plugins-repo-refs.yaml`;
   content.WIKI_URL = `${baseUrl}/wiki`;
+  content.WORKSPACE_STATUS_REPORTS_PAGE = 'Workspace-Status-Reports';
   
   return content;
 }
@@ -212,7 +213,11 @@ function transformForWiki(content, dynamicContent) {
 /**
  * Generate the wiki sidebar navigation
  */
-function generateSidebar(workspaceStats) {
+function generateSidebar(workspaceStats, reportPages) {
+  const reportLinks = reportPages.length > 0
+    ? reportPages.map(({ branchName, pageName }) => `  * [${branchName}](${pageName})`).join('\n')
+    : '  * [main](main)';
+
   return `### 📚 User Guide
 * [Home](Home)
 * [Getting Started](Getting-Started)
@@ -226,6 +231,8 @@ function generateSidebar(workspaceStats) {
 
 ### 📊 Generated Reports
 * [Backstage Compatibility Report](Backstage-Compatibility-Report)
+* [Workspace Status Reports](Workspace-Status-Reports)
+${reportLinks}
 
 ### 📈 Stats
 * **${workspaceStats.total}** workspaces
@@ -235,6 +242,62 @@ function generateSidebar(workspaceStats) {
 * [Dynamic Plugins Docs](https://github.com/redhat-developer/rhdh/tree/main/docs/dynamic-plugins)
 * [Export CLI Reference](https://github.com/redhat-developer/rhdh/blob/main/docs/dynamic-plugins/export-derived-package.md)
 * [Backstage Documentation](https://backstage.io/docs)
+`;
+}
+
+/**
+ * Detect branch-specific workspace status pages in the wiki.
+ * Expected page names are `main` and `release-*`.
+ */
+async function detectWorkspaceStatusReportPages(wikiDir) {
+  const files = await fs.readdir(wikiDir, { withFileTypes: true });
+  const pages = files
+    .filter(file => file.isFile() && file.name.endsWith('.md'))
+    .map(file => file.name.replace(/\.md$/, ''))
+    .filter(name => name === 'main' || name.startsWith('release-'))
+    .sort((a, b) => {
+      if (a === 'main') return -1;
+      if (b === 'main') return 1;
+      return b.localeCompare(a, undefined, { numeric: true });
+    })
+    .map(pageName => ({ pageName, branchName: pageName }));
+
+  if (!pages.some(page => page.pageName === 'main')) {
+    pages.unshift({ pageName: 'main', branchName: 'main' });
+  }
+
+  return pages;
+}
+
+/**
+ * Generate a discoverability page for branch-specific workspace status reports.
+ */
+function generateWorkspaceStatusReportsPage(reportPages) {
+  const pageLinks = reportPages
+    .map(({ branchName, pageName }) => `- [\`${branchName}\`](${pageName})`)
+    .join('\n');
+
+  return `# Workspace Status Reports
+
+This repository publishes regularly generated workspace status pages for merged content on \`main\` and each maintained \`release-*\` branch. There is one generated status page per branch.
+
+## Available Branch Reports
+
+${pageLinks}
+
+## What These Reports Contain
+
+- A **last updated** timestamp for the generated report
+- The **total workspaces** count for that branch snapshot
+- A **Workspace Overview** table that summarizes each workspace
+- Searchable details for each workspace, including workspace name, source repository and ref, Backstage version, plugin package/version details, and visual warnings/markers (for example version override warnings and metadata status indicators)
+
+## How to Use These Pages
+
+- Start with the branch that matches your target deployment line (for example \`main\` or \`release-1.9\`)
+- Use your browser search to quickly locate a workspace by name or package
+- Compare source repo/ref and Backstage version data when validating updates or troubleshooting exports
+- Check markers and warnings to spot metadata gaps, overlays/patch usage, and version overrides
 `;
 }
 
@@ -377,6 +440,10 @@ async function syncUserGuideToWiki({ github, context, core }) {
     
     // Clone wiki
     await cloneWiki(wikiUrl, wikiDir, core);
+
+    // Detect existing workspace status report pages before writing new content
+    const reportPages = await detectWorkspaceStatusReportPages(wikiDir);
+    core.info(`Detected ${reportPages.length} workspace status report pages`);
     
     // Process each user guide file
     core.info('\nProcessing user guide files...');
@@ -403,7 +470,15 @@ async function syncUserGuideToWiki({ github, context, core }) {
     
     // Generate sidebar with stats
     core.info('Generating _Sidebar.md...');
-    await fs.writeFile(join(wikiDir, '_Sidebar.md'), generateSidebar(workspaceStats), 'utf-8');
+    await fs.writeFile(join(wikiDir, '_Sidebar.md'), generateSidebar(workspaceStats, reportPages), 'utf-8');
+
+    // Generate workspace status reports index page
+    core.info('Generating Workspace-Status-Reports.md...');
+    await fs.writeFile(
+      join(wikiDir, 'Workspace-Status-Reports.md'),
+      generateWorkspaceStatusReportsPage(reportPages),
+      'utf-8'
+    );
     
     // Always regenerate home page with latest stats
     core.info('Generating Home.md with dynamic content...');
