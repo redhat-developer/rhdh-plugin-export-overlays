@@ -16,12 +16,12 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.45.3__0.23.0!backstage-community-plugin-azure-devops
+  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.48.4__0.23.0!backstage-community-plugin-azure-devops
   version: 0.23.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
-  author: Red Hat
+    supportedVersions: 1.48.4
+  author: VeeCode
   support: community
   lifecycle: active
   partOf:
