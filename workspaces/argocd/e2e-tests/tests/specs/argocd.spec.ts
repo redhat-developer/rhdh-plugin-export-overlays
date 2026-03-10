@@ -6,6 +6,7 @@ const setupScript = path.join(
   import.meta.dirname,
   "deploy-openshift-gitops.sh",
 );
+const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -17,8 +18,9 @@ test.describe("Test ArgoCD plugin", () => {
       "openshift-gitops-server",
     );
 
+    const jsonpath = String.raw`{.data.admin\.password}`;
     const secretResult =
-      await $`oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath={.data.admin\\.password}`;
+      await $pipe`oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath=${jsonpath}`;
     const argoPassword = Buffer.from(
       secretResult.stdout.trim(),
       "base64",
