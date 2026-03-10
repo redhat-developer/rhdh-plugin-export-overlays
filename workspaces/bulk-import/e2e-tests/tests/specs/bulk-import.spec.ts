@@ -1,6 +1,6 @@
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { CustomAPIHelper } from "./custom-github-api-helper";
+import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -36,15 +36,13 @@ test.describe("Bulk import tests", () => {
       throw new Error(`Provide github qe token`);
     }
 
-    const token = process.env.VAULT_GH_RHDH_QE_USER_TOKEN;
-
+    process.env.GH_RHDH_QE_USER_TOKEN = process.env.VAULT_GH_RHDH_QE_USER_TOKEN;
     // Create the repository with catalog-info.yaml file dynamically
-    await CustomAPIHelper.createGitHubRepoWithFile(
+    await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
       catalogRepoDetails.name,
       "test",
       "ABC",
-      token,
     );
   });
 
@@ -143,10 +141,9 @@ test.describe("Bulk import tests", () => {
   test.afterAll(async () => {
     try {
       // Delete the dynamically created GitHub repository with catalog-info.yaml
-      await CustomAPIHelper.deleteRepo(
+      await APIHelper.deleteGitHubRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
-        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
 
       console.log(
