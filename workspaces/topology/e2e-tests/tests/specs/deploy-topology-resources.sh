@@ -25,6 +25,18 @@ install_openshift_pipelines() {
     elapsed=$((elapsed + 10))
     echo "  Still waiting for Tekton CRDs... (${elapsed}s)"
   done
+
+  echo "Waiting for Tekton webhook to be ready..."
+  elapsed=0
+  while ! oc get endpoints tekton-pipelines-webhook -n openshift-pipelines 2>/dev/null | grep -q '[0-9]'; do
+    if [[ "$elapsed" -ge "$timeout" ]]; then
+      echo "ERROR: Timed out waiting for Tekton webhook after ${timeout}s"
+      return 1
+    fi
+    sleep 10
+    elapsed=$((elapsed + 10))
+    echo "  Still waiting for Tekton webhook... (${elapsed}s)"
+  done
   echo "OpenShift Pipelines operator installed successfully"
 }
 
