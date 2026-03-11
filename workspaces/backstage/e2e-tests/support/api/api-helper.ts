@@ -10,6 +10,7 @@ export class CustomAPIHelper {
     baseUrl: string,
     token: string,
     groupName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
     const context = await request.newContext({
       ignoreHTTPSErrors: true,
