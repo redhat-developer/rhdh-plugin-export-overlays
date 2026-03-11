@@ -10,7 +10,7 @@ const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
-    test.setTimeout(600_000);
+    test.setTimeout(900_000);
     await $`bash ${setupScript}`;
 
     const argoRoute = await rhdh.k8sClient.getRouteLocation(

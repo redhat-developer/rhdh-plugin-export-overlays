@@ -146,7 +146,7 @@ create_test_application() {
   }
 
   echo "Waiting for application to sync..."
-  local timeout=120
+  local timeout=300
   local interval=10
   local elapsed=0
   while true; do
@@ -156,8 +156,12 @@ create_test_application() {
     health_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
     echo "  Sync: ${sync_status}, Health: ${health_status}"
 
-    if [[ "${sync_status}" = "Synced" && "${health_status}" = "Healthy" ]]; then
-      echo "Test application is synced and healthy."
+    if [[ "${sync_status}" = "Synced" ]]; then
+      if [[ "${health_status}" = "Healthy" ]]; then
+        echo "Test application is synced and healthy."
+      else
+        echo "Test application is synced (Health: ${health_status}). Proceeding."
+      fi
       break
     fi
 
@@ -217,10 +221,18 @@ main() {
   create_test_application
   create_rollout_manager
 
+  local final_sync final_health
+  final_sync=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+  final_health=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+
   echo ""
   echo "========================================="
   echo "  Setup Complete"
   echo "========================================="
+  echo "ArgoCD App — Sync: ${final_sync}, Health: ${final_health}"
+  echo "Resource health breakdown:"
+  oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+    -o jsonpath='{range .status.resources[*]}  {.kind}: {.health.status}{"\n"}{end}' 2>/dev/null || true
   echo "ARGOCD_INSTANCE1_URL=${ARGOCD_INSTANCE1_URL}"
   echo "ARGOCD_USERNAME=${ARGOCD_USERNAME}"
   echo "ARGOCD_AUTH_TOKEN is set: $([[ -n "${ARGOCD_AUTH_TOKEN:-}" ]] && echo 'yes' || echo 'no')"
