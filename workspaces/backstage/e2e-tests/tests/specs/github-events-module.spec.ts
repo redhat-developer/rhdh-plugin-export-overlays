@@ -1,8 +1,12 @@
-import { test, expect, request } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  test,
+  expect,
+  request,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
 import { createHmac } from "node:crypto";
-import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;
@@ -285,15 +289,18 @@ spec:
 
       test.beforeEach(async ({ page, uiHelper }) => {
         if (!staticToken) {
+          const authApiHelper = new AuthApiHelper(page);
           await page.goto(rhdhBaseUrl);
 
           // Wait for page to be ready and user to be logged in
           await uiHelper.waitForLoad();
           await page.locator("nav").first().waitFor({ state: "visible" });
-          
+
           // Wait for user settings or profile button to appear
           await page
-            .locator('button[data-testid="user-settings-menu"], [aria-label*="user"]')
+            .locator(
+              'button[data-testid="user-settings-menu"], [aria-label*="user"]',
+            )
             .first()
             .waitFor({ state: "visible", timeout: 10000 })
             .catch(() => {});
@@ -303,7 +310,7 @@ spec:
             .poll(
               async () => {
                 try {
-                  const token = await RhdhAuthApiHack.getToken(page);
+                  const token = await authApiHelper.getToken(page);
                   if (token && token.length > 0) {
                     staticToken = token;
                     return true;
@@ -314,7 +321,8 @@ spec:
                 }
               },
               {
-                message: "Token should be retrieved after session is established",
+                message:
+                  "Token should be retrieved after session is established",
                 timeout: 30000,
                 intervals: [2000],
               },
@@ -376,11 +384,19 @@ spec:
         await uiHelper.waitForLoad(10000);
 
         await expect
-          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
-            message: "User should be added to group",
-            timeout: 60000,
-            intervals: [3000],
-          })
+          .poll(
+            () =>
+              CustomAPIHelper.getGroupMembers(
+                rhdhBaseUrl,
+                staticToken,
+                teamName,
+              ),
+            {
+              message: "User should be added to group",
+              timeout: 60000,
+              intervals: [3000],
+            },
+          )
           .toContain("rhdh-qe");
       });
 
@@ -401,11 +417,19 @@ spec:
         );
 
         await expect
-          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
-            message: "User should be added to group before removal test",
-            timeout: 60000,
-            intervals: [3000],
-          })
+          .poll(
+            () =>
+              CustomAPIHelper.getGroupMembers(
+                rhdhBaseUrl,
+                staticToken,
+                teamName,
+              ),
+            {
+              message: "User should be added to group before removal test",
+              timeout: 60000,
+              intervals: [3000],
+            },
+          )
           .toContain("rhdh-qe");
 
         await CustomAPIHelper.removeUserFromTeam(
@@ -426,11 +450,19 @@ spec:
         await uiHelper.waitForLoad(10000);
 
         await expect
-          .poll(() => CustomAPIHelper.getGroupMembers(rhdhBaseUrl, staticToken, teamName), {
-            message: "User should be removed from group",
-            timeout: 60000,
-            intervals: [3000],
-          })
+          .poll(
+            () =>
+              CustomAPIHelper.getGroupMembers(
+                rhdhBaseUrl,
+                staticToken,
+                teamName,
+              ),
+            {
+              message: "User should be removed from group",
+              timeout: 60000,
+              intervals: [3000],
+            },
+          )
           .not.toContain("rhdh-qe");
       });
     });
