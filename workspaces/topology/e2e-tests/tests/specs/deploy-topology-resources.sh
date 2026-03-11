@@ -17,7 +17,7 @@ install_openshift_pipelines() {
   local timeout=300
   local elapsed=0
   while ! oc get crd pipelines.tekton.dev &>/dev/null; do
-    if [ "$elapsed" -ge "$timeout" ]; then
+    if [[ "$elapsed" -ge "$timeout" ]]; then
       echo "ERROR: Timed out waiting for OpenShift Pipelines CRDs after ${timeout}s"
       return 1
     fi
