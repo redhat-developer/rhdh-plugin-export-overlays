@@ -20,7 +20,7 @@ spec:
         backstage.io/kubernetes-id: developer-hub
     spec:
       containers:
-        - name: topology
+        - name: kubernetes
           image: nginxinc/nginx-unprivileged:stable-alpine
           ports:
             - containerPort: 8080
