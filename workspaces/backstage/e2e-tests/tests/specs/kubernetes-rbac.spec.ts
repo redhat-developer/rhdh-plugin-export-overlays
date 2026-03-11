@@ -1,6 +1,5 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { execSync } from "node:child_process";
 import * as path from "node:path";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 import { KubernetesPage } from "../../support/pages/kubernetes";
@@ -16,6 +15,8 @@ const resourcesConfigsPath = path.resolve(
   process.cwd(),
   "tests/config/kubernetes/resources/",
 );
+
+const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
   let kubernetesPage: KubernetesPage;
@@ -37,20 +38,18 @@ test.describe("Kubernetes", () => {
     await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test-ingress.yaml -n ${namespace}`;
 
     // Setup variables
-    const clusterUrl = execSync(
-      "kubectl config view --minify -o jsonpath={.clusters[0].cluster.server}",
-      { encoding: "utf8" },
-    ).trim();
-    const tokenB64 = execSync(
-      `kubectl -n ${namespace} get secret rhdh-k8s-plugin-secret -o jsonpath={.data.token}`,
-      { encoding: "utf8" },
-    ).trim();
+    const clusterUrl = (
+      await $pipe`kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
+    ).stdout.trim();
+
+    const tokenB64 = (
+      await $pipe`kubectl -n ${namespace} get secret rhdh-k8s-plugin-secret -o jsonpath='{.data.token}'`
+    ).stdout.trim();
+
     process.env.K8S_CLUSTER_URL = clusterUrl;
     process.env.K8S_CLUSTER_NAME ??= "test-cluster";
     clusterName = process.env.K8S_CLUSTER_NAME;
-    process.env.K8S_CLUSTER_TOKEN = Buffer.from(tokenB64, "base64")
-      .toString("utf8")
-      .trim();
+    process.env.K8S_CLUSTER_TOKEN = Buffer.from(tokenB64, "base64").toString();
 
     // Setup users
     const keycloak = new RbacKeycloakHelper();
