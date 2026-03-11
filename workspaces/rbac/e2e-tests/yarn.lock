@@ -296,11 +296,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.14":
-  version: 1.1.14
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.14"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.15":
+  version: 1.1.15
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.15"
   dependencies:
     "@axe-core/playwright": ^4.11.0
+    "@backstage-community/plugin-rbac-common": 1.23.0
     "@eslint/js": ^9.39.1
     "@keycloak/keycloak-admin-client": ^26.0.0
     "@kubernetes/client-node": ^1.4.0
@@ -319,7 +320,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 22264a01c79284deaa18c455b6477b7ea304fca62f2517cf347c1fc51131003d58db383e04bfcc0e8ddbe231d819f9ae0b9ee5497b2b00a2cff56ed70c1a1339
+  checksum: 9b92ffbec69b77f263c875a9f3edb672fbe165f3cee8f84c5e2e7b9dd2428b693a2eb9b3375f42c0706960dd7ea2d434e7917f2eb5b6a3762d8f80c18a936c70
   languageName: node
   linkType: hard
 
@@ -2033,7 +2034,7 @@ __metadata:
     "@backstage-community/plugin-rbac-common": 1.23.0
     "@eslint/js": ^9.39.2
     "@playwright/test": 1.57.0
-    "@red-hat-developer-hub/e2e-test-utils": 1.1.14
+    "@red-hat-developer-hub/e2e-test-utils": 1.1.15
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2

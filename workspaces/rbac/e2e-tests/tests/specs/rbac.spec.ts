@@ -10,7 +10,6 @@ import {
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
 import { createUsersAndGroups } from "../../support/utils/create-users";
-import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
 import { cleanupRoles } from "../../support/utils/cleanup";
 import {
   RBAC_DESCRIPTIVE_USERS,
@@ -21,6 +20,7 @@ import {
 import { RBAC_ROLES } from "../../support/constants/roles";
 import { loginAs } from "../../support/utils/login";
 import {
+  AuthApiHelper,
   LoginHelper,
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
@@ -77,7 +77,8 @@ test.describe("RBAC plugin", () => {
     const uiHelper = new UIhelper(page);
     const loginHelper = new LoginHelper(page);
     await setupAdminSession({ page, uiHelper, loginHelper });
-    apiToken = await RhdhAuthApiHack.getToken(page);
+    const authApiHelper = new AuthApiHelper(page);
+    apiToken = await authApiHelper.getToken();
     await context.close();
   });
 
@@ -569,6 +570,7 @@ test.describe("RBAC plugin", () => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
 
       await rbacPO.navigateToRBACPage();
+
       await rbacPO.deleteRole(RBAC_ROLES.rbacOwnership.ref);
     });
 

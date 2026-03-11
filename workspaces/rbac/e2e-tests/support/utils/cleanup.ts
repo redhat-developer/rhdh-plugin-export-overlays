@@ -1,16 +1,20 @@
 import { APIResponse } from "@playwright/test";
-import RhdhRbacApi, { Policy, Response } from "../../support/api/rbac-api";
 import { RbacRef } from "../constants/roles";
 import {
   PermissionAction,
   RoleConditionalPolicyDecision,
 } from "@backstage-community/plugin-rbac-common";
+import {
+  RbacApiHelper,
+  Policy,
+  Response,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 // Roles that cannot be deleted and will throw a 403 — skip to avoid noise
 const SKIPPABLE_ROLES: Set<string> = new Set(["rbac_admin", "guests"]);
 
 async function deletePoliciesForRole(
-  rbacApi: RhdhRbacApi,
+  rbacApi: RbacApiHelper,
   roleName: string,
   policiesResponse: APIResponse,
 ): Promise<void> {
@@ -22,7 +26,7 @@ async function deletePoliciesForRole(
 }
 
 async function deleteConditionsForRole(
-  rbacApi: RhdhRbacApi,
+  rbacApi: RbacApiHelper,
   conditionResponse: APIResponse,
   remainingConditions: RoleConditionalPolicyDecision<PermissionAction>[],
 ): Promise<void> {
@@ -32,7 +36,10 @@ async function deleteConditionsForRole(
   }
 }
 
-async function cleanupRole(rbacApi: RhdhRbacApi, role: RbacRef): Promise<void> {
+async function cleanupRole(
+  rbacApi: RbacApiHelper,
+  role: RbacRef,
+): Promise<void> {
   const policiesResponse = await rbacApi.getPoliciesByRole(role.name);
   const conditionResponse = await rbacApi.getConditions();
   const remainingConditions = await rbacApi.getConditionsByRole(
@@ -63,7 +70,7 @@ export async function cleanupRoles(
   roles: Record<string, RbacRef>,
   apiToken: string,
 ): Promise<void> {
-  const rbacApi = await RhdhRbacApi.build(apiToken);
+  const rbacApi = await RbacApiHelper.build(apiToken);
 
   for (const role of Object.values(roles)) {
     if (SKIPPABLE_ROLES.has(role.name)) continue;
