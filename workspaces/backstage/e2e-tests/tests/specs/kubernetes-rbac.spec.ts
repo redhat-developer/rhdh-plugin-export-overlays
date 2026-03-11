@@ -19,6 +19,7 @@ const resourcesConfigsPath = path.resolve(
 
 test.describe("Kubernetes", () => {
   let kubernetesPage: KubernetesPage;
+  let clusterName: string;
 
   test.beforeAll(async ({ rhdh }) => {
     const namespace = rhdh.deploymentConfig.namespace;
@@ -46,6 +47,7 @@ test.describe("Kubernetes", () => {
     ).trim();
     process.env.K8S_CLUSTER_URL = clusterUrl;
     process.env.K8S_CLUSTER_NAME ??= "test-cluster";
+    clusterName = process.env.K8S_CLUSTER_NAME;
     process.env.K8S_CLUSTER_TOKEN = Buffer.from(tokenB64, "base64")
       .toString("utf8")
       .trim();
@@ -81,7 +83,7 @@ test.describe("Kubernetes", () => {
 
       await page
         .locator(KUBERNETES_COMPONENTS.MuiAccordion)
-        .getByRole("button", { name: "test-cluster Cluster" })
+        .getByRole("button", { name: `${clusterName} Cluster` })
         .click();
     });
 
@@ -133,7 +135,7 @@ test.describe("Kubernetes", () => {
 
       await page
         .locator(KUBERNETES_COMPONENTS.MuiAccordion)
-        .getByRole("button", { name: "test-cluster Cluster" })
+        .getByRole("button", { name: `${clusterName} Cluster` })
         .click();
       await kubernetesPage.verifyPodLogs("kubernetes-test", "kubernetes-test");
     });
