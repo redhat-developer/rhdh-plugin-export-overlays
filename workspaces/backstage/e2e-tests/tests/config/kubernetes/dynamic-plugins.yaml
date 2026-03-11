@@ -17,17 +17,3 @@ plugins:
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
     disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage.plugin-kubernetes:
-            mountPoints:
-              - mountPoint: entity.page.kubernetes/cards
-                importName: EntityKubernetesContent
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                      - hasAnnotation: backstage.io/kubernetes-id
-                      - hasAnnotation: backstage.io/kubernetes-namespace
