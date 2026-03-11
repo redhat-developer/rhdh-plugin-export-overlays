@@ -1,30 +1,30 @@
-# DevPortal Plugin Distribution Pipeline — Resumo Executivo
+# DevPortal Plugin Distribution Pipeline — Executive Summary
 
-**Para:** Andre (Tech Lead)
-**Data:** 2026-03-11
-
----
-
-## 1. O que foi feito
-
-Forkamos o sistema de exportacao de plugins do RHDH (Red Hat Developer Hub) para a org `veecode-platform` e adaptamos toda a pipeline para o DevPortal.
-O resultado sao dois repositorios que, juntos, compilam plugins upstream do Backstage como dynamic plugins e publicam cada um como artefato OCI no GitHub Container Registry.
-Hoje temos **67 workspaces** configurados (31 validados e publicando), cobrindo **~75 plugins** so do workspace `backstage` core, alem de integrações como ArgoCD, Tekton, Jenkins, GitLab, Kubernetes, SonarQube e muitas outras.
+**To:** Andre (Tech Lead)
+**Date:** 2026-03-11
 
 ---
 
-## 2. Como funciona
+## 1. What was done
+
+We forked the RHDH (Red Hat Developer Hub) plugin export system into the `veecode-platform` org and adapted the entire pipeline for DevPortal.
+The result is two repositories that together compile upstream Backstage plugins as dynamic plugins and publish each one as an OCI artifact to GitHub Container Registry.
+We currently have **67 workspaces** configured (31 validated and publishing), covering **~75 plugins** from the `backstage` core workspace alone, plus integrations like ArgoCD, Tekton, Jenkins, GitLab, Kubernetes, SonarQube, and many others.
+
+---
+
+## 2. How it works
 
 ```
- workspaces/<nome>/source.json        ->  aponta para o repo upstream + commit/tag
- workspaces/<nome>/plugins-list.yaml  ->  lista quais plugins exportar
- workspaces/<nome>/metadata/          ->  metadados de cada plugin (opcional)
+ workspaces/<name>/source.json        ->  points to upstream repo + commit/tag
+ workspaces/<name>/plugins-list.yaml  ->  lists which plugins to export
+ workspaces/<name>/metadata/          ->  package metadata for each plugin (optional)
                    |
                    v
-        GitHub Actions (push to main ou workflow_dispatch)
+        GitHub Actions (push to main or workflow_dispatch)
                    |
                    v
-        @red-hat-developer-hub/cli 1.10.0  -->  export do plugin
+        @red-hat-developer-hub/cli 1.10.0  -->  plugin export
                    |
                    v
         ghcr.io/veecode-platform/devportal-plugin-export-overlays/<plugin>:<tag>
@@ -32,129 +32,138 @@ Hoje temos **67 workspaces** configurados (31 validados e publicando), cobrindo 
 
 **Triggers:**
 
-| Evento | Quando |
-|--------|--------|
-| Push to `main` | Quando `workspaces/**` ou `versions.json` mudam |
-| Cron (discovery) | Diariamente as 22h UTC, dias uteis |
+| Event | When |
+|-------|------|
+| Push to `main` | When `workspaces/**` or `versions.json` change |
+| Cron (discovery) | Daily at 22h UTC, weekdays |
 | Manual | `workflow_dispatch` via GitHub Actions |
 
-**Versoes fixadas em `versions.json`:**
+**Versions pinned in `versions.json`:**
 
-| Componente | Versao |
-|------------|--------|
+| Component | Version |
+|-----------|---------|
 | Backstage | 1.48.4 |
 | Node | 22.19.0 |
 | CLI (`@red-hat-developer-hub/cli`) | 1.10.0 |
 
 ---
 
-## 3. Workspaces ativos
+## 3. Active workspaces
 
-Os 67 workspaces cobrem as seguintes areas (lista resumida dos principais):
+The 67 workspaces cover the following areas (summarized):
 
-| Categoria | Workspaces |
-|-----------|-----------|
+| Category | Workspaces |
+|----------|-----------|
 | **CI/CD** | argocd, tekton, jenkins, github-actions |
 | **SCM / Code** | gitlab, github-issues, github-pull-requests-board, github-notifications |
-| **Qualidade** | sonarqube, lighthouse, scorecard, tech-insights |
+| **Quality** | sonarqube, lighthouse, scorecard, tech-insights |
 | **Infra / Cloud** | kubernetes, topology, aws-codebuild, aws-ecs, azure-devops, acr, acs |
 | **Backstage Core** | backstage (~75 plugins: auth modules, catalog modules, scaffolder modules, techdocs, notifications, search, etc.) |
-| **Observabilidade** | dynatrace, dynatrace-dql, pagerduty |
+| **Observability** | dynatrace, dynatrace-dql, pagerduty |
 | **Registry / Artifacts** | quay, jfrog-artifactory, nexus-repository-manager, npm |
 | **AI / MCP** | lightspeed, mcp-chat, mcp-integrations, ai-integrations |
-| **Outros** | announcements, bookmarks, todo, tech-radar, adr, homepage, theme, translations, rbac, keycloak, kiali, servicenow, ocm, orchestrator, bulk-import |
+| **Other** | announcements, bookmarks, todo, tech-radar, adr, homepage, theme, translations, rbac, keycloak, kiali, servicenow, ocm, orchestrator, bulk-import |
 
-O workspace `backstage` sozinho exporta ~75 plugins (auth providers, catalog backends, scaffolder modules, techdocs, notifications, kubernetes, etc.).
+The `backstage` workspace alone exports ~75 plugins (auth providers, catalog backends, scaffolder modules, techdocs, notifications, kubernetes, etc.).
 
 ---
 
-## 4. Como adicionar um plugin novo
+## 4. Adding a new plugin
 
-1. **Criar o diretorio:**
+1. **Create the directory:**
    ```bash
-   mkdir -p workspaces/<nome-do-workspace>
+   mkdir -p workspaces/<workspace-name>
    ```
 
-2. **Adicionar `source.json`** apontando para o repositorio upstream:
+2. **Add `source.json`** pointing to the upstream repo:
    ```json
    {
      "repo": "https://github.com/<org>/<repo>",
-     "repo-ref": "<commit-sha-ou-tag>",
+     "repo-ref": "<commit-sha-or-tag>",
      "repo-flat": false,
      "repo-backstage-version": "1.48.4"
    }
    ```
-   - `repo-flat: true` se os plugins vivem na raiz do repo (ex: `backstage/backstage`).
-   - `repo-flat: false` se estao dentro de um subfolder de workspace.
+   - `repo-flat: true` if plugins live at the repo root (e.g. `backstage/backstage`).
+   - `repo-flat: false` if they are inside a workspace subfolder.
 
-3. **Adicionar `plugins-list.yaml`** listando os plugins:
+3. **Add `plugins-list.yaml`** listing the plugins:
    ```yaml
-   plugins/meu-plugin:
-   plugins/meu-plugin-backend: --embed-package @scope/dependencia
+   plugins/my-plugin:
+   plugins/my-plugin-backend: --embed-package @scope/dependency
    ```
 
-4. **(Opcional)** Adicionar `metadata/`, overlays ou patches conforme necessario.
+4. **(Optional)** Add `metadata/`, overlays, or patches as needed.
 
-5. **Push para `main`** — a pipeline roda automaticamente.
+5. **Push to `main`** — the pipeline runs automatically.
 
-Para **desabilitar** um workspace: renomear `plugins-list.yaml` para `plugins-list.yaml.disabled`.
+To **disable** a workspace: rename `plugins-list.yaml` to `plugins-list.yaml.disabled`.
 
 ---
 
-## 5. Como consumir no DevPortal
+## 5. Consuming plugins in DevPortal
 
-Referencia o artefato OCI no `dynamic-plugins.yaml` da instalacao do DevPortal:
+Reference the OCI artifact in your DevPortal's `dynamic-plugins.yaml`:
 
 ```yaml
 plugins:
-  # Exemplo: ArgoCD frontend
+  # Example: ArgoCD frontend
   - package: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.48.4__2.4.3!backstage-community-plugin-argocd
     disabled: false
     pluginConfig: {}
 
-  # Exemplo: ArgoCD backend
+  # Example: ArgoCD backend
   - package: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-argocd-backend:bs_1.48.4__2.4.3!backstage-community-plugin-argocd-backend
     disabled: false
     pluginConfig:
       argocd:
         baseUrl: https://argocd.example.com
 
-  # Exemplo: Techdocs
+  # Example: Techdocs
   - package: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-plugin-techdocs:bs_1.48.4__1.12.6!backstage-plugin-techdocs
     disabled: false
     pluginConfig: {}
 ```
 
-**Formato da tag:** `bs_<versao_backstage>__<versao_plugin>` (ex: `bs_1.48.4__2.4.3`).
+**Tag format:** `bs_<backstage_version>__<plugin_version>` (e.g. `bs_1.48.4__2.4.3`).
 
-O sufixo `!` apos a tag indica o sub-path de integridade dentro da imagem OCI.
-
----
-
-## 6. Proximos passos sugeridos
-
-1. **Testar consumo end-to-end:** Subir uma instancia do DevPortal com 5-10 plugins OCI e validar que carregam corretamente (argocd, techdocs, kubernetes, github-actions, sonarqube).
-
-2. **Quay.io como registry alternativo:** A pipeline ja esta preparada para publicar em outro registry. Basta adicionar o secret de autenticacao e ajustar o prefixo do registry no workflow. Isso da redundancia e pode ser necessario para clientes com restricoes de rede.
-
-3. **Expandir workspaces:** Avaliar os workspaces que ainda nao estao validados e habilitar os mais relevantes para clientes.
-
-4. **Smoke tests automatizados:** Configurar os smoke tests que ja existem na estrutura do repo para rodar apos cada publish.
-
-5. **Versionamento de Backstage:** Quando sair uma nova versao do Backstage, atualizar `versions.json` e rodar a pipeline completa. O SYNC.md documenta como puxar melhorias do upstream RHDH.
-
-6. **Documentacao de catalogo:** Usar os `catalog-entities/` para registrar os plugins dinamicos no proprio DevPortal como componentes do catalogo.
+The `!` suffix after the tag specifies the integrity sub-path inside the OCI image.
 
 ---
 
-## 7. Links uteis
+## 6. End-to-end validation
 
-| Recurso | Link |
-|---------|------|
-| Repo Overlays (definicoes de plugins) | https://github.com/veecode-platform/devportal-plugin-export-overlays |
-| Repo Utils (workflows e tooling) | https://github.com/veecode-platform/devportal-plugin-export-utils |
-| Packages publicados (GHCR) | https://github.com/orgs/veecode-platform/packages?repo_name=devportal-plugin-export-overlays |
+Consumption was tested locally with success. OCI plugins (tekton, todo, todo-backend) were downloaded from ghcr.io via skopeo, extracted, configured, and loaded in DevPortal without any recompilation.
+
+- Backend: plugin registered routes automatically
+- Frontend: plugin rendered card in the UI via Scalprum + pluginConfig mount points
+- API `/api/dynamic-plugins-info/loaded-plugins` confirmed loading
+
+**Note on authentication:** packages on ghcr.io are private by default in organizations. To consume them, you need to mount Docker credentials in the container (see distro documentation) or make the packages public.
+
+---
+
+## 7. Suggested next steps
+
+1. **Define package visibility:** Public (no auth, good for open source) or private (requires credentials in the cluster). Consider Quay.io as an alternative registry — the pipeline already supports it, just adjust `image-repository-prefix` and add the authentication secret.
+
+2. **Expand workspaces:** Evaluate workspaces that are not yet validated and enable the most relevant ones for customers.
+
+3. **Automated smoke tests:** Configure the smoke tests that already exist in the repo structure to run after each publish.
+
+4. **Backstage versioning:** When a new Backstage version is released, update `versions.json` and run the full pipeline. SYNC.md documents how to pull upstream RHDH improvements.
+
+5. **Catalog documentation:** Use `catalog-entities/` to register dynamic plugins in DevPortal itself as catalog components.
+
+---
+
+## 8. Useful links
+
+| Resource | Link |
+|----------|------|
+| Overlays repo (plugin definitions) | https://github.com/veecode-platform/devportal-plugin-export-overlays |
+| Utils repo (workflows and tooling) | https://github.com/veecode-platform/devportal-plugin-export-utils |
+| Published packages (GHCR) | https://github.com/orgs/veecode-platform/packages?repo_name=devportal-plugin-export-overlays |
 | Upstream RHDH Overlays | https://github.com/redhat-developer/rhdh-plugin-export-overlays |
 | Upstream RHDH Utils | https://github.com/redhat-developer/rhdh-plugin-export-utils |
-| Plano de implementacao | `docs/superpowers/plans/2026-03-10-devportal-plugin-distribution.md` |
-| Guia de sync com upstream | `SYNC.md` |
+| Upstream sync guide | `SYNC.md` |
