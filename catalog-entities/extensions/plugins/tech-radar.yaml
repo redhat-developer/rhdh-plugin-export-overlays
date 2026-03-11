@@ -12,8 +12,6 @@ metadata:
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
   links:
-    - url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/customizing/proc-customize-rhdh-tech-radar-page_configuring-techdocs
-      title: Red Hat Developer Hub Documentation
     - url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar/plugins/tech-radar
       title: Backstage Community Documentation
     - title: Homepage
@@ -21,7 +19,7 @@ metadata:
     - title: Issues
       url: https://github.com/backstage/community-plugins/issues
     - title: Documentation for Red Hat Developer Hub
-      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/customizing_red_hat_developer_hub/proc-customizing-the-tech-radar-page_customizing-the-quickstarts
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   tags:
