@@ -19,9 +19,16 @@ spec:
         app: kubernetes-test
         backstage.io/kubernetes-id: developer-hub
     spec:
+      automountServiceAccountToken: false
       containers:
         - name: kubernetes
           image: nginxinc/nginx-unprivileged:stable-alpine
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
           ports:
             - containerPort: 8080
 ---
