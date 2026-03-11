@@ -1,0 +1,9 @@
+# Helm values overlay for scorecard e2e deployment.
+# Merged with e2e-test-utils default; app config and secrets are injected here.
+upstream:
+  backstage:
+    extraAppConfig:
+      - configMapRef: app-config-rhdh
+        filename: app-config-rhdh.yaml
+    extraEnvVarsSecrets:
+      - rhdh-secrets
