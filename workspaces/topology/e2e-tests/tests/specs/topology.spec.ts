@@ -16,15 +16,13 @@ const rbacConfigmapPath = path.resolve(
 const $pipe = $({ stdio: ["pipe", "pipe", "pipe"] });
 let topology: Topology;
 
-const deployResources = (project: string) =>
-  $`bash ${setupScript} ${project}`;
+const deployResources = (project: string) => $`bash ${setupScript} ${project}`;
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
   await page.waitForLoadState();
   const hasIngresses = await page.getByText("Ingresses").isVisible();
   return hasIngresses ? "ingress" : "route";
 }
-
 
 test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -48,7 +46,6 @@ test.describe("Test Topology plugin", () => {
     await rhdh.deploy();
   });
 
-
   test("Verify Topology tab is visible on a component with kubernetes annotations", async ({
     page,
     loginHelper,
@@ -68,9 +65,7 @@ test.describe("Test Topology plugin", () => {
       .getByTestId(/(status-error|status-ok)/)
       .first()
       .click();
-    await uiHelper.verifyText(
-      /Pipeline (Succeeded|Failed|Cancelled|Running)/,
-    );
+    await uiHelper.verifyText(/Pipeline (Succeeded|Failed|Cancelled|Running)/);
     await uiHelper.verifyText(/\d+ (Succeeded|Failed|Cancelled|Running)/);
     await topology.verifyDeployment("topology-test");
     await uiHelper.verifyButtonURL("Open URL", "topology-test-route");
@@ -114,8 +109,7 @@ test.describe("Test Topology plugin", () => {
     await uiHelper.clickTab("Resources");
     await uiHelper.verifyText("P");
     await expect(page.getByTestId("pod-list")).toBeVisible();
-    await expect(
-      page.getByTestId("status-running")).toBeVisible();
+    await expect(page.getByTestId("status-running")).toBeVisible();
     await uiHelper.verifyText("Running");
     await uiHelper.verifyHeading("PipelineRuns");
     await uiHelper.verifyText("PL");
@@ -130,7 +124,7 @@ test.describe("Test Topology plugin", () => {
       uiHelper,
     }) => {
       const topo = new Topology(page);
-      
+
       await loginHelper.loginAsGuest();
       await uiHelper.openCatalogSidebar("Component");
       await uiHelper.searchInputPlaceholder("backstage-janus");
