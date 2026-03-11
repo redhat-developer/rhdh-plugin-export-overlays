@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
- name: techdocs-mcp-tool
+ name: scaffolder-mcp-extras
  namespace: rhdh
- title: Techdocs MCP Tool
+ title: Scaffolder MCP Extras
  annotations:
    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
  links:
@@ -20,9 +20,9 @@ metadata:
    - mcp
    - developer-tools
    - ai
-   - techdocs
+   - scaffolder
  description: |
-   Backend plugin that provides MCP tools to allow AI clients to interact with and query techdocs
+   Backend plugin that provides Red Hat–specific MCP tools for the Scaffolder, layering on top of upstream MCP support
 spec:
  author: Red Hat
  support: dev-preview
@@ -31,27 +31,23 @@ spec:
 
 
  highlights:
-   - Integrations with techdocs for AI assistants
-   - Provides insight into documentation associated with catalog entities
-   - Allows AI clients to fetch documentation, and determine documentation coverage
+   - Integrations with Software Templates for AI assistants
+   - Provides MCP tools to execute and interact with scaffolder templates
 
 
  description: |
-     # Techdocs MCP Tool Plugin
+     # Scaffolder MCP Extras Plugin
 
 
-     A backend plugin that provides a set of MCP tools to allow AI clients to interact with Techdocs on Red Hat Developer Hub
+     A backend plugin that provides Red Hat–specific MCP tools for the Scaffolder, layering on top of the upstream MCP server.
 
 
-     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems, enabling them to access information and workflows on those systems. MCP servers define tools which can be called by AI applications to access this data.
-     RHDH supports running MCP tools through the mcp-actions-backend plugin available in Backstage.
+     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems. RHDH uses the upstream mcp-actions-backend plugin; this Extras plugin adds Scaffolder-specific tools.
 
      ### Key Features
 
 
-     - **Querying Techdocs**: Supports metadata retrieval about techdocs, with flexible options for filtering
-     - **Documentation Retrieval**: Allows techdoc content to be retrieved by AI clients
-     - **Documentation Coverage**: Allows AI clients to retrieve information about documentation coverage in the catalog
+     - **Scaffolder integration**: MCP tools to work with Software Templates and scaffolder capabilities
 
      ## Support
 
@@ -62,7 +58,7 @@ spec:
 
 
  packages: # link to the name used in the associated package documents in ../packages
-   - red-hat-developer-hub-plugin-techdocs-mcp-tool
+   - red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
 
  installation: |
      ## Installation
@@ -79,8 +75,8 @@ spec:
      includes:
        - dynamic-plugins.default.yaml
      plugins:
-       # MCP server backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool:bs_1.45.3__0.3.2!red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool
+       # MCP extras backend plugin
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.3.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
          disabled: false
      ```
 
@@ -89,11 +85,11 @@ spec:
      ### Complete Configuration Reference
 
     
-     Register the MCP tool as a plugin source in your App Config:
+     Register the MCP Extras as a plugin source in your App Config:
 
      ```yaml
      backend:
        actions:
          pluginSources:
-           - techdocs-mcp-tool
+           - scaffolder-mcp-extras
      ```
