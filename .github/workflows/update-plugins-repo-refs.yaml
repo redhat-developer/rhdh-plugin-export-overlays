@@ -96,8 +96,7 @@ on:
         default: false
   
   schedule:
-    - cron: '0 12 * * *'
-    - cron: '0 19 * * *'
+    - cron: '0 22 * * 1-5'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.pr-to-update }}
@@ -175,7 +174,7 @@ jobs:
     name: Update Release Branches
     needs: prepare
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *')
+      (github.event_name == 'schedule')
     uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
@@ -193,11 +192,11 @@ jobs:
     name: Update Main Branch
     needs: prepare
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 19 * * *')
+      (github.event_name == 'schedule')
     uses: veecode-platform/devportal-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
-      overlay-repo: ${{ github.repository }}      
+      overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
       single-branch: "main" # we want to update only the main branch
       verbose: false

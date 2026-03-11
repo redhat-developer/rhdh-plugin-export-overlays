@@ -16,12 +16,12 @@ metadata:
   tags: []
 spec:
   packageName: "@pagerduty/backstage-plugin-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.45.3__0.10.1!pagerduty-backstage-plugin-backend
+  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.48.4__0.10.1!pagerduty-backstage-plugin-backend
   version: 0.10.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.42.5
-  author: Red Hat
+  author: VeeCode
   support: community
   lifecycle: active
   partOf:

@@ -16,12 +16,12 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-tekton'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.45.3__3.33.3!backstage-community-plugin-tekton
+  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.48.4__3.33.3!backstage-community-plugin-tekton
   version: 3.33.3
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
-  author: Red Hat
+    supportedVersions: 1.48.4
+  author: VeeCode
   support: community
   lifecycle: active
   partOf:
