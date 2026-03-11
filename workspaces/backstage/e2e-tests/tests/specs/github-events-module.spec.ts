@@ -7,6 +7,7 @@ import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
 import { createHmac } from "node:crypto";
 import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
+import { requireEnv } from "../../support/utils/require-env";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;
@@ -14,6 +15,11 @@ test.describe("GitHub Events Module", () => {
   let rhdhBaseUrl: string;
 
   test.beforeAll(async ({ rhdh }) => {
+    requireEnv(
+      "VAULT_GITHUB_APP_WEBHOOK_SECRET",
+      "VAULT_GH_RHDH_QE_USER_TOKEN",
+    );
+
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/github-events/app-config-rhdh.yaml",
@@ -25,7 +31,7 @@ test.describe("GitHub Events Module", () => {
 
     githubEventsHelper = await GitHubEventsHelper.build(
       rhdh.rhdhUrl,
-      process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET,
+      process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!,
     );
     rhdhBaseUrl = rhdh.rhdhUrl;
   });
@@ -48,7 +54,7 @@ test.describe("GitHub Events Module", () => {
       },
     });
 
-    const secret = process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET;
+    const secret = process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!;
     const signature =
       "sha256=" +
       createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
@@ -100,7 +106,7 @@ spec:
         catalogRepoDetails.name,
         "catalog-info.yaml",
         catalogInfoYamlContent,
-        process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
 
       await githubEventsHelper.sendPushEvent(
@@ -147,7 +153,7 @@ spec:
         "catalog-info.yaml",
         updatedCatalogInfoYaml,
         "Update catalog-info.yaml description",
-        process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
       await githubEventsHelper.sendPushEvent(
         `janus-qe/${catalogRepoName}`,
@@ -182,7 +188,7 @@ spec:
         catalogRepoDetails.name,
         "catalog-info.yaml",
         "Remove catalog-info.yaml",
-        process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
       await githubEventsHelper.sendPushEvent(
         `janus-qe/${catalogRepoName}`,
@@ -213,7 +219,7 @@ spec:
       await CustomAPIHelper.deleteRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
-        process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+        process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
       );
     });
   });
@@ -227,7 +233,7 @@ spec:
         await CustomAPIHelper.createTeamInOrg(
           "janus-qe",
           teamName,
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
@@ -255,7 +261,7 @@ spec:
         await CustomAPIHelper.deleteTeamFromOrg(
           "janus-qe",
           teamName,
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
 
         await githubEventsHelper.sendTeamEvent("deleted", teamName, "janus-qe");
@@ -334,7 +340,7 @@ spec:
         await CustomAPIHelper.createTeamInOrg(
           "janus-qe",
           teamName,
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         teamCreated = true;
 
@@ -349,7 +355,7 @@ spec:
             "janus-qe",
             teamName,
             "rhdh-qe",
-            process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+            process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
           );
           userAddedToTeam = false;
         }
@@ -358,7 +364,7 @@ spec:
           await CustomAPIHelper.deleteTeamFromOrg(
             "janus-qe",
             teamName,
-            process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+            process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
           );
           teamCreated = false;
         }
@@ -369,7 +375,7 @@ spec:
           "janus-qe",
           teamName,
           "rhdh-qe",
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = true;
 
@@ -404,7 +410,7 @@ spec:
           "janus-qe",
           teamName,
           "rhdh-qe",
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = true;
 
@@ -435,7 +441,7 @@ spec:
           "janus-qe",
           teamName,
           "rhdh-qe",
-          process.env.VAULT_GH_RHDH_QE_USER_TOKEN,
+          process.env.VAULT_GH_RHDH_QE_USER_TOKEN!,
         );
         userAddedToTeam = false;
 
