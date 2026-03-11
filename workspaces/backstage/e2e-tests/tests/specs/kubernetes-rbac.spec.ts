@@ -1,10 +1,10 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
-import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
-import { KubernetesPage } from "../../support/pages/kubernetes";
 import { RbacKeycloakHelper } from "../../support/api/rbac-keycloak-helper";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
+import { KubernetesPage } from "../../support/pages/kubernetes";
+import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 
 const rbacConfigsPath = path.resolve(
   process.cwd(),

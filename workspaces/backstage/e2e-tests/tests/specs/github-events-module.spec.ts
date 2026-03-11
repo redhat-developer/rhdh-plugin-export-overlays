@@ -1,12 +1,12 @@
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
-  test,
   expect,
   request,
+  test,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { createHmac } from "node:crypto";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
-import { createHmac } from "node:crypto";
-import { RhdhAuthApiHack } from "../../support/api/rhdh-auth-api-hack";
 import { requireEnv } from "../../support/utils/require-env";
 
 test.describe("GitHub Events Module", () => {
@@ -295,6 +295,7 @@ spec:
 
       test.beforeEach(async ({ page, uiHelper }) => {
         if (!staticToken) {
+          const authApiHelper = new AuthApiHelper(page);
           await page.goto(rhdhBaseUrl);
 
           // Wait for page to be ready and user to be logged in
@@ -315,7 +316,7 @@ spec:
             .poll(
               async () => {
                 try {
-                  const token = await RhdhAuthApiHack.getToken(page);
+                  const token = await authApiHelper.getToken();
                   if (token && token.length > 0) {
                     staticToken = token;
                     return true;
