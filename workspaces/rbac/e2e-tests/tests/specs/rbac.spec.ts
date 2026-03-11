@@ -301,7 +301,7 @@ test.describe("RBAC plugin", () => {
     });
   });
 
-  test.describe("RBAC Plugin: guest user", () => {
+  test.describe("RBAC Plugin: validate appropriate guest user handling", () => {
     test.beforeEach(async ({ page, uiHelper, loginHelper }) => {
       rbacPO = new RbacPO(page, uiHelper);
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);

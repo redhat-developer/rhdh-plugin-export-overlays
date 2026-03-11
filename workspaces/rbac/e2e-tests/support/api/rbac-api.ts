@@ -82,30 +82,17 @@ export class Response {
   static async removeMetadataFromResponse(
     response: APIResponse,
   ): Promise<unknown[]> {
-    try {
-      const responseJson = await response.json();
+    const responseJson = await response.json();
 
-      // Validate that the response is an array
-      if (!Array.isArray(responseJson)) {
-        console.warn(
-          `Expected an array but received: ${JSON.stringify(responseJson)}`,
-        );
-        return []; // Return an empty array as a fallback
-      }
-
-      // Strip the `metadata` field before passing policies to the delete endpoint,
-      // which rejects payloads that contain it
-      const responseClean = responseJson.map((item: { metadata: unknown }) => {
-        if (item.metadata) {
-          delete item.metadata;
-        }
-        return item;
-      });
-
-      return responseClean;
-    } catch (error) {
-      console.error("Error processing API response:", error);
-      throw new Error("Failed to process the API response");
+    if (!Array.isArray(responseJson)) {
+      throw new TypeError(
+        `Expected an array from policy response but received: ${JSON.stringify(responseJson)}`,
+      );
     }
+
+    return responseJson.map((item: { metadata?: unknown }) => {
+      delete item.metadata;
+      return item;
+    });
   }
 }
