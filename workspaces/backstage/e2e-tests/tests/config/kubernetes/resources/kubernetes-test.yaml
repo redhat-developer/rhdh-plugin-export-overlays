@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: topology-test
+  name: kubernetes-test
   labels:
-    app.kubernetes.io/instance: topology-test
-    app.kubernetes.io/name: topology-test
+    app.kubernetes.io/instance: kubernetes-test
+    app.kubernetes.io/name: kubernetes-test
     backstage.io/kubernetes-id: developer-hub
   annotations:
     app.openshift.io/vcs-uri: "https://github.com/redhat-developer/rhdh"
@@ -12,11 +12,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: topology-test
+      app: kubernetes-test
   template:
     metadata:
       labels:
-        app: topology-test
+        app: kubernetes-test
         backstage.io/kubernetes-id: developer-hub
     spec:
       containers:
@@ -28,13 +28,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: topology-test-service
+  name: kubernetes-test-service
   labels:
-    app: topology-test
+    app: kubernetes-test
     backstage.io/kubernetes-id: developer-hub
 spec:
   selector:
-    app: topology-test
+    app: kubernetes-test
   ports:
     - protocol: TCP
       port: 8080

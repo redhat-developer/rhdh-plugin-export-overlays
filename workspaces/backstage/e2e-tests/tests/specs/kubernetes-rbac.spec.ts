@@ -31,9 +31,9 @@ test.describe("Kubernetes", () => {
     await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-k8s.yaml -n ${namespace}`;
     await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-binding-k8s.yaml -n ${namespace}`;
 
-    // Setup Topology resources
-    await $`kubectl apply -f ${resourcesConfigsPath}/topology-test.yaml -n ${namespace}`;
-    await $`kubectl apply -f ${resourcesConfigsPath}/topology-test-ingress.yaml -n ${namespace}`;
+    // Setup Kubernetes test resources
+    await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test.yaml -n ${namespace}`;
+    await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test-ingress.yaml -n ${namespace}`;
 
     // Setup variables
     const clusterUrl = execSync(
@@ -87,14 +87,14 @@ test.describe("Kubernetes", () => {
 
     // eslint-disable-next-line playwright/expect-expect
     test("Verify pods visibility in the Kubernetes tab", async () => {
-      await kubernetesPage.verifyDeployment("topology-test");
+      await kubernetesPage.verifyDeployment("kubernetes-test");
     });
 
     // eslint-disable-next-line playwright/expect-expect
     test("Verify pod logs visibility in the Kubernetes tab", async () => {
       await kubernetesPage.verifyPodLogs(
-        "topology-test",
-        "topology-test",
+        "kubernetes-test",
+        "kubernetes-test",
         true,
       );
     });
@@ -135,7 +135,7 @@ test.describe("Kubernetes", () => {
         .locator(KUBERNETES_COMPONENTS.MuiAccordion)
         .getByRole("button", { name: "test-cluster Cluster" })
         .click();
-      await kubernetesPage.verifyPodLogs("topology-test", "topology-test");
+      await kubernetesPage.verifyPodLogs("kubernetes-test", "kubernetes-test");
     });
   });
 });
