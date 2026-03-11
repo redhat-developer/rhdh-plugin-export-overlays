@@ -3,8 +3,8 @@ import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { KUBERNETES_COMPONENTS } from "./kubernetes-po";
 
 export class KubernetesPage {
-  private page: Page;
-  private uiHelper: UIhelper;
+  private readonly page: Page;
+  private readonly uiHelper: UIhelper;
 
   constructor(page: Page) {
     this.page = page;
