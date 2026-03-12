@@ -11,7 +11,8 @@ on:
 jobs:
   export:
     uses: veecode-platform/devportal-plugin-export-overlays/.github/workflows/publish-release-branch-workspace-plugins.yaml@main
-    secrets: inherit
+    secrets:
+      QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
     permissions:
       contents: write
       attestations: write
