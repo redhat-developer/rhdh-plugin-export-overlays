@@ -1,5 +1,6 @@
 name: Publish DevPortal Dynamic Plugin Images
 on:
+  workflow_dispatch:
   push:
     branches:
       - 'main'
