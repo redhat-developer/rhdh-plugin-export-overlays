@@ -5,6 +5,9 @@ on:
       QUAY_TOKEN:
         description: Quay.io robot account token for pushing OCI images
         required: true
+      QUAY_API_TOKEN:
+        description: Quay.io OAuth token for API operations (setting repo visibility)
+        required: false
 
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.ref }}
@@ -75,7 +78,8 @@ jobs:
 
     secrets:
       image-registry-password: ${{ secrets.QUAY_TOKEN }}
-  
+      quay-api-token: ${{ secrets.QUAY_API_TOKEN }}
+
     permissions:
       contents: write
       attestations: write
