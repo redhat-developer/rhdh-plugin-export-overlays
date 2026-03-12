@@ -18,6 +18,13 @@ let topology: Topology;
 
 const deployResources = (project: string) => $`bash ${setupScript} ${project}`;
 
+async function navigateToTopology(uiHelper: UIhelper) {
+  await uiHelper.openCatalogSidebar("Component");
+  await uiHelper.searchInputPlaceholder("backstage-janus");
+  await uiHelper.clickLink("backstage-janus");
+  await uiHelper.clickTab("Topology");
+}
+
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
   await page.waitForLoadState();
   const hasIngresses = await page.getByText("Ingresses").isVisible();
@@ -28,10 +35,7 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
 
-    await rhdh.configure({
-      auth: "keycloak",
-      valueFile: "tests/config/values.yaml",
-    });
+    await rhdh.configure({ auth: "keycloak" });
 
     await $`oc apply -f ${rbacConfigmapPath} -n ${project}`;
     await deployResources(project);
@@ -54,10 +58,7 @@ test.describe("Test Topology plugin", () => {
     test.setTimeout(150000 + testInfo.retry * 30000);
     await loginHelper.loginAsKeycloakUser("test1", "test1@123");
     topology = new Topology(page);
-    await uiHelper.openCatalogSidebar("Component");
-    await uiHelper.searchInputPlaceholder("backstage-janus");
-    await uiHelper.clickLink("backstage-janus");
-    await uiHelper.clickTab("Topology");
+    await navigateToTopology(uiHelper);
     await uiHelper.verifyHeading("backstage-janus");
     await uiHelper.clickButton("Hide");
     await page.getByRole("button", { name: "Fit to Screen" }).click();
@@ -125,10 +126,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsGuest();
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.searchInputPlaceholder("backstage-janus");
-      await uiHelper.clickLink("backstage-janus");
-      await uiHelper.clickTab("Topology");
+      await navigateToTopology(uiHelper);
       await topo.verifyMissingTopologyPermission();
     });
 
@@ -140,10 +138,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test2", "test2@123");
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.searchInputPlaceholder("backstage-janus");
-      await uiHelper.clickLink("backstage-janus");
-      await uiHelper.clickTab("Topology");
+      await navigateToTopology(uiHelper);
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(false);
@@ -157,10 +152,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test1", "test1@123");
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.searchInputPlaceholder("backstage-janus");
-      await uiHelper.clickLink("backstage-janus");
-      await uiHelper.clickTab("Topology");
+      await navigateToTopology(uiHelper);
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(true);
