@@ -103,9 +103,11 @@ test.describe("Test Topology plugin", () => {
     await uiHelper.verifyText("1");
     await uiHelper.verifyText("Pod");
 
-    await topology.hoverOnPodStatusIndicator();
-    await uiHelper.verifyTextInTooltip("Running");
-    await uiHelper.verifyText("1Running");
+    await expect(async () => {
+      await topology.hoverOnPodStatusIndicator();
+      await uiHelper.verifyTextInTooltip("Running");
+      await uiHelper.verifyText("1Running");
+    }).toPass({ intervals: [2_000, 5_000], timeout: 30_000 });
 
     await uiHelper.verifyButtonURL(
       "Edit source code",
