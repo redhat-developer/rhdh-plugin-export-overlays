@@ -17,7 +17,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@parfuemerie-douglas/scaffolder-backend-module-azure-repositories"
-  dynamicArtifact: oci://quay.io/veecode/parfuemerie-douglas-scaffolder-backend-module-azure-repositories:bs_1.45.3__0.3.0!parfuemerie-douglas-scaffolder-backend-module-azure-repositories
+  dynamicArtifact: oci://quay.io/veecode/scaffolder-backend-module-azure-repositories:bs_1.45.3!parfuemerie-douglas-scaffolder-backend-module-azure-repositories
   version: 0.3.0
   backstage:
     role: backend-plugin-module

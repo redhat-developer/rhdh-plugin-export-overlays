@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog"
-  dynamicArtifact: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.45.3__0.9.0
+  dynamicArtifact: oci://quay.io/veecode/ai-integrations:bs_1.45.3!red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog
   version: 0.9.0
   backstage:
     role: backend-plugin

@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-argo-cd-backend"
-  dynamicArtifact: oci://quay.io/veecode/roadiehq-backstage-plugin-argo-cd-backend:bs_1.48.4__4.6.0!roadiehq-backstage-plugin-argo-cd-backend
+  dynamicArtifact: oci://quay.io/veecode/roadie-backstage-plugins:bs_1.48.4!roadiehq-backstage-plugin-argo-cd-backend
   version: 4.6.0
   backstage:
     role: backend-plugin

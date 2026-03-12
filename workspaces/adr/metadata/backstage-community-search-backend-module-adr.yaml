@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/search-backend-module-adr'
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-search-backend-module-adr:bs_1.48.4__0.13.1!backstage-community-search-backend-module-adr
+  dynamicArtifact: oci://quay.io/veecode/adr:bs_1.48.4!backstage-community-search-backend-module-adr
   version: 0.13.1
   backstage:
     role: backend-plugin-module

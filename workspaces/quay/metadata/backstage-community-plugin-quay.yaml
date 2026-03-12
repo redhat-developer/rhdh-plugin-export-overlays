@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-quay"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-quay:bs_1.45.3__1.28.1!backstage-community-plugin-quay
+  dynamicArtifact: oci://quay.io/veecode/quay:bs_1.45.3!backstage-community-plugin-quay
   version: 1.28.1
   backstage:
     role: frontend-plugin

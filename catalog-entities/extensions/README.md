@@ -33,7 +33,7 @@ metadata:
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0!backstage-community-plugin-3scale-backend
+  dynamicArtifact: oci://quay.io/veecode/3scale:bs_1.45.3!backstage-community-plugin-3scale-backend
   version: 3.2.0 # The plugin version
   backstage:
     role: backend-plugin

@@ -71,6 +71,7 @@ jobs:
       # use empty prefix so that we will prepend bs_1.yy.z__ instead of next__
       image-tag-prefix: ${{ '' }}
       image-registry-user: veecode+ci
+      bundle-workspace: true
 
     secrets:
       image-registry-password: ${{ secrets.QUAY_TOKEN }}

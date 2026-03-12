@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-jira"
-  dynamicArtifact: oci://quay.io/veecode/roadiehq-backstage-plugin-jira:bs_1.48.4__2.14.0!roadiehq-backstage-plugin-jira
+  dynamicArtifact: oci://quay.io/veecode/roadie-backstage-plugins:bs_1.48.4!roadiehq-backstage-plugin-jira
   version: 2.14.0
   backstage:
     role: frontend-plugin

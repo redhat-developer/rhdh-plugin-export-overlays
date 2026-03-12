@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-servicenow-backend"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-servicenow-backend:bs_1.45.3__1.6.1!backstage-community-plugin-servicenow-backend
+  dynamicArtifact: oci://quay.io/veecode/servicenow:bs_1.45.3!backstage-community-plugin-servicenow-backend
   version: 1.6.1
   backstage:
     role: backend-plugin

@@ -17,7 +17,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-argocd"
-  dynamicArtifact: oci://quay.io/veecode/roadiehq-scaffolder-backend-argocd:bs_1.48.4__1.8.1!roadiehq-scaffolder-backend-argocd
+  dynamicArtifact: oci://quay.io/veecode/roadie-backstage-plugins:bs_1.48.4!roadiehq-scaffolder-backend-argocd
   version: 1.8.1
   backstage:
     role: backend-plugin-module

@@ -83,7 +83,7 @@ spec:
        - dynamic-plugins.default.yaml
      plugins:
        # MCP server backend plugin
-       - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool:bs_1.45.3__0.4.1!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool
+       - package: oci://quay.io/veecode/mcp-integrations:bs_1.45.3!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool
          disabled: false
      ```
 

@@ -17,7 +17,7 @@ metadata:
     - search
 spec:
   packageName: "@backstage-community/plugin-search-backend-module-azure-devops"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-search-backend-module-azure-devops:bs_1.48.4__0.1.2
+  dynamicArtifact: oci://quay.io/veecode/azure-devops:bs_1.48.4!backstage-community-plugin-search-backend-module-azure-devops
   version: 0.1.2
   backstage:
     role: backend-plugin-module

@@ -14,7 +14,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-x2a"
-  dynamicArtifact: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a:bs_1.45.3__0.1.2!red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a
+  dynamicArtifact: oci://quay.io/veecode/x2a:bs_1.45.3!red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a
   version: 0.1.2
   backstage:
     role: backend-plugin

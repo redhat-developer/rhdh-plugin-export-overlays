@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-npm-backend'
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-npm-backend:bs_1.48.4__1.15.0!backstage-community-plugin-npm-backend
+  dynamicArtifact: oci://quay.io/veecode/npm:bs_1.48.4!backstage-community-plugin-npm-backend
   version: 1.15.0
   backstage:
     role: backend-plugin

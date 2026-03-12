@@ -105,7 +105,7 @@ spec:
         - dynamic-plugins.default.yaml
       plugins:
         # Frontend plugin
-        - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.39.1__0.5.7!red-hat-developer-hub-backstage-plugin-lightspeed
+        - package: oci://quay.io/veecode/lightspeed:bs_1.45.3!red-hat-developer-hub-backstage-plugin-lightspeed
           disabled: false
           pluginConfig:
             lightspeed:
@@ -130,7 +130,7 @@ spec:
                         text: Lightspeed
         
         # Backend plugin
-        - package: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.39.1__0.5.7!red-hat-developer-hub-backstage-plugin-lightspeed-backend
+        - package: oci://quay.io/veecode/lightspeed:bs_1.45.3!red-hat-developer-hub-backstage-plugin-lightspeed-backend
           disabled: false
           pluginConfig:
             lightspeed:

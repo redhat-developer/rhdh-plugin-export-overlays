@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-argocd"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-argocd:bs_1.48.4__2.4.3!backstage-community-plugin-argocd
+  dynamicArtifact: oci://quay.io/veecode/argocd:bs_1.48.4!backstage-community-plugin-argocd
   version: 2.4.3
   backstage:
     role: frontend-plugin

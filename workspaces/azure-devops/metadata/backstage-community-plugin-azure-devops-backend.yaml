@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-azure-devops-backend"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-azure-devops-backend:bs_1.48.4__0.23.0!backstage-community-plugin-azure-devops-backend
+  dynamicArtifact: oci://quay.io/veecode/azure-devops:bs_1.48.4!backstage-community-plugin-azure-devops-backend
   version: 0.23.0
   backstage:
     role: backend-plugin

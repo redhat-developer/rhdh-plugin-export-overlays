@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-jenkins:bs_1.48.4__0.26.0!backstage-community-plugin-jenkins
+  dynamicArtifact: oci://quay.io/veecode/jenkins:bs_1.48.4!backstage-community-plugin-jenkins
   version: 0.26.0
   backstage:
     role: frontend-plugin

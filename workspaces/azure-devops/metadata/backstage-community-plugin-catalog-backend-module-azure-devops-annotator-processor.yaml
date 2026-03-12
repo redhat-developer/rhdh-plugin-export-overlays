@@ -17,7 +17,7 @@ metadata:
     - software-catalog
 spec:
   packageName: "@backstage-community/plugin-catalog-backend-module-azure-devops-annotator-processor"
-  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-catalog-backend-module-azure-devops-annotator-processor:bs_1.48.4__0.14.0
+  dynamicArtifact: oci://quay.io/veecode/azure-devops:bs_1.48.4!backstage-community-plugin-catalog-backend-module-azure-devops-annotator-processor
   version: 0.14.0
   backstage:
     role: backend-plugin-module
