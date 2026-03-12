@@ -61,7 +61,18 @@ deploy_topology_resources() {
   oc apply -f "${script_dir}/resources.yaml" -n "${project}"
 
   echo "Deploying Tekton resources"
-  oc apply -f "${script_dir}/tekton-resources.yaml" -n "${project}"
+  local retries=5
+  for i in $(seq 1 "$retries"); do
+    if oc apply -f "${script_dir}/tekton-resources.yaml" -n "${project}" 2>/dev/null; then
+      break
+    fi
+    if [[ "$i" -eq "$retries" ]]; then
+      echo "ERROR: Failed to deploy Tekton resources after ${retries} attempts"
+      return 1
+    fi
+    echo "  Tekton webhook not ready, retrying in 15s... (attempt ${i}/${retries})"
+    sleep 15
+  done
 
   echo "Waiting for topology-test deployment to be ready"
   oc rollout status deployment/topology-test -n "${project}" --timeout=120s
