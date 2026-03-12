@@ -11,7 +11,7 @@ install_openshift_pipelines() {
   fi
 
   echo "Installing Red Hat OpenShift Pipelines operator..."
-  oc apply -f "${script_dir}/openshift-pipelines-subscription.yaml"
+  oc apply -f "${script_dir}/resources/openshift-pipelines-subscription.yaml"
 
   echo "Waiting for OpenShift Pipelines CRDs to become available..."
   local timeout=300
@@ -52,18 +52,18 @@ deploy_topology_resources() {
       --serviceaccount="${project}:default" 2>/dev/null || true
 
   echo "Granting Tekton read access to default service account"
-  oc apply -f "${script_dir}/tekton-reader-clusterrole.yaml"
+  oc apply -f "${script_dir}/resources/tekton-reader-clusterrole.yaml"
   oc create clusterrolebinding "topology-test-${project}-tekton-reader" \
     --clusterrole=topology-test-tekton-reader \
     --serviceaccount="${project}:default" 2>/dev/null || true
 
   echo "Deploying topology test resources in namespace ${project}"
-  oc apply -f "${script_dir}/resources.yaml" -n "${project}"
+  oc apply -f "${script_dir}/resources/resources.yaml" -n "${project}"
 
   echo "Deploying Tekton resources"
   local retries=5
   for i in $(seq 1 "$retries"); do
-    if oc apply -f "${script_dir}/tekton-resources.yaml" -n "${project}" 2>/dev/null; then
+    if oc apply -f "${script_dir}/resources/tekton-resources.yaml" -n "${project}" 2>/dev/null; then
       break
     fi
     if [[ "$i" -eq "$retries" ]]; then
