@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@roadiehq/backstage-plugin-github-pull-requests"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests:bs_1.48.4__3.6.2!roadiehq-backstage-plugin-github-pull-requests
+  dynamicArtifact: oci://quay.io/veecode/roadiehq-backstage-plugin-github-pull-requests:bs_1.48.4__3.6.2!roadiehq-backstage-plugin-github-pull-requests
   version: 3.6.2
   backstage:
     role: frontend-plugin

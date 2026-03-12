@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-nexus-repository-manager"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.48.4__1.19.4!backstage-community-plugin-nexus-repository-manager
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-nexus-repository-manager:bs_1.48.4__1.19.4!backstage-community-plugin-nexus-repository-manager
   version: 1.19.4
   backstage:
     role: frontend-plugin

@@ -17,7 +17,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-sonarqube"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.48.4__2.11.0!backstage-community-plugin-scaffolder-backend-module-sonarqube
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.48.4__2.11.0!backstage-community-plugin-scaffolder-backend-module-sonarqube
   version: 2.11.0
   backstage:
     role: backend-plugin-module

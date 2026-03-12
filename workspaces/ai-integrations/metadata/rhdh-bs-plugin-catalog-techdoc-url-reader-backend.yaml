@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-techdoc-url-reader-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.45.3__0.5.0
+  dynamicArtifact: oci://quay.io/veecode/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.45.3__0.5.0
   version: 0.5.0
   backstage:
     role: backend-plugin

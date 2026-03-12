@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jfrog-artifactory"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.48.4__1.24.1!backstage-community-plugin-jfrog-artifactory
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-jfrog-artifactory:bs_1.48.4__1.24.1!backstage-community-plugin-jfrog-artifactory
   version: 1.24.1
   backstage:
     role: frontend-plugin

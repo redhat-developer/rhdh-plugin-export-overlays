@@ -17,7 +17,7 @@ metadata:
   tags: []
 spec:
   packageName: "@aws/aws-codebuild-plugin-for-backstage"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codebuild-plugin-for-backstage:bs_1.45.3__0.7.1!aws-aws-codebuild-plugin-for-backstage
+  dynamicArtifact: oci://quay.io/veecode/aws-aws-codebuild-plugin-for-backstage:bs_1.45.3__0.7.1!aws-aws-codebuild-plugin-for-backstage
   version: 0.7.1
   backstage:
     role: frontend-plugin

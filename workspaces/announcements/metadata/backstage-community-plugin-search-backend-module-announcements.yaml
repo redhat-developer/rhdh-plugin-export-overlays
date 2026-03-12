@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-search-backend-module-announcements'
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-search-backend-module-announcements:bs_1.48.4__0.10.0!backstage-community-plugin-search-backend-module-announcements
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-search-backend-module-announcements:bs_1.48.4__0.10.0!backstage-community-plugin-search-backend-module-announcements
   version: 0.10.0
   backstage:
     role: backend-plugin-module

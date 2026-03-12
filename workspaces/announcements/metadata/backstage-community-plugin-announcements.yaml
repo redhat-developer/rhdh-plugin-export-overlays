@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-announcements'
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-announcements:bs_1.48.4__1.1.0!backstage-community-plugin-announcements
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-announcements:bs_1.48.4__1.1.0!backstage-community-plugin-announcements
   version: 1.1.0
   backstage:
     role: frontend-plugin

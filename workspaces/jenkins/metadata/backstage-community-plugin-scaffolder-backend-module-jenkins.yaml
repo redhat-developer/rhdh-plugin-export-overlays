@@ -17,7 +17,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-jenkins"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.48.4__0.16.0
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.48.4__0.16.0
   version: 0.16.0
   backstage:
     role: backend-plugin-module

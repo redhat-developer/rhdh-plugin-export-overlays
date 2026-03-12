@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-lighthouse'
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.48.4__0.16.0!backstage-community-plugin-lighthouse
+  dynamicArtifact: oci://quay.io/veecode/backstage-community-plugin-lighthouse:bs_1.48.4__0.16.0!backstage-community-plugin-lighthouse
   version: 0.16.0
   backstage:
     role: frontend-plugin

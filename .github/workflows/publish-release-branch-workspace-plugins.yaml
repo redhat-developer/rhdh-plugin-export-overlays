@@ -62,17 +62,16 @@ jobs:
 
     with:
       publish-container: true
-      image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+      image-repository-prefix: quay.io/veecode
       last-publish-commit: ${{ needs.prepare.outputs.last-published-commit }}
       # use empty prefix so that we will prepend bs_1.yy.z__ instead of next__
       image-tag-prefix: ${{ '' }}
-      image-registry-user: ${{ github.actor }}
+      image-registry-user: ${{ secrets.QUAY_USER }}
 
     secrets:
-      image-registry-password: ${{ secrets.GITHUB_TOKEN }}
+      image-registry-password: ${{ secrets.QUAY_TOKEN }}
   
     permissions:
       contents: write
       attestations: write
-      packages: write
       id-token: write

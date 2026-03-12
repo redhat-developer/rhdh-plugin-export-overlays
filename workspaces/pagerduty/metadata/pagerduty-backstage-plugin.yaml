@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@pagerduty/backstage-plugin"
-  dynamicArtifact: oci://ghcr.io/veecode-platform/devportal-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.48.4__0.16.4!pagerduty-backstage-plugin
+  dynamicArtifact: oci://quay.io/veecode/pagerduty-backstage-plugin:bs_1.48.4__0.16.4!pagerduty-backstage-plugin
   version: 0.16.4
   backstage:
     role: frontend-plugin
