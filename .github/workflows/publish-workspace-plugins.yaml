@@ -10,8 +10,8 @@ on:
 jobs:
   export:
     uses: veecode-platform/devportal-plugin-export-overlays/.github/workflows/publish-release-branch-workspace-plugins.yaml@main
+    secrets: inherit
     permissions:
       contents: write
       attestations: write
-      packages: write
       id-token: write
