@@ -20,14 +20,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialGithubCount: number;
   let initialJiraCount: number;
 
-  test.beforeAll(async ({ browser, rhdhDeploymentWorker }, testInfo) => {
+  test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
     // Allow time for deployment + 2 min stabilization delay + browser setup
     test.setTimeout(10 * 60 * 1000);
-
-    testInfo.annotations.push({
-      type: "component",
-      description: "scorecard",
-    });
 
     await rhdhDeploymentWorker.configure({
       auth: "keycloak",
