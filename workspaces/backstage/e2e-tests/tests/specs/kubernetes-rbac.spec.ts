@@ -1,10 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
-import { RbacKeycloakHelper } from "../../support/api/rbac-keycloak-helper";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
+import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
+import { requireEnv } from "../../support/utils/require-env";
 
 const rbacConfigsPath = path.resolve(
   process.cwd(),
@@ -23,6 +24,12 @@ test.describe("Kubernetes", () => {
   let clusterName: string;
 
   test.beforeAll(async ({ rhdh }) => {
+    requireEnv(
+      "KEYCLOAK_BASE_URL",
+      "KEYCLOAK_REALM",
+      "VAULT_KEYCLOAK_ADMIN_USERNAME",
+      "VAULT_KEYCLOAK_ADMIN_PASSWORD",
+    );
     const namespace = rhdh.deploymentConfig.namespace;
 
     // Setup Cluster Service Account
@@ -52,8 +59,15 @@ test.describe("Kubernetes", () => {
     process.env.K8S_CLUSTER_TOKEN = Buffer.from(tokenB64, "base64").toString();
 
     // Setup users
-    const keycloak = new RbacKeycloakHelper();
-    await keycloak.createUsers(Object.values(KUBERNETES_USERS));
+    const keycloak = new KeycloakHelper();
+    await keycloak.connect({
+      baseUrl: process.env.KEYCLOAK_BASE_URL!,
+      username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+      password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+    });
+    for (const user of Object.values(KUBERNETES_USERS)) {
+      await keycloak.createUser(process.env.KEYCLOAK_REALM!, user);
+    }
     // Setup RHDH RBAC permissions
     await $`kubectl apply -f ${rbacConfigsPath}/rbac-configmap.yaml -n ${namespace}`;
 
@@ -138,5 +152,26 @@ test.describe("Kubernetes", () => {
         .click();
       await kubernetesPage.verifyPodLogs("kubernetes-test", "kubernetes-test");
     });
+  });
+
+  test.afterAll(async () => {
+    requireEnv(
+      "KEYCLOAK_BASE_URL",
+      "KEYCLOAK_REALM",
+      "VAULT_KEYCLOAK_ADMIN_USERNAME",
+      "VAULT_KEYCLOAK_ADMIN_PASSWORD",
+    );
+
+    // Need to re-authenticate anyway since admin access tokens expire
+    const keycloak = new KeycloakHelper();
+    await keycloak.connect({
+      baseUrl: process.env.KEYCLOAK_BASE_URL!,
+      username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+      password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+    });
+
+    for (const user of Object.values(KUBERNETES_USERS)) {
+      await keycloak.deleteUser(process.env.KEYCLOAK_REALM!, user.username);
+    }
   });
 });
