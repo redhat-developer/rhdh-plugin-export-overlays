@@ -62,11 +62,18 @@ test.describe("Test Topology plugin", () => {
     await uiHelper.verifyHeading("backstage-janus");
     await uiHelper.clickButton("Hide");
     await page.getByRole("button", { name: "Fit to Screen" }).click();
-    await page
-      .getByTestId(/(status-error|status-ok)/)
-      .first()
-      .click();
-    await uiHelper.verifyText(/Pipeline (Succeeded|Failed|Cancelled|Running)/);
+    await expect(async () => {
+      await page
+        .getByTestId(/(status-error|status-ok)/)
+        .first()
+        .click();
+      await uiHelper.verifyText(
+        /Pipeline (Succeeded|Failed|Cancelled|Running)/,
+      );
+      await uiHelper.verifyText(
+        /\d{1,5} (Succeeded|Failed|Cancelled|Running)/,
+      );
+    }).toPass({ intervals: [2_000, 5_000], timeout: 30_000 });
     await topology.verifyDeployment("topology-test");
     await uiHelper.verifyButtonURL("Open URL", "topology-test-route");
     await uiHelper.clickTab("Details");
