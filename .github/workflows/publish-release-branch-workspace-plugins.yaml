@@ -1,6 +1,10 @@
 name: Publish RHDH Release Dynamic Plugin Images 
 on:
   workflow_call:
+    secrets:
+      QUAY_TOKEN:
+        description: Quay.io robot account token for pushing OCI images
+        required: true
 
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.ref }}
