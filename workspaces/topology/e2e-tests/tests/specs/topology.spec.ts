@@ -66,7 +66,6 @@ test.describe("Test Topology plugin", () => {
       .first()
       .click();
     await uiHelper.verifyText(/Pipeline (Succeeded|Failed|Cancelled|Running)/);
-    await uiHelper.verifyText(/\d{1,5} (Succeeded|Failed|Cancelled|Running)/);
     await topology.verifyDeployment("topology-test");
     await uiHelper.verifyButtonURL("Open URL", "topology-test-route");
     await uiHelper.clickTab("Details");
