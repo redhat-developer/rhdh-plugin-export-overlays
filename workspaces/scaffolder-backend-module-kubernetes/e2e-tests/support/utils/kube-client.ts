@@ -2,8 +2,8 @@ import * as k8s from "@kubernetes/client-node";
 import { KubernetesClientHelper } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 export class KubeClient extends KubernetesClientHelper {
-  private kc: k8s.KubeConfig;
-  private k8sApi: k8s.CoreV1Api;
+  private readonly kc: k8s.KubeConfig;
+  private readonly k8sApi: k8s.CoreV1Api;
 
   constructor() {
     super();
