@@ -12,6 +12,7 @@ spec:
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
     - ./aws-codebuild.yaml
+    - ./aws-codepipeline.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: aws-aws-codepipeline-plugin-for-backstage
+  namespace: community
+  title: "@aws/aws-codepipeline-plugin-for-backstage"
+  links:
+    - url: https://github.com/awslabs/backstage-plugins-for-aws
+      title: Homepage
+    - url: https://github.com/awslabs/backstage-plugins-for-aws/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/awslabs/backstage-plugins-for-aws/tree/main/plugins/codepipeline/frontend
+  annotations:
+    backstage.io/source-location: url:https://github.com/awslabs/backstage-plugins-for-aws/tree/main/plugins/codepipeline/frontend
+  tags: []
+spec:
+  packageName: "@aws/aws-codepipeline-plugin-for-backstage"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codepipeline-plugin-for-backstage:bs_1.45.3__0.8.0!aws-aws-codepipeline-plugin-for-backstage
+  version: 0.8.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: AWS
+  support: community
+  lifecycle: active
+  partOf:
+    - aws-codepipeline
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            aws.aws-codepipeline-plugin-for-backstage:
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityAwsCodePipelineCard
+                  config:
+                    layout:
+                      gridColumn: "1 / span 6"
+                    if:
+                      anyOf:
+                        - hasAnnotation: aws.amazon.com/aws-codepipeline-arn
+                        - hasAnnotation: aws.amazon.com/aws-codepipeline-tags
