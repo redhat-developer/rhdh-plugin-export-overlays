@@ -1,0 +1,8 @@
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-bcc-test:
+      dynamicRoutes:
+        - path: /bcc-test
+          importName: BCCTestPage
+          menuItem:
+            text: Backstage Core Components Test
