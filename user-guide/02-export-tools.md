@@ -153,11 +153,10 @@ When working with Pull Requests, use these comment commands:
 
 ```
 workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/
-├── overlay/
-│   ├── package.json
-│   └── src/
-│       └── api.ts
-└── scalprum-config.json
+└── overlay/
+    ├── package.json
+    └── src/
+        └── api.ts
 ```
 
 ### When to Use Patches

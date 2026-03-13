@@ -19,7 +19,7 @@ You are a plugin owner if you:
 | Area | Frequency | Criticality |
 |------|-----------|-------------|
 | Metadata synchronization | Every release | 🔴 High |
-| Backstage version updates | Monthly/Quarterly | 🔴 High |
+| Backstage version updates | When compatibility signals appear | 🔴 High |
 | Patch maintenance | As needed | 🟡 Medium |
 | Test validation | Every PR | 🔴 High |
 | Deprecation communication | As needed | 🟡 Medium |
