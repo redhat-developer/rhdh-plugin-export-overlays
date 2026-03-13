@@ -11,7 +11,18 @@ events:
 
 catalog:
   rules:
-    - allow: [Component, API, Resource, System, Domain, Location, Template, User, Group]
+    - allow:
+        [
+          Component,
+          API,
+          Resource,
+          System,
+          Domain,
+          Location,
+          Template,
+          User,
+          Group,
+        ]
   providers:
     github:
       providerId:
