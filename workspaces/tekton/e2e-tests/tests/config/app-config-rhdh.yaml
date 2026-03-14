@@ -1,0 +1,27 @@
+kubernetes:
+  clusterLocatorMethods:
+    - clusters:
+        - authProvider: serviceAccount
+          name: ${K8S_CLUSTER_NAME}
+          serviceAccountToken: ${K8S_CLUSTER_TOKEN}
+          url: ${K8S_CLUSTER_URL}
+          skipTLSVerify: true
+      type: config
+  customResources:
+    - apiVersion: "v1beta1"
+      group: "tekton.dev"
+      plural: "pipelines"
+    - apiVersion: v1beta1
+      group: tekton.dev
+      plural: pipelineruns
+    - apiVersion: v1beta1
+      group: tekton.dev
+      plural: taskruns
+catalog:
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+    - type: url
+      target: https://github.com/sanketpathak/janus-qe-custom-catalog-entities/blob/main/backstage-janus.yaml
+  rules:
+    - allow: [Component, API, Location, Resource, System, Template, User, Group]
