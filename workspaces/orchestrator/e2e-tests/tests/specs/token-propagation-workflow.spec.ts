@@ -1,14 +1,8 @@
 import { execSync } from "child_process";
 import { test, expect } from "rhdh-e2e-test-utils/test";
-import { $ } from "rhdh-e2e-test-utils/utils";
 import { AuthApiHelper } from "rhdh-e2e-test-utils/helpers";
-import path from "path";
 import { ensureBaselineRole } from "./rbac-baseline.js";
-
-const sonataflowSetupScript = path.join(
-  import.meta.dirname,
-  "deploy-sonataflow.sh",
-);
+import { deploySonataflow } from "./deploy-sonataflow.js";
 
 interface WorkflowNode {
   name: string;
@@ -42,7 +36,7 @@ test.describe("Token propagation workflow API tests", () => {
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
-      await $`bash ${sonataflowSetupScript} ${project}`;
+      await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
       await rhdh.deploy({ timeout: null });
@@ -81,9 +75,11 @@ test.describe("Token propagation workflow API tests", () => {
 
     const tokenResponse = await page.request.post(tokenUrl, {
       form: {
+        /* eslint-disable @typescript-eslint/naming-convention */
         grant_type: "password",
         client_id: kcClientId,
         client_secret: kcClientSecret,
+        /* eslint-enable @typescript-eslint/naming-convention */
         username,
         password,
         scope: "openid",
@@ -184,61 +180,62 @@ test.describe("Token propagation workflow API tests", () => {
     for (const nodeName of expectedNodes) {
       const node = nodes.find((n: WorkflowNode) => n.name === nodeName);
       expect(node, `Node '${nodeName}' should exist`).toBeDefined();
+      if (!node) continue;
       expect(
-        node!.errorMessage,
+        node.errorMessage,
         `Node '${nodeName}' should have no error`,
       ).toBeNull();
       expect(
-        node!.exit,
+        node.exit,
         `Node '${nodeName}' should have completed`,
       ).not.toBeNull();
     }
 
     // Verify sample-server pod logs for token propagation evidence
-    if (process.env.IS_OPENSHIFT === "true") {
-      const serviceUrl = statusBody.serviceUrl || "";
-      const nsMatch = serviceUrl.match(/token-propagation\.([^:/]+)/);
-      const namespace = nsMatch?.[1] || process.env.NAME_SPACE || "";
-
-      if (namespace) {
-        // Validate namespace conforms to Kubernetes DNS-1123 label format
-        // to prevent command injection via shell metacharacters
-        if (!/^[a-z0-9-]+$/.test(namespace)) {
-          throw new Error(
-            `Invalid namespace format: "${namespace}". Must contain only lowercase alphanumeric characters and hyphens.`,
-          );
-        }
-
-        const sampleServerLogs = execSync(
-          `oc logs -l app=sample-server -n ${namespace} --tail=200`,
-          { encoding: "utf-8", timeout: 30000 },
-        );
-
-        expect(
-          sampleServerLogs,
-          "Sample-server should log /first endpoint request",
-        ).toContain("Headers for first");
-        expect(
-          sampleServerLogs,
-          "Sample-server should log /other endpoint request",
-        ).toContain("Headers for other");
-        expect(
-          sampleServerLogs,
-          "Sample-server should log /simple endpoint request",
-        ).toContain("Headers for simple");
-
-        console.log(
-          "Sample-server log verification passed for all 3 endpoints",
-        );
-      } else {
-        console.log(
-          "Skipping sample-server log verification: namespace not found",
-        );
-      }
-    } else {
+    if (process.env.IS_OPENSHIFT !== "true") {
       console.log(
         "Skipping sample-server log verification: not running on OpenShift",
       );
+      return;
     }
+
+    const serviceUrl = statusBody.serviceUrl || "";
+    const nsMatch = /token-propagation\.([^:/]+)/.exec(serviceUrl);
+    const namespace = nsMatch?.[1] || process.env.NAME_SPACE || "";
+
+    if (!namespace) {
+      console.log(
+        "Skipping sample-server log verification: namespace not found",
+      );
+      return;
+    }
+
+    // Validate namespace conforms to Kubernetes DNS-1123 label format
+    // to prevent command injection via shell metacharacters
+    if (!/^[a-z0-9-]+$/.test(namespace)) {
+      throw new Error(
+        `Invalid namespace format: "${namespace}". Must contain only lowercase alphanumeric characters and hyphens.`,
+      );
+    }
+
+    const sampleServerLogs = execSync(
+      `oc logs -l app=sample-server -n ${namespace} --tail=200`,
+      { encoding: "utf-8", timeout: 30000 },
+    );
+
+    expect(
+      sampleServerLogs,
+      "Sample-server should log /first endpoint request",
+    ).toContain("Headers for first");
+    expect(
+      sampleServerLogs,
+      "Sample-server should log /other endpoint request",
+    ).toContain("Headers for other");
+    expect(
+      sampleServerLogs,
+      "Sample-server should log /simple endpoint request",
+    ).toContain("Headers for simple");
+
+    console.log("Sample-server log verification passed for all 3 endpoints");
   });
 });
