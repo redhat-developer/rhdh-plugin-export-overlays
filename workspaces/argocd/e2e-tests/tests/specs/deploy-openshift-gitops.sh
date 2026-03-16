@@ -6,42 +6,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GITOPS_NAMESPACE="openshift-gitops"
 OPERATOR_NAMESPACE="openshift-operators"
 
-wait_for_crd() {
-  local crd_name=$1
-  local timeout=${2:-300}
-  local interval=${3:-10}
-  local elapsed=0
-
-  echo "Waiting for CRD ${crd_name} to be registered..."
-  while ! oc get crd "${crd_name}" > /dev/null 2>&1; do
-    if [[ "${elapsed}" -ge "${timeout}" ]]; then
-      echo "ERROR: Timed out waiting for CRD ${crd_name}"
-      return 1
-    fi
-    sleep "${interval}"
-    elapsed=$((elapsed + interval))
-  done
-  echo "CRD ${crd_name} is registered."
-}
-
-wait_for_deployment() {
-  local namespace=$1
-  local name=$2
+wait_for() {
+  local description=$1
+  local check_cmd=$2
   local timeout=${3:-300}
   local interval=${4:-10}
   local elapsed=0
 
-  echo "Waiting for deployment ${name} in ${namespace}..."
-  while ! oc get deployment "${name}" -n "${namespace}" > /dev/null 2>&1 || \
-        [[ "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.status.availableReplicas}' 2>/dev/null)" != "$(oc get deployment "${name}" -n "${namespace}" -o jsonpath='{.spec.replicas}' 2>/dev/null)" ]]; do
+  echo "=== Waiting for ${description} ==="
+  while ! eval "${check_cmd}" > /dev/null 2>&1; do
     if [[ "${elapsed}" -ge "${timeout}" ]]; then
-      echo "ERROR: Timed out waiting for deployment ${name} in ${namespace}"
+      echo "ERROR: Timed out waiting for ${description} (${timeout}s)"
       return 1
     fi
     sleep "${interval}"
     elapsed=$((elapsed + interval))
   done
-  echo "Deployment ${name} in ${namespace} is ready."
+  echo "${description} — ready."
 }
 
 install_gitops_operator() {
@@ -49,47 +30,37 @@ install_gitops_operator() {
 
   if oc get csv -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep -q "Red Hat OpenShift GitOps"; then
     echo "OpenShift GitOps operator is already installed."
-    return 0
+  else
+    echo "Applying GitOps operator subscription..."
+    oc apply -f "${SCRIPT_DIR}/resources/gitops-subscription.yaml" || {
+      echo "ERROR: Failed to apply GitOps subscription"
+      return 1
+    }
+
+    wait_for "GitOps operator CSV" \
+      "oc get csv -n ${OPERATOR_NAMESPACE} 2>/dev/null | grep 'Red Hat OpenShift GitOps' | grep -q Succeeded" \
+      300 10
+
+    wait_for "CRD argocds.argoproj.io" \
+      "oc get crd argocds.argoproj.io" 300 10
+
+    wait_for "CRD applications.argoproj.io" \
+      "oc get crd applications.argoproj.io" 300 10
   fi
 
-  echo "Applying GitOps operator subscription..."
-  oc apply -f "${SCRIPT_DIR}/resources/gitops-subscription.yaml" || {
-    echo "ERROR: Failed to apply GitOps subscription"
-    return 1
-  }
-
-  echo "Waiting for operator CSV to succeed..."
-  local timeout=300
-  local interval=10
-  local elapsed=0
-  while ! oc get csv -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep "Red Hat OpenShift GitOps" | grep -q "Succeeded"; do
-    if [[ "${elapsed}" -ge "${timeout}" ]]; then
-      echo "ERROR: Timed out waiting for GitOps operator CSV"
-      return 1
-    fi
-    sleep "${interval}"
-    elapsed=$((elapsed + interval))
-  done
-  echo "GitOps operator CSV succeeded."
-
-  wait_for_crd "argocds.argoproj.io" 300 10
-  wait_for_crd "applications.argoproj.io" 300 10
+  wait_for "ArgoCD server deployment" \
+    "[[ \$(oc get deployment openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.status.availableReplicas}' 2>/dev/null) == \$(oc get deployment openshift-gitops-server -n ${GITOPS_NAMESPACE} -o jsonpath='{.spec.replicas}' 2>/dev/null) ]]" \
+    300 10
 }
 
-wait_for_argocd_server() {
-  echo "=== Waiting for ArgoCD server ==="
-  wait_for_deployment "${GITOPS_NAMESPACE}" "openshift-gitops-server" 300 10
-}
+configure_rbac() {
+  echo "=== Configuring RBAC ==="
 
-grant_argocd_rbac() {
-  echo "=== Granting ArgoCD controller cluster-admin ==="
+  echo "Granting ArgoCD controller cluster-admin..."
   oc adm policy add-cluster-role-to-user cluster-admin \
     "system:serviceaccount:${GITOPS_NAMESPACE}:openshift-gitops-argocd-application-controller" 2>/dev/null || true
-}
 
-grant_backstage_rbac() {
-  echo "=== Granting RHDH service account rollout read access ==="
-
+  echo "Applying ClusterRole for RHDH..."
   oc apply -f "${SCRIPT_DIR}/resources/cluster-role.yaml"
 
   oc create clusterrolebinding rhdh-rollouts-reader \
@@ -102,7 +73,7 @@ grant_backstage_rbac() {
     --serviceaccount="${GITOPS_NAMESPACE}:argo-rollouts" \
     2>/dev/null || true
 
-  echo "Backstage RBAC for rollouts configured."
+  echo "RBAC configured."
 }
 
 get_argocd_credentials() {
@@ -150,9 +121,8 @@ create_test_application() {
   local interval=10
   local elapsed=0
   while true; do
-    local sync_status
+    local sync_status health_status
     sync_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
-    local health_status
     health_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
     echo "  Sync: ${sync_status}, Health: ${health_status}"
 
@@ -184,28 +154,88 @@ create_rollout_manager() {
     return 1
   }
 
-  echo "Waiting for RolloutManager to become available..."
-  local timeout=120
+  wait_for "RolloutManager" \
+    "[[ \$(oc get rolloutmanager argo-rollout -n ${GITOPS_NAMESPACE} -o jsonpath='{.status.phase}' 2>/dev/null) == 'Available' ]]" \
+    120 10
+}
+
+trigger_rollout_update() {
+  echo "=== Triggering rollout update to generate AnalysisRuns ==="
+
+  echo "Disabling selfHeal on ArgoCD Application..."
+  oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+    --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}' || {
+    echo "WARNING: Failed to disable selfHeal"
+    return 1
+  }
+
+  echo "Patching canary rollout image to trigger new revision..."
+  oc patch rollout canary-rollout-analysis -n "${GITOPS_NAMESPACE}" \
+    --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"rollouts-demo","image":"argoproj/rollouts-demo:green"}]}}}}' || {
+    echo "WARNING: Failed to patch canary rollout"
+    return 1
+  }
+
+  echo "Patching bluegreen rollout image to trigger new revision..."
+  oc patch rollout rollout-bluegreen -n "${GITOPS_NAMESPACE}" \
+    --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"rollouts-demo","image":"argoproj/rollouts-demo:green"}]}}}}' || {
+    echo "WARNING: Failed to patch bluegreen rollout"
+    return 1
+  }
+
   local interval=10
+
+  echo "Waiting for AnalysisRuns to be created..."
+  local timeout=120
   local elapsed=0
   while true; do
-    local phase
-    phase=$(oc get rolloutmanager argo-rollout -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-    echo "  Phase: ${phase}"
+    local ar_count
+    ar_count=$(oc get analysisruns -n "${GITOPS_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    echo "  AnalysisRuns found: ${ar_count}"
 
-    if [[ "${phase}" = "Available" ]]; then
-      echo "RolloutManager is available."
+    if [[ "${ar_count}" -gt 0 ]]; then
+      echo "AnalysisRuns detected."
       break
     fi
 
     if [[ "${elapsed}" -ge "${timeout}" ]]; then
-      echo "WARNING: RolloutManager did not reach Available within ${timeout}s."
+      echo "WARNING: No AnalysisRuns created within ${timeout}s."
       break
     fi
 
     sleep "${interval}"
     elapsed=$((elapsed + interval))
   done
+
+  echo "Waiting for AnalysisRuns to complete..."
+  local ar_timeout=180
+  local ar_elapsed=0
+  while true; do
+    local running_count
+    running_count=$(oc get analysisruns -n "${GITOPS_NAMESPACE}" \
+      --no-headers 2>/dev/null | { grep -c "Running" || true; })
+    echo "  AnalysisRuns still running: ${running_count}"
+
+    if [[ "${running_count}" -eq 0 ]]; then
+      echo "All AnalysisRuns have completed."
+      break
+    fi
+
+    if [[ "${ar_elapsed}" -ge "${ar_timeout}" ]]; then
+      echo "WARNING: Some AnalysisRuns still running after ${ar_timeout}s."
+      break
+    fi
+
+    sleep "${interval}"
+    ar_elapsed=$((ar_elapsed + interval))
+  done
+
+  echo "Re-enabling selfHeal on ArgoCD Application..."
+  oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+    --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":true}}}}' || true
+
+  echo "AnalysisRun status:"
+  oc get analysisruns -n "${GITOPS_NAMESPACE}" 2>/dev/null || true
 }
 
 main() {
@@ -214,12 +244,11 @@ main() {
   echo "========================================="
 
   install_gitops_operator
-  wait_for_argocd_server
-  grant_argocd_rbac
-  grant_backstage_rbac
+  configure_rbac
   get_argocd_credentials
   create_test_application
   create_rollout_manager
+  trigger_rollout_update
 
   local final_sync final_health
   final_sync=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
