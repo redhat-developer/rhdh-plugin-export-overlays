@@ -69,7 +69,9 @@ Rather than following a fixed calendar cadence, watch for concrete signals that 
 2. Find a plugin release compatible with that version
 3. Update `repo-ref` and `repo-backstage-version` in `source.json`
 4. Update `supportedVersions` in metadata files
-5. Test with `/publish` and `/smoketest`
+5. Test with `/publish` and `/smoketest`, and run workspace E2E validation when available for that workspace
+
+See [01 - Getting Started: Testing Your Plugin](./01-getting-started.md#testing-your-plugin) for test workflow details.
 
 See [05 - Version Updates](./05-version-updates.md) for detailed procedures.
 
