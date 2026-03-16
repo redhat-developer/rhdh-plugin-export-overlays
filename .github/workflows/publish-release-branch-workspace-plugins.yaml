@@ -138,10 +138,13 @@ jobs:
           echo "Published $IMAGE with tags: bs_${BS_VERSION}, bs_${BS_VERSION}_${TIMESTAMP}, latest"
 
       - name: Set Quay repository to public
-        if: ${{ secrets.QUAY_API_TOKEN != '' }}
         env:
           QUAY_API_TOKEN: ${{ secrets.QUAY_API_TOKEN }}
         run: |
+          if [ -z "$QUAY_API_TOKEN" ]; then
+            echo "QUAY_API_TOKEN not set, skipping visibility change"
+            exit 0
+          fi
           curl -s -X PUT \
             -H "Authorization: Bearer $QUAY_API_TOKEN" \
             -H "Content-Type: application/json" \
