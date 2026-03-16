@@ -1,13 +1,7 @@
 import { test, expect } from "rhdh-e2e-test-utils/test";
-import { $ } from "rhdh-e2e-test-utils/utils";
 import { OrchestratorPage } from "rhdh-e2e-test-utils/pages";
-import path from "path";
 import { ensureBaselineRole } from "./rbac-baseline.js";
-
-const sonataflowSetupScript = path.join(
-  import.meta.dirname,
-  "deploy-sonataflow.sh",
-);
+import { deploySonataflow } from "./deploy-sonataflow.js";
 
 /**
  * Orchestrator Entity-Workflow Integration Tests
@@ -36,7 +30,7 @@ test.describe("Orchestrator Entity-Workflow Integration", () => {
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
-      await $`bash ${sonataflowSetupScript} ${project}`;
+      await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
       await rhdh.deploy({ timeout: null });
@@ -97,11 +91,11 @@ test.describe("Orchestrator Entity-Workflow Integration", () => {
       });
       const startOver = page.getByRole("button", { name: "Start Over" });
 
-      await expect(
-        viewInCatalog.or(openWorkflowRun).or(startOver),
-      ).toBeVisible({
-        timeout: 120000,
-      });
+      await expect(viewInCatalog.or(openWorkflowRun).or(startOver)).toBeVisible(
+        {
+          timeout: 120000,
+        },
+      );
     });
 
     test("RHIDP-11834: Template WITH orchestrator.io/workflows annotation", async ({
@@ -149,9 +143,7 @@ test.describe("Orchestrator Entity-Workflow Integration", () => {
       await page.waitForLoadState("domcontentloaded");
 
       // Workflows tab should not exist without the annotation
-      await expect(
-        page.getByRole("tab", { name: "Workflows" }),
-      ).toHaveCount(0);
+      await expect(page.getByRole("tab", { name: "Workflows" })).toHaveCount(0);
     });
 
     test("RHIDP-11836: Catalog <-> Workflows breadcrumb navigation", async ({

@@ -1,21 +1,13 @@
 import { test, expect, Page } from "rhdh-e2e-test-utils/test";
-import { $ } from "rhdh-e2e-test-utils/utils";
+import { UIhelper, RbacApiHelper } from "rhdh-e2e-test-utils/helpers";
 import {
-  setupBrowser,
-  LoginHelper,
-  UIhelper,
-  AuthApiHelper,
-  RbacApiHelper,
-  Policy,
-  Response,
-} from "rhdh-e2e-test-utils/helpers";
-import path from "path";
-import { removeBaselineRole, PRIMARY_USER } from "./rbac-baseline.js";
-
-const sonataflowSetupScript = path.join(
-  import.meta.dirname,
-  "deploy-sonataflow.sh",
-);
+  removeBaselineRole,
+  setupAuthenticatedPage,
+  deleteRoleAndPolicies,
+  buildPolicies,
+  PRIMARY_USER,
+} from "./rbac-baseline.js";
+import { deploySonataflow } from "./deploy-sonataflow.js";
 
 /**
  * Orchestrator Entity-Workflow RBAC Tests
@@ -38,7 +30,7 @@ test.describe.serial("Orchestrator Entity-Workflow RBAC", () => {
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
-      await $`bash ${sonataflowSetupScript} ${project}`;
+      await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
       await rhdh.deploy({ timeout: null });
@@ -53,92 +45,71 @@ test.describe.serial("Orchestrator Entity-Workflow RBAC", () => {
   test.describe
     .serial("RHIDP-11839: Template run WITHOUT workflow permissions", () => {
     test.describe.configure({ retries: 0 });
-    let loginHelper: LoginHelper;
     let uiHelper: UIhelper;
     let page: Page;
     let apiToken: string;
     const roleName = "role:default/catalogSuperuserNoWorkflowTest";
 
     test.beforeAll(async ({ browser }, testInfo) => {
-      page = (await setupBrowser(browser, testInfo)).page;
-      uiHelper = new UIhelper(page);
-      loginHelper = new LoginHelper(page);
-
-      await loginHelper.loginAsKeycloakUser();
-      apiToken = await new AuthApiHelper(page).getToken();
+      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
+        browser,
+        testInfo,
+      ));
     });
 
     test("Setup: Create role with catalog+scaffolder but NO orchestrator permissions", async () => {
       const rbacApi = await RbacApiHelper.build(apiToken);
-      const members = [PRIMARY_USER];
 
-      const role = {
-        memberReferences: members,
+      const rolePostResponse = await rbacApi.createRoles({
+        memberReferences: [PRIMARY_USER],
         name: roleName,
-      };
-
-      const policies = [
-        // Catalog permissions
-        {
-          entityReference: roleName,
-          permission: "catalog-entity",
-          policy: "read",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.entity.create",
-          policy: "create",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.location.read",
-          policy: "read",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.location.create",
-          policy: "create",
-          effect: "allow",
-        },
-        // Scaffolder permissions
-        {
-          entityReference: roleName,
-          permission: "scaffolder.action.execute",
-          policy: "use",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "scaffolder.task.create",
-          policy: "create",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "scaffolder.task.read",
-          policy: "read",
-          effect: "allow",
-        },
-        // Explicitly DENY orchestrator permissions
-        {
-          entityReference: roleName,
-          permission: "orchestrator.workflow",
-          policy: "read",
-          effect: "deny",
-        },
-        {
-          entityReference: roleName,
-          permission: "orchestrator.workflow.use",
-          policy: "update",
-          effect: "deny",
-        },
-      ];
-
-      const rolePostResponse = await rbacApi.createRoles(role);
-      const policyPostResponse = await rbacApi.createPolicies(policies);
+      });
+      const policyPostResponse = await rbacApi.createPolicies(
+        buildPolicies(roleName, [
+          { permission: "catalog-entity", policy: "read", effect: "allow" },
+          {
+            permission: "catalog.entity.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "catalog.location.read",
+            policy: "read",
+            effect: "allow",
+          },
+          {
+            permission: "catalog.location.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.action.execute",
+            policy: "use",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.task.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.task.read",
+            policy: "read",
+            effect: "allow",
+          },
+          // Explicitly DENY orchestrator permissions
+          {
+            permission: "orchestrator.workflow",
+            policy: "read",
+            effect: "deny",
+          },
+          {
+            permission: "orchestrator.workflow.use",
+            policy: "update",
+            effect: "deny",
+          },
+        ]),
+      );
 
       expect(rolePostResponse.ok()).toBeTruthy();
       expect(policyPostResponse.ok()).toBeTruthy();
@@ -210,116 +181,78 @@ test.describe.serial("Orchestrator Entity-Workflow RBAC", () => {
     });
 
     test.afterAll(async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      try {
-        const roleNameForApi = roleName
-          .replace("role:", "")
-          .replace("default/", "");
-        const policiesResponse =
-          await rbacApi.getPoliciesByRole(roleNameForApi);
-
-        if (policiesResponse.ok()) {
-          const policies =
-            await Response.removeMetadataFromResponse(policiesResponse);
-          await rbacApi.deletePolicy(roleNameForApi, policies as Policy[]);
-          await rbacApi.deleteRole(roleNameForApi);
-        }
-      } catch (error) {
-        console.error("Error during cleanup:", error);
-      }
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 
   test.describe
     .serial("RHIDP-11840: Template run WITH workflow permissions", () => {
     test.describe.configure({ retries: 0 });
-    let loginHelper: LoginHelper;
     let uiHelper: UIhelper;
     let page: Page;
     let apiToken: string;
     const roleName = "role:default/catalogSuperuserWithWorkflowTest";
 
     test.beforeAll(async ({ browser }, testInfo) => {
-      page = (await setupBrowser(browser, testInfo)).page;
-      uiHelper = new UIhelper(page);
-      loginHelper = new LoginHelper(page);
-
-      await loginHelper.loginAsKeycloakUser();
-      apiToken = await new AuthApiHelper(page).getToken();
+      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
+        browser,
+        testInfo,
+      ));
     });
 
     test("Setup: Create role with catalog+scaffolder+orchestrator permissions", async () => {
       const rbacApi = await RbacApiHelper.build(apiToken);
-      const members = [PRIMARY_USER];
 
-      const role = {
-        memberReferences: members,
+      const rolePostResponse = await rbacApi.createRoles({
+        memberReferences: [PRIMARY_USER],
         name: roleName,
-      };
-
-      const policies = [
-        // Catalog permissions
-        {
-          entityReference: roleName,
-          permission: "catalog-entity",
-          policy: "read",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.entity.create",
-          policy: "create",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.location.read",
-          policy: "read",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "catalog.location.create",
-          policy: "create",
-          effect: "allow",
-        },
-        // Scaffolder permissions
-        {
-          entityReference: roleName,
-          permission: "scaffolder.action.execute",
-          policy: "use",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "scaffolder.task.create",
-          policy: "create",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "scaffolder.task.read",
-          policy: "read",
-          effect: "allow",
-        },
-        // Orchestrator permissions - ALLOW
-        {
-          entityReference: roleName,
-          permission: "orchestrator.workflow",
-          policy: "read",
-          effect: "allow",
-        },
-        {
-          entityReference: roleName,
-          permission: "orchestrator.workflow.use",
-          policy: "update",
-          effect: "allow",
-        },
-      ];
-
-      const rolePostResponse = await rbacApi.createRoles(role);
-      const policyPostResponse = await rbacApi.createPolicies(policies);
+      });
+      const policyPostResponse = await rbacApi.createPolicies(
+        buildPolicies(roleName, [
+          { permission: "catalog-entity", policy: "read", effect: "allow" },
+          {
+            permission: "catalog.entity.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "catalog.location.read",
+            policy: "read",
+            effect: "allow",
+          },
+          {
+            permission: "catalog.location.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.action.execute",
+            policy: "use",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.task.create",
+            policy: "create",
+            effect: "allow",
+          },
+          {
+            permission: "scaffolder.task.read",
+            policy: "read",
+            effect: "allow",
+          },
+          // Orchestrator permissions - ALLOW
+          {
+            permission: "orchestrator.workflow",
+            policy: "read",
+            effect: "allow",
+          },
+          {
+            permission: "orchestrator.workflow.use",
+            policy: "update",
+            effect: "allow",
+          },
+        ]),
+      );
 
       expect(rolePostResponse.ok()).toBeTruthy();
       expect(policyPostResponse.ok()).toBeTruthy();
@@ -389,24 +322,7 @@ test.describe.serial("Orchestrator Entity-Workflow RBAC", () => {
     });
 
     test.afterAll(async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      try {
-        const roleNameForApi = roleName
-          .replace("role:", "")
-          .replace("default/", "");
-        const policiesResponse =
-          await rbacApi.getPoliciesByRole(roleNameForApi);
-
-        if (policiesResponse.ok()) {
-          const policies =
-            await Response.removeMetadataFromResponse(policiesResponse);
-          await rbacApi.deletePolicy(roleNameForApi, policies as Policy[]);
-          await rbacApi.deleteRole(roleNameForApi);
-        }
-      } catch (error) {
-        console.error("Error during cleanup:", error);
-      }
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 });
