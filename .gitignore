@@ -53,3 +53,6 @@ build/
 # Coverage
 coverage/
 .nyc_output/
+
+# Generated catalog index (assembled by scripts/assemble-catalog-index.sh)
+catalog-entities/extensions/packages/

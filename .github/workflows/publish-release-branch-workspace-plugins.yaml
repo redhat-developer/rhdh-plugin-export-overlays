@@ -85,3 +85,65 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  publish-catalog-index:
+    runs-on: ubuntu-latest
+    name: Publish Catalog Index
+    needs:
+      - export
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read backstage version from versions.json
+        id: versions
+        run: |
+          BS_VERSION=$(jq -r '.backstage' versions.json)
+          TIMESTAMP=$(date -u +%Y%m%dT%H%M%S)
+          echo "backstage=$BS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble catalog index
+        run: bash scripts/assemble-catalog-index.sh
+
+      - name: Validate catalog index
+        run: |
+          YAML_COUNT=$(find catalog-entities/extensions -name '*.yaml' | wc -l)
+          echo "Found $YAML_COUNT YAML files"
+          if [ "$YAML_COUNT" -lt 50 ]; then
+            echo "ERROR: expected at least 50 YAML files, got $YAML_COUNT"
+            exit 1
+          fi
+
+      - name: Build OCI image
+        run: |
+          cd catalog-entities
+          podman build -t plugin-catalog-index -f Containerfile .
+
+      - name: Push to Quay.io
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          BS_VERSION: ${{ steps.versions.outputs.backstage }}
+          TIMESTAMP: ${{ steps.versions.outputs.timestamp }}
+        run: |
+          podman login -u veecode+ci -p "$QUAY_TOKEN" quay.io
+          IMAGE="quay.io/veecode/plugin-catalog-index"
+          podman tag plugin-catalog-index "$IMAGE:bs_${BS_VERSION}"
+          podman tag plugin-catalog-index "$IMAGE:bs_${BS_VERSION}_${TIMESTAMP}"
+          podman tag plugin-catalog-index "$IMAGE:latest"
+          podman push "$IMAGE:bs_${BS_VERSION}"
+          podman push "$IMAGE:bs_${BS_VERSION}_${TIMESTAMP}"
+          podman push "$IMAGE:latest"
+          echo "Published $IMAGE with tags: bs_${BS_VERSION}, bs_${BS_VERSION}_${TIMESTAMP}, latest"
+
+      - name: Set Quay repository to public
+        if: ${{ secrets.QUAY_API_TOKEN != '' }}
+        env:
+          QUAY_API_TOKEN: ${{ secrets.QUAY_API_TOKEN }}
+        run: |
+          curl -s -X PUT \
+            -H "Authorization: Bearer $QUAY_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"visibility":"public"}' \
+            "https://quay.io/api/v1/repository/veecode/plugin-catalog-index/changevisibility" || true
