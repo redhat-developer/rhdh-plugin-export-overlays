@@ -41,16 +41,18 @@ test.describe("Test ArgoCD plugin", () => {
     await rhdh.deploy();
   });
 
-  test.beforeEach(async ({ loginHelper }) => {
+  test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
     await loginHelper.loginAsKeycloakUser();
+    await navigateToComponent(page, uiHelper);
+    await uiHelper.clickTab("CD");
+    await uiHelper.clickByDataTestId("test-argocd-app-card");
   });
 
-  test("Verify deployment summary card shows Synced and Healthy status", async ({
+  test("Verify deployment summary card and drawer close button", async ({
     page,
     uiHelper,
   }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
+    await uiHelper.clickButtonByLabel("Close the drawer");
 
     const card = page.getByTestId("test-argocd-app-card");
     await expect(card).toBeVisible();
@@ -59,15 +61,7 @@ test.describe("Test ArgoCD plugin", () => {
     await expect(card).toContainText("Healthy");
   });
 
-  test("Verify app drawer shows instance details", async ({
-    page,
-    uiHelper,
-  }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
-
+  test("Verify app drawer shows instance details", async ({ uiHelper }) => {
     await uiHelper.verifyHeading("test-argocd-app");
     await uiHelper.verifyText("Synced");
     await uiHelper.verifyText("Healthy");
@@ -80,10 +74,6 @@ test.describe("Test ArgoCD plugin", () => {
     page,
     uiHelper,
   }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
     await uiHelper.verifyText("Resources");
 
     await uiHelper.clickButtonByLabel("rows");
@@ -133,10 +123,6 @@ test.describe("Test ArgoCD plugin", () => {
     page,
     uiHelper,
   }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
     await uiHelper.verifyText("Resources");
 
     const toolbar = page.locator("#toolbar-with-filter");
@@ -188,24 +174,14 @@ test.describe("Test ArgoCD plugin", () => {
   });
 
   test("Verify deployment lifecycle on CD tab shows revisions", async ({
-    page,
     uiHelper,
   }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
     await uiHelper.verifyText(/Revision \d+/);
   });
 
   test("Verify bluegreen rollout details and analysis runs", async ({
     page,
-    uiHelper,
   }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
-
     await expandAllSections(page);
 
     const bluegreen = page.locator('[data-testid^="rollout-bluegreen-"]');
@@ -217,13 +193,7 @@ test.describe("Test ArgoCD plugin", () => {
     await expect(bluegreen.getByText(/Analysis \d+-pre/).first()).toBeVisible();
   });
 
-  test("Verify canary rollout details and analysis runs", async ({
-    page,
-    uiHelper,
-  }) => {
-    await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
-    await uiHelper.clickByDataTestId("test-argocd-app-card");
+  test("Verify canary rollout details and analysis runs", async ({ page }) => {
     await expandAllSections(page);
 
     const canary = page.locator('[data-testid^="canary-rollout-analysis-"]');
