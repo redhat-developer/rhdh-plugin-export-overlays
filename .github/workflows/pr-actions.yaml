@@ -355,6 +355,9 @@ jobs:
           backstage_version=$(jq -r '.backstage' overlay-repo/versions.json)
           echo "backstage-version=${backstage_version}" >> $GITHUB_OUTPUT
 
+          node_version=$(jq -r '.node' overlay-repo/versions.json)
+          echo "node-version=${node_version}" >> $GITHUB_OUTPUT
+
       - name: Checkout plugins repository (flat)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         if: steps.source-config.outputs.plugins-root == '.'
@@ -373,6 +376,11 @@ jobs:
             ${{ steps.source-config.outputs.plugins-root }}
           sparse-checkout-cone-mode: false
           path: source-repo
+
+      - name: Setup Node.js ${{ steps.source-config.outputs.node-version }}
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ steps.source-config.outputs.node-version }}
 
       - name: Validate Catalog Metadata
         id: validate-metadata
