@@ -1,0 +1,61 @@
+import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import GithubApiHelper from "../../support/api/github-helper";
+import { requireEnv } from "../../support/utils/require-env";
+
+test.describe("Github Discovery Catalog", () => {
+  let catalogPage: CatalogPage;
+  let githubApiHelper: GithubApiHelper;
+
+  test.beforeAll(async ({ rhdh }) => {
+    requireEnv("GITHUB_TEST_ORGANIZATION", "VAULT_GH_RHDH_QE_USER_TOKEN");
+
+    test.info().annotations.push({
+      type: "component",
+      description: "api",
+    });
+
+    await rhdh.configure({
+      auth: "github",
+      appConfig: "tests/config/github-discovery/app-config-rhdh.yaml",
+      secrets: "tests/config/github-discovery/rhdh-secrets.yaml",
+      dynamicPlugins: "tests/config/github-discovery/dynamic-plugins.yaml",
+    });
+    await rhdh.deploy();
+  });
+
+  test.beforeEach(async ({ loginHelper, page }) => {
+    await loginHelper.loginAsGithubUser();
+    catalogPage = new CatalogPage(page);
+    githubApiHelper = new GithubApiHelper();
+    await catalogPage.go();
+  });
+
+  test(`Discover Organization's Catalog`, async () => {
+    const organizationRepos = await githubApiHelper.getReposFromOrg(
+      process.env.GITHUB_TEST_ORGANIZATION!,
+    );
+    const reposNames: string[] = (organizationRepos as Array<{ name?: string }>)
+      .map((repo) => repo.name)
+      .filter((name): name is string => typeof name === "string");
+
+    const reposWithCatalogInfo: string[] = (
+      await Promise.all(
+        reposNames.map(async (repo) =>
+          (await githubApiHelper.fileExistsOnRepo(
+            `${process.env.GITHUB_TEST_ORGANIZATION!}/${repo}`,
+            "catalog-info.yaml",
+          ))
+            ? repo
+            : null,
+        ),
+      )
+    ).filter((repo): repo is string => typeof repo === "string");
+
+    for (const repo of reposWithCatalogInfo) {
+      await catalogPage.search(repo);
+      const row = await catalogPage.tableRow(repo);
+      await expect(row).toBeVisible();
+    }
+  });
+});
