@@ -1,7 +1,7 @@
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import GithubApiHelper from "../../support/api/github-helper";
 import { requireEnv } from "../../support/utils/require-env";
+import { GithubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("Github Discovery Catalog", () => {
   let catalogPage: CatalogPage;
@@ -42,7 +42,7 @@ test.describe("Github Discovery Catalog", () => {
     const reposWithCatalogInfo: string[] = (
       await Promise.all(
         reposNames.map(async (repo) =>
-          (await githubApiHelper.fileExistsOnRepo(
+          (await githubApiHelper.fileExistsInRepo(
             `${process.env.GITHUB_TEST_ORGANIZATION!}/${repo}`,
             "catalog-info.yaml",
           ))
