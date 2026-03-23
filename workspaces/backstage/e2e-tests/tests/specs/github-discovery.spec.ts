@@ -57,5 +57,6 @@ test.describe("Github Discovery Catalog", () => {
       const row = await catalogPage.tableRow(repo);
       await expect(row).toBeVisible();
     }
+    expect(true).toBe(false);
   });
 });
