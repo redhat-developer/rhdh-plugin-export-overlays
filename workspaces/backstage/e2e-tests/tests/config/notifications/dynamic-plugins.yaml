@@ -1,0 +1,9 @@
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals
+    disabled: false

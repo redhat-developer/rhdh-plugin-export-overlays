@@ -17,5 +17,9 @@ export default defineConfig({
       name: "backstage-kubernetes",
       testMatch: /tests\/specs\/kubernetes-rbac\.spec\.ts/,
     },
+    {
+      name: "backstage-notifications",
+      testMatch: /tests\/specs\/notifications\.spec\.ts/,
+    },
   ],
 });
