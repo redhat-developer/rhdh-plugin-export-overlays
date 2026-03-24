@@ -1,10 +1,15 @@
 import { APIResponse, request } from "@playwright/test";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../constants/github/organization.js";
+import { requireEnv } from "../utils/require-env.js";
 
 // https://docs.github.com/en/rest?apiVersion=2022-11-28
 export class GithubApiHelper {
   private static readonly githubApiVersion = "2022-11-28";
   private readonly apiUrl = "https://api.github.com";
+
+  public constructor() {
+    requireEnv("VAULT_GITHUB_USER_TOKEN");
+  }
 
   static async githubRequest(
     method: string,
@@ -20,7 +25,7 @@ export class GithubApiHelper {
       method: method,
       headers: {
         Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${process.env.VAULT_GH_RHDH_QE_USER_TOKEN}`,
+        Authorization: `Bearer ${process.env.VAULT_GITHUB_USER_TOKEN}`,
         "X-GitHub-Api-Version": this.githubApiVersion,
       },
     };

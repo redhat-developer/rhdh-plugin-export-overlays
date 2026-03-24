@@ -1,6 +1,5 @@
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { requireEnv } from "../../support/utils/require-env";
 import { GithubApiHelper } from "../../support/api/github-api-helper";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
@@ -9,8 +8,6 @@ test.describe("Github Discovery Catalog", () => {
   let githubApiHelper: GithubApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
-    requireEnv("VAULT_GH_RHDH_QE_USER_TOKEN");
-
     test.info().annotations.push({
       type: "component",
       description: "api",
