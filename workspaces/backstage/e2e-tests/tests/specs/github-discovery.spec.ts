@@ -33,7 +33,7 @@ test.describe("Github Discovery Catalog", () => {
 
   test(`Discover Organization's Catalog`, async () => {
     const organizationRepos = await githubApiHelper.getReposFromOrg(
-      process.env.GITHUB_TEST_ORGANIZATION!,
+      process.env.GITHUB_TEST_ORGANIZATION,
     );
     const reposNames: string[] = (organizationRepos as Array<{ name?: string }>)
       .map((repo) => repo.name)

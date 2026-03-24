@@ -3,7 +3,7 @@ import { RHDH_GITHUB_TEST_ORGANIZATION } from "../constants/github/organization.
 
 // https://docs.github.com/en/rest?apiVersion=2022-11-28
 export class GithubApiHelper {
-  private static githubApiVersion = "2022-11-28";
+  private static readonly githubApiVersion = "2022-11-28";
   private readonly defaultOrganization =
     process.env.GITHUB_TEST_ORGANIZATION ?? RHDH_GITHUB_TEST_ORGANIZATION;
   private readonly apiUrl = "https://api.github.com";
@@ -53,7 +53,7 @@ export class GithubApiHelper {
     const body = await result.json();
 
     if (!Array.isArray(body)) {
-      throw new Error(
+      throw new TypeError(
         `Expected array but got ${typeof body}: ${JSON.stringify(body)}`,
       );
     }
