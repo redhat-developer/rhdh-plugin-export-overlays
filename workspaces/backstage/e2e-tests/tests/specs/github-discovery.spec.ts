@@ -8,6 +8,9 @@ test.describe("Github Discovery Catalog", () => {
   let githubApiHelper: GithubApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
+    // Allow time for deployment + 1 min provider refresh delay + browser setup
+    test.setTimeout(10 * 60 * 1000);
+
     test.info().annotations.push({
       type: "component",
       description: "api",
@@ -20,6 +23,8 @@ test.describe("Github Discovery Catalog", () => {
       dynamicPlugins: "tests/config/github-discovery/dynamic-plugins.yaml",
     });
     await rhdh.deploy();
+    // Wait 1 minute for github provider to refresh entities before running tests
+    await new Promise((resolve) => setTimeout(resolve, 1 * 60 * 1000));
   });
 
   test.beforeEach(async ({ loginHelper, page }) => {
