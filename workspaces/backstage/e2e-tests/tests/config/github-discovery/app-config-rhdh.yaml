@@ -18,7 +18,7 @@ catalog:
   providers:
     github:
       providerId:
-        organization: $GITHUB_ORG
+        organization: ${GITHUB_ORG}
         schedule:
           frequency:
             hours: 24
@@ -31,8 +31,8 @@ integrations:
   github:
     - host: github.com
       apps:
-        - appId: $VAULT_GITHUB_APP_APP_ID
-          clientId: $VAULT_GITHUB_APP_CLIENT_ID
-          clientSecret: $VAULT_GITHUB_APP_CLIENT_SECRET
-          webhookSecret: $VAULT_GITHUB_APP_WEBHOOK_SECRET
-          privateKey: $VAULT_GITHUB_APP_PRIVATE_KEY
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}
