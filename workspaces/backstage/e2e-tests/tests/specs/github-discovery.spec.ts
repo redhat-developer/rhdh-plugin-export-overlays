@@ -2,13 +2,14 @@ import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "../../support/utils/require-env";
 import { GithubApiHelper } from "../../support/api/github-api-helper";
+import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
 test.describe("Github Discovery Catalog", () => {
   let catalogPage: CatalogPage;
   let githubApiHelper: GithubApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
-    requireEnv("GITHUB_TEST_ORGANIZATION", "VAULT_GH_RHDH_QE_USER_TOKEN");
+    requireEnv("VAULT_GH_RHDH_QE_USER_TOKEN");
 
     test.info().annotations.push({
       type: "component",
@@ -33,7 +34,7 @@ test.describe("Github Discovery Catalog", () => {
 
   test(`Discover Organization's Catalog`, async () => {
     const organizationRepos = await githubApiHelper.getReposFromOrg(
-      process.env.GITHUB_TEST_ORGANIZATION,
+      RHDH_GITHUB_TEST_ORGANIZATION,
     );
     const reposNames: string[] = (organizationRepos as Array<{ name?: string }>)
       .map((repo) => repo.name)
@@ -43,7 +44,7 @@ test.describe("Github Discovery Catalog", () => {
       await Promise.all(
         reposNames.map(async (repo) =>
           (await githubApiHelper.fileExistsInRepo(
-            `${process.env.GITHUB_TEST_ORGANIZATION!}/${repo}`,
+            `${RHDH_GITHUB_TEST_ORGANIZATION}/${repo}`,
             "catalog-info.yaml",
           ))
             ? repo

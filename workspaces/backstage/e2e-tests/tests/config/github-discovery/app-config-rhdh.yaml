@@ -18,7 +18,7 @@ catalog:
   providers:
     github:
       providerId:
-        organization: $GITHUB_TEST_ORGANIZATION
+        organization: $GITHUB_ORG
         schedule:
           frequency:
             hours: 24

@@ -4,8 +4,6 @@ import { RHDH_GITHUB_TEST_ORGANIZATION } from "../constants/github/organization.
 // https://docs.github.com/en/rest?apiVersion=2022-11-28
 export class GithubApiHelper {
   private static readonly githubApiVersion = "2022-11-28";
-  private readonly defaultOrganization =
-    process.env.GITHUB_TEST_ORGANIZATION ?? RHDH_GITHUB_TEST_ORGANIZATION;
   private readonly apiUrl = "https://api.github.com";
 
   static async githubRequest(
@@ -69,7 +67,7 @@ export class GithubApiHelper {
   }
 
   public async getOrganizationReposUrl(
-    org = this.defaultOrganization,
+    org = RHDH_GITHUB_TEST_ORGANIZATION,
   ): Promise<string> {
     const response = await GithubApiHelper.githubRequest(
       "GET",
@@ -78,7 +76,7 @@ export class GithubApiHelper {
     return (await response.json())["repos_url"];
   }
 
-  public async getReposFromOrg(org = this.defaultOrganization) {
+  public async getReposFromOrg(org = RHDH_GITHUB_TEST_ORGANIZATION) {
     const reposUrl = await this.getOrganizationReposUrl(org);
     // GitHub defaults to 30; use 100 to reduce API calls.
     return GithubApiHelper.getGithubPaginatedRequest(
