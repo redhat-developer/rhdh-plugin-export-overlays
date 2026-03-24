@@ -15,6 +15,7 @@ export class GithubApiHelper {
     method: string,
     url: string,
     body?: string | object,
+    suppressError: boolean = false,
   ): Promise<APIResponse> {
     const context = await request.newContext();
     const options: {
@@ -35,7 +36,7 @@ export class GithubApiHelper {
     }
 
     const resp = await context.fetch(url, options);
-    if (!resp.ok()) {
+    if (!suppressError && !resp.ok()) {
       throw new Error(
         `Failed to ${method} ${url}: ${resp.status()} ${resp.statusText()}`,
       );
@@ -93,6 +94,8 @@ export class GithubApiHelper {
     const resp = await GithubApiHelper.githubRequest(
       "GET",
       `${this.apiUrl}/repos/${repo}/contents/${file}`,
+      undefined,
+      true,
     );
     const status = resp.status();
     return [200, 302, 304].includes(status);
