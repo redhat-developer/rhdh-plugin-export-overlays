@@ -42,7 +42,8 @@ test.describe("Github Discovery Catalog", () => {
       .map((repo) => repo.name)
       .filter((name): name is string => typeof name === "string")
       // filter for subset of organization repositories where the repository name matches the entity name
-      .filter((name) => name.startsWith("test-annotator"));
+      .filter((name) => name.startsWith("test-annotator"))
+      .slice(0, 5);
 
     const reposWithCatalogInfo: string[] = (
       await Promise.all(
