@@ -1,6 +1,7 @@
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -26,7 +27,8 @@ test.describe("Bulk import tests", () => {
     await rhdh.configure({ auth: "keycloak" });
 
     const orchestratorNamespace = "orchestrator";
-    await $`bash tests/scripts/install-orchestrator.sh ${orchestratorNamespace}`;
+    await installOrchestrator(orchestratorNamespace);
+    await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
 
     await rhdh.deploy({
       timeout: 20 * 60 * 1000, // 20 min
