@@ -34,11 +34,6 @@ test.describe("Bulk import tests", () => {
       timeout: 20 * 60 * 1000, // 20 min
     });
 
-    if (!process.env.VAULT_GH_RHDH_QE_USER_TOKEN) {
-      throw new Error(`Provide github qe token`);
-    }
-
-    process.env.VAULT_GITHUB_USER_TOKEN = process.env.VAULT_GH_RHDH_QE_USER_TOKEN;
     // Create the repository with catalog-info.yaml file dynamically
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
