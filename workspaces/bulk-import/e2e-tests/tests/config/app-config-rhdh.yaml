@@ -4,7 +4,7 @@
 integrations:
   github:
     - host: github.com
-      token: ${VAULT_GH_RHDH_QE_USER_TOKEN}
+      token: ${VAULT_GITHUB_USER_TOKEN}
   gitlab:
     - host: gitlab.com
       token: temp
