@@ -79,7 +79,7 @@ test.describe("GitHub Events Module", () => {
     await context.dispose();
   });
 
-  test.describe("GitHub Discovery", () => {
+  test.describe.serial("GitHub Discovery", () => {
     const catalogRepoName = `janus-test-github-events-test-${Date.now()}`;
     const catalogRepoDetails = {
       name: catalogRepoName,
