@@ -38,7 +38,7 @@ test.describe("Bulk import tests", () => {
       throw new Error(`Provide github qe token`);
     }
 
-    process.env.GH_RHDH_QE_USER_TOKEN = process.env.VAULT_GH_RHDH_QE_USER_TOKEN;
+    process.env.VAULT_GITHUB_USER_TOKEN = process.env.VAULT_GH_RHDH_QE_USER_TOKEN;
     // Create the repository with catalog-info.yaml file dynamically
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
