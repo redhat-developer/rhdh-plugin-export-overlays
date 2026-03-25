@@ -303,7 +303,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.22":
+"@red-hat-developer-hub/e2e-test-utils@npm:^1.1.22":
   version: 1.1.22
   resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.22"
   dependencies:
@@ -737,7 +737,7 @@ __metadata:
   dependencies:
     "@eslint/js": ^9.39.2
     "@playwright/test": ^1.56.1
-    "@red-hat-developer-hub/e2e-test-utils": 1.1.22
+    "@red-hat-developer-hub/e2e-test-utils": ^1.1.22
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2
