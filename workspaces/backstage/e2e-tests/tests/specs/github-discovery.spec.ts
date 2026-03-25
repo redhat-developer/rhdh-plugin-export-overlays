@@ -1,11 +1,11 @@
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { GithubApiHelper } from "../../support/api/github-api-helper";
+import { GitHubApiHelper } from "../../support/api/github-api-helper";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
 test.describe("Github Discovery Catalog", () => {
   let catalogPage: CatalogPage;
-  let githubApiHelper: GithubApiHelper;
+  let gitHubApiHelper: GitHubApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
     // Allow time for deployment + 1 min provider refresh delay + browser setup
@@ -30,12 +30,12 @@ test.describe("Github Discovery Catalog", () => {
   test.beforeEach(async ({ loginHelper, page }) => {
     await loginHelper.loginAsGithubUser();
     catalogPage = new CatalogPage(page);
-    githubApiHelper = new GithubApiHelper();
+    gitHubApiHelper = new GitHubApiHelper();
     await catalogPage.go();
   });
 
   test(`Discover Organization's Catalog`, async () => {
-    const organizationRepos = await githubApiHelper.getReposFromOrg(
+    const organizationRepos = await gitHubApiHelper.getReposFromOrg(
       RHDH_GITHUB_TEST_ORGANIZATION,
     );
     const reposNames: string[] = (organizationRepos as Array<{ name?: string }>)
@@ -47,8 +47,9 @@ test.describe("Github Discovery Catalog", () => {
     const reposWithCatalogInfo: string[] = (
       await Promise.all(
         reposNames.map(async (repo) =>
-          (await githubApiHelper.fileExistsInRepo(
-            `${RHDH_GITHUB_TEST_ORGANIZATION}/${repo}`,
+          (await gitHubApiHelper.fileExistsInRepo(
+            RHDH_GITHUB_TEST_ORGANIZATION,
+            repo,
             "catalog-info.yaml",
           ))
             ? repo
