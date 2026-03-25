@@ -7,7 +7,7 @@ import {
 import { createHmac } from "node:crypto";
 import { CustomAPIHelper } from "../../support/api/api-helper";
 import { GitHubEventsHelper } from "../../support/api/github-events";
-import { requireEnv } from "../../support/utils/require-env";
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;

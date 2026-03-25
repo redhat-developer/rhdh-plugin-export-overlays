@@ -5,7 +5,7 @@ import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
-import { requireEnv } from "../../support/utils/require-env";
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 const rbacConfigsPath = path.resolve(
   process.cwd(),

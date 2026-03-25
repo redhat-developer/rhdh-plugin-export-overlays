@@ -23,8 +23,6 @@ test.describe("Github Discovery Catalog", () => {
       dynamicPlugins: "tests/config/github-discovery/dynamic-plugins.yaml",
     });
     await rhdh.deploy();
-    // Remove after https://github.com/redhat-developer/rhdh-e2e-test-utils/pull/63 is merged
-    process.env.BASE_URL = process.env.RHDH_BASE_URL;
     // Wait 1 minute for github provider to refresh entities before running tests
     await new Promise((resolve) => setTimeout(resolve, 1 * 60 * 1000));
   });

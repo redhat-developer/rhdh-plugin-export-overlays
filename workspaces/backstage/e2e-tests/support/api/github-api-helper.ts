@@ -1,6 +1,6 @@
 import { APIResponse, request } from "@playwright/test";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../constants/github/organization.js";
-import { requireEnv } from "../utils/require-env.js";
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 // https://docs.github.com/en/rest?apiVersion=2022-11-28
 export class GithubApiHelper {
