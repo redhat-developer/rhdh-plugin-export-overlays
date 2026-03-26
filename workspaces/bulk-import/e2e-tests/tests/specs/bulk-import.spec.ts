@@ -19,16 +19,13 @@ test.describe("Bulk import tests", () => {
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    test.info().annotations.push({
-      type: "component",
-      description: "plugins",
-    });
-
     await rhdh.configure({ auth: "keycloak" });
 
-    const orchestratorNamespace = "orchestrator";
-    await installOrchestrator(orchestratorNamespace);
-    await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
+    await test.runOnce("install-orchestrator-and-test-workflow", async () => {
+      const orchestratorNamespace = "orchestrator";
+      await installOrchestrator(orchestratorNamespace);
+      await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
+    });
 
     await rhdh.deploy({
       timeout: 20 * 60 * 1000, // 20 min
