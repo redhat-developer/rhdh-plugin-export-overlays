@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+ name: scaffolder-mcp-extras
+ namespace: rhdh
+ title: Scaffolder MCP Extras
+ annotations:
+   extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+ links:
+   - title: Homepage
+     url: https://red.ht/rhdh
+   - title: Bugs
+     url: https://issues.redhat.com/browse/RHDHBUGS
+   - title: Documentation for Red Hat Developer Hub
+     url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+   - title: Source Code
+     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations
+ tags:
+   - mcp
+   - developer-tools
+   - ai
+   - scaffolder
+ description: |
+   Backend plugin that provides Red Hat–specific MCP tools for the Scaffolder, layering on top of upstream MCP support
+spec:
+ author: Red Hat
+ support: dev-preview
+ lifecycle: active
+ publisher: Red Hat
+
+
+ highlights:
+   - Integrations with Software Templates for AI assistants
+   - Provides MCP tools to execute and interact with scaffolder templates
+
+
+ description: |
+     # Scaffolder MCP Extras Plugin
+
+
+     A backend plugin that provides Red Hat–specific MCP tools for the Scaffolder, layering on top of the upstream MCP server.
+
+
+     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems. RHDH uses the upstream mcp-actions-backend plugin; this Extras plugin adds Scaffolder-specific tools.
+
+     ### Key Features
+
+
+     - **Scaffolder integration**: MCP tools to work with Software Templates and scaffolder capabilities
+
+     ## Support
+
+
+     - **MCP Server Plugin**: [MCP Server README](https://github.com/backstage/backstage/blob/master/plugins/mcp-actions-backend/README.md)
+     - **Backend Plugin**: [Backend README](https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/mcp-integrations/README.md)
+     - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+
+ packages: # link to the name used in the associated package documents in ../packages
+   - red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+
+ installation: |
+     ## Installation
+
+     ### Installing the MCP Actions Backend Plugin
+
+     First, install the `MCP Actions Backend` plugin available in the marketplace
+
+     ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+     Add the following configuration to your dynamic plugin yaml:
+
+     ```yaml
+     includes:
+       - dynamic-plugins.default.yaml
+     plugins:
+       # MCP extras backend plugin
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.3.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+         disabled: false
+     ```
+
+     ## RHDH Configuration
+
+     ### Complete Configuration Reference
+
+    
+     Register the MCP Extras as a plugin source in your App Config:
+
+     ```yaml
+     backend:
+       actions:
+         pluginSources:
+           - scaffolder-mcp-extras
+     ```
