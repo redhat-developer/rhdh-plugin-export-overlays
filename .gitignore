@@ -7,6 +7,7 @@ pnpm-lock.yaml
 **/e2e-tests/.pnp.*
 **/e2e-tests/.yarn/*
 !**/e2e-tests/.yarn/patches
+**/e2e-tests/.corepack/
 
 # Playwright Test Results
 e2e/test-results/
