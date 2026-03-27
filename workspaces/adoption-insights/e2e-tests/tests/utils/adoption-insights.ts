@@ -107,7 +107,7 @@ export class TestHelper {
       await uiHelper.clickButton("Review");
       await uiHelper.clickButton("Create");
       await this.page
-        .getByText("Run of Create a tekton CI")
+        .getByText("Run of tekton-template")
         .waitFor({ state: "visible" });
     }
 
