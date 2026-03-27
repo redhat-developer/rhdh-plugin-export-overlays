@@ -1,0 +1,16 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+app:
+  title: RHDH Orchestrator Test Instance
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - orchestrator
+    admin:
+      users:
+        - name: user:default/test1
+orchestrator:
+  dataIndexService:
+    url: ${SONATAFLOW_DATA_INDEX_URL}
