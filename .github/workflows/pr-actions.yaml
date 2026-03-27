@@ -168,18 +168,52 @@ jobs:
               context: core.getInput('command_name')
             });
             
+  detectChanges:
+    name: Detect change scope
+    needs:
+      - parse
+      - prepare
+
+    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.workspace != ''
+    runs-on: ubuntu-latest
+    outputs:
+      only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
+    steps:
+      - name: Check if only metadata files changed
+        id: check
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        with:
+          script: |
+            const prFiles = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            const workspace = core.getInput('workspace');
+            const metadataPrefix = `${workspace}/metadata/`;
+            const onlyMetadata = prFiles.data.length > 0 &&
+              prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
+            core.setOutput('only-metadata-changed', String(onlyMetadata));
+            core.info(`Only metadata changed: ${onlyMetadata}`);
+            if (onlyMetadata) {
+              core.info('Build will be skipped - only metadata files were modified.');
+            }
+
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
       - parse
       - prepare
       - checkPRUpToDate
+      - detectChanges
 
     concurrency:
       group: export-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed != 'true'
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
@@ -259,12 +293,13 @@ jobs:
     needs:
       - parse
       - prepare
+      - detectChanges
 
     concurrency:
       group: checkBackstageCompatibility-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed != 'true'
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
     with:
@@ -272,13 +307,99 @@ jobs:
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
       workspace-path: ${{ needs.prepare.outputs.workspace }}
 
+  validateMetadataOnly:
+    name: Validate metadata (metadata-only change)
+    needs:
+      - parse
+      - prepare
+      - detectChanges
+
+    concurrency:
+      group: validateMetadataOnly-${{ github.ref_name }}-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
+    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed == 'true'
+    runs-on: ubuntu-latest
+
+    outputs:
+      metadata-validation-passed: ${{ steps.validate-metadata.outputs.validation-passed }}
+      metadata-validation-errors: ${{ steps.validate-metadata.outputs.validation-errors }}
+      metadata-validation-error-count: ${{ steps.validate-metadata.outputs.validation-error-count }}
+
+    steps:
+      - name: Checkout overlay repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+          path: overlay-repo
+
+      - name: Read source configuration
+        id: source-config
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          source_json=$(cat "overlay-repo/${WORKSPACE}/source.json")
+          plugins_repo=$(echo "${source_json}" | jq -r '.repo' | sed 's;https://github.com/;;')
+          plugins_repo_ref=$(echo "${source_json}" | jq -r '."repo-ref"')
+          plugins_repo_flat=$(echo "${source_json}" | jq -r '."repo-flat" // false')
+          if [[ "${plugins_repo_flat}" == "true" ]]; then
+            plugins_root="."
+          else
+            plugins_root="${WORKSPACE}"
+          fi
+          echo "plugins-repo=${plugins_repo}" >> $GITHUB_OUTPUT
+          echo "plugins-repo-ref=${plugins_repo_ref}" >> $GITHUB_OUTPUT
+          echo "plugins-root=${plugins_root}" >> $GITHUB_OUTPUT
+
+          backstage_version=$(jq -r '.backstage' overlay-repo/versions.json)
+          echo "backstage-version=${backstage_version}" >> $GITHUB_OUTPUT
+
+          node_version=$(jq -r '.node' overlay-repo/versions.json)
+          echo "node-version=${node_version}" >> $GITHUB_OUTPUT
+
+      - name: Checkout plugins repository (flat)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.source-config.outputs.plugins-root == '.'
+        with:
+          repository: ${{ steps.source-config.outputs.plugins-repo }}
+          ref: ${{ steps.source-config.outputs.plugins-repo-ref }}
+          path: source-repo
+
+      - name: Checkout plugins repository (workspace)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.source-config.outputs.plugins-root != '.'
+        with:
+          repository: ${{ steps.source-config.outputs.plugins-repo }}
+          ref: ${{ steps.source-config.outputs.plugins-repo-ref }}
+          sparse-checkout: |
+            ${{ steps.source-config.outputs.plugins-root }}
+          sparse-checkout-cone-mode: false
+          path: source-repo
+
+      - name: Setup Node.js ${{ steps.source-config.outputs.node-version }}
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ steps.source-config.outputs.node-version }}
+
+      - name: Validate Catalog Metadata
+        id: validate-metadata
+        uses: redhat-developer/rhdh-plugin-export-utils/validate-metadata@main
+        with:
+          overlay-root: ${{ github.workspace }}/overlay-repo/${{ needs.prepare.outputs.workspace }}
+          plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
+          target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
+          image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+
   add_publish_completion_comment:
     needs:
       - parse
       - prepare
       - checkPRUpToDate
+      - detectChanges
       - export
       - checkBackstageCompatibility
+      - validateMetadataOnly
 
     concurrency:
       group: add_publish_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
@@ -308,12 +429,14 @@ jobs:
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
-          INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed }}
-          INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors }}
-          INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count }}
+          INPUT_ONLY_METADATA_CHANGED: ${{ needs.detectChanges.outputs.only-metadata-changed }}
+          INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed || needs.validateMetadataOnly.outputs.metadata-validation-passed }}
+          INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validateMetadataOnly.outputs.metadata-validation-errors }}
+          INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count || needs.validateMetadataOnly.outputs.metadata-validation-error-count }}
         with:
           script: |
             const fs = require('fs');
+            const onlyMetadataChanged = core.getInput('only_metadata_changed') === 'true';
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -325,10 +448,23 @@ jobs:
               run_id: '${{ github.run_id }}',
               filter: 'latest',
             });
-            const success = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
-              .every(j => j.conclusion === 'success');
-              
+
+            let success;
+            let publishSuccess;
+            if (onlyMetadataChanged) {
+              success = jobs.data.jobs
+                .filter(j => j.name.startsWith('Validate metadata') || j.name.startsWith('Detect'))
+                .every(j => j.conclusion === 'success' || j.conclusion === 'skipped');
+              publishSuccess = false;
+            } else {
+              success = jobs.data.jobs
+                .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
+                .every(j => j.conclusion === 'success');
+              publishSuccess = jobs.data.jobs
+                .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
+                .every(j => j.conclusion === 'success');
+            }
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -339,36 +475,37 @@ jobs:
               context: core.getInput('command_name'),
             });
 
-            const publishSuccess = jobs.data.jobs
-              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
-              .every(j => j.conclusion === 'success');
+            let body;
+            if (onlyMetadataChanged) {
+              body = `[Publish workflow](${workflowRun.data.html_url}) - build skipped (only metadata files changed).`;
+            } else {
+              body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
 
-            let body = `[Publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
-            
-            const publishedExports = core.getMultilineInput('published_exports');
-            const failedExports = core.getMultilineInput('failed_exports');
-            if (publishedExports.length + failedExports.length > 0) {
-              if (failedExports.length > 0) {
-                body += '\n\n#### Publishing process\n';
-                body += `❌ Plugins with errors during export or container image publishing:`;
-                failedExports.forEach(line => {
-                  body += `\n  - ${line}`;
-                });
-              } else {
-                body += '\n\n#### Publishing process\n✅ Finished successfully.';
+              const publishedExports = core.getMultilineInput('published_exports');
+              const failedExports = core.getMultilineInput('failed_exports');
+              if (publishedExports.length + failedExports.length > 0) {
+                if (failedExports.length > 0) {
+                  body += '\n\n#### Publishing process\n';
+                  body += `❌ Plugins with errors during export or container image publishing:`;
+                  failedExports.forEach(line => {
+                    body += `\n  - ${line}`;
+                  });
+                } else {
+                  body += '\n\n#### Publishing process\n✅ Finished successfully.';
+                }
+                if (publishedExports.length > 0) {
+                  body += `\n- Published container images:`;
+                  publishedExports.forEach(line => {
+                    body += `\n  - ${line}`;
+                  });
+                }
               }
-              if (publishedExports.length > 0) {
-                body += `\n- Published container images:`;
-                publishedExports.forEach(line => {
-                  body += `\n  - ${line}`;
-                });
+
+              const reportPath = 'backstage-compatibility-report.md';
+              if (fs.existsSync(reportPath)) {
+                const reportContent = fs.readFileSync(reportPath, 'utf8');
+                body = `${body}\n\n${reportContent}`;
               }
-            }
-            
-            const reportPath = 'backstage-compatibility-report.md';
-            if (fs.existsSync(reportPath)) {
-              const reportContent = fs.readFileSync(reportPath, 'utf8');
-              body = `${body}\n\n${reportContent}`;
             }
 
             // Metadata validation results
@@ -396,7 +533,7 @@ jobs:
               body += metadataSection;
             }
 
-            // Check if E2E tests exist by looking for package.json in e2e-tests directory
+            // Check if E2E tests exist by looking for package.json in e2e-tests directory of the workspace
             if (publishSuccess) {
               const [repoOwner, repoName] = core.getInput('overlay_repo').split('/');
               try {
