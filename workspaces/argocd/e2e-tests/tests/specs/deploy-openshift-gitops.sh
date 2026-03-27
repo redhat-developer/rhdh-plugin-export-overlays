@@ -162,6 +162,9 @@ create_rollout_manager() {
 trigger_rollout_update() {
   echo "=== Triggering rollout update to generate AnalysisRuns ==="
 
+  echo "Cleaning up existing AnalysisRuns..."
+  oc delete analysisruns --all -n "${GITOPS_NAMESPACE}" 2>/dev/null || true
+
   echo "Disabling selfHeal on ArgoCD Application..."
   oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
     --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}' || {
