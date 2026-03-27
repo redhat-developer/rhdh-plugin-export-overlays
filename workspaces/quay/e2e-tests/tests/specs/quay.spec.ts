@@ -14,7 +14,7 @@ test.describe("Test Quay.io plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test.describe("Image Reqistry tab", () => {
+  test.describe("Image Registry tab", () => {
     test.beforeEach(async ({ uiHelper }) => {
       await uiHelper.openCatalogSidebar("Component");
       await uiHelper.searchInputPlaceholder("Developer Hub");

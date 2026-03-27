@@ -36,24 +36,6 @@ export class ImageRegistry {
     );
   }
 
-  static getAllScanColumnsText() {
-    return [
-      "Advisory",
-      "Severity",
-      "Package Name",
-      "Current Version",
-      "Fixed By",
-    ];
-  }
-
-  static getScanCellsIdentifier() {
-    const advisory = /^(CVE|RHSA)-.+/;
-    const severity = /Critical|High|Medium|Low|Unknown/;
-    const version = /^(\d+:)?\d+\.\d+/;
-
-    return [advisory, severity, version];
-  }
-
   static async getScanCell(page: Page) {
     const locator = page
       .getByRole("cell")
