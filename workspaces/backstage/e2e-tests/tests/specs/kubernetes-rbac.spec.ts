@@ -1,11 +1,10 @@
+import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
-import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
-import { requireEnv } from "../../support/utils/require-env";
 
 const rbacConfigsPath = path.resolve(
   process.cwd(),
