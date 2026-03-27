@@ -5,7 +5,7 @@ export class ImageRegistry {
     const tagText = /^((pr|next)-.*|\d+\.\d+.*)$/i;
     const lastModifiedDate =
       /^[A-Za-z]{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} (AM|PM)$/; // Example: Jan 21, 2025, 7:54 PM
-    const size = /^\d+(\.\d+)?\s?(GB|MB)$/; // Example: 1.16 GB or 512 MB
+    const size = /^(\d+(\.\d+)?\s?(GB|MB))|N\/A$/; // Example: 1.16 GB or 512 MB
     const expires =
       /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}, \d{1,2}:\d{2} [APM]{2}$/; // Example: Feb 2, 2026 4:01 PM
 
@@ -34,24 +34,6 @@ export class ImageRegistry {
       `^(Passed|unsupported|Queued|Medium|Low|(?:${securityScan.join("|")})+)$`,
       "i", // Case-insensitive flag to match "Unsupported" or "unsupported"
     );
-  }
-
-  static getAllScanColumnsText() {
-    return [
-      "Advisory",
-      "Severity",
-      "Package Name",
-      "Current Version",
-      "Fixed By",
-    ];
-  }
-
-  static getScanCellsIdentifier() {
-    const advisory = /^(CVE|RHSA)-.+/;
-    const severity = /Critical|High|Medium|Low|Unknown/;
-    const version = /^(\d+:)?\d+\.\d+/;
-
-    return [advisory, severity, version];
   }
 
   static async getScanCell(page: Page) {
