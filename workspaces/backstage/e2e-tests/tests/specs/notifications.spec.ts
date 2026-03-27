@@ -60,51 +60,51 @@ test.describe("Backstage Notifications Plugin", () => {
 
     for (const severity of severities) {
       test(`Filter notifications by severity - ${severity}`, async () => {
-        const notifiationId = await createNotification(
+        const notificationId = await createNotification(
           notificationTitle,
           severity,
         );
         await notificationPage.clickNotificationsNavBarItem();
         await notificationPage.selectSeverity(severity);
-        await notificationPage.notificationContains(notifiationId);
+        await notificationPage.notificationContains(notificationId);
       });
     }
   });
 
   test.describe("Mark notification tests", () => {
     test("Mark notification as read", async () => {
-      const notifiationId = await createNotification(
+      const notificationId = await createNotification(
         "UI Notification Mark as read",
       );
       await notificationPage.clickNotificationsNavBarItem();
-      await notificationPage.notificationContains(`${notifiationId}`);
-      await notificationPage.markNotificationAsRead(`${notifiationId}`);
+      await notificationPage.notificationContains(`${notificationId}`);
+      await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
       await notificationPage.notificationContains(
-        new RegExp(`${notifiationId}.*(a few seconds ago)|(a minute ago)`),
+        new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),
       );
     });
 
     test("Mark notification as unread", async () => {
-      const notifiationId = await createNotification(
+      const notificationId = await createNotification(
         "UI Notification Mark as unread",
       );
       await notificationPage.clickNotificationsNavBarItem();
-      await notificationPage.notificationContains(`${notifiationId}`);
-      await notificationPage.markNotificationAsRead(`${notifiationId}`);
+      await notificationPage.notificationContains(`${notificationId}`);
+      await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
       await notificationPage.notificationContains(
-        new RegExp(`${notifiationId}.*(a few seconds ago)|(a minute ago)`),
+        new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),
       );
       await notificationPage.markLastNotificationAsUnRead();
       await notificationPage.viewUnRead();
       await notificationPage.notificationContains(
-        new RegExp(`${notifiationId}.*(a few seconds ago)|(a minute ago)`),
+        new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),
       );
     });
 
     test("Mark notification as saved", async () => {
-      const notifiationId = await createNotification(
+      const notificationId = await createNotification(
         "UI Notification Mark as saved",
       );
       await notificationPage.clickNotificationsNavBarItem();
@@ -112,7 +112,7 @@ test.describe("Backstage Notifications Plugin", () => {
       await notificationPage.saveSelected();
       await notificationPage.viewSaved();
       await notificationPage.notificationContains(
-        new RegExp(`${notifiationId}.*(a few seconds ago)|(a minute ago)`),
+        new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),
       );
     });
   });

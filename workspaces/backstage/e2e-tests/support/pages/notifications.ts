@@ -18,7 +18,7 @@ export class NotificationPage {
   }
 
   async notificationContains(text: string | RegExp) {
-    await this.page.getByLabel(/.*rows/).click();
+    await this.page.getByLabel("rows").click();
     // always expand the notifications table to show as many notifications as possible
     await this.page.getByRole("option", { name: "20" }).click();
     await expect(
@@ -26,23 +26,6 @@ export class NotificationPage {
     ).toHaveCount(0);
     const row = this.page.locator(`tr`, { hasText: text }).first();
     await expect(row).toHaveCount(1);
-  }
-
-  async markAllNotificationsAsRead() {
-    const markAllNotificationsAsReadIsVisible = await this.page
-      .getByTitle("Mark all read")
-      .getByRole("button")
-      .isVisible();
-    console.log(markAllNotificationsAsReadIsVisible);
-    // If button isn't visible there are no records in the notification table
-    if (markAllNotificationsAsReadIsVisible.toString() != "false") {
-      await this.page.getByTitle("Mark all read").getByRole("button").click();
-      await this.page.getByRole("button", { name: "MARK ALL" }).click();
-      await expect(
-        this.page.getByTestId("loading-indicator").getByRole("img"),
-      ).toHaveCount(0);
-      await expect(this.page.getByText("No records to display")).toBeVisible();
-    }
   }
 
   async selectNotification(nth = 1) {

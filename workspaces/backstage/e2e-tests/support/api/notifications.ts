@@ -46,7 +46,7 @@ export class RhdhNotificationsApi {
     return instance;
   }
 
-  // Create notifiation
+  // Create notification
   public async createNotification(
     notifications: Notifications,
   ): Promise<APIResponse> {
