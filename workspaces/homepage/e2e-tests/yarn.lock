@@ -16,6 +16,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage-community/plugin-rbac-common@npm:1.23.0":
+  version: 1.23.0
+  resolution: "@backstage-community/plugin-rbac-common@npm:1.23.0"
+  peerDependencies:
+    "@backstage/errors": ^1.2.7
+    "@backstage/plugin-permission-common": ^0.9.5
+  checksum: 8cbb67a4854b9a72d329459cf37d05628da4ca4c665fb1e9c34e2dcbcd8d4399264b00bab8e4ee786717e2c0c5b0e3db7ee4eee6705424047a799fbf311eb5f4
+  languageName: node
+  linkType: hard
+
 "@eslint-community/eslint-utils@npm:^4.8.0, @eslint-community/eslint-utils@npm:^4.9.1":
   version: 4.9.1
   resolution: "@eslint-community/eslint-utils@npm:4.9.1"
@@ -291,11 +301,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.14":
-  version: 1.1.14
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.14"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.23":
+  version: 1.1.23
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.23"
   dependencies:
     "@axe-core/playwright": ^4.11.0
+    "@backstage-community/plugin-rbac-common": 1.23.0
     "@eslint/js": ^9.39.1
     "@keycloak/keycloak-admin-client": ^26.0.0
     "@kubernetes/client-node": ^1.4.0
@@ -314,7 +325,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 22264a01c79284deaa18c455b6477b7ea304fca62f2517cf347c1fc51131003d58db383e04bfcc0e8ddbe231d819f9ae0b9ee5497b2b00a2cff56ed70c1a1339
+  checksum: c62c7029e19c1be0cbbee56eac95a4024898f3a58304d091bb381e6e679b3cc9da449cfa0ccd197722ba6da39fdf26332d8be9ae46d7097fc051e293c1ee2552
   languageName: node
   linkType: hard
 
@@ -1360,7 +1371,7 @@ __metadata:
   dependencies:
     "@eslint/js": ^9.39.2
     "@playwright/test": 1.57.0
-    "@red-hat-developer-hub/e2e-test-utils": 1.1.14
+    "@red-hat-developer-hub/e2e-test-utils": 1.1.23
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2
