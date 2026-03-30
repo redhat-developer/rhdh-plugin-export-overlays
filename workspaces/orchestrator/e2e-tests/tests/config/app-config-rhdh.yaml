@@ -14,3 +14,19 @@ permission:
 orchestrator:
   dataIndexService:
     url: ${SONATAFLOW_DATA_INDEX_URL}
+catalog:
+  rules:
+    - allow: [Template, Component, System, Group, Resource, Location, API, User]
+  locations:
+    - type: url
+      target: ${CATALOG_TEMPLATES_BASE_URL}/greeting.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: ${CATALOG_TEMPLATES_BASE_URL}/greeting_w_component.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: ${CATALOG_TEMPLATES_BASE_URL}/yamlgreet.yaml
+      rules:
+        - allow: [Template]
