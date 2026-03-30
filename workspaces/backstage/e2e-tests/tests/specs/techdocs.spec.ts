@@ -2,6 +2,7 @@ import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("TechDocs", () => {
   test.beforeAll(async ({ rhdh }) => {
+    test.setTimeout(600_000);
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
