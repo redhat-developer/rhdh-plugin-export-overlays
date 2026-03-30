@@ -12,7 +12,6 @@ import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;
-  let githubApiHelper: GitHubApiHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;
 
@@ -32,7 +31,6 @@ test.describe("GitHub Events Module", () => {
       rhdh.rhdhUrl,
       process.env.VAULT_GITHUB_APP_WEBHOOK_SECRET!,
     );
-    githubApiHelper = new GitHubApiHelper();
     rhdhBaseUrl = rhdh.rhdhUrl;
   });
 
@@ -101,7 +99,7 @@ spec:
   lifecycle: unknown
   owner: user:default/janus-qe`;
 
-      await githubApiHelper.createGitHubRepoWithFile(
+      await GitHubApiHelper.createGitHubRepoWithFile(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
         "catalog-info.yaml",
@@ -146,7 +144,7 @@ spec:
   type: other
   lifecycle: unknown
   owner: user:default/janus-qe`;
-      await githubApiHelper.updateFileInRepo(
+      await GitHubApiHelper.updateFileInRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
         "catalog-info.yaml",
@@ -181,7 +179,7 @@ spec:
     });
 
     test("Deleting an entity from the catalog", async ({ page, uiHelper }) => {
-      await githubApiHelper.deleteFileInRepo(
+      await GitHubApiHelper.deleteFileInRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
         "catalog-info.yaml",
@@ -213,7 +211,7 @@ spec:
     });
 
     test.afterAll(async () => {
-      await githubApiHelper.deleteRepo(
+      await GitHubApiHelper.deleteGitHubRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
       );
@@ -226,7 +224,7 @@ spec:
       const teamName = "test-team-" + Date.now();
 
       test("Adding a new group", async ({ page, uiHelper }) => {
-        await githubApiHelper.createTeamInOrg("janus-qe", teamName);
+        await GitHubApiHelper.createTeamInOrg("janus-qe", teamName);
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
         await expect
@@ -250,7 +248,7 @@ spec:
       });
 
       test("Deleting a group", async ({ page, uiHelper }) => {
-        await githubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
+        await GitHubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
 
         await githubEventsHelper.sendTeamEvent("deleted", teamName, "janus-qe");
 
@@ -326,7 +324,7 @@ spec:
 
         teamName = "test-team-" + Date.now();
 
-        await githubApiHelper.createTeamInOrg("janus-qe", teamName);
+        await GitHubApiHelper.createTeamInOrg("janus-qe", teamName);
         teamCreated = true;
 
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
@@ -336,7 +334,7 @@ spec:
 
       test.afterEach(async () => {
         if (userAddedToTeam) {
-          await githubApiHelper.removeUserFromTeam(
+          await GitHubApiHelper.removeUserFromTeam(
             "janus-qe",
             teamName,
             "rhdh-qe",
@@ -345,13 +343,13 @@ spec:
         }
 
         if (teamCreated) {
-          await githubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
+          await GitHubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
           teamCreated = false;
         }
       });
 
       test("Adding a user to a group", async ({ uiHelper }) => {
-        await githubApiHelper.addUserToTeam("janus-qe", teamName, "rhdh-qe");
+        await GitHubApiHelper.addUserToTeam("janus-qe", teamName, "rhdh-qe");
         userAddedToTeam = true;
 
         await githubEventsHelper.sendMembershipEvent(
@@ -381,7 +379,7 @@ spec:
       });
 
       test("Removing a user from a group", async ({ uiHelper }) => {
-        await githubApiHelper.addUserToTeam("janus-qe", teamName, "rhdh-qe");
+        await GitHubApiHelper.addUserToTeam("janus-qe", teamName, "rhdh-qe");
         userAddedToTeam = true;
 
         await githubEventsHelper.sendMembershipEvent(
@@ -407,7 +405,7 @@ spec:
           )
           .toContain("rhdh-qe");
 
-        await githubApiHelper.removeUserFromTeam(
+        await GitHubApiHelper.removeUserFromTeam(
           "janus-qe",
           teamName,
           "rhdh-qe",

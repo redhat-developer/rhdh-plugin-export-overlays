@@ -5,7 +5,6 @@ import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/or
 
 test.describe("Github Discovery Catalog", () => {
   let catalogPage: CatalogPage;
-  let gitHubApiHelper: GitHubApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
     // Allow time for deployment + 1 min provider refresh delay + browser setup
@@ -30,12 +29,11 @@ test.describe("Github Discovery Catalog", () => {
   test.beforeEach(async ({ loginHelper, page }) => {
     await loginHelper.loginAsGuest();
     catalogPage = new CatalogPage(page);
-    gitHubApiHelper = new GitHubApiHelper();
     await catalogPage.go();
   });
 
   test(`Discover Organization's Catalog`, async () => {
-    const organizationRepos = await gitHubApiHelper.getReposFromOrg(
+    const organizationRepos = await GitHubApiHelper.getReposFromOrg(
       RHDH_GITHUB_TEST_ORGANIZATION,
     );
     const reposNames: string[] = (organizationRepos as Array<{ name?: string }>)
@@ -48,7 +46,7 @@ test.describe("Github Discovery Catalog", () => {
     const reposWithCatalogInfo: string[] = (
       await Promise.all(
         reposNames.map(async (repo) =>
-          (await gitHubApiHelper.fileExistsInRepo(
+          (await GitHubApiHelper.fileExistsInRepo(
             RHDH_GITHUB_TEST_ORGANIZATION,
             repo,
             "catalog-info.yaml",
