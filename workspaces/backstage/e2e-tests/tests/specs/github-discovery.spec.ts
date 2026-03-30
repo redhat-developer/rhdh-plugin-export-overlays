@@ -17,7 +17,7 @@ test.describe("Github Discovery Catalog", () => {
     });
 
     await rhdh.configure({
-      auth: "github",
+      auth: "guest",
       appConfig: "tests/config/github-discovery/app-config-rhdh.yaml",
       secrets: "tests/config/github-discovery/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-discovery/dynamic-plugins.yaml",
@@ -28,7 +28,7 @@ test.describe("Github Discovery Catalog", () => {
   });
 
   test.beforeEach(async ({ loginHelper, page }) => {
-    await loginHelper.loginAsGithubUser();
+    await loginHelper.loginAsGuest();
     catalogPage = new CatalogPage(page);
     gitHubApiHelper = new GitHubApiHelper();
     await catalogPage.go();
