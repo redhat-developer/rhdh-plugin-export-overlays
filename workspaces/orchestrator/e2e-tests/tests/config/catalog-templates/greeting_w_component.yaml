@@ -1,0 +1,45 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: greetingComponent
+  title: Greeting Test Picker
+  description: Run the Greeting workflow with entity picker support
+  annotations:
+    orchestrator.io/workflows: '["greeting"]'
+spec:
+  owner: user:default/test1
+  type: workflow
+  parameters:
+    - title: Greeting Test Picker
+      properties:
+        language:
+          title: Language
+          type: string
+          enum:
+            - English
+            - Spanish
+          default: English
+        name:
+          title: Name
+          type: string
+          description: Name to greet
+  steps:
+    - id: run-workflow
+      name: Run greeting workflow
+      action: orchestrator:workflow:run
+      input:
+        workflowId: greeting
+        inputData:
+          language: ${{ parameters.language }}
+          name: ${{ parameters.name }}
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        catalogInfoUrl: https://github.com/janus-qe/test-user-entity/blob/main/user.yaml
+  output:
+    links:
+      - title: Open workflow run
+        url: /orchestrator/instances/${{ steps['run-workflow'].output.workflowInstanceId }}
+      - title: View in catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

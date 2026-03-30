@@ -1,0 +1,36 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: greeting
+  title: Greeting workflow
+  description: Run the Greeting SonataFlow workflow via Orchestrator
+spec:
+  owner: user:default/test1
+  type: workflow
+  parameters:
+    - title: Greeting workflow
+      properties:
+        language:
+          title: Language
+          type: string
+          enum:
+            - English
+            - Spanish
+          default: English
+        name:
+          title: Name
+          type: string
+          description: Name to greet
+  steps:
+    - id: run-workflow
+      name: Run greeting workflow
+      action: orchestrator:workflow:run
+      input:
+        workflowId: greeting
+        inputData:
+          language: ${{ parameters.language }}
+          name: ${{ parameters.name }}
+  output:
+    links:
+      - title: Open workflow run
+        url: /orchestrator/instances/${{ steps['run-workflow'].output.workflowInstanceId }}
