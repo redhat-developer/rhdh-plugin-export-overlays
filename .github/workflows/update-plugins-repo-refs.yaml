@@ -110,6 +110,7 @@ jobs:
     name: Prepare 
     outputs:
       regexps: ${{ steps.read-regexps.outputs.REGEXPS }}
+      exclude-workspaces: ${{ steps.read-exclude-patterns.outputs.EXCLUDE_WORKSPACES }}
       release-branch-pattern: ${{ steps.read-release-branch-pattern.outputs.RELEASE_BRANCH_PATTERN }}
 
     steps:
@@ -124,11 +125,24 @@ jobs:
             REGEXPS="${INPUT_REGEXPS}"
             if [[ "${REGEXPS}" == "" ]]
             then
-              REGEXPS="$(cat plugins-regexps)"
+              REGEXPS="$(cat workspace-discovery-include)"
             fi
             echo "Regexps of plugins to export:"
             echo "$REGEXPS"
             echo "REGEXPS=$(echo $REGEXPS | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Read Exclude Patterns
+        id: read-exclude-patterns
+        shell: bash
+        run: |
+            if [[ -f workspace-discovery-exclude ]]
+            then
+              EXCLUDE_WORKSPACES="$(grep -v '^#' workspace-discovery-exclude | grep -v '^$' | tr '\n' ' ')"
+            else
+              EXCLUDE_WORKSPACES=""
+            fi
+            echo "Workspace exclude patterns: ${EXCLUDE_WORKSPACES}"
+            echo "EXCLUDE_WORKSPACES=${EXCLUDE_WORKSPACES}" >> $GITHUB_OUTPUT
 
       - name: Read Release Branch Pattern
         id: read-release-branch-pattern
@@ -159,14 +173,15 @@ jobs:
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
+      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
       workspace-path: ${{ inputs.workspace-path }}
       pr-to-update: ${{ inputs.pr-to-update }}
       overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
-      single-branch: ${{ inputs.single-branch }}      
+      single-branch: ${{ inputs.single-branch }}
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
-      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}      
+      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
     permissions:
       contents: write
       pull-requests: write
@@ -179,6 +194,7 @@ jobs:
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
+      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
       overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
       single-branch: "" # we want to update all release branches
@@ -197,7 +213,8 @@ jobs:
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
-      overlay-repo: ${{ github.repository }}      
+      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
+      overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
       single-branch: "main" # we want to update only the main branch
       verbose: false
@@ -206,3 +223,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+
+  label-prs:
+    name: Label PRs
+    needs: [update-branches, update-release-branches, update-main-branch]
+    if: |
+      always() && 
+      (needs.update-branches.result != 'skipped' || 
+       needs.update-release-branches.result != 'skipped' || 
+       needs.update-main-branch.result != 'skipped')
+    uses: ./.github/workflows/label-mandatory-workspace-prs.yaml
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read

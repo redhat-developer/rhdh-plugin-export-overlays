@@ -16,7 +16,7 @@ metadata:
     - url: https://github.com/backstage/community-plugins/issues
       title: Issues
     - title: Documentation for Red Hat Developer Hub
-      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/telemetry_data_collection_and_analysis/customizing-segment-source_title-telemetry
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics
   tags: 
@@ -41,7 +41,7 @@ spec:
 
     ## Adding The Plugin To Red Hat Developer Hub
 
-    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub) 
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh) 
     for further instructions on how to add, enable, configure, and remove plugins in your instance.
 
   installation: |

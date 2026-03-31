@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubernetes-test
+  labels:
+    app.kubernetes.io/instance: kubernetes-test
+    app.kubernetes.io/name: kubernetes-test
+    backstage.io/kubernetes-id: developer-hub
+  annotations:
+    app.openshift.io/vcs-uri: "https://github.com/redhat-developer/rhdh"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubernetes-test
+  template:
+    metadata:
+      labels:
+        app: kubernetes-test
+        backstage.io/kubernetes-id: developer-hub
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: kubernetes
+          image: nginxinc/nginx-unprivileged:stable-alpine
+          resources:
+            requests:
+              cpu: 50m
+              ephemeral-storage: 32Mi
+              memory: 64Mi
+            limits:
+              ephemeral-storage: 64Mi
+              memory: 128Mi
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-test-service
+  labels:
+    app: kubernetes-test
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  selector:
+    app: kubernetes-test
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
