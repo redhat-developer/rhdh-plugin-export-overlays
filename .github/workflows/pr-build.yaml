@@ -303,8 +303,10 @@ jobs:
       contents: read
 
     if: |
-      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish') &&
-      needs.prepare.outputs.workspace != ''
+      !cancelled() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish')
 
     outputs:
       only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
