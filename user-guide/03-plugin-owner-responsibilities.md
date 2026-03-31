@@ -19,7 +19,7 @@ You are a plugin owner if you:
 | Area | Frequency | Criticality |
 |------|-----------|-------------|
 | Metadata synchronization | Every release | 🔴 High |
-| Backstage version updates | Monthly/Quarterly | 🔴 High |
+| Backstage version updates | When compatibility signals appear | 🔴 High |
 | Patch maintenance | As needed | 🟡 Medium |
 | Test validation | Every PR | 🔴 High |
 | Deprecation communication | As needed | 🟡 Medium |
@@ -52,24 +52,26 @@ See [04 - Metadata Synchronization](./04-metadata-synchronization.md) for detail
 
 ---
 
-### 2. Update Backstage Versions Regularly
+### 2. Keep Backstage Versions Compatible
 
-The target platform tracks Backstage releases. Your plugin must remain compatible.
+The target platform tracks Backstage releases. Your plugin must remain compatible with the version declared in `versions.json`.
 
-**Minimum cadence:**
+Rather than following a fixed calendar cadence, watch for concrete signals that an update is needed:
 
-| Update Type | Frequency | Action Required |
-|-------------|-----------|-----------------|
-| Target version | Monthly | Verify compatibility with new Backstage release |
-| Minimum version | Quarterly | Update `supportedVersions` in metadata |
-| Major version | As released | Full compatibility testing |
+- The [Backstage Compatibility Report](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Backstage-Compatibility-Report) shows your workspace as incompatible
+- A new platform release branch is being created and your plugin blocks it
+- Automated discovery PRs fail the compatibility check for your workspace
+- Upstream has released a version built against the current target Backstage version
 
-**Process:**
+**When any of these signals appear:**
 
 1. Check the target Backstage version in `versions.json`
-2. Verify your plugin works with that version
-3. Update `repo-backstage-version` in `source.json`
+2. Find a plugin release compatible with that version
+3. Update `repo-ref` and `repo-backstage-version` in `source.json`
 4. Update `supportedVersions` in metadata files
+5. Test with `/publish` and `/smoketest`, and run workspace E2E validation when available for that workspace
+
+See [01 - Getting Started: Testing Your Plugin](./01-getting-started.md#testing-your-plugin) for test workflow details.
 
 See [05 - Version Updates](./05-version-updates.md) for detailed procedures.
 
@@ -102,7 +104,7 @@ When automated workflows fail on your workspace:
    - Integrity failure → Sync metadata
    - Test failure → Verify plugin loads correctly
 3. **Open a PR** with the fix
-4. **Validate** with `/publish` and `/test` commands
+4. **Validate** with `/publish` and `/smoketest` commands
 
 ---
 
@@ -119,22 +121,23 @@ Notify downstream users when:
 
 ---
 
-## Monthly Maintenance Checklist
+## Maintenance Checklist
 
-Use this checklist each month:
+Use this checklist when updating your plugin (triggered by a compatibility signal, a new upstream release, or a platform version bump):
 
 ```markdown
-## Monthly Plugin Maintenance - [Plugin Name] - [Month/Year]
+## Plugin Maintenance - [Plugin Name] - [Date]
 
 ### Version Check
-- [ ] Verified plugin compatibility with current target Backstage version
-- [ ] Updated `source.json:repo-backstage-version` if needed
-- [ ] Updated `metadata/*.yaml:spec.backstage.supportedVersions` if needed
+- [ ] Checked target Backstage version in versions.json
+- [ ] Found a plugin release compatible with the target version
+- [ ] Updated `source.json:repo-ref` and `repo-backstage-version`
+- [ ] Updated `metadata/*.yaml:spec.version` and `spec.backstage.supportedVersions`
 
 ### Metadata Check
-- [ ] Verified `spec.version` matches source `package.json:version`
 - [ ] Verified `spec.packageName` matches source `package.json:name`
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
+- [ ] Updated metadata links (source, issues, docs) if needed
 
 ### Patch Check
 - [ ] Verified all patches apply cleanly to current source
@@ -144,39 +147,8 @@ Use this checklist each month:
 ### Test Validation
 - [ ] PR created with updates
 - [ ] `/publish` completed successfully
-- [ ] `/test` passed or manual testing completed
+- [ ] `/smoketest` passed or manual testing completed
 - [ ] PR merged
-```
-
----
-
-## Quarterly Maintenance Checklist
-
-Use this checklist each quarter:
-
-```markdown
-## Quarterly Plugin Maintenance - [Plugin Name] - [Quarter/Year]
-
-### Compatibility Review
-- [ ] Reviewed Backstage changelog for breaking changes
-- [ ] Tested plugin with minimum supported platform version
-- [ ] Tested plugin with current platform version
-- [ ] Updated `supportedVersions` range
-
-### Dependency Audit
-- [ ] Reviewed embedded packages (--embed-package)
-- [ ] Checked for security advisories in dependencies
-- [ ] Updated suppressed native packages if needed
-
-### Documentation Review
-- [ ] Updated metadata links (source, issues, docs)
-- [ ] Reviewed and updated description/title
-- [ ] Checked `appConfigExamples` accuracy
-
-### Cleanup
-- [ ] Removed obsolete patches
-- [ ] Removed obsolete overlay files
-- [ ] Archived any deprecated plugin variants
 ```
 
 ---
@@ -193,23 +165,20 @@ spec:
   # Add deprecation notice
 ```
 
-### 2. Comment Out in plugins-list.yaml
-
-```yaml
-# plugins/my-deprecated-plugin: ==> Deprecated: Use new-plugin instead
-```
-
-### 3. Communicate to Users
+### 2. Communicate to Users
 
 - Open an issue documenting the deprecation
 - Provide migration path to replacement plugin
 - Set a timeline for removal (typically 2 release cycles)
 
-### 4. Remove After Grace Period
+### 3. Remove After Grace Period
 
-- Delete metadata files
-- Remove from `plugins-list.yaml`
+When the grace period ends, remove the workspace entirely:
+
+- Delete the workspace folder (including `source.json`, `plugins-list.yaml`, metadata files, and any patches)
 - Document removal in release notes
+
+> **Important:** Simply commenting out entries in `plugins-list.yaml` or removing metadata files while keeping the workspace folder is not sufficient. If the workspace folder and `source.json` remain, automatic discovery will detect the plugin again and propose re-adding it. To permanently remove a plugin, delete the entire workspace directory.
 
 ---
 
@@ -219,7 +188,7 @@ spec:
 |-------|-------------|
 | Build failures | Check workflow logs, open issue |
 | Patch conflicts | See [06 - Patch Management](./06-patch-management.md) |
-| Compatibility questions | Check [Backstage Compatibility wiki](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki) |
+| Compatibility questions | Check the [Backstage Compatibility Report](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Backstage-Compatibility-Report) |
 | Process questions | Open a discussion or issue |
 
 ---

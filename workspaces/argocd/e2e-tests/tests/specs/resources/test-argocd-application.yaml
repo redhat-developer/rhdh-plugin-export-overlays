@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: test-argocd-app
+  namespace: openshift-gitops
+  labels:
+    rht-gitops.com/janus-argocd: test-argocd-app
+spec:
+  destination:
+    namespace: openshift-gitops
+    server: "https://kubernetes.default.svc"
+  project: default
+  sources:
+    - chart: quarkus
+      repoURL: "https://redhat-developer.github.io/redhat-helm-charts"
+      targetRevision: 0.0.3
+      helm:
+        parameters:
+          - name: build.enabled
+            value: "false"
+          - name: deploy.route.enabled
+            value: "false"
+          - name: image.name
+            value: quay.io/redhatworkshops/gitops-helm-quarkus
+    - repoURL: https://github.com/janus-qe/RHDH-ArgoCD-plugin-test
+      targetRevision: HEAD
+      path: resources
+  syncPolicy:
+    retry:
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m0s
+      limit: 5
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

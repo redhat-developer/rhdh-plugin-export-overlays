@@ -32,7 +32,8 @@ The `rhdh-plugin-export-overlays` repository serves as a **metadata and automati
 ```
 rhdh-plugin-export-overlays/
 ├── versions.json              # Target versions (Backstage, Node, CLI)
-├── plugins-regexps            # Auto-discovery scope patterns
+├── workspace-discovery-include # Auto-discovery scope patterns
+├── workspace-discovery-exclude # Workspaces excluded from auto-discovery
 ├── workspaces/                # One folder per source workspace
 │   └── [workspace-name]/
 │       ├── source.json        # Source repository reference
@@ -43,10 +44,8 @@ rhdh-plugin-export-overlays/
 │       │   └── *.patch
 │       ├── plugins/           # Plugin-specific overrides (optional)
 │       │   └── [plugin-name]/
-│       │       ├── overlay/
-│       │       ├── app-config.dynamic.yaml
-│       │       └── scalprum-config.json
-│       └── tests/             # Test configuration (optional)
+│       │       └── overlay/
+│       └── smoke-tests/       # Smoke test configuration (optional)
 │           ├── test.env
 │           └── app-config.test.yaml
 └── .github/workflows/         # CI/CD automation
@@ -144,20 +143,60 @@ spec:
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
 
+### How Automatic Discovery Works
+
+The overlay repository runs an automated workflow (`update-plugins-repo-refs.yaml`) twice daily. It scans npm registries for new releases of packages matching the scope patterns defined in the `workspace-discovery-include` file:
+
+- `@backstage-community/`
+- `@red-hat-developer-hub/`
+- `@roadiehq/`
+
+When a new release is found, the workflow creates or updates a PR with the necessary `source.json`, `plugins-list.yaml`, and `metadata/*.yaml` changes.
+
+#### Where automatic discovery works
+
+Automatic discovery works for plugins published under the scopes listed above. If a new package version is published to npm under one of those scopes, the workflow will detect it and propose an update.
+
+#### Where automatic discovery does not work
+
+- **Plugins outside the supported scopes** (e.g., `@pagerduty/`, `@dynatrace/`, or any other third-party namespace) are not scanned. These must be added manually.
+- **Workspaces listed in `workspace-discovery-exclude`** are skipped entirely by the scheduled run.
+- **Unpublished or pre-release versions** that are not yet on npm will not be discovered.
+- **New workspaces** are only proposed when the scheduled workflow has the `allow-workspace-addition` flag enabled; otherwise only existing workspaces receive updates.
+
 ### Option 1: Automatic Discovery (Preferred)
 
-Plugins under supported scopes are auto-discovered daily. If your plugin was recently published, wait for the automation to create a PR.
+If your plugin is published under a supported scope, wait for the daily automation to create a PR. No action is needed on your part.
 
 ### Option 2: Trigger Workflow Manually
 
+You can trigger the discovery workflow on demand. The `regexps` input accepts either a regular expression or a literal package name.
+
+**Wrapping a value in single quotes** tells the workflow to treat it as an exact (literal) package name rather than a regular expression. This is the recommended approach when you want to target a specific plugin package directly, because it avoids accidentally matching other packages with similar names.
+
 ```bash
-# Requires write access to the repository
+# Target a single package by exact name (recommended — note the single quotes)
 gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="@backstage-community/plugin-your-plugin" \
+  -f regexps="'@backstage-community/plugin-your-plugin'" \
+  -f single-branch="main"
+
+# Target multiple packages matching a regex pattern (no quotes)
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="@backstage-community/plugin-catalog-backend-module-.*" \
   -f single-branch="main"
 ```
 
-### Option 3: Manual PR
+You can also scope the run to a specific workspace:
+
+```bash
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="main"
+```
+
+### Option 3: Manual PR (Fallback)
+
+Manual PRs should be reserved for situations where automatic discovery does not apply — for example, plugins outside the supported scopes or workspaces that require nonstandard setup. Prefer Options 1 or 2 whenever possible.
 
 1. **Create workspace folder:**
 
@@ -203,17 +242,19 @@ Comment on your PR:
 
 This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
-### Run Integration Tests
+### Run Smoke Tests
 
-After `/publish` completes, tests run automatically if:
+After `/publish` completes, smoke tests run automatically if:
 - PR touches exactly one workspace
 - Each plugin has a metadata file
 
-To re-run tests manually:
+To re-run smoke tests manually:
 
 ```
-/test
+/smoketest
 ```
+
+Plugin-specific configuration is extracted from `spec.appConfigExamples[0].content` in each plugin's metadata file and placed under `pluginConfig` in the generated config. The optional workspace-level `app-config.test.yaml` is for test-only or shared workspace settings. If a plugin's config references environment variables (e.g., `${API_TOKEN}`), provide them in `workspaces/<ws>/smoke-tests/test.env`.
 
 ### Manual Testing
 
