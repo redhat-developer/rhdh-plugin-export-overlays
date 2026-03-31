@@ -14,7 +14,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-x2a-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a-backend:bs_1.45.3__1.2.0!red-hat-developer-hub-backstage-plugin-x2a-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a-backend:pr2655!red-hat-developer-hub-backstage-plugin-x2a-backend
   version: 1.2.0
   backstage:
     role: backend-plugin
