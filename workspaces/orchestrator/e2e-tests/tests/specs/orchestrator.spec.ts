@@ -169,14 +169,39 @@ test.describe("Orchestrator", () => {
         console.log(`[orchestrator-setup] RHDH orchestrator API (internal): HTTP ${apiResult}`);
       } catch (e) { console.log(`[orchestrator-setup] RHDH API internal check error: ${e}`); }
 
-      // Get actual workflow list from RHDH internal API
+      // Cross-service connectivity: can RHDH pod reach workflow services?
+      for (const svc of ["greeting", "failswitch"]) {
+        try {
+          const result = execSync(
+            `oc exec -n ${ns} deploy/redhat-developer-hub -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://${svc}.${ns}/q/health/ready`,
+            { encoding: "utf-8", timeout: 15_000 },
+          ).trim();
+          console.log(`[orchestrator-setup] RHDH→${svc} health: HTTP ${result}`);
+        } catch (e) { console.log(`[orchestrator-setup] RHDH→${svc} connectivity error: ${e}`); }
+      }
+
+      // Direct workflow execution test: bypass RHDH, call runtime directly
       try {
-        const apiBody = execSync(
-          `oc exec -n ${ns} deploy/greeting -- curl -s http://redhat-developer-hub:7007/api/orchestrator/v2/workflows`,
-          { encoding: "utf-8", timeout: 15_000 },
+        const execResult = execSync(
+          `oc exec -n ${ns} deploy/greeting -- curl -s -w "\\n%{http_code}" -X POST http://localhost:8080/greeting -H 'Content-Type: application/json' -d '{"workflowdata":{"language":"English","name":"test-diag"}}'`,
+          { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        console.log(`[orchestrator-setup] RHDH orchestrator workflows (internal, first 3000 chars):\n${apiBody.substring(0, 3000)}`);
-      } catch (e) { console.log(`[orchestrator-setup] RHDH workflows internal error: ${e}`); }
+        const lines = execResult.split("\n");
+        const httpCode = lines[lines.length - 1];
+        const body = lines.slice(0, -1).join("\n");
+        console.log(`[orchestrator-setup] Direct greeting execution: HTTP ${httpCode}`);
+        console.log(`[orchestrator-setup] Direct greeting response:\n${body.substring(0, 1500)}`);
+      } catch (e) { console.log(`[orchestrator-setup] Direct greeting execution error: ${e}`); }
+
+      // After direct execution, check data-index for ProcessInstances
+      try {
+        const gqlQuery = '{"query":"{ ProcessInstances(where: {processId: {equal: \\"greeting\\"}}) { id, processId, state, serviceUrl, start, end } }"}';
+        const diResult = execSync(
+          `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
+          { encoding: "utf-8", timeout: 30_000 },
+        ).trim();
+        console.log(`[orchestrator-setup] Data-index greeting instances after direct exec:\n${diResult}`);
+      } catch (e) { console.log(`[orchestrator-setup] Data-index instances query error: ${e}`); }
       // #endregion
     });
     await ensureBaselineRole(browser, testInfo);
