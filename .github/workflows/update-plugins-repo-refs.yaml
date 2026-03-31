@@ -155,7 +155,7 @@ jobs:
           if [[ "${RELEASE_BRANCH_PATTERN}" == "" ]]
           then
             # Get the last 2 release branch names, sorted by version, and build a regex like ^release-(1\.7|1\.8)$
-            RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches | \
+            RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches --paginate | \
               jq -r '[.[].name | select(test("^release-")) | sub("^release-";"")] 
                 | sort_by(split(".") | map(tonumber)) 
                 | reverse 
