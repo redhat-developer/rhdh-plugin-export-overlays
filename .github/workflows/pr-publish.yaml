@@ -150,6 +150,7 @@ jobs:
           IMAGE_PREFIX: ghcr.io/${{ github.repository }}
           TAG_PREFIX: pr_${{ needs.resolve.outputs.prNumber }}__
         run: |
+          IMAGE_PREFIX="${IMAGE_PREFIX,,}"
           published=""
           failed=""
           

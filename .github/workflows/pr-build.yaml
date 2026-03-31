@@ -141,6 +141,7 @@ jobs:
       pr-number: ${{ steps.get-branch.outputs.pr-number }}
       command: ${{ steps.get-branch.outputs.command }}
       trigger-type: ${{ steps.get-branch.outputs.trigger-type }}
+      image-repository-prefix: ${{ steps.get-branch.outputs.image-repository-prefix }}
 
     steps:
       - name: Get PR branch data
@@ -203,6 +204,9 @@ jobs:
             }
             
             core.setOutput('workspace', workspace);
+            
+            const imageRepoPrefix = `ghcr.io/${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            core.setOutput('image-repository-prefix', imageRepoPrefix);
             
             console.log(`Trigger: ${triggerType}, Command: ${command}, PR #${prNumber}, Workspace: ${workspace || '(none)'}`);
 
@@ -365,7 +369,7 @@ jobs:
       # IMPORTANT: publish-container is FALSE - we only build, not publish
       # Publishing happens in the workflow_run triggered pr-publish.yaml
       publish-container: false
-      image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+      image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
       image-tag-prefix: ${{ format('pr_{0}__', needs.prepare.outputs.pr-number) }}
 
   checkBackstageCompatibility:
@@ -473,7 +477,7 @@ jobs:
           overlay-root: ${{ github.workspace }}/overlay-repo/${{ needs.prepare.outputs.workspace }}
           plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
           target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
-          image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+          image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
 
   # ============================================================================
   # Context Upload (for publish/auto-publish and smoketest commands)
