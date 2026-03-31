@@ -1,0 +1,709 @@
+name: PR Build
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================================
+  # Command Parsing (issue_comment trigger only)
+  # ============================================================================
+
+  parse:
+    runs-on: ubuntu-latest
+    name: Parse PR Comment
+    permissions:
+      actions: write
+      contents: read
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.triggering_actor != 'openshift-ci[bot]' &&
+      github.triggering_actor != 'sonarqubecloud[bot]' &&
+      github.event.issue.pull_request && (
+      contains(github.event.comment.body, '/publish') ||
+      contains(github.event.comment.body, '/update-versions') ||
+      contains(github.event.comment.body, '/update-commit') ||
+      contains(github.event.comment.body, '/smoketest'))
+    
+    outputs:
+      command_name: ${{ steps.extract.outputs.command_name }}
+      error_message: ${{ steps.extract.outputs.error_message }}
+    steps:
+      - name: Extract command from comment
+        id: extract
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const raw = context.payload.comment?.body ?? '';
+            
+            const lines = String(raw)
+              .split(/\r?\n/)
+              .map(l => l.trim())
+              .filter(l => l.length > 0);
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest']);
+            const matchingCommands = lines.filter(l => allowed.has(l));
+            
+            if (matchingCommands.length > 1) {
+              const errorMsg = `Multiple commands found in comment: ${matchingCommands.join(', ')}. Please use only one command per comment.`;
+              core.setOutput('error_message', errorMsg);
+              core.setOutput('command_name', '');
+              core.setFailed(errorMsg);
+              return;
+            }
+            if (matchingCommands.length === 0) {
+              core.notice('No command found in comment – cancelling workflow run');
+              await github.rest.actions.cancelWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              return;
+            }
+            
+            const firstMatching = matchingCommands[0] || '';
+            core.setOutput('command_name', firstMatching.startsWith('/') ? firstMatching.slice(1) : firstMatching);
+            core.setOutput('error_message', '');
+
+  add_error_comment:
+    runs-on: ubuntu-latest
+    needs: parse
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+
+    if: |
+      github.event_name == 'issue_comment' &&
+      !cancelled() && 
+      needs.parse.outputs.error_message != ''
+    steps:
+      - name: Add error comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_ERROR_MESSAGE: ${{ needs.parse.outputs.error_message }}
+        with:
+          script: |
+            const errorMessage = core.getInput('error_message');
+            const prNumber = context.issue.number;
+            
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            
+            let body = `[Workflow run](${workflowRun.data.html_url}) failed with error.\n\n`;
+            body += `**Error**: ${errorMessage}\n\nValid commands are:\n`;
+            body += `- \`/publish\` - Publish dynamic plugin images\n`;
+            body += `- \`/update-versions\` - Update versions from release branch\n`;
+            body += `- \`/update-commit\` - Update commit from automatic discovery\n`;
+            body += `- \`/smoketest\` - Run smoke tests`;
+            
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================================================
+  # Prepare PR Context (shared logic for both triggers)
+  # ============================================================================
+
+  prepare:
+    runs-on: ubuntu-latest
+    name: Prepare PR Context
+    needs: parse
+    permissions:
+      contents: read
+      pull-requests: read
+    if: |
+      always() &&
+      (
+        (github.event_name == 'pull_request' && 
+         github.triggering_actor != 'openshift-ci[bot]' &&
+         github.triggering_actor != 'sonarqubecloud[bot]') ||
+        (github.event_name == 'issue_comment' && 
+         needs.parse.result == 'success' &&
+         needs.parse.outputs.command_name != '')
+      )
+
+    outputs:
+      target-branch: ${{ steps.get-branch.outputs.target-branch }}
+      overlay-branch: ${{ steps.get-branch.outputs.overlay-branch }}
+      overlay-repo: ${{ steps.get-branch.outputs.overlay-repo }}
+      overlay-commit: ${{ steps.get-branch.outputs.overlay-commit }}
+      workspace: ${{ steps.get-branch.outputs.workspace }}
+      pr-number: ${{ steps.get-branch.outputs.pr-number }}
+      command: ${{ steps.get-branch.outputs.command }}
+      trigger-type: ${{ steps.get-branch.outputs.trigger-type }}
+
+    steps:
+      - name: Get PR branch data
+        id: get-branch
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command_name }}
+        with:
+          script: |
+            const isPrEvent = context.eventName === 'pull_request';
+            const prNumber = isPrEvent 
+              ? context.payload.pull_request.number 
+              : context.issue.number;
+            
+            // Determine trigger type and command
+            const command = isPrEvent ? 'auto-publish' : (core.getInput('command_name') || '');
+            const triggerType = isPrEvent ? 'auto' : 'command';
+            
+            core.setOutput('command', command);
+            core.setOutput('trigger-type', triggerType);
+            core.setOutput('pr-number', prNumber);
+            
+            const currentPullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const targetBranch = currentPullRequest.data.base.ref;
+            core.setOutput('target-branch', targetBranch);
+
+            const prBranch = currentPullRequest.data.head.ref;
+            core.setOutput('overlay-branch', prBranch);
+            
+            const prRepo = currentPullRequest.data.head.repo.full_name;
+            core.setOutput('overlay-repo', prRepo);
+
+            const prCommit = currentPullRequest.data.head.sha;
+            core.setOutput('overlay-commit', prCommit);
+            
+            // Determine workspace from branch name or PR files
+            let workspace = '';
+            const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
+            if (matches && matches.length == 2) {
+              workspace = `workspaces/${matches[1]}`;
+            } else {
+              const prFiles = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              const workspaces = [ ... new Set(prFiles.data
+                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+                .filter(match => match)
+                .map(match => match[1])
+              )];
+              if (workspaces.length === 1) {
+                workspace = `workspaces/${workspaces[0]}`;
+              }
+            }
+            
+            core.setOutput('workspace', workspace);
+            
+            console.log(`Trigger: ${triggerType}, Command: ${command}, PR #${prNumber}, Workspace: ${workspace || '(none)'}`);
+
+  # ============================================================================
+  # Build Phase Jobs (for /publish and auto-publish)
+  # ============================================================================
+
+  checkPRUpToDate:
+    runs-on: ubuntu-latest
+    name: Check PR versions.json
+    needs: prepare
+    permissions:
+      contents: read
+
+    if: |
+      !cancelled() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish')
+
+    outputs:
+      up-to-date: ${{ steps.check.outputs.up-to-date }}
+
+    steps:
+      - name: Check versions.json matches release branch
+        id: check
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
+          INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+        with:
+          script: |
+            const path = 'versions.json';
+            const releaseBranch = core.getInput('target_branch');
+            const prNumber = Number(core.getInput('pr_number'));
+            
+            if (!releaseBranch?.startsWith('release-') && !releaseBranch?.startsWith('main')) {
+              core.notice(`Current PR is not based on a release branch.`);
+              core.setOutput('up-to-date', 'true');
+              return;
+            }
+            
+            const { data: sourceFile } = await github.rest.repos.getContent({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path,
+              ref: releaseBranch,
+            });
+            
+            if (!('type' in sourceFile) || sourceFile.type !== 'file') {
+              core.setFailed(`\`${path}\` is not a file on branch \`${releaseBranch}\``);
+              core.setOutput('up-to-date', 'false');
+              return;
+            }
+            
+            const sourceContent = Buffer.from(
+              sourceFile.content,
+              (Buffer.isEncoding(sourceFile.encoding) ? sourceFile.encoding : 'utf-8')
+            ).toString('utf-8');
+    
+            const prRepository = core.getInput('overlay_repo');
+            const prBranch = core.getInput('overlay_branch');
+            const owner = prRepository.split('/')[0];
+            const repo = prRepository.split('/')[1];
+            
+            const { data: targetFile } = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path,
+              ref: prBranch,
+            });
+            
+            if (!('type' in targetFile) || targetFile.type !== 'file') {
+              core.warning(`\`${path}\` is not a file on branch ${prBranch}`);
+              core.setOutput('up-to-date', 'true');
+              return;
+            }
+            
+            const targetContent = Buffer.from(
+              targetFile.content,
+              (Buffer.isEncoding(targetFile.encoding) ? targetFile.encoding : 'utf-8')
+            ).toString('utf-8');
+      
+            if (sourceContent !== targetContent) {
+              core.setFailed(`PR not up-to-date with the release branch`);
+              core.setOutput('up-to-date', 'false');
+            } else {
+              core.setOutput('up-to-date', 'true');
+            }
+
+  detectChanges:
+    name: Detect change scope
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    if: |
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish') &&
+      needs.prepare.outputs.workspace != ''
+
+    outputs:
+      only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
+
+    steps:
+      - name: Check if only metadata files changed
+        id: check
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const prFiles = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            const workspace = core.getInput('workspace');
+            const metadataPrefix = `${workspace}/metadata/`;
+            const onlyMetadata = prFiles.data.length > 0 &&
+              prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
+            core.setOutput('only-metadata-changed', String(onlyMetadata));
+            core.info(`Only metadata changed: ${onlyMetadata}`);
+            if (onlyMetadata) {
+              core.info('Build will be skipped - only metadata files were modified.');
+            }
+
+  export:
+    name: Build Dynamic Plugin Exports
+    needs:
+      - prepare
+      - checkPRUpToDate
+      - detectChanges
+
+    permissions:
+      contents: read
+
+    if: |
+      !cancelled() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish') &&
+      needs.checkPRUpToDate.outputs.up-to-date == 'true' &&
+      needs.detectChanges.outputs.only-metadata-changed != 'true'
+
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      # IMPORTANT: publish-container is FALSE - we only build, not publish
+      # Publishing happens in the workflow_run triggered pr-publish.yaml
+      publish-container: false
+      image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+      image-tag-prefix: ${{ format('pr_{0}__', needs.prepare.outputs.pr-number) }}
+
+  checkBackstageCompatibility:
+    name: Check backstage compatibility
+    needs:
+      - prepare
+      - checkPRUpToDate
+      - detectChanges
+
+    permissions:
+      contents: read
+
+    if: |
+      !cancelled() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.workspace != '' &&
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish') &&
+      needs.checkPRUpToDate.outputs.up-to-date == 'true'
+
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+
+  validateMetadataOnly:
+    name: Validate metadata (metadata-only change)
+    needs:
+      - prepare
+      - detectChanges
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    if: |
+      (needs.prepare.outputs.command == 'publish' || needs.prepare.outputs.command == 'auto-publish') &&
+      needs.prepare.outputs.workspace != '' &&
+      needs.detectChanges.outputs.only-metadata-changed == 'true'
+
+    outputs:
+      metadata-validation-passed: ${{ steps.validate-metadata.outputs.validation-passed }}
+      metadata-validation-errors: ${{ steps.validate-metadata.outputs.validation-errors }}
+      metadata-validation-error-count: ${{ steps.validate-metadata.outputs.validation-error-count }}
+
+    steps:
+      - name: Checkout overlay repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+          path: overlay-repo
+
+      - name: Read source configuration
+        id: source-config
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          source_json=$(cat "overlay-repo/${WORKSPACE}/source.json")
+          plugins_repo=$(echo "${source_json}" | jq -r '.repo' | sed 's;https://github.com/;;')
+          plugins_repo_ref=$(echo "${source_json}" | jq -r '."repo-ref"')
+          plugins_repo_flat=$(echo "${source_json}" | jq -r '."repo-flat" // false')
+          if [[ "${plugins_repo_flat}" == "true" ]]; then
+            plugins_root="."
+          else
+            plugins_root="${WORKSPACE}"
+          fi
+          echo "plugins-repo=${plugins_repo}" >> $GITHUB_OUTPUT
+          echo "plugins-repo-ref=${plugins_repo_ref}" >> $GITHUB_OUTPUT
+          echo "plugins-root=${plugins_root}" >> $GITHUB_OUTPUT
+
+          backstage_version=$(jq -r '.backstage' overlay-repo/versions.json)
+          echo "backstage-version=${backstage_version}" >> $GITHUB_OUTPUT
+
+          node_version=$(jq -r '.node' overlay-repo/versions.json)
+          echo "node-version=${node_version}" >> $GITHUB_OUTPUT
+
+      - name: Checkout plugins repository (flat)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.source-config.outputs.plugins-root == '.'
+        with:
+          repository: ${{ steps.source-config.outputs.plugins-repo }}
+          ref: ${{ steps.source-config.outputs.plugins-repo-ref }}
+          path: source-repo
+
+      - name: Checkout plugins repository (workspace)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: steps.source-config.outputs.plugins-root != '.'
+        with:
+          repository: ${{ steps.source-config.outputs.plugins-repo }}
+          ref: ${{ steps.source-config.outputs.plugins-repo-ref }}
+          sparse-checkout: |
+            ${{ steps.source-config.outputs.plugins-root }}
+          sparse-checkout-cone-mode: false
+          path: source-repo
+
+      - name: Setup Node.js ${{ steps.source-config.outputs.node-version }}
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ steps.source-config.outputs.node-version }}
+
+      - name: Validate Catalog Metadata
+        id: validate-metadata
+        uses: redhat-developer/rhdh-plugin-export-utils/validate-metadata@main
+        with:
+          overlay-root: ${{ github.workspace }}/overlay-repo/${{ needs.prepare.outputs.workspace }}
+          plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
+          target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
+          image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+
+  # ============================================================================
+  # Context Upload (for publish/auto-publish and smoketest commands)
+  # ============================================================================
+
+  upload-build-context:
+    runs-on: ubuntu-latest
+    name: Upload Build Context
+    needs:
+      - prepare
+      - checkPRUpToDate
+      - export
+      - checkBackstageCompatibility
+      - detectChanges
+      - validateMetadataOnly
+    permissions:
+      contents: read
+
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      (needs.prepare.outputs.command == 'publish' ||
+       needs.prepare.outputs.command == 'auto-publish' ||
+       needs.prepare.outputs.command == 'smoketest')
+
+    steps:
+      - name: Write build context metadata
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          COMMAND: ${{ needs.prepare.outputs.command }}
+          TRIGGER_TYPE: ${{ needs.prepare.outputs.trigger-type }}
+          EXPORT_RESULT: ${{ needs.export.result }}
+          CHECK_RESULT: ${{ needs.checkPRUpToDate.result }}
+          COMPAT_RESULT: ${{ needs.checkBackstageCompatibility.result }}
+          UP_TO_DATE: ${{ needs.checkPRUpToDate.outputs.up-to-date }}
+          ONLY_METADATA_CHANGED: ${{ needs.detectChanges.outputs.only-metadata-changed }}
+          METADATA_VALIDATION_PASSED: ${{ needs.validateMetadataOnly.outputs.metadata-validation-passed }}
+          METADATA_VALIDATION_ERRORS: ${{ needs.validateMetadataOnly.outputs.metadata-validation-errors }}
+          METADATA_VALIDATION_ERROR_COUNT: ${{ needs.validateMetadataOnly.outputs.metadata-validation-error-count }}
+        run: |
+          mkdir -p context
+          cat > context/meta.json <<EOF
+          {
+            "workspace": "${WORKSPACE}",
+            "overlayBranch": "${OVERLAY_BRANCH}",
+            "overlayRepo": "${OVERLAY_REPO}",
+            "overlayCommit": "${OVERLAY_COMMIT}",
+            "pr": ${PR_NUMBER:-0},
+            "targetBranch": "${TARGET_BRANCH}",
+            "buildRunId": ${BUILD_RUN_ID},
+            "command": "${COMMAND}",
+            "triggerType": "${TRIGGER_TYPE}",
+            "exportResult": "${EXPORT_RESULT}",
+            "checkResult": "${CHECK_RESULT}",
+            "compatResult": "${COMPAT_RESULT}",
+            "upToDate": ${UP_TO_DATE:-false},
+            "onlyMetadataChanged": "${ONLY_METADATA_CHANGED}",
+            "metadataValidationPassed": "${METADATA_VALIDATION_PASSED}",
+            "metadataValidationErrors": "${METADATA_VALIDATION_ERRORS}",
+            "metadataValidationErrorCount": "${METADATA_VALIDATION_ERROR_COUNT}"
+          }
+          EOF
+          echo "Build context written:"
+          cat context/meta.json
+
+      - name: Upload build context artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: pr-build-context-${{ github.run_id }}
+          path: context/
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================================================
+  # /update-versions command
+  # ============================================================================
+
+  updatePRWithVersions:
+    name: Update versions on PR
+    needs: prepare
+
+    if: needs.prepare.outputs.command == 'update-versions'
+
+    uses: redhat-developer/rhdh-plugin-export-overlays/.github/workflows/update-prs-with-release-branch-commits.yaml@main
+    with:
+      force: true
+      pr: ${{ needs.prepare.outputs.pr-number }}
+      release-branch: ${{ needs.prepare.outputs.target-branch }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+  add_update_versions_comment:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - updatePRWithVersions
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+      pull-requests: write
+
+    if: |
+      !cancelled() &&
+      needs.prepare.outputs.command == 'update-versions'
+
+    steps:
+      - name: Add completion comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_UPDATE_RESULT: ${{ needs.updatePRWithVersions.result }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const overlayCommit = core.getInput('overlay_commit');
+            const updateResult = core.getInput('update_result');
+            
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            
+            const success = updateResult === 'success';
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description: 'PR Command: /update-versions',
+              state: success ? 'success' : 'failure',
+              target_url: workflowRun.data.html_url,
+              context: 'update-versions',
+            });
+            
+            const body = `## /update-versions Command Results\n\n` +
+              `**Traceability:**\n` +
+              `- Workflow run: [PR Build #${{ github.run_id }}](${workflowRun.data.html_url})\n\n` +
+              (success 
+                ? `:white_check_mark: **Success**: versions.json has been updated from the release branch.`
+                : `:x: **Failed**: Check the [workflow run](${workflowRun.data.html_url}) for details.`);
+            
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================================================
+  # /update-commit command
+  # ============================================================================
+
+  updatePRWithCommit:
+    name: Update commit on PR
+    needs: prepare
+
+    if: needs.prepare.outputs.command == 'update-commit'
+
+    uses: redhat-developer/rhdh-plugin-export-overlays/.github/workflows/update-plugins-repo-refs.yaml@main
+    with:
+      single-branch: ${{ needs.prepare.outputs.target-branch }}
+      allow-workspace-addition: false
+      pr-to-update: ${{ needs.prepare.outputs.pr-number }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+  add_update_commit_comment:
+    runs-on: ubuntu-latest
+    needs:
+      - prepare
+      - updatePRWithCommit
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+      pull-requests: write
+
+    if: |
+      !cancelled() &&
+      needs.prepare.outputs.command == 'update-commit'
+
+    steps:
+      - name: Add completion comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_UPDATE_RESULT: ${{ needs.updatePRWithCommit.result }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const overlayCommit = core.getInput('overlay_commit');
+            const updateResult = core.getInput('update_result');
+            
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            
+            const success = updateResult === 'success' || updateResult === 'skipped';
+            
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description: 'PR Command: /update-commit',
+              state: success ? 'success' : 'failure',
+              target_url: workflowRun.data.html_url,
+              context: 'update-commit',
+            });
+            
+            const body = `## /update-commit Command Results\n\n` +
+              `**Traceability:**\n` +
+              `- Workflow run: [PR Build #${{ github.run_id }}](${workflowRun.data.html_url})\n\n` +
+              (success 
+                ? `:white_check_mark: **Success**: Plugin repository refs have been updated.`
+                : `:x: **Failed**: Check the [workflow run](${workflowRun.data.html_url}) for details.`);
+            
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+

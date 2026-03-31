@@ -2,7 +2,7 @@ name: Workspace Smoke Tests
 
 on:
   workflow_run:
-    workflows: [Pull Request Actions]
+    workflows: [PR Publish]
     types: [completed]
 
 jobs:
@@ -26,12 +26,12 @@ jobs:
     steps:
       # Download context artifact from the triggering workflow run
       - name: Download context artifact
-        uses: dawidd6/action-download-artifact@v6
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: context-${{ env.TRIGGERING_RUN_ID }}
-          run_id: ${{ env.TRIGGERING_RUN_ID }}
+          run-id: ${{ env.TRIGGERING_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ./context
-          if_no_artifact_found: fail
 
       - name: Check context for workspace and PR
         id: context
@@ -43,18 +43,20 @@ jobs:
           if [ -z "$workspace" ]; then
             echo "No workspace in context - skipping tests"
           fi
+          publish_run_id=$(jq -r '.publishRunId // 0' ./context/meta.json)
+          if [ "$publish_run_id" = "0" ] || [ "$publish_run_id" = "null" ] || [ -z "$publish_run_id" ]; then
+            echo "publish-run-id=${{ env.TRIGGERING_RUN_ID }}" >> $GITHUB_OUTPUT
+          else
+            echo "publish-run-id=$publish_run_id" >> $GITHUB_OUTPUT
+          fi
 
       - name: Download published-exports artifact for this PR
         if: steps.context.outputs.workspace != '' && steps.context.outputs.pr != ''
-        uses: dawidd6/action-download-artifact@v6
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: published-exports-pr-${{ steps.context.outputs.pr }}
-          workflow: pr-actions.yaml
-          workflow_conclusion: success
-          workflow_search: true
-          search_artifacts: true
-          allow_forks: true
-          if_no_artifact_found: fail
+          run-id: ${{ steps.context.outputs.publish-run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify published-exports artifact belongs to triggering PR
         if: steps.context.outputs.workspace != ''

@@ -1,0 +1,767 @@
+name: PR Publish
+on:
+  workflow_run:
+    workflows: [PR Build]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    name: Resolve Build Context
+    permissions:
+      actions: read
+      contents: read
+    env:
+      TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
+    outputs:
+      workspace: ${{ steps.meta.outputs.workspace }}
+      overlayBranch: ${{ steps.meta.outputs.overlayBranch }}
+      overlayRepo: ${{ steps.meta.outputs.overlayRepo }}
+      overlayCommit: ${{ steps.meta.outputs.overlayCommit }}
+      prNumber: ${{ steps.meta.outputs.pr }}
+      targetBranch: ${{ steps.meta.outputs.targetBranch }}
+      command: ${{ steps.meta.outputs.command }}
+      triggerType: ${{ steps.meta.outputs.triggerType }}
+      exportResult: ${{ steps.meta.outputs.exportResult }}
+      noWorkspace: ${{ steps.meta.outputs.noWorkspace }}
+      hasExports: ${{ steps.check-exports.outputs.has-exports }}
+      buildConclusion: ${{ github.event.workflow_run.conclusion }}
+      onlyMetadataChanged: ${{ steps.meta.outputs.onlyMetadataChanged }}
+      metadataValidationPassed: ${{ steps.meta.outputs.metadataValidationPassed }}
+      metadataValidationErrors: ${{ steps.meta.outputs.metadataValidationErrors }}
+      metadataValidationErrorCount: ${{ steps.meta.outputs.metadataValidationErrorCount }}
+      upToDate: ${{ steps.meta.outputs.upToDate }}
+
+    steps:
+      - name: Download build context artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        continue-on-error: true
+        with:
+          name: pr-build-context-${{ env.TRIGGERING_RUN_ID }}
+          run-id: ${{ env.TRIGGERING_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./context
+
+      - name: Read build context metadata
+        id: meta
+        run: |
+          if [ ! -f "./context/meta.json" ]; then
+            echo "No context artifact found - build may have been skipped or failed early"
+            echo "workspace=" >> $GITHUB_OUTPUT
+            echo "command=" >> $GITHUB_OUTPUT
+            echo "pr=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Build context from triggering workflow:"
+          cat ./context/meta.json
+          
+          {
+            echo "workspace=$(jq -r '.workspace // ""' ./context/meta.json)"
+            echo "overlayBranch=$(jq -r '.overlayBranch // ""' ./context/meta.json)"
+            echo "overlayRepo=$(jq -r '.overlayRepo // ""' ./context/meta.json)"
+            echo "overlayCommit=$(jq -r '.overlayCommit // ""' ./context/meta.json)"
+            echo "pr=$(jq -r '.pr // 0' ./context/meta.json)"
+            echo "targetBranch=$(jq -r '.targetBranch // ""' ./context/meta.json)"
+            echo "command=$(jq -r '.command // ""' ./context/meta.json)"
+            echo "triggerType=$(jq -r '.triggerType // ""' ./context/meta.json)"
+            echo "exportResult=$(jq -r '.exportResult // ""' ./context/meta.json)"
+            echo "noWorkspace=$(jq -r '.noWorkspace // false' ./context/meta.json)"
+            echo "upToDate=$(jq -r '.upToDate // false' ./context/meta.json)"
+            echo "onlyMetadataChanged=$(jq -r '.onlyMetadataChanged // ""' ./context/meta.json)"
+            echo "metadataValidationPassed=$(jq -r '.metadataValidationPassed // ""' ./context/meta.json)"
+            echo "metadataValidationErrors=$(jq -r '.metadataValidationErrors // ""' ./context/meta.json)"
+            echo "metadataValidationErrorCount=$(jq -r '.metadataValidationErrorCount // ""' ./context/meta.json)"
+          } >> $GITHUB_OUTPUT
+
+      - name: Download exported plugin archives
+        if: steps.meta.outputs.command == 'publish' || steps.meta.outputs.command == 'auto-publish'
+        id: download-exports
+        continue-on-error: true
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          # Download original artifacts directly from export job using glob pattern
+          pattern: dynamic plugin packages*
+          run-id: ${{ env.TRIGGERING_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./exports
+          merge-multiple: true
+
+      - name: Check for exports
+        id: check-exports
+        run: |
+          if [ -d "./exports" ] && [ "$(ls -A ./exports 2>/dev/null)" ]; then
+            echo "Exports found:"
+            ls -la ./exports/
+            echo "has-exports=true" >> $GITHUB_OUTPUT
+          else
+            echo "No exports found"
+            echo "has-exports=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================================================
+  # Publish Phase (for /publish and auto-publish)
+  # ============================================================================
+
+  publish:
+    needs: resolve
+    if: |
+      (needs.resolve.outputs.command == 'publish' || needs.resolve.outputs.command == 'auto-publish') &&
+      needs.resolve.outputs.workspace != '' &&
+      needs.resolve.outputs.noWorkspace != 'true' &&
+      needs.resolve.outputs.hasExports == 'true' &&
+      needs.resolve.outputs.buildConclusion == 'success'
+    runs-on: ubuntu-latest
+    name: Publish Dynamic Plugins to Registry
+    permissions:
+      contents: read
+      actions: read  # Required to download artifacts
+      packages: write
+    env:
+      TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
+    outputs:
+      published-exports: ${{ steps.publish.outputs.published-exports }}
+      failed-exports: ${{ steps.publish.outputs.failed-exports }}
+
+    steps:
+      - name: Download exported plugin archives
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          # Download original artifacts directly from export job using glob pattern
+          pattern: dynamic plugin packages*
+          run-id: ${{ env.TRIGGERING_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./exports
+          merge-multiple: true
+
+      - name: Log in to container registry
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+
+      - name: Publish plugin archives to container registry
+        id: publish
+        env:
+          IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+          TAG_PREFIX: pr_${{ needs.resolve.outputs.prNumber }}__
+        run: |
+          published=""
+          failed=""
+          
+          echo "Publishing exports to container registry..."
+          echo "Image prefix: $IMAGE_PREFIX"
+          echo "Tag prefix: $TAG_PREFIX"
+          
+          # Find all plugin archives
+          archives=$(find ./exports -type f \( -name "*.tgz" -o -name "*.tar.gz" \) 2>/dev/null)
+          
+          if [ -z "$archives" ]; then
+            echo "No plugin archives found to publish"
+            echo "published-exports=" >> $GITHUB_OUTPUT
+            echo "failed-exports=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          for archive in $archives; do
+            filename=$(basename "$archive")
+            
+            # Extract plugin name from archive filename
+            plugin_name=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-[^.]+)?\.tgz$//' | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-[^.]+)?\.tar\.gz$//')
+            
+            # Extract version from filename
+            version=$(echo "$filename" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -1)
+            
+            if [ -z "$version" ]; then
+              version="latest"
+            fi
+            
+            # Normalize plugin name for image name
+            normalized_name=$(echo "$plugin_name" | tr '[:upper:]' '[:lower:]' | sed 's/@//g' | sed 's/\//-/g')
+            
+            image_name="${IMAGE_PREFIX}/${normalized_name}"
+            image_tag="${TAG_PREFIX}${version}"
+            full_image="${image_name}:${image_tag}"
+            
+            echo "=========================================="
+            echo "Publishing: $filename"
+            echo "  Plugin name: $plugin_name"
+            echo "  Version: $version"
+            echo "  Image: $full_image"
+            echo "=========================================="
+            
+            container_name="plugin-$(date +%s)-$$"
+            
+            if buildah from --name "$container_name" scratch && \
+               buildah copy "$container_name" "$archive" /plugin.tgz && \
+               buildah config --label "org.opencontainers.image.title=$plugin_name" "$container_name" && \
+               buildah config --label "org.opencontainers.image.version=$version" "$container_name" && \
+               buildah config --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" "$container_name" && \
+               buildah commit "$container_name" "$full_image" && \
+               buildah push "$full_image"; then
+              echo "Successfully published: $full_image"
+              published="${published}${full_image}"$'\n'
+              buildah rm "$container_name" 2>/dev/null || true
+            else
+              echo "::error::Failed to publish: $archive"
+              failed="${failed}${plugin_name}"$'\n'
+              buildah rm "$container_name" 2>/dev/null || true
+            fi
+          done
+          
+          # Output results
+          echo "published-exports<<EOF" >> $GITHUB_OUTPUT
+          echo "$published" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "failed-exports<<EOF" >> $GITHUB_OUTPUT
+          echo "$failed" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=========================================="
+          echo "Publishing Summary"
+          echo "=========================================="
+          if [ -n "$published" ]; then
+            echo "Published:"
+            echo "$published" | while read -r line; do [ -n "$line" ] && echo "  - $line"; done
+          fi
+          if [ -n "$failed" ]; then
+            echo "Failed:"
+            echo "$failed" | while read -r line; do [ -n "$line" ] && echo "  - $line"; done
+            echo "::warning::Some plugins failed to publish"
+          fi
+
+  upload-published-exports:
+    needs:
+      - resolve
+      - publish
+    if: |
+      !cancelled() &&
+      needs.publish.result == 'success' &&
+      needs.publish.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    name: Upload Published Exports Artifact
+    permissions:
+      contents: read
+    steps:
+      - name: Write and upload published exports
+        env:
+          WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          OVERLAY_BRANCH: ${{ needs.resolve.outputs.overlayBranch }}
+          OVERLAY_REPO: ${{ needs.resolve.outputs.overlayRepo }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+          PUBLISHED_EXPORTS: ${{ needs.publish.outputs.published-exports }}
+        run: |
+          mkdir -p published-exports
+          cat > published-exports/meta.json <<EOF
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER}}
+          EOF
+          printf "%s\n" "$PUBLISHED_EXPORTS" > published-exports/published-exports.txt
+          
+      - name: Upload published-exports artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: published-exports-pr-${{ needs.resolve.outputs.prNumber }}
+          path: published-exports/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload context for downstream workflows (tests)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: context-${{ github.run_id }}
+          path: published-exports/meta.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================================================
+  # Completion Comments (for publish/auto-publish)
+  # ============================================================================
+
+  add-completion-comment:
+    needs:
+      - resolve
+      - publish
+    if: |
+      always() &&
+      needs.resolve.outputs.buildConclusion == 'success' &&
+      (needs.resolve.outputs.command == 'publish' || needs.resolve.outputs.command == 'auto-publish') &&
+      needs.resolve.outputs.prNumber != '' &&
+      needs.resolve.outputs.prNumber != '0' &&
+      needs.resolve.outputs.noWorkspace != 'true' &&
+      needs.resolve.outputs.workspace != ''
+    runs-on: ubuntu-latest
+    name: Add Traceability Comment
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - name: Download compatibility report
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        continue-on-error: true
+        with:
+          name: backstage-compatibility-report
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./
+
+      - name: Add completion comment with traceability
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          INPUT_OVERLAY_REPO: ${{ needs.resolve.outputs.overlayRepo }}
+          INPUT_OVERLAY_BRANCH: ${{ needs.resolve.outputs.overlayBranch }}
+          INPUT_PUBLISHED_EXPORTS: ${{ needs.publish.outputs.published-exports }}
+          INPUT_FAILED_EXPORTS: ${{ needs.publish.outputs.failed-exports }}
+          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+          INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          INPUT_COMMAND: ${{ needs.resolve.outputs.command }}
+          INPUT_TRIGGER_TYPE: ${{ needs.resolve.outputs.triggerType }}
+          INPUT_BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          INPUT_PUBLISH_RESULT: ${{ needs.publish.result }}
+          INPUT_EXPORT_RESULT: ${{ needs.resolve.outputs.exportResult }}
+          INPUT_ONLY_METADATA_CHANGED: ${{ needs.resolve.outputs.onlyMetadataChanged }}
+          INPUT_METADATA_VALIDATION_PASSED: ${{ needs.resolve.outputs.metadataValidationPassed }}
+          INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.resolve.outputs.metadataValidationErrors }}
+          INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.resolve.outputs.metadataValidationErrorCount }}
+        with:
+          script: |
+            const fs = require('fs');
+            const prNumber = Number(core.getInput('pr_number'));
+            const workspace = core.getInput('workspace');
+            const command = core.getInput('command');
+            const triggerType = core.getInput('trigger_type');
+            const buildRunId = core.getInput('build_run_id');
+            const publishResult = core.getInput('publish_result');
+            const exportResult = core.getInput('export_result');
+            const onlyMetadataChanged = core.getInput('only_metadata_changed') === 'true';
+            
+            if (!prNumber) {
+              console.log('No PR number - skipping comment');
+              return;
+            }
+            
+            const buildRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${buildRunId}`;
+            const publishRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            const overlayCommit = core.getInput('overlay_commit');
+            const statusContext = command === 'auto-publish' ? 'auto-publish' : 'publish';
+            
+            const title = command === 'auto-publish' ? 'PR Auto-Publish Results' : '/publish Command Results';
+            const triggerDesc = command === 'auto-publish' ? 'PR synchronize/open event' : '`/publish` comment';
+            
+            let body = `## ${title}\n\n`;
+            body += `**Traceability:**\n`;
+            body += `- Build workflow: [PR Build #${buildRunId}](${buildRunUrl})\n`;
+            body += `- Publish workflow: [PR Publish #${context.runId}](${publishRunUrl})\n`;
+            body += `- Triggered by: ${triggerDesc}\n\n`;
+            
+            let publishSuccess = false;
+            
+            if (onlyMetadataChanged) {
+              body += `:information_source: **Build skipped** (only metadata files changed).\n`;
+              
+              if (overlayCommit) {
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: overlayCommit,
+                  description: command === 'auto-publish' ? 'PR Auto-Publish (metadata only)' : 'PR Command: /publish (metadata only)',
+                  state: 'success',
+                  target_url: publishRunUrl,
+                  context: statusContext,
+                });
+              }
+            } else if (publishResult === 'success') {
+              publishSuccess = true;
+              body += `:white_check_mark: **Publish Succeeded**\n\n`;
+              
+              const publishedExports = core.getMultilineInput('published_exports');
+              const failedExports = core.getMultilineInput('failed_exports');
+              
+              if (failedExports.length > 0 && failedExports[0]) {
+                body += `#### Publishing process\n`;
+                body += `❌ Plugins with errors during export or container image publishing:\n`;
+                failedExports.filter(line => line.trim()).forEach(line => {
+                  body += `  - ${line}\n`;
+                });
+              } else {
+                body += `#### Publishing process\n✅ Finished successfully.\n`;
+              }
+              
+              if (publishedExports.length > 0 && publishedExports[0]) {
+                body += `- Published container images:\n`;
+                publishedExports.filter(line => line.trim()).forEach(line => {
+                  body += `  - ${line}\n`;
+                });
+              }
+              
+              if (overlayCommit) {
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: overlayCommit,
+                  description: command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish',
+                  state: 'success',
+                  target_url: publishRunUrl,
+                  context: statusContext,
+                });
+              }
+            } else if (exportResult !== 'success') {
+              body += `:x: **Export Failed**: Export step did not succeed (result: ${exportResult}).\n`;
+              body += `Check the [build workflow](${buildRunUrl}) for details.\n`;
+              
+              if (overlayCommit) {
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: overlayCommit,
+                  description: command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish',
+                  state: 'failure',
+                  target_url: publishRunUrl,
+                  context: statusContext,
+                });
+              }
+            } else if (publishResult === 'skipped') {
+              body += `:information_source: **Publish Skipped**: No exports available to publish.\n`;
+              
+              if (overlayCommit) {
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: overlayCommit,
+                  description: command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish',
+                  state: 'success',
+                  target_url: publishRunUrl,
+                  context: statusContext,
+                });
+              }
+            } else {
+              body += `:x: **Publish Failed**: Check the [publish workflow](${publishRunUrl}) for details.\n`;
+              
+              if (overlayCommit) {
+                await github.rest.repos.createCommitStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  sha: overlayCommit,
+                  description: command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish',
+                  state: 'failure',
+                  target_url: publishRunUrl,
+                  context: statusContext,
+                });
+              }
+            }
+            
+            // Add compatibility report if available
+            const reportPath = 'backstage-compatibility-report.md';
+            if (fs.existsSync(reportPath)) {
+              const reportContent = fs.readFileSync(reportPath, 'utf8');
+              body += `\n---\n\n${reportContent}`;
+            }
+            
+            // Metadata validation results
+            const metadataValidationPassed = core.getInput('metadata_validation_passed');
+            const metadataValidationErrorCount = core.getInput('metadata_validation_error_count');
+            const metadataValidationErrorsJson = core.getInput('metadata_validation_errors');
+            
+            if (metadataValidationPassed === 'true') {
+              body += '\n\n#### Metadata Validation\n✅ All metadata files validated successfully.';
+            } else if (metadataValidationErrorCount && metadataValidationErrorCount !== '0') {
+              let metadataSection = '\n\n#### Metadata Validation\n';
+              metadataSection += `❌ Found **${metadataValidationErrorCount}** validation error(s):\n\n`;
+              metadataSection += '| File | Kind | Message |\n|------|------|---------|\n';
+              
+              try {
+                const errors = JSON.parse(metadataValidationErrorsJson || '[]');
+                for (const error of errors) {
+                  const escapedMessage = (error.message || '').replace(/\|/g, '\\|');
+                  metadataSection += `| ${error.file} | ${error.kind} | ${escapedMessage} |\n`;
+                }
+              } catch (e) {
+                metadataSection += `| - | - | Failed to parse errors: ${metadataValidationErrorsJson} |\n`;
+              }
+              
+              body += metadataSection;
+            }
+            
+            // Check if E2E tests exist
+            if (publishSuccess) {
+              const overlayRepo = core.getInput('overlay_repo');
+              const overlayBranch = core.getInput('overlay_branch');
+              const [repoOwner, repoName] = overlayRepo.split('/');
+              try {
+                await github.rest.repos.getContent({
+                  owner: repoOwner,
+                  repo: repoName,
+                  path: `${workspace}/e2e-tests/package.json`,
+                  ref: overlayBranch,
+                });
+                body += '\n\nRunning e2e tests\n/test e2e-ocp-helm';
+              } catch {
+                body += '\n\nNo E2E tests available for this workspace.';
+              }
+            }
+            
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ============================================================================
+  # Handle /smoketest command - Pass context to test workflow
+  # ============================================================================
+
+  handle-smoketest:
+    needs: resolve
+    if: |
+      needs.resolve.outputs.command == 'smoketest' &&
+      needs.resolve.outputs.prNumber != '' &&
+      needs.resolve.outputs.prNumber != '0'
+    runs-on: ubuntu-latest
+    name: Handle Smoketest Command
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Find latest publish run for this PR
+        id: find-publish
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+        with:
+          script: |
+            const prNumber = core.getInput('pr_number');
+            const artifactName = `published-exports-pr-${prNumber}`;
+            const { data } = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: artifactName,
+              per_page: 1,
+            });
+            if (data.artifacts.length > 0) {
+              const runId = data.artifacts[0].workflow_run.id;
+              core.setOutput('publish-run-id', runId);
+              core.info(`Found ${artifactName} in run ${runId}`);
+            } else {
+              core.setOutput('publish-run-id', '0');
+              core.warning(`No ${artifactName} artifact found`);
+            }
+
+      - name: Upload context for test workflow
+        env:
+          WORKSPACE: ${{ needs.resolve.outputs.workspace }}
+          OVERLAY_BRANCH: ${{ needs.resolve.outputs.overlayBranch }}
+          OVERLAY_REPO: ${{ needs.resolve.outputs.overlayRepo }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+          PUBLISH_RUN_ID: ${{ steps.find-publish.outputs.publish-run-id }}
+        run: |
+          mkdir -p context
+          cat > context/meta.json <<EOF
+          {"workspace":"${WORKSPACE}","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER},"publishRunId":${PUBLISH_RUN_ID:-0}}
+          EOF
+
+      - name: Upload context artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: context-${{ github.run_id }}
+          path: context/meta.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================================================
+  # No workspace handling
+  # ============================================================================
+
+  handle-no-workspace:
+    needs: resolve
+    if: |
+      needs.resolve.outputs.buildConclusion != 'failure' &&
+      (needs.resolve.outputs.command == 'publish' || needs.resolve.outputs.command == 'auto-publish') &&
+      (needs.resolve.outputs.noWorkspace == 'true' || needs.resolve.outputs.workspace == '') &&
+      needs.resolve.outputs.prNumber != '' &&
+      needs.resolve.outputs.prNumber != '0'
+    runs-on: ubuntu-latest
+    name: Handle No Workspace Case
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Update status and comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+          INPUT_BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          INPUT_COMMAND: ${{ needs.resolve.outputs.command }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const overlayCommit = core.getInput('overlay_commit');
+            const buildRunId = core.getInput('build_run_id');
+            const command = core.getInput('command');
+            
+            if (!prNumber) return;
+            
+            const buildRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${buildRunId}`;
+            const publishRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const statusContext = command === 'auto-publish' ? 'auto-publish' : 'publish';
+            
+            // Set success status (skipped is still success)
+            if (overlayCommit) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: overlayCommit,
+                description: `${command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish'} (skipped - no workspace)`,
+                state: 'success',
+                target_url: publishRunUrl,
+                context: statusContext,
+              });
+            }
+            
+            const title = command === 'auto-publish' ? 'PR Auto-Publish Results' : '/publish Command Results';
+            
+            const body = `## ${title}\n\n` +
+              `**Traceability:**\n` +
+              `- Build workflow: [PR Build #${buildRunId}](${buildRunUrl})\n` +
+              `- Publish workflow: [PR Publish #${context.runId}](${publishRunUrl})\n\n` +
+              `:information_source: **Skipped**: PR doesn't touch exactly one workspace.`;
+            
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Upload context for downstream workflows
+        env:
+          OVERLAY_BRANCH: ${{ needs.resolve.outputs.overlayBranch }}
+          OVERLAY_REPO: ${{ needs.resolve.outputs.overlayRepo }}
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlayCommit }}
+          PR_NUMBER: ${{ needs.resolve.outputs.prNumber }}
+        run: |
+          mkdir -p context
+          cat > context/meta.json <<EOF
+          {"workspace":"","overlayBranch":"${OVERLAY_BRANCH}","overlayRepo":"${OVERLAY_REPO}","overlayCommit":"${OVERLAY_COMMIT}","pr":${PR_NUMBER:-0}}
+          EOF
+
+      - name: Upload context artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: context-${{ github.run_id }}
+          path: context/meta.json
+          if-no-files-found: error
+          retention-days: 1
+
+  # ============================================================================
+  # Build failure handling
+  # ============================================================================
+
+  handle-build-failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    name: Handle Build Failure
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      statuses: write
+    env:
+      TRIGGERING_RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - name: Download build context
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        continue-on-error: true
+        with:
+          name: pr-build-context-${{ env.TRIGGERING_RUN_ID }}
+          run-id: ${{ env.TRIGGERING_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./context
+
+      - name: Read context and post failure comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const buildRunId = process.env.BUILD_RUN_ID;
+            const buildRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${buildRunId}`;
+            const publishRunUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            let prNumber = 0;
+            let overlayCommit = '';
+            let command = 'auto-publish';
+            let workspace = '';
+            let upToDate = true;
+            let targetBranch = '';
+            
+            try {
+              if (fs.existsSync('./context/meta.json')) {
+                const meta = JSON.parse(fs.readFileSync('./context/meta.json', 'utf8'));
+                prNumber = meta.pr || 0;
+                overlayCommit = meta.overlayCommit || '';
+                command = meta.command || 'auto-publish';
+                workspace = meta.workspace || '';
+                upToDate = meta.upToDate !== false && meta.upToDate !== 'false';
+                targetBranch = meta.targetBranch || '';
+              }
+            } catch (e) {
+              console.log('Could not read context:', e.message);
+            }
+            
+            const statusContext = command === 'auto-publish' ? 'auto-publish' : 'publish';
+            
+            if (overlayCommit) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: overlayCommit,
+                description: `${command === 'auto-publish' ? 'PR Auto-Publish' : 'PR Command: /publish'} (build failed)`,
+                state: 'failure',
+                target_url: buildRunUrl,
+                context: statusContext,
+              });
+            }
+            
+            if (prNumber) {
+              const title = command === 'auto-publish' ? 'PR Auto-Publish Results' : '/publish Command Results';
+              
+              let body = `## ${title}\n\n`;
+              body += `**Traceability:**\n`;
+              body += `- Build workflow: [PR Build #${buildRunId}](${buildRunUrl}) :x:\n`;
+              body += `- Publish workflow: [PR Publish #${context.runId}](${publishRunUrl})\n`;
+              if (workspace) {
+                body += `- Workspace: \`${workspace}\`\n`;
+              }
+              body += `\n`;
+              
+              if (!upToDate) {
+                body += `:x: **Build Failed**: The \`versions.json\` file in your PR doesn't match the one in release branch \`${targetBranch}\`.\n`;
+                body += `Try updating it by adding the \`/update-versions\` PR comment.\n`;
+              } else {
+                body += `:x: **Build Failed**: The build workflow failed. `;
+                body += `Check the [build workflow](${buildRunUrl}) for details.\n`;
+              }
+              
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
