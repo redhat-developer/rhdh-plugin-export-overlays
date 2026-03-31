@@ -14,8 +14,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-x2a"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a:bs_1.45.3__0.1.2!red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a
-  version: 0.1.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a:bs_1.45.3__0.2.0!red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a
+  version: 0.2.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
