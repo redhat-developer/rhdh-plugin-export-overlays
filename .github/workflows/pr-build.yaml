@@ -649,6 +649,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: read
 
   add_update_commit_comment:
     runs-on: ubuntu-latest
