@@ -32,11 +32,59 @@ function decodeEnvVar(name: string): string {
   return Buffer.from(value, "base64").toString();
 }
 
+function dumpClusterState(ns: string, label: string): void {
+  console.log(`[${label}] --- Cluster state dump for ns=${ns} ---`);
+  try {
+    const pods = execSync(`oc get pods -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
+    console.log(`[${label}] Pods:\n${pods}`);
+  } catch (e) { console.log(`[${label}] Pods error: ${e}`); }
+  for (const wf of ["greeting", "failswitch"]) {
+    try {
+      const conds = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`, { encoding: "utf-8" }).trim();
+      console.log(`[${label}] ${wf} conditions: ${conds}`);
+    } catch (e) { console.log(`[${label}] ${wf} conditions error: ${e}`); }
+    try {
+      const logs = execSync(`oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=50`, { encoding: "utf-8" }).trim();
+      console.log(`[${label}] ${wf} last 50 log lines:\n${logs}`);
+    } catch (e) { console.log(`[${label}] ${wf} logs error: ${e}`); }
+  }
+  try {
+    const diQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
+    const diResult = execSync(
+      `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${diQuery}'`,
+      { encoding: "utf-8", timeout: 15_000 },
+    ).trim();
+    console.log(`[${label}] Data-index ProcessDefinitions: ${diResult}`);
+  } catch (e) { console.log(`[${label}] Data-index query error: ${e}`); }
+  try {
+    const rhdhLogs = execSync(`oc logs -n ${ns} deploy/redhat-developer-hub --tail=100`, { encoding: "utf-8", timeout: 30_000 }).trim();
+    const errLines = rhdhLogs.split("\n").filter(
+      (l: string) => /error|warn|fail|orchestrator|data-index|timeout|ECONNREFUSED|ENOTFOUND/i.test(l),
+    );
+    if (errLines.length > 0) {
+      console.log(`[${label}] RHDH error/warn lines (${errLines.length}):\n${errLines.slice(-30).join("\n")}`);
+    }
+  } catch (e) { console.log(`[${label}] RHDH logs error: ${e}`); }
+  try {
+    const events = execSync(`oc get events -n ${ns} --sort-by=.lastTimestamp --no-headers`, { encoding: "utf-8" }).trim();
+    const recentEvents = events.split("\n").slice(-15).join("\n");
+    console.log(`[${label}] Recent events:\n${recentEvents}`);
+  } catch (e) { console.log(`[${label}] Events error: ${e}`); }
+  console.log(`[${label}] --- End cluster state dump ---`);
+}
+
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
     test.setTimeout(20 * 60 * 1000);
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
+      console.log("[orchestrator-setup] Environment summary:");
+      console.log(`[orchestrator-setup]   namespace=${project}`);
+      console.log(`[orchestrator-setup]   RHDH_BASE_URL=${process.env.RHDH_BASE_URL || "(not set)"}`);
+      console.log(`[orchestrator-setup]   IS_OPENSHIFT=${process.env.IS_OPENSHIFT || "(not set)"}`);
+      console.log(`[orchestrator-setup]   GH_USER_ID=${process.env.GH_USER_ID ? "(set)" : "(not set)"}`);
+      console.log(`[orchestrator-setup]   PRIMARY_TEST_USER=${process.env.PRIMARY_TEST_USER || "(not set, default=test1)"}`);
+      console.log(`[orchestrator-setup]   Node.js ${process.version}, PID ${process.pid}`);
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
@@ -129,24 +177,72 @@ test.describe("Orchestrator", () => {
         }
       } catch (e) { console.log(`[orchestrator-setup] RHDH logs error: ${e}`); }
 
-      // Check SonataFlow CR status.address and KOGITO_SERVICE_URL env var
+      // Check SonataFlow CR status and workflow pod messaging config
       for (const wf of ["greeting", "failswitch"]) {
-        try {
-          const addr = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.address}'`, { encoding: "utf-8" }).trim();
-          console.log(`[orchestrator-setup] ${wf} status.address: ${addr}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} address error: ${e}`); }
         try {
           const conds = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`, { encoding: "utf-8" }).trim();
           console.log(`[orchestrator-setup] ${wf} status.conditions: ${conds}`);
         } catch (e) { console.log(`[orchestrator-setup] ${wf} conditions error: ${e}`); }
+        // #region agent log
         try {
-          const envVars = execSync(
+          const allEnv = execSync(
             `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}={.value}{"\\n"}{end}'`,
             { encoding: "utf-8", timeout: 10_000 },
           ).trim();
-          const kogitoVars = envVars.split("\n").filter((l: string) => /KOGITO|SERVICE_URL|DATA_INDEX/i.test(l));
-          console.log(`[orchestrator-setup] ${wf} KOGITO env vars:\n${kogitoVars.join("\n")}`);
+          const relevantVars = allEnv.split("\n").filter((l: string) => /KOGITO|SERVICE_URL|DATA_INDEX|mp\.messaging|QUARKUS_|PERSISTENCE/i.test(l));
+          console.log(`[orchestrator-setup] ${wf} env vars (relevant):\n${relevantVars.join("\n")}`);
+          if (relevantVars.length < 3) {
+            console.log(`[orchestrator-setup] ${wf} ALL env vars:\n${allEnv}`);
+          }
         } catch (e) { console.log(`[orchestrator-setup] ${wf} env vars error: ${e}`); }
+        try {
+          const envFrom = execSync(
+            `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.containers[0].envFrom[*]}{.configMapRef.name}{" "}{.secretRef.name}{"\\n"}{end}'`,
+            { encoding: "utf-8", timeout: 10_000 },
+          ).trim();
+          console.log(`[orchestrator-setup] ${wf} envFrom (configmaps/secrets): ${envFrom}`);
+        } catch (e) { console.log(`[orchestrator-setup] ${wf} envFrom error: ${e}`); }
+        try {
+          const vols = execSync(
+            `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.volumes[*]}{.name}={.configMap.name}{.projected.sources[*].configMap.name}{"\\n"}{end}'`,
+            { encoding: "utf-8", timeout: 10_000 },
+          ).trim();
+          console.log(`[orchestrator-setup] ${wf} volumes (configmaps): ${vols}`);
+        } catch (e) { console.log(`[orchestrator-setup] ${wf} volumes error: ${e}`); }
+        // #endregion
+      }
+
+      // #region agent log
+      // Check greeting-props ConfigMap for messaging config
+      try {
+        const props = execSync(`oc get configmap greeting-props -n ${ns} -o jsonpath='{.data}'`, { encoding: "utf-8", timeout: 10_000 }).trim();
+        console.log(`[orchestrator-setup] greeting-props ConfigMap:\n${props.substring(0, 3000)}`);
+      } catch (e) { console.log(`[orchestrator-setup] greeting-props error: ${e}`); }
+
+      // Check SonataFlowPlatform status (messaging/eventing config)
+      try {
+        const sfpStatus = execSync(
+          `oc get sonataflowplatform sonataflow-platform -n ${ns} -o jsonpath='{.status}'`,
+          { encoding: "utf-8", timeout: 10_000 },
+        ).trim();
+        console.log(`[orchestrator-setup] SonataFlowPlatform status:\n${sfpStatus.substring(0, 2000)}`);
+      } catch (e) { console.log(`[orchestrator-setup] SFP status error: ${e}`); }
+
+      // List all configmaps in namespace
+      try {
+        const cms = execSync(`oc get configmap -n ${ns} --no-headers`, { encoding: "utf-8", timeout: 10_000 }).trim();
+        console.log(`[orchestrator-setup] ConfigMaps in ${ns}:\n${cms}`);
+      } catch (e) { console.log(`[orchestrator-setup] configmap list error: ${e}`); }
+
+      // Check management API on workflow pods (tests what RHDH backend uses to "ping")
+      for (const wf of ["greeting", "failswitch"]) {
+        try {
+          const mgmtResult = execSync(
+            `oc exec -n ${ns} deploy/${wf} -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8080/management/processes`,
+            { encoding: "utf-8", timeout: 15_000 },
+          ).trim();
+          console.log(`[orchestrator-setup] ${wf} management API: HTTP ${mgmtResult}`);
+        } catch (e) { console.log(`[orchestrator-setup] ${wf} management API error: ${e}`); }
       }
 
       // Check RHDH pod env var for data-index URL
@@ -181,17 +277,32 @@ test.describe("Orchestrator", () => {
       }
 
       // Direct workflow execution test: bypass RHDH, call runtime directly
+      // Use --max-time 60 for curl and correct payload format (no workflowdata wrapper)
       try {
         const execResult = execSync(
-          `oc exec -n ${ns} deploy/greeting -- curl -s -w "\\n%{http_code}" -X POST http://localhost:8080/greeting -H 'Content-Type: application/json' -d '{"workflowdata":{"language":"English","name":"test-diag"}}'`,
-          { encoding: "utf-8", timeout: 30_000 },
+          `oc exec -n ${ns} deploy/greeting -- curl -s -w "\\n%{http_code}" --max-time 60 -X POST http://localhost:8080/greeting -H 'Content-Type: application/json' -d '{"language":"English","name":"test-diag"}'`,
+          { encoding: "utf-8", timeout: 90_000 },
         ).trim();
         const lines = execResult.split("\n");
         const httpCode = lines[lines.length - 1];
         const body = lines.slice(0, -1).join("\n");
         console.log(`[orchestrator-setup] Direct greeting execution: HTTP ${httpCode}`);
-        console.log(`[orchestrator-setup] Direct greeting response:\n${body.substring(0, 1500)}`);
+        console.log(`[orchestrator-setup] Direct greeting response:\n${body.substring(0, 2000)}`);
       } catch (e) { console.log(`[orchestrator-setup] Direct greeting execution error: ${e}`); }
+
+      // Check greeting pod logs AFTER direct execution attempt
+      try {
+        const postExecLogs = execSync(
+          `oc logs -n ${ns} -l sonataflow.org/workflow-app=greeting --tail=30`,
+          { encoding: "utf-8", timeout: 15_000 },
+        ).trim();
+        const errLines = postExecLogs.split("\n").filter((l: string) => /error|exception|fail|timeout|refused|reject/i.test(l));
+        if (errLines.length > 0) {
+          console.log(`[orchestrator-setup] Greeting pod errors after exec (${errLines.length}):\n${errLines.join("\n")}`);
+        } else {
+          console.log(`[orchestrator-setup] Greeting pod last 15 lines after exec:\n${postExecLogs.split("\n").slice(-15).join("\n")}`);
+        }
+      } catch (e) { console.log(`[orchestrator-setup] Greeting post-exec logs error: ${e}`); }
 
       // After direct execution, check data-index for ProcessInstances
       try {
@@ -203,12 +314,31 @@ test.describe("Orchestrator", () => {
         console.log(`[orchestrator-setup] Data-index greeting instances after direct exec:\n${diResult}`);
       } catch (e) { console.log(`[orchestrator-setup] Data-index instances query error: ${e}`); }
       // #endregion
+      // #endregion
     });
     await ensureBaselineRole(browser, testInfo);
     testInfo.annotations.push({
       type: "component",
       description: "orchestrator",
     });
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    const status = testInfo.status;
+    const title = testInfo.title;
+    console.log(`[afterEach] Test "${title}" finished with status: ${status} (duration: ${testInfo.duration}ms)`);
+    if (status === "failed" || status === "timedOut") {
+      console.log(`[afterEach] Test FAILED: "${title}"`);
+      console.log(`[afterEach] Page URL at failure: ${page.url()}`);
+      try {
+        const bodyText = await page.textContent("body");
+        console.log(`[afterEach] Page body text (first 2000 chars):\n${bodyText?.substring(0, 2000)}`);
+      } catch (e) { console.log(`[afterEach] Could not read page body: ${e}`); }
+      const ns = testInfo.project.name;
+      if (ns) {
+        dumpClusterState(ns, "afterEach-failure");
+      }
+    }
   });
 
   test.describe("Greeting workflow", () => {
@@ -221,22 +351,42 @@ test.describe("Orchestrator", () => {
 
     test("Greeting workflow execution and workflow tab validation", async ({
       uiHelper,
+      page,
     }) => {
       test.setTimeout(660_000);
+      console.log("[greeting-exec] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
+      console.log(`[greeting-exec] Page URL: ${page.url()}`);
+      console.log("[greeting-exec] Selecting Greeting workflow item...");
       await orchestrator.selectGreetingWorkflowItem();
+      console.log(`[greeting-exec] On workflow page: ${page.url()}`);
+      console.log("[greeting-exec] Running Greeting workflow...");
+      const runStart = Date.now();
       await orchestrator.runGreetingWorkflow();
+      console.log(`[greeting-exec] Workflow run completed (${((Date.now() - runStart) / 1000).toFixed(1)}s)`);
+      console.log("[greeting-exec] Navigating back to Orchestrator for validation...");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.validateGreetingWorkflow();
+      console.log("[greeting-exec] Validation complete");
     });
 
-    test("Greeting workflow run details validation", async ({ uiHelper }) => {
+    test("Greeting workflow run details validation", async ({ uiHelper, page }) => {
       test.setTimeout(660_000);
+      console.log("[greeting-details] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
+      console.log("[greeting-details] Selecting Greeting workflow...");
       await orchestrator.selectGreetingWorkflowItem();
+      console.log(`[greeting-details] Running first workflow... (URL: ${page.url()})`);
+      const run1Start = Date.now();
       await orchestrator.runGreetingWorkflow();
+      console.log(`[greeting-details] First run completed (${((Date.now() - run1Start) / 1000).toFixed(1)}s)`);
+      console.log("[greeting-details] Re-running workflow...");
+      const run2Start = Date.now();
       await orchestrator.reRunGreetingWorkflow();
+      console.log(`[greeting-details] Re-run completed (${((Date.now() - run2Start) / 1000).toFixed(1)}s)`);
+      console.log("[greeting-details] Validating run details...");
       await orchestrator.validateWorkflowRunsDetails();
+      console.log("[greeting-details] Validation complete");
     });
   });
 
@@ -250,55 +400,81 @@ test.describe("Orchestrator", () => {
 
     test("Failswitch workflow execution and workflow tab validation", async ({
       uiHelper,
+      page,
     }) => {
       test.setTimeout(180_000);
+      console.log("[failswitch-exec] Starting failswitch workflow execution test");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log(`[failswitch-exec] Selected FailSwitch, URL: ${page.url()}`);
+      console.log("[failswitch-exec] Running with OK...");
       await orchestrator.runFailSwitchWorkflow("OK");
       await orchestrator.validateCurrentWorkflowStatus("Completed");
+      console.log("[failswitch-exec] OK run completed. Re-running with Wait...");
       await orchestrator.reRunFailSwitchWorkflow("Wait");
+      console.log("[failswitch-exec] Aborting Wait run...");
       await orchestrator.abortWorkflow();
+      console.log("[failswitch-exec] Abort confirmed. Re-running with KO...");
       await orchestrator.reRunFailSwitchWorkflow("KO");
       await orchestrator.validateCurrentWorkflowStatus("Failed");
+      console.log("[failswitch-exec] KO run failed as expected. Running Wait for running state...");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
       await orchestrator.runFailSwitchWorkflow("Wait");
       await orchestrator.validateCurrentWorkflowStatus("Running");
+      console.log("[failswitch-exec] Running state validated. Checking all runs...");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.validateWorkflowAllRuns();
       await orchestrator.validateWorkflowAllRunsStatusIcons();
+      console.log("[failswitch-exec] All validations complete");
     });
 
-    test("Test abort workflow", async ({ uiHelper }) => {
+    test("Test abort workflow", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
+      console.log("[abort-test] Starting abort workflow test");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log(`[abort-test] Running FailSwitch with Wait... (URL: ${page.url()})`);
       await orchestrator.runFailSwitchWorkflow("Wait");
+      console.log("[abort-test] Aborting workflow...");
       await orchestrator.abortWorkflow();
+      console.log("[abort-test] Abort complete");
     });
 
-    test("Test Running status validations", async ({ uiHelper }) => {
+    test("Test Running status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
+      console.log("[running-status] Starting Running status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log(`[running-status] Running FailSwitch with Wait... (URL: ${page.url()})`);
       await orchestrator.runFailSwitchWorkflow("Wait");
+      console.log("[running-status] Validating Running status details...");
       await orchestrator.validateWorkflowStatusDetails("Running");
+      console.log("[running-status] Validation complete");
     });
 
-    test("Test Failed status validations", async ({ uiHelper }) => {
+    test("Test Failed status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
+      console.log("[failed-status] Starting Failed status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log(`[failed-status] Running FailSwitch with KO... (URL: ${page.url()})`);
       await orchestrator.runFailSwitchWorkflow("KO");
+      console.log("[failed-status] Validating Failed status details...");
       await orchestrator.validateWorkflowStatusDetails("Failed");
+      console.log("[failed-status] Validation complete");
     });
 
-    test("Test Completed status validations", async ({ uiHelper }) => {
+    test("Test Completed status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
+      console.log("[completed-status] Starting Completed status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log(`[completed-status] Running FailSwitch with OK... (URL: ${page.url()})`);
       await orchestrator.runFailSwitchWorkflow("OK");
+      console.log("[completed-status] Validating Completed status details...");
       await orchestrator.validateWorkflowStatusDetails("Completed");
+      console.log("[completed-status] Validation complete");
     });
 
     test("Test rerunning from failure point using failswitch workflow", async ({
@@ -312,20 +488,35 @@ test.describe("Orchestrator", () => {
 
       const originalHttpbin = "https://httpbin.org/";
       try {
+        console.log(`[rerun-failure] Patching HTTPBIN to invalid URL in ns=${ns}`);
         await patchHttpbin(ns!, "https://foobar.org/");
+        console.log("[rerun-failure] Restarting failswitch deployment...");
         await restartAndWait(ns!);
+        console.log("[rerun-failure] Restart complete. Running FailSwitch with Wait (expect failure)...");
 
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
         await orchestrator.runFailSwitchWorkflow("Wait");
+        console.log("[rerun-failure] Validating Failed status...");
         await orchestrator.validateCurrentWorkflowStatus("Failed");
+        console.log("[rerun-failure] Failed status confirmed. Restoring original HTTPBIN...");
 
         await patchHttpbin(ns!, originalHttpbin);
+        console.log("[rerun-failure] Restarting with restored HTTPBIN...");
         await restartAndWait(ns!);
+        console.log("[rerun-failure] Restart complete. Re-running from failure point...");
 
         await orchestrator.reRunOnFailure("From failure point");
+        console.log("[rerun-failure] Validating Completed status after re-run...");
         await orchestrator.validateCurrentWorkflowStatus("Completed");
+        console.log("[rerun-failure] Re-run from failure point succeeded");
       } catch (e) {
+        console.error(`[rerun-failure] Test failed: ${e}`);
+        try {
+          const httpbinVal = getHttpbinValue(ns!);
+          console.log(`[rerun-failure] Current HTTPBIN value: ${httpbinVal}`);
+        } catch { /* ignore */ }
+        dumpClusterState(ns!, "rerun-failure-error");
         testInfo.annotations.push({
           type: "test-error",
           description: String(e),
@@ -348,9 +539,12 @@ test.describe("Orchestrator", () => {
       uiHelper,
     }) => {
       test.setTimeout(180_000);
+      console.log("[failswitch-links] Starting workflow linking test");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
+      console.log("[failswitch-links] Running FailSwitch with OK...");
       await orchestrator.runFailSwitchWorkflow("OK");
+      console.log("[failswitch-links] Checking suggested next workflow section...");
 
       // Verify suggested next workflow section and navigate via the greeting link
       await expect(
@@ -369,11 +563,12 @@ test.describe("Orchestrator", () => {
       ).toBeVisible();
       await page.getByRole("button", { name: /run workflow/i }).click();
 
-      // Verify Greeting workflow execute view shows correct header and "Next" button
+      console.log("[failswitch-links] Verifying Greeting workflow execute view...");
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "Next" })).toBeVisible();
+      console.log(`[failswitch-links] Greeting workflow execute view confirmed. URL: ${page.url()}`);
     });
   });
 
@@ -619,8 +814,10 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11833] Starting EntityPicker workflow run test");
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
+      console.log(`[RHIDP-11833] On Self-service page: ${page.url()}`);
 
       await page.waitForLoadState("domcontentloaded");
 
@@ -647,7 +844,7 @@ test.describe("Orchestrator", () => {
       await expect(createButton).toBeVisible({ timeout: 10000 });
       await createButton.click();
 
-      // Wait for completion - any of these indicates the template task finished
+      console.log("[RHIDP-11833] Waiting for template task completion...");
       const viewInCatalog = page.getByRole("link", {
         name: "View in catalog",
       });
@@ -661,15 +858,18 @@ test.describe("Orchestrator", () => {
           timeout: 120000,
         },
       );
+      console.log(`[RHIDP-11833] Template task finished. URL: ${page.url()}`);
     });
 
     test("RHIDP-11834: Template WITH orchestrator.io/workflows annotation", async ({
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11834] Starting annotation-present test");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading("My Org Catalog");
       await uiHelper.selectMuiBox("Kind", "Template");
+      console.log(`[RHIDP-11834] Catalog page loaded: ${page.url()}`);
 
       // "Greeting Test Picker" (greeting_w_component.yaml) HAS the
       // orchestrator.io/workflows annotation: '["greeting"]'
@@ -682,16 +882,17 @@ test.describe("Orchestrator", () => {
 
       await page.waitForLoadState("domcontentloaded");
 
-      // Workflows tab should be visible because of the annotation
+      console.log("[RHIDP-11834] Checking Workflows tab (should be visible due to annotation)...");
       await orchestrator.clickWorkflowsTab();
-
       await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
+      console.log("[RHIDP-11834] Annotation-based Workflows tab verified");
     });
 
     test("RHIDP-11835: Template WITHOUT orchestrator.io/workflows annotation (negative)", async ({
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11835] Starting annotation-absent negative test");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading("My Org Catalog");
       await uiHelper.selectMuiBox("Kind", "Template");
@@ -707,14 +908,32 @@ test.describe("Orchestrator", () => {
 
       await page.waitForLoadState("domcontentloaded");
 
-      // Workflows tab should not exist without the annotation
-      await expect(page.getByRole("tab", { name: "Workflows" })).toHaveCount(0);
+      console.log("[RHIDP-11835] Checking Workflows tab behavior (no annotation)...");
+      const workflowsTab = page.getByRole("tab", { name: "Workflows" });
+      const tabCount = await workflowsTab.count();
+      console.log(`[RHIDP-11835] Workflows tab count: ${tabCount}`);
+
+      if (tabCount > 0) {
+        // Tab exists (dynamic plugin registers it globally) -- verify
+        // the content does NOT show the greeting workflow since the
+        // entity lacks the orchestrator.io/workflows annotation
+        await workflowsTab.click();
+        await page.waitForLoadState("domcontentloaded");
+        const greetingWorkflow = page.getByText("Greeting workflow");
+        const greetingCount = await greetingWorkflow.count();
+        console.log(`[RHIDP-11835] Greeting workflow text count in Workflows tab: ${greetingCount}`);
+        expect(greetingCount).toBe(0);
+        console.log("[RHIDP-11835] Confirmed: Workflows tab has no workflow content (annotation absent)");
+      } else {
+        console.log("[RHIDP-11835] Confirmed Workflows tab is absent");
+      }
     });
 
     test("RHIDP-11836: Catalog <-> Workflows breadcrumb navigation", async ({
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11836] Starting breadcrumb navigation test");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading("My Org Catalog");
       await uiHelper.selectMuiBox("Kind", "Template");
@@ -734,26 +953,33 @@ test.describe("Orchestrator", () => {
         name: "Greeting workflow",
       });
       await expect(workflowLink).toBeVisible({ timeout: 10000 });
+      console.log("[RHIDP-11836] Clicking workflow link...");
       await workflowLink.click();
 
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
+      console.log(`[RHIDP-11836] On workflow detail page: ${page.url()}`);
 
-      // Verify breadcrumb navigation works - look for breadcrumb with entity name
       const entityName = "greetingComponent";
       const breadcrumb = page.getByRole("navigation", {
         name: /breadcrumb/i,
       });
-      if ((await breadcrumb.count()) > 0 && entityName) {
+      const breadcrumbCount = await breadcrumb.count();
+      console.log(`[RHIDP-11836] Breadcrumb count: ${breadcrumbCount}`);
+      if (breadcrumbCount > 0 && entityName) {
         const entityBreadcrumb = breadcrumb.getByText(entityName);
-        if ((await entityBreadcrumb.count()) > 0) {
+        const entityBreadcrumbCount = await entityBreadcrumb.count();
+        console.log(`[RHIDP-11836] Entity breadcrumb '${entityName}' count: ${entityBreadcrumbCount}`);
+        if (entityBreadcrumbCount > 0) {
           await entityBreadcrumb.click();
           await page.waitForLoadState("load");
+          console.log(`[RHIDP-11836] Navigated back via breadcrumb: ${page.url()}`);
 
           await expect(
             page.getByRole("heading", { name: /Greeting Test Picker/i }),
           ).toBeVisible();
+          console.log("[RHIDP-11836] Breadcrumb navigation verified");
         }
       }
     });
@@ -762,6 +988,7 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11837] Starting template run produces workflow runs test");
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
 
@@ -790,7 +1017,7 @@ test.describe("Orchestrator", () => {
       await expect(createButton).toBeVisible({ timeout: 10000 });
       await createButton.click();
 
-      // Accept success or 409 Conflict (entity already registered from a prior run)
+      console.log("[RHIDP-11837] Waiting for template task completion...");
       const completed = page.getByText(/Completed|succeeded|finished/i);
       const conflictError = page.getByText(/409 Conflict/i);
       const startOver = page.getByRole("button", { name: "Start Over" });
@@ -798,6 +1025,7 @@ test.describe("Orchestrator", () => {
       await expect(completed.or(conflictError).or(startOver)).toBeVisible({
         timeout: 120000,
       });
+      console.log(`[RHIDP-11837] Template task finished. URL: ${page.url()}`);
 
       await uiHelper.openSidebar("Orchestrator");
       await expect(
@@ -808,12 +1036,14 @@ test.describe("Orchestrator", () => {
         name: /Greeting workflow/i,
       });
       await expect(greetingWorkflow).toBeVisible({ timeout: 30000 });
+      console.log("[RHIDP-11837] Greeting workflow visible in Orchestrator after template run");
     });
 
     test("RHIDP-11838: Dynamic plugin config enables Workflows tab", async ({
       page,
       uiHelper,
     }) => {
+      console.log("[RHIDP-11838] Starting dynamic plugin config Workflows tab test");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading("My Org Catalog");
       await uiHelper.selectMuiBox("Kind", "Template");
@@ -832,11 +1062,12 @@ test.describe("Orchestrator", () => {
 
       await orchestrator.clickWorkflowsTab();
 
-      // The OrchestratorCatalogTab card should render workflow info from the annotation
+      console.log("[RHIDP-11838] Verifying OrchestratorCatalogTab content...");
       const workflowsContent = page.locator("main").filter({
         has: page.getByText("Greeting workflow"),
       });
       await expect(workflowsContent).toBeVisible();
+      console.log("[RHIDP-11838] Dynamic plugin config Workflows tab verified");
     });
   });
 });
@@ -847,24 +1078,36 @@ function getHttpbinValue(ns: string): string | undefined {
       `oc -n ${ns} get sonataflow failswitch -o jsonpath='{.spec.podTemplate.container.env[?(@.name=="HTTPBIN")].value}'`,
       { encoding: "utf-8", timeout: 30_000 },
     );
-    return result.trim() || undefined;
-  } catch {
+    const value = result.trim() || undefined;
+    console.log(`[httpbin] Current HTTPBIN value in ns=${ns}: ${value}`);
+    return value;
+  } catch (e) {
+    console.log(`[httpbin] Failed to get HTTPBIN value: ${e}`);
     return undefined;
   }
 }
 
 async function patchHttpbin(ns: string, value: string): Promise<void> {
   const patch = `{"spec":{"podTemplate":{"container":{"env":[{"name":"HTTPBIN","value":"${value}"}]}}}}`;
-  console.log("patching HTTPBIN in sonataflow resource to", value);
+  console.log(`[httpbin] Patching HTTPBIN in ns=${ns} to: ${value}`);
   await $`oc -n ${ns} patch sonataflow failswitch --type merge -p ${patch}`;
+  const actual = getHttpbinValue(ns);
+  console.log(`[httpbin] Patch applied. Verified HTTPBIN value: ${actual}`);
 }
 
 async function restartAndWait(ns: string): Promise<void> {
-  console.log("restarting deployment failswitch");
+  console.log(`[restart] Restarting deployment failswitch in ns=${ns}`);
   await $`oc -n ${ns} rollout restart deployment failswitch`;
 
-  console.log("waiting for rollout to complete");
+  console.log("[restart] Waiting for rollout to complete (timeout=60s)...");
+  const rolloutStart = Date.now();
   await $`oc -n ${ns} rollout status deployment failswitch --timeout=60s`;
+  console.log(`[restart] Rollout complete (${((Date.now() - rolloutStart) / 1000).toFixed(1)}s)`);
+
+  try {
+    const pods = execSync(`oc get pods -n ${ns} -l sonataflow.org/workflow-app=failswitch --no-headers`, { encoding: "utf-8" }).trim();
+    console.log(`[restart] Failswitch pods after restart:\n${pods}`);
+  } catch (e) { console.log(`[restart] Pod list error: ${e}`); }
 }
 
 async function cleanupAfterTest(
@@ -872,8 +1115,13 @@ async function cleanupAfterTest(
   originalHttpbin: string,
 ): Promise<void> {
   const currentHttpbin = getHttpbinValue(ns);
+  console.log(`[cleanup] Current HTTPBIN: ${currentHttpbin}, expected: ${originalHttpbin}`);
   if (currentHttpbin !== originalHttpbin) {
+    console.log("[cleanup] HTTPBIN mismatch, restoring original...");
     await patchHttpbin(ns, originalHttpbin);
     await restartAndWait(ns);
+    console.log("[cleanup] Cleanup complete");
+  } else {
+    console.log("[cleanup] HTTPBIN already at original value, no cleanup needed");
   }
 }

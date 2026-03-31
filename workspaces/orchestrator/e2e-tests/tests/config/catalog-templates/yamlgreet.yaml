@@ -6,33 +6,41 @@ metadata:
   description: Simple YAML-based greeting workflow template
   annotations:
     orchestrator.io/workflows: '["greeting"]'
+  tags:
+    - orchestrator
 spec:
-  owner: user:default/test1
-  type: workflow
+  owner: red-hat-developer-hub-authors
+  system: red-hat-developer-hub
+  type: service
+
   parameters:
-    - title: Greeting
+    - title: Provide workflow inputs
+      required:
+        - language
       properties:
         language:
           title: Language
           type: string
           enum:
-            - English
-            - Spanish
-          default: English
+            - 'English'
+            - 'Spanish'
+          default: 'English'
         name:
           title: Name
           type: string
-          description: Name to greet
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+
   steps:
-    - id: run-workflow
-      name: Run greeting workflow
+    - id: runWorkflow
+      name: Run workflow
       action: orchestrator:workflow:run
       input:
-        workflowId: greeting
-        inputData:
+        workflow_id: greeting
+        parameters:
           language: ${{ parameters.language }}
           name: ${{ parameters.name }}
+
   output:
     links:
       - title: Open workflow run
-        url: /orchestrator/instances/${{ steps['run-workflow'].output.workflowInstanceId }}
+        url: "${{ steps.runWorkflow.output.instanceUrl }}"

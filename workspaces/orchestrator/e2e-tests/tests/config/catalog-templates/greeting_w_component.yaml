@@ -3,43 +3,58 @@ kind: Template
 metadata:
   name: greetingComponent
   title: Greeting Test Picker
-  description: Run the Greeting workflow with entity picker support
+  description: Greeting Picker workflow — creates a Component entity and runs the greeting workflow against it
   annotations:
     orchestrator.io/workflows: '["greeting"]'
+    sonataflow.org/description: YAML based greeting workflow
+    sonataflow.org/expressionLang: jq
+    sonataflow.org/version: "1.0"
+  tags:
+    - orchestrator
 spec:
-  owner: user:default/test1
-  type: workflow
+  type: service
+  dependsOn:
+    - component: default/red-hat-developer-hub
+
   parameters:
-    - title: Greeting Test Picker
+    - title: Provide workflow inputs
+      required:
+        - language
+        - name
       properties:
         language:
           title: Language
           type: string
           enum:
-            - English
-            - Spanish
-          default: English
+            - 'English'
+            - 'Spanish'
+          default: 'English'
         name:
           title: Name
           type: string
-          description: Name to greet
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+
   steps:
-    - id: run-workflow
+    - id: register
+      name: Register Component in Catalog
+      action: catalog:register
+      input:
+        catalogInfoUrl: https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/skeleton/catalog-info.yaml
+
+    - id: runWorkflow
       name: Run greeting workflow
       action: orchestrator:workflow:run
       input:
-        workflowId: greeting
-        inputData:
+        workflow_id: greeting
+        target_entity: ${{ steps.register.output.entityRef }}
+        parameters:
           language: ${{ parameters.language }}
           name: ${{ parameters.name }}
-    - id: register
-      name: Register in catalog
-      action: catalog:register
-      input:
-        catalogInfoUrl: https://github.com/janus-qe/test-user-entity/blob/main/user.yaml
+
   output:
     links:
-      - title: Open workflow run
-        url: /orchestrator/instances/${{ steps['run-workflow'].output.workflowInstanceId }}
       - title: View in catalog
-        entityRef: ${{ steps['register'].output.entityRef }}
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}
+      - title: Open workflow run
+        url: ${{ steps.runWorkflow.output.instanceUrl }}
