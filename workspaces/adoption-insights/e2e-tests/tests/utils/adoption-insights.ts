@@ -109,7 +109,7 @@ export class TestHelper {
       await uiHelper.clickButton("Review");
       await uiHelper.clickButton("Create");
       await this.page
-        .getByText("Run of Create a tekton CI")
+        .getByRole("button", { name: "Error: Request failed" })
         .waitFor({ state: "visible" });
     }
 
@@ -174,12 +174,11 @@ async function waitUntilApiCallIsMade(
 
 async function waitUntilApiCallSucceeds(
   page: Page,
-  urlPart?: string,
+  urlPart = "/api/adoption-insights/events",
 ): Promise<void> {
-  const part = urlPart ?? "/api/adoption-insights/events";
   const response = await page.waitForResponse(
     async (response) => {
-      const urlMatches = response.url().includes(part);
+      const urlMatches = response.url().includes(urlPart);
       const isSuccess = response.status() === 200;
       return urlMatches && isSuccess;
     },

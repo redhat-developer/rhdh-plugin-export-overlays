@@ -26,10 +26,6 @@ test.describe.serial("Test Adoption Insights", () => {
   let testHelper: TestHelper;
 
   test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
-    test.info().annotations.push({
-      type: "component",
-      description: "plugins",
-    });
     await rhdhDeploymentWorker.configure({
       auth: "keycloak",
       disableWrappers: [...ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES],
@@ -45,7 +41,6 @@ test.describe.serial("Test Adoption Insights", () => {
 
     const loginHelper = new LoginHelper(page);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.goToPageUrl("/", "Welcome back!");
   });
 
   test.afterAll(async () => {
@@ -62,7 +57,7 @@ test.describe.serial("Test Adoption Insights", () => {
     test("Check UI navigation by nav bar when adoption-insights is enabled", async () => {
       await goToAdoptionInsights(uiHelper, page);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay for UI stabilization
-      await page.waitForTimeout(5000);
+      await page.waitForTimeout(2000);
       await uiHelper.verifyHeading("Adoption Insights");
       expect(page.url()).toContain("adoption-insights");
     });
@@ -188,18 +183,12 @@ test.describe.serial("Test Adoption Insights", () => {
           const panel = page
             .locator(".v5-MuiPaper-root", { hasText: title })
             .last();
-          if (
-            title === "catalog entities" ||
-            title === "techdocs" ||
-            title === "templates"
-          ) {
-            state[title].firstRow =
-              await testHelper.getVisibleFirstRowText(panel);
-            if (title === "catalog entities")
-              catalogEntitiesFirstEntry = state[title].firstRow ?? [];
-            else if (title === "techdocs")
-              techdocsFirstEntry = state[title].firstRow ?? [];
-          }
+          state[title].firstRow =
+            await testHelper.getVisibleFirstRowText(panel);
+          if (title === "catalog entities")
+            catalogEntitiesFirstEntry = state[title].firstRow ?? [];
+          else if (title === "techdocs")
+            techdocsFirstEntry = state[title].firstRow ?? [];
           const firstRow = panel
             .locator("table.v5-MuiTable-root tbody tr")
             .first();
