@@ -84,25 +84,25 @@ test.describe("Orchestrator", () => {
         console.log(`[orchestrator-setup] All services in ${ns}:\n${svcs}`);
       } catch (e) { console.log(`[orchestrator-setup] svc list error: ${e}`); }
 
-      // Query data-index GraphQL for workflow definitions and their serviceUrls
+      // Query data-index GraphQL via the greeting pod (which has curl) through K8s service
       try {
         const gqlQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
         const diResult = execSync(
-          `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s -X POST http://localhost:80/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
+          `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
         console.log(`[orchestrator-setup] Data-index ProcessDefinitions:\n${diResult}`);
       } catch (e) { console.log(`[orchestrator-setup] Data-index query error: ${e}`); }
 
-      // Query data-index for workflow instances
+      // Also try querying data-index on port 8080 (container port) directly
       try {
-        const gqlQuery = '{"query":"{ ProcessInstances(where: {}) { id, processId, state, serviceUrl } }"}';
+        const gqlQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
         const diResult = execSync(
-          `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s -X POST http://localhost:80/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
+          `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s -X POST http://localhost:8080/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index ProcessInstances:\n${diResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index instances query error: ${e}`); }
+        console.log(`[orchestrator-setup] Data-index ProcessDefinitions (localhost:8080):\n${diResult}`);
+      } catch (e) { console.log(`[orchestrator-setup] Data-index query (8080) error: ${e}`); }
 
       // Curl greeting runtime directly to verify it responds
       try {
@@ -113,19 +113,23 @@ test.describe("Orchestrator", () => {
         console.log(`[orchestrator-setup] Greeting runtime health: HTTP ${greetResult}`);
       } catch (e) { console.log(`[orchestrator-setup] Greeting health check error: ${e}`); }
 
-      // Check RHDH backend logs for orchestrator/data-index errors
+      // Check RHDH backend logs using deployment name (avoids matching postgresql pod)
       try {
         const rhdhLogs = execSync(
-          `oc logs -n ${ns} -l app.kubernetes.io/instance=redhat-developer-hub -c backstage-backend --tail=100`,
+          `oc logs -n ${ns} deploy/redhat-developer-hub --tail=200`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
         const relevantLines = rhdhLogs.split("\n").filter(
-          (l: string) => /orchestrator|data-index|catalog.*error|catalog.*warn|template.*error|failed to read/i.test(l),
+          (l: string) => /orchestrator|data-index|catalog.*error|catalog.*warn|template.*error|failed to read|error.*url|CATALOG_TEMPLATES/i.test(l),
         );
         console.log(`[orchestrator-setup] RHDH relevant logs (${relevantLines.length} lines):\n${relevantLines.join("\n")}`);
+        if (relevantLines.length === 0) {
+          const last30 = rhdhLogs.split("\n").slice(-30);
+          console.log(`[orchestrator-setup] RHDH last 30 log lines:\n${last30.join("\n")}`);
+        }
       } catch (e) { console.log(`[orchestrator-setup] RHDH logs error: ${e}`); }
 
-      // Check SonataFlow CR status.address (used by data-index for serviceUrl)
+      // Check SonataFlow CR status.address and KOGITO_SERVICE_URL env var
       for (const wf of ["greeting", "failswitch"]) {
         try {
           const addr = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.address}'`, { encoding: "utf-8" }).trim();
@@ -135,27 +139,44 @@ test.describe("Orchestrator", () => {
           const conds = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`, { encoding: "utf-8" }).trim();
           console.log(`[orchestrator-setup] ${wf} status.conditions: ${conds}`);
         } catch (e) { console.log(`[orchestrator-setup] ${wf} conditions error: ${e}`); }
+        try {
+          const envVars = execSync(
+            `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}={.value}{"\\n"}{end}'`,
+            { encoding: "utf-8", timeout: 10_000 },
+          ).trim();
+          const kogitoVars = envVars.split("\n").filter((l: string) => /KOGITO|SERVICE_URL|DATA_INDEX/i.test(l));
+          console.log(`[orchestrator-setup] ${wf} KOGITO env vars:\n${kogitoVars.join("\n")}`);
+        } catch (e) { console.log(`[orchestrator-setup] ${wf} env vars error: ${e}`); }
       }
 
-      // Test RHDH orchestrator API endpoint
+      // Check RHDH pod env var for data-index URL
+      try {
+        const diUrlInPod = execSync(
+          `oc exec -n ${ns} deploy/redhat-developer-hub -- env | grep -i 'SONATAFLOW\\|DATA_INDEX\\|CATALOG_TEMPLATES'`,
+          { encoding: "utf-8", timeout: 15_000 },
+        ).trim();
+        console.log(`[orchestrator-setup] RHDH pod env vars:\n${diUrlInPod}`);
+      } catch (e) { console.log(`[orchestrator-setup] RHDH pod env error: ${e}`); }
+
+      // Test RHDH orchestrator API from inside the cluster (bypasses auth)
       const rhdhUrl = rhdh.rhdhUrl;
       console.log(`[orchestrator-setup] RHDH URL: ${rhdhUrl}`);
       try {
         const apiResult = execSync(
-          `curl -sk -o /dev/null -w "%{http_code}" "${rhdhUrl}/api/orchestrator/v2/workflows"`,
+          `oc exec -n ${ns} deploy/greeting -- curl -s -o /dev/null -w "%{http_code}" http://redhat-developer-hub:7007/api/orchestrator/v2/workflows`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        console.log(`[orchestrator-setup] RHDH orchestrator API /v2/workflows: HTTP ${apiResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] RHDH API check error: ${e}`); }
+        console.log(`[orchestrator-setup] RHDH orchestrator API (internal): HTTP ${apiResult}`);
+      } catch (e) { console.log(`[orchestrator-setup] RHDH API internal check error: ${e}`); }
 
-      // Try fetching actual workflow list from RHDH API
+      // Get actual workflow list from RHDH internal API
       try {
         const apiBody = execSync(
-          `curl -sk "${rhdhUrl}/api/orchestrator/v2/workflows" 2>/dev/null | head -c 2000`,
+          `oc exec -n ${ns} deploy/greeting -- curl -s http://redhat-developer-hub:7007/api/orchestrator/v2/workflows`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        console.log(`[orchestrator-setup] RHDH orchestrator workflows response (first 2000 chars):\n${apiBody}`);
-      } catch (e) { console.log(`[orchestrator-setup] RHDH workflows body error: ${e}`); }
+        console.log(`[orchestrator-setup] RHDH orchestrator workflows (internal, first 3000 chars):\n${apiBody.substring(0, 3000)}`);
+      } catch (e) { console.log(`[orchestrator-setup] RHDH workflows internal error: ${e}`); }
       // #endregion
     });
     await ensureBaselineRole(browser, testInfo);
