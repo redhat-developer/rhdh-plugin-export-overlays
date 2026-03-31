@@ -3,6 +3,10 @@
 
 app:
   title: RHDH Orchestrator Test Instance
+backend:
+  reading:
+    allow:
+      - host: raw.githubusercontent.com
 permission:
   enabled: true
   rbac:
