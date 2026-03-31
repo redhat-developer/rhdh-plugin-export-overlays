@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: cost-management
+  namespace: rhdh
+  title: Cost Management For Red Hat Developer Hub
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/cost-management
+  tags:
+    - cost-management
+    - optimization
+    - insights
+    - openshift
+    - cluster
+  description: |
+    Cost Management brings Red Hat Insights OpenShift cost tracking and resource optimization recommendations into Backstage. View costs by cluster, project, node, or tag and apply optimization recommendations to your configured clusters.
+spec:
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: dev-preview
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Automation
+  highlights:
+    - Track OpenShift costs grouped by cluster, project, node, or tag
+    - Monitor month-over-month cost changes and spending patterns
+    - Visualize resource usage trends and receive optimization recommendations
+    - Automatically apply optimization recommendations via Orchestrator workflows
+
+  description: |
+    The Cost Management plugin consists of two main parts:
+
+    ### OpenShift
+
+    The OpenShift section displays cost tracking for OpenShift clusters with flexible grouping options. Users can view costs grouped by cluster, project, node, or tag, monitor month-over-month cost changes, and filter data to analyze spending patterns and identify cost trends.
+
+    ### Optimizations
+
+    The Optimizations section allows users to visualize usage trends and receive optimization recommendations for workloads running on OpenShift clusters. There is also an option to automatically apply recommendations via the Orchestrator plugin.
+
+    The plugin consumes services from [Red Hat Hybrid Cloud Console](https://console.redhat.com/openshift/cost-management), therefore your clusters must be configured to access cost management data and optimization recommendations.
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh) 
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other 
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    for further details regarding the configuration required.
+
+  icon: data:image/svg+xml;base64,
+    PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0
+    PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij4KPHBhdGggZD0iTTEwLjk5OTk5NDgsMTYuODA4OTg4
+    OCBDMTQuMDY4NDcwNSwxNi44MDg5ODg4IDE2LjU2NDY5OCwxNC40MjQ5NTAxIDE2LjU2NDY5OCwx
+    MS40OTQzODIgQzE2LjU2NDY5OCwxMC44ODUwOTU3IDE2LjQ1ODUzOSwxMC4yODkzMjU5IDE2LjI0
+    ODI1MDIsOS43MjM0ODU5MSBDMTYuMTI4OTUzMyw5LjQwMTkzOTg1IDE2LjMwNDg3MDQsOS4wNDg1
+    MzU4IDE2LjY0MTUzNzUsOC45MzQ2MDA1MiBDMTYuOTc5MjE5Myw4LjgyMDY2NTI0IDE3LjM0NzIz
+    NTEsOC45ODg2NzYwMiAxNy40Njc1NDY2LDkuMzEwMjEyMTYgQzE3LjcyNzM4NDUsMTAuMDA5Mjk4
+    IDE3Ljg1ODgxNTIsMTAuNzQ0MTE3OCAxNy44NTg4MTUyLDExLjQ5NDM3MjEgQzE3Ljg1ODgxNTIs
+    MTUuMTA2NjQzNiAxNC43ODIyNTM4LDE4LjA0NDkzNCAxMC45OTk5OTQ4LDE4LjA0NDkzNCBDNy4y
+    MTc3MzU4OSwxOC4wNDQ5MzQgNC4xNDExNzQ1MSwxNS4xMDY2NDM2IDQuMTQxMTc0NTEsMTEuNDk0
+    MzcyMSBDNC4xNDExNzQ1MSw5LjE2MjQ3MTA0IDUuNDU1NTEwODUsNi45ODc5NjEzNiA3LjU3MDU4
+    NDY3LDUuODIwNTY3MiBDNy44Nzk5NjE0Nyw1LjY0OTY1OTM0IDguMjc0MjYzMzUsNS43NTEwNDcy
+    IDguNDU0MjI4NDksNi4wNDY1MTk1NiBDOC42MzMxNzg5NCw2LjM0MTk5MTkyIDguNTI3MDE5OTMs
+    Ni43MTk1MzE3IDguMjE3NjQzMTQsNi44OTA0NDk0NSBDNi41MDE5MjM1Miw3LjgzODY1NDM5IDUu
+    NDM1MjkxNTYsOS42MDI3ODc0OSA1LjQzNTI5MTU2LDExLjQ5NDM4MiBDNS40MzUyOTE1NiwxNC40
+    MjQ5NTAxIDcuOTMxNTE5MTQsMTYuODA4OTg4OCAxMC45OTk5OTQ4LDE2LjgwODk4ODggWiBNMTEs
+    MjIgQzQuOTM0ODMwNjEsMjIgMCwxNy4yODY5NTczIDAsMTEuNDk0MzgyIEMwLDYuODc5ODMwMTIg
+    My4wOTQ3NjE4NCwyLjg1MTM4Nzg4IDcuNjk5OTk2MzcsMS40Njk2Mjk2NyBDOC4wNDM3NDQ4Nywx
+    LjM2NzI3MjgxIDguNDA0Njc5MjgsMS41NDg0MDk0OSA4LjUxMTg1Mjk4LDEuODc0MjEyMTMgQzgu
+    NjE5MDI2NTMsMi4xOTk2MTQzOCA4LjQyODk0NjYyLDIuNTQ3MjI0MjggOC4wODgyMzE0OCwyLjY0
+    OTU4MTEzIEM0LjAyMzg5NjQ1LDMuODY4MTUzNzEgMS4yOTQxMTcwMyw3LjQyMjQ5MzUgMS4yOTQx
+    MTcwMywxMS40OTQzODIgQzEuMjk0MTE3MDMsMTYuNjA1MjU0IDUuNjQ4NjEzOCwyMC43NjQwNDUg
+    MTEsMjAuNzY0MDQ1IEMxNi4zNTEzNzU5LDIwLjc2NDA0NSAyMC43MDU4NzI2LDE2LjYwNTI1NCAy
+    MC43MDU4NzI2LDExLjQ5NDM4MiBDMjAuNzA1ODcyNiw5Ljg2NTQzMjc4IDIwLjI1Njk3OTYsOC4y
+    NjI1NTczMyAxOS40MDc3MDc2LDYuODU5NTUwNTggQzE5LjIyODc1NzEsNi41NjQwNzgyMiAxOS4z
+    MzQ5MTYxLDYuMTg2NTM4NDUgMTkuNjQ0MjkyOSw2LjAxNTYyMDY5IEMxOS45NTE2NTA5LDUuODQ0
+    NzEyODIgMjAuMzQ4OTc1OCw1Ljk0NTEzMTcgMjAuNTI3OTM2Nyw2LjI0MTU3MzA0IEMyMS40OTE0
+    NDMxLDcuODMxOTAxMTQgMjIsOS42NDgxNzE3NiAyMiwxMS40OTQzODIgQzIyLDE3LjI4Njk1NzMg
+    MTcuMDY1MTY5NCwyMiAxMSwyMiBMMTEsMjIgWiBNMTAuOTk5OTk0OCwxMi45Nzc1MjgxIEMxMS44
+    NTc2NjAxLDEyLjk3NzUyODEgMTIuNTUyOTM1MywxMi4zMTM1MDEgMTIuNTUyOTM1MywxMS40OTQz
+    ODIgQzEyLjU1MjkzNTMsMTAuNjc1MjYzMSAxMS44NTc2NjAxLDEwLjAxMTIzNiAxMC45OTk5OTQ4
+    LDEwLjAxMTIzNiBDMTAuMTQyMzI5NSwxMC4wMTEyMzYgOS40NDcwNTQzNywxMC42NzUyNjMxIDku
+    NDQ3MDU0MzcsMTEuNDk0MzgyIEM5LjQ0NzA1NDM3LDEyLjMxMzUwMSAxMC4xNDIzMjk1LDEyLjk3
+    NzUyODEgMTAuOTk5OTk0OCwxMi45Nzc1MjgxIFogTTExLjY0NzA1MzQsMS4yNTQyOTY2MyBMMTEu
+    NjQ3MDUzNCw4Ljk4MTQyODMzIEMxMS45MTY5MzM2LDkuMDQ0OTc2MjUgMTIuMTY5MTgzLDkuMTQ3
+    NDUxNzEgMTIuNDAwNzc4Miw5LjI4MTcyNTgxIEwxOC4xMTY1NzIyLDMuODIyODE4ODkgQzE2LjMx
+    MDQ4MTcsMi4yOTE3NjcyIDE0LjA1NjIwMjMsMS4zODk5MDU2MiAxMS42NDcwNTM0LDEuMjU0Mjk2
+    NjMgWiBNMTAuMzUyOTM2Miw4Ljk4MTQzODI3IEwxMC4zNTI5MzYyLDAuNjE3OTc3NTM0IEMxMC4z
+    NTI5MzYyLDAuMjc3MTIwOTA0IDEwLjY0MzA5OCwwIDEwLjk5OTk5NDgsMCBDMTQuMjEyNzkwNSww
+    IDE3LjIzMzQ5NzgsMS4xOTQ1NTU1MSAxOS41MDcwNDQsMy4zNjM2MzY4NyBDMTkuNTA4MTgyOCwz
+    LjM2NDY2NTE4IDE5LjUwOTY5NDMsMy4zNjQ5NjE4MSAxOS41MTA0MzMyLDMuMzY2MDQ5NDQgQzE5
+    LjU5NzY1MjgsMy40NDkzMzMwNSAxOS42NDM0NjQ2LDMuNTUyMzUyMzcgMTkuNjcwMzgyMywzLjY1
+    OTEwOTIzIEMxOS43MDIyOSwzLjc4NDM5NTUxIDE5LjcwMzc0OTcsMy45MTU0NzU5NiAxOS42NTI1
+    MDI3LDQuMDM1OTg2NTIgQzE5LjYyMTAyOTksNC4xMTA1Nzg4OSAxOS41NzM4MzA3LDQuMTgwNDY0
+    NzMgMTkuNTEwODMzMiw0LjI0MDg2ODMyIEwxMy4zMTY3NjQ2LDEwLjE1NjU1NDYgQzEzLjU2NTkx
+    ODMsMTAuNTQ4NTc5OCAxMy43MTc2NDA2LDExLjAwMzMxMjQgMTMuNzE3NjQwNiwxMS40OTQzODIg
+    QzEzLjcxNzY0MDYsMTIuOTI1MzkwNiAxMi40OTgzNDQzLDE0LjA4OTg4NzcgMTAuOTk5OTk0OCwx
+    NC4wODk4ODc3IEM5LjUwMTY0NTM2LDE0LjA4OTg4NzcgOC4yODIzNDkwNCwxMi45MjUzOTA2IDgu
+    MjgyMzQ5MDQsMTEuNDk0MzgyIEM4LjI4MjM0OTA0LDEwLjI3NzM4MTYgOS4xNjc1MDQ0NCw5LjI2
+    MDU0NjQ5IDEwLjM1MjkzNjIsOC45ODE0MzgyNyBaIiBmaWxsPSJjdXJyZW50Q29sb3IiLz4KPC9z
+    dmc+Cg==
+
+  packages:
+    - cost-management
+    - cost-management-backend
