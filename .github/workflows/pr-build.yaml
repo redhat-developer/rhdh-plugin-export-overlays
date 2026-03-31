@@ -342,7 +342,10 @@ jobs:
       - detectChanges
 
     permissions:
-      contents: read
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
 
     if: |
       !cancelled() &&
