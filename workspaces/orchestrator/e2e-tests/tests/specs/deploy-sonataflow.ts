@@ -40,13 +40,13 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
   } catch (e) { console.log(`[deploy-sonataflow] CSV list error: ${e}`); }
 
-  // Patch SFP: resource limits + permissive liveness probe via podTemplate.
-  // The data-index image bundles SmallRye Reactive Messaging Kafka extensions
-  // whose liveness health check degrades after ~7 min without a broker, causing
-  // a crash-loop.  The health-disable env var is build-time only and ineffective
-  // at runtime, so we widen the probe's failureThreshold through the SFP CR
+  // Patch SFP: resource limits + permissive liveness/readiness probes via podTemplate.
+  // The data-index image bundles SmallRye Reactive Messaging extensions whose health
+  // checks degrade after ~7 min without a broker, returning 503 on both /q/health/live
+  // and /q/health/ready.  Failed readiness removes the pod from Service endpoints
+  // (causing ECONNREFUSED).  We widen both probes' failureThreshold through the SFP CR
   // (operator-managed, survives reconciliation).
-  console.log("[deploy-sonataflow] Patching SonataFlowPlatform (resources, liveness probe)...");
+  console.log("[deploy-sonataflow] Patching SonataFlowPlatform (resources, probes)...");
   try {
     const sfpPatch = JSON.stringify({
       spec: {
@@ -61,6 +61,12 @@ export async function deploySonataflow(namespace: string): Promise<void> {
                 livenessProbe: {
                   failureThreshold: 200,
                   httpGet: { path: "/q/health/live", port: 8080, scheme: "HTTP" },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
+                readinessProbe: {
+                  failureThreshold: 200,
+                  httpGet: { path: "/q/health/ready", port: 8080, scheme: "HTTP" },
                   periodSeconds: 10,
                   timeoutSeconds: 10,
                 },
@@ -97,12 +103,14 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] SFP resource patch error (non-fatal): ${e}`);
   }
 
-  // Verify resources and liveness probe were applied
+  // Verify resources and probes were applied
   try {
     const diResources = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].resources}'`);
     console.log(`[deploy-sonataflow] Data-index resources after patch: ${diResources}`);
-    const diProbe = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].livenessProbe.failureThreshold}'`);
-    console.log(`[deploy-sonataflow] Data-index liveness failureThreshold: ${diProbe}`);
+    const diLiveness = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].livenessProbe.failureThreshold}'`);
+    console.log(`[deploy-sonataflow] Data-index liveness failureThreshold: ${diLiveness}`);
+    const diReadiness = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].readinessProbe.failureThreshold}'`);
+    console.log(`[deploy-sonataflow] Data-index readiness failureThreshold: ${diReadiness}`);
   } catch (e) { console.log(`[deploy-sonataflow] Data-index verification error: ${e}`); }
   // #endregion
 
