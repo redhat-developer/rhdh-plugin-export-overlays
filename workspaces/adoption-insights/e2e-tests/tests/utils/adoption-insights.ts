@@ -90,8 +90,10 @@ export class TestHelper {
           .fill(sampleTemplate);
         await this.page.getByRole("button", { name: "Analyze" }).click();
         await this.page.getByRole("button", { name: "Import" }).click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time after Import
         await this.page.waitForTimeout(2000);
         await this.page.getByRole("button", { name: "Register" }).click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time before Self-service
         await this.page.waitForTimeout(5000);
         await this.page.getByRole("link", { name: "Self-service" }).click();
       }
@@ -116,6 +118,8 @@ export class TestHelper {
     if (catalogEntitiesFirstLast.length === 0) {
       await uiHelper.clickLink("Catalog");
       await uiHelper.clickLink("Red Hat Developer Hub");
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay
+      await this.page.waitForTimeout(5000);
       await expect(this.page.getByText("Red Hat Developer Hub")).toBeVisible();
     }
 
