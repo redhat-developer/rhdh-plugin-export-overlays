@@ -369,6 +369,7 @@ jobs:
       # IMPORTANT: publish-container is FALSE - we only build, not publish
       # Publishing happens in the workflow_run triggered pr-publish.yaml
       publish-container: false
+      save-container-images: true
       image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
       image-tag-prefix: ${{ format('pr_{0}__', needs.prepare.outputs.pr-number) }}
 

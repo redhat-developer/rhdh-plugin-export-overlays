@@ -127,14 +127,13 @@ jobs:
       failed-exports: ${{ steps.publish.outputs.failed-exports }}
 
     steps:
-      - name: Download exported plugin archives
+      - name: Download container image archives
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          # Download original artifacts directly from export job using glob pattern
-          pattern: dynamic plugin packages*
+          pattern: container-images*
           run-id: ${{ env.TRIGGERING_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ./exports
+          path: ./container-images
           merge-multiple: true
 
       - name: Log in to container registry
@@ -144,98 +143,28 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
           registry: ghcr.io
 
-      - name: Publish plugin archives to container registry
+      - name: Push container images
         id: publish
-        env:
-          IMAGE_PREFIX: ghcr.io/${{ github.repository }}
-          TAG_PREFIX: pr_${{ needs.resolve.outputs.prNumber }}__
         run: |
-          IMAGE_PREFIX="${IMAGE_PREFIX,,}"
           published=""
           failed=""
-          
-          echo "Publishing exports to container registry..."
-          echo "Image prefix: $IMAGE_PREFIX"
-          echo "Tag prefix: $TAG_PREFIX"
-          
-          # Find all plugin archives
-          archives=$(find ./exports -type f \( -name "*.tgz" -o -name "*.tar.gz" \) 2>/dev/null)
-          
-          if [ -z "$archives" ]; then
-            echo "No plugin archives found to publish"
-            echo "published-exports=" >> $GITHUB_OUTPUT
-            echo "failed-exports=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          for archive in $archives; do
-            filename=$(basename "$archive")
-            
-            # Extract plugin name from archive filename
-            plugin_name=$(echo "$filename" | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-[^.]+)?\.tgz$//' | sed -E 's/-[0-9]+\.[0-9]+\.[0-9]+(-[^.]+)?\.tar\.gz$//')
-            
-            # Extract version from filename
-            version=$(echo "$filename" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -1)
-            
-            if [ -z "$version" ]; then
-              version="latest"
-            fi
-            
-            # Normalize plugin name for image name
-            normalized_name=$(echo "$plugin_name" | tr '[:upper:]' '[:lower:]' | sed 's/@//g' | sed 's/\//-/g')
-            
-            image_name="${IMAGE_PREFIX}/${normalized_name}"
-            image_tag="${TAG_PREFIX}${version}"
-            full_image="${image_name}:${image_tag}"
-            
-            echo "=========================================="
-            echo "Publishing: $filename"
-            echo "  Plugin name: $plugin_name"
-            echo "  Version: $version"
-            echo "  Image: $full_image"
-            echo "=========================================="
-            
-            container_name="plugin-$(date +%s)-$$"
-            
-            if buildah from --name "$container_name" scratch && \
-               buildah copy "$container_name" "$archive" /plugin.tgz && \
-               buildah config --label "org.opencontainers.image.title=$plugin_name" "$container_name" && \
-               buildah config --label "org.opencontainers.image.version=$version" "$container_name" && \
-               buildah config --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" "$container_name" && \
-               buildah commit "$container_name" "$full_image" && \
-               buildah push "$full_image"; then
-              echo "Successfully published: $full_image"
-              published="${published}${full_image}"$'\n'
-              buildah rm "$container_name" 2>/dev/null || true
+          for archive in ./container-images/*.tar; do
+            [ -f "$archive" ] || continue
+            tag=$(podman load -i "$archive" 2>&1 | sed -n 's/.*Loaded image: //p' | head -1)
+            if [ -n "$tag" ] && podman push "$tag"; then
+              echo "Successfully pushed: $tag"
+              published="${published}${tag}"$'\n'
             else
-              echo "::error::Failed to publish: $archive"
-              failed="${failed}${plugin_name}"$'\n'
-              buildah rm "$container_name" 2>/dev/null || true
+              echo "::error::Failed to push: $(basename "$archive" .tar)"
+              failed="${failed}$(basename "$archive" .tar)"$'\n'
             fi
           done
-          
-          # Output results
           echo "published-exports<<EOF" >> $GITHUB_OUTPUT
           echo "$published" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          
           echo "failed-exports<<EOF" >> $GITHUB_OUTPUT
           echo "$failed" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo ""
-          echo "=========================================="
-          echo "Publishing Summary"
-          echo "=========================================="
-          if [ -n "$published" ]; then
-            echo "Published:"
-            echo "$published" | while read -r line; do [ -n "$line" ] && echo "  - $line"; done
-          fi
-          if [ -n "$failed" ]; then
-            echo "Failed:"
-            echo "$failed" | while read -r line; do [ -n "$line" ] && echo "  - $line"; done
-            echo "::warning::Some plugins failed to publish"
-          fi
 
   upload-published-exports:
     needs:
