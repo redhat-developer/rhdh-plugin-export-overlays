@@ -1,0 +1,64 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: app-config-rhdh
+  namespace: rbac
+data:
+  app-config-rhdh.yaml: |
+    app:
+      baseUrl: ${RHDH_BASE_URL}
+    backend:
+      baseUrl: ${RHDH_BASE_URL}
+      cors:
+        origin: ${RHDH_BASE_URL}
+    auth:
+      environment: production
+      session:
+        secret: superSecretSecret
+      providers:
+        oidc:
+          production:
+            metadataUrl: ${KEYCLOAK_METADATA_URL}
+            clientId: ${KEYCLOAK_CLIENT_ID}
+            clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+            prompt: auto
+            callbackUrl: ${RHDH_BASE_URL}/api/auth/oidc/handler/frame
+            signIn:
+              resolvers:
+                - resolver: emailLocalPartMatchingUserEntityName
+    signInPage: oidc
+    catalog:
+      rules:
+        - allow:
+            - Component
+            - Group
+      processingInterval:
+        hours: 24
+      import:
+        entityFilename: catalog-info.yaml
+      locations:
+        - type: url
+          target: >-
+            https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/rbac-test-migration/workspaces/rbac/e2e-tests/tests/config/catalog-entities.yaml
+    permission:
+      enabled: true
+      rbac:
+        maxDepth: 1
+        policyFileReload: true
+        policies-csv-file: ./rbac/rbac-policy.csv
+        conditionalPoliciesFile: ./rbac/conditional-policy.yaml
+        defaultPermissions:
+          defaultRole: role:default/default-role
+          basicPermissions:
+            - permission: catalog-entity
+              action: read
+              effect: allow
+        pluginsWithPermission:
+          - catalog
+          - permission
+          - scaffolder
+        admin:
+          users:
+            - name: user:default/rbac-admin
+        policyDecisionPrecedence: conditional
+    includeTransitiveGroupOwnership: true
