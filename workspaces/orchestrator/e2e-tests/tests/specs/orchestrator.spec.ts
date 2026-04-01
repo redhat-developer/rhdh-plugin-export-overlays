@@ -1168,8 +1168,24 @@ function getHttpbinValue(ns: string): string | undefined {
 }
 
 async function patchHttpbin(ns: string, value: string): Promise<void> {
-  const patch = `{"spec":{"podTemplate":{"container":{"env":[{"name":"HTTPBIN","value":"${value}"}]}}}}`;
-  console.log(`[httpbin] Patching HTTPBIN in ns=${ns} to: ${value}`);
+  // Read existing env vars so the merge-patch preserves entries like K_SINK
+  let existing: Array<{ name: string; value: string }> = [];
+  try {
+    const raw = execFileSync("oc", [
+      "-n", ns, "get", "sonataflow", "failswitch",
+      "-o", "jsonpath={.spec.podTemplate.container.env}",
+    ], { encoding: "utf-8", timeout: 30_000 }).trim();
+    if (raw && raw !== "null" && raw !== "") {
+      existing = JSON.parse(raw);
+    }
+  } catch { /* no existing env */ }
+  const idx = existing.findIndex((e: { name: string }) => e.name === "HTTPBIN");
+  if (idx >= 0) existing[idx] = { name: "HTTPBIN", value };
+  else existing.push({ name: "HTTPBIN", value });
+  const patch = JSON.stringify({
+    spec: { podTemplate: { container: { env: existing } } },
+  });
+  console.log(`[httpbin] Patching HTTPBIN in ns=${ns} to: ${value} (preserving ${existing.length} env vars)`);
   execFileSync("oc", [
     "-n", ns,
     "patch", "sonataflow", "failswitch",
