@@ -1,8 +1,7 @@
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { test, expect } from "rhdh-e2e-test-utils/test";
 import { AuthApiHelper } from "rhdh-e2e-test-utils/helpers";
 import { OrchestratorPage } from "rhdh-e2e-test-utils/pages";
-import { $ } from "rhdh-e2e-test-utils/utils";
 import { ensureBaselineRole } from "./rbac-baseline.js";
 import { deploySonataflow } from "./deploy-sonataflow.js";
 
@@ -1154,10 +1153,11 @@ test.describe("Orchestrator", () => {
 
 function getHttpbinValue(ns: string): string | undefined {
   try {
-    const result = execSync(
-      `oc -n ${ns} get sonataflow failswitch -o jsonpath='{.spec.podTemplate.container.env[?(@.name=="HTTPBIN")].value}'`,
-      { encoding: "utf-8", timeout: 30_000 },
-    );
+    const result = execFileSync("oc", [
+      "-n", ns,
+      "get", "sonataflow", "failswitch",
+      "-o", `jsonpath={.spec.podTemplate.container.env[?(@.name=='HTTPBIN')].value}`,
+    ], { encoding: "utf-8", timeout: 30_000 });
     const value = result.trim() || undefined;
     console.log(`[httpbin] Current HTTPBIN value in ns=${ns}: ${value}`);
     return value;
@@ -1170,22 +1170,31 @@ function getHttpbinValue(ns: string): string | undefined {
 async function patchHttpbin(ns: string, value: string): Promise<void> {
   const patch = `{"spec":{"podTemplate":{"container":{"env":[{"name":"HTTPBIN","value":"${value}"}]}}}}`;
   console.log(`[httpbin] Patching HTTPBIN in ns=${ns} to: ${value}`);
-  await $`oc -n ${ns} patch sonataflow failswitch --type merge -p ${patch}`;
+  execFileSync("oc", [
+    "-n", ns,
+    "patch", "sonataflow", "failswitch",
+    "--type", "merge",
+    "-p", patch,
+  ], { encoding: "utf-8", timeout: 30_000 });
   const actual = getHttpbinValue(ns);
   console.log(`[httpbin] Patch applied. Verified HTTPBIN value: ${actual}`);
 }
 
 async function restartAndWait(ns: string): Promise<void> {
   console.log(`[restart] Restarting deployment failswitch in ns=${ns}`);
-  await $`oc -n ${ns} rollout restart deployment failswitch`;
+  execFileSync("oc", ["-n", ns, "rollout", "restart", "deployment", "failswitch"], { encoding: "utf-8", timeout: 30_000 });
 
   console.log("[restart] Waiting for rollout to complete (timeout=60s)...");
   const rolloutStart = Date.now();
-  await $`oc -n ${ns} rollout status deployment failswitch --timeout=60s`;
+  execFileSync("oc", ["-n", ns, "rollout", "status", "deployment", "failswitch", "--timeout=60s"], { encoding: "utf-8", timeout: 90_000 });
   console.log(`[restart] Rollout complete (${((Date.now() - rolloutStart) / 1000).toFixed(1)}s)`);
 
   try {
-    const pods = execSync(`oc get pods -n ${ns} -l sonataflow.org/workflow-app=failswitch --no-headers`, { encoding: "utf-8" }).trim();
+    const pods = execFileSync("oc", [
+      "get", "pods", "-n", ns,
+      "-l", "sonataflow.org/workflow-app=failswitch",
+      "--no-headers",
+    ], { encoding: "utf-8" }).trim();
     console.log(`[restart] Failswitch pods after restart:\n${pods}`);
   } catch (e) { console.log(`[restart] Pod list error: ${e}`); }
 }

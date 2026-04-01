@@ -40,11 +40,17 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
   } catch (e) { console.log(`[deploy-sonataflow] CSV list error: ${e}`); }
 
-  // #region agent log — H6: Patch SFP with resource limits + disable messaging health on data-index
-  console.log("[deploy-sonataflow] Patching SonataFlowPlatform with resource limits and messaging health override...");
+  // Patch SFP: eventing config (no broker), resource limits, and messaging health override
+  console.log("[deploy-sonataflow] Patching SonataFlowPlatform (eventing, resources, health)...");
   try {
     const sfpPatch = JSON.stringify({
       spec: {
+        eventing: {
+          broker: {
+            name: "",
+            namespace: "",
+          },
+        },
         services: {
           dataIndex: {
             podTemplate: {
