@@ -43,4 +43,8 @@ export const RBAC_ROLES: Record<string, RbacRef> = {
     name: "guests",
     ref: "role:default/guests",
   },
+  defaultRole: {
+    name: "default-role",
+    ref: "role:default/default-role",
+  }
 };

@@ -9,8 +9,10 @@ import {
 
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
+import { waitUntilRhdhServesHttp } from "../../support/utils/wait-for-rhdh-http";
 import {
   RBAC_DESCRIPTIVE_USERS,
   RBAC_GROUPS,
@@ -63,6 +65,8 @@ test.describe("RBAC plugin", () => {
       valueFile: "tests/config/values.yaml",
     });
     await rhdh.deploy();
+    await rhdh.waitUntilReady();
+    await waitUntilRhdhServesHttp(rhdh.rhdhUrl, { timeoutMs: 480_000 });
 
     // `beforeAll` does not receive a `page` fixture, so a temporary browser
     // context is created solely to perform the admin login and extract the
@@ -272,6 +276,7 @@ test.describe("RBAC plugin", () => {
 
     test("Edit role policies via the updatePolicies button on the overview page", async ({
       uiHelper,
+      rhdh
     }) => {
       await rbacPO.navigateToRBACPage();
       await rbacPO.createRole(
@@ -318,10 +323,20 @@ test.describe("RBAC plugin", () => {
       await expect(rbacNavLink).toHaveCount(0);
     });
 
+    
+    test("No access user should not see list of components in catalog", async ({
+      uiHelper,
+    }) => {
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyTableIsEmpty();
+    });
+
+
     test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
       await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText("ERROR : Not Found");
+      await uiHelper.verifyText("ERROR 403: Insufficient permissions to access this page");
     });
   });
 
@@ -626,6 +641,56 @@ test.describe("RBAC plugin", () => {
       );
 
       await rbacPO.deleteRole(RBAC_ROLES.conditionalResource.ref);
+    });
+  });
+
+  test.describe("Check default RBAC permissions", () => {
+    // Deploy + HTTP wait can take many minutes; both tests share the same cap.
+    test.describe.configure({ timeout: 600_000 });
+
+    test.beforeAll(async ({ rhdh }) => {
+      // `beforeAll` has its own timeout budget; align with the suite.
+      test.setTimeout(600_000);
+
+      const namespace = rhdh.deploymentConfig.namespace;
+      const configPath = path.resolve(
+        process.cwd(),
+        "tests/config/app-config-rhdh-with-default-permissions.yaml",
+      );
+      await $`oc apply -f ${configPath} -n ${namespace}`;
+      await rhdh.scaleDownAndRestart();
+      await rhdh.waitUntilReady();
+      await waitUntilRhdhServesHttp(rhdh.rhdhUrl, { timeoutMs: 480_000 });
+    });
+
+    test("User should got default permissions", async ({
+      page,
+      uiHelper,
+      loginHelper,
+    }) => {
+      await page.context().clearCookies();
+      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
+
+      rbacPO = new RbacPO(page, uiHelper);
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.waitForLoad();
+      await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
+    });
+
+    test("Default role should appear in the RBAC page", async ({
+      page,
+      uiHelper,
+      loginHelper,
+    }) => {
+      await page.context().clearCookies();
+      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
+      
+      rbacPO = new RbacPO(page, uiHelper);
+      
+      await rbacPO.navigateToRBACPage();
+      await uiHelper.waitForLoad();
+      await rbacPO.filterRolesList(RBAC_ROLES.defaultRole.name);
+      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.defaultRole.ref, "Role with default permissions for all users and groups.", ["1 permission"]);
     });
   });
 
