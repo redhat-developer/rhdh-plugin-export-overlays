@@ -2,7 +2,7 @@ import { type Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 export class ImageRegistry {
   static getAllCellsIdentifier() {
-    const tagText = /^((pr|next)-.*|\d+\.\d+.*)$/i;
+    const tagText = /^(pr-\d+(-\w+)?)|(next(-\d+\.\d+(-\w+)?)?)$/i;
     const lastModifiedDate =
       /^[A-Za-z]{3} \d{1,2}, \d{4}, \d{1,2}:\d{2} (AM|PM)$/; // Example: Jan 21, 2025, 7:54 PM
     const size = /^(\d+(\.\d+)?\s?(GB|MB))|N\/A$/; // Example: 1.16 GB or 512 MB
