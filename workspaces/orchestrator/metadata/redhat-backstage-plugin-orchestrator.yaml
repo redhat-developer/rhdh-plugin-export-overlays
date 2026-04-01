@@ -5,20 +5,21 @@ metadata:
   namespace: rhdh
   title: Orchestrator Frontend
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://issues.redhat.com/browse/RHIDP
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
   annotations:
-    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
+    backstage.io/source-location: url
+      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
   tags:
-  - automation
+    - automation
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-orchestrator'
   dynamicArtifact: 'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.45.3__5.3.1'
-  version: 5.3.1
+  version: 5.4.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -26,34 +27,34 @@ spec:
   support: production
   lifecycle: active
   partOf:
-  - orchestrator
+    - orchestrator
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-orchestrator:
-            appIcons:
-            - importName: OrchestratorIcon
-              name: orchestratorIcon
-            dynamicRoutes:
-            - importName: OrchestratorPage
-              menuItem:
-                icon: orchestratorIcon
-                text: Orchestrator
-                textKey: menuItem.orchestrator
-              path: /orchestrator
-            entityTabs:
-            - path: /workflows
-              title: Workflows
-              titleKey: catalog.entityPage.workflows.title
-              mountPoint: entity.page.workflows
-            mountPoints:
-            - mountPoint: entity.page.workflows/cards
-              importName: OrchestratorCatalogTab
-              config:
-                layout:
-                  gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                    - IsOrchestratorCatalogTabAvailable
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-orchestrator:
+              appIcons:
+                - importName: OrchestratorIcon
+                  name: orchestratorIcon
+              dynamicRoutes:
+                - importName: OrchestratorPage
+                  menuItem:
+                    icon: orchestratorIcon
+                    text: Orchestrator
+                    textKey: menuItem.orchestrator
+                  path: /orchestrator
+              entityTabs:
+                - path: /workflows
+                  title: Workflows
+                  titleKey: catalog.entityPage.workflows.title
+                  mountPoint: entity.page.workflows
+              mountPoints:
+                - mountPoint: entity.page.workflows/cards
+                  importName: OrchestratorCatalogTab
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                      if:
+                        anyOf:
+                          - IsOrchestratorCatalogTabAvailable
