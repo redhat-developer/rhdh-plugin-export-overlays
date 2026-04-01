@@ -117,20 +117,6 @@ test.describe("Orchestrator", () => {
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
       // #region agent log
-      const headSha = execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
-      let repoRef: string;
-      try {
-        execSync("git rev-parse HEAD^2", { encoding: "utf-8" });
-        repoRef = execSync("git rev-parse HEAD^1", { encoding: "utf-8" }).trim();
-        console.log(`[orchestrator-setup] HEAD is a merge commit. HEAD=${headSha}, HEAD^1 (PR tip)=${repoRef}`);
-      } catch {
-        repoRef = headSha;
-        console.log(`[orchestrator-setup] HEAD is not a merge commit. Using HEAD=${repoRef}`);
-      }
-      // #endregion
-      process.env.CATALOG_TEMPLATES_BASE_URL = `https://raw.githubusercontent.com/redhat-developer/rhdh-plugin-export-overlays/${repoRef}/workspaces/orchestrator/e2e-tests/tests/config/catalog-templates`;
-      // #region agent log
-      console.log(`[orchestrator-setup] CATALOG_TEMPLATES_BASE_URL=${process.env.CATALOG_TEMPLATES_BASE_URL}`);
       console.log(`[orchestrator-setup] SONATAFLOW_DATA_INDEX_URL=${process.env.SONATAFLOW_DATA_INDEX_URL}`);
       // #endregion
       await rhdh.deploy({ timeout: null });
@@ -147,12 +133,6 @@ test.describe("Orchestrator", () => {
           console.log(`[orchestrator-setup] ${wf} last 30 log lines:\n${logs}`);
         } catch (e) { console.log(`[orchestrator-setup] ${wf} logs error: ${e}`); }
       }
-      try {
-        const templateUrl = `${process.env.CATALOG_TEMPLATES_BASE_URL}/greeting.yaml`;
-        const curlResult = execSync(`curl -sS -o /dev/null -w "%{http_code}" "${templateUrl}"`, { encoding: "utf-8", timeout: 15_000 }).trim();
-        console.log(`[orchestrator-setup] Template URL accessibility check: ${templateUrl} -> HTTP ${curlResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Template URL check error: ${e}`); }
-
       // Check K8s services for workflows
       try {
         const svcs = execSync(`oc get svc -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
@@ -895,10 +875,9 @@ test.describe("Orchestrator", () => {
    * - Catalog <-> Workflows breadcrumb navigation
    * - Template execution -> workflow run linkage
    *
-   * Templates used (from catalog locations in app-config-rhdh.yaml):
+   * Templates used (from testetson22/greeting_54mjks on GitHub):
    * - greeting.yaml: name=greeting, title="Greeting workflow" - NO orchestrator.io/workflows annotation
    * - greeting_w_component.yaml: name=greetingComponent, title="Greeting Test Picker" - HAS annotation
-   * - yamlgreet.yaml: name=greet, title="Greeting" - HAS annotation
    *
    * These are scaffolder templates that use the orchestrator:workflow:run action
    * to trigger the "greeting" SonataFlow workflow deployed by CI.
