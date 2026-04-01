@@ -40,8 +40,8 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
   } catch (e) { console.log(`[deploy-sonataflow] CSV list error: ${e}`); }
 
-  // #region agent log — H1/H5: Patch SFP with resource limits matching main RHDH CI
-  console.log("[deploy-sonataflow] Patching SonataFlowPlatform with resource limits...");
+  // #region agent log — H6: Patch SFP with resource limits + disable messaging health on data-index
+  console.log("[deploy-sonataflow] Patching SonataFlowPlatform with resource limits and messaging health override...");
   try {
     const sfpPatch = JSON.stringify({
       spec: {
@@ -53,6 +53,12 @@ export async function deploySonataflow(namespace: string): Promise<void> {
                   requests: { memory: "64Mi", cpu: "250m" },
                   limits: { memory: "1Gi", cpu: "500m" },
                 },
+                env: [
+                  {
+                    name: "QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED",
+                    value: "false",
+                  },
+                ],
               },
             },
           },
@@ -83,11 +89,13 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] SFP resource patch error (non-fatal): ${e}`);
   }
 
-  // Verify resources were applied
+  // Verify resources and env were applied
   try {
     const diResources = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].resources}'`);
     console.log(`[deploy-sonataflow] Data-index resources after patch: ${diResources}`);
-  } catch (e) { console.log(`[deploy-sonataflow] Data-index resource check error: ${e}`); }
+    const diEnv = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED")].value}'`);
+    console.log(`[deploy-sonataflow] Data-index QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED: ${diEnv}`);
+  } catch (e) { console.log(`[deploy-sonataflow] Data-index verification error: ${e}`); }
   // #endregion
 
   const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
