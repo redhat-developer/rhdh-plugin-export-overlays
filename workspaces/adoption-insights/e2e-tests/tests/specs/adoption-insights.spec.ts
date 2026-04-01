@@ -56,8 +56,6 @@ test.describe.serial("Test Adoption Insights", () => {
 
     test("Check UI navigation by nav bar when adoption-insights is enabled", async () => {
       await goToAdoptionInsights(uiHelper, page);
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay for UI stabilization
-      await page.waitForTimeout(2000);
       await uiHelper.verifyHeading("Adoption Insights");
       expect(page.url()).toContain("adoption-insights");
     });
