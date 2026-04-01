@@ -1,11 +1,12 @@
 # RHDH ships this plugin from dynamic-plugins.default.yaml as
 # ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page with default
-# dynamicRoutes. Enabling the same frontend plugin again via GHCR with different dynamicRoutes
-# makes install-dynamic-plugins.py fail merging pluginConfig. Disable the dist entry first
-# (same pattern as workspaces/scorecard/e2e-tests/tests/config/dynamic-plugins.yaml).
+# dynamicRoutes. We enable the GHCR build with custom routes below.
+#
+# Do not also list ./dynamic-plugins/dist/... here: on PR CI, e2e-test-utils replaces every
+# metadata-matched package (dist path and oci://...) with the same PR OCI URL, which makes
+# install-dynamic-plugins.py fail with "Duplicate plugin configuration". The spec passes
+# disableWrappers so the chart dist wrapper is disabled without duplicating that OCI ref.
 plugins:
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-    disabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.4!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:

@@ -1,0 +1,17 @@
+diff --git a/dist/deployment/rhdh/deployment.js b/dist/deployment/rhdh/deployment.js
+index a50744c34bce025d2b9c49916c4db30f12082ded..1da820c9e6d2f39ff158dfef87d34e751624e1b6 100644
+--- a/dist/deployment/rhdh/deployment.js
++++ b/dist/deployment/rhdh/deployment.js
+@@ -132,8 +132,10 @@ export class RHDHDeployment {
+         }
+         // Process for deployment: inject metadata (PR only) + resolve all packages to OCI
+         let result = await processPluginsForDeployment(config, WorkspacePaths.metadataDir);
+-        // Disable wrapper plugins (PR builds only)
+-        if (process.env.GIT_PR_NUMBER) {
++        // Disable wrapper plugins when the test requests it. Must run for local/ROSA
++        // runs too — not only PR CI — or the chart default ./dynamic-plugins/dist/...
++        // entry stays enabled and conflicts with an OCI override (dynamicRoutes merge error).
++        if (wrapperPlugins.plugins?.length) {
+             result = deepMerge(result, wrapperPlugins, {
+                 arrayMergeStrategy: "concat",
+             });

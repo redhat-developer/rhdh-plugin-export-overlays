@@ -27,7 +27,7 @@ export class DynamicHomePagePo {
     this.page.getByRole("button", { name: "Add widget" });
   private resizeHandles = () => this.page.locator(".react-resizable-handle");
   private deleteButtons = () =>
-    this.page.locator('[class*="MuiGrid-root"][class*="overlayGridItem"]');
+    this.page.getByRole("button", { name: "Delete widget" });
   private greetingText = () =>
     this.page.getByText(/Good (morning|afternoon|evening)/);
 

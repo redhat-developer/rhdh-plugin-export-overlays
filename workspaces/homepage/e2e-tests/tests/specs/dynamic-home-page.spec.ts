@@ -4,7 +4,7 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { BrowserContext, Page } from "@playwright/test";
-import { DynamicHomePagePo } from "../support/dynamic-home-page.po";
+import { DynamicHomePagePo } from "../utils/dynamic-homepage";
 
 /** Chart dist wrapper names (see ../metadata `spec.dynamicArtifact` basenames). */
 const DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES = [
@@ -17,6 +17,7 @@ test.describe.serial("Dynamic home page customization", () => {
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;
+  let home: DynamicHomePagePo;
 
   test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
     test.setTimeout(10 * 60 * 1000);
@@ -34,12 +35,9 @@ test.describe.serial("Dynamic home page customization", () => {
     });
     page = await context.newPage();
     uiHelper = new UIhelper(page);
-  });
-
-  test.beforeEach(async () => {
     const loginHelper = new LoginHelper(page);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.goToPageUrl("/", "Welcome back!");
+    home = new DynamicHomePagePo(page, uiHelper);
   });
 
   test.afterAll(async () => {
@@ -47,7 +45,6 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards display after login", async () => {
-    const home = new DynamicHomePagePo(page, uiHelper);
     await home.seedHomePageWidgets();
     await home.verifyHomePageLoaded();
     await home.verifyAllCardsDisplayed();
@@ -55,31 +52,22 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify all cards can be resized in edit mode", async () => {
-    const home = new DynamicHomePagePo(page, uiHelper);
     await home.enterEditMode();
     await home.resizeAllCards();
     await home.exitEditMode();
   });
 
   test("Verify cards can be individually deleted in edit mode", async () => {
-    const home = new DynamicHomePagePo(page, uiHelper);
     await home.enterEditMode();
     await home.deleteAllCards();
     await home.verifyCardsDeleted();
   });
 
-  // restore defaults button is not working as expected in talks with devs
+  // restore defaults button is not working as expected
   // eslint-disable-next-line playwright/no-skipped-test -- re-enable when restore-defaults is fixed
-  test.skip("Verify restore default cards", async () => {
-    const home = new DynamicHomePagePo(page, uiHelper);
+  test.skip("Verify restore default cards and deleted with Clear all button", async () => {
     await home.restoreDefaultCards();
     await home.verifyCardsRestored();
-  });
-
-  test("Verify all cards can be deleted with Clear all button", async () => {
-    const home = new DynamicHomePagePo(page, uiHelper);
-    // Until restore-defaults works, rebuild the grid the same way as the first test.
-    await home.seedHomePageWidgets();
     await home.enterEditMode();
     await home.clearAllCardsWithButton();
     await home.verifyCardsDeleted();
