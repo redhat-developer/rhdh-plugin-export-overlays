@@ -91,6 +91,9 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log("[deploy-sonataflow] Waiting for jobs-service rollout after SFP patch...");
     const jsRollout = oc(`rollout status deployment/sonataflow-platform-jobs-service -n ${namespace} --timeout=300s`);
     console.log(`[deploy-sonataflow] Jobs-service rollout: ${jsRollout}`);
+
+    await waitForPodReady(namespace, "sonataflow-platform-data-index-service", 5);
+    await waitForPodReady(namespace, "sonataflow-platform-jobs-service", 5);
   } catch (e) {
     console.log(`[deploy-sonataflow] SFP resource patch error (non-fatal): ${e}`);
   }
@@ -184,6 +187,11 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     // #region agent log
     console.log(`[deploy-sonataflow] Rollout ${workflow}: ${rolloutResult}`);
     // #endregion
+  }
+
+  console.log("[deploy-sonataflow] Waiting for all workflow pods to be Running & Ready...");
+  for (const workflow of WORKFLOWS) {
+    await waitForPodReady(namespace, workflow, 5);
   }
 
   // #region agent log
@@ -398,6 +406,48 @@ async function waitForReconciliation(
 /** Run an oc command and return captured stdout (bypasses zx inherited stdio). */
 function oc(args: string): string {
   return execSync(`oc ${args}`, { encoding: "utf-8" }).trim();
+}
+
+/**
+ * Wait for a pod matching `namePattern` to reach Phase=Running and Ready=True.
+ * Mirrors the main RHDH CI's k8s_wait::deployment (5 min default, 10s poll).
+ */
+async function waitForPodReady(
+  namespace: string,
+  namePattern: string,
+  timeoutMinutes = 5,
+  intervalSeconds = 10,
+): Promise<void> {
+  const maxAttempts = (timeoutMinutes * 60) / intervalSeconds;
+  console.log(`[waitForPodReady] Waiting for pod matching '${namePattern}' in ${namespace} (timeout: ${timeoutMinutes}m)...`);
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      const podLine = oc(`get pods -n ${namespace} --no-headers`)
+        .split("\n")
+        .find((l) => l.includes(namePattern));
+      if (podLine) {
+        const podName = podLine.trim().split(/\s+/)[0];
+        const phase = oc(`get pod ${podName} -n ${namespace} -o jsonpath='{.status.phase}'`);
+        const ready = oc(`get pod ${podName} -n ${namespace} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'`);
+        if (phase.replaceAll("'", "") === "Running" && ready.replaceAll("'", "") === "True") {
+          console.log(`[waitForPodReady] '${namePattern}' pod ${podName} is Running & Ready`);
+          return;
+        }
+        if (i % 6 === 0) {
+          console.log(`[waitForPodReady] ${namePattern}: phase=${phase} ready=${ready} (attempt ${i}/${maxAttempts})`);
+        }
+      }
+    } catch { /* pod may not exist yet */ }
+    if (i === maxAttempts) {
+      console.log(`[waitForPodReady] TIMEOUT: '${namePattern}' not ready after ${timeoutMinutes}m`);
+      try {
+        const pods = oc(`get pods -n ${namespace} --no-headers`);
+        console.log(`[waitForPodReady] All pods:\n${pods}`);
+      } catch { /* ignore */ }
+      return;
+    }
+    await sleep(intervalSeconds * 1000);
+  }
 }
 
 function sleep(ms: number): Promise<void> {
