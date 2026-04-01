@@ -179,6 +179,19 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     } catch (e) { console.log(`[deploy-sonataflow]   ${workflow} post-patch read error: ${e}`); }
     // #endregion
 
+    // #region agent log — H1: Inject K_SINK for CloudEvent delivery to data-index
+    const dataIndexUrl = `http://sonataflow-platform-data-index-service.${namespace}`;
+    console.log(`[deploy-sonataflow] Injecting K_SINK=${dataIndexUrl} into ${workflow}...`);
+    try {
+      const envResult = patchWorkflowEnv(namespace, workflow, [
+        { name: "K_SINK", value: dataIndexUrl },
+      ]);
+      console.log(`[deploy-sonataflow] K_SINK patch result for ${workflow}: ${envResult}`);
+    } catch (e) {
+      console.log(`[deploy-sonataflow] K_SINK patch error for ${workflow}: ${e}`);
+    }
+    // #endregion
+
     // #region agent log
     console.log(`[deploy-sonataflow] Waiting for ${workflow} reconciliation...`);
     // #endregion
@@ -232,6 +245,29 @@ export async function deploySonataflow(namespace: string): Promise<void> {
       const logs = oc(`logs -n ${namespace} -l sonataflow.org/workflow-app=${wf} --tail=20`);
       console.log(`[deploy-sonataflow]   ${wf} last 20 log lines:\n${logs}`);
     } catch (e) { console.log(`[deploy-sonataflow]   ${wf} logs error: ${e}`); }
+    // #region agent log — H1+H2: Verify K_SINK and operator-generated ConfigMap
+    try {
+      const podEnv = oc(
+        `get deploy ${wf} -n ${namespace} -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}={.value}{"\\n"}{end}'`,
+      );
+      const kSink = podEnv.split("\n").find((l: string) => l.startsWith("K_SINK="));
+      console.log(`[deploy-sonataflow]   ${wf} K_SINK on deployment: ${kSink || "NOT FOUND"}`);
+      const relevantVars = podEnv.split("\n").filter(
+        (l: string) => /K_SINK|KOGITO|DATA_INDEX|SERVICE_URL|mp[._]messaging/i.test(l),
+      );
+      if (relevantVars.length > 0) {
+        console.log(`[deploy-sonataflow]   ${wf} eventing-related env vars:\n${relevantVars.join("\n")}`);
+      }
+    } catch (e) { console.log(`[deploy-sonataflow]   ${wf} K_SINK check error: ${e}`); }
+    try {
+      const props = oc(
+        `get configmap ${wf}-props -n ${namespace} -o jsonpath='{.data}'`,
+      );
+      console.log(`[deploy-sonataflow]   ${wf}-props ConfigMap:\n${props.substring(0, 3000)}`);
+    } catch (e) {
+      console.log(`[deploy-sonataflow]   ${wf}-props ConfigMap: not found (${e})`);
+    }
+    // #endregion
   }
   // #region agent log — Data-index crash diagnostics (H1-H5)
   try {
@@ -429,6 +465,41 @@ async function waitForReconciliation(
 /** Run an oc command and return captured stdout (bypasses zx inherited stdio). */
 function oc(args: string): string {
   return execSync(`oc ${args}`, { encoding: "utf-8" }).trim();
+}
+
+/**
+ * Merge environment variables into a SonataFlow CR's podTemplate.container.env.
+ * Reads the existing env array first so that a merge-patch does not clobber
+ * pre-existing entries (e.g. HTTPBIN on failswitch).
+ */
+function patchWorkflowEnv(
+  namespace: string,
+  workflow: string,
+  newVars: Array<{ name: string; value: string }>,
+): string {
+  let existing: Array<{ name: string; value: string }> = [];
+  try {
+    const raw = oc(
+      `get sonataflow ${workflow} -n ${namespace} -o jsonpath='{.spec.podTemplate.container.env}'`,
+    );
+    const cleaned = raw.replace(/^'|'$/g, "");
+    if (cleaned && cleaned !== "null" && cleaned !== "") {
+      existing = JSON.parse(cleaned);
+    }
+  } catch {
+    /* no existing env — start fresh */
+  }
+  for (const v of newVars) {
+    const idx = existing.findIndex((e) => e.name === v.name);
+    if (idx >= 0) existing[idx] = v;
+    else existing.push(v);
+  }
+  const patch = JSON.stringify({
+    spec: { podTemplate: { container: { env: existing } } },
+  });
+  return oc(
+    `-n ${namespace} patch sonataflow ${workflow} --type merge -p '${patch}'`,
+  );
 }
 
 /**
