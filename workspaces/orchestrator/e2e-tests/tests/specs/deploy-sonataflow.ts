@@ -40,17 +40,16 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
   } catch (e) { console.log(`[deploy-sonataflow] CSV list error: ${e}`); }
 
-  // Patch SFP: eventing config (no broker), resource limits, and messaging health override
-  console.log("[deploy-sonataflow] Patching SonataFlowPlatform (eventing, resources, health)...");
+  // Patch SFP: resource limits + permissive liveness probe via podTemplate.
+  // The data-index image bundles SmallRye Reactive Messaging Kafka extensions
+  // whose liveness health check degrades after ~7 min without a broker, causing
+  // a crash-loop.  The health-disable env var is build-time only and ineffective
+  // at runtime, so we widen the probe's failureThreshold through the SFP CR
+  // (operator-managed, survives reconciliation).
+  console.log("[deploy-sonataflow] Patching SonataFlowPlatform (resources, liveness probe)...");
   try {
     const sfpPatch = JSON.stringify({
       spec: {
-        eventing: {
-          broker: {
-            name: "",
-            namespace: "",
-          },
-        },
         services: {
           dataIndex: {
             podTemplate: {
@@ -59,12 +58,12 @@ export async function deploySonataflow(namespace: string): Promise<void> {
                   requests: { memory: "64Mi", cpu: "250m" },
                   limits: { memory: "1Gi", cpu: "500m" },
                 },
-                env: [
-                  {
-                    name: "QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED",
-                    value: "false",
-                  },
-                ],
+                livenessProbe: {
+                  failureThreshold: 200,
+                  httpGet: { path: "/q/health/live", port: 8080, scheme: "HTTP" },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
               },
             },
           },
@@ -98,12 +97,12 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] SFP resource patch error (non-fatal): ${e}`);
   }
 
-  // Verify resources and env were applied
+  // Verify resources and liveness probe were applied
   try {
     const diResources = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].resources}'`);
     console.log(`[deploy-sonataflow] Data-index resources after patch: ${diResources}`);
-    const diEnv = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED")].value}'`);
-    console.log(`[deploy-sonataflow] Data-index QUARKUS_SMALLRYE_REACTIVE_MESSAGING_HEALTH_ENABLED: ${diEnv}`);
+    const diProbe = oc(`get deploy sonataflow-platform-data-index-service -n ${namespace} -o jsonpath='{.spec.template.spec.containers[0].livenessProbe.failureThreshold}'`);
+    console.log(`[deploy-sonataflow] Data-index liveness failureThreshold: ${diProbe}`);
   } catch (e) { console.log(`[deploy-sonataflow] Data-index verification error: ${e}`); }
   // #endregion
 
@@ -182,11 +181,27 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     console.log(`[deploy-sonataflow] Running rollout status for ${workflow}...`);
     // #endregion
 
-    const rolloutResult = oc(`rollout status deployment/${workflow} -n ${namespace} --timeout=600s`);
-
-    // #region agent log
-    console.log(`[deploy-sonataflow] Rollout ${workflow}: ${rolloutResult}`);
-    // #endregion
+    try {
+      const rolloutResult = oc(`rollout status deployment/${workflow} -n ${namespace} --timeout=600s`);
+      console.log(`[deploy-sonataflow] Rollout ${workflow}: ${rolloutResult}`);
+    } catch (rolloutErr) {
+      console.log(`[deploy-sonataflow] Rollout ${workflow} FAILED: ${rolloutErr}`);
+      try {
+        const pods = oc(`get pods -n ${namespace} -l sonataflow.org/workflow-app=${workflow} -o wide --no-headers`);
+        console.log(`[deploy-sonataflow]   ${workflow} pods: ${pods}`);
+      } catch { /* ignore */ }
+      try {
+        const desc = oc(`describe deployment ${workflow} -n ${namespace}`);
+        const tail = desc.split("\n").slice(-40).join("\n");
+        console.log(`[deploy-sonataflow]   ${workflow} deployment describe (last 40):\n${tail}`);
+      } catch { /* ignore */ }
+      try {
+        const events = oc(`get events -n ${namespace} --sort-by=.lastTimestamp --no-headers`);
+        const wfEvents = events.split("\n").filter((l: string) => l.includes(workflow)).slice(-15).join("\n");
+        console.log(`[deploy-sonataflow]   ${workflow} events:\n${wfEvents}`);
+      } catch { /* ignore */ }
+      throw rolloutErr;
+    }
   }
 
   console.log("[deploy-sonataflow] Waiting for all workflow pods to be Running & Ready...");
