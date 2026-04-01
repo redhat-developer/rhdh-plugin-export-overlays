@@ -6,7 +6,7 @@ app:
 backend:
   reading:
     allow:
-      - host: raw.githubusercontent.com
+      - host: github.com
 permission:
   enabled: true
   rbac:
@@ -23,14 +23,6 @@ catalog:
     - allow: [Template, Component, System, Group, Resource, Location, API, User]
   locations:
     - type: url
-      target: ${CATALOG_TEMPLATES_BASE_URL}/greeting.yaml
-      rules:
-        - allow: [Template]
+      target: https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/greeting.yaml
     - type: url
-      target: ${CATALOG_TEMPLATES_BASE_URL}/greeting_w_component.yaml
-      rules:
-        - allow: [Template]
-    - type: url
-      target: ${CATALOG_TEMPLATES_BASE_URL}/yamlgreet.yaml
-      rules:
-        - allow: [Template]
+      target: https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/greeting_w_component.yaml
