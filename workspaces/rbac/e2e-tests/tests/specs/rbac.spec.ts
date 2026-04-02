@@ -63,6 +63,7 @@ test.describe("RBAC plugin", () => {
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh.yaml",
       valueFile: "tests/config/values.yaml",
+      version: process.env.RHDH_VERSION ?? "1.10",
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
@@ -692,6 +693,9 @@ test.describe("RBAC plugin", () => {
 
   // Ensure we clean up in the event that a test fails so that we do not impact other tests
   test.afterAll(async () => {
+    if (!apiToken) {
+      return;
+    }
     await cleanupRoles(RBAC_ROLES, apiToken);
   });
 });
