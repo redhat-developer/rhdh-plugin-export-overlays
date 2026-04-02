@@ -2,7 +2,6 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: test-argocd-app
-  namespace: openshift-gitops
   labels:
     rht-gitops.com/janus-argocd: test-argocd-app
 spec:

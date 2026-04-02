@@ -112,7 +112,7 @@ create_test_application() {
     oc delete application test-argocd-app -n "${GITOPS_NAMESPACE}" --wait=true
   fi
 
-  sed "s/\${APP_NAMESPACE}/${APP_NAMESPACE}/g" "${SCRIPT_DIR}/resources/test-argocd-application.yaml" | oc apply -f - || {
+  sed "s/\${APP_NAMESPACE}/${APP_NAMESPACE}/g" "${SCRIPT_DIR}/resources/test-argocd-application.yaml" | oc apply -n "${GITOPS_NAMESPACE}" -f - || {
     echo "ERROR: Failed to create test ArgoCD application"
     return 1
   }

@@ -18,27 +18,30 @@ const $pipe = $({ stdio: "pipe" });
 test.describe("Test ArgoCD plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
-    await test.runOnce("argocd-setup", async () => {
+
+    await test.runOnce("argocd-infra", async () => {
       const namespace = rhdh.deploymentConfig.namespace;
       await $`bash ${setupScript} ${namespace}`;
+    });
 
-      const argoRoute = await rhdh.k8sClient.getRouteLocation(
-        "openshift-gitops",
-        "openshift-gitops-server",
-      );
+    const argoRoute = await rhdh.k8sClient.getRouteLocation(
+      "openshift-gitops",
+      "openshift-gitops-server",
+    );
 
-      const jsonpath = String.raw`{.data.admin\.password}`;
-      const secretResult =
-        await $pipe`oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath=${jsonpath}`;
-      const argoPassword = Buffer.from(
-        secretResult.stdout.trim(),
-        "base64",
-      ).toString();
+    const jsonpath = String.raw`{.data.admin\.password}`;
+    const secretResult =
+      await $pipe`oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath=${jsonpath}`;
+    const argoPassword = Buffer.from(
+      secretResult.stdout.trim(),
+      "base64",
+    ).toString();
 
-      process.env.ARGOCD_INSTANCE1_URL = argoRoute;
-      process.env.ARGOCD_USERNAME = "admin";
-      process.env.ARGOCD_PASSWORD = argoPassword;
+    process.env.ARGOCD_INSTANCE1_URL = argoRoute;
+    process.env.ARGOCD_USERNAME = "admin";
+    process.env.ARGOCD_PASSWORD = argoPassword;
 
+    await test.runOnce("argocd-deploy", async () => {
       await rhdh.configure({ auth: "keycloak" });
       await rhdh.deploy({ timeout: 900_000 });
     });
