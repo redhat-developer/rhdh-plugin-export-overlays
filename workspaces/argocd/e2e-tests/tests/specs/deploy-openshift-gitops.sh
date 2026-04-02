@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 GITOPS_NAMESPACE="openshift-gitops"
 OPERATOR_NAMESPACE="openshift-operators"
+APP_NAMESPACE="$1"
 
 wait_for() {
   local description=$1
@@ -65,12 +66,12 @@ configure_rbac() {
 
   oc create clusterrolebinding rhdh-rollouts-reader \
     --clusterrole=rhdh-rollouts-reader \
-    --group=system:serviceaccounts:argocd \
+    --group=system:serviceaccounts:"${APP_NAMESPACE}" \
     2>/dev/null || true
 
   oc create clusterrolebinding argo-rollouts-binding \
     --clusterrole=rhdh-rollouts-reader \
-    --serviceaccount="${GITOPS_NAMESPACE}:argo-rollouts" \
+    --serviceaccount="${APP_NAMESPACE}:argo-rollouts" \
     2>/dev/null || true
 
   echo "RBAC configured."
@@ -111,7 +112,7 @@ create_test_application() {
     oc delete application test-argocd-app -n "${GITOPS_NAMESPACE}" --wait=true
   fi
 
-  oc apply -f "${SCRIPT_DIR}/resources/test-argocd-application.yaml" || {
+  sed "s/\${APP_NAMESPACE}/${APP_NAMESPACE}/g" "${SCRIPT_DIR}/resources/test-argocd-application.yaml" | oc apply -f - || {
     echo "ERROR: Failed to create test ArgoCD application"
     return 1
   }
@@ -149,21 +150,37 @@ create_test_application() {
 create_rollout_manager() {
   echo "=== Creating RolloutManager CR ==="
 
-  oc apply -f "${SCRIPT_DIR}/resources/rollout-manager.yaml" -n "${GITOPS_NAMESPACE}" || {
+  echo "Configuring operator to allow RolloutManager in ${APP_NAMESPACE}..."
+  local patch_output
+  patch_output=$(oc patch subscription openshift-gitops-operator -n "${OPERATOR_NAMESPACE}" \
+    --type=merge \
+    -p "{\"spec\":{\"config\":{\"env\":[{\"name\":\"CLUSTER_SCOPED_ARGO_ROLLOUTS_NAMESPACES\",\"value\":\"${APP_NAMESPACE}\"}]}}}" 2>&1) || {
+    echo "WARNING: Failed to patch subscription for rollout namespaces"
+  }
+  echo "${patch_output}"
+
+  if [[ "${patch_output}" != *"(no change)"* ]]; then
+    echo "Subscription changed — waiting for operator to pick up..."
+    sleep 30
+  fi
+
+  oc delete rolloutmanager argo-rollout -n "${APP_NAMESPACE}" 2>/dev/null || true
+
+  oc apply -f "${SCRIPT_DIR}/resources/rollout-manager.yaml" -n "${APP_NAMESPACE}" || {
     echo "ERROR: Failed to create RolloutManager"
     return 1
   }
 
   wait_for "RolloutManager" \
-    "[[ \$(oc get rolloutmanager argo-rollout -n ${GITOPS_NAMESPACE} -o jsonpath='{.status.phase}' 2>/dev/null) == 'Available' ]]" \
-    120 10
+    "[[ \$(oc get rolloutmanager argo-rollout -n ${APP_NAMESPACE} -o jsonpath='{.status.phase}' 2>/dev/null) == 'Available' ]]" \
+    180 10
 }
 
 trigger_rollout_update() {
   echo "=== Triggering rollout update to generate AnalysisRuns ==="
 
   echo "Cleaning up existing AnalysisRuns..."
-  oc delete analysisruns --all -n "${GITOPS_NAMESPACE}" 2>/dev/null || true
+  oc delete analysisruns --all -n "${APP_NAMESPACE}" 2>/dev/null || true
 
   echo "Disabling selfHeal on ArgoCD Application..."
   oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
@@ -172,37 +189,47 @@ trigger_rollout_update() {
     return 1
   }
 
-  echo "Patching canary rollout image to trigger new revision..."
-  oc patch rollout canary-rollout-analysis -n "${GITOPS_NAMESPACE}" \
-    --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"rollouts-demo","image":"argoproj/rollouts-demo:green"}]}}}}' || {
+  local ts
+  ts=$(date +%s)
+
+  echo "Patching canary rollout to trigger new revision (ts=${ts})..."
+  oc patch rollout canary-rollout-analysis -n "${APP_NAMESPACE}" \
+    --type=merge -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"rollout-trigger\":\"${ts}\"}},\"spec\":{\"containers\":[{\"name\":\"rollouts-demo\",\"image\":\"argoproj/rollouts-demo:green\"}]}}}}" || {
     echo "WARNING: Failed to patch canary rollout"
     return 1
   }
 
-  echo "Patching bluegreen rollout image to trigger new revision..."
-  oc patch rollout rollout-bluegreen -n "${GITOPS_NAMESPACE}" \
-    --type=merge -p '{"spec":{"template":{"spec":{"containers":[{"name":"rollouts-demo","image":"argoproj/rollouts-demo:green"}]}}}}' || {
+  echo "Patching bluegreen rollout to trigger new revision (ts=${ts})..."
+  oc patch rollout rollout-bluegreen -n "${APP_NAMESPACE}" \
+    --type=merge -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"rollout-trigger\":\"${ts}\"}},\"spec\":{\"containers\":[{\"name\":\"rollouts-demo\",\"image\":\"argoproj/rollouts-demo:green\"}]}}}}" || {
     echo "WARNING: Failed to patch bluegreen rollout"
     return 1
   }
 
   local interval=10
 
-  echo "Waiting for AnalysisRuns to be created..."
-  local timeout=120
+  echo "Waiting for AnalysisRuns to be created (expecting one per rollout)..."
+  local timeout=180
   local elapsed=0
   while true; do
-    local ar_count
-    ar_count=$(oc get analysisruns -n "${GITOPS_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
-    echo "  AnalysisRuns found: ${ar_count}"
+    local ar_count canary_step
+    ar_count=$(oc get analysisruns -n "${APP_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    canary_step=$(oc get rollout canary-rollout-analysis -n "${APP_NAMESPACE}" \
+      -o jsonpath='{.status.currentStepIndex}' 2>/dev/null || echo "0")
+    echo "  AnalysisRuns found: ${ar_count}, Canary step: ${canary_step}/4"
 
-    if [[ "${ar_count}" -gt 0 ]]; then
-      echo "AnalysisRuns detected."
+    if [[ "${ar_count}" -ge 2 ]]; then
+      echo "AnalysisRuns detected for both rollouts."
+      break
+    fi
+
+    if [[ "${ar_count}" -ge 1 ]] && [[ "${canary_step}" -ge 4 ]]; then
+      echo "Canary rollout already completed (re-run). Proceeding with ${ar_count} AnalysisRun(s)."
       break
     fi
 
     if [[ "${elapsed}" -ge "${timeout}" ]]; then
-      echo "WARNING: No AnalysisRuns created within ${timeout}s."
+      echo "WARNING: Timed out waiting for AnalysisRuns (${timeout}s). Found: ${ar_count}"
       break
     fi
 
@@ -215,7 +242,7 @@ trigger_rollout_update() {
   local ar_elapsed=0
   while true; do
     local running_count
-    running_count=$(oc get analysisruns -n "${GITOPS_NAMESPACE}" \
+    running_count=$(oc get analysisruns -n "${APP_NAMESPACE}" \
       --no-headers 2>/dev/null | { grep -c "Running" || true; })
     echo "  AnalysisRuns still running: ${running_count}"
 
@@ -238,13 +265,15 @@ trigger_rollout_update() {
     --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":true}}}}' || true
 
   echo "AnalysisRun status:"
-  oc get analysisruns -n "${GITOPS_NAMESPACE}" 2>/dev/null || true
+  oc get analysisruns -n "${APP_NAMESPACE}" 2>/dev/null || true
 }
 
 main() {
   echo "========================================="
   echo "  OpenShift GitOps Setup for ArgoCD E2E"
   echo "========================================="
+  echo "ArgoCD server namespace: ${GITOPS_NAMESPACE}"
+  echo "App resources namespace: ${APP_NAMESPACE}"
 
   install_gitops_operator
   configure_rbac
