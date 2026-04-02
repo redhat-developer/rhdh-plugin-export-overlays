@@ -1,4 +1,3 @@
-import { execSync } from "child_process";
 import { test, expect, Page } from "rhdh-e2e-test-utils/test";
 import {
   LoginHelper,
@@ -18,52 +17,19 @@ import {
 } from "./rbac-baseline.js";
 import { deploySonataflow } from "./deploy-sonataflow.js";
 
-function dumpRbacClusterState(ns: string, label: string): void {
-  console.log(`[${label}] --- RBAC cluster state dump for ns=${ns} ---`);
-  try {
-    const pods = execSync(`oc get pods -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
-    console.log(`[${label}] Pods:\n${pods}`);
-  } catch (e) { console.log(`[${label}] Pods error: ${e}`); }
-  try {
-    const rhdhLogs = execSync(`oc logs -n ${ns} deploy/redhat-developer-hub --tail=50`, { encoding: "utf-8", timeout: 30_000 }).trim();
-    const relevantLines = rhdhLogs.split("\n").filter(
-      (l: string) => /rbac|permission|unauthorized|forbidden|error|orchestrator/i.test(l),
-    );
-    if (relevantLines.length > 0) {
-      console.log(`[${label}] RHDH RBAC-relevant logs (${relevantLines.length}):\n${relevantLines.slice(-20).join("\n")}`);
-    } else {
-      const last20 = rhdhLogs.split("\n").slice(-20);
-      console.log(`[${label}] RHDH last 20 log lines:\n${last20.join("\n")}`);
-    }
-  } catch (e) { console.log(`[${label}] RHDH logs error: ${e}`); }
-  try {
-    const events = execSync(`oc get events -n ${ns} --sort-by=.lastTimestamp --no-headers`, { encoding: "utf-8" }).trim();
-    const recentEvents = events.split("\n").slice(-10).join("\n");
-    console.log(`[${label}] Recent events:\n${recentEvents}`);
-  } catch (e) { console.log(`[${label}] Events error: ${e}`); }
-  console.log(`[${label}] --- End RBAC cluster state dump ---`);
-}
-
 test.describe.serial("Test Orchestrator RBAC", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
     test.setTimeout(20 * 60 * 1000);
-    console.log("[rbac-setup] Starting RBAC test suite setup");
-    console.log(`[rbac-setup] PRIMARY_USER=${PRIMARY_USER}, SECONDARY_USER=${SECONDARY_USER}`);
     await rhdh.configure({ namespace: "orchestrator" });
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
-      console.log(`[rbac-setup] Deploying in namespace: ${project}`);
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
-      console.log("[rbac-setup] Deploying RHDH...");
       await rhdh.deploy({ timeout: null });
-      console.log("[rbac-setup] RHDH deployed successfully");
     });
-    console.log("[rbac-setup] Removing baseline role for clean RBAC slate...");
     await removeBaselineRole(browser, testInfo);
-    console.log("[rbac-setup] Baseline role removed. RBAC setup complete.");
     testInfo.annotations.push({
       type: "component",
       description: "orchestrator",
@@ -72,21 +38,8 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
   test.beforeEach(async ({}, testInfo) => {
     console.log(
-      `[rbac-beforeEach] Test: "${testInfo.title}", retry: ${testInfo.retry}, timeout: ${testInfo.timeout}ms`,
+      `beforeEach: Attempting setup for ${testInfo.title}, retry: ${testInfo.retry}`,
     );
-  });
-
-  test.afterEach(async ({}, testInfo) => {
-    const status = testInfo.status;
-    const title = testInfo.title;
-    console.log(`[rbac-afterEach] Test "${title}" finished with status: ${status} (duration: ${testInfo.duration}ms)`);
-    if (status === "failed" || status === "timedOut") {
-      console.log(`[rbac-afterEach] Test FAILED: "${title}"`);
-      const ns = testInfo.project.name;
-      if (ns) {
-        dumpRbacClusterState(ns, "rbac-afterEach-failure");
-      }
-    }
   });
 
   test.describe.serial("Test Orchestrator RBAC: Global Workflow Access", () => {
@@ -104,17 +57,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Create role with global orchestrator.workflow read and update permissions", async () => {
-      console.log(`[rbac-global-rw] Creating role ${roleName} with member ${PRIMARY_USER}`);
       const rbacApi = await RbacApiHelper.build(apiToken);
 
       const rolePostResponse = await rbacApi.createRoles({
         memberReferences: [PRIMARY_USER],
         name: roleName,
       });
-      console.log(`[rbac-global-rw] Role creation: HTTP ${rolePostResponse.status()}`);
-      if (!rolePostResponse.ok()) {
-        console.log(`[rbac-global-rw] Role creation error: ${await rolePostResponse.text()}`);
-      }
       const policyPostResponse = await rbacApi.createPolicies(
         buildPolicies(roleName, [
           {
@@ -129,14 +77,9 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           },
         ]),
       );
-      console.log(`[rbac-global-rw] Policy creation: HTTP ${policyPostResponse.status()}`);
-      if (!policyPostResponse.ok()) {
-        console.log(`[rbac-global-rw] Policy creation error: ${await policyPostResponse.text()}`);
-      }
 
       expect(rolePostResponse.ok()).toBeTruthy();
       expect(policyPostResponse.ok()).toBeTruthy();
-      console.log("[rbac-global-rw] Role and policies created successfully");
     });
 
     test("Verify role exists via API", async () => {
@@ -177,10 +120,8 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test global orchestrator workflow access is allowed", async () => {
-      console.log("[rbac-global-rw] Testing workflow access with read+update permissions");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-global-rw] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
       const orchestrator = new OrchestratorPage(page);
@@ -189,15 +130,14 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
-      console.log("[rbac-global-rw] Greeting workflow page visible");
 
+      // Verify the Run button is visible and enabled (read+update permissions)
       const runButton = page.getByRole("button", { name: "Run" });
       await expect(runButton).toBeVisible();
       await expect(runButton).toBeEnabled();
-      console.log("[rbac-global-rw] Run button is visible and enabled (as expected for read+update)");
 
+      // Click the Run button to verify permission works
       await runButton.click();
-      console.log("[rbac-global-rw] Run button clicked successfully");
     });
 
     test.afterAll(async () => {
@@ -284,10 +224,8 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test global orchestrator workflow read-only access - Run button disabled", async () => {
-      console.log("[rbac-global-ro] Testing read-only workflow access");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-global-ro] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
       const orchestrator = new OrchestratorPage(page);
@@ -297,18 +235,16 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
 
+      // For read-only access, the button should either not exist or be disabled
       const runButton = page.getByRole("button", { name: "Run" });
+
       const buttonCount = await runButton.count();
-      console.log(`[rbac-global-ro] Run button count: ${buttonCount}`);
 
       // eslint-disable-next-line playwright/no-conditional-in-test
       if (buttonCount === 0) {
-        console.log("[rbac-global-ro] Run button not present (expected for read-only)");
         // eslint-disable-next-line playwright/no-conditional-expect
         expect(buttonCount).toBe(0);
       } else {
-        const isDisabled = await runButton.isDisabled();
-        console.log(`[rbac-global-ro] Run button present but disabled=${isDisabled} (expected disabled for read-only)`);
         // eslint-disable-next-line playwright/no-conditional-expect
         await expect(runButton).toBeDisabled();
       }
@@ -398,22 +334,17 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test global orchestrator workflow denied access - no workflows visible", async () => {
-      console.log("[rbac-global-denied] Testing denied workflow access");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-global-denied] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
-      console.log("[rbac-global-denied] Verifying table is empty (denied access)...");
+      // With denied access, the workflows table should be empty
       await uiHelper.verifyTableIsEmpty();
 
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
-      const linkCount = await greetingWorkflowLink.count();
-      console.log(`[rbac-global-denied] Greeting workflow link count: ${linkCount} (expected 0)`);
       await expect(greetingWorkflowLink).toHaveCount(0);
-      console.log("[rbac-global-denied] Denied access verified - no workflows visible");
     });
 
     test.afterAll(async () => {
@@ -502,28 +433,23 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test individual workflow denied access - no workflows visible", async () => {
-      console.log("[rbac-individual-denied] Testing individual workflow denied access");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-individual-denied] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
+      // Greeting workflow should not be visible (denied by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
-      const greetingCount = await greetingWorkflowLink.count();
-      console.log(`[rbac-individual-denied] Greeting workflow link count: ${greetingCount} (expected 0)`);
       await expect(greetingWorkflowLink).toHaveCount(0);
 
+      // Other workflows also not visible (no global allow)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
-      const onboardingCount = await userOnboardingLink.count();
-      console.log(`[rbac-individual-denied] User Onboarding link count: ${onboardingCount} (expected 0)`);
       await expect(userOnboardingLink).toHaveCount(0);
 
       await uiHelper.verifyTableIsEmpty();
-      console.log("[rbac-individual-denied] Individual denied access verified");
     });
 
     test.afterAll(async () => {
@@ -612,23 +538,20 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test individual workflow read-write access - only Greeting workflow visible and runnable", async () => {
-      console.log("[rbac-individual-rw] Testing individual workflow read-write access");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-individual-rw] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
+      // Only Greeting workflow should be visible (allowed by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toBeVisible();
-      console.log("[rbac-individual-rw] Greeting workflow is visible (expected)");
 
+      // Other workflows should not be visible (no global permissions)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
-      const onboardingCount = await userOnboardingLink.count();
-      console.log(`[rbac-individual-rw] User Onboarding count: ${onboardingCount} (expected 0)`);
       await expect(userOnboardingLink).toHaveCount(0);
 
       await greetingWorkflowLink.click();
@@ -639,9 +562,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       const runButton = page.getByRole("button", { name: "Run" });
       await expect(runButton).toBeVisible();
       await expect(runButton).toBeEnabled();
-      console.log("[rbac-individual-rw] Run button visible and enabled (expected for individual rw)");
       await runButton.click();
-      console.log("[rbac-individual-rw] Run button clicked successfully");
     });
 
     test.afterAll(async () => {
@@ -730,44 +651,40 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Test individual workflow read-only access - only Greeting workflow visible, Run button disabled", async () => {
-      console.log("[rbac-individual-ro] Testing individual workflow read-only access");
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
-      console.log(`[rbac-individual-ro] Navigated to: ${page.url()}`);
       await uiHelper.verifyHeading("Workflows");
 
+      // Only Greeting workflow should be visible (allowed by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toBeVisible();
-      console.log("[rbac-individual-ro] Greeting workflow visible (expected)");
 
+      // Other workflows should not be visible (no global permissions)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
       await expect(userOnboardingLink).toHaveCount(0);
 
+      // Navigate to Greeting workflow and verify Run button is disabled/not visible
       await greetingWorkflowLink.click();
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
 
+      // For read-only access, the button should either not exist or be disabled
       const runButton = page.getByRole("button", { name: "Run" });
       const buttonCount = await runButton.count();
-      console.log(`[rbac-individual-ro] Run button count: ${buttonCount}`);
 
       // eslint-disable-next-line playwright/no-conditional-in-test
       if (buttonCount === 0) {
-        console.log("[rbac-individual-ro] Run button not present (expected for read-only)");
         // eslint-disable-next-line playwright/no-conditional-expect
         expect(buttonCount).toBe(0);
       } else {
-        const isDisabled = await runButton.isDisabled();
-        console.log(`[rbac-individual-ro] Run button disabled=${isDisabled} (expected true for read-only)`);
         // eslint-disable-next-line playwright/no-conditional-expect
         await expect(runButton).toBeDisabled();
       }
-      console.log("[rbac-individual-ro] Individual read-only access verified");
     });
 
     test.afterAll(async () => {
@@ -965,33 +882,31 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Secondary user cannot access primary user's workflow instance", async () => {
-      console.log(`[rbac-instance-isolation] Testing secondary user access to instance ${workflowInstanceId}`);
       await page.context().clearCookies();
       await page.goto("/");
       await page.waitForLoadState("load");
 
-      const secondaryUser = process.env.GH_USER2_ID || "test2";
-      console.log(`[rbac-instance-isolation] Logging in as secondary user: ${secondaryUser}`);
       try {
         await loginHelper.loginAsKeycloakUser(
-          secondaryUser,
+          process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
-        console.log("[rbac-instance-isolation] Successfully logged in as secondary user");
+        console.log("Successfully logged in as secondary user");
       } catch (error) {
-        console.log(`[rbac-instance-isolation] Login failed, user might already be logged in: ${error}`);
+        console.log("Login failed, user might already be logged in:", error);
       }
 
-      console.log(`[rbac-instance-isolation] Attempting to access instance: /orchestrator/instances/${workflowInstanceId}`);
+      // Try to directly access primary user's workflow instance
+      // This should be denied due to instance isolation
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
       await page.waitForLoadState("load");
-      console.log(`[rbac-instance-isolation] Page URL after navigation: ${page.url()}`);
 
+      // Secondary user should NOT be able to see the instance details
       const pageContent = await page.textContent("body");
       console.log(
-        `[rbac-instance-isolation] Page content (first 500 chars): ${pageContent?.substring(0, 500)}`,
+        `Page content when accessing instance: ${pageContent?.substring(0, 500)}`,
       );
 
       const hasAccessDenied =
@@ -1002,9 +917,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         pageContent?.includes("Unauthorized") ||
         !pageContent?.includes("Completed");
 
-      console.log(`[rbac-instance-isolation] Access denied detected: ${hasAccessDenied}`);
       expect(hasAccessDenied).toBe(true);
-      console.log("[rbac-instance-isolation] Instance isolation confirmed");
     });
 
     test("Clean up any existing workflowAdmin role", async () => {
@@ -1156,37 +1069,37 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Secondary user with instanceAdminView CAN access primary user's workflow instance", async () => {
-      console.log(`[rbac-admin-override] Testing admin override for instance ${workflowInstanceId}`);
       await page.context().clearCookies();
       await page.goto("/");
       await page.waitForLoadState("load");
 
-      const secondaryUser = process.env.GH_USER2_ID || "test2";
-      console.log(`[rbac-admin-override] Logging in as secondary user (admin): ${secondaryUser}`);
+      // Login as secondary user who now has instanceAdminView permission
       try {
         await loginHelper.loginAsKeycloakUser(
-          secondaryUser,
+          process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
-        console.log("[rbac-admin-override] Successfully logged in as secondary user with admin permissions");
+        console.log(
+          "Successfully logged in as secondary user with admin permissions",
+        );
       } catch (error) {
-        console.log(`[rbac-admin-override] Login failed: ${error}`);
+        console.log("Login failed:", error);
         throw error;
       }
 
-      console.log(`[rbac-admin-override] Navigating to instance: /orchestrator/instances/${workflowInstanceId}`);
+      // Navigate to primary user's workflow instance - should now be accessible
+      // With instanceAdminView, secondary user can see ALL instances
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
       await page.waitForLoadState("load");
-      console.log(`[rbac-admin-override] Page URL: ${page.url()}`);
 
       await expect(page.getByText("Completed", { exact: true })).toBeVisible({
         timeout: 30000,
       });
 
       console.log(
-        `[rbac-admin-override] Admin (secondary) user successfully accessed workflow instance: ${workflowInstanceId}`,
+        `Admin (secondary) user successfully accessed workflow instance: ${workflowInstanceId}`,
       );
     });
 
@@ -1301,27 +1214,22 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Navigate to Catalog and find orchestrator-tagged template", async () => {
-      console.log("[RHIDP-11839] Navigating to Catalog to find template");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading(/Catalog|All/);
       await uiHelper.selectMuiBox("Kind", "Template");
-      console.log(`[RHIDP-11839] Catalog page: ${page.url()}`);
 
       const templateLink = page.getByRole("link", {
         name: /Greeting Test Picker/i,
       });
 
       await expect(templateLink).toBeVisible({ timeout: 30000 });
-      console.log("[RHIDP-11839] Greeting Test Picker template found, clicking...");
       await templateLink.click();
 
       await page.waitForLoadState("domcontentloaded");
       await expect(page.getByRole("heading").first()).toBeVisible();
-      console.log(`[RHIDP-11839] Template page loaded: ${page.url()}`);
     });
 
     test("Launch template and attempt to run workflow - verify unauthorized", async () => {
-      console.log("[RHIDP-11839] Launching template WITHOUT workflow permissions");
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
 
@@ -1330,14 +1238,13 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
+      // Template goes straight to Review step with just a Create button
       const createButton = page.getByRole("button", { name: /Create/i });
       await expect(createButton).toBeVisible({ timeout: 10000 });
-      console.log("[RHIDP-11839] Clicking Create button...");
       await createButton.click();
 
-      console.log("[RHIDP-11839] Waiting 10s for template execution result...");
+      // Template execution should succeed, but workflow execution should be denied
       await page.waitForTimeout(10000);
-      console.log(`[RHIDP-11839] Page after template execution: ${page.url()}`);
 
       const errorIndicators = [
         page.getByText(/unauthorized/i),
@@ -1349,30 +1256,26 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       let hasError = false;
       for (const indicator of errorIndicators) {
-        const count = await indicator.count();
-        if (count > 0) {
-          const text = await indicator.first().textContent();
-          console.log(`[RHIDP-11839] Error indicator found: "${text}"`);
+        if ((await indicator.count()) > 0) {
           hasError = true;
           break;
         }
       }
 
+      // If no explicit error, verify workflow is not accessible in Orchestrator
       if (!hasError) {
-        console.log("[RHIDP-11839] No explicit error found. Checking Orchestrator for workflow visibility...");
         await uiHelper.openSidebar("Orchestrator");
         await expect(
           page.getByRole("heading", { name: "Workflows" }),
         ).toBeVisible();
 
+        // With denied permissions, workflows should not be visible
         const greetingWorkflow = page.getByRole("link", {
           name: "Greeting workflow",
         });
         const workflowCount = await greetingWorkflow.count();
-        console.log(`[RHIDP-11839] Greeting workflow count: ${workflowCount} (expected 0 for denied)`);
         expect(workflowCount).toBe(0);
       }
-      console.log("[RHIDP-11839] Unauthorized verification complete");
     });
 
     test.afterAll(async () => {
@@ -1396,17 +1299,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Setup: Create role with catalog+scaffolder+orchestrator permissions", async () => {
-      console.log(`[RHIDP-11840] Creating role ${roleName} with full permissions`);
       const rbacApi = await RbacApiHelper.build(apiToken);
 
       const rolePostResponse = await rbacApi.createRoles({
         memberReferences: [PRIMARY_USER],
         name: roleName,
       });
-      console.log(`[RHIDP-11840] Role creation: HTTP ${rolePostResponse.status()}`);
-      if (!rolePostResponse.ok()) {
-        console.log(`[RHIDP-11840] Role creation error: ${await rolePostResponse.text()}`);
-      }
       const policyPostResponse = await rbacApi.createPolicies(
         buildPolicies(roleName, [
           { permission: "catalog-entity", policy: "read", effect: "allow" },
@@ -1453,38 +1351,28 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           },
         ]),
       );
-      console.log(`[RHIDP-11840] Policy creation: HTTP ${policyPostResponse.status()}`);
-      if (!policyPostResponse.ok()) {
-        console.log(`[RHIDP-11840] Policy creation error: ${await policyPostResponse.text()}`);
-      }
 
       expect(rolePostResponse.ok()).toBeTruthy();
       expect(policyPostResponse.ok()).toBeTruthy();
-      console.log("[RHIDP-11840] Role and policies created successfully");
     });
 
     test("Navigate to Catalog and find orchestrator-tagged template", async () => {
-      console.log("[RHIDP-11840] Navigating to Catalog (with workflow permissions)");
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading(/Catalog|All/);
       await uiHelper.selectMuiBox("Kind", "Template");
-      console.log(`[RHIDP-11840] Catalog page: ${page.url()}`);
 
       const templateLink = page.getByRole("link", {
         name: /Greeting Test Picker/i,
       });
 
       await expect(templateLink).toBeVisible({ timeout: 30000 });
-      console.log("[RHIDP-11840] Greeting Test Picker template found, clicking...");
       await templateLink.click();
 
       await page.waitForLoadState("domcontentloaded");
       await expect(page.getByRole("heading").first()).toBeVisible();
-      console.log(`[RHIDP-11840] Template page loaded: ${page.url()}`);
     });
 
     test("Launch template and run workflow - verify success", async () => {
-      console.log("[RHIDP-11840] Launching template WITH workflow permissions");
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
 
@@ -1494,12 +1382,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
+      // Template goes straight to Review step with just a Create button
       const createButton = page.getByRole("button", { name: /Create/i });
       await expect(createButton).toBeVisible({ timeout: 10000 });
-      console.log("[RHIDP-11840] Clicking Create button...");
       await createButton.click();
 
-      console.log("[RHIDP-11840] Waiting for template+workflow completion...");
+      // Accept success or 409 Conflict (entity already registered from a prior run)
       const completed = page.getByText(/Completed|succeeded|finished/i);
       const conflictError = page.getByText(/409 Conflict/i);
       const startOver = page.getByRole("button", { name: "Start Over" });
@@ -1507,11 +1395,9 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(completed.or(conflictError).or(startOver)).toBeVisible({
         timeout: 120000,
       });
-      console.log(`[RHIDP-11840] Template task finished. URL: ${page.url()}`);
     });
 
     test("Verify workflow run appears in Orchestrator", async () => {
-      console.log("[RHIDP-11840] Verifying workflow run appears in Orchestrator");
       await uiHelper.openSidebar("Orchestrator");
       await expect(
         page.getByRole("heading", { name: "Workflows" }),
@@ -1521,7 +1407,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         name: /Greeting workflow/i,
       });
       await expect(greetingWorkflow).toBeVisible({ timeout: 30000 });
-      console.log("[RHIDP-11840] Greeting workflow visible in list");
 
       await greetingWorkflow.click();
 
@@ -1532,7 +1417,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       const runButton = page.getByRole("button", { name: "Run" });
       await expect(runButton).toBeVisible();
       await expect(runButton).toBeEnabled();
-      console.log("[RHIDP-11840] Run button visible and enabled. Template+workflow RBAC integration verified");
     });
 
     test.afterAll(async () => {
