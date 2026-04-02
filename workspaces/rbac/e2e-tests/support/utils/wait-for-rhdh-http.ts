@@ -81,10 +81,7 @@ async function fetchStatusFollowingRedirects(
 ): Promise<number> {
   let url = new URL(startUrl);
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const { statusCode, location } = await getOnce(
-      url,
-      requestTimeoutMs,
-    );
+    const { statusCode, location } = await getOnce(url, requestTimeoutMs);
     if (statusCode >= 300 && statusCode < 400 && location) {
       url = new URL(location, url);
       continue;
