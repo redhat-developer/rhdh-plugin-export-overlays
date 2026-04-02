@@ -25,11 +25,6 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
-const rbacConfigmapPath = path.resolve(
-  process.cwd(),
-  "tests/config/rbac-configmap.yaml",
-);
-
 test.describe("RBAC plugin", () => {
   let rbacPO: RbacPO;
   let apiToken: string;
@@ -54,6 +49,10 @@ test.describe("RBAC plugin", () => {
   }
 
   test.beforeAll(async ({ rhdh, browser }) => {
+    const rbacConfigmapPath = path.resolve(
+      process.cwd(),
+      "tests/config/rbac-configmap.yaml",
+    );
     await createUsersAndGroups();
     const namespace = rhdh.deploymentConfig.namespace;
     await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;

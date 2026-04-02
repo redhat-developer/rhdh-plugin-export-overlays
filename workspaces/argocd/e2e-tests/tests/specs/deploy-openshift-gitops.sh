@@ -106,9 +106,9 @@ get_argocd_credentials() {
 create_test_application() {
   echo "=== Creating test ArgoCD Application ==="
 
-  if oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" > /dev/null 2>&1; then
+  if oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" > /dev/null 2>&1; then
     echo "Test application already exists. Deleting and re-creating..."
-    oc delete application test-argocd-app -n "${GITOPS_NAMESPACE}" --wait=true
+    oc delete application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" --wait=true
   fi
 
   oc apply -f "${SCRIPT_DIR}/resources/test-argocd-application.yaml" || {
@@ -122,8 +122,8 @@ create_test_application() {
   local elapsed=0
   while true; do
     local sync_status health_status
-    sync_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
-    health_status=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+    sync_status=$(oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+    health_status=$(oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
     echo "  Sync: ${sync_status}, Health: ${health_status}"
 
     if [[ "${sync_status}" = "Synced" ]]; then
@@ -163,7 +163,7 @@ trigger_rollout_update() {
   echo "=== Triggering rollout update to generate AnalysisRuns ==="
 
   echo "Disabling selfHeal on ArgoCD Application..."
-  oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+  oc patch application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" \
     --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}' || {
     echo "WARNING: Failed to disable selfHeal"
     return 1
@@ -231,7 +231,7 @@ trigger_rollout_update() {
   done
 
   echo "Re-enabling selfHeal on ArgoCD Application..."
-  oc patch application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+  oc patch application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" \
     --type=merge -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":true}}}}' || true
 
   echo "AnalysisRun status:"
@@ -251,8 +251,8 @@ main() {
   trigger_rollout_update
 
   local final_sync final_health
-  final_sync=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
-  final_health=$(oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+  final_sync=$(oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+  final_health=$(oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
 
   echo ""
   echo "========================================="
@@ -260,7 +260,7 @@ main() {
   echo "========================================="
   echo "ArgoCD App — Sync: ${final_sync}, Health: ${final_health}"
   echo "Resource health breakdown:"
-  oc get application test-argocd-app -n "${GITOPS_NAMESPACE}" \
+  oc get application.argoproj.io test-argocd-app -n "${GITOPS_NAMESPACE}" \
     -o jsonpath='{range .status.resources[*]}  {.kind}: {.health.status}{"\n"}{end}' 2>/dev/null || true
   echo "ARGOCD_INSTANCE1_URL=${ARGOCD_INSTANCE1_URL}"
   echo "ARGOCD_USERNAME=${ARGOCD_USERNAME}"

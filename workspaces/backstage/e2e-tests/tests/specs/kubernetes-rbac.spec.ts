@@ -1,21 +1,10 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import * as path from "node:path";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import { requireEnv } from "../../support/utils/require-env";
-
-const rbacConfigsPath = path.resolve(
-  process.cwd(),
-  "tests/config/kubernetes/rbac/",
-);
-
-const resourcesConfigsPath = path.resolve(
-  process.cwd(),
-  "tests/config/kubernetes/resources/",
-);
 
 const $pipe = $({ stdio: "pipe" });
 
@@ -33,6 +22,9 @@ test.describe("Kubernetes", () => {
     const namespace = rhdh.deploymentConfig.namespace;
 
     // Setup Cluster Service Account
+    const rbacConfigsPath = WorkspacePaths.resolve(
+      "tests/config/kubernetes/rbac/",
+    );
     await $`kubectl apply -f ${rbacConfigsPath}/service-account.yaml -n ${namespace}`;
     await $`kubectl apply -f ${rbacConfigsPath}/service-account-secret.yaml -n ${namespace}`;
 
@@ -41,6 +33,9 @@ test.describe("Kubernetes", () => {
     await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-binding-k8s.yaml -n ${namespace}`;
 
     // Setup Kubernetes test resources
+    const resourcesConfigsPath = WorkspacePaths.resolve(
+      "tests/config/kubernetes/resources/",
+    );
     await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test.yaml -n ${namespace}`;
     await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test-ingress.yaml -n ${namespace}`;
 
