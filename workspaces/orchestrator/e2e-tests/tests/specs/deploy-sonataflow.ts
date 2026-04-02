@@ -32,13 +32,23 @@ export async function deploySonataflow(namespace: string): Promise<void> {
 
   try {
     const subscriptions = oc("get subscriptions.operators.coreos.com -n openshift-operators --no-headers");
-    console.log(`[deploy-sonataflow] Operator subscriptions:\n${subscriptions}`);
-  } catch (e) { console.log(`[deploy-sonataflow] Subscription list error: ${e}`); }
+    console.log(`[deploy-sonataflow] Operator subscriptions (openshift-operators):\n${subscriptions}`);
+  } catch (e) { console.log(`[deploy-sonataflow] Subscription list error (openshift-operators): ${e}`); }
+
+  try {
+    const logicSubs = oc("get subscriptions.operators.coreos.com -n openshift-serverless-logic --no-headers");
+    console.log(`[deploy-sonataflow] Operator subscriptions (openshift-serverless-logic):\n${logicSubs}`);
+  } catch (e) { console.log(`[deploy-sonataflow] Subscription list error (openshift-serverless-logic): ${e}`); }
 
   try {
     const csvs = oc("get csv -n openshift-operators --no-headers");
-    console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
-  } catch (e) { console.log(`[deploy-sonataflow] CSV list error: ${e}`); }
+    console.log(`[deploy-sonataflow] ClusterServiceVersions (openshift-operators):\n${csvs}`);
+  } catch (e) { console.log(`[deploy-sonataflow] CSV list error (openshift-operators): ${e}`); }
+
+  try {
+    const logicCsvs = oc("get csv -n openshift-serverless-logic --no-headers");
+    console.log(`[deploy-sonataflow] ClusterServiceVersions (openshift-serverless-logic):\n${logicCsvs}`);
+  } catch (e) { console.log(`[deploy-sonataflow] CSV list error (openshift-serverless-logic): ${e}`); }
 
   // Patch SFP: resource limits + permissive liveness/readiness probes via podTemplate.
   // The data-index image bundles SmallRye Reactive Messaging extensions whose health
