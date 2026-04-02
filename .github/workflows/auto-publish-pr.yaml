@@ -1,0 +1,178 @@
+name: Auto-Publish PR
+on:
+  workflow_call:
+    inputs:
+      pr-number:
+        type: number
+        required: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    name: Prepare PR data
+    outputs:
+      overlay-branch: ${{ steps.get-branch.outputs.overlay-branch }}
+      overlay-repo: ${{ steps.get-branch.outputs.overlay-repo }}
+      overlay-commit: ${{ steps.get-branch.outputs.overlay-commit }}
+      workspace: ${{ steps.get-branch.outputs.workspace }}
+      pr-number: ${{ steps.get-branch.outputs.pr-number }}
+
+    permissions:
+      statuses: write
+
+    steps:
+      - name: Get PR branch data
+        id: get-branch
+        uses: actions/github-script@v7
+        env:
+          INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const currentPullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const prBranch = currentPullRequest.data.head.ref;
+            core.setOutput('overlay-branch', prBranch);
+            const prRepo = currentPullRequest.data.head.repo.full_name;
+            core.setOutput('overlay-repo', prRepo);
+            core.setOutput('pr-number', prNumber);
+            const prCommit = currentPullRequest.data.head.sha;
+            core.setOutput('overlay-commit', prCommit);
+            let workspace = '';
+
+            const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
+            if (matches && matches.length == 2) {
+              workspace = `workspaces/${matches[1]}`;
+            } else {
+              const prFiles = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              const workspaces = [ ... new Set(prFiles.data
+                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+                .filter(match => match)
+                .map(match => match[1])
+              )];
+              if (workspaces.length === 1) {
+                workspace = `workspaces/${workspaces[0]}`;
+              }
+            }
+            core.setOutput('workspace', workspace);
+            if (workspace === '') {
+              core.warning(`PR #${prNumber} does not touch exactly 1 workspace — skipping auto-publish`);
+              return;
+            }
+
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}',
+            });
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: prCommit,
+              description: 'auto-publish',
+              state: 'pending',
+              target_url: workflowRun.data.html_url,
+              context: 'publish',
+            });
+
+  export:
+    name: Publish PR Dynamic Plugin Images
+    needs: prepare
+    if: needs.prepare.outputs.workspace != ''
+
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      publish-container: true
+      image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+      image-tag-prefix: ${{ format('pr_{0}__', needs.prepare.outputs.pr-number) }}
+      image-registry-user: ${{ github.actor }}
+
+    secrets:
+      image-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+
+  add-completion-comment:
+    needs:
+      - prepare
+      - export
+    if: always() && needs.prepare.outputs.workspace != ''
+    runs-on: ubuntu-latest
+
+    permissions:
+      statuses: write
+      pull-requests: write
+
+    steps:
+      - name: Add completion comment
+        uses: actions/github-script@v7
+        env:
+          INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+            const jobs = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}',
+              filter: 'latest',
+            });
+            const publishSuccess = jobs.data.jobs
+              .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
+              .every(j => j.conclusion === 'success');
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: core.getInput('overlay_commit'),
+              description: 'auto-publish',
+              state: publishSuccess ? 'success' : 'failure',
+              target_url: workflowRun.data.html_url,
+              context: 'publish',
+            });
+
+            let body = `[Auto-publish workflow](${workflowRun.data.html_url}) has completed with ${ publishSuccess ? 'success' : 'failure' }.`;
+            const publishedExports = core.getMultilineInput('published_exports');
+            const failedExports = core.getMultilineInput('failed_exports');
+            if (publishedExports.length + failedExports.length > 0) {
+              if (failedExports.length > 0) {
+                body += '\n\n#### Publishing process\n';
+                body += `❌ Plugins with errors during export or container image publishing:`;
+                failedExports.forEach(line => { body += `\n  - ${line}`; });
+              } else {
+                body += '\n\n#### Publishing process\n✅ Finished successfully.';
+              }
+              if (publishedExports.length > 0) {
+                body += `\n- Published container images:`;
+                publishedExports.forEach(line => { body += `\n  - ${line}`; });
+              }
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

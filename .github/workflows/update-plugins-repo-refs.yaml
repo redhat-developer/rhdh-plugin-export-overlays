@@ -280,10 +280,9 @@ jobs:
       matrix:
         pr-number: ${{ fromJSON(needs.collect-auto-publish-prs.outputs.pr-numbers) }}
       max-parallel: 2
-    uses: ./.github/workflows/pr-actions.yaml
+    uses: ./.github/workflows/auto-publish-pr.yaml
     with:
       pr-number: ${{ matrix.pr-number }}
-      command: publish
     permissions:
       contents: write
       attestations: write
