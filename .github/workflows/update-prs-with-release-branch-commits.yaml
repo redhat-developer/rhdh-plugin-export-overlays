@@ -44,6 +44,7 @@ jobs:
 
     outputs:
       pr-comments: ${{ steps.update-prs.outputs.pr-comments }}
+      updated-pr-numbers: ${{ steps.update-prs.outputs.updated-pr-numbers }}
 
     steps:
       - uses: actions/checkout@v4
@@ -87,3 +88,27 @@ jobs:
 
     permissions:
       pull-requests: write
+
+  auto-publish-updated-prs:
+    name: Auto-publish updated PR
+    needs: [update-prs, comment-prs]
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      needs.update-prs.outputs.updated-pr-numbers != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        pr-number: ${{ fromJSON(needs.update-prs.outputs.updated-pr-numbers) }}
+      max-parallel: 2
+    uses: ./.github/workflows/pr-actions.yaml
+    with:
+      pr-number: ${{ matrix.pr-number }}
+      command: publish
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+      pull-requests: write
+    secrets: inherit

@@ -237,3 +237,58 @@ jobs:
       contents: read
       pull-requests: write
       issues: read
+
+  collect-auto-publish-prs:
+    name: Collect PRs for auto-publish
+    needs: [update-branches, update-release-branches, update-main-branch]
+    if: |
+      always() &&
+      (needs.update-branches.result == 'success' ||
+       needs.update-release-branches.result == 'success' ||
+       needs.update-main-branch.result == 'success')
+    runs-on: ubuntu-latest
+    outputs:
+      pr-numbers: ${{ steps.collect.outputs.pr-numbers }}
+    steps:
+      - uses: actions/github-script@v7
+        id: collect
+        with:
+          script: |
+            const runStart = new Date('${{ github.run_started_at }}');
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc',
+            });
+            const recentBotPrs = prs.filter(pr =>
+              pr.user.login === 'github-actions[bot]' &&
+              pr.head.ref.startsWith('workspaces/') &&
+              new Date(pr.updated_at) >= runStart
+            );
+            const numbers = recentBotPrs.map(pr => pr.number);
+            core.setOutput('pr-numbers', JSON.stringify(numbers));
+            core.info(`Found ${numbers.length} PRs for auto-publish: ${numbers}`);
+
+  auto-publish:
+    name: Auto-publish PR
+    needs: collect-auto-publish-prs
+    if: needs.collect-auto-publish-prs.outputs.pr-numbers != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr-number: ${{ fromJSON(needs.collect-auto-publish-prs.outputs.pr-numbers) }}
+      max-parallel: 2
+    uses: ./.github/workflows/pr-actions.yaml
+    with:
+      pr-number: ${{ matrix.pr-number }}
+      command: publish
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+      pull-requests: write
+    secrets: inherit

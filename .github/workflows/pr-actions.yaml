@@ -2,6 +2,14 @@ name: Pull Request Actions
 on:
   issue_comment:
     types: [created, edited]
+  workflow_call:
+    inputs:
+      pr-number:
+        type: number
+        required: true
+      command:
+        type: string
+        required: true
 
 jobs:  
   parse:
@@ -59,7 +67,7 @@ jobs:
       - parse
 
     concurrency:
-      group: add_error_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_error_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
 
     permissions:
@@ -72,28 +80,52 @@ jobs:
         uses: actions/github-script@v7
         env:
           INPUT_ERROR_MESSAGE: ${{ needs.parse.outputs.error-message }}
+          INPUT_PR_NUMBER: ${{ github.event.issue.number }}
         with:
           script: |
             const errorMessage = core.getInput('error_message');
+            const prNumber = Number(core.getInput('pr_number'));
             const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
             });
 
+  route:
+    runs-on: ubuntu-latest
+    name: Route Command
+    needs:
+      - parse
+    if: always()
+    outputs:
+      command: ${{ steps.resolve.outputs.command }}
+      pr-number: ${{ steps.resolve.outputs.pr-number }}
+    steps:
+      - name: Resolve trigger inputs
+        id: resolve
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            echo "command=${{ needs.parse.outputs.command-name }}" >> $GITHUB_OUTPUT
+            echo "pr-number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "command=${{ inputs.command }}" >> $GITHUB_OUTPUT
+            echo "pr-number=${{ inputs.pr-number }}" >> $GITHUB_OUTPUT
+          fi
+
   prepare:
     runs-on: ubuntu-latest
     name: Prepare
     needs:
-      - parse
+      - route
 
     concurrency:
-      group: prepare-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: prepare-${{ github.ref_name }}-${{ needs.route.outputs.pr-number }}
       cancel-in-progress: false
       
-    if: needs.parse.outputs.command-name != ''
+    if: needs.route.outputs.command != ''
     outputs:
       target-branch: ${{ steps.get-branch.outputs.target-branch }}
       overlay-branch: ${{ steps.get-branch.outputs.overlay-branch }}
@@ -110,13 +142,15 @@ jobs:
         id: get-branch
         uses: actions/github-script@v7
         env:
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_PR_NUMBER: ${{ needs.route.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const currentPullRequest = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number
+              pull_number: prNumber
             });
             const targetBranch = currentPullRequest.data.base.ref;
             core.setOutput('target-branch', targetBranch);
@@ -124,7 +158,6 @@ jobs:
             core.setOutput('overlay-branch', prBranch);
             const prRepo = currentPullRequest.data.head.repo.full_name;
             core.setOutput('overlay-repo', prRepo);
-            const prNumber = currentPullRequest.data.number;
             core.setOutput('pr-number', prNumber);
             const prCommit = currentPullRequest.data.head.sha;
             core.setOutput('overlay-commit', prCommit);
@@ -137,7 +170,7 @@ jobs:
               const prFiles = await github.rest.pulls.listFiles({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: context.issue.number
+                pull_number: prNumber
               });
               const workspaces = [ ... new Set(prFiles.data
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
@@ -171,10 +204,10 @@ jobs:
   detectChanges:
     name: Detect change scope
     needs:
-      - parse
+      - route
       - prepare
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.workspace != ''
+    if: needs.route.outputs.command == 'publish' && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     outputs:
       only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
@@ -184,12 +217,14 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const prFiles = await github.rest.pulls.listFiles({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.issue.number,
+              pull_number: prNumber,
             });
             const workspace = core.getInput('workspace');
             const metadataPrefix = `${workspace}/metadata/`;
@@ -204,16 +239,20 @@ jobs:
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
-      - parse
+      - route
       - prepare
       - checkPRUpToDate
       - detectChanges
 
     concurrency:
-      group: export-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: export-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed != 'true'
+    if: | 
+      needs.route.outputs.command == 'publish' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != '' && 
+      needs.detectChanges.outputs.only-metadata-changed != 'true'
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
@@ -237,13 +276,13 @@ jobs:
   uploadArtifacts:
     name: Upload Artifacts
     needs:
-      - parse
+      - route
       - prepare
       - export
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.pr-number != ''
 
     concurrency:
-      group: uploadArtifacts-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: uploadArtifacts-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
 
     runs-on: ubuntu-latest
@@ -263,7 +302,10 @@ jobs:
           EOF
 
       - name: Stage published exports content
-        if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+        if: | 
+          needs.route.outputs.command == 'publish' && 
+          needs.prepare.outputs.workspace != '' && 
+          needs.export.outputs.published-exports != ''
         env:
           PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
         run: |
@@ -280,7 +322,10 @@ jobs:
           retention-days: 1
 
       - name: Upload published-exports artifact
-        if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.workspace != '' && needs.export.outputs.published-exports != ''
+        if: | 
+          needs.route.outputs.command == 'publish' && 
+          needs.prepare.outputs.workspace != '' && 
+          needs.export.outputs.published-exports != ''
         uses: actions/upload-artifact@v4
         with:
           name: published-exports-pr-${{ needs.prepare.outputs.pr-number }}
@@ -291,15 +336,19 @@ jobs:
   checkBackstageCompatibility:
     name: Check workspace backstage compatibility
     needs:
-      - parse
+      - route
       - prepare
       - detectChanges
 
     concurrency:
-      group: checkBackstageCompatibility-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: checkBackstageCompatibility-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed != 'true'
+    if: | 
+      needs.route.outputs.command == 'publish' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != '' && 
+      needs.detectChanges.outputs.only-metadata-changed != 'true'
 
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
     with:
@@ -310,15 +359,19 @@ jobs:
   validateMetadataOnly:
     name: Validate metadata (metadata-only change)
     needs:
-      - parse
+      - route
       - prepare
       - detectChanges
 
     concurrency:
-      group: validateMetadataOnly-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: validateMetadataOnly-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: true
 
-    if: needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != '' && needs.detectChanges.outputs.only-metadata-changed == 'true'
+    if: | 
+      needs.route.outputs.command == 'publish' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != '' && 
+      needs.detectChanges.outputs.only-metadata-changed == 'true'
     runs-on: ubuntu-latest
 
     outputs:
@@ -393,7 +446,7 @@ jobs:
 
   add_publish_completion_comment:
     needs:
-      - parse
+      - route
       - prepare
       - checkPRUpToDate
       - detectChanges
@@ -402,14 +455,18 @@ jobs:
       - validateMetadataOnly
 
     concurrency:
-      group: add_publish_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_publish_completion_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
 
     permissions:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: |
+      always() && 
+      needs.route.outputs.command == 'publish' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
       - name: Download compatibility report
@@ -426,9 +483,10 @@ jobs:
           INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
           INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
           INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
           INPUT_PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           INPUT_FAILED_EXPORTS: ${{ needs.export.outputs.failed-exports }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
           INPUT_ONLY_METADATA_CHANGED: ${{ needs.detectChanges.outputs.only-metadata-changed }}
           INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed || needs.validateMetadataOnly.outputs.metadata-validation-passed }}
           INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validateMetadataOnly.outputs.metadata-validation-errors }}
@@ -436,6 +494,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const prNumber = Number(core.getInput('pr_number'));
             const onlyMetadataChanged = core.getInput('only_metadata_changed') === 'true';
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
@@ -550,7 +609,7 @@ jobs:
             }
 
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
@@ -558,11 +617,11 @@ jobs:
     
   add_no_workspace_comment:
     needs:
-      - parse
+      - route
       - prepare
 
     concurrency:
-      group: add_no_workspace_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_no_workspace_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
 
     permissions:
@@ -577,10 +636,12 @@ jobs:
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
 
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -599,7 +660,7 @@ jobs:
 
             const body = `[PR action (\`/${core.getInput('command_name')}\`)](${workflowRun.data.html_url}) cancelled: PR doesn't touch only 1 workspace.`;
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
@@ -608,18 +669,22 @@ jobs:
   checkPRUpToDate:
     name: Checks whether the PR is up-to-date with versions.json
     needs:
-      - parse
+      - route
       - prepare
 
     concurrency:
-      group: checkPRUpToDate-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: checkPRUpToDate-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
     
     permissions:
       statuses: write
       pull-requests: write
   
-    if: always() && needs.parse.outputs.command-name == 'publish' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: |
+      always() && 
+      needs.route.outputs.command == 'publish' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
       - name: Add update check comment
@@ -628,8 +693,10 @@ jobs:
           INPUT_TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
           INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
           INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const path = 'versions.json';
             const releaseBranch = core.getInput('target_branch');
             if (! releaseBranch?.startsWith('release-') && ! releaseBranch?.startsWith('main') ) {
@@ -674,7 +741,7 @@ jobs:
               core.setFailed(`PR not up-to-date with the release branch`);
               const body = `The \`versions.json\` file in your PR doesn't match the one in release branch ${releaseBranch}\nTry updating it by adding the \`/update-versions\` PR comment.`;
               await github.rest.issues.createComment({
-                issue_number: context.issue.number,
+                issue_number: prNumber,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: body
@@ -684,18 +751,18 @@ jobs:
   updatePRWithVersions:
     name: Update versions on PR from release branch
     needs:
-      - parse
+      - route
       - prepare
 
     concurrency:
-      group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: updatePRWithVersions-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.parse.outputs.command-name == 'update-versions'
+    if: needs.route.outputs.command == 'update-versions'
     uses: ./.github/workflows/update-prs-with-release-branch-commits.yaml
     with:
       force: true
-      pr: ${{ github.event.issue.number }}
+      pr: ${{ needs.prepare.outputs.pr-number }}
       release-branch: ${{ needs.prepare.outputs.target-branch }}
     permissions:
       contents: write
@@ -703,29 +770,37 @@ jobs:
 
   add_update_versions_completion_comment:
     needs:
-      - parse
+      - route
       - prepare
       - updatePRWithVersions
+      - prepare-for-auto-publish
+      - auto-export-after-update
 
     concurrency:
-      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
     
     permissions:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command-name == 'update-versions' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: always() && needs.route.outputs.command == 'update-versions' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_SHOULD_PUBLISH: ${{ needs.prepare-for-auto-publish.outputs.should-publish }}
+          INPUT_AUTO_EXPORT_RESULT: ${{ needs.auto-export-after-update.result }}
+          INPUT_AUTO_EXPORT_PUBLISHED: ${{ needs.auto-export-after-update.outputs.published-exports }}
+          INPUT_AUTO_EXPORT_FAILED: ${{ needs.auto-export-after-update.outputs.failed-exports }}
 
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -752,8 +827,31 @@ jobs:
             });
 
             let body = `[Update Versions workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
+
+            const shouldPublish = core.getInput('should_publish');
+            const autoExportResult = core.getInput('auto_export_result');
+            if (shouldPublish === 'true') {
+              const exportSuccess = autoExportResult === 'success';
+              body += `\n\n#### Auto-Publish\n`;
+              body += exportSuccess
+                ? '✅ Auto-publish triggered and completed successfully.'
+                : '❌ Auto-publish triggered but failed.';
+              const publishedExports = core.getMultilineInput('auto_export_published');
+              const failedExports = core.getMultilineInput('auto_export_failed');
+              if (failedExports.length > 0) {
+                body += `\n- Failed exports:`;
+                failedExports.forEach(line => { body += `\n  - ${line}`; });
+              }
+              if (publishedExports.length > 0) {
+                body += `\n- Published container images:`;
+                publishedExports.forEach(line => { body += `\n  - ${line}`; });
+              }
+            } else if (shouldPublish === 'false') {
+              body += `\n\n_No changes detected — auto-publish skipped._`;
+            }
+
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
@@ -762,14 +860,14 @@ jobs:
   updatePRWithCommit:
     name: Update commit on PR from automatic discovery
     needs:
-      - parse
+      - route
       - prepare
 
     concurrency:
-      group: updatePRWithCommit-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: updatePRWithCommit-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.parse.outputs.command-name == 'update-commit'
+    if: needs.route.outputs.command == 'update-commit'
     uses: ./.github/workflows/update-plugins-repo-refs.yaml
     with:
       single-branch: ${{ needs.prepare.outputs.target-branch }}
@@ -784,29 +882,41 @@ jobs:
 
   add_update_commit_completion_comment:
     needs:
-      - parse
+      - route
       - prepare
       - updatePRWithCommit
+      - prepare-for-auto-publish
+      - auto-export-after-update
 
     concurrency:
-      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
       cancel-in-progress: false
     
     permissions:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.parse.outputs.command-name == 'update-commit' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: | 
+      always() && 
+      needs.route.outputs.command == 'update-commit' && 
+      needs.prepare.outputs.overlay-branch != '' && 
+      needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_SHOULD_PUBLISH: ${{ needs.prepare-for-auto-publish.outputs.should-publish }}
+          INPUT_AUTO_EXPORT_RESULT: ${{ needs.auto-export-after-update.result }}
+          INPUT_AUTO_EXPORT_PUBLISHED: ${{ needs.auto-export-after-update.outputs.published-exports }}
+          INPUT_AUTO_EXPORT_FAILED: ${{ needs.auto-export-after-update.outputs.failed-exports }}
 
         with:
           script: |
+            const prNumber = Number(core.getInput('pr_number'));
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -833,9 +943,101 @@ jobs:
             });
 
             let body = `[Update Commit workflow](${workflowRun.data.html_url}) has completed with ${ success ? 'success' : 'failure' }.`;
+
+            const shouldPublish = core.getInput('should_publish');
+            const autoExportResult = core.getInput('auto_export_result');
+            if (shouldPublish === 'true') {
+              const exportSuccess = autoExportResult === 'success';
+              body += `\n\n#### Auto-Publish\n`;
+              body += exportSuccess
+                ? '✅ Auto-publish triggered and completed successfully.'
+                : '❌ Auto-publish triggered but failed.';
+              const publishedExports = core.getMultilineInput('auto_export_published');
+              const failedExports = core.getMultilineInput('auto_export_failed');
+              if (failedExports.length > 0) {
+                body += `\n- Failed exports:`;
+                failedExports.forEach(line => { body += `\n  - ${line}`; });
+              }
+              if (publishedExports.length > 0) {
+                body += `\n- Published container images:`;
+                publishedExports.forEach(line => { body += `\n  - ${line}`; });
+              }
+            } else if (shouldPublish === 'false') {
+              body += `\n\n_No changes detected — auto-publish skipped._`;
+            }
+
             await github.rest.issues.createComment({
-              issue_number: context.issue.number,
+              issue_number: prNumber,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: body
             })
+
+  prepare-for-auto-publish:
+    name: Check if update caused a change
+    needs:
+      - route
+      - prepare
+      - updatePRWithCommit
+      - updatePRWithVersions
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.prepare.outputs.workspace != '' &&
+      (
+        (needs.route.outputs.command == 'update-commit' &&
+         needs.updatePRWithCommit.result == 'success') ||
+        (needs.route.outputs.command == 'update-versions' &&
+         needs.updatePRWithVersions.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      should-publish: ${{ steps.check.outputs.should-publish }}
+      overlay-commit: ${{ steps.check.outputs.overlay-commit }}
+    steps:
+      - name: Check if PR HEAD changed
+        id: check
+        uses: actions/github-script@v7
+        env:
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_ORIGINAL_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: Number(core.getInput('pr_number')),
+            });
+            const newCommit = pr.data.head.sha;
+            const changed = newCommit !== core.getInput('original_commit');
+            core.setOutput('should-publish', String(changed));
+            core.setOutput('overlay-commit', newCommit);
+            core.info(`Original commit: ${core.getInput('original_commit')}`);
+            core.info(`New commit: ${newCommit}`);
+            core.info(`Changed: ${changed}`);
+
+  auto-export-after-update:
+    name: Auto-publish after update
+    needs:
+      - prepare
+      - prepare-for-auto-publish
+    if: needs.prepare-for-auto-publish.outputs.should-publish == 'true'
+
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    with:
+      overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
+      overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      publish-container: true
+      image-repository-prefix: ${{ format('ghcr.io/{0}', github.repository) }}
+      image-tag-prefix: ${{ format('pr_{0}__', needs.prepare.outputs.pr-number) }}
+      image-registry-user: ${{ github.actor }}
+
+    secrets:
+      image-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
