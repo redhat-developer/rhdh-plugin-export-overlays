@@ -9,7 +9,6 @@ import {
 
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
-import * as fs from "node:fs";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
 import { waitUntilRhdhServesHttp } from "../../support/utils/wait-for-rhdh-http";
@@ -277,7 +276,6 @@ test.describe("RBAC plugin", () => {
 
     test("Edit role policies via the updatePolicies button on the overview page", async ({
       uiHelper,
-      rhdh
     }) => {
       await rbacPO.navigateToRBACPage();
       await rbacPO.createRole(
@@ -324,7 +322,6 @@ test.describe("RBAC plugin", () => {
       await expect(rbacNavLink).toHaveCount(0);
     });
 
-    
     test("No access user should not see list of components in catalog", async ({
       uiHelper,
     }) => {
@@ -333,11 +330,12 @@ test.describe("RBAC plugin", () => {
       await uiHelper.verifyTableIsEmpty();
     });
 
-
     test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
       await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText("ERROR 403: Insufficient permissions to access this page");
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
   });
 
@@ -679,13 +677,17 @@ test.describe("RBAC plugin", () => {
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
-      
+
       rbacPO = new RbacPO(page, uiHelper);
-      
+
       await rbacPO.navigateToRBACPage();
       await uiHelper.waitForLoad();
       await rbacPO.filterRolesList(RBAC_ROLES.defaultRole.name);
-      await rbacPO.verifyRoleAndSwitchToOverview(RBAC_ROLES.defaultRole.ref, "Role with default permissions for all users and groups.", ["1 permission"]);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.defaultRole.ref,
+        "Role with default permissions for all users and groups.",
+        ["1 permission"],
+      );
     });
   });
 

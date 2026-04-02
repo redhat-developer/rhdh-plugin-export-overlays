@@ -7,7 +7,6 @@ export default defineConfig({
   projects: [
     {
       name: "rbac",
-      workers: 1,
     },
   ],
 });

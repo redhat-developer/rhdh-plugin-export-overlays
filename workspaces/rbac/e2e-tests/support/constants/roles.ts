@@ -46,5 +46,5 @@ export const RBAC_ROLES: Record<string, RbacRef> = {
   defaultRole: {
     name: "default-role",
     ref: "role:default/default-role",
-  }
+  },
 };
