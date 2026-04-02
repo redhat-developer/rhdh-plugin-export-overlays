@@ -645,11 +645,7 @@ test.describe("RBAC plugin", () => {
   });
 
   test.describe("Check default RBAC permissions", () => {
-    // Deploy + HTTP wait can take many minutes; both tests share the same cap.
-    test.describe.configure({ timeout: 600_000 });
-
     test.beforeAll(async ({ rhdh }) => {
-      // `beforeAll` has its own timeout budget; align with the suite.
       test.setTimeout(600_000);
 
       const namespace = rhdh.deploymentConfig.namespace;
@@ -668,7 +664,6 @@ test.describe("RBAC plugin", () => {
       uiHelper,
       loginHelper,
     }) => {
-      await page.context().clearCookies();
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
 
       rbacPO = new RbacPO(page, uiHelper);
@@ -682,7 +677,6 @@ test.describe("RBAC plugin", () => {
       uiHelper,
       loginHelper,
     }) => {
-      await page.context().clearCookies();
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
       
       rbacPO = new RbacPO(page, uiHelper);
