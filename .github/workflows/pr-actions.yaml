@@ -2,14 +2,6 @@ name: Pull Request Actions
 on:
   issue_comment:
     types: [created, edited]
-  workflow_call:
-    inputs:
-      pr-number:
-        type: number
-        required: true
-      command:
-        type: string
-        required: true
 
 jobs:  
   parse:
@@ -67,7 +59,7 @@ jobs:
       - parse
 
     concurrency:
-      group: add_error_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: add_error_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
 
     permissions:
@@ -107,13 +99,8 @@ jobs:
         id: resolve
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            echo "command=${{ needs.parse.outputs.command-name }}" >> $GITHUB_OUTPUT
-            echo "pr-number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "command=${{ inputs.command }}" >> $GITHUB_OUTPUT
-            echo "pr-number=${{ inputs.pr-number }}" >> $GITHUB_OUTPUT
-          fi
+          echo "command=${{ needs.parse.outputs.command-name }}" >> $GITHUB_OUTPUT
+          echo "pr-number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
 
   prepare:
     runs-on: ubuntu-latest
@@ -208,7 +195,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: publish-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: publish-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
 
     if: |
@@ -235,7 +222,7 @@ jobs:
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.pr-number != ''
 
     concurrency:
-      group: uploadArtifacts-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: uploadArtifacts-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
 
     runs-on: ubuntu-latest
@@ -268,7 +255,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: add_no_workspace_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: add_no_workspace_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
 
     permissions:
@@ -320,7 +307,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: updatePRWithVersions-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
     if: needs.route.outputs.command == 'update-versions'
@@ -344,7 +331,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: updatePRWithCommit-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: updatePRWithCommit-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
     if: needs.route.outputs.command == 'update-commit'
@@ -371,7 +358,7 @@ jobs:
       - updatePRWithVersions
 
     concurrency:
-      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
     
     permissions:
@@ -435,7 +422,7 @@ jobs:
       - updatePRWithCommit
 
     concurrency:
-      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ inputs.pr-number || github.event.issue.number }}
+      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
     
     permissions:
