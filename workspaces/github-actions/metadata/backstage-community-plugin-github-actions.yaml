@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
   tags: []
 spec:
   packageName: "@backstage-community/plugin-github-actions"

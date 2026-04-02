@@ -12,16 +12,15 @@ metadata:
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.45.3__1.2.2!red-hat-developer-hub-backstage-plugin-lightspeed
-  version: 1.2.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.45.3__1.4.0!red-hat-developer-hub-backstage-plugin-lightspeed
+  version: 1.4.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.2
+    supportedVersions: 1.45.3
   author: Red Hat
   support: dev-preview
   lifecycle: active
@@ -47,6 +46,17 @@ spec:
                 - path: /lightspeed
                   importName: LightspeedPage
                   module: LightspeedPlugin
-                  menuItem:
-                    icon: LightspeedIcon
-                    text: Lightspeed
+              mountPoints:
+                - mountPoint: application/listener
+                  importName: LightspeedFAB
+                - mountPoint: application/provider
+                  importName: LightspeedDrawerProvider
+                - mountPoint: application/internal/drawer-state
+                  importName: LightspeedDrawerStateExposer
+                  config:
+                    id: lightspeed
+                - mountPoint: application/internal/drawer-content
+                  importName: LightspeedChatContainer
+                  config:
+                    id: lightspeed
+                    priority: 100

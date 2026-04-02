@@ -10,21 +10,20 @@ metadata:
     - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   tags:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-http-request"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.45.3__5.5.1!roadiehq-scaffolder-backend-module-http-request
-  version: 5.5.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.45.3__5.6.0!roadiehq-scaffolder-backend-module-http-request
+  version: 5.6.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5
   author: Roadie
-  support:  production
+  support:  generally-available
   lifecycle: active
   partOf:
     - http-request-scaffolder-action

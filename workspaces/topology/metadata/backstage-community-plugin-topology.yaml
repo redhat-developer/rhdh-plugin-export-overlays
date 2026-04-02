@@ -12,7 +12,7 @@ metadata:
   - title: Source Code
     url: https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   annotations:
-    backstage.io/source-location: url https://github.com/backstage/community-plugins/tree/main/workspaces/topology
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   tags: []
 spec:
   packageName: '@backstage-community/plugin-topology'
@@ -22,7 +22,7 @@ spec:
     role: frontend-plugin
     supportedVersions: 1.45.3
   author: Red Hat
-  support: production
+  support: generally-available
   lifecycle: active
   partOf:
   - topology

@@ -1,0 +1,55 @@
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    oidc:
+      development:
+        metadataUrl: ${KEYCLOAK_METADATA_URL}
+        clientId: ${KEYCLOAK_CLIENT_ID}
+        clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+        prompt: auto
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/oidc/handler/frame
+        signIn:
+          resolvers:
+            - resolver: emailLocalPartMatchingUserEntityName
+
+permission:
+  enabled: true
+  rbac:
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    admin:
+      superUsers:
+        - name: user:default/test1
+
+catalog:
+  rules:
+    - allow: [Component, System, API, Resource, Location]
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/nationalparks-py/blob/master/catalog-info.yaml
+
+kubernetes:
+  serviceLocatorMethod:
+    type: multiTenant
+  clusterLocatorMethods:
+    - type: config
+      clusters:
+        - name: local-cluster
+          url: ${K8S_CLUSTER_URL}
+          authProvider: serviceAccount
+          serviceAccountToken: ${K8S_CLUSTER_TOKEN}
+          skipTLSVerify: true
+  customResources:
+    - apiVersion: v1
+      group: route.openshift.io
+      plural: routes
+    - apiVersion: v1
+      group: tekton.dev
+      plural: pipelines
+    - apiVersion: v1
+      group: tekton.dev
+      plural: pipelineruns
+    - apiVersion: v1
+      group: tekton.dev
+      plural: taskruns

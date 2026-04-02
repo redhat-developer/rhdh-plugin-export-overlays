@@ -11,6 +11,7 @@ spec:
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
+    - ./aws-scaffolder-actions.yaml
     - ./aws-codebuild.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
@@ -47,6 +48,7 @@ spec:
     - ./jfrog-artifactory.yaml
     - ./jira.yaml
     - ./keycloak-catalog-integration.yaml
+    - ./konflux.yaml
     - ./kubernetes-backend.yaml
     - ./kubernetes-scaffolder-actions.yaml
     - ./kubernetes.yaml

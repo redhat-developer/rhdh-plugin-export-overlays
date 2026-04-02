@@ -66,26 +66,23 @@ The automation performs best-effort version matching:
 
 ---
 
-## Update Cadence
+## When to Update
 
-### Monthly Updates (Recommended)
+Rather than following a fixed calendar cadence, update when concrete signals indicate it is needed:
 
-With each Backstage monthly release:
+- The [Backstage Compatibility Report](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Backstage-Compatibility-Report) shows your workspace as incompatible
+- A new platform release branch is being created and your plugin blocks it
+- Automated discovery PRs fail the compatibility check for your workspace
+- Upstream has released a version built against the current target Backstage version
+- Security advisories affect your plugin's dependencies
 
-1. **Check** if your plugin has a compatible release
-2. **Update** `source.json:repo-ref` to the new version
-3. **Update** `source.json:repo-backstage-version`
-4. **Update** `metadata/*.yaml:spec.version`
-5. **Update** `metadata/*.yaml:spec.backstage.supportedVersions`
-6. **Test** with `/publish` and `/test`
+When any of these signals appear:
 
-### Quarterly Updates (Minimum)
-
-At minimum, update every quarter to ensure:
-
-- Security patches are included
-- Breaking changes are addressed before they accumulate
-- Plugins remain compatible with platform releases
+1. **Check** the target Backstage version in `versions.json`
+2. **Find** a compatible plugin release
+3. **Update** `source.json:repo-ref` and `repo-backstage-version`
+4. **Update** `metadata/*.yaml:spec.version` and `spec.backstage.supportedVersions`
+5. **Test** with `/publish` and `/smoketest`
 
 ---
 
@@ -149,33 +146,22 @@ git push origin update-your-plugin-version
 
 # Open PR, then comment:
 # /publish
-# /test
+# /smoketest
 ```
 
 ---
 
-## Handling Major Backstage Updates
+## Handling Breaking Backstage Updates
 
-When Backstage releases a major version (e.g., 1.x → 2.x):
+When the target Backstage version introduces breaking changes that affect your plugin:
 
-### Assessment Phase
-
-1. **Review Backstage changelog** for breaking changes
-2. **Identify** which breaking changes affect your plugin
-3. **Check** if upstream has released a compatible version
-
-### Update Phase
-
-1. **Update** all version references
-2. **Create patches** if source hasn't addressed breaking changes
-3. **Update** any overlays that depend on changed APIs
-4. **Test thoroughly** in a real Backstage instance
-
-### Validation Phase
-
-1. **Run** `/publish` and `/test`
-2. **Perform** manual testing if automated tests pass
-3. **Document** any migration notes in PR description
+1. **Check** if upstream has already released a compatible version of your plugin
+2. If a compatible version exists, update `source.json:repo-ref` to that version
+3. If no compatible version exists yet:
+   - Request or contribute a fix upstream
+   - As a temporary measure, create a patch to restore compatibility (see [06 - Patch Management](./06-patch-management.md))
+4. **Test** with `/publish` and `/smoketest` before merging
+5. **Document** any migration notes or known limitations in the PR description
 
 ---
 
@@ -227,9 +213,11 @@ The `update-plugins-repo-refs.yaml` workflow runs daily and:
 
 ### Manual Trigger
 
+Use single quotes around the package name for an exact literal match (see [Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for details on quoting):
+
 ```bash
 gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="@backstage-community/plugin-your-plugin" \
+  -f regexps="'@backstage-community/plugin-your-plugin'" \
   -f single-branch="main"
 ```
 
@@ -339,7 +327,7 @@ git push origin backport-plugin-update-1.6
 ### Validation
 - [ ] Created PR
 - [ ] /publish completed successfully
-- [ ] /test passed
+- [ ] /smoketest passed
 - [ ] Manual testing completed (if best-effort match)
 - [ ] PR approved and merged
 ```

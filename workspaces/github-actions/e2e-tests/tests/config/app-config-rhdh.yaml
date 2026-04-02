@@ -1,0 +1,9 @@
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml

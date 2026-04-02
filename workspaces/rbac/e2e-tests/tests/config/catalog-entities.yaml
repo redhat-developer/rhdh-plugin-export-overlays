@@ -1,0 +1,100 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mock-sub-child-site
+  description: A mock site for testing RBAC permissions with includeTransitiveGroupOwnership config.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:default/rhdh-qe-sub-child-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mock-site
+  description: A mock site for testing RBAC permissions with includeTransitiveGroupOwnership config.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:default/rhdh-qe-parent-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mock-child-site
+  description: A mock site for testing RBAC permissions with includeTransitiveGroupOwnership config.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:default/rhdh-qe-child-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: test-rhdh-qe-2
+  description: A mock component for testing RBAC permissions with $currentUser alias.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: user:default/current-user-owner
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: test-rhdh-qe-2-team-owned
+  description: A mock component for testing RBAC permissions with $currentUser alias.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: group:janus-qe/rhdh-qe-2-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: mock-component
+  description: A mock component for testing RBAC policy precedence.
+spec:
+  type: website
+  lifecycle: experimental
+  owner: user:default/conditional-allow-user
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-qe-parent-team
+  title: RHDH QE Parent Team
+spec:
+  type: team
+  children: [rhdh-qe-child-team]
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-qe-child-team
+  title: RHDH QE Child Team
+spec:
+  type: team
+  children: [rhdh-qe-sub-child-team]
+  members: [child-group-member]
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-qe-sub-child-team
+  title: RHDH QE Sub Child Team
+spec:
+  type: team
+  children: []
+  members: [sub-child-group-member]
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: rhdh-qe-2-team
+  namespace: janus-qe
+  title: Team utilized for $currentUser alias testing
+spec:
+  type: team
+  children: []
+  members: []
+---
