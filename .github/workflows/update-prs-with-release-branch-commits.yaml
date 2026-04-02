@@ -92,9 +92,7 @@ jobs:
   auto-publish-updated-prs:
     name: Auto-publish updated PR
     needs: [update-prs, comment-prs]
-    if: |
-      github.event_name == 'workflow_dispatch' &&
-      needs.update-prs.outputs.updated-pr-numbers != ''
+    if: needs.update-prs.outputs.updated-pr-numbers != ''
     strategy:
       fail-fast: false
       matrix:
