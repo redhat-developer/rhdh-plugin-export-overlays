@@ -17,10 +17,6 @@ export type WaitForRhdhHttpOptions = {
   requestTimeoutMs?: number;
 };
 
-function defaultStrictTls(): boolean {
-  return process.env.RHDH_HTTP_WAIT_STRICT_TLS === "true";
-}
-
 function responseLooksHealthy(status: number): boolean {
   if (status >= 200 && status < 400) {
     return true;
