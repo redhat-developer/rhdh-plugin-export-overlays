@@ -25,6 +25,7 @@ test.describe("Test github-actions", () => {
 
     await page.locator("a").getByText("CI", { exact: true }).first().click();
     await page.getByRole("button", { name: "Log in" }).click();
+    await loginHelper.checkAndReauthorizeGithubApp();
 
     const response = await APIHelper.githubRequest(
       "GET",
