@@ -1,11 +1,11 @@
-import { test, expect, Page } from "rhdh-e2e-test-utils/test";
+import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   LoginHelper,
   UIhelper,
   AuthApiHelper,
   RbacApiHelper,
-} from "rhdh-e2e-test-utils/helpers";
-import { OrchestratorPage } from "rhdh-e2e-test-utils/pages";
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import {
   removeBaselineRole,
   setupAuthenticatedPage,

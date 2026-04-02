@@ -1,7 +1,7 @@
 import { execSync, execFileSync } from "child_process";
-import { test, expect } from "rhdh-e2e-test-utils/test";
-import { AuthApiHelper } from "rhdh-e2e-test-utils/helpers";
-import { OrchestratorPage } from "rhdh-e2e-test-utils/pages";
+import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { ensureBaselineRole } from "./rbac-baseline.js";
 import { deploySonataflow } from "./deploy-sonataflow.js";
 
