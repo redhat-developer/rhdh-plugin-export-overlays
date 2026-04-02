@@ -220,11 +220,10 @@ jobs:
 
   collect-auto-publish-prs:
     name: Collect PRs for auto-publish
-    needs: [update-branches, update-release-branches, update-main-branch]
+    needs: [update-branches, update-main-branch]
     if: |
-      always() &&
+      !cancelled() &&
       (needs.update-branches.result == 'success' ||
-       needs.update-release-branches.result == 'success' ||
        needs.update-main-branch.result == 'success')
     runs-on: ubuntu-latest
     outputs:
