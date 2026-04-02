@@ -32,17 +32,12 @@ extensions/plugins/catalog-backend-module-extensions
 extensions/plugins/extensions
 extensions/plugins/extensions-backend
 
-# deprecated in 1.8 - TODO remove in 1.10 - https://issues.redhat.com/browse/RHIDP-9179
-ocm/plugins/ocm
-ocm/plugins/ocm-backend
-
 quickstart/plugins/quickstart
 
 rbac/plugins/rbac
 
 scaffolder-backend-module-kubernetes/plugins/kubernetes-actions
 scaffolder-backend-module-regex/plugins/regex-actions
-scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 
 topology/plugins/topology
 
@@ -68,7 +63,22 @@ tech-radar/plugins/tech-radar-backend
 # currently TP but moving to GA in 1.10
 bulk-import/plugins/bulk-import
 bulk-import/plugins/bulk-import-backend
+
+# currently TP but moving to GA in 1.10
+# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-kubernetes?tab=tags
+backstage/plugins/kubernetes
+
+# currently TP but moving to GA in 1.10
+# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-signals?tab=tags
+backstage/plugins/signals
+
+# currently TP but moving to GA in 1.10
+# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-notifications-backend-module-email?tab=tags
 backstage/plugins/notifications-backend-module-email
+
+# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-scaffolder-backend-module-github?tab=tags
+# TODO check if this works after David's refactoring
+backstage/plugins/scaffolder-backend-module-github
 
 # Orchestrator plugins
 orchestrator/plugins/orchestrator
@@ -82,5 +92,5 @@ orchestrator/plugins/orchestrator-backend-module-loki
 backstage/plugins/events-backend-module-github
 
 # Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
-# lightspeed/plugins/lightspeed
-# lightspeed/plugins/lightspeed-backend
+lightspeed/plugins/lightspeed
+lightspeed/plugins/lightspeed-backend
