@@ -30,6 +30,54 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
   console.log(`[deploy-sonataflow] Orchestrator operator installed (${((Date.now() - installStart) / 1000).toFixed(1)}s)`);
 
+  // Workaround: e2e-test-utils <= 1.1.22 subscribes to the alpha channel in
+  // openshift-operators, which resolves to OSL 1.36.x. The workflow images are
+  // built for 1.37 (osl_1_37), causing data-index "Unrecognized event type"
+  // errors. Re-create the subscription on the stable channel in the namespace
+  // required by 1.37+. Remove once e2e-test-utils ships the fix natively.
+  try {
+    let currentChannel = "";
+    try {
+      currentChannel = oc("get subscription logic-operator-rhel8 -n openshift-operators -o jsonpath={.spec.channel}");
+    } catch { /* subscription may not exist in openshift-operators */ }
+
+    if (currentChannel === "alpha") {
+      console.log("[deploy-sonataflow] OSL alpha channel detected — migrating to stable channel in openshift-serverless-logic...");
+      oc("delete subscription logic-operator-rhel8 -n openshift-operators --ignore-not-found");
+      try { oc("create namespace openshift-serverless-logic"); } catch { /* exists */ }
+      const ogYaml = JSON.stringify({
+        apiVersion: "operators.coreos.com/v1",
+        kind: "OperatorGroup",
+        metadata: { name: "serverless-logic-group", namespace: "openshift-serverless-logic" },
+        spec: {},
+      });
+      try { execSync(`echo '${ogYaml}' | oc apply -f -`, { encoding: "utf-8" }); } catch { /* exists */ }
+      const subYaml = JSON.stringify({
+        apiVersion: "operators.coreos.com/v1alpha1",
+        kind: "Subscription",
+        metadata: { name: "logic-operator-rhel8", namespace: "openshift-serverless-logic" },
+        spec: {
+          channel: "stable",
+          installPlanApproval: "Automatic",
+          name: "logic-operator-rhel8",
+          source: "redhat-operators",
+          sourceNamespace: "openshift-marketplace",
+        },
+      });
+      execSync(`echo '${subYaml}' | oc apply -f -`, { encoding: "utf-8" });
+      console.log("[deploy-sonataflow] Waiting for OSL stable CSV...");
+      execSync(
+        "oc -n openshift-serverless-logic wait --for=jsonpath='{.status.phase}'=Succeeded csv -l operators.coreos.com/logic-operator-rhel8.openshift-serverless-logic --timeout=500s",
+        { encoding: "utf-8", timeout: 510_000 },
+      );
+      console.log("[deploy-sonataflow] OSL stable channel ready");
+    } else {
+      console.log(`[deploy-sonataflow] OSL channel is '${currentChannel}', no migration needed`);
+    }
+  } catch (e) {
+    console.log(`[deploy-sonataflow] OSL channel migration error (non-fatal): ${e}`);
+  }
+
   try {
     const subscriptions = oc("get subscriptions.operators.coreos.com -n openshift-operators --no-headers");
     console.log(`[deploy-sonataflow] Operator subscriptions (openshift-operators):\n${subscriptions}`);
