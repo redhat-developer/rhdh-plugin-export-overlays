@@ -41,10 +41,8 @@ test.describe("Test ArgoCD plugin", () => {
     process.env.ARGOCD_USERNAME = "admin";
     process.env.ARGOCD_PASSWORD = argoPassword;
 
-    await test.runOnce("argocd-deploy", async () => {
-      await rhdh.configure({ auth: "keycloak" });
-      await rhdh.deploy({ timeout: 900_000 });
-    });
+    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.deploy({ timeout: 900_000 });
   });
 
   test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
