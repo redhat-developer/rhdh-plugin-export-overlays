@@ -1,4 +1,4 @@
-import { test, Browser, TestInfo, Page } from "rhdh-e2e-test-utils/test";
+import { test, Browser, TestInfo, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   setupBrowser,
   LoginHelper,
@@ -7,7 +7,7 @@ import {
   RbacApiHelper,
   Policy,
   Response,
-} from "rhdh-e2e-test-utils/helpers";
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 /**
  * User entity references matching the default Keycloak users from rhdh-e2e-test-utils.

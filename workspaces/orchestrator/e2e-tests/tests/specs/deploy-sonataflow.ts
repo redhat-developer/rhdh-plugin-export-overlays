@@ -1,7 +1,7 @@
 import { execSync } from "child_process";
 import { join } from "path";
-import { installOrchestrator } from "rhdh-e2e-test-utils/orchestrator";
-import { $ } from "rhdh-e2e-test-utils/utils";
+import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
