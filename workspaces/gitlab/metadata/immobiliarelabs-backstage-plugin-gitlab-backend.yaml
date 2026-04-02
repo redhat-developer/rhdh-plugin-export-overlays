@@ -10,10 +10,9 @@ metadata:
     - url: https://github.com/immobiliare/backstage-plugin-gitlab/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
+      url: https://github.com/immobiliare/backstage-plugin-gitlab/tree/main/packages/gitlab-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
+    backstage.io/source-location: url:https://github.com/immobiliare/backstage-plugin-gitlab/tree/main/packages/gitlab-backend
   tags: []
 spec:
   packageName: "@immobiliarelabs/backstage-plugin-gitlab-backend"

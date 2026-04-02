@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubernetes-test-route
+  labels:
+    app: kubernetes-test
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  rules:
+    - host: kubernetes-test-route
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kubernetes-test-service
+                port:
+                  number: 8080

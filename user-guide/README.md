@@ -38,6 +38,7 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | Fix build failure | [02 - Export Tools](./02-export-tools.md#troubleshooting) |
 | Sync metadata | [04 - Metadata Synchronization](./04-metadata-synchronization.md) |
 | Create/update a patch | [06 - Patch Management](./06-patch-management.md) |
+| Check branch workspace status reports | [Workspace Status Reports]({{AUTO:WORKSPACE_STATUS_REPORTS_PAGE}}) |
 
 ---
 
