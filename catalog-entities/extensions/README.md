@@ -27,20 +27,19 @@ metadata:
     - url: https://issues.redhat.com/browse/RHDHBUGS
       title: Issues
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   annotations: # Activates backstage features
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-3scale-backend-dynamic
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0!backstage-community-plugin-3scale-backend
   version: 3.2.0 # The plugin version
   backstage:
     role: backend-plugin
     supportedVersions: 1.35.1 # The supported version of Backstage
   author: Red Hat # The Author of the package
-  support: tech-preview # The release status of the package
+  support: community # The release status of the package
   lifecycle: active # The backstage lifecycle stage
   partOf:
     - backstage-community-plugin-3scale-backend # Links this package to others in the same group
@@ -81,7 +80,7 @@ metadata:
     - url: https://issues.redhat.com/browse/RHDHBUGS
       title: Issues
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh/tree/main/dynamic-plugins/wrappers/backstage-community-plugin-3scale-backend-dynamic
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
   tags:
     - apis
   # The description below is used in the Extension plugin's "Tile" view as the plugin description. Keep it to a few lines (short description)
@@ -91,7 +90,9 @@ metadata:
     The 3scale plugin synchronizes your 3scale content into the software catalog.
 spec: # Custom information processed by the Extensions plugin
   author: Red Hat # The Author of the plugin
-  support: tech-preview # The Red Hat release status of the plugin
+  support:
+    provider: Red Hat # The Provider of the plugin
+    level: community # The Red Hat release status of the plugin
   lifecycle: active # The backstage lifecycle stage of the plugin
   publisher: Red Hat # Used to collect together plugins by the same author and display an extra line on the tile e.g. "By Red Hat"
 

@@ -13,7 +13,7 @@ metadata:
    - title: Bugs
      url: https://issues.redhat.com/browse/RHDHPAI
    - title: Documentation for Red Hat Developer Hub
-     url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+     url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/accelerate_ai_development_with_openshift_ai_connector_for_red_hat_developer_hub/index
    - title: Source Code
      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations
  tags:
@@ -23,7 +23,7 @@ metadata:
    - software-catalog
    - techdocs
  description: |
-   Backend plugins that integrates with Red Hat OpenShift AI to map AI Models and Model Servers from Red Hat OpenShift AI as Component, Resourece, and API entities.  The plugins also facilitate
+   Backend plugins that integrates with Red Hat OpenShift AI to map AI Models and Model Servers from Red Hat OpenShift AI as Component, Resource, and API entities.  The plugins also facilitate
    creating TechDocs for the Components and Resources from the Model Cards for the AI Models
 spec:
  author: Red Hat

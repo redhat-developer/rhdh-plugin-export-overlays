@@ -1,15 +1,23 @@
 name: Update Wiki Pages
 
 on:
-  workflow_dispatch:    
+  workflow_dispatch:
+    inputs:
+      skip_oci_images:
+        description: 'Skip OCI image checks to reduce HTTP calls'
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - main
       - 'release-*'
+    paths:
+      - 'workspaces/**'
+      - 'versions.json'
       
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
   update-wiki:
@@ -42,7 +50,11 @@ jobs:
         with:
           script: |
             const script = require('./.github/workflows/github-script/generate-wiki-page.js');
-            await script({github, context, core});
+            const branchName = '${{ github.ref }}'.replace('refs/heads/', '');
+            const isMainOrRelease = branchName === 'main' || branchName.startsWith('release-');
+            const checkOciImages = isMainOrRelease;
+
+            await script({github, context, core, checkOciImages});
 
       - name: Checkout wiki repository
         uses: actions/checkout@v5

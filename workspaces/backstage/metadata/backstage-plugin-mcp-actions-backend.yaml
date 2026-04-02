@@ -12,8 +12,7 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/mcp-actions-backend
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/backstage/tree/master/plugins/mcp-actions-backend
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/mcp-actions-backend
   tags: []
 spec:
   packageName: "@backstage/plugin-mcp-actions-backend"
