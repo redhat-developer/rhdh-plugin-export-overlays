@@ -186,30 +186,11 @@ jobs:
       contents: write
       pull-requests: write
 
-  update-release-branches:
-    name: Update Release Branches
-    needs: prepare
-    if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
-    with:
-      regexps: ${{ needs.prepare.outputs.regexps }}
-      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
-      overlay-repo: ${{ github.repository }}
-      release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
-      single-branch: "" # we want to update all release branches
-      verbose: false
-      debug: false
-      allow-workspace-addition: false
-    permissions:
-      contents: write
-      pull-requests: write
-
   update-main-branch:
     name: Update Main Branch
     needs: prepare
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 19 * * *')
+      (github.event_name == 'schedule')
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
@@ -226,11 +207,10 @@ jobs:
 
   label-prs:
     name: Label PRs
-    needs: [update-branches, update-release-branches, update-main-branch]
+    needs: [update-branches, update-main-branch]
     if: |
       always() && 
-      (needs.update-branches.result != 'skipped' || 
-       needs.update-release-branches.result != 'skipped' || 
+      (needs.update-branches.result != 'skipped' ||  
        needs.update-main-branch.result != 'skipped')
     uses: ./.github/workflows/label-mandatory-workspace-prs.yaml
     permissions:
