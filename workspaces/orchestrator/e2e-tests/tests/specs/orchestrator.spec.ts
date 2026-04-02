@@ -72,10 +72,19 @@ function recoverDataIndex(ns: string): boolean {
   }
 }
 
+let dataIndexRecoveryFailed = false;
+
 function ensureDataIndexOrSkip(ns: string, test: { skip: (condition: boolean, reason: string) => void }): void {
+  if (dataIndexRecoveryFailed) {
+    test.skip(true, "Data-index recovery already failed earlier — skipping");
+    return;
+  }
   if (isDataIndexHealthy(ns)) return;
   console.log("[data-index-check] Data-index is DOWN, attempting recovery...");
   const recovered = recoverDataIndex(ns);
+  if (!recovered) {
+    dataIndexRecoveryFailed = true;
+  }
   test.skip(!recovered, "Data-index is unhealthy and could not be recovered — skipping workflow execution test");
 }
 
@@ -89,36 +98,23 @@ function dumpClusterState(ns: string, label: string): void {
   } catch (e) {
     console.log(`[${label}] Pods error: ${e}`);
   }
-  for (const wf of ["greeting", "failswitch"]) {
-    try {
-      const conds = execSync(
-        `oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`,
-        { encoding: "utf-8" },
-      ).trim();
-      console.log(`[${label}] ${wf} conditions: ${conds}`);
-    } catch (e) {
-      console.log(`[${label}] ${wf} conditions error: ${e}`);
-    }
-    try {
-      const logs = execSync(
-        `oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=50`,
-        { encoding: "utf-8" },
-      ).trim();
-      console.log(`[${label}] ${wf} last 50 log lines:\n${logs}`);
-    } catch (e) {
-      console.log(`[${label}] ${wf} logs error: ${e}`);
-    }
-  }
   try {
-    const diQuery =
-      '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
-    const diResult = execSync(
-      `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${diQuery}'`,
+    const diHealth = execSync(
+      `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health`,
       { encoding: "utf-8", timeout: 15_000 },
     ).trim();
-    console.log(`[${label}] Data-index ProcessDefinitions: ${diResult}`);
+    console.log(`[${label}] Data-index health: ${diHealth.substring(0, 1500)}`);
   } catch (e) {
-    console.log(`[${label}] Data-index query error: ${e}`);
+    console.log(`[${label}] Data-index health error: ${e}`);
+  }
+  try {
+    const diLogs = execSync(
+      `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --tail=15`,
+      { encoding: "utf-8", timeout: 15_000 },
+    ).trim();
+    console.log(`[${label}] Data-index last 15 lines:\n${diLogs}`);
+  } catch (e) {
+    console.log(`[${label}] Data-index logs error: ${e}`);
   }
   try {
     const rhdhLogs = execSync(
@@ -134,70 +130,12 @@ function dumpClusterState(ns: string, label: string): void {
       );
     if (errLines.length > 0) {
       console.log(
-        `[${label}] RHDH error/warn lines (${errLines.length}):\n${errLines.slice(-30).join("\n")}`,
+        `[${label}] RHDH error/warn lines (${errLines.length}):\n${errLines.slice(-20).join("\n")}`,
       );
     }
   } catch (e) {
     console.log(`[${label}] RHDH logs error: ${e}`);
   }
-  // #region agent log — Data-index crash diagnostics for failed tests
-  try {
-    const diLogs = execSync(
-      `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --tail=50`,
-      { encoding: "utf-8", timeout: 15_000 },
-    ).trim();
-    const errLines = diLogs
-      .split("\n")
-      .filter((l: string) =>
-        /ERROR|WARN|Exception|fail|refused|OOM|503/i.test(l),
-      );
-    if (errLines.length > 0) {
-      console.log(
-        `[${label}] Data-index error/warn lines (${errLines.length}):\n${errLines.join("\n")}`,
-      );
-    } else {
-      console.log(
-        `[${label}] Data-index last 15 lines:\n${diLogs.split("\n").slice(-15).join("\n")}`,
-      );
-    }
-  } catch (e) {
-    console.log(`[${label}] Data-index logs error: ${e}`);
-  }
-  try {
-    const diPrevLogs = execSync(
-      `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --previous --tail=40`,
-      { encoding: "utf-8", timeout: 15_000 },
-    ).trim();
-    const errLines = diPrevLogs
-      .split("\n")
-      .filter((l: string) =>
-        /ERROR|WARN|Exception|fail|refused|OOM|503|Shutdown/i.test(l),
-      );
-    console.log(
-      `[${label}] Data-index PREVIOUS container error lines (${errLines.length}):\n${errLines.slice(-15).join("\n")}`,
-    );
-  } catch (e) {
-    console.log(`[${label}] Data-index previous logs: ${e}`);
-  }
-  try {
-    const diHealth = execSync(
-      `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health`,
-      { encoding: "utf-8", timeout: 15_000 },
-    ).trim();
-    console.log(`[${label}] Data-index health: ${diHealth.substring(0, 1500)}`);
-  } catch (e) {
-    console.log(`[${label}] Data-index health error: ${e}`);
-  }
-  try {
-    const diPods = execSync(
-      `oc get pods -n ${ns} -l app=sonataflow-platform --no-headers`,
-      { encoding: "utf-8" },
-    ).trim();
-    console.log(`[${label}] Platform pods: ${diPods}`);
-  } catch (e) {
-    console.log(`[${label}] Platform pods error: ${e}`);
-  }
-  // #endregion
   try {
     const events = execSync(
       `oc get events -n ${ns} --sort-by=.lastTimestamp --no-headers`,
@@ -292,20 +230,7 @@ test.describe("Orchestrator", () => {
         console.log(`[orchestrator-setup] Data-index query error: ${e}`);
       }
 
-      // Also try querying data-index on port 8080 (container port) directly
-      try {
-        const gqlQuery =
-          '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
-        const diResult = execSync(
-          `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s -X POST http://localhost:8080/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
-          { encoding: "utf-8", timeout: 30_000 },
-        ).trim();
-        console.log(
-          `[orchestrator-setup] Data-index ProcessDefinitions (localhost:8080):\n${diResult}`,
-        );
-      } catch (e) {
-        console.log(`[orchestrator-setup] Data-index query (8080) error: ${e}`);
-      }
+
 
       // Curl greeting runtime directly to verify it responds
       try {
@@ -616,68 +541,6 @@ test.describe("Orchestrator", () => {
         }
       }
 
-      // Direct workflow execution test: bypass RHDH, call runtime directly
-      // Use --max-time 60 for curl and correct payload format (no workflowdata wrapper)
-      try {
-        const execResult = execSync(
-          `oc exec -n ${ns} deploy/greeting -- curl -s -w "\\n%{http_code}" --max-time 60 -X POST http://localhost:8080/greeting -H 'Content-Type: application/json' -d '{"language":"English","name":"test-diag"}'`,
-          { encoding: "utf-8", timeout: 90_000 },
-        ).trim();
-        const lines = execResult.split("\n");
-        const httpCode = lines[lines.length - 1];
-        const body = lines.slice(0, -1).join("\n");
-        console.log(
-          `[orchestrator-setup] Direct greeting execution: HTTP ${httpCode}`,
-        );
-        console.log(
-          `[orchestrator-setup] Direct greeting response:\n${body.substring(0, 2000)}`,
-        );
-      } catch (e) {
-        console.log(
-          `[orchestrator-setup] Direct greeting execution error: ${e}`,
-        );
-      }
-
-      // Check greeting pod logs AFTER direct execution attempt
-      try {
-        const postExecLogs = execSync(
-          `oc logs -n ${ns} -l sonataflow.org/workflow-app=greeting --tail=30`,
-          { encoding: "utf-8", timeout: 15_000 },
-        ).trim();
-        const errLines = postExecLogs
-          .split("\n")
-          .filter((l: string) =>
-            /error|exception|fail|timeout|refused|reject/i.test(l),
-          );
-        if (errLines.length > 0) {
-          console.log(
-            `[orchestrator-setup] Greeting pod errors after exec (${errLines.length}):\n${errLines.join("\n")}`,
-          );
-        } else {
-          console.log(
-            `[orchestrator-setup] Greeting pod last 15 lines after exec:\n${postExecLogs.split("\n").slice(-15).join("\n")}`,
-          );
-        }
-      } catch (e) {
-        console.log(`[orchestrator-setup] Greeting post-exec logs error: ${e}`);
-      }
-
-      // After direct execution, check data-index for ProcessInstances
-      try {
-        const gqlQuery =
-          '{"query":"{ ProcessInstances(where: {processId: {equal: \\"greeting\\"}}) { id, processId, state, serviceUrl, start, end } }"}';
-        const diResult = execSync(
-          `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
-          { encoding: "utf-8", timeout: 30_000 },
-        ).trim();
-        console.log(
-          `[orchestrator-setup] Data-index greeting instances after direct exec:\n${diResult}`,
-        );
-      } catch (e) {
-        console.log(
-          `[orchestrator-setup] Data-index instances query error: ${e}`,
-        );
-      }
       // #endregion
       // #endregion
     });
@@ -725,7 +588,7 @@ test.describe("Orchestrator", () => {
       uiHelper,
       page,
     }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(150_000);
       console.log("[greeting-exec] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
       console.log(`[greeting-exec] Page URL: ${page.url()}`);
@@ -750,7 +613,7 @@ test.describe("Orchestrator", () => {
       uiHelper,
       page,
     }) => {
-      test.setTimeout(180_000);
+      test.setTimeout(150_000);
       console.log("[greeting-details] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
       console.log("[greeting-details] Selecting Greeting workflow...");
