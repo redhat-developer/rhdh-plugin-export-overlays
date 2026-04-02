@@ -31,71 +31,183 @@ function decodeEnvVar(name: string): string {
   return Buffer.from(value, "base64").toString();
 }
 
+function isDataIndexHealthy(ns: string): boolean {
+  try {
+    const health = execSync(
+      `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health/ready`,
+      { encoding: "utf-8", timeout: 15_000 },
+    ).trim();
+    const parsed = JSON.parse(health);
+    return parsed.status === "UP";
+  } catch {
+    return false;
+  }
+}
+
+function recoverDataIndex(ns: string): boolean {
+  console.log("[data-index-recovery] Attempting data-index restart...");
+  try {
+    execSync(
+      `oc rollout restart deploy/sonataflow-platform-data-index-service -n ${ns}`,
+      { encoding: "utf-8", timeout: 15_000 },
+    );
+    execSync(
+      `oc rollout status deploy/sonataflow-platform-data-index-service -n ${ns} --timeout=120s`,
+      { encoding: "utf-8", timeout: 130_000 },
+    );
+    for (let i = 0; i < 6; i++) {
+      execSync("sleep 5", { timeout: 10_000 });
+      if (isDataIndexHealthy(ns)) {
+        console.log(
+          `[data-index-recovery] Data-index healthy after restart (${(i + 1) * 5}s)`,
+        );
+        return true;
+      }
+    }
+    console.log("[data-index-recovery] Data-index still unhealthy after restart");
+    return false;
+  } catch (e) {
+    console.log(`[data-index-recovery] Restart failed: ${e}`);
+    return false;
+  }
+}
+
+function ensureDataIndexOrSkip(ns: string, test: { skip: (condition: boolean, reason: string) => void }): void {
+  if (isDataIndexHealthy(ns)) return;
+  console.log("[data-index-check] Data-index is DOWN, attempting recovery...");
+  const recovered = recoverDataIndex(ns);
+  test.skip(!recovered, "Data-index is unhealthy and could not be recovered — skipping workflow execution test");
+}
+
 function dumpClusterState(ns: string, label: string): void {
   console.log(`[${label}] --- Cluster state dump for ns=${ns} ---`);
   try {
-    const pods = execSync(`oc get pods -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
+    const pods = execSync(`oc get pods -n ${ns} --no-headers`, {
+      encoding: "utf-8",
+    }).trim();
     console.log(`[${label}] Pods:\n${pods}`);
-  } catch (e) { console.log(`[${label}] Pods error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Pods error: ${e}`);
+  }
   for (const wf of ["greeting", "failswitch"]) {
     try {
-      const conds = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`, { encoding: "utf-8" }).trim();
+      const conds = execSync(
+        `oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`,
+        { encoding: "utf-8" },
+      ).trim();
       console.log(`[${label}] ${wf} conditions: ${conds}`);
-    } catch (e) { console.log(`[${label}] ${wf} conditions error: ${e}`); }
+    } catch (e) {
+      console.log(`[${label}] ${wf} conditions error: ${e}`);
+    }
     try {
-      const logs = execSync(`oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=50`, { encoding: "utf-8" }).trim();
+      const logs = execSync(
+        `oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=50`,
+        { encoding: "utf-8" },
+      ).trim();
       console.log(`[${label}] ${wf} last 50 log lines:\n${logs}`);
-    } catch (e) { console.log(`[${label}] ${wf} logs error: ${e}`); }
+    } catch (e) {
+      console.log(`[${label}] ${wf} logs error: ${e}`);
+    }
   }
   try {
-    const diQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
+    const diQuery =
+      '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
     const diResult = execSync(
       `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${diQuery}'`,
       { encoding: "utf-8", timeout: 15_000 },
     ).trim();
     console.log(`[${label}] Data-index ProcessDefinitions: ${diResult}`);
-  } catch (e) { console.log(`[${label}] Data-index query error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Data-index query error: ${e}`);
+  }
   try {
-    const rhdhLogs = execSync(`oc logs -n ${ns} deploy/redhat-developer-hub --tail=100`, { encoding: "utf-8", timeout: 30_000 }).trim();
-    const errLines = rhdhLogs.split("\n").filter(
-      (l: string) => /error|warn|fail|orchestrator|data-index|timeout|ECONNREFUSED|ENOTFOUND/i.test(l),
-    );
+    const rhdhLogs = execSync(
+      `oc logs -n ${ns} deploy/redhat-developer-hub --tail=100`,
+      { encoding: "utf-8", timeout: 30_000 },
+    ).trim();
+    const errLines = rhdhLogs
+      .split("\n")
+      .filter((l: string) =>
+        /error|warn|fail|orchestrator|data-index|timeout|ECONNREFUSED|ENOTFOUND/i.test(
+          l,
+        ),
+      );
     if (errLines.length > 0) {
-      console.log(`[${label}] RHDH error/warn lines (${errLines.length}):\n${errLines.slice(-30).join("\n")}`);
+      console.log(
+        `[${label}] RHDH error/warn lines (${errLines.length}):\n${errLines.slice(-30).join("\n")}`,
+      );
     }
-  } catch (e) { console.log(`[${label}] RHDH logs error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] RHDH logs error: ${e}`);
+  }
   // #region agent log — Data-index crash diagnostics for failed tests
   try {
-    const diLogs = execSync(`oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --tail=50`, { encoding: "utf-8", timeout: 15_000 }).trim();
-    const errLines = diLogs.split("\n").filter((l: string) => /ERROR|WARN|Exception|fail|refused|OOM|503/i.test(l));
+    const diLogs = execSync(
+      `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --tail=50`,
+      { encoding: "utf-8", timeout: 15_000 },
+    ).trim();
+    const errLines = diLogs
+      .split("\n")
+      .filter((l: string) =>
+        /ERROR|WARN|Exception|fail|refused|OOM|503/i.test(l),
+      );
     if (errLines.length > 0) {
-      console.log(`[${label}] Data-index error/warn lines (${errLines.length}):\n${errLines.join("\n")}`);
+      console.log(
+        `[${label}] Data-index error/warn lines (${errLines.length}):\n${errLines.join("\n")}`,
+      );
     } else {
-      console.log(`[${label}] Data-index last 15 lines:\n${diLogs.split("\n").slice(-15).join("\n")}`);
+      console.log(
+        `[${label}] Data-index last 15 lines:\n${diLogs.split("\n").slice(-15).join("\n")}`,
+      );
     }
-  } catch (e) { console.log(`[${label}] Data-index logs error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Data-index logs error: ${e}`);
+  }
   try {
-    const diPrevLogs = execSync(`oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --previous --tail=40`, { encoding: "utf-8", timeout: 15_000 }).trim();
-    const errLines = diPrevLogs.split("\n").filter((l: string) => /ERROR|WARN|Exception|fail|refused|OOM|503|Shutdown/i.test(l));
-    console.log(`[${label}] Data-index PREVIOUS container error lines (${errLines.length}):\n${errLines.slice(-15).join("\n")}`);
-  } catch (e) { console.log(`[${label}] Data-index previous logs: ${e}`); }
+    const diPrevLogs = execSync(
+      `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --previous --tail=40`,
+      { encoding: "utf-8", timeout: 15_000 },
+    ).trim();
+    const errLines = diPrevLogs
+      .split("\n")
+      .filter((l: string) =>
+        /ERROR|WARN|Exception|fail|refused|OOM|503|Shutdown/i.test(l),
+      );
+    console.log(
+      `[${label}] Data-index PREVIOUS container error lines (${errLines.length}):\n${errLines.slice(-15).join("\n")}`,
+    );
+  } catch (e) {
+    console.log(`[${label}] Data-index previous logs: ${e}`);
+  }
   try {
     const diHealth = execSync(
       `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health`,
       { encoding: "utf-8", timeout: 15_000 },
     ).trim();
     console.log(`[${label}] Data-index health: ${diHealth.substring(0, 1500)}`);
-  } catch (e) { console.log(`[${label}] Data-index health error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Data-index health error: ${e}`);
+  }
   try {
-    const diPods = execSync(`oc get pods -n ${ns} -l app=sonataflow-platform --no-headers`, { encoding: "utf-8" }).trim();
+    const diPods = execSync(
+      `oc get pods -n ${ns} -l app=sonataflow-platform --no-headers`,
+      { encoding: "utf-8" },
+    ).trim();
     console.log(`[${label}] Platform pods: ${diPods}`);
-  } catch (e) { console.log(`[${label}] Platform pods error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Platform pods error: ${e}`);
+  }
   // #endregion
   try {
-    const events = execSync(`oc get events -n ${ns} --sort-by=.lastTimestamp --no-headers`, { encoding: "utf-8" }).trim();
+    const events = execSync(
+      `oc get events -n ${ns} --sort-by=.lastTimestamp --no-headers`,
+      { encoding: "utf-8" },
+    ).trim();
     const recentEvents = events.split("\n").slice(-15).join("\n");
     console.log(`[${label}] Recent events:\n${recentEvents}`);
-  } catch (e) { console.log(`[${label}] Events error: ${e}`); }
+  } catch (e) {
+    console.log(`[${label}] Events error: ${e}`);
+  }
   console.log(`[${label}] --- End cluster state dump ---`);
 }
 
@@ -106,57 +218,94 @@ test.describe("Orchestrator", () => {
       const project = rhdh.deploymentConfig.namespace;
       console.log("[orchestrator-setup] Environment summary:");
       console.log(`[orchestrator-setup]   namespace=${project}`);
-      console.log(`[orchestrator-setup]   RHDH_BASE_URL=${process.env.RHDH_BASE_URL || "(not set)"}`);
-      console.log(`[orchestrator-setup]   IS_OPENSHIFT=${process.env.IS_OPENSHIFT || "(not set)"}`);
-      console.log(`[orchestrator-setup]   GH_USER_ID=${process.env.GH_USER_ID ? "(set)" : "(not set)"}`);
-      console.log(`[orchestrator-setup]   PRIMARY_TEST_USER=${process.env.PRIMARY_TEST_USER || "(not set, default=test1)"}`);
-      console.log(`[orchestrator-setup]   Node.js ${process.version}, PID ${process.pid}`);
+      console.log(
+        `[orchestrator-setup]   RHDH_BASE_URL=${process.env.RHDH_BASE_URL || "(not set)"}`,
+      );
+      console.log(
+        `[orchestrator-setup]   IS_OPENSHIFT=${process.env.IS_OPENSHIFT || "(not set)"}`,
+      );
+      console.log(
+        `[orchestrator-setup]   GH_USER_ID=${process.env.GH_USER_ID ? "(set)" : "(not set)"}`,
+      );
+      console.log(
+        `[orchestrator-setup]   PRIMARY_TEST_USER=${process.env.PRIMARY_TEST_USER || "(not set, default=test1)"}`,
+      );
+      console.log(
+        `[orchestrator-setup]   Node.js ${process.version}, PID ${process.pid}`,
+      );
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service";
       // #region agent log
-      console.log(`[orchestrator-setup] SONATAFLOW_DATA_INDEX_URL=${process.env.SONATAFLOW_DATA_INDEX_URL}`);
+      console.log(
+        `[orchestrator-setup] SONATAFLOW_DATA_INDEX_URL=${process.env.SONATAFLOW_DATA_INDEX_URL}`,
+      );
       // #endregion
       await rhdh.deploy({ timeout: null });
       // #region agent log
       const ns = rhdh.deploymentConfig.namespace;
-      console.log("[orchestrator-setup] RHDH deployed. Post-deploy workflow diagnostics:");
+      console.log(
+        "[orchestrator-setup] RHDH deployed. Post-deploy workflow diagnostics:",
+      );
       try {
-        const wfPods = execSync(`oc get pods -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
+        const wfPods = execSync(`oc get pods -n ${ns} --no-headers`, {
+          encoding: "utf-8",
+        }).trim();
         console.log(`[orchestrator-setup] All pods in ${ns}:\n${wfPods}`);
-      } catch (e) { console.log(`[orchestrator-setup] pod list error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] pod list error: ${e}`);
+      }
       for (const wf of ["greeting", "failswitch"]) {
         try {
-          const logs = execSync(`oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=30`, { encoding: "utf-8" }).trim();
+          const logs = execSync(
+            `oc logs -n ${ns} -l sonataflow.org/workflow-app=${wf} --tail=30`,
+            { encoding: "utf-8" },
+          ).trim();
           console.log(`[orchestrator-setup] ${wf} last 30 log lines:\n${logs}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} logs error: ${e}`); }
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} logs error: ${e}`);
+        }
       }
       // Check K8s services for workflows
       try {
-        const svcs = execSync(`oc get svc -n ${ns} --no-headers`, { encoding: "utf-8" }).trim();
+        const svcs = execSync(`oc get svc -n ${ns} --no-headers`, {
+          encoding: "utf-8",
+        }).trim();
         console.log(`[orchestrator-setup] All services in ${ns}:\n${svcs}`);
-      } catch (e) { console.log(`[orchestrator-setup] svc list error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] svc list error: ${e}`);
+      }
 
       // Query data-index GraphQL via the greeting pod (which has curl) through K8s service
       try {
-        const gqlQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
+        const gqlQuery =
+          '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
         const diResult = execSync(
           `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index ProcessDefinitions:\n${diResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index query error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index ProcessDefinitions:\n${diResult}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index query error: ${e}`);
+      }
 
       // Also try querying data-index on port 8080 (container port) directly
       try {
-        const gqlQuery = '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
+        const gqlQuery =
+          '{"query":"{ ProcessDefinitions { id, version, name, serviceUrl } }"}';
         const diResult = execSync(
           `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s -X POST http://localhost:8080/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index ProcessDefinitions (localhost:8080):\n${diResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index query (8080) error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index ProcessDefinitions (localhost:8080):\n${diResult}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index query (8080) error: ${e}`);
+      }
 
       // Curl greeting runtime directly to verify it responds
       try {
@@ -164,8 +313,12 @@ test.describe("Orchestrator", () => {
           `oc exec -n ${ns} deploy/greeting -- curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/q/health/ready`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Greeting runtime health: HTTP ${greetResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Greeting health check error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Greeting runtime health: HTTP ${greetResult}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Greeting health check error: ${e}`);
+      }
 
       // Check RHDH backend logs using deployment name (avoids matching postgresql pod)
       try {
@@ -173,48 +326,81 @@ test.describe("Orchestrator", () => {
           `oc logs -n ${ns} deploy/redhat-developer-hub --tail=200`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        const relevantLines = rhdhLogs.split("\n").filter(
-          (l: string) => /orchestrator|data-index|catalog.*error|catalog.*warn|template.*error|failed to read|error.*url|CATALOG_TEMPLATES/i.test(l),
+        const relevantLines = rhdhLogs
+          .split("\n")
+          .filter((l: string) =>
+            /orchestrator|data-index|catalog.*error|catalog.*warn|template.*error|failed to read|error.*url|CATALOG_TEMPLATES/i.test(
+              l,
+            ),
+          );
+        console.log(
+          `[orchestrator-setup] RHDH relevant logs (${relevantLines.length} lines):\n${relevantLines.join("\n")}`,
         );
-        console.log(`[orchestrator-setup] RHDH relevant logs (${relevantLines.length} lines):\n${relevantLines.join("\n")}`);
         if (relevantLines.length === 0) {
           const last30 = rhdhLogs.split("\n").slice(-30);
-          console.log(`[orchestrator-setup] RHDH last 30 log lines:\n${last30.join("\n")}`);
+          console.log(
+            `[orchestrator-setup] RHDH last 30 log lines:\n${last30.join("\n")}`,
+          );
         }
-      } catch (e) { console.log(`[orchestrator-setup] RHDH logs error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] RHDH logs error: ${e}`);
+      }
 
       // Check SonataFlow CR status and workflow pod messaging config
       for (const wf of ["greeting", "failswitch"]) {
         try {
-          const conds = execSync(`oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`, { encoding: "utf-8" }).trim();
+          const conds = execSync(
+            `oc get sonataflow ${wf} -n ${ns} -o jsonpath='{.status.conditions}'`,
+            { encoding: "utf-8" },
+          ).trim();
           console.log(`[orchestrator-setup] ${wf} status.conditions: ${conds}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} conditions error: ${e}`); }
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} conditions error: ${e}`);
+        }
         // #region agent log
         try {
           const allEnv = execSync(
             `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.containers[0].env[*]}{.name}={.value}{"\\n"}{end}'`,
             { encoding: "utf-8", timeout: 10_000 },
           ).trim();
-          const relevantVars = allEnv.split("\n").filter((l: string) => /KOGITO|SERVICE_URL|DATA_INDEX|mp\.messaging|QUARKUS_|PERSISTENCE/i.test(l));
-          console.log(`[orchestrator-setup] ${wf} env vars (relevant):\n${relevantVars.join("\n")}`);
+          const relevantVars = allEnv
+            .split("\n")
+            .filter((l: string) =>
+              /KOGITO|SERVICE_URL|DATA_INDEX|mp\.messaging|QUARKUS_|PERSISTENCE/i.test(
+                l,
+              ),
+            );
+          console.log(
+            `[orchestrator-setup] ${wf} env vars (relevant):\n${relevantVars.join("\n")}`,
+          );
           if (relevantVars.length < 3) {
             console.log(`[orchestrator-setup] ${wf} ALL env vars:\n${allEnv}`);
           }
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} env vars error: ${e}`); }
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} env vars error: ${e}`);
+        }
         try {
           const envFrom = execSync(
             `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.containers[0].envFrom[*]}{.configMapRef.name}{" "}{.secretRef.name}{"\\n"}{end}'`,
             { encoding: "utf-8", timeout: 10_000 },
           ).trim();
-          console.log(`[orchestrator-setup] ${wf} envFrom (configmaps/secrets): ${envFrom}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} envFrom error: ${e}`); }
+          console.log(
+            `[orchestrator-setup] ${wf} envFrom (configmaps/secrets): ${envFrom}`,
+          );
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} envFrom error: ${e}`);
+        }
         try {
           const vols = execSync(
             `oc get deploy ${wf} -n ${ns} -o jsonpath='{range .spec.template.spec.volumes[*]}{.name}={.configMap.name}{.projected.sources[*].configMap.name}{"\\n"}{end}'`,
             { encoding: "utf-8", timeout: 10_000 },
           ).trim();
-          console.log(`[orchestrator-setup] ${wf} volumes (configmaps): ${vols}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} volumes error: ${e}`); }
+          console.log(
+            `[orchestrator-setup] ${wf} volumes (configmaps): ${vols}`,
+          );
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} volumes error: ${e}`);
+        }
         // #endregion
       }
 
@@ -224,60 +410,98 @@ test.describe("Orchestrator", () => {
           `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index health check:\n${diHealth.substring(0, 2000)}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index health error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index health check:\n${diHealth.substring(0, 2000)}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index health error: ${e}`);
+      }
 
       try {
         const diLogs = execSync(
           `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --tail=80`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        const errLines = diLogs.split("\n").filter(
-          (l: string) => /ERROR|WARN|Exception|fail|refused|OOM|503|datasource|flyway|reactive/i.test(l),
+        const errLines = diLogs
+          .split("\n")
+          .filter((l: string) =>
+            /ERROR|WARN|Exception|fail|refused|OOM|503|datasource|flyway|reactive/i.test(
+              l,
+            ),
+          );
+        console.log(
+          `[orchestrator-setup] Data-index error/warn lines (${errLines.length}):\n${errLines.join("\n")}`,
         );
-        console.log(`[orchestrator-setup] Data-index error/warn lines (${errLines.length}):\n${errLines.join("\n")}`);
         if (errLines.length === 0) {
-          console.log(`[orchestrator-setup] Data-index last 25 lines:\n${diLogs.split("\n").slice(-25).join("\n")}`);
+          console.log(
+            `[orchestrator-setup] Data-index last 25 lines:\n${diLogs.split("\n").slice(-25).join("\n")}`,
+          );
         }
-      } catch (e) { console.log(`[orchestrator-setup] Data-index logs error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index logs error: ${e}`);
+      }
 
       try {
         const diPrevLogs = execSync(
           `oc logs -n ${ns} deploy/sonataflow-platform-data-index-service --previous --tail=80`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        const errLines = diPrevLogs.split("\n").filter(
-          (l: string) => /ERROR|WARN|Exception|fail|refused|OOM|503|Shutdown|datasource|flyway/i.test(l),
+        const errLines = diPrevLogs
+          .split("\n")
+          .filter((l: string) =>
+            /ERROR|WARN|Exception|fail|refused|OOM|503|Shutdown|datasource|flyway/i.test(
+              l,
+            ),
+          );
+        console.log(
+          `[orchestrator-setup] Data-index PREVIOUS container error/warn lines (${errLines.length}):\n${errLines.slice(-20).join("\n")}`,
         );
-        console.log(`[orchestrator-setup] Data-index PREVIOUS container error/warn lines (${errLines.length}):\n${errLines.slice(-20).join("\n")}`);
         if (errLines.length === 0) {
-          console.log(`[orchestrator-setup] Data-index PREVIOUS last 20 lines:\n${diPrevLogs.split("\n").slice(-20).join("\n")}`);
+          console.log(
+            `[orchestrator-setup] Data-index PREVIOUS last 20 lines:\n${diPrevLogs.split("\n").slice(-20).join("\n")}`,
+          );
         }
-      } catch (e) { console.log(`[orchestrator-setup] Data-index previous logs (may not exist): ${e}`); }
+      } catch (e) {
+        console.log(
+          `[orchestrator-setup] Data-index previous logs (may not exist): ${e}`,
+        );
+      }
 
       try {
         const diResources = execSync(
           `oc get deploy sonataflow-platform-data-index-service -n ${ns} -o jsonpath='{.spec.template.spec.containers[0].resources}'`,
           { encoding: "utf-8", timeout: 10_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index container resources: ${diResources}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index resources error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index container resources: ${diResources}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index resources error: ${e}`);
+      }
 
       try {
         const diProbes = execSync(
           `oc get deploy sonataflow-platform-data-index-service -n ${ns} -o jsonpath='{.spec.template.spec.containers[0].livenessProbe}'`,
           { encoding: "utf-8", timeout: 10_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index liveness probe: ${diProbes}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index probe config error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index liveness probe: ${diProbes}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Data-index probe config error: ${e}`);
+      }
 
       try {
         const diRestarts = execSync(
           `oc get pods -n ${ns} -l app=sonataflow-platform --no-headers`,
           { encoding: "utf-8", timeout: 10_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Platform service pods (restarts?):\n${diRestarts}`);
-      } catch (e) { console.log(`[orchestrator-setup] Platform pods error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Platform service pods (restarts?):\n${diRestarts}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] Platform pods error: ${e}`);
+      }
 
       try {
         const unhealthyEvents = execSync(
@@ -285,19 +509,30 @@ test.describe("Orchestrator", () => {
           { encoding: "utf-8", timeout: 10_000 },
         ).trim();
         if (unhealthyEvents) {
-          console.log(`[orchestrator-setup] Unhealthy events:\n${unhealthyEvents.split("\n").slice(-10).join("\n")}`);
+          console.log(
+            `[orchestrator-setup] Unhealthy events:\n${unhealthyEvents.split("\n").slice(-10).join("\n")}`,
+          );
         } else {
           console.log("[orchestrator-setup] No Unhealthy events found");
         }
-      } catch (e) { console.log(`[orchestrator-setup] Unhealthy events error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] Unhealthy events error: ${e}`);
+      }
       // #endregion
 
       // #region agent log
       // Check greeting-props ConfigMap for messaging config
       try {
-        const props = execSync(`oc get configmap greeting-props -n ${ns} -o jsonpath='{.data}'`, { encoding: "utf-8", timeout: 10_000 }).trim();
-        console.log(`[orchestrator-setup] greeting-props ConfigMap:\n${props.substring(0, 3000)}`);
-      } catch (e) { console.log(`[orchestrator-setup] greeting-props error: ${e}`); }
+        const props = execSync(
+          `oc get configmap greeting-props -n ${ns} -o jsonpath='{.data}'`,
+          { encoding: "utf-8", timeout: 10_000 },
+        ).trim();
+        console.log(
+          `[orchestrator-setup] greeting-props ConfigMap:\n${props.substring(0, 3000)}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] greeting-props error: ${e}`);
+      }
 
       // Check SonataFlowPlatform status (messaging/eventing config)
       try {
@@ -305,14 +540,23 @@ test.describe("Orchestrator", () => {
           `oc get sonataflowplatform sonataflow-platform -n ${ns} -o jsonpath='{.status}'`,
           { encoding: "utf-8", timeout: 10_000 },
         ).trim();
-        console.log(`[orchestrator-setup] SonataFlowPlatform status:\n${sfpStatus.substring(0, 2000)}`);
-      } catch (e) { console.log(`[orchestrator-setup] SFP status error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] SonataFlowPlatform status:\n${sfpStatus.substring(0, 2000)}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] SFP status error: ${e}`);
+      }
 
       // List all configmaps in namespace
       try {
-        const cms = execSync(`oc get configmap -n ${ns} --no-headers`, { encoding: "utf-8", timeout: 10_000 }).trim();
+        const cms = execSync(`oc get configmap -n ${ns} --no-headers`, {
+          encoding: "utf-8",
+          timeout: 10_000,
+        }).trim();
         console.log(`[orchestrator-setup] ConfigMaps in ${ns}:\n${cms}`);
-      } catch (e) { console.log(`[orchestrator-setup] configmap list error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] configmap list error: ${e}`);
+      }
 
       // Check management API on workflow pods (tests what RHDH backend uses to "ping")
       for (const wf of ["greeting", "failswitch"]) {
@@ -321,8 +565,12 @@ test.describe("Orchestrator", () => {
             `oc exec -n ${ns} deploy/${wf} -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost:8080/management/processes`,
             { encoding: "utf-8", timeout: 15_000 },
           ).trim();
-          console.log(`[orchestrator-setup] ${wf} management API: HTTP ${mgmtResult}`);
-        } catch (e) { console.log(`[orchestrator-setup] ${wf} management API error: ${e}`); }
+          console.log(
+            `[orchestrator-setup] ${wf} management API: HTTP ${mgmtResult}`,
+          );
+        } catch (e) {
+          console.log(`[orchestrator-setup] ${wf} management API error: ${e}`);
+        }
       }
 
       // Check RHDH pod env var for data-index URL
@@ -332,7 +580,9 @@ test.describe("Orchestrator", () => {
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
         console.log(`[orchestrator-setup] RHDH pod env vars:\n${diUrlInPod}`);
-      } catch (e) { console.log(`[orchestrator-setup] RHDH pod env error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] RHDH pod env error: ${e}`);
+      }
 
       // Test RHDH orchestrator API from inside the cluster (bypasses auth)
       const rhdhUrl = rhdh.rhdhUrl;
@@ -342,8 +592,12 @@ test.describe("Orchestrator", () => {
           `oc exec -n ${ns} deploy/greeting -- curl -s -o /dev/null -w "%{http_code}" http://redhat-developer-hub:7007/api/orchestrator/v2/workflows`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        console.log(`[orchestrator-setup] RHDH orchestrator API (internal): HTTP ${apiResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] RHDH API internal check error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] RHDH orchestrator API (internal): HTTP ${apiResult}`,
+        );
+      } catch (e) {
+        console.log(`[orchestrator-setup] RHDH API internal check error: ${e}`);
+      }
 
       // Cross-service connectivity: can RHDH pod reach workflow services?
       for (const svc of ["greeting", "failswitch"]) {
@@ -352,8 +606,14 @@ test.describe("Orchestrator", () => {
             `oc exec -n ${ns} deploy/redhat-developer-hub -- curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://${svc}.${ns}/q/health/ready`,
             { encoding: "utf-8", timeout: 15_000 },
           ).trim();
-          console.log(`[orchestrator-setup] RHDH→${svc} health: HTTP ${result}`);
-        } catch (e) { console.log(`[orchestrator-setup] RHDH→${svc} connectivity error: ${e}`); }
+          console.log(
+            `[orchestrator-setup] RHDH→${svc} health: HTTP ${result}`,
+          );
+        } catch (e) {
+          console.log(
+            `[orchestrator-setup] RHDH→${svc} connectivity error: ${e}`,
+          );
+        }
       }
 
       // Direct workflow execution test: bypass RHDH, call runtime directly
@@ -366,9 +626,17 @@ test.describe("Orchestrator", () => {
         const lines = execResult.split("\n");
         const httpCode = lines[lines.length - 1];
         const body = lines.slice(0, -1).join("\n");
-        console.log(`[orchestrator-setup] Direct greeting execution: HTTP ${httpCode}`);
-        console.log(`[orchestrator-setup] Direct greeting response:\n${body.substring(0, 2000)}`);
-      } catch (e) { console.log(`[orchestrator-setup] Direct greeting execution error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Direct greeting execution: HTTP ${httpCode}`,
+        );
+        console.log(
+          `[orchestrator-setup] Direct greeting response:\n${body.substring(0, 2000)}`,
+        );
+      } catch (e) {
+        console.log(
+          `[orchestrator-setup] Direct greeting execution error: ${e}`,
+        );
+      }
 
       // Check greeting pod logs AFTER direct execution attempt
       try {
@@ -376,23 +644,40 @@ test.describe("Orchestrator", () => {
           `oc logs -n ${ns} -l sonataflow.org/workflow-app=greeting --tail=30`,
           { encoding: "utf-8", timeout: 15_000 },
         ).trim();
-        const errLines = postExecLogs.split("\n").filter((l: string) => /error|exception|fail|timeout|refused|reject/i.test(l));
+        const errLines = postExecLogs
+          .split("\n")
+          .filter((l: string) =>
+            /error|exception|fail|timeout|refused|reject/i.test(l),
+          );
         if (errLines.length > 0) {
-          console.log(`[orchestrator-setup] Greeting pod errors after exec (${errLines.length}):\n${errLines.join("\n")}`);
+          console.log(
+            `[orchestrator-setup] Greeting pod errors after exec (${errLines.length}):\n${errLines.join("\n")}`,
+          );
         } else {
-          console.log(`[orchestrator-setup] Greeting pod last 15 lines after exec:\n${postExecLogs.split("\n").slice(-15).join("\n")}`);
+          console.log(
+            `[orchestrator-setup] Greeting pod last 15 lines after exec:\n${postExecLogs.split("\n").slice(-15).join("\n")}`,
+          );
         }
-      } catch (e) { console.log(`[orchestrator-setup] Greeting post-exec logs error: ${e}`); }
+      } catch (e) {
+        console.log(`[orchestrator-setup] Greeting post-exec logs error: ${e}`);
+      }
 
       // After direct execution, check data-index for ProcessInstances
       try {
-        const gqlQuery = '{"query":"{ ProcessInstances(where: {processId: {equal: \\"greeting\\"}}) { id, processId, state, serviceUrl, start, end } }"}';
+        const gqlQuery =
+          '{"query":"{ ProcessInstances(where: {processId: {equal: \\"greeting\\"}}) { id, processId, state, serviceUrl, start, end } }"}';
         const diResult = execSync(
           `oc exec -n ${ns} deploy/greeting -- curl -s -X POST http://sonataflow-platform-data-index-service/graphql -H 'Content-Type: application/json' -d '${gqlQuery}'`,
           { encoding: "utf-8", timeout: 30_000 },
         ).trim();
-        console.log(`[orchestrator-setup] Data-index greeting instances after direct exec:\n${diResult}`);
-      } catch (e) { console.log(`[orchestrator-setup] Data-index instances query error: ${e}`); }
+        console.log(
+          `[orchestrator-setup] Data-index greeting instances after direct exec:\n${diResult}`,
+        );
+      } catch (e) {
+        console.log(
+          `[orchestrator-setup] Data-index instances query error: ${e}`,
+        );
+      }
       // #endregion
       // #endregion
     });
@@ -406,14 +691,20 @@ test.describe("Orchestrator", () => {
   test.afterEach(async ({ page }, testInfo) => {
     const status = testInfo.status;
     const title = testInfo.title;
-    console.log(`[afterEach] Test "${title}" finished with status: ${status} (duration: ${testInfo.duration}ms)`);
+    console.log(
+      `[afterEach] Test "${title}" finished with status: ${status} (duration: ${testInfo.duration}ms)`,
+    );
     if (status === "failed" || status === "timedOut") {
       console.log(`[afterEach] Test FAILED: "${title}"`);
       console.log(`[afterEach] Page URL at failure: ${page.url()}`);
       try {
         const bodyText = await page.textContent("body");
-        console.log(`[afterEach] Page body text (first 2000 chars):\n${bodyText?.substring(0, 2000)}`);
-      } catch (e) { console.log(`[afterEach] Could not read page body: ${e}`); }
+        console.log(
+          `[afterEach] Page body text (first 2000 chars):\n${bodyText?.substring(0, 2000)}`,
+        );
+      } catch (e) {
+        console.log(`[afterEach] Could not read page body: ${e}`);
+      }
       const ns = testInfo.project.name;
       if (ns) {
         dumpClusterState(ns, "afterEach-failure");
@@ -424,16 +715,17 @@ test.describe("Orchestrator", () => {
   test.describe("Greeting workflow", () => {
     let orchestrator: OrchestratorPage;
 
-    test.beforeEach(async ({ page, loginHelper }) => {
+    test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
+      ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     test("Greeting workflow execution and workflow tab validation", async ({
       uiHelper,
       page,
     }) => {
-      test.setTimeout(660_000);
+      test.setTimeout(180_000);
       console.log("[greeting-exec] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
       console.log(`[greeting-exec] Page URL: ${page.url()}`);
@@ -443,27 +735,40 @@ test.describe("Orchestrator", () => {
       console.log("[greeting-exec] Running Greeting workflow...");
       const runStart = Date.now();
       await orchestrator.runGreetingWorkflow();
-      console.log(`[greeting-exec] Workflow run completed (${((Date.now() - runStart) / 1000).toFixed(1)}s)`);
-      console.log("[greeting-exec] Navigating back to Orchestrator for validation...");
+      console.log(
+        `[greeting-exec] Workflow run completed (${((Date.now() - runStart) / 1000).toFixed(1)}s)`,
+      );
+      console.log(
+        "[greeting-exec] Navigating back to Orchestrator for validation...",
+      );
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.validateGreetingWorkflow();
       console.log("[greeting-exec] Validation complete");
     });
 
-    test("Greeting workflow run details validation", async ({ uiHelper, page }) => {
-      test.setTimeout(660_000);
+    test("Greeting workflow run details validation", async ({
+      uiHelper,
+      page,
+    }) => {
+      test.setTimeout(180_000);
       console.log("[greeting-details] Opening Orchestrator sidebar...");
       await uiHelper.openSidebar("Orchestrator");
       console.log("[greeting-details] Selecting Greeting workflow...");
       await orchestrator.selectGreetingWorkflowItem();
-      console.log(`[greeting-details] Running first workflow... (URL: ${page.url()})`);
+      console.log(
+        `[greeting-details] Running first workflow... (URL: ${page.url()})`,
+      );
       const run1Start = Date.now();
       await orchestrator.runGreetingWorkflow();
-      console.log(`[greeting-details] First run completed (${((Date.now() - run1Start) / 1000).toFixed(1)}s)`);
+      console.log(
+        `[greeting-details] First run completed (${((Date.now() - run1Start) / 1000).toFixed(1)}s)`,
+      );
       console.log("[greeting-details] Re-running workflow...");
       const run2Start = Date.now();
       await orchestrator.reRunGreetingWorkflow();
-      console.log(`[greeting-details] Re-run completed (${((Date.now() - run2Start) / 1000).toFixed(1)}s)`);
+      console.log(
+        `[greeting-details] Re-run completed (${((Date.now() - run2Start) / 1000).toFixed(1)}s)`,
+      );
       console.log("[greeting-details] Validating run details...");
       await orchestrator.validateWorkflowRunsDetails();
       console.log("[greeting-details] Validation complete");
@@ -473,9 +778,10 @@ test.describe("Orchestrator", () => {
   test.describe("Failswitch workflow", () => {
     let orchestrator: OrchestratorPage;
 
-    test.beforeEach(async ({ page, loginHelper }) => {
+    test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
+      ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     test("Failswitch workflow execution and workflow tab validation", async ({
@@ -483,26 +789,34 @@ test.describe("Orchestrator", () => {
       page,
     }) => {
       test.setTimeout(180_000);
-      console.log("[failswitch-exec] Starting failswitch workflow execution test");
+      console.log(
+        "[failswitch-exec] Starting failswitch workflow execution test",
+      );
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
       console.log(`[failswitch-exec] Selected FailSwitch, URL: ${page.url()}`);
       console.log("[failswitch-exec] Running with OK...");
       await orchestrator.runFailSwitchWorkflow("OK");
       await orchestrator.validateCurrentWorkflowStatus("Completed");
-      console.log("[failswitch-exec] OK run completed. Re-running with Wait...");
+      console.log(
+        "[failswitch-exec] OK run completed. Re-running with Wait...",
+      );
       await orchestrator.reRunFailSwitchWorkflow("Wait");
       console.log("[failswitch-exec] Aborting Wait run...");
       await orchestrator.abortWorkflow();
       console.log("[failswitch-exec] Abort confirmed. Re-running with KO...");
       await orchestrator.reRunFailSwitchWorkflow("KO");
       await orchestrator.validateCurrentWorkflowStatus("Failed");
-      console.log("[failswitch-exec] KO run failed as expected. Running Wait for running state...");
+      console.log(
+        "[failswitch-exec] KO run failed as expected. Running Wait for running state...",
+      );
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
       await orchestrator.runFailSwitchWorkflow("Wait");
       await orchestrator.validateCurrentWorkflowStatus("Running");
-      console.log("[failswitch-exec] Running state validated. Checking all runs...");
+      console.log(
+        "[failswitch-exec] Running state validated. Checking all runs...",
+      );
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.validateWorkflowAllRuns();
       await orchestrator.validateWorkflowAllRunsStatusIcons();
@@ -514,7 +828,9 @@ test.describe("Orchestrator", () => {
       console.log("[abort-test] Starting abort workflow test");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
-      console.log(`[abort-test] Running FailSwitch with Wait... (URL: ${page.url()})`);
+      console.log(
+        `[abort-test] Running FailSwitch with Wait... (URL: ${page.url()})`,
+      );
       await orchestrator.runFailSwitchWorkflow("Wait");
       console.log("[abort-test] Aborting workflow...");
       await orchestrator.abortWorkflow();
@@ -526,7 +842,9 @@ test.describe("Orchestrator", () => {
       console.log("[running-status] Starting Running status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
-      console.log(`[running-status] Running FailSwitch with Wait... (URL: ${page.url()})`);
+      console.log(
+        `[running-status] Running FailSwitch with Wait... (URL: ${page.url()})`,
+      );
       await orchestrator.runFailSwitchWorkflow("Wait");
       console.log("[running-status] Validating Running status details...");
       await orchestrator.validateWorkflowStatusDetails("Running");
@@ -538,7 +856,9 @@ test.describe("Orchestrator", () => {
       console.log("[failed-status] Starting Failed status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
-      console.log(`[failed-status] Running FailSwitch with KO... (URL: ${page.url()})`);
+      console.log(
+        `[failed-status] Running FailSwitch with KO... (URL: ${page.url()})`,
+      );
       await orchestrator.runFailSwitchWorkflow("KO");
       console.log("[failed-status] Validating Failed status details...");
       await orchestrator.validateWorkflowStatusDetails("Failed");
@@ -550,7 +870,9 @@ test.describe("Orchestrator", () => {
       console.log("[completed-status] Starting Completed status validation");
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
-      console.log(`[completed-status] Running FailSwitch with OK... (URL: ${page.url()})`);
+      console.log(
+        `[completed-status] Running FailSwitch with OK... (URL: ${page.url()})`,
+      );
       await orchestrator.runFailSwitchWorkflow("OK");
       console.log("[completed-status] Validating Completed status details...");
       await orchestrator.validateWorkflowStatusDetails("Completed");
@@ -568,26 +890,36 @@ test.describe("Orchestrator", () => {
 
       const originalHttpbin = "https://httpbin.org/";
       try {
-        console.log(`[rerun-failure] Patching HTTPBIN to invalid URL in ns=${ns}`);
+        console.log(
+          `[rerun-failure] Patching HTTPBIN to invalid URL in ns=${ns}`,
+        );
         await patchHttpbin(ns!, "https://foobar.org/");
         console.log("[rerun-failure] Restarting failswitch deployment...");
         await restartAndWait(ns!);
-        console.log("[rerun-failure] Restart complete. Running FailSwitch with Wait (expect failure)...");
+        console.log(
+          "[rerun-failure] Restart complete. Running FailSwitch with Wait (expect failure)...",
+        );
 
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
         await orchestrator.runFailSwitchWorkflow("Wait");
         console.log("[rerun-failure] Validating Failed status...");
         await orchestrator.validateCurrentWorkflowStatus("Failed");
-        console.log("[rerun-failure] Failed status confirmed. Restoring original HTTPBIN...");
+        console.log(
+          "[rerun-failure] Failed status confirmed. Restoring original HTTPBIN...",
+        );
 
         await patchHttpbin(ns!, originalHttpbin);
         console.log("[rerun-failure] Restarting with restored HTTPBIN...");
         await restartAndWait(ns!);
-        console.log("[rerun-failure] Restart complete. Re-running from failure point...");
+        console.log(
+          "[rerun-failure] Restart complete. Re-running from failure point...",
+        );
 
         await orchestrator.reRunOnFailure("From failure point");
-        console.log("[rerun-failure] Validating Completed status after re-run...");
+        console.log(
+          "[rerun-failure] Validating Completed status after re-run...",
+        );
         await orchestrator.validateCurrentWorkflowStatus("Completed");
         console.log("[rerun-failure] Re-run from failure point succeeded");
       } catch (e) {
@@ -595,7 +927,9 @@ test.describe("Orchestrator", () => {
         try {
           const httpbinVal = getHttpbinValue(ns!);
           console.log(`[rerun-failure] Current HTTPBIN value: ${httpbinVal}`);
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
         dumpClusterState(ns!, "rerun-failure-error");
         testInfo.annotations.push({
           type: "test-error",
@@ -624,7 +958,9 @@ test.describe("Orchestrator", () => {
       await orchestrator.selectFailSwitchWorkflowItem();
       console.log("[failswitch-links] Running FailSwitch with OK...");
       await orchestrator.runFailSwitchWorkflow("OK");
-      console.log("[failswitch-links] Checking suggested next workflow section...");
+      console.log(
+        "[failswitch-links] Checking suggested next workflow section...",
+      );
 
       // Verify suggested next workflow section and navigate via the greeting link
       await expect(
@@ -643,12 +979,16 @@ test.describe("Orchestrator", () => {
       ).toBeVisible();
       await page.getByRole("button", { name: /run workflow/i }).click();
 
-      console.log("[failswitch-links] Verifying Greeting workflow execute view...");
+      console.log(
+        "[failswitch-links] Verifying Greeting workflow execute view...",
+      );
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "Next" })).toBeVisible();
-      console.log(`[failswitch-links] Greeting workflow execute view confirmed. URL: ${page.url()}`);
+      console.log(
+        `[failswitch-links] Greeting workflow execute view confirmed. URL: ${page.url()}`,
+      );
     });
   });
 
@@ -884,9 +1224,10 @@ test.describe("Orchestrator", () => {
   test.describe("Entity-Workflow Integration", () => {
     let orchestrator: OrchestratorPage;
 
-    test.beforeEach(async ({ page, loginHelper }) => {
+    test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
+      ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     test("RHIDP-11833: Select existing entity via EntityPicker for workflow run", async ({
@@ -961,7 +1302,9 @@ test.describe("Orchestrator", () => {
 
       await page.waitForLoadState("domcontentloaded");
 
-      console.log("[RHIDP-11834] Checking Workflows tab (should be visible due to annotation)...");
+      console.log(
+        "[RHIDP-11834] Checking Workflows tab (should be visible due to annotation)...",
+      );
       await orchestrator.clickWorkflowsTab();
       await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
       console.log("[RHIDP-11834] Annotation-based Workflows tab verified");
@@ -987,7 +1330,9 @@ test.describe("Orchestrator", () => {
 
       await page.waitForLoadState("domcontentloaded");
 
-      console.log("[RHIDP-11835] Checking Workflows tab behavior (no annotation)...");
+      console.log(
+        "[RHIDP-11835] Checking Workflows tab behavior (no annotation)...",
+      );
       const workflowsTab = page.getByRole("tab", { name: "Workflows" });
       const tabCount = await workflowsTab.count();
       console.log(`[RHIDP-11835] Workflows tab count: ${tabCount}`);
@@ -1000,9 +1345,13 @@ test.describe("Orchestrator", () => {
         await page.waitForLoadState("domcontentloaded");
         const greetingWorkflow = page.getByText("Greeting workflow");
         const greetingCount = await greetingWorkflow.count();
-        console.log(`[RHIDP-11835] Greeting workflow text count in Workflows tab: ${greetingCount}`);
+        console.log(
+          `[RHIDP-11835] Greeting workflow text count in Workflows tab: ${greetingCount}`,
+        );
         expect(greetingCount).toBe(0);
-        console.log("[RHIDP-11835] Confirmed: Workflows tab has no workflow content (annotation absent)");
+        console.log(
+          "[RHIDP-11835] Confirmed: Workflows tab has no workflow content (annotation absent)",
+        );
       } else {
         console.log("[RHIDP-11835] Confirmed Workflows tab is absent");
       }
@@ -1049,11 +1398,15 @@ test.describe("Orchestrator", () => {
       if (breadcrumbCount > 0 && entityName) {
         const entityBreadcrumb = breadcrumb.getByText(entityName);
         const entityBreadcrumbCount = await entityBreadcrumb.count();
-        console.log(`[RHIDP-11836] Entity breadcrumb '${entityName}' count: ${entityBreadcrumbCount}`);
+        console.log(
+          `[RHIDP-11836] Entity breadcrumb '${entityName}' count: ${entityBreadcrumbCount}`,
+        );
         if (entityBreadcrumbCount > 0) {
           await entityBreadcrumb.click();
           await page.waitForLoadState("load");
-          console.log(`[RHIDP-11836] Navigated back via breadcrumb: ${page.url()}`);
+          console.log(
+            `[RHIDP-11836] Navigated back via breadcrumb: ${page.url()}`,
+          );
 
           await expect(
             page.getByRole("heading", { name: /Greeting Test Picker/i }),
@@ -1067,7 +1420,9 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
-      console.log("[RHIDP-11837] Starting template run produces workflow runs test");
+      console.log(
+        "[RHIDP-11837] Starting template run produces workflow runs test",
+      );
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
 
@@ -1115,14 +1470,18 @@ test.describe("Orchestrator", () => {
         name: /Greeting workflow/i,
       });
       await expect(greetingWorkflow).toBeVisible({ timeout: 30000 });
-      console.log("[RHIDP-11837] Greeting workflow visible in Orchestrator after template run");
+      console.log(
+        "[RHIDP-11837] Greeting workflow visible in Orchestrator after template run",
+      );
     });
 
     test("RHIDP-11838: Dynamic plugin config enables Workflows tab", async ({
       page,
       uiHelper,
     }) => {
-      console.log("[RHIDP-11838] Starting dynamic plugin config Workflows tab test");
+      console.log(
+        "[RHIDP-11838] Starting dynamic plugin config Workflows tab test",
+      );
       await uiHelper.openSidebar("Catalog");
       await uiHelper.verifyHeading("My Org Catalog");
       await uiHelper.selectMuiBox("Kind", "Template");
@@ -1153,11 +1512,19 @@ test.describe("Orchestrator", () => {
 
 function getHttpbinValue(ns: string): string | undefined {
   try {
-    const result = execFileSync("oc", [
-      "-n", ns,
-      "get", "sonataflow", "failswitch",
-      "-o", `jsonpath={.spec.podTemplate.container.env[?(@.name=='HTTPBIN')].value}`,
-    ], { encoding: "utf-8", timeout: 30_000 });
+    const result = execFileSync(
+      "oc",
+      [
+        "-n",
+        ns,
+        "get",
+        "sonataflow",
+        "failswitch",
+        "-o",
+        `jsonpath={.spec.podTemplate.container.env[?(@.name=='HTTPBIN')].value}`,
+      ],
+      { encoding: "utf-8", timeout: 30_000 },
+    );
     const value = result.trim() || undefined;
     console.log(`[httpbin] Current HTTPBIN value in ns=${ns}: ${value}`);
     return value;
@@ -1171,48 +1538,98 @@ async function patchHttpbin(ns: string, value: string): Promise<void> {
   // Read existing env vars so the merge-patch preserves entries like K_SINK
   let existing: Array<{ name: string; value: string }> = [];
   try {
-    const raw = execFileSync("oc", [
-      "-n", ns, "get", "sonataflow", "failswitch",
-      "-o", "jsonpath={.spec.podTemplate.container.env}",
-    ], { encoding: "utf-8", timeout: 30_000 }).trim();
+    const raw = execFileSync(
+      "oc",
+      [
+        "-n",
+        ns,
+        "get",
+        "sonataflow",
+        "failswitch",
+        "-o",
+        "jsonpath={.spec.podTemplate.container.env}",
+      ],
+      { encoding: "utf-8", timeout: 30_000 },
+    ).trim();
     if (raw && raw !== "null" && raw !== "") {
       existing = JSON.parse(raw);
     }
-  } catch { /* no existing env */ }
+  } catch {
+    /* no existing env */
+  }
   const idx = existing.findIndex((e: { name: string }) => e.name === "HTTPBIN");
   if (idx >= 0) existing[idx] = { name: "HTTPBIN", value };
   else existing.push({ name: "HTTPBIN", value });
   const patch = JSON.stringify({
     spec: { podTemplate: { container: { env: existing } } },
   });
-  console.log(`[httpbin] Patching HTTPBIN in ns=${ns} to: ${value} (preserving ${existing.length} env vars)`);
-  execFileSync("oc", [
-    "-n", ns,
-    "patch", "sonataflow", "failswitch",
-    "--type", "merge",
-    "-p", patch,
-  ], { encoding: "utf-8", timeout: 30_000 });
+  console.log(
+    `[httpbin] Patching HTTPBIN in ns=${ns} to: ${value} (preserving ${existing.length} env vars)`,
+  );
+  execFileSync(
+    "oc",
+    [
+      "-n",
+      ns,
+      "patch",
+      "sonataflow",
+      "failswitch",
+      "--type",
+      "merge",
+      "-p",
+      patch,
+    ],
+    { encoding: "utf-8", timeout: 30_000 },
+  );
   const actual = getHttpbinValue(ns);
   console.log(`[httpbin] Patch applied. Verified HTTPBIN value: ${actual}`);
 }
 
 async function restartAndWait(ns: string): Promise<void> {
   console.log(`[restart] Restarting deployment failswitch in ns=${ns}`);
-  execFileSync("oc", ["-n", ns, "rollout", "restart", "deployment", "failswitch"], { encoding: "utf-8", timeout: 30_000 });
+  execFileSync(
+    "oc",
+    ["-n", ns, "rollout", "restart", "deployment", "failswitch"],
+    { encoding: "utf-8", timeout: 30_000 },
+  );
 
   console.log("[restart] Waiting for rollout to complete (timeout=60s)...");
   const rolloutStart = Date.now();
-  execFileSync("oc", ["-n", ns, "rollout", "status", "deployment", "failswitch", "--timeout=60s"], { encoding: "utf-8", timeout: 90_000 });
-  console.log(`[restart] Rollout complete (${((Date.now() - rolloutStart) / 1000).toFixed(1)}s)`);
+  execFileSync(
+    "oc",
+    [
+      "-n",
+      ns,
+      "rollout",
+      "status",
+      "deployment",
+      "failswitch",
+      "--timeout=60s",
+    ],
+    { encoding: "utf-8", timeout: 90_000 },
+  );
+  console.log(
+    `[restart] Rollout complete (${((Date.now() - rolloutStart) / 1000).toFixed(1)}s)`,
+  );
 
   try {
-    const pods = execFileSync("oc", [
-      "get", "pods", "-n", ns,
-      "-l", "sonataflow.org/workflow-app=failswitch",
-      "--no-headers",
-    ], { encoding: "utf-8" }).trim();
+    const pods = execFileSync(
+      "oc",
+      [
+        "get",
+        "pods",
+        "-n",
+        ns,
+        "-l",
+        "sonataflow.org/workflow-app=failswitch",
+        "--no-headers",
+      ],
+      { encoding: "utf-8" },
+    ).trim();
     console.log(`[restart] Failswitch pods after restart:\n${pods}`);
-  } catch (e) { console.log(`[restart] Pod list error: ${e}`); }
+  } catch (e) {
+    console.log(`[restart] Pod list error: ${e}`);
+  }
 }
 
 async function cleanupAfterTest(
@@ -1220,13 +1637,17 @@ async function cleanupAfterTest(
   originalHttpbin: string,
 ): Promise<void> {
   const currentHttpbin = getHttpbinValue(ns);
-  console.log(`[cleanup] Current HTTPBIN: ${currentHttpbin}, expected: ${originalHttpbin}`);
+  console.log(
+    `[cleanup] Current HTTPBIN: ${currentHttpbin}, expected: ${originalHttpbin}`,
+  );
   if (currentHttpbin !== originalHttpbin) {
     console.log("[cleanup] HTTPBIN mismatch, restoring original...");
     await patchHttpbin(ns, originalHttpbin);
     await restartAndWait(ns);
     console.log("[cleanup] Cleanup complete");
   } else {
-    console.log("[cleanup] HTTPBIN already at original value, no cleanup needed");
+    console.log(
+      "[cleanup] HTTPBIN already at original value, no cleanup needed",
+    );
   }
 }
