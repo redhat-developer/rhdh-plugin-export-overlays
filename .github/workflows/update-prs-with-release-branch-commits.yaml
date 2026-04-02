@@ -92,7 +92,10 @@ jobs:
   auto-publish-updated-prs:
     name: Auto-publish updated PR
     needs: [update-prs, comment-prs]
-    if: needs.update-prs.outputs.updated-pr-numbers != ''
+    if: |
+      !cancelled() &&
+      needs.update-prs.result == 'success' &&
+      needs.update-prs.outputs.updated-pr-numbers != ''
     strategy:
       fail-fast: false
       matrix:

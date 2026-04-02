@@ -278,7 +278,10 @@ jobs:
   auto-publish:
     name: Auto-publish PR
     needs: collect-auto-publish-prs
-    if: needs.collect-auto-publish-prs.outputs.pr-numbers != '[]'
+    if: |
+      !cancelled() &&
+      needs.collect-auto-publish-prs.result == 'success' &&
+      needs.collect-auto-publish-prs.outputs.pr-numbers != '[]'
     strategy:
       fail-fast: false
       matrix:
