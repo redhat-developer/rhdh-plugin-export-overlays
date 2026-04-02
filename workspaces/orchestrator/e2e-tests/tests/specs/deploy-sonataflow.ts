@@ -38,126 +38,32 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     `[deploy-sonataflow] Orchestrator operator installed (${((Date.now() - installStart) / 1000).toFixed(1)}s)`,
   );
 
-  // Workaround: e2e-test-utils <= 1.1.22 subscribes to the alpha channel in
-  // openshift-operators, which resolves to OSL 1.36.x. The workflow images are
-  // built for 1.37 (osl_1_37), causing data-index "Unrecognized event type"
-  // errors. Re-create the subscription on the stable channel in the namespace
-  // required by 1.37+. Remove once e2e-test-utils ships the fix natively.
+  // Detect installed OSL operator version so we can align workflow image tags.
+  let oslMajorMinor = "";
   try {
-    let currentChannel = "";
-    try {
-      currentChannel = oc(
-        "get subscription logic-operator-rhel8 -n openshift-operators -o jsonpath={.spec.channel}",
-      );
-    } catch {
-      /* subscription may not exist in openshift-operators */
-    }
-
-    if (currentChannel === "alpha") {
-      console.log(
-        "[deploy-sonataflow] OSL alpha channel detected — migrating to stable channel in openshift-serverless-logic...",
-      );
-      oc(
-        "delete subscription logic-operator-rhel8 -n openshift-operators --ignore-not-found",
-      );
-      try {
-        oc("create namespace openshift-serverless-logic");
-      } catch {
-        /* exists */
-      }
-      const ogYaml = JSON.stringify({
-        apiVersion: "operators.coreos.com/v1",
-        kind: "OperatorGroup",
-        metadata: {
-          name: "serverless-logic-group",
-          namespace: "openshift-serverless-logic",
-        },
-        spec: {},
-      });
-      try {
-        execSync(`echo '${ogYaml}' | oc apply -f -`, { encoding: "utf-8" });
-      } catch {
-        /* exists */
-      }
-      const subYaml = JSON.stringify({
-        apiVersion: "operators.coreos.com/v1alpha1",
-        kind: "Subscription",
-        metadata: {
-          name: "logic-operator-rhel8",
-          namespace: "openshift-serverless-logic",
-        },
-        spec: {
-          channel: "stable",
-          installPlanApproval: "Automatic",
-          name: "logic-operator-rhel8",
-          source: "redhat-operators",
-          sourceNamespace: "openshift-marketplace",
-        },
-      });
-      execSync(`echo '${subYaml}' | oc apply -f -`, { encoding: "utf-8" });
-      console.log("[deploy-sonataflow] Waiting for OSL stable CSV...");
-      execSync(
-        "oc -n openshift-serverless-logic wait --for=jsonpath='{.status.phase}'=Succeeded csv -l operators.coreos.com/logic-operator-rhel8.openshift-serverless-logic --timeout=500s",
-        { encoding: "utf-8", timeout: 510_000 },
-      );
-      console.log("[deploy-sonataflow] OSL stable channel ready");
-    } else {
-      console.log(
-        `[deploy-sonataflow] OSL channel is '${currentChannel}', no migration needed`,
-      );
-    }
-  } catch (e) {
-    console.log(
-      `[deploy-sonataflow] OSL channel migration error (non-fatal): ${e}`,
+    const csvVersion = oc(
+      "get csv -n openshift-operators -o jsonpath={.items[0].spec.version} -l operators.coreos.com/logic-operator-rhel8.openshift-operators",
     );
+    oslMajorMinor = csvVersion.replace(/^(\d+\.\d+).*/, "$1");
+    console.log(`[deploy-sonataflow] Detected OSL operator version: ${csvVersion} (major.minor: ${oslMajorMinor})`);
+  } catch (e) {
+    console.log(`[deploy-sonataflow] Could not detect OSL version: ${e}`);
   }
 
   try {
     const subscriptions = oc(
       "get subscriptions.operators.coreos.com -n openshift-operators --no-headers",
     );
-    console.log(
-      `[deploy-sonataflow] Operator subscriptions (openshift-operators):\n${subscriptions}`,
-    );
+    console.log(`[deploy-sonataflow] Operator subscriptions:\n${subscriptions}`);
   } catch (e) {
-    console.log(
-      `[deploy-sonataflow] Subscription list error (openshift-operators): ${e}`,
-    );
-  }
-
-  try {
-    const logicSubs = oc(
-      "get subscriptions.operators.coreos.com -n openshift-serverless-logic --no-headers",
-    );
-    console.log(
-      `[deploy-sonataflow] Operator subscriptions (openshift-serverless-logic):\n${logicSubs}`,
-    );
-  } catch (e) {
-    console.log(
-      `[deploy-sonataflow] Subscription list error (openshift-serverless-logic): ${e}`,
-    );
+    console.log(`[deploy-sonataflow] Subscription list error: ${e}`);
   }
 
   try {
     const csvs = oc("get csv -n openshift-operators --no-headers");
-    console.log(
-      `[deploy-sonataflow] ClusterServiceVersions (openshift-operators):\n${csvs}`,
-    );
+    console.log(`[deploy-sonataflow] ClusterServiceVersions:\n${csvs}`);
   } catch (e) {
-    console.log(
-      `[deploy-sonataflow] CSV list error (openshift-operators): ${e}`,
-    );
-  }
-
-  try {
-    const logicCsvs = oc("get csv -n openshift-serverless-logic --no-headers");
-    console.log(
-      `[deploy-sonataflow] ClusterServiceVersions (openshift-serverless-logic):\n${logicCsvs}`,
-    );
-  } catch (e) {
-    console.log(
-      `[deploy-sonataflow] CSV list error (openshift-serverless-logic): ${e}`,
-    );
+    console.log(`[deploy-sonataflow] CSV list error: ${e}`);
   }
 
   // Patch SFP: resource limits + permissive liveness/readiness probes via podTemplate.
@@ -349,6 +255,32 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     }
   }
   // #endregion
+
+  // Align workflow image tags with the installed OSL operator version.
+  // The serverless-workflows repo ships manifests with osl_1_37 tags, but the
+  // cluster may only have OSL 1.36.x. A mismatch causes the data-index
+  // "Unrecognized event type" error that poisons SmallRye Reactive Messaging.
+  if (oslMajorMinor && oslMajorMinor !== "1.37") {
+    const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
+    console.log(`[deploy-sonataflow] OSL ${oslMajorMinor} detected, aligning workflow image tags to ${oslTag}...`);
+    const imageMap: Record<string, string> = {
+      greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
+      failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
+    };
+    for (const wf of WORKFLOWS) {
+      const image = imageMap[wf];
+      if (!image) continue;
+      try {
+        const imgPatch = JSON.stringify({ spec: { podTemplate: { container: { image } } } });
+        const result = oc(`-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`);
+        console.log(`[deploy-sonataflow]   ${wf} image patched to ${image}: ${result}`);
+      } catch (e) {
+        console.log(`[deploy-sonataflow]   ${wf} image patch error: ${e}`);
+      }
+    }
+  } else {
+    console.log(`[deploy-sonataflow] OSL version '${oslMajorMinor}' matches workflow images, no image patch needed`);
+  }
 
   for (const workflow of WORKFLOWS) {
     // #region agent log
