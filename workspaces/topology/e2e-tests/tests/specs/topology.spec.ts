@@ -1,5 +1,5 @@
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
 import { Topology } from "./topology";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
@@ -7,10 +7,6 @@ import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 const setupScript = path.join(
   import.meta.dirname,
   "deploy-topology-resources.sh",
-);
-const rbacConfigmapPath = path.resolve(
-  process.cwd(),
-  "tests/config/rbac-configmap.yaml",
 );
 
 const $pipe = $({ stdio: ["pipe", "pipe", "pipe"] });
@@ -36,6 +32,10 @@ test.describe("Test Topology plugin", () => {
     const project = rhdh.deploymentConfig.namespace;
 
     await rhdh.configure({ auth: "keycloak" });
+
+    const rbacConfigmapPath = WorkspacePaths.resolve(
+      "tests/config/rbac-configmap.yaml",
+    );
 
     await $`oc apply -f ${rbacConfigmapPath} -n ${project}`;
     await deployResources(project);
