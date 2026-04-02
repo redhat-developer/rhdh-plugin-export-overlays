@@ -118,7 +118,7 @@ When working with Pull Requests, use these comment commands:
 | Command | Action |
 |---------|--------|
 | `/publish` | Build and publish test OCI artifacts |
-| `/test` | Re-run integration tests (requires prior `/publish`) |
+| `/smoketest` | Re-run smoke tests (requires prior `/publish`) |
 
 ### What `/publish` Does
 
@@ -131,53 +131,6 @@ When working with Pull Requests, use these comment commands:
 7. Packages as OCI containers
 8. Publishes to `ghcr.io` with tag `pr_<number>__<version>`
 9. Posts OCI references as a PR comment
-
----
-
-## Frontend Plugin Configuration
-
-Frontend plugins often require additional configuration files.
-
-### app-config.dynamic.yaml
-
-Defines route bindings, dynamic routes, and mount points:
-
-```yaml
-backstage.plugin-techdocs:
-  routeBindings:
-    targets:
-      - importName: techdocsPlugin
-    bindings:
-      - bindTarget: catalogPlugin.externalRoutes
-        bindMap:
-          viewTechDoc: techdocsPlugin.routes.docRoot
-  dynamicRoutes:
-    - path: /docs
-      importName: TechDocsIndexPage
-      menuItem:
-        icon: docs
-        text: Docs
-  mountPoints:
-    - mountPoint: entity.page.docs/cards
-      importName: EntityTechdocsContent
-```
-
-**Location:** `workspaces/[workspace]/plugins/[plugin-name]/app-config.dynamic.yaml`
-
-### scalprum-config.json
-
-Defines the Scalprum module configuration:
-
-```json
-{
-  "name": "backstage.plugin-api-docs-module-protoc-gen-doc",
-  "exposedModules": {
-    "PluginRoot": "./src/api.ts"
-  }
-}
-```
-
-**Location:** `workspaces/[workspace]/plugins/[plugin-name]/scalprum-config.json`
 
 ---
 
@@ -200,11 +153,10 @@ Defines the Scalprum module configuration:
 
 ```
 workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/
-├── overlay/
-│   ├── package.json
-│   └── src/
-│       └── api.ts
-└── scalprum-config.json
+└── overlay/
+    ├── package.json
+    └── src/
+        └── api.ts
 ```
 
 ### When to Use Patches
@@ -234,14 +186,14 @@ See [06 - Patch Management](./06-patch-management.md) for details.
 
 ### Integrity Check Failures
 
-**Symptom:** `Integrity check failed for package X`
+**Symptom:** Workflow logs show an integrity mismatch for a package.
 
-**Cause:** The `package.json` in the source repo doesn't match the overlay's expectations.
+**Cause:** The export process verifies that the `package.json` fields in the checked-out source match the metadata declared in the overlay (e.g., package name, version). A mismatch usually means `source.json:repo-ref` points to a different version than what `metadata/*.yaml:spec.version` declares.
 
 **Solution:**
-1. Verify `source.json` points to the correct `repo-ref`
-2. Check if the source `package.json` was modified
-3. If intentional, consider using `--no-integrity-check` (document why)
+1. Verify `source.json:repo-ref` points to the correct tag or commit
+2. Confirm that `spec.version` and `spec.packageName` in your metadata files match the source `package.json` at that ref
+3. If the mismatch is intentional (e.g., a patch changes the version), document the reason in the PR
 
 ### Missing Dependencies
 

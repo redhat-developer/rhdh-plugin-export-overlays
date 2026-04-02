@@ -17,12 +17,12 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-  version: 1.10.4
+  version: 1.11.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
   author: Red Hat
-  support: production
+  support: generally-available
   lifecycle: active
   partOf:
   - home-page
