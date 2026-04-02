@@ -767,6 +767,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
 
   add_update_versions_completion_comment:
     needs:
@@ -879,6 +883,10 @@ jobs:
       contents: write
       pull-requests: write
       issues: read
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
 
   add_update_commit_completion_comment:
     needs:
