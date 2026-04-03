@@ -2,7 +2,6 @@ import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("TechDocs", () => {
   test.beforeAll(async ({ rhdh }) => {
-    test.setTimeout(600_000);
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
@@ -33,7 +32,6 @@ test.describe("TechDocs", () => {
   });
 
   test("Verify that TechDocs is visible in sidebar", async ({ uiHelper }) => {
-    await uiHelper.openSidebarButton("Favorites");
     await uiHelper.openSidebar("Docs");
   });
 
@@ -41,7 +39,6 @@ test.describe("TechDocs", () => {
     page,
     uiHelper,
   }) => {
-    await uiHelper.openSidebarButton("Favorites");
     await uiHelper.openSidebar("Docs");
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
@@ -61,7 +58,6 @@ test.describe("TechDocs", () => {
     page,
     uiHelper,
   }) => {
-    await uiHelper.openSidebarButton("Favorites");
     await uiHelper.openSidebar("Docs");
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
     await page.waitForSelector("article a");
