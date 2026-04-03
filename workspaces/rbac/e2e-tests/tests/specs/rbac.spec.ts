@@ -7,11 +7,10 @@ import {
   ROLES_PAGE_COMPONENTS,
 } from "../../support/pages/rbac-obj";
 
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import * as path from "node:path";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
-import { waitUntilRhdhServesHttp } from "../../support/utils/wait-for-rhdh-http";
 import {
   RBAC_DESCRIPTIVE_USERS,
   RBAC_GROUPS,
@@ -50,8 +49,7 @@ test.describe("RBAC plugin", () => {
   }
 
   test.beforeAll(async ({ rhdh, browser }) => {
-    const rbacConfigmapPath = path.resolve(
-      process.cwd(),
+    const rbacConfigmapPath = WorkspacePaths.resolve(
       "tests/config/rbac-configmap.yaml",
     );
     await createUsersAndGroups();
@@ -66,7 +64,6 @@ test.describe("RBAC plugin", () => {
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
-    await waitUntilRhdhServesHttp(rhdh.rhdhUrl, { timeoutMs: 480_000 });
 
     // `beforeAll` does not receive a `page` fixture, so a temporary browser
     // context is created solely to perform the admin login and extract the
@@ -655,7 +652,6 @@ test.describe("RBAC plugin", () => {
       await $`oc apply -f ${configPath} -n ${namespace}`;
       await rhdh.scaleDownAndRestart();
       await rhdh.waitUntilReady();
-      await waitUntilRhdhServesHttp(rhdh.rhdhUrl, { timeoutMs: 480_000 });
     });
 
     test("User should got default permissions", async ({
