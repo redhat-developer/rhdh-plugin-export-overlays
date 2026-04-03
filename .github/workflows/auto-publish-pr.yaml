@@ -3,7 +3,7 @@ on:
   workflow_call:
     inputs:
       pr-number:
-        type: number
+        type: string
         required: true
 
 jobs:
