@@ -1,5 +1,22 @@
 import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
+async function docsTextHighlight(page: Page) {
+  await page.evaluate(() => {
+    const host = document.querySelector(
+      '[data-testid="techdocs-native-shadowroot"]',
+    );
+    const element = host?.shadowRoot?.querySelector("article p")?.firstChild;
+    if (!element) return;
+    const range = document.createRange();
+    const selection = globalThis.getSelection();
+    range.setStart(element, 0);
+    range.setEnd(element, 20);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    document.dispatchEvent(new Event("selectionchange"));
+  });
+}
+
 test.describe("TechDocs", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
@@ -9,23 +26,6 @@ test.describe("TechDocs", () => {
 
     await rhdh.deploy();
   });
-
-  async function docsTextHighlight(page: Page) {
-    await page.evaluate(() => {
-      const host = document.querySelector(
-        '[data-testid="techdocs-native-shadowroot"]',
-      );
-      const element = host?.shadowRoot?.querySelector("article p")?.firstChild;
-      if (!element) return;
-      const range = document.createRange();
-      const selection = window.getSelection();
-      range.setStart(element, 0);
-      range.setEnd(element, 20);
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      document.dispatchEvent(new Event("selectionchange"));
-    });
-  }
 
   test.beforeEach(async ({ loginHelper }) => {
     await loginHelper.loginAsKeycloakUser();
