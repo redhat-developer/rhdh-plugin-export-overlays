@@ -204,7 +204,6 @@ jobs:
     uses: ./.github/workflows/auto-publish-pr.yaml
     with:
       pr-number: ${{ needs.prepare.outputs.pr-number }}
-    secrets: inherit
     permissions:
       contents: write
       attestations: write
