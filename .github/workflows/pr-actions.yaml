@@ -85,34 +85,17 @@ jobs:
               body: body
             });
 
-  route:
-    runs-on: ubuntu-latest
-    name: Route Command
-    needs:
-      - parse
-    if: always()
-    outputs:
-      command: ${{ steps.resolve.outputs.command }}
-      pr-number: ${{ steps.resolve.outputs.pr-number }}
-    steps:
-      - name: Resolve trigger inputs
-        id: resolve
-        shell: bash
-        run: |
-          echo "command=${{ needs.parse.outputs.command-name }}" >> $GITHUB_OUTPUT
-          echo "pr-number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-
   prepare:
     runs-on: ubuntu-latest
     name: Prepare
     needs:
-      - route
+      - parse
 
     concurrency:
-      group: prepare-${{ github.ref_name }}-${{ needs.route.outputs.pr-number }}
+      group: prepare-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: false
       
-    if: needs.route.outputs.command != ''
+    if: needs.parse.outputs.command-name != ''
     outputs:
       target-branch: ${{ steps.get-branch.outputs.target-branch }}
       overlay-branch: ${{ steps.get-branch.outputs.overlay-branch }}
@@ -129,8 +112,8 @@ jobs:
         id: get-branch
         uses: actions/github-script@v7
         env:
-          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
-          INPUT_PR_NUMBER: ${{ needs.route.outputs.pr-number }}
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_PR_NUMBER: ${{ github.event.issue.number }}
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
@@ -191,7 +174,7 @@ jobs:
   publish:
     name: Publish PR
     needs:
-      - route
+      - parse
       - prepare
 
     concurrency:
@@ -199,7 +182,7 @@ jobs:
       cancel-in-progress: true
 
     if: |
-      needs.route.outputs.command == 'publish' &&
+      needs.parse.outputs.command-name == 'publish' &&
       needs.prepare.outputs.workspace != ''
     uses: ./.github/workflows/auto-publish-pr.yaml
     with:
@@ -215,7 +198,6 @@ jobs:
   uploadArtifacts:
     name: Upload Artifacts
     needs:
-      - route
       - prepare
       - publish
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.pr-number != ''
@@ -250,7 +232,7 @@ jobs:
 
   add_no_workspace_comment:
     needs:
-      - route
+      - parse
       - prepare
 
     concurrency:
@@ -269,7 +251,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           INPUT_OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
-          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
           INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
 
         with:
@@ -302,14 +284,14 @@ jobs:
   updatePRWithVersions:
     name: Update versions on PR from release branch
     needs:
-      - route
+      - parse
       - prepare
 
     concurrency:
       group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.route.outputs.command == 'update-versions'
+    if: needs.parse.outputs.command-name == 'update-versions'
     uses: ./.github/workflows/update-prs-with-release-branch-commits.yaml
     with:
       force: true
@@ -326,14 +308,14 @@ jobs:
   updatePRWithCommit:
     name: Update commit on PR from automatic discovery
     needs:
-      - route
+      - parse
       - prepare
 
     concurrency:
       group: updatePRWithCommit-${{ github.ref_name }}-${{ github.event.issue.number }}
       cancel-in-progress: true
     
-    if: needs.route.outputs.command == 'update-commit'
+    if: needs.parse.outputs.command-name == 'update-commit'
     uses: ./.github/workflows/update-plugins-repo-refs.yaml
     with:
       single-branch: ${{ needs.prepare.outputs.target-branch }}
@@ -352,7 +334,7 @@ jobs:
 
   add_update_versions_completion_comment:
     needs:
-      - route
+      - parse
       - prepare
       - updatePRWithVersions
 
@@ -364,13 +346,13 @@ jobs:
       statuses: write
       pull-requests: write
 
-    if: always() && needs.route.outputs.command == 'update-versions' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
+    if: always() && needs.parse.outputs.command-name == 'update-versions' && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
     steps:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
-          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
           INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
@@ -416,7 +398,7 @@ jobs:
 
   add_update_commit_completion_comment:
     needs:
-      - route
+      - parse
       - prepare
       - updatePRWithCommit
 
@@ -430,7 +412,7 @@ jobs:
 
     if: | 
       always() && 
-      needs.route.outputs.command == 'update-commit' && 
+      needs.parse.outputs.command-name == 'update-commit' && 
       needs.prepare.outputs.overlay-branch != '' && 
       needs.prepare.outputs.workspace != ''
     runs-on: ubuntu-latest
@@ -438,7 +420,7 @@ jobs:
       - name: Add completion comment
         uses: actions/github-script@v7
         env:
-          INPUT_COMMAND_NAME: ${{ needs.route.outputs.command }}
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
           INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
         with:
           script: |
