@@ -1,5 +1,5 @@
-import { defineConfig } from '@red-hat-developer-hub/e2e-test-utils/playwright-config';
-import dotenv from 'dotenv';
+import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import dotenv from "dotenv";
 
 dotenv.config({ path: `${import.meta.dirname}/.env` });
 
@@ -18,15 +18,15 @@ export default defineConfig({
       testMatch: /tests\/specs\/github-events-module\.spec\.ts/,
     },
     {
-      name: 'backstage-kubernetes',
+      name: "backstage-kubernetes",
       testMatch: /tests\/specs\/kubernetes-rbac\.spec\.ts/,
     },
     {
-      name: 'backstage-notifications',
+      name: "backstage-notifications",
       testMatch: /tests\/specs\/notifications\.spec\.ts/,
     },
     {
-      name: 'backstage-techdocs',
+      name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
     },
   ],
