@@ -8,7 +8,6 @@ import {
 } from "../../support/pages/rbac-obj";
 
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import * as path from "node:path";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
 import {
@@ -24,6 +23,21 @@ import {
   LoginHelper,
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+
+const APP_CONFIG_RHDH_CM_KEY = "app-config-rhdh.yaml";
+
+const PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT = `
+set -euo pipefail
+export KEY="$3"
+export OVERLAY="$2"
+MERGED_FILE=$(mktemp)
+PATCH_FILE=$(mktemp)
+trap 'rm -f "$MERGED_FILE" "$PATCH_FILE"' EXIT
+oc get configmap app-config-rhdh -n "$1" -o yaml | yq eval '.data[strenv(KEY)]' - | yq eval '.permission.rbac.defaultPermissions = (load(strenv(OVERLAY)) | .permission.rbac.defaultPermissions)' - > "$MERGED_FILE"
+export MERGED_FILE
+yq eval -n '.data[strenv(KEY)] = (load(strenv(MERGED_FILE)) | to_yaml)' > "$PATCH_FILE"
+oc patch configmap app-config-rhdh -n "$1" --type merge --patch-file "$PATCH_FILE"
+`.trim();
 
 test.describe("RBAC plugin", () => {
   let rbacPO: RbacPO;
@@ -60,7 +74,6 @@ test.describe("RBAC plugin", () => {
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh.yaml",
       valueFile: "tests/config/values.yaml",
-      version: process.env.RHDH_VERSION ?? "1.10",
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
@@ -645,11 +658,10 @@ test.describe("RBAC plugin", () => {
       test.setTimeout(600_000);
 
       const namespace = rhdh.deploymentConfig.namespace;
-      const configPath = path.resolve(
-        process.cwd(),
-        "tests/config/app-config-rhdh-with-default-permissions.yaml",
+      const overlayPath = WorkspacePaths.resolve(
+        "tests/config/app-config-rhdh-default-permissions-overlay.yaml",
       );
-      await $`oc apply -f ${configPath} -n ${namespace}`;
+      await $`bash -c ${PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT} _ ${namespace} ${overlayPath} ${APP_CONFIG_RHDH_CM_KEY}`;
       await rhdh.scaleDownAndRestart();
       await rhdh.waitUntilReady();
     });

@@ -1,0 +1,8 @@
+permission:
+  rbac:
+    defaultPermissions:
+      defaultRole: role:default/default-role
+      basicPermissions:
+        - permission: catalog-entity
+          action: read
+          effect: allow
