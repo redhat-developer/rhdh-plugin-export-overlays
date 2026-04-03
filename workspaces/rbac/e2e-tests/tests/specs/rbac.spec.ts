@@ -689,9 +689,6 @@ test.describe("RBAC plugin", () => {
 
   // Ensure we clean up in the event that a test fails so that we do not impact other tests
   test.afterAll(async () => {
-    if (!apiToken) {
-      return;
-    }
     await cleanupRoles(RBAC_ROLES, apiToken);
   });
 });
