@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-dotnet"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-dotnet:bs_1.45.3__0.9.0
-  version: 0.9.0
+  version: 0.12.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
