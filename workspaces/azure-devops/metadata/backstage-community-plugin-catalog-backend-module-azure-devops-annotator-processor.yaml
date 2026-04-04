@@ -16,9 +16,10 @@ metadata:
   tags:
     - software-catalog
 spec:
-  packageName: "@backstage-community/plugin-catalog-backend-module-azure-devops-annotator-processor"
+  packageName: "@backstage-community/plugin-catalog-backend-module-azure-devops-a\
+    nnotator-processor"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-azure-devops-annotator-processor:bs_1.45.3__0.14.0
-  version: 0.14.0
+  version: 0.17.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
