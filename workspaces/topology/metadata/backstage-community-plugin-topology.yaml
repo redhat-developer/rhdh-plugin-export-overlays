@@ -5,19 +5,19 @@ metadata:
   namespace: rhdh
   title: Topology
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://issues.redhat.com/browse/RHIDP
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/community-plugins/tree/main/workspaces/topology
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/topology
   tags: []
 spec:
   packageName: '@backstage-community/plugin-topology'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-topology
-  version: 2.9.4
+  version: 2.11.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -25,25 +25,25 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-  - topology
+    - topology
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-topology:
-            translationResources:
-            - importName: topologyTranslations
-              ref: topologyTranslationRef
-              module: Alpha
-            mountPoints:
-            - mountPoint: entity.page.topology/cards
-              importName: TopologyPage
-              config:
-                layout:
-                  gridColumn: 1 / -1
-                  height: 75vh
-                if:
-                  anyOf:
-                  - hasAnnotation: backstage.io/kubernetes-id
-                  - hasAnnotation: backstage.io/kubernetes-namespace
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-topology:
+              translationResources:
+                - importName: topologyTranslations
+                  ref: topologyTranslationRef
+                  module: Alpha
+              mountPoints:
+                - mountPoint: entity.page.topology/cards
+                  importName: TopologyPage
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                      height: 75vh
+                    if:
+                      anyOf:
+                        - hasAnnotation: backstage.io/kubernetes-id
+                        - hasAnnotation: backstage.io/kubernetes-namespace
