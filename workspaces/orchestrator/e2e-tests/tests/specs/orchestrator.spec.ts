@@ -1106,6 +1106,8 @@ test.describe("Orchestrator", () => {
 
       await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
 
+      await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
+      await page.waitForLoadState("networkidle");
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
       const languageField = page.getByLabel("Language");
@@ -1292,6 +1294,8 @@ test.describe("Orchestrator", () => {
       await page.waitForLoadState("domcontentloaded");
       await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
 
+      await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
+      await page.waitForLoadState("networkidle");
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
       const nameField = page.getByLabel("Name");
