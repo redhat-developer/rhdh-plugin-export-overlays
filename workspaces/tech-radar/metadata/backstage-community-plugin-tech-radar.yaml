@@ -5,19 +5,19 @@ metadata:
   namespace: rhdh
   title: Tech Radar Frontend
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://github.com/backstage/community-plugins/issues
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
   tags: []
 spec:
   packageName: '@backstage-community/plugin-tech-radar'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
-  version: 1.13.0
+  version: 1.16.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -25,26 +25,26 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-  - tech-radar
+    - tech-radar
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-tech-radar:
-            apiFactories:
-            - importName: TechRadarApi
-            appIcons:
-            - name: techRadar
-              importName: TechRadarIcon
-            dynamicRoutes:
-            - path: /tech-radar
-              importName: TechRadarPage
-              menuItem:
-                icon: techRadar
-                text: menuItem.techRadar
-                textKey: menuItem.techRadar
-              config:
-                props:
-                  width: 1500
-                  height: 800
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-tech-radar:
+              apiFactories:
+                - importName: TechRadarApi
+              appIcons:
+                - name: techRadar
+                  importName: TechRadarIcon
+              dynamicRoutes:
+                - path: /tech-radar
+                  importName: TechRadarPage
+                  menuItem:
+                    icon: techRadar
+                    text: menuItem.techRadar
+                    textKey: menuItem.techRadar
+                  config:
+                    props:
+                      width: 1500
+                      height: 800
