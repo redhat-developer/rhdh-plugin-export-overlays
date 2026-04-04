@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-jenkins"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.45.3__0.16.0
-  version: 0.16.0
+  version: 0.19.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
