@@ -357,22 +357,22 @@ jobs:
           INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validate-metadata-only.outputs.metadata-validation-errors }}
           INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count || needs.validate-metadata-only.outputs.metadata-validation-error-count }}
           INPUT_CHECK_UP_TO_DATE_RESULT: ${{ needs.check-up-to-date.result }}
+          INPUT_EXPORT_RESULT: ${{ needs.export.result }}
+          INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
+          INPUT_VALIDATE_METADATA_RESULT: ${{ needs.validate-metadata-only.result }}
+          INPUT_DETECT_CHANGES_RESULT: ${{ needs.detect-changes.result }}
         with:
           script: |
             const fs = require('fs');
             const prNumber = Number(core.getInput('pr_number'));
             const onlyMetadataChanged = core.getInput('only_metadata_changed') === 'true';
             const checkUpToDateResult = core.getInput('check_up_to_date_result');
+            const exportResult = core.getInput('export_result');
+            const checkBackstageCompatibilityResult = core.getInput('check_backstage_compatibility_result');
             const workflowRun = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
               run_id: '${{ github.run_id }}'
-            });
-            const jobs = await github.rest.actions.listJobsForWorkflowRun({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: '${{ github.run_id }}',
-              filter: 'latest',
             });
 
             let success;
@@ -381,17 +381,14 @@ jobs:
               success = false;
               publishSuccess = false;
             } else if (onlyMetadataChanged) {
-              success = jobs.data.jobs
-                .filter(j => j.name.startsWith('Validate metadata') || j.name.startsWith('Detect'))
-                .every(j => j.conclusion === 'success' || j.conclusion === 'skipped');
+              const validateResult = core.getInput('validate_metadata_result');
+              const detectResult = core.getInput('detect_changes_result');
+              success = (validateResult === 'success' || validateResult === 'skipped') &&
+                        (detectResult === 'success' || detectResult === 'skipped');
               publishSuccess = false;
             } else {
-              success = jobs.data.jobs
-                .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export') || j.name.startsWith('Check'))
-                .every(j => j.conclusion === 'success');
-              publishSuccess = jobs.data.jobs
-                .filter(j => j.name.startsWith('Publish') || j.name.startsWith('export') || j.name.startsWith('Export'))
-                .every(j => j.conclusion === 'success');
+              publishSuccess = exportResult === 'success';
+              success = publishSuccess && checkBackstageCompatibilityResult === 'success';
             }
 
             await github.rest.repos.createCommitStatus({
