@@ -18,7 +18,7 @@ metadata:
     - aws
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-aws"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-aws:bs_1.45.3__2.8.2!roadiehq-scaffolder-backend-module-aws
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-aws:bs_1.48.3__2.8.2!roadiehq-scaffolder-backend-module-aws
   version: 2.8.2
   backstage:
     role: backend-plugin-module
