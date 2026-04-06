@@ -22,6 +22,7 @@ export class RbacPO {
 
   public async go(): Promise<void> {
     await this.page.goto("/rbac");
+    await this.uiHelper.waitForLoad();
   }
 
   public async navigateToRBACPage(timeout?: number) {
