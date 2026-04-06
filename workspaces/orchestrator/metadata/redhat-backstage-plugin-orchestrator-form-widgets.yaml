@@ -19,10 +19,21 @@ spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets"
   # Tag: 1.10.0--1.6.2, Build date: 2026-01-29T16:08:58Z
   dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:692afe6b19aabf47a4ea02177d7637083db0adfeb7240b5321d64ee39d5cd040"
+<<<<<<< HEAD
   version: 1.10.1
   backstage:
     role: frontend-plugin
     supportedVersions: 1.49.3
+=======
+  version: 1.7.3
+  backstage:
+    role: frontend-plugin
+<<<<<<< HEAD
+    supportedVersions: 1.47.3
+>>>>>>> d5dec87 (chore: update orchestrator plugin to 1.47.3)
+=======
+    supportedVersions: 1.48.3
+>>>>>>> ecbb755 (chore: update orchestrator plugin versions to 1.48.3 and fix lockfile)
   author: Red Hat
   support: generally-available
   lifecycle: active
