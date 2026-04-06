@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: proberaum-backstage-plugin-config-viewer
+  namespace: rhdh
+  title: Config Viewer
+  links:
+    - url: https://github.com/proberaum/backstage-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/proberaum/backstage-plugins/tree/main/workspaces/config-viewer
+  annotations:
+    backstage.io/source-location: url:https://github.com/proberaum/backstage-plugins/tree/main/workspaces/config-viewer
+  tags: []
+spec:
+  packageName: "@proberaum/backstage-plugin-config-viewer"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/proberaum-backstage-plugin-config-viewer:bs_1.45.3__0.12.0!proberaum-backstage-plugin-config-viewer
+  version: 0.12.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Proberaum
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            proberaum.backstage-plugin-config-viewer:
+              translationResources:
+                - importName: configViewerTranslations
+                  ref: configViewerTranslationRef
+              dynamicRoutes:
+                - path: /config-viewer
+                  importName: ConfigViewerPage
+                  menuItem:
+                    text: Config viewer
