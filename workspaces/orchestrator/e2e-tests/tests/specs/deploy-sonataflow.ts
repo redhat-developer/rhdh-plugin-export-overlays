@@ -1,5 +1,5 @@
-import { execSync } from "child_process";
-import { join } from "path";
+import { execSync } from "node:child_process";
+import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
@@ -16,26 +16,12 @@ const WORKFLOWS = ["greeting", "failswitch"];
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
 
+  // Detect OSL version for workflow image tag alignment below.
+  // Version compatibility (OS vs OSL) is already checked by install-orchestrator.sh.
   const oslFullVersion = detectOperatorVersion(
     "operators.coreos.com/logic-operator.openshift-operators",
   );
   const oslMajorMinor = oslFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
-
-  const osFullVersion = detectOperatorVersion(
-    "operators.coreos.com/serverless-operator.openshift-operators",
-  );
-  const osMajorMinor = osFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
-
-  // eslint-disable-next-line no-console
-  console.log(
-    `[deploy-sonataflow] Operator versions: OS=${osFullVersion || "unknown"} (${osMajorMinor || "?"}), OSL=${oslFullVersion || "unknown"} (${oslMajorMinor || "?"})`,
-  );
-
-  if (osMajorMinor && oslMajorMinor && osMajorMinor !== oslMajorMinor) {
-    console.warn(
-      `[deploy-sonataflow] WARNING: OS (${osMajorMinor}) and OSL (${oslMajorMinor}) major.minor versions differ — Knative API incompatibilities may cause failures. Pin matching versions via OS_STARTING_CSV / OSL_STARTING_CSV.`,
-    );
-  }
 
   // Widen data-index probe failureThresholds — SmallRye health checks degrade after
   // ~7 min without a broker, returning 503 and removing the pod from Service endpoints.
@@ -93,17 +79,9 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     oc(
       `rollout status deployment/sonataflow-platform-data-index-service -n ${namespace} --timeout=300s`,
     );
-
     oc(
       `rollout status deployment/sonataflow-platform-jobs-service -n ${namespace} --timeout=300s`,
     );
-
-    await waitForPodReady(
-      namespace,
-      "sonataflow-platform-data-index-service",
-      5,
-    );
-    await waitForPodReady(namespace, "sonataflow-platform-jobs-service", 5);
   } catch {
     /* SFP patch non-fatal */
   }
@@ -152,10 +130,6 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     await waitForReconciliation(namespace, workflow, 60);
 
     oc(`rollout status deployment/${workflow} -n ${namespace} --timeout=600s`);
-  }
-
-  for (const workflow of WORKFLOWS) {
-    await waitForPodReady(namespace, workflow, 5);
   }
 }
 
@@ -223,7 +197,7 @@ async function waitForReconciliation(
       const status = oc(
         `get deployment ${workflow} -n ${namespace} -o jsonpath='{.status.conditions[?(@.type=="Progressing")].status}'`,
       );
-      const cleaned = status.replace(/'/g, "");
+      const cleaned = status.replaceAll("'", "");
       if (cleaned === "True") {
         return;
       }
@@ -249,44 +223,6 @@ function detectOperatorVersion(label: string): string {
     );
   } catch {
     return "";
-  }
-}
-
-/** Wait for a pod matching `namePattern` to reach Running & Ready. */
-async function waitForPodReady(
-  namespace: string,
-  namePattern: string,
-  timeoutMinutes = 5,
-  intervalSeconds = 10,
-): Promise<void> {
-  const maxAttempts = (timeoutMinutes * 60) / intervalSeconds;
-  for (let i = 1; i <= maxAttempts; i++) {
-    try {
-      const podLine = oc(`get pods -n ${namespace} --no-headers`)
-        .split("\n")
-        .find((l) => l.includes(namePattern));
-      if (podLine) {
-        const podName = podLine.trim().split(/\s+/)[0];
-        const phase = oc(
-          `get pod ${podName} -n ${namespace} -o jsonpath='{.status.phase}'`,
-        );
-        const ready = oc(
-          `get pod ${podName} -n ${namespace} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'`,
-        );
-        if (
-          phase.replaceAll("'", "") === "Running" &&
-          ready.replaceAll("'", "") === "True"
-        ) {
-          return;
-        }
-      }
-    } catch {
-      // not available yet
-    }
-    if (i === maxAttempts) {
-      return;
-    }
-    await sleep(intervalSeconds * 1000);
   }
 }
 
