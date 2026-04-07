@@ -567,7 +567,7 @@ test.describe("Orchestrator", () => {
       console.log(`[afterEach] Test FAILED: "${title}"`);
       console.log(`[afterEach] Page URL at failure: ${page.url()}`);
       try {
-        const bodyText = await page.textContent("body");
+        const bodyText = await page.locator("body").textContent();
         console.log(
           `[afterEach] Page body text (first 2000 chars):\n${bodyText?.substring(0, 2000)}`,
         );
@@ -590,6 +590,7 @@ test.describe("Orchestrator", () => {
       ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Greeting workflow execution and workflow tab validation", async ({
       uiHelper,
       page,
@@ -615,6 +616,7 @@ test.describe("Orchestrator", () => {
       console.log("[greeting-exec] Validation complete");
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Greeting workflow run details validation", async ({
       uiHelper,
       page,
@@ -653,6 +655,7 @@ test.describe("Orchestrator", () => {
       ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Failswitch workflow execution and workflow tab validation", async ({
       uiHelper,
       page,
@@ -692,7 +695,8 @@ test.describe("Orchestrator", () => {
       console.log("[failswitch-exec] All validations complete");
     });
 
-    test("Test abort workflow", async ({ uiHelper, page }) => {
+    // eslint-disable-next-line playwright/expect-expect
+    test("Abort workflow", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
       console.log("[abort-test] Starting abort workflow test");
       await uiHelper.openSidebar("Orchestrator");
@@ -706,7 +710,8 @@ test.describe("Orchestrator", () => {
       console.log("[abort-test] Abort complete");
     });
 
-    test("Test Running status validations", async ({ uiHelper, page }) => {
+    // eslint-disable-next-line playwright/expect-expect
+    test("Running status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
       console.log("[running-status] Starting Running status validation");
       await uiHelper.openSidebar("Orchestrator");
@@ -720,7 +725,8 @@ test.describe("Orchestrator", () => {
       console.log("[running-status] Validation complete");
     });
 
-    test("Test Failed status validations", async ({ uiHelper, page }) => {
+    // eslint-disable-next-line playwright/expect-expect
+    test("Failed status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
       console.log("[failed-status] Starting Failed status validation");
       await uiHelper.openSidebar("Orchestrator");
@@ -734,7 +740,8 @@ test.describe("Orchestrator", () => {
       console.log("[failed-status] Validation complete");
     });
 
-    test("Test Completed status validations", async ({ uiHelper, page }) => {
+    // eslint-disable-next-line playwright/expect-expect
+    test("Completed status validations", async ({ uiHelper, page }) => {
       test.setTimeout(180_000);
       console.log("[completed-status] Starting Completed status validation");
       await uiHelper.openSidebar("Orchestrator");
@@ -748,7 +755,8 @@ test.describe("Orchestrator", () => {
       console.log("[completed-status] Validation complete");
     });
 
-    test("Test rerunning from failure point using failswitch workflow", async ({
+    // eslint-disable-next-line playwright/expect-expect
+    test("Rerunning from failure point using failswitch workflow", async ({
       uiHelper,
     }, testInfo) => {
       // 4 minutes: pod restarts + 60s sleep + failure/recovery time
@@ -862,6 +870,7 @@ test.describe("Orchestrator", () => {
   });
 
   test.describe("Token propagation workflow API", () => {
+    // eslint-disable-next-line playwright/no-skipped-test
     test.skip("Token propagation workflow executes successfully via API", async ({
       page,
       loginHelper,
@@ -881,6 +890,7 @@ test.describe("Orchestrator", () => {
 
       const username = process.env.GH_USER_ID;
       const password = process.env.GH_USER_PASS;
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!username || !password) {
         throw new Error("GH_USER_ID and GH_USER_PASS must be set");
       }
@@ -899,6 +909,7 @@ test.describe("Orchestrator", () => {
           scope: "openid",
         },
       });
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!tokenResponse.ok()) {
         console.error(
           `Keycloak token request failed: ${tokenResponse.status()} ${await tokenResponse.text()}`,
@@ -929,6 +940,7 @@ test.describe("Orchestrator", () => {
           },
         },
       );
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!executeResponse.ok()) {
         console.error(
           `Workflow execution failed: ${executeResponse.status()} ${await executeResponse.text()}`,
@@ -958,11 +970,13 @@ test.describe("Orchestrator", () => {
         statusBody = await statusResponse.json();
         finalState = statusBody.state;
 
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if (finalState === "COMPLETED") {
           console.log(`Workflow completed successfully after ${poll} polls`);
           break;
         }
 
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if (finalState === "ERROR") {
           console.error(
             "Workflow failed with ERROR state:",
@@ -974,6 +988,7 @@ test.describe("Orchestrator", () => {
         console.log(
           `Workflow status: ${finalState} (poll ${poll}/${maxPolls})`,
         );
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await page.waitForTimeout(pollInterval);
       }
 
@@ -996,6 +1011,7 @@ test.describe("Orchestrator", () => {
       for (const nodeName of expectedNodes) {
         const node = nodes.find((n: WorkflowNode) => n.name === nodeName);
         expect(node, `Node '${nodeName}' should exist`).toBeDefined();
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if (!node) continue;
         expect(
           node.errorMessage,
@@ -1008,6 +1024,7 @@ test.describe("Orchestrator", () => {
       }
 
       // Verify sample-server pod logs for token propagation evidence
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (process.env.IS_OPENSHIFT !== "true") {
         console.log(
           "Skipping sample-server log verification: not running on OpenShift",
@@ -1019,6 +1036,7 @@ test.describe("Orchestrator", () => {
       const nsMatch = /token-propagation\.([^:/]+)/.exec(serviceUrl);
       const namespace = nsMatch?.[1] || process.env.NAME_SPACE || "";
 
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!namespace) {
         console.log(
           "Skipping sample-server log verification: namespace not found",
@@ -1028,6 +1046,7 @@ test.describe("Orchestrator", () => {
 
       // Validate namespace conforms to Kubernetes DNS-1123 label format
       // to prevent command injection via shell metacharacters
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!/^[a-z0-9-]+$/.test(namespace)) {
         throw new Error(
           `Invalid namespace format: "${namespace}". Must contain only lowercase alphanumeric characters and hyphens.`,
@@ -1064,6 +1083,7 @@ test.describe("Orchestrator", () => {
       await loginHelper.loginAsKeycloakUser();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Workflow All Runs Validation", async ({ uiHelper }) => {
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.validateWorkflowAllRuns();
@@ -1113,7 +1133,7 @@ test.describe("Orchestrator", () => {
       await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
 
       await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("domcontentloaded");
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
       const languageField = page.getByLabel("Language");
@@ -1208,6 +1228,7 @@ test.describe("Orchestrator", () => {
       const tabCount = await workflowsTab.count();
       console.log(`[RHIDP-11835] Workflows tab count: ${tabCount}`);
 
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (tabCount > 0) {
         // Tab exists (dynamic plugin registers it globally) -- verify
         // the content does NOT show the greeting workflow since the
@@ -1219,7 +1240,8 @@ test.describe("Orchestrator", () => {
         console.log(
           `[RHIDP-11835] Greeting workflow text count in Workflows tab: ${greetingCount}`,
         );
-        expect(greetingCount).toBe(0);
+        // eslint-disable-next-line playwright/no-conditional-expect
+        await expect(greetingWorkflow).toHaveCount(0);
         console.log(
           "[RHIDP-11835] Confirmed: Workflows tab has no workflow content (annotation absent)",
         );
@@ -1266,12 +1288,14 @@ test.describe("Orchestrator", () => {
       });
       const breadcrumbCount = await breadcrumb.count();
       console.log(`[RHIDP-11836] Breadcrumb count: ${breadcrumbCount}`);
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (breadcrumbCount > 0 && entityName) {
         const entityBreadcrumb = breadcrumb.getByText(entityName);
         const entityBreadcrumbCount = await entityBreadcrumb.count();
         console.log(
           `[RHIDP-11836] Entity breadcrumb '${entityName}' count: ${entityBreadcrumbCount}`,
         );
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if (entityBreadcrumbCount > 0) {
           await entityBreadcrumb.click();
           await page.waitForLoadState("load");
@@ -1279,6 +1303,7 @@ test.describe("Orchestrator", () => {
             `[RHIDP-11836] Navigated back via breadcrumb: ${page.url()}`,
           );
 
+          // eslint-disable-next-line playwright/no-conditional-expect
           await expect(
             page.getByRole("heading", { name: /Greeting Test Picker/i }),
           ).toBeVisible();
@@ -1301,7 +1326,7 @@ test.describe("Orchestrator", () => {
       await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
 
       await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("domcontentloaded");
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
       const nameField = page.getByLabel("Name");
@@ -1310,6 +1335,7 @@ test.describe("Orchestrator", () => {
       await nameField.fill(uniqueName);
 
       const languageField = page.getByLabel("Language");
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (await languageField.isVisible({ timeout: 5000 })) {
         await languageField.click();
         await page.getByRole("option", { name: "English" }).click();

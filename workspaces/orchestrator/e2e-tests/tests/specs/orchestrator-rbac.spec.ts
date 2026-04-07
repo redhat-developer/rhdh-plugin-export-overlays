@@ -56,6 +56,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       ));
     });
 
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
+    });
+
     test("Create role with global orchestrator.workflow read and update permissions", async () => {
       const rbacApi = await RbacApiHelper.build(apiToken);
 
@@ -119,7 +123,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(updatePolicy.effect).toBe("allow");
     });
 
-    test("Test global orchestrator workflow access is allowed", async () => {
+    test("Verify global orchestrator workflow access is allowed", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -139,10 +143,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       // Click the Run button to verify permission works
       await runButton.click();
     });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
   });
 
   test.describe
@@ -158,6 +158,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Create role with global orchestrator.workflow read-only permissions", async () => {
@@ -223,7 +227,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
-    test("Test global orchestrator workflow read-only access - Run button disabled", async () => {
+    test("Verify global orchestrator workflow read-only access - Run button disabled", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -249,10 +253,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         await expect(runButton).toBeDisabled();
       }
     });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
   });
 
   test.describe
@@ -268,6 +268,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Create role with global orchestrator.workflow denied permissions", async () => {
@@ -333,7 +337,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
-    test("Test global orchestrator workflow denied access - no workflows visible", async () => {
+    test("Verify global orchestrator workflow denied access - no workflows visible", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -345,10 +349,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toHaveCount(0);
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 
@@ -365,6 +365,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Create role with greeting workflow denied permissions", async () => {
@@ -432,7 +436,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
-    test("Test individual workflow denied access - no workflows visible", async () => {
+    test("Verify individual workflow denied access - no workflows visible", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -451,10 +455,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       await uiHelper.verifyTableIsEmpty();
     });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
   });
 
   test.describe
@@ -470,6 +470,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Create role with greeting workflow read-write permissions", async () => {
@@ -537,7 +541,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(allowUpdatePolicy.effect).toBe("allow");
     });
 
-    test("Test individual workflow read-write access - only Greeting workflow visible and runnable", async () => {
+    test("Verify individual workflow read-write access - only Greeting workflow visible and runnable", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -564,10 +568,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(runButton).toBeEnabled();
       await runButton.click();
     });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
   });
 
   test.describe
@@ -583,6 +583,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Create role with greeting workflow read-only permissions", async () => {
@@ -650,7 +654,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
-    test("Test individual workflow read-only access - only Greeting workflow visible, Run button disabled", async () => {
+    test("Verify individual workflow read-only access - only Greeting workflow visible, Run button disabled", async () => {
       await page.reload();
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
@@ -685,10 +689,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         // eslint-disable-next-line playwright/no-conditional-expect
         await expect(runButton).toBeDisabled();
       }
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 
@@ -734,6 +734,32 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       }
     });
 
+    test.afterAll(async () => {
+      try {
+        await page.goto("/");
+        await page.context().clearCookies();
+
+        // Login as primary user to perform cleanup
+        try {
+          await loginHelper.loginAsKeycloakUser();
+          apiToken = await new AuthApiHelper(page).getToken();
+        } catch (error) {
+          console.log("Login failed during cleanup, continuing:", error);
+          return;
+        }
+
+        if (workflowUserRoleName) {
+          await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
+        }
+        if (workflowAdminRoleName) {
+          await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
+        }
+      } catch (error) {
+        console.error("Error during cleanup in afterAll:", error);
+      }
+    });
+
+    // eslint-disable-next-line playwright/expect-expect
     test("Clean up any existing workflowUser role", async () => {
       workflowUserRoleName = "role:default/workflowUser";
       await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
@@ -904,7 +930,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await page.waitForLoadState("load");
 
       // Secondary user should NOT be able to see the instance details
-      const pageContent = await page.textContent("body");
+      const pageContent = await page.locator("body").textContent();
       console.log(
         `Page content when accessing instance: ${pageContent?.substring(0, 500)}`,
       );
@@ -920,6 +946,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(hasAccessDenied).toBe(true);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Clean up any existing workflowAdmin role", async () => {
       workflowAdminRoleName = "role:default/workflowAdmin";
       await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
@@ -1004,6 +1031,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(policyPostResponse.ok()).toBeTruthy();
 
       // Wait a moment for the role changes to take effect
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(2000);
 
       // Update workflowUser role to remove secondary user
@@ -1102,31 +1130,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         `Admin (secondary) user successfully accessed workflow instance: ${workflowInstanceId}`,
       );
     });
-
-    test.afterAll(async () => {
-      try {
-        await page.goto("/");
-        await page.context().clearCookies();
-
-        // Login as primary user to perform cleanup
-        try {
-          await loginHelper.loginAsKeycloakUser();
-          apiToken = await new AuthApiHelper(page).getToken();
-        } catch (error) {
-          console.log("Login failed during cleanup, continuing:", error);
-          return;
-        }
-
-        if (workflowUserRoleName) {
-          await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
-        }
-        if (workflowAdminRoleName) {
-          await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
-        }
-      } catch (error) {
-        console.error("Error during cleanup in afterAll:", error);
-      }
-    });
   });
 
   /**
@@ -1153,6 +1156,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Setup: Create role with catalog+scaffolder but NO orchestrator permissions", async () => {
@@ -1244,6 +1251,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await createButton.click();
 
       // Template execution should succeed, but workflow execution should be denied
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(10000);
 
       const errorIndicators = [
@@ -1256,6 +1264,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       let hasError = false;
       for (const indicator of errorIndicators) {
+        // eslint-disable-next-line playwright/no-conditional-in-test
         if ((await indicator.count()) > 0) {
           hasError = true;
           break;
@@ -1263,8 +1272,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       }
 
       // If no explicit error, verify workflow is not accessible in Orchestrator
+      // eslint-disable-next-line playwright/no-conditional-in-test
       if (!hasError) {
         await uiHelper.openSidebar("Orchestrator");
+        // eslint-disable-next-line playwright/no-conditional-expect
         await expect(
           page.getByRole("heading", { name: "Workflows" }),
         ).toBeVisible();
@@ -1273,13 +1284,9 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         const greetingWorkflow = page.getByRole("link", {
           name: "Greeting workflow",
         });
-        const workflowCount = await greetingWorkflow.count();
-        expect(workflowCount).toBe(0);
+        // eslint-disable-next-line playwright/no-conditional-expect
+        await expect(greetingWorkflow).toHaveCount(0);
       }
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 
@@ -1296,6 +1303,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
     test("Setup: Create role with catalog+scaffolder+orchestrator permissions", async () => {
@@ -1417,10 +1428,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       const runButton = page.getByRole("button", { name: "Run" });
       await expect(runButton).toBeVisible();
       await expect(runButton).toBeEnabled();
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
     });
   });
 });
