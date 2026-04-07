@@ -1,5 +1,8 @@
-import type { Locator, Page } from "@playwright/test";
-import { expect } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 const EXPECTED_CARD_TEXTS = [

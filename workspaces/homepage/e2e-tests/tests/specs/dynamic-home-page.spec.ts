@@ -64,7 +64,7 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   // restore defaults button is not working as expected
-  // eslint-disable-next-line playwright/no-skipped-test -- re-enable when restore-defaults is fixed
+  // eslint-disable-next-line playwright/no-skipped-test -- re-enable when https://issues.redhat.com/browse/RHDHBUGS-2906 is fixed
   test.skip("Verify restore default cards and deleted with Clear all button", async () => {
     await home.restoreDefaultCards();
     await home.verifyCardsRestored();
