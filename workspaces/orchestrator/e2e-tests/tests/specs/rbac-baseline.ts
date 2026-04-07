@@ -96,19 +96,11 @@ export async function setupAuthenticatedPage(
   loginHelper: LoginHelper;
   apiToken: string;
 }> {
-  console.log(
-    `[rbac-baseline] Setting up authenticated page for test: "${testInfo.title}"`,
-  );
   const { page } = await setupBrowser(browser, testInfo);
   const uiHelper = new UIhelper(page);
   const loginHelper = new LoginHelper(page);
-  console.log("[rbac-baseline] Logging in as Keycloak user...");
   await loginHelper.loginAsKeycloakUser();
-  console.log("[rbac-baseline] Obtaining API token...");
   const apiToken = await new AuthApiHelper(page).getToken();
-  console.log(
-    `[rbac-baseline] Authenticated page ready (token length: ${apiToken?.length || 0})`,
-  );
   return { page, uiHelper, loginHelper, apiToken };
 }
 
@@ -117,31 +109,18 @@ export async function deleteRoleAndPolicies(
   apiToken: string,
   roleName: string,
 ): Promise<void> {
-  console.log(`[rbac] Deleting role and policies for: ${roleName}`);
   const rbacApi = await RbacApiHelper.build(apiToken);
   const apiName = roleApiName(roleName);
   try {
     const policiesResponse = await rbacApi.getPoliciesByRole(apiName);
-    console.log(
-      `[rbac] Get policies for ${apiName}: HTTP ${policiesResponse.status()}`,
-    );
     if (policiesResponse.ok()) {
       const policies =
         await Response.removeMetadataFromResponse(policiesResponse);
-      console.log(
-        `[rbac] Deleting ${(policies as Policy[]).length} policies for ${apiName}`,
-      );
       await rbacApi.deletePolicy(apiName, policies as Policy[]);
-      console.log(`[rbac] Policies deleted for ${apiName}`);
-    } else {
-      console.log(
-        `[rbac] No policies found for ${apiName} (HTTP ${policiesResponse.status()})`,
-      );
     }
     await rbacApi.deleteRole(apiName);
-    console.log(`[rbac] Role ${apiName} deleted`);
-  } catch (error) {
-    console.log(`[rbac] Cleanup for ${roleName} (may not exist):`, error);
+  } catch {
+    // role may not exist yet
   }
 }
 
@@ -157,56 +136,18 @@ export async function ensureBaselineRole(
   _testInfo: TestInfo,
 ): Promise<void> {
   await test.runOnce("rbac-baseline-setup", async () => {
-    console.log(
-      `[rbac-baseline] Creating baseline role ${BASELINE_ROLE_NAME} for ${PRIMARY_USER}`,
-    );
-    console.log(
-      `[rbac-baseline] Baseline policies (${BASELINE_POLICIES.length}):`,
-    );
-    for (const p of BASELINE_POLICIES) {
-      console.log(
-        `[rbac-baseline]   ${p.permission} / ${p.policy} / ${p.effect}`,
-      );
-    }
     await withTempPage(browser, async (page) => {
       const loginHelper = new LoginHelper(page);
-      console.log("[rbac-baseline] Logging in to create baseline role...");
       await loginHelper.loginAsKeycloakUser();
       const token = await new AuthApiHelper(page).getToken();
       const rbacApi = await RbacApiHelper.build(token);
 
-      const roleResponse = await rbacApi.createRoles({
+      await rbacApi.createRoles({
         memberReferences: [PRIMARY_USER],
         name: BASELINE_ROLE_NAME,
       });
-      console.log(
-        `[rbac-baseline] Role creation: HTTP ${roleResponse.status()}`,
-      );
-      if (!roleResponse.ok()) {
-        const body = await roleResponse.text();
-        console.log(`[rbac-baseline] Role creation error: ${body}`);
-      }
 
-      const policyResponse = await rbacApi.createPolicies(BASELINE_POLICIES);
-      console.log(
-        `[rbac-baseline] Policy creation: HTTP ${policyResponse.status()}`,
-      );
-      if (!policyResponse.ok()) {
-        const body = await policyResponse.text();
-        console.log(`[rbac-baseline] Policy creation error: ${body}`);
-      }
-
-      console.log(`[rbac-baseline] Verifying baseline role was created...`);
-      const verifyResponse = await rbacApi.getRoles();
-      if (verifyResponse.ok()) {
-        const roles = await verifyResponse.json();
-        const found = roles.find(
-          (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
-        );
-        console.log(`[rbac-baseline] Baseline role found: ${!!found}`);
-      }
-
-      console.log(`[rbac-baseline] Created baseline role for ${PRIMARY_USER}`);
+      await rbacApi.createPolicies(BASELINE_POLICIES);
     });
   });
 }
@@ -222,17 +163,12 @@ export async function removeBaselineRole(
   _testInfo: TestInfo,
 ): Promise<void> {
   await test.runOnce("rbac-baseline-cleanup", async () => {
-    console.log(
-      `[rbac-baseline] Removing baseline role ${BASELINE_ROLE_NAME} for clean RBAC slate`,
-    );
     await withTempPage(browser, async (page) => {
       const loginHelper = new LoginHelper(page);
-      console.log("[rbac-baseline] Logging in to remove baseline role...");
       await loginHelper.loginAsKeycloakUser();
       const token = await new AuthApiHelper(page).getToken();
       await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
 
-      console.log("[rbac-baseline] Verifying baseline role was removed...");
       const rbacApi = await RbacApiHelper.build(token);
       const verifyResponse = await rbacApi.getRoles();
       if (verifyResponse.ok()) {
@@ -240,15 +176,12 @@ export async function removeBaselineRole(
         const found = roles.find(
           (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
         );
-        console.log(`[rbac-baseline] Baseline role still exists: ${!!found}`);
         if (found) {
           console.warn(
             "[rbac-baseline] WARNING: Baseline role was NOT removed successfully!",
           );
         }
       }
-
-      console.log("[rbac-baseline] Removed baseline role");
     });
   });
 }
