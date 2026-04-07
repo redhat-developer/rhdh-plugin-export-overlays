@@ -44,6 +44,7 @@ jobs:
 
     outputs:
       pr-comments: ${{ steps.update-prs.outputs.pr-comments }}
+      updated-pr-numbers: ${{ steps.update-prs.outputs.updated-pr-numbers }}
 
     steps:
       - uses: actions/checkout@v4
@@ -86,4 +87,27 @@ jobs:
             }
 
     permissions:
+      pull-requests: write
+
+  auto-publish-updated-prs:
+    name: Auto-publish updated PR
+    needs: [update-prs, comment-prs]
+    if: |
+      !cancelled() &&
+      needs.update-prs.result == 'success' &&
+      needs.update-prs.outputs.updated-pr-numbers != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        pr-number: ${{ fromJSON(needs.update-prs.outputs.updated-pr-numbers) }}
+      max-parallel: 1
+    uses: ./.github/workflows/auto-publish-pr.yaml
+    with:
+      pr-number: ${{ matrix.pr-number }}
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
       pull-requests: write

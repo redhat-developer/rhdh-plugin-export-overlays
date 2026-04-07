@@ -40,53 +40,52 @@ The overlay repository doesn't store your plugin's source code—it stores **ref
 
 ## Step-by-Step Synchronization
 
+> **Note:** For most plugins under supported scopes, the automated discovery workflow handles synchronization automatically. The manual steps below are for cases where automation does not apply or when you need to verify/override what automation produced.
+
 ### Step 1: Identify the Source Version
 
-Determine the version you want to target:
+How you identify the correct `repo-ref` depends on the source repository model:
+
+**Single-plugin repositories** (e.g., `backstage/backstage`) use version tags:
 
 ```bash
-# For community-plugins
-git ls-remote --tags https://github.com/backstage/community-plugins | grep "plugin-your-plugin"
-
-# For backstage/backstage
 git ls-remote --tags https://github.com/backstage/backstage | tail -20
+# repo-ref example: "v1.45.3"
+```
+
+**Multi-plugin monorepos** (e.g., `backstage/community-plugins`, `redhat-developer/rhdh-plugins`) typically use per-package tags. However, these tags point to individual plugin releases and there is no common workspace-level tag. When a workspace contains multiple plugins that may release independently, the preferred reference is often a **commit SHA** rather than a single package tag:
+
+```bash
+# Per-package tag (works when the workspace has a single plugin or all plugins share the same tag)
+git ls-remote --tags https://github.com/backstage/community-plugins | grep "plugin-your-plugin"
+# repo-ref example: "@backstage-community/plugin-your-plugin@1.2.3"
+
+# Commit SHA (preferred for multi-plugin workspaces where plugins release independently)
+# Use the commit that contains the versions you need for all plugins in the workspace
+# repo-ref example: "abc123def456..."
 ```
 
 ### Step 2: Get Source package.json Data
 
 ```bash
-# Fetch the package.json for your target version
+# Using a tag
 curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstage-community/plugin-your-plugin@1.2.3/workspaces/your-workspace/plugins/your-plugin/package.json" | jq '{name, version, backstage}'
-```
 
-Example output:
-
-```json
-{
-  "name": "@backstage-community/plugin-your-plugin",
-  "version": "1.2.3",
-  "backstage": {
-    "role": "backend-plugin",
-    "pluginId": "your-plugin",
-    "pluginPackages": ["@backstage-community/plugin-your-plugin"]
-  }
-}
+# Using a commit SHA
+curl -s "https://raw.githubusercontent.com/backstage/community-plugins/abc123def456/workspaces/your-workspace/plugins/your-plugin/package.json" | jq '{name, version, backstage}'
 ```
 
 ### Step 3: Get Backstage Version from Source
 
-```bash
-# Get the root package.json to find Backstage version
-curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstage-community/plugin-your-plugin@1.2.3/package.json" | jq '.dependencies["@backstage/core-plugin-api"] // .devDependencies["@backstage/backend-plugin-api"]'
-```
-
-Or check the workspace's `backstage.json`:
+Check the workspace's `backstage.json`:
 
 ```bash
-curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstage-community/plugin-your-plugin@1.2.3/workspaces/your-workspace/backstage.json" | jq '.version'
+curl -s "https://raw.githubusercontent.com/backstage/community-plugins/[ref]/workspaces/your-workspace/backstage.json" | jq '.version'
 ```
 
 ### Step 4: Update source.json
+
+**Tag-based reference** (single-plugin workspace or shared tag):
 
 ```json
 {
@@ -97,34 +96,28 @@ curl -s "https://raw.githubusercontent.com/backstage/community-plugins/@backstag
 }
 ```
 
+**Commit-based reference** (multi-plugin workspace):
+
+```json
+{
+  "repo": "https://github.com/redhat-developer/rhdh-plugins",
+  "repo-ref": "abc123def456789...",
+  "repo-flat": false,
+  "repo-backstage-version": "1.45.2"
+}
+```
+
 ### Step 5: Update Metadata YAML
 
+Update each file in `metadata/*.yaml` to match the source `package.json` at the ref you chose:
+
 ```yaml
-apiVersion: extensions.backstage.io/v1alpha1
-kind: Package
-metadata:
-  name: backstage-community-plugin-your-plugin
-  namespace: default
-  title: "Your Plugin"
-  links:
-    - url: https://backstage.io
-      title: Homepage
-    - url: https://github.com/backstage/community-plugins/issues
-      title: Bugs
-    - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/your-workspace/plugins/your-plugin
-  annotations:
-    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/your-workspace/plugins/your-plugin
 spec:
   packageName: "@backstage-community/plugin-your-plugin"  # Must match package.json:name
   version: 1.2.3                                          # Must match package.json:version
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-your-plugin-dynamic
   backstage:
     role: backend-plugin                                  # Must match package.json:backstage.role
-    supportedVersions: 1.45.0                             # Target Backstage version
-  author: Your Organization
-  support: community
-  lifecycle: active
+    supportedVersions: 1.45.0                             # Backstage version from backstage.json
 ```
 
 ---
@@ -135,14 +128,24 @@ The repository has automated workflows that create PRs for plugin updates.
 
 ### Daily Discovery
 
-Runs daily for scopes in `plugins-regexps`:
+Runs twice daily for scopes defined in `workspace-discovery-include`:
 - `@backstage-community/`
 - `@red-hat-developer-hub/`
 - `@roadiehq/`
 
+Workspaces matching patterns in `workspace-discovery-exclude` are skipped.
+
 ### Manual Trigger
 
+You can trigger the discovery workflow on demand. Wrap the value in single quotes to target an exact package name rather than a regex pattern (see [Option 2: Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for a full explanation of quoting behavior).
+
 ```bash
+# Exact package name (single quotes = literal match)
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="'@backstage-community/plugin-your-plugin'" \
+  -f single-branch="main"
+
+# Regex pattern (no quotes = pattern match)
 gh workflow run update-plugins-repo-refs.yaml \
   -f regexps="@backstage-community/plugin-your-plugin" \
   -f single-branch="main"
@@ -214,21 +217,23 @@ curl -s "https://raw.githubusercontent.com/[repo]/[ref]/path/to/package.json" | 
 
 ### Error: "Backstage compatibility check failed"
 
-**Cause:** `repo-backstage-version` is higher than target Backstage version in `versions.json`
+**Cause:** The `repo-backstage-version` declared in `source.json` is higher than the target Backstage version in `versions.json`. The automated workflow rejects updates where the source was built against a newer Backstage than the platform currently targets.
 
 **Fix:**
 
-1. Find a plugin version compatible with the target Backstage version
-2. Update `repo-ref` to that version
-3. Update `repo-backstage-version` to match
+1. Find a plugin version whose source Backstage version is less than or equal to the target version in `versions.json`
+2. Update `repo-ref` to point to that version
+3. Update `repo-backstage-version` to match the source's actual Backstage version
+
+> This check runs during the discovery/update workflow, not during the export build itself. It prevents the overlay from referencing a plugin version that is known to be incompatible with the target platform.
 
 ---
 
-## Integrity Hash Verification
+## Integrity Verification
 
-The build process may verify that the source `package.json` matches expectations.
+During the export build, the process verifies that the source `package.json` fields (name, version) match the metadata declared in the overlay. This catches cases where `source.json:repo-ref` and `metadata/*.yaml:spec.version` have drifted apart.
 
-### If Integrity Check Fails
+### If Integrity Verification Fails
 
 1. **Verify you have the correct ref:**
 
@@ -236,15 +241,11 @@ The build process may verify that the source `package.json` matches expectations
    git ls-remote --refs https://github.com/[repo] | grep "[your-ref]"
    ```
 
-2. **Check if package.json was modified after tagging** (rare but possible)
+2. **Compare the source version with your metadata:**
+   - Check `package.json:version` at the ref you are targeting
+   - Confirm it matches `spec.version` in your metadata YAML
 
-3. **If intentional mismatch**, add `--no-integrity-check` to `plugins-list.yaml`:
-
-   ```yaml
-   plugins/your-plugin: --no-integrity-check
-   ```
-
-   > ⚠️ **Warning:** Only use this when you understand why the mismatch exists and have verified it's safe.
+3. **If the mismatch is intentional** (e.g., a patch modifies the version), document the reason in your PR description
 
 ---
 
@@ -260,9 +261,8 @@ The build process may verify that the source `package.json` matches expectations
 ### Don't
 
 - ❌ Point `repo-ref` to `main` or `master` branches
-- ❌ Use commit SHAs when tags are available
 - ❌ Update `spec.version` without updating `repo-ref`
-- ❌ Skip integrity checks without documenting why
+- ❌ Use a per-package tag as `repo-ref` when the workspace contains other plugins at different versions (use a commit SHA instead)
 
 ---
 

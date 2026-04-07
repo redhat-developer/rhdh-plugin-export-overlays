@@ -1,0 +1,14 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rhdh-tekton-plugin
+rules:
+  - apiGroups:
+      - tekton.dev
+    resources:
+      - pipelines
+      - pipelineruns
+      - taskruns
+    verbs:
+      - get
+      - list

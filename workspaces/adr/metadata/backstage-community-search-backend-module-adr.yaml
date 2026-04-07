@@ -1,0 +1,24 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-search-backend-module-adr
+  namespace: rhdh
+  title: ADR Search Backend Module
+  links:
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/adr
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/adr
+  tags: []
+spec:
+  packageName: "@backstage-community/search-backend-module-adr"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-search-backend-module-adr:bs_1.45.3__0.13.1!backstage-community-search-backend-module-adr
+  version: 0.13.1
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active

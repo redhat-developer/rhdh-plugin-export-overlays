@@ -1,0 +1,108 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: rbac-policy
+  labels:
+    backstage.io/kubernetes-id: developer-hub
+data:
+  rbac-policy.csv: |
+    p, role:default/guests, catalog.entity.create, create, allow
+    g, user:default/no-access, role:default/guests
+    p, role:default/team_a, catalog-entity, read, allow
+    g, user:default/user_team_a, role:default/team_a
+    g, user:xyz/user, role:xyz/team_a
+    g, group:default/rhdh-qe-2-team, role:default/test2-role
+
+    p, role:xyz/team_a, catalog-entity, read, allow
+    p, role:xyz/team_a, catalog.entity.create, create, allow
+    p, role:xyz/team_a, catalog.location.create, create, allow
+    p, role:xyz/team_a, catalog.location.read, read, allow
+
+    g, user:default/config-admin, role:default/team_a
+    g, user:default/config-admin, role:default/qe_config_admin
+    p, role:default/qe_config_admin, catalog.entity.create, create, allow
+    p, role:default/qe_config_admin, catalog.location.create, create, allow
+    p, role:default/qe_config_admin, catalog.location.read, read, allow
+
+    g, group:default/rhdh-qe-parent-team, role:default/transitive-owner
+    g, group:default/rhdh-qe-child-team, role:default/transitive-owner
+
+    p, role:default/all_resource_reader, catalog-entity, read, allow
+    p, role:default/all_resource_reader, catalog-entity, create, allow
+    g, user:default/conditional-allow-user, role:default/all_resource_reader
+
+    p, role:default/all_resource_denier, catalog-entity, read, deny
+    p, role:default/all_resource_denier, catalog-entity, create, allow
+    g, user:default/conditional-deny-user, role:default/all_resource_denier
+
+    g, user:default/conditional-allow-user, role:default/owned_resource_reader
+    g, user:default/conditional-deny-user, role:default/owned_resource_reader
+
+    g, user:default/conditional-denier, role:default/all_resource_reader
+    g, user:default/conditional-denier, role:default/conditional_denier
+  conditional-policy.yaml: |
+    result: CONDITIONAL
+    roleEntityRef: 'role:default/test2-role'
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+      - update
+    conditions:
+      rule: IS_ENTITY_OWNER
+      resourceType: catalog-entity
+      params:
+        claims:
+          - 'group:janus-qe/rhdh-qe-2-team'
+          - $currentUser
+    ---
+    result: CONDITIONAL
+    roleEntityRef: 'role:default/test2-role'
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - delete
+    conditions:
+      rule: IS_ENTITY_OWNER
+      resourceType: catalog-entity
+      params:
+        claims:
+          - $currentUser
+    ---
+    result: CONDITIONAL
+    roleEntityRef: 'role:default/transitive-owner'
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+    conditions:
+      rule: IS_ENTITY_OWNER
+      resourceType: catalog-entity
+      params:
+        claims:
+          - $ownerRefs
+    ---
+    result: CONDITIONAL
+    roleEntityRef: 'role:default/owned_resource_reader'
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+    conditions:
+      rule: IS_ENTITY_OWNER
+      resourceType: catalog-entity
+      params:
+        claims:
+          - $currentUser
+    ---
+    result: CONDITIONAL
+    roleEntityRef: 'role:default/conditional_denier'
+    pluginId: catalog
+    resourceType: catalog-entity
+    permissionMapping:
+      - read
+    conditions:
+      rule: HAS_LABEL
+      resourceType: catalog-entity
+      params:
+        label: test-label

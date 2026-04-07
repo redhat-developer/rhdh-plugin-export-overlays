@@ -4,6 +4,62 @@ metadata:
   name: rhdh-rollouts-reader
 rules:
   - apiGroups:
+      - ""
+    resources:
+      - pods/log
+      - pods
+      - services
+      - configmaps
+      - limitranges
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - metrics.k8s.io
+    resources:
+      - pods
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - cronjobs
+    verbs:
+      - get
+      - watch
+      - list
+  - apiGroups:
       - argoproj.io
     resources:
       - rollouts

@@ -1,0 +1,20 @@
+app:
+  title: RHDH Backstage Kubernetes Test Instance
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/dzemanov/rhdh-plugin-export-overlays/blob/e2e-kubernetes/workspaces/backstage/e2e-tests/tests/config/kubernetes/resources/catalog-component.yaml
+
+permission:
+  enabled: true
+  rbac:
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    admin:
+      users:
+        - name: user:default/test1

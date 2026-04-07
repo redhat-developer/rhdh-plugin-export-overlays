@@ -11,6 +11,7 @@ spec:
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
+    - ./aws-scaffolder-actions.yaml
     - ./aws-codebuild.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
@@ -22,6 +23,7 @@ spec:
     - ./bitbucket-server-catalog-integration.yaml
     - ./bulk-import.yaml
     - ./contrib-techdocs-addons.yaml
+    - ./cost-management.yaml
     - ./datadog.yaml
     - ./dynatrace-commercial.yaml
     - ./dynatrace-community.yaml
@@ -47,6 +49,7 @@ spec:
     - ./jfrog-artifactory.yaml
     - ./jira.yaml
     - ./keycloak-catalog-integration.yaml
+    - ./konflux.yaml
     - ./kubernetes-backend.yaml
     - ./kubernetes-scaffolder-actions.yaml
     - ./kubernetes.yaml
@@ -67,7 +70,6 @@ spec:
     - ./quickstart.yaml
     - ./rbac.yaml
     - ./argocd.yaml
-    - ./redhat-resource-optimization.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
     - ./roadie-scaffolder-util-actions.yaml

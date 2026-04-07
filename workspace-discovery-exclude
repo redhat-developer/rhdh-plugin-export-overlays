@@ -1,0 +1,3 @@
+# Regexps matched against workspace names.
+# Matching workspaces will be skipped by the automated update workflow.
+^openshift-image-registry$

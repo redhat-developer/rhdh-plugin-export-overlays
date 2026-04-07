@@ -1,0 +1,12 @@
+# Mirrors PR #2050 notifications e2e: static external token for /api/notifications (Helm-injected appConfig).
+# https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/2050
+upstream:
+  backstage:
+    appConfig:
+      backend:
+        auth:
+          externalAccess:
+            - type: static
+              options:
+                token: test-token
+                subject: test-subject

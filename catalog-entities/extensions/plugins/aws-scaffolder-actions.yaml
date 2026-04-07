@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: aws-scaffolder-actions
+  namespace: rhdh
+  title: AWS Software Template Actions
+  description: |
+    Scaffolder actions for AWS services including S3 uploads, ECR repository creation, and Secrets Manager.
+  annotations:
+    extensions.backstage.io/pre-installed: 'false'
+  tags:
+    - scaffolder
+    - aws
+  links:
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/blob/main/plugins/scaffolder-actions/scaffolder-backend-module-aws/README.md
+      title: readme
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Issues
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+    - title: Source Code
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-aws
+spec:
+  authors:
+    - name: Roadie
+      url: https://roadie.io/
+  publisher: Red Hat
+  support:
+    provider: community
+    level: community
+  lifecycle: active
+
+  categories:
+    - Scaffolder
+    - Cloud
+
+  highlights:
+    - Upload workspace to S3 buckets
+    - Create ECR repositories
+    - Store secrets in AWS Secrets Manager
+
+  description: |
+    Scaffolder actions for AWS services. This plugin provides three actions for use in software templates:
+
+    - **`roadiehq:aws:s3:cp`** - Upload the workspace context to an S3 bucket
+    - **`roadiehq:aws:ecr:create`** - Create ECR repositories with configurable settings
+    - **`roadiehq:aws:secrets-manager:create`** - Store secrets in AWS Secrets Manager
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin
+
+    The plugin uses the AWS SDK default credential chain. You can configure credentials explicitly or rely on
+    environment variables, IAM roles, or other standard AWS authentication methods.
+
+    Optional explicit configuration in `app-config.yaml`:
+
+    ```yaml
+    aws:
+      mainAccount:
+        accessKeyId: ${AWS_ACCESS_KEY_ID}
+        secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+    ```
+
+    ## Example Template Usage
+
+    ```yaml
+    steps:
+      - id: s3-upload
+        name: Upload to S3
+        action: roadiehq:aws:s3:cp
+        input:
+          bucket: my-bucket
+          region: us-east-1
+
+      - id: create-ecr
+        name: Create ECR Repository
+        action: roadiehq:aws:ecr:create
+        input:
+          repoName: ${{ parameters.name }}
+          region: us-east-1
+    ```
+
+  packages:
+    - roadiehq-scaffolder-backend-module-aws

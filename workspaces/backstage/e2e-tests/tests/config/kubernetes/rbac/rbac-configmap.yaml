@@ -1,0 +1,18 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: rbac-policy
+data:
+  rbac-policy.csv: |
+    p, role:default/catalog_reader, catalog.entity.read, read, allow
+    g, user:default/kubernetes-reader, role:default/catalog_reader
+    g, user:default/kubernetes-logs-reader, role:default/catalog_reader
+    g, user:default/no-kubernetes-access, role:default/catalog_reader
+
+    p, role:default/kubernetes_reader, kubernetes.clusters.read, read, allow
+    p, role:default/kubernetes_reader, kubernetes.resources.read, read, allow
+    g, user:default/kubernetes-reader, role:default/kubernetes_reader
+    g, user:default/kubernetes-logs-reader, role:default/kubernetes_reader
+
+    p, role:default/kubernetes_logs_reader, kubernetes.proxy, use, allow
+    g, user:default/kubernetes-logs-reader, role:default/kubernetes_logs_reader

@@ -29,6 +29,7 @@ test.describe("Test github-issues", () => {
 
     await uiHelper.clickTab("Issues");
     await page.getByRole("button", { name: "Log in" }).click();
+    await loginHelper.checkAndReauthorizeGithubApp();
 
     const response = (await APIHelper.getGithubPaginatedRequest(
       GITHUB_API_ENDPOINTS.issues("open"),

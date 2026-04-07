@@ -1,0 +1,16 @@
+catalog:
+  processingInterval: { hours: 24 }
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Component]
+  locations:
+    - type: url
+      target: https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/scaffolder-kubernetes-migration/workspaces/scaffolder-backend-module-kubernetes/e2e-tests/tests/config/template.yaml
+      rules:
+        - allow: [Template]
+scaffolder:
+  defaultEnvironment:
+    secrets:
+      K8S_CLUSTER_URL: ${K8S_CLUSTER_URL}
+      K8S_CLUSTER_TOKEN: ${K8S_CLUSTER_TOKEN}

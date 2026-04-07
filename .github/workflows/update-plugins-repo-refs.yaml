@@ -110,6 +110,7 @@ jobs:
     name: Prepare 
     outputs:
       regexps: ${{ steps.read-regexps.outputs.REGEXPS }}
+      exclude-workspaces: ${{ steps.read-exclude-patterns.outputs.EXCLUDE_WORKSPACES }}
       release-branch-pattern: ${{ steps.read-release-branch-pattern.outputs.RELEASE_BRANCH_PATTERN }}
 
     steps:
@@ -124,11 +125,24 @@ jobs:
             REGEXPS="${INPUT_REGEXPS}"
             if [[ "${REGEXPS}" == "" ]]
             then
-              REGEXPS="$(cat plugins-regexps)"
+              REGEXPS="$(cat workspace-discovery-include)"
             fi
             echo "Regexps of plugins to export:"
             echo "$REGEXPS"
             echo "REGEXPS=$(echo $REGEXPS | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Read Exclude Patterns
+        id: read-exclude-patterns
+        shell: bash
+        run: |
+            if [[ -f workspace-discovery-exclude ]]
+            then
+              EXCLUDE_WORKSPACES="$(grep -v '^#' workspace-discovery-exclude | grep -v '^$' | tr '\n' ' ')"
+            else
+              EXCLUDE_WORKSPACES=""
+            fi
+            echo "Workspace exclude patterns: ${EXCLUDE_WORKSPACES}"
+            echo "EXCLUDE_WORKSPACES=${EXCLUDE_WORKSPACES}" >> $GITHUB_OUTPUT
 
       - name: Read Release Branch Pattern
         id: read-release-branch-pattern
@@ -141,7 +155,7 @@ jobs:
           if [[ "${RELEASE_BRANCH_PATTERN}" == "" ]]
           then
             # Get the last 2 release branch names, sorted by version, and build a regex like ^release-(1\.7|1\.8)$
-            RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches | \
+            RELEASE_BRANCH_PATTERN="$(gh api repos/${GITHUB_REPOSITORY}/branches --paginate | \
               jq -r '[.[].name | select(test("^release-")) | sub("^release-";"")] 
                 | sort_by(split(".") | map(tonumber)) 
                 | reverse 
@@ -159,32 +173,15 @@ jobs:
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
+      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
       workspace-path: ${{ inputs.workspace-path }}
       pr-to-update: ${{ inputs.pr-to-update }}
       overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
-      single-branch: ${{ inputs.single-branch }}      
+      single-branch: ${{ inputs.single-branch }}
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
-      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}      
-    permissions:
-      contents: write
-      pull-requests: write
-
-  update-release-branches:
-    name: Update Release Branches
-    needs: prepare
-    if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
-    with:
-      regexps: ${{ needs.prepare.outputs.regexps }}
-      overlay-repo: ${{ github.repository }}
-      release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
-      single-branch: "" # we want to update all release branches
-      verbose: false
-      debug: false
-      allow-workspace-addition: false
+      allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
     permissions:
       contents: write
       pull-requests: write
@@ -193,11 +190,12 @@ jobs:
     name: Update Main Branch
     needs: prepare
     if: >-
-      (github.event_name == 'schedule' && github.event.schedule == '0 19 * * *')
+      (github.event_name == 'schedule')
     uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
-      overlay-repo: ${{ github.repository }}      
+      exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
+      overlay-repo: ${{ github.repository }}
       release-branch-pattern: ${{ needs.prepare.outputs.release-branch-pattern }}
       single-branch: "main" # we want to update only the main branch
       verbose: false
@@ -209,14 +207,72 @@ jobs:
 
   label-prs:
     name: Label PRs
-    needs: [update-branches, update-release-branches, update-main-branch]
+    needs: [update-branches, update-main-branch]
     if: |
       always() && 
-      (needs.update-branches.result != 'skipped' || 
-       needs.update-release-branches.result != 'skipped' || 
+      (needs.update-branches.result != 'skipped' ||  
        needs.update-main-branch.result != 'skipped')
     uses: ./.github/workflows/label-mandatory-workspace-prs.yaml
     permissions:
       contents: read
       pull-requests: write
       issues: read
+
+  collect-auto-publish-prs:
+    name: Collect PRs for auto-publish
+    needs: [update-branches, update-main-branch]
+    if: |
+      !cancelled() &&
+      (needs.update-branches.result == 'success' ||
+       needs.update-main-branch.result == 'success')
+    runs-on: ubuntu-latest
+    outputs:
+      pr-numbers: ${{ steps.collect.outputs.pr-numbers }}
+    steps:
+      - uses: actions/github-script@v7
+        id: collect
+        with:
+          script: |
+            const run = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+            const runStart = new Date(run.data.run_started_at);
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc',
+            });
+            const recentPrs = prs.filter(pr =>
+              pr.head.ref.startsWith('workspaces/') &&
+              new Date(pr.updated_at) >= runStart
+            );
+            const numbers = recentPrs.map(pr => pr.number);
+            core.setOutput('pr-numbers', JSON.stringify(numbers));
+            core.info(`Found ${numbers.length} PRs for auto-publish: ${numbers}`);
+
+  auto-publish:
+    name: Auto-publish PR
+    needs: collect-auto-publish-prs
+    if: |
+      !cancelled() &&
+      needs.collect-auto-publish-prs.result == 'success' &&
+      needs.collect-auto-publish-prs.outputs.pr-numbers != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        pr-number: ${{ fromJSON(needs.collect-auto-publish-prs.outputs.pr-numbers) }}
+      max-parallel: 1
+    uses: ./.github/workflows/auto-publish-pr.yaml
+    with:
+      pr-number: ${{ matrix.pr-number }}
+    permissions:
+      contents: write
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+      pull-requests: write

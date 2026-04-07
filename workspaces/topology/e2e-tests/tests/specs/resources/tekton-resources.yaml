@@ -1,0 +1,30 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: topology-test
+  labels:
+    app.kubernetes.io/instance: topology-test
+    app.kubernetes.io/name: topology-test
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  tasks:
+    - name: deploy
+      taskSpec:
+        steps:
+          - name: oc
+            image: "quay.io/openshift/origin-cli:latest"
+            script: |
+              #!/bin/sh
+              oc "$@"
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: topology-test-run
+  labels:
+    app: topology-test
+    backstage.io/kubernetes-id: developer-hub
+spec:
+  pipelineRef:
+    name: topology-test

@@ -146,7 +146,7 @@ From `workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch
    },
 ```
 
-**Why:** Some package managers don't handle `**` wildcards correctly.
+**Why:** Yarn Berry workspace resolution does not support `**` (double-star) glob patterns. Replacing `plugins/**` with explicit `plugins/*` and `plugins/*/*` ensures Yarn correctly discovers all plugin packages during dependency installation.
 
 ### Example 2: Fix Package Entry Points
 
@@ -209,7 +209,7 @@ From `workspaces/backstage/patches/1-fix-mcp-actions-backend.patch`:
  export class McpService {
 ```
 
-**Why:** Importing from package.json isn't supported in the dynamic plugin context.
+**Why:** The original code imports `version` from `@backstage/plugin-mcp-actions-backend/package.json` using the package's own name as a bare specifier. In the dynamic plugin build and runtime context, this resolution path does not work because the package is extracted and loaded independently from the standard `node_modules` layout. The fix replaces the import with a hardcoded version string.
 
 ---
 
