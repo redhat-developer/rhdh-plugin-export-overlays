@@ -23,6 +23,7 @@ spec:
     - ./bitbucket-server-catalog-integration.yaml
     - ./bulk-import.yaml
     - ./contrib-techdocs-addons.yaml
+    - ./cost-management.yaml
     - ./datadog.yaml
     - ./dynatrace-commercial.yaml
     - ./dynatrace-community.yaml
@@ -69,7 +70,6 @@ spec:
     - ./quickstart.yaml
     - ./rbac.yaml
     - ./argocd.yaml
-    - ./redhat-resource-optimization.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
     - ./roadie-scaffolder-util-actions.yaml

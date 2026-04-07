@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: cost-management
+  namespace: rhdh
+  title: "Cost Management Frontend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/cost-management
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/cost-management
+  tags:
+    - cost-management
+    - optimization
+    - insights
+    - openshift
+spec:
+  packageName: "@red-hat-developer-hub/plugin-cost-management"
+  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:1.3.3-rc.4!red-hat-developer-hub-plugin-cost-management
+  version: 1.3.3-rc.4
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - cost-management
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.plugin-cost-management:
+              appIcons:
+                - name: costManagementIconOutlined
+                  importName: CostManagementIconOutlined
+              dynamicRoutes:
+                - path: /cost-management/optimizations
+                  importName: ResourceOptimizationPage
+                  menuItem:
+                    icon: costManagementIconOutlined
+                    text: Optimizations
+                - path: /cost-management/openshift
+                  importName: OpenShiftPage
+                  menuItem:
+                    icon: costManagementIconOutlined
+                    text: OpenShift
+              menuItems:
+                cost-management/optimizations:
+                  parent: cost-management
+                  priority: 10
+                cost-management/openshift:
+                  parent: cost-management
+                  priority: 20
+                cost-management:
+                  icon: costManagementIconOutlined
+                  title: Cost management
+                  priority: 100

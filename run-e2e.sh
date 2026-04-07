@@ -54,13 +54,8 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
-# Pin e2e-test-utils version. Defaults to "latest" in nightly mode to pick up nightly support.
-# TODO: Remove default once all workspaces pin a version that supports nightly jobs.
-if [[ "$E2E_NIGHTLY_MODE" == "true" ]]; then
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-latest}"
-else
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
-fi
+# Pin specific e2e-test-utils version.
+E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
