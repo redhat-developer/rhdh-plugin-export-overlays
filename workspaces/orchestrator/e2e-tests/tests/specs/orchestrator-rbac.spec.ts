@@ -36,12 +36,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
   });
 
-  test.beforeEach(async ({}, testInfo) => {
-    console.log(
-      `beforeEach: Attempting setup for ${testInfo.title}, retry: ${testInfo.retry}`,
-    );
-  });
-
   test.describe.serial("Test Orchestrator RBAC: Global Workflow Access", () => {
     test.describe.configure({ retries: 0 });
     let uiHelper: UIhelper;
@@ -135,12 +129,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
 
-      // Verify the Run button is visible and enabled (read+update permissions)
       const runButton = page.getByRole("button", { name: "Run" });
       await expect(runButton).toBeVisible();
       await expect(runButton).toBeEnabled();
 
-      // Click the Run button to verify permission works
       await runButton.click();
     });
   });
@@ -441,13 +433,11 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
 
-      // Greeting workflow should not be visible (denied by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toHaveCount(0);
 
-      // Other workflows also not visible (no global allow)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
@@ -546,13 +536,11 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
 
-      // Only Greeting workflow should be visible (allowed by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toBeVisible();
 
-      // Other workflows should not be visible (no global permissions)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
@@ -659,25 +647,21 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await uiHelper.goToPageUrl("/orchestrator");
       await uiHelper.verifyHeading("Workflows");
 
-      // Only Greeting workflow should be visible (allowed by individual permission)
       const greetingWorkflowLink = page.getByRole("link", {
         name: "Greeting workflow",
       });
       await expect(greetingWorkflowLink).toBeVisible();
 
-      // Other workflows should not be visible (no global permissions)
       const userOnboardingLink = page.getByRole("link", {
         name: "User Onboarding",
       });
       await expect(userOnboardingLink).toHaveCount(0);
 
-      // Navigate to Greeting workflow and verify Run button is disabled/not visible
       await greetingWorkflowLink.click();
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
       ).toBeVisible();
 
-      // For read-only access, the button should either not exist or be disabled
       const runButton = page.getByRole("button", { name: "Run" });
       const buttonCount = await runButton.count();
 
@@ -709,7 +693,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         testInfo,
       ));
 
-      // Clean up any lingering roles from previous test runs
       const rbacApi = await RbacApiHelper.build(apiToken);
       try {
         const rolesResponse = await rbacApi.getRoles();
@@ -721,16 +704,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
               role.name.includes("workflowAdmin"),
           );
 
-          console.log(
-            `Found ${lingeringRoles.length} lingering roles to clean up`,
-          );
-
           for (const role of lingeringRoles) {
             await deleteRoleAndPolicies(apiToken, role.name);
           }
         }
-      } catch (error) {
-        console.log("Error during pre-test cleanup:", error);
+      } catch {
+        /* ignore cleanup errors */
       }
     });
 
@@ -739,12 +718,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         await page.goto("/");
         await page.context().clearCookies();
 
-        // Login as primary user to perform cleanup
         try {
           await loginHelper.loginAsKeycloakUser();
           apiToken = await new AuthApiHelper(page).getToken();
-        } catch (error) {
-          console.log("Login failed during cleanup, continuing:", error);
+        } catch {
           return;
         }
 
@@ -793,20 +770,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       const roleOk = rolePostResponse.ok();
       const policyOk = policyPostResponse.ok();
-
-      console.log(`Role creation status: ${rolePostResponse.status()}`);
-      console.log(`Policy creation status: ${policyPostResponse.status()}`);
-
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (!roleOk) {
-        const errorBody = await rolePostResponse.text();
-        console.log(`Role creation error body: ${errorBody}`);
-      }
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (!policyOk) {
-        const errorBody = await policyPostResponse.text();
-        console.log(`Policy creation error body: ${errorBody}`);
-      }
 
       expect(roleOk).toBeTruthy();
       expect(policyOk).toBeTruthy();
@@ -884,7 +847,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       const match = url.match(/\/orchestrator\/instances\/([a-f0-9-]+)/);
       expect(match).not.toBeNull();
       workflowInstanceId = match![1];
-      console.log(`Captured workflow instance ID: ${workflowInstanceId}`);
 
       await expect(page.getByText(/Run completed at/i)).toBeVisible({
         timeout: 30000,
@@ -901,10 +863,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(page.getByText("Completed", { exact: true })).toBeVisible({
         timeout: 30000,
       });
-
-      console.log(
-        `Verified access to workflow instance: ${workflowInstanceId}`,
-      );
     });
 
     test("Secondary user cannot access primary user's workflow instance", async () => {
@@ -917,23 +875,16 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
-        console.log("Successfully logged in as secondary user");
-      } catch (error) {
-        console.log("Login failed, user might already be logged in:", error);
+      } catch {
+        // ignore
       }
 
-      // Try to directly access primary user's workflow instance
-      // This should be denied due to instance isolation
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
       await page.waitForLoadState("load");
 
-      // Secondary user should NOT be able to see the instance details
       const pageContent = await page.locator("body").textContent();
-      console.log(
-        `Page content when accessing instance: ${pageContent?.substring(0, 500)}`,
-      );
 
       const hasAccessDenied =
         pageContent?.includes("not found") ||
@@ -961,13 +912,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await page.goto("/");
       await page.waitForLoadState("load");
 
-      try {
-        await loginHelper.loginAsKeycloakUser();
-        console.log("Successfully logged in as primary user");
-      } catch (error) {
-        console.log("Login failed:", error);
-        throw error;
-      }
+      await loginHelper.loginAsKeycloakUser();
       apiToken = await new AuthApiHelper(page).getToken();
 
       const rbacApi = await RbacApiHelper.build(apiToken);
@@ -991,18 +936,10 @@ test.describe.serial("Test Orchestrator RBAC", () => {
             },
           ]),
         );
-        console.log(
-          "Created workflowUser role and policies for individual test run",
-        );
-      } catch (error) {
-        console.log(
-          "workflowUser role already exists or creation failed (expected for serial runs):",
-          error,
-        );
+      } catch {
+        /* workflowUser may already exist (serial runs) */
       }
 
-      // Create workflowAdmin role with secondary user as member
-      // Admin policies: global workflow access + instanceAdminView to see ALL instances
       const rolePostResponse = await rbacApi.createRoles({
         memberReferences: [SECONDARY_USER],
         name: workflowAdminRoleName,
@@ -1030,11 +967,9 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       expect(rolePostResponse.ok()).toBeTruthy();
       expect(policyPostResponse.ok()).toBeTruthy();
 
-      // Wait a moment for the role changes to take effect
       // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(2000);
 
-      // Update workflowUser role to remove secondary user
       const oldWorkflowUserRole = {
         memberReferences: [PRIMARY_USER, SECONDARY_USER],
         name: workflowUserRoleName,
@@ -1044,7 +979,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         name: workflowUserRoleName,
       };
 
-      console.log(`Updating role: ${roleApiName(workflowUserRoleName)}`);
       const roleUpdateResponse = await rbacApi.updateRole(
         roleApiName(workflowUserRoleName),
         oldWorkflowUserRole,
@@ -1052,15 +986,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       );
 
       const roleUpdateOk = roleUpdateResponse.ok();
-
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (!roleUpdateOk) {
-        console.log(
-          `Role update failed with status: ${roleUpdateResponse.status()}`,
-        );
-        const errorBody = await roleUpdateResponse.text();
-        console.log(`Role update error body: ${errorBody}`);
-      }
 
       expect(roleUpdateOk).toBeTruthy();
     });
@@ -1101,22 +1026,11 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await page.goto("/");
       await page.waitForLoadState("load");
 
-      // Login as secondary user who now has instanceAdminView permission
-      try {
-        await loginHelper.loginAsKeycloakUser(
-          process.env.GH_USER2_ID || "test2",
-          process.env.GH_USER2_PASS || "test2@123",
-        );
-        console.log(
-          "Successfully logged in as secondary user with admin permissions",
-        );
-      } catch (error) {
-        console.log("Login failed:", error);
-        throw error;
-      }
+      await loginHelper.loginAsKeycloakUser(
+        process.env.GH_USER2_ID || "test2",
+        process.env.GH_USER2_PASS || "test2@123",
+      );
 
-      // Navigate to primary user's workflow instance - should now be accessible
-      // With instanceAdminView, secondary user can see ALL instances
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
@@ -1125,10 +1039,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(page.getByText("Completed", { exact: true })).toBeVisible({
         timeout: 30000,
       });
-
-      console.log(
-        `Admin (secondary) user successfully accessed workflow instance: ${workflowInstanceId}`,
-      );
     });
   });
 
@@ -1280,7 +1190,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           page.getByRole("heading", { name: "Workflows" }),
         ).toBeVisible();
 
-        // With denied permissions, workflows should not be visible
         const greetingWorkflow = page.getByRole("link", {
           name: "Greeting workflow",
         });
@@ -1393,7 +1302,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
-      // Template goes straight to Review step with just a Create button
       const createButton = page.getByRole("button", { name: /Create/i });
       await expect(createButton).toBeVisible({ timeout: 10000 });
       await createButton.click();
