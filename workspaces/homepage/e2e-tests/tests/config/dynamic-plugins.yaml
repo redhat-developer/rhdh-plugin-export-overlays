@@ -7,7 +7,7 @@
 # install-dynamic-plugins.py fail with "Duplicate plugin configuration". The spec passes
 # disableWrappers so the chart dist wrapper is disabled without duplicating that OCI ref.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.4!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.48.3__1.11.0!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:
       dynamicPlugins:
