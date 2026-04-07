@@ -9,6 +9,7 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
  * api.segment.io requests to verify the correct analytics payloads are sent.
  */
 
+/* eslint-disable @typescript-eslint/naming-convention */
 const SEGMENT_SETTINGS_RESPONSE = {
   integrations: {
     "Segment.io": {
@@ -32,6 +33,7 @@ const SEGMENT_SETTINGS_RESPONSE = {
   legacyVideoPluginsEnabled: false,
   remotePlugins: [],
 };
+/* eslint-enable @typescript-eslint/naming-convention */
 
 test.describe("Test Segment Analytics Plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -100,9 +102,7 @@ test.describe("Test Segment Analytics Plugin", () => {
       })
       .toBeGreaterThan(0);
 
-    const pageRequests = segmentRequests.filter((r) =>
-      r.url.includes("/v1/p"),
-    );
+    const pageRequests = segmentRequests.filter((r) => r.url.includes("/v1/p"));
     expect(pageRequests.length).toBeGreaterThan(0);
   });
 });
