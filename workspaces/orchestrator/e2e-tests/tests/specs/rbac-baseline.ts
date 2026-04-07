@@ -1,4 +1,9 @@
-import { test, Browser, TestInfo, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  test,
+  Browser,
+  TestInfo,
+  Page,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   setupBrowser,
   LoginHelper,

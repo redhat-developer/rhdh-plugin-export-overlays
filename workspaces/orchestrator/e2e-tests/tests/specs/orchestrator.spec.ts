@@ -64,7 +64,9 @@ function recoverDataIndex(ns: string): boolean {
         return true;
       }
     }
-    console.log("[data-index-recovery] Data-index still unhealthy after restart");
+    console.log(
+      "[data-index-recovery] Data-index still unhealthy after restart",
+    );
     return false;
   } catch (e) {
     console.log(`[data-index-recovery] Restart failed: ${e}`);
@@ -74,7 +76,10 @@ function recoverDataIndex(ns: string): boolean {
 
 let dataIndexRecoveryFailed = false;
 
-function ensureDataIndexOrSkip(ns: string, test: { skip: (condition: boolean, reason: string) => void }): void {
+function ensureDataIndexOrSkip(
+  ns: string,
+  test: { skip: (condition: boolean, reason: string) => void },
+): void {
   if (dataIndexRecoveryFailed) {
     test.skip(true, "Data-index recovery already failed earlier — skipping");
     return;
@@ -85,7 +90,10 @@ function ensureDataIndexOrSkip(ns: string, test: { skip: (condition: boolean, re
   if (!recovered) {
     dataIndexRecoveryFailed = true;
   }
-  test.skip(!recovered, "Data-index is unhealthy and could not be recovered — skipping workflow execution test");
+  test.skip(
+    !recovered,
+    "Data-index is unhealthy and could not be recovered — skipping workflow execution test",
+  );
 }
 
 function dumpClusterState(ns: string, label: string): void {
@@ -229,8 +237,6 @@ test.describe("Orchestrator", () => {
       } catch (e) {
         console.log(`[orchestrator-setup] Data-index query error: ${e}`);
       }
-
-
 
       // Curl greeting runtime directly to verify it responds
       try {

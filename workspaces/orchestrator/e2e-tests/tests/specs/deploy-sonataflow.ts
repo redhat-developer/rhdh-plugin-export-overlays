@@ -45,7 +45,9 @@ export async function deploySonataflow(namespace: string): Promise<void> {
       "get csv -n openshift-operators -o jsonpath={.items[0].spec.version} -l operators.coreos.com/logic-operator-rhel8.openshift-operators",
     );
     oslMajorMinor = csvVersion.replace(/^(\d+\.\d+).*/, "$1");
-    console.log(`[deploy-sonataflow] Detected OSL operator version: ${csvVersion} (major.minor: ${oslMajorMinor})`);
+    console.log(
+      `[deploy-sonataflow] Detected OSL operator version: ${csvVersion} (major.minor: ${oslMajorMinor})`,
+    );
   } catch (e) {
     console.log(`[deploy-sonataflow] Could not detect OSL version: ${e}`);
   }
@@ -54,7 +56,9 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     const subscriptions = oc(
       "get subscriptions.operators.coreos.com -n openshift-operators --no-headers",
     );
-    console.log(`[deploy-sonataflow] Operator subscriptions:\n${subscriptions}`);
+    console.log(
+      `[deploy-sonataflow] Operator subscriptions:\n${subscriptions}`,
+    );
   } catch (e) {
     console.log(`[deploy-sonataflow] Subscription list error: ${e}`);
   }
@@ -262,7 +266,9 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   // "Unrecognized event type" error that poisons SmallRye Reactive Messaging.
   if (oslMajorMinor && oslMajorMinor !== "1.37") {
     const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
-    console.log(`[deploy-sonataflow] OSL ${oslMajorMinor} detected, aligning workflow image tags to ${oslTag}...`);
+    console.log(
+      `[deploy-sonataflow] OSL ${oslMajorMinor} detected, aligning workflow image tags to ${oslTag}...`,
+    );
     const imageMap: Record<string, string> = {
       greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
       failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
@@ -271,15 +277,23 @@ export async function deploySonataflow(namespace: string): Promise<void> {
       const image = imageMap[wf];
       if (!image) continue;
       try {
-        const imgPatch = JSON.stringify({ spec: { podTemplate: { container: { image } } } });
-        const result = oc(`-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`);
-        console.log(`[deploy-sonataflow]   ${wf} image patched to ${image}: ${result}`);
+        const imgPatch = JSON.stringify({
+          spec: { podTemplate: { container: { image } } },
+        });
+        const result = oc(
+          `-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`,
+        );
+        console.log(
+          `[deploy-sonataflow]   ${wf} image patched to ${image}: ${result}`,
+        );
       } catch (e) {
         console.log(`[deploy-sonataflow]   ${wf} image patch error: ${e}`);
       }
     }
   } else {
-    console.log(`[deploy-sonataflow] OSL version '${oslMajorMinor}' matches workflow images, no image patch needed`);
+    console.log(
+      `[deploy-sonataflow] OSL version '${oslMajorMinor}' matches workflow images, no image patch needed`,
+    );
   }
 
   for (const workflow of WORKFLOWS) {
