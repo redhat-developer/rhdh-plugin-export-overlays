@@ -76,7 +76,7 @@ spec:
        - dynamic-plugins.default.yaml
      plugins:
        # MCP extras backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.3.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.4.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
          disabled: false
      ```
 

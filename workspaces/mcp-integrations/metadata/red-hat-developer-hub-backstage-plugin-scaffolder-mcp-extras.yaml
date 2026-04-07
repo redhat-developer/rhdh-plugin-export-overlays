@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-mcp-extras"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.3.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
-  version: 0.3.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.4.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+  version: 0.4.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.48.3
