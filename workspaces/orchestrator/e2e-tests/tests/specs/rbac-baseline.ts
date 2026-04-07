@@ -58,6 +58,16 @@ const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
   },
   { permission: "scaffolder.task.create", policy: "create", effect: "allow" },
   { permission: "scaffolder.task.read", policy: "read", effect: "allow" },
+  {
+    permission: "scaffolder.template.parameter.read",
+    policy: "read",
+    effect: "allow",
+  },
+  {
+    permission: "scaffolder.template.step.read",
+    policy: "read",
+    effect: "allow",
+  },
 ]);
 
 async function withTempPage(
