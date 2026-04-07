@@ -714,7 +714,9 @@ test.describe("Orchestrator", () => {
       const conflictError = page.getByText(/409 Conflict/i);
       const startOver = page.getByRole("button", { name: "Start Over" });
 
-      await expect(completed.or(conflictError).or(startOver)).toBeVisible({
+      await expect(
+        completed.or(conflictError).or(startOver).first(),
+      ).toBeVisible({
         timeout: 120000,
       });
 

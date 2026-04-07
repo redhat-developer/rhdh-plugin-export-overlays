@@ -16,75 +16,29 @@ const WORKFLOWS = ["greeting", "failswitch"];
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
 
-  // Detect OSL version for workflow image tag alignment below.
-  // Version compatibility (OS vs OSL) is already checked by install-orchestrator.sh.
+  // Detect operator versions — try GA label first, fall back to legacy (rhel8/alpha).
   const oslFullVersion = detectOperatorVersion(
     "operators.coreos.com/logic-operator.openshift-operators",
+    "operators.coreos.com/logic-operator-rhel8.openshift-operators",
   );
   const oslMajorMinor = oslFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
 
-  // Widen data-index probe failureThresholds — SmallRye health checks degrade after
-  // ~7 min without a broker, returning 503 and removing the pod from Service endpoints.
-  try {
-    const sfpPatch = JSON.stringify({
-      spec: {
-        services: {
-          dataIndex: {
-            podTemplate: {
-              container: {
-                resources: {
-                  requests: { memory: "64Mi", cpu: "250m" },
-                  limits: { memory: "1Gi", cpu: "500m" },
-                },
-                livenessProbe: {
-                  failureThreshold: 200,
-                  httpGet: {
-                    path: "/q/health/live",
-                    port: 8080,
-                    scheme: "HTTP",
-                  },
-                  periodSeconds: 10,
-                  timeoutSeconds: 10,
-                },
-                readinessProbe: {
-                  failureThreshold: 200,
-                  httpGet: {
-                    path: "/q/health/ready",
-                    port: 8080,
-                    scheme: "HTTP",
-                  },
-                  periodSeconds: 10,
-                  timeoutSeconds: 10,
-                },
-              },
-            },
-          },
-          jobService: {
-            podTemplate: {
-              container: {
-                resources: {
-                  requests: { memory: "64Mi", cpu: "250m" },
-                  limits: { memory: "1Gi", cpu: "500m" },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-    oc(
-      `-n ${namespace} patch sonataflowplatform sonataflow-platform --type merge -p '${sfpPatch}'`,
-    );
+  const osFullVersion = detectOperatorVersion(
+    "operators.coreos.com/serverless-operator.openshift-operators",
+  );
+  const osMajorMinor = osFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
 
-    oc(
-      `rollout status deployment/sonataflow-platform-data-index-service -n ${namespace} --timeout=300s`,
+  if (oslMajorMinor && osMajorMinor && oslMajorMinor !== osMajorMinor) {
+    console.warn(
+      `[deploy-sonataflow] WARNING: OS (${osMajorMinor}) and OSL (${oslMajorMinor}) major.minor versions differ — this may cause Knative API incompatibilities`,
     );
-    oc(
-      `rollout status deployment/sonataflow-platform-jobs-service -n ${namespace} --timeout=300s`,
+  } else {
+    console.warn(
+      `[deploy-sonataflow] Operator versions: OS=${osFullVersion || "unknown"}, OSL=${oslFullVersion || "unknown"}`,
     );
-  } catch {
-    /* SFP patch non-fatal */
   }
+
+  hardenSonataFlowPlatform(namespace);
 
   const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
   try {
@@ -100,29 +54,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
 
   await waitForCRs(namespace);
 
-  // Manifests ship with osl_1_37 image tags; align to the installed OSL version
-  // to avoid the data-index "Unrecognized event type" error.
-  if (oslMajorMinor && oslMajorMinor !== "1.37") {
-    const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
-    const imageMap: Record<string, string> = {
-      greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
-      failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
-    };
-    for (const wf of WORKFLOWS) {
-      const image = imageMap[wf];
-      if (!image) continue;
-      try {
-        const imgPatch = JSON.stringify({
-          spec: { podTemplate: { container: { image } } },
-        });
-        oc(
-          `-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`,
-        );
-      } catch {
-        /* ignore per-workflow patch failure */
-      }
-    }
-  }
+  alignWorkflowImages(namespace, oslMajorMinor);
 
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
@@ -211,19 +143,118 @@ async function waitForReconciliation(
   );
 }
 
+/**
+ * Widen data-index probe failureThresholds and bump resource limits.
+ * SmallRye health checks degrade after ~7 min without a broker, returning 503
+ * and removing the pod from Service endpoints.
+ */
+function hardenSonataFlowPlatform(namespace: string): void {
+  try {
+    const sfpPatch = JSON.stringify({
+      spec: {
+        services: {
+          dataIndex: {
+            podTemplate: {
+              container: {
+                resources: {
+                  requests: { memory: "64Mi", cpu: "250m" },
+                  limits: { memory: "1Gi", cpu: "500m" },
+                },
+                livenessProbe: {
+                  failureThreshold: 200,
+                  httpGet: {
+                    path: "/q/health/live",
+                    port: 8080,
+                    scheme: "HTTP",
+                  },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
+                readinessProbe: {
+                  failureThreshold: 200,
+                  httpGet: {
+                    path: "/q/health/ready",
+                    port: 8080,
+                    scheme: "HTTP",
+                  },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
+              },
+            },
+          },
+          jobService: {
+            podTemplate: {
+              container: {
+                resources: {
+                  requests: { memory: "64Mi", cpu: "250m" },
+                  limits: { memory: "1Gi", cpu: "500m" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    oc(
+      `-n ${namespace} patch sonataflowplatform sonataflow-platform --type merge -p '${sfpPatch}'`,
+    );
+    oc(
+      `rollout status deployment/sonataflow-platform-data-index-service -n ${namespace} --timeout=300s`,
+    );
+    oc(
+      `rollout status deployment/sonataflow-platform-jobs-service -n ${namespace} --timeout=300s`,
+    );
+  } catch {
+    /* SFP patch non-fatal */
+  }
+}
+
+/**
+ * Manifests ship with osl_1_37 image tags; re-tag workflows to match the
+ * installed OSL version to avoid "Unrecognized event type" errors.
+ */
+function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
+  if (!oslMajorMinor || oslMajorMinor === "1.37") return;
+
+  const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
+  const imageMap: Record<string, string> = {
+    greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
+    failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
+  };
+  for (const wf of WORKFLOWS) {
+    const image = imageMap[wf];
+    if (!image) continue;
+    try {
+      const imgPatch = JSON.stringify({
+        spec: { podTemplate: { container: { image } } },
+      });
+      oc(
+        `-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`,
+      );
+    } catch {
+      /* ignore per-workflow patch failure */
+    }
+  }
+}
+
 function oc(args: string): string {
   return execSync(`oc ${args}`, { encoding: "utf-8" }).trim();
 }
 
-/** Detect operator version from the CSV matching the given OLM label. */
-function detectOperatorVersion(label: string): string {
-  try {
-    return oc(
-      `get csv -n openshift-operators -o jsonpath={.items[0].spec.version} -l ${label}`,
-    );
-  } catch {
-    return "";
+/** Detect operator version from the CSV matching the first available OLM label. */
+function detectOperatorVersion(...labels: string[]): string {
+  for (const label of labels) {
+    try {
+      const version = oc(
+        `get csv -n openshift-operators -o jsonpath={.items[0].spec.version} -l ${label}`,
+      );
+      if (version) return version;
+    } catch {
+      /* try next candidate */
+    }
   }
+  return "";
 }
 
 function sleep(ms: number): Promise<void> {
