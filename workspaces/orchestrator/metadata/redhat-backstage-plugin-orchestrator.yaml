@@ -20,6 +20,7 @@ spec:
   # Tag: 1.10.0--5.4.1, Build date: 2026-01-29T16:08:22Z
   dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:f40d39fb7599d2cbfa8f64d6f4703d69539e4a4b0e49518499f47ca986fbd814"
 <<<<<<< HEAD
+<<<<<<< HEAD
   version: 5.7.2
   backstage:
     role: frontend-plugin
@@ -34,6 +35,12 @@ spec:
 =======
     supportedVersions: 1.48.3
 >>>>>>> ecbb755 (chore: update orchestrator plugin versions to 1.48.3 and fix lockfile)
+=======
+  version: 5.4.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+>>>>>>> dad7510 (revert: backstage version upgrade, restoring 1.45.2 state)
   author: Red Hat
   support: generally-available
   lifecycle: active
