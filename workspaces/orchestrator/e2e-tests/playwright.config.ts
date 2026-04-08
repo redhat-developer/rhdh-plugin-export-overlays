@@ -10,12 +10,10 @@ export default defineConfig({
   projects: [
     {
       name: "orchestrator",
-      testMatch: "specs/orchestrator.spec.ts",
-    },
-    {
-      name: "orchestrator-rbac",
-      dependencies: ["orchestrator"],
-      testMatch: "specs/orchestrator-rbac.spec.ts",
+      testMatch: [
+        "specs/orchestrator.spec.ts",
+        "specs/orchestrator-rbac.spec.ts",
+      ],
     },
   ],
 });
