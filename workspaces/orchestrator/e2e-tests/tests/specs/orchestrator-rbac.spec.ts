@@ -20,7 +20,6 @@ import { deploySonataflow } from "./deploy-sonataflow.js";
 test.describe.serial("Test Orchestrator RBAC", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
     test.setTimeout(20 * 60 * 1000);
-    await rhdh.configure({ namespace: "orchestrator" });
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
