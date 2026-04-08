@@ -1,0 +1,13 @@
+# =============================================================================
+# TEMPORARY: Override RHDH Helm image for CI testing against pr-4317 build.
+# Remove this file and the valueFile reference in tech-radar.spec.ts when
+# no longer needed. See tech-radar.spec.ts beforeAll for the configure() call.
+# =============================================================================
+# Image used: quay.io/rhdh-community/rhdh:pr-4317
+# =============================================================================
+upstream:
+  backstage:
+    image:
+      registry: quay.io
+      repository: rhdh-community/rhdh
+      tag: pr-4317

@@ -2075,32 +2075,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rhdh-e2e-test-utils@npm:1.1.9":
-  version: 1.1.9
-  resolution: "rhdh-e2e-test-utils@npm:1.1.9"
-  dependencies:
-    "@axe-core/playwright": ^4.11.0
-    "@eslint/js": ^9.39.1
-    "@keycloak/keycloak-admin-client": ^26.0.0
-    "@kubernetes/client-node": ^1.4.0
-    eslint: ^9.39.1
-    eslint-plugin-check-file: ^3.3.1
-    eslint-plugin-playwright: ^2.4.0
-    fs-extra: ^11.3.2
-    js-yaml: ^4.1.1
-    lodash.clonedeepwith: ^4.5.0
-    lodash.mergewith: ^4.6.2
-    otplib: 12.0.1
-    prettier: ^3.7.4
-    typescript: ^5.9.3
-    typescript-eslint: ^8.48.1
-    zx: ^8.8.5
-  peerDependencies:
-    "@playwright/test": ^1.57.0
-  checksum: 878778406f530a2622c3ae6229ce3d50638f10c73893fe025d638ff163fb66b3df4e543b79eb427b92e68ca025e440d82a105298a305ff3998be56375c54fe58
-  languageName: node
-  linkType: hard
-
 "safer-buffer@npm:>= 2.1.2 < 3.0.0":
   version: 2.1.2
   resolution: "safer-buffer@npm:2.1.2"
@@ -2265,7 +2239,6 @@ __metadata:
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
     prettier: ^3.7.4
-    rhdh-e2e-test-utils: 1.1.9
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
   languageName: unknown

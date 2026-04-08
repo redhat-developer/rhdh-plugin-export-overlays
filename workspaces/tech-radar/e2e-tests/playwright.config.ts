@@ -11,5 +11,8 @@ export default defineConfig({
     {
       name: "tech-radar",
     },
+    {
+      name: "tech-radar-app-next",
+    },
   ],
 });
