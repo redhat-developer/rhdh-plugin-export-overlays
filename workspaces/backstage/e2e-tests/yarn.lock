@@ -188,13 +188,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@keycloak/keycloak-admin-client@npm:^26.0.0":
-  version: 26.5.2
-  resolution: "@keycloak/keycloak-admin-client@npm:26.5.2"
+"@keycloak/keycloak-admin-client@npm:26.5.6":
+  version: 26.5.6
+  resolution: "@keycloak/keycloak-admin-client@npm:26.5.6"
   dependencies:
     camelize-ts: ^3.0.0
     url-template: ^3.1.1
-  checksum: 3ceedb4347880c87d93dd3644e062602139959f649ee79e6eeb570814c8c0b640ebff69c682855deba6e311a6f9c7486a88b9ff2cf29d80e9f68539771bfd120
+  checksum: 1e996590de8f191dbe616622102895b358c4e31274a7770b3bba2039fc2e64ce9a67ca6cbf6e823d39e061891c25c29b4342b199f20cc3e04937509cf3975843
   languageName: node
   linkType: hard
 
@@ -303,14 +303,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.25":
-  version: 1.1.25
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.25"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.28":
+  version: 1.1.28
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.28"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@backstage-community/plugin-rbac-common": 1.23.0
     "@eslint/js": ^9.39.1
-    "@keycloak/keycloak-admin-client": ^26.0.0
+    "@keycloak/keycloak-admin-client": 26.5.6
     "@kubernetes/client-node": ^1.4.0
     eslint: ^9.39.1
     eslint-plugin-check-file: ^3.3.1
@@ -327,7 +327,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 93af19ccab0bff70e907a23b6e4341ed14c27df1863a72c8c5248b11e067542bfee955a56acd300df3f4d32db9ce2a674803dcf03025f43c7aeb09bd6562229b
+  checksum: f0787bbbeb76942ef2289d1f0e0e7929f892ecda7d06485f12b72e6623f6a7440b0a2309c7feb6423eeb589d9c04e6e1ebba88659db0d6507f7d61f7131c4a58
   languageName: node
   linkType: hard
 
@@ -630,7 +630,7 @@ __metadata:
   dependencies:
     "@eslint/js": ^9.39.2
     "@playwright/test": 1.57.0
-    "@red-hat-developer-hub/e2e-test-utils": 1.1.25
+    "@red-hat-developer-hub/e2e-test-utils": 1.1.28
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2

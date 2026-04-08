@@ -1,0 +1,36 @@
+app:
+  title: RHDH Backstage Github Discovery Test Instance
+
+catalog:
+  rules:
+    - allow:
+        [
+          Component,
+          API,
+          Resource,
+          System,
+          Domain,
+          Location,
+          Template,
+          User,
+          Group,
+        ]
+  providers:
+    github:
+      providerId:
+        organization: ${GITHUB_ORG}
+        schedule:
+          frequency:
+            hours: 24
+          timeout:
+            minutes: 10
+
+integrations:
+  github:
+    - host: github.com
+      apps:
+        - appId: ${VAULT_GITHUB_APP_APP_ID}
+          clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+          clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+          webhookSecret: ${VAULT_GITHUB_APP_WEBHOOK_SECRET}
+          privateKey: ${VAULT_GITHUB_APP_PRIVATE_KEY}
