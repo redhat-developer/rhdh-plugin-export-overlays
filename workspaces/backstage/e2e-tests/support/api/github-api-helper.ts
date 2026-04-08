@@ -5,9 +5,6 @@ import {
   GITHUB_API_ENDPOINTS,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
-const baseApiUrl = "https://api.github.com";
-const getOrgUrl = (owner: string) => `${baseApiUrl}/orgs/${owner}`;
-
 // https://docs.github.com/en/rest?apiVersion=2022-11-28
 export class GitHubApiHelper extends APIHelper {
   static async safeGithubRequest(
@@ -94,7 +91,7 @@ export class GitHubApiHelper extends APIHelper {
   static async createTeamInOrg(org: string, teamName: string): Promise<void> {
     await this.safeGithubRequest(
       "POST",
-      `${getOrgUrl(org)}/teams`,
+      `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams`,
       JSON.stringify({
         name: teamName,
         privacy: "closed",
@@ -108,7 +105,7 @@ export class GitHubApiHelper extends APIHelper {
   static async deleteTeamFromOrg(org: string, teamName: string): Promise<void> {
     const response = await this.githubRequest(
       "DELETE",
-      `${getOrgUrl(org)}/teams/${teamName}`,
+      `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams/${teamName}`,
     );
 
     if (!response.ok && response.status() !== 404) {
@@ -128,7 +125,7 @@ export class GitHubApiHelper extends APIHelper {
   ): Promise<void> {
     await this.safeGithubRequest(
       "PUT",
-      `${getOrgUrl(org)}/teams/${teamName}/memberships/${username}`,
+      `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams/${teamName}/memberships/${username}`,
       JSON.stringify({
         role: "member",
       }),
@@ -145,7 +142,7 @@ export class GitHubApiHelper extends APIHelper {
   ): Promise<void> {
     const response = await this.githubRequest(
       "DELETE",
-      `${getOrgUrl(org)}/teams/${teamName}/memberships/${username}`,
+      `${GITHUB_API_ENDPOINTS.getOrg(org)}/teams/${teamName}/memberships/${username}`,
     );
 
     if (!response.ok && response.status() !== 404) {
@@ -158,7 +155,10 @@ export class GitHubApiHelper extends APIHelper {
   static async getOrganizationReposUrl(
     org = RHDH_GITHUB_TEST_ORGANIZATION,
   ): Promise<string> {
-    const response = await this.safeGithubRequest("GET", getOrgUrl(org));
+    const response = await this.safeGithubRequest(
+      "GET",
+      GITHUB_API_ENDPOINTS.getOrg(org),
+    );
     return (await response.json())["repos_url"];
   }
 
