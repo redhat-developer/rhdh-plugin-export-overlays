@@ -257,10 +257,10 @@ test.describe("Orchestrator", () => {
       }
     });
 
-    test("Failswitch links to another workflow and link works", async ({
-      page,
-      uiHelper,
-    }) => {
+    test.fixme(
+      "Failswitch links to another workflow and link works",
+      // TODO: only available in 1.37+ OSL operator, see https://github.com/redhat-developer/rhdh-e2e-test-utils/pull/75
+      async ({ page, uiHelper }) => {
       test.setTimeout(180_000);
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
