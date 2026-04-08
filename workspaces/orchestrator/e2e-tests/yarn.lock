@@ -179,7 +179,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@keycloak/keycloak-admin-client@npm:^26.0.0":
+"@keycloak/keycloak-admin-client@npm:26.5.6":
   version: 26.5.6
   resolution: "@keycloak/keycloak-admin-client@npm:26.5.6"
   dependencies:
@@ -301,14 +301,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:^1.1.24":
-  version: 1.1.25
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.25"
+"@red-hat-developer-hub/e2e-test-utils@rostalan/rhdh-e2e-test-utils#install-orch-fix":
+  version: 1.1.27
+  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/rostalan/rhdh-e2e-test-utils.git#commit=288e81d5c4dc00446373bcb301a4fa058d09b728"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@backstage-community/plugin-rbac-common": 1.23.0
     "@eslint/js": ^9.39.1
-    "@keycloak/keycloak-admin-client": ^26.0.0
+    "@keycloak/keycloak-admin-client": 26.5.6
     "@kubernetes/client-node": ^1.4.0
     eslint: ^9.39.1
     eslint-plugin-check-file: ^3.3.1
@@ -325,7 +325,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 93af19ccab0bff70e907a23b6e4341ed14c27df1863a72c8c5248b11e067542bfee955a56acd300df3f4d32db9ce2a674803dcf03025f43c7aeb09bd6562229b
+  checksum: 8da638ad0077dd664f0c29021abb6c6b95ab491286eceb0cb3a63ca8d8ce5605e3eb63c100cd3d076a16557d468ca663832ee90bc90c0798e30b098cae2952f4
   languageName: node
   linkType: hard
 
@@ -1883,7 +1883,7 @@ __metadata:
   dependencies:
     "@eslint/js": ^9.39.2
     "@playwright/test": 1.57.0
-    "@red-hat-developer-hub/e2e-test-utils": ^1.1.24
+    "@red-hat-developer-hub/e2e-test-utils": "rostalan/rhdh-e2e-test-utils#install-orch-fix"
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2
