@@ -1,10 +1,10 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/marketplace/json-schema/plugins.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
- name: software-catalog-mcp-tool
+ name: software-catalog-mcp-extras
  namespace: rhdh
- title: Software Catalog MCP Tool
+ title: Software Catalog MCP Extras
  annotations:
    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
  links:
@@ -23,7 +23,7 @@ metadata:
    - catalog
    - software-catalog
  description: |
-   Backend plugin that provides MCP tools to allow AI clients to interact with and query the software catalog
+   Backend plugin that provides Red Hat–specific MCP tools for the software catalog, layering on top of upstream MCP support
 spec:
  author: Red Hat
  support: dev-preview
@@ -39,14 +39,13 @@ spec:
 
 
  description: |
-     # Software Catalog MCP Tool Plugin
+     # Software Catalog MCP Extras Plugin
 
 
-     Red Hat Developer Hub provides an MCP server that can be used by AI assistants to interact with RHDH.
+     Red Hat Developer Hub provides MCP "Extras" plugins that layer on top of the upstream MCP server, adding Red Hat–specific tools for AI assistants.
 
 
-     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems, enabling them to access information and workflows on those systems. MCP servers define tools which can be called by AI applications to access this data.
-     RHDH supports running MCP tools through the mcp-actions-backend plugin available in Backstage.
+     Model Context Protocol (MCP) provides a standard for connecting AI models and applications (MCP clients) to external systems. RHDH uses the upstream mcp-actions-backend plugin; this Extras plugin adds catalog-specific tools.
 
      ### Key Features
 
@@ -64,7 +63,7 @@ spec:
 
 
  packages: # link to the name used in the associated package documents in ../packages
-   - rhdh-bsp-software-ctlg-mcp-tool
+   - red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
 
  installation: |
      ## Installation
@@ -82,8 +81,8 @@ spec:
      includes:
        - dynamic-plugins.default.yaml
      plugins:
-       # MCP server backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool:bs_1.45.3__0.4.1!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-tool
+       # MCP extras backend plugin
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.48.3__0.2.1!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
          disabled: false
      ```
 
@@ -92,12 +91,11 @@ spec:
      ### Complete Configuration Reference
 
     
-     Register the MCP tools as a plugin source in your App Config:
+     Register the MCP Extras as a plugin source in your App Config:
 
      ```yaml
      backend:
        actions:
          pluginSources:
-           - software-catalog-mcp-tool
-           - techdocs-mcp-tool
+           - software-catalog-mcp-extras
      ```
