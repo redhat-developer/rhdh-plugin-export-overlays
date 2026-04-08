@@ -80,12 +80,13 @@ spec:
     - ./servicenow.yaml
     - ./signals-backend.yaml
     - ./signals.yaml
-    - ./software-catalog-mcp-tool.yaml
+    - ./software-catalog-mcp-extras.yaml
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
     - ./tech-radar.yaml
     - ./techdocs.yaml
-    - ./techdocs-mcp-tool.yaml
+    - ./techdocs-mcp-extras.yaml
+    - ./scaffolder-mcp-extras.yaml
     - ./tekton.yaml
     - ./todo.yaml
     - ./topology.yaml
