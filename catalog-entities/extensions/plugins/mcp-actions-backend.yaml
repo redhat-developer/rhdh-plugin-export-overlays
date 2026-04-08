@@ -52,8 +52,9 @@ spec:
 
      - **Client Integration**: Connect any compatible MCP client to RHDH to interact with the MCP tools
      - **Protocol support**: Supports both SSE and Streamable protocols for MCP clients
-     - **Integrations with the Software Catalog**: The `Software Catalog MCP Tool` plugin can be deployed on this MCP server to provide integrations with the software catalog
-     - **Integrations with Techdocs**: The `Techdocs MCP Tool` plugin can be deployed on this MCP server to provide integrations with documentation
+     - **Integrations with the Software Catalog**: The `Software Catalog MCP Extras` plugin can be deployed on this MCP server to provide Red Hat–specific catalog tools
+     - **Integrations with Techdocs**: The `Techdocs MCP Extras` plugin can be deployed on this MCP server to provide Red Hat–specific documentation tools
+     - **Integrations with Scaffolder**: The `Scaffolder MCP Extras` plugin can be deployed on this MCP server to provide Red Hat–specific scaffolder tools
 
 
      ## Support
@@ -65,8 +66,9 @@ spec:
 
 
  packages: # link to the name used in the associated package documents in ../packages
-   - rhdh-bsp-software-ctlg-mcp-tool
-   - red-hat-developer-hub-plugin-techdocs-mcp-tool
+   - red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+   - red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
+   - red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
    - backstage-plugin-mcp-actions-backend
 
  installation: |
@@ -84,11 +86,11 @@ spec:
        - dynamic-plugins.default.yaml
      plugins:
        # MCP server backend plugin
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.45.3__0.1.5!backstage-plugin-mcp-actions-backend
+       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.48.3__0.1.5!backstage-plugin-mcp-actions-backend
          disabled: false
      ```
 
-     If you also wish to install the MCP tools that are included in Red Hat Developer Hub, then consult the installation instructions for either the `Software Catalog MCP Tool` or the `Techdocs MCP Tool` plugins.
+     If you also wish to install the Red Hat MCP Extras plugins, consult the installation instructions for the `Software Catalog MCP Extras`, `Techdocs MCP Extras`, or `Scaffolder MCP Extras` plugins.
 
      ## RHDH Configuration
 
