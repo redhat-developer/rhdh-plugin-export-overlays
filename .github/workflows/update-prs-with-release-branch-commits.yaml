@@ -47,8 +47,8 @@ jobs:
       updated-pr-numbers: ${{ steps.update-prs.outputs.updated-pr-numbers }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/github-script@v7
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: update-prs
         env:
           INPUT_RELEASE_BRANCH: ${{ inputs.release-branch }}
@@ -70,7 +70,7 @@ jobs:
       - update-prs
     if: needs.update-prs.outputs.pr-comments != ''
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_PR_COMMENTS: ${{ needs.update-prs.outputs.pr-comments }}
         with:
