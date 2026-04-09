@@ -119,7 +119,7 @@ jobs:
               console.log('Missing PR or commit; skipping pending status');
               return;
             }
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -205,7 +205,7 @@ jobs:
           # Always include the root-level default config
           ROOT_CONFIG="$GITHUB_WORKSPACE/smoke-tests/app-config.yaml"
           [ -f "$ROOT_CONFIG" ] && cp "$ROOT_CONFIG" "$OUT_DIR/app-config.yaml"
-          
+
           # Read workspace-wide test.env if it exists
           WORKSPACE_ENV_FILE="$WORKSPACE_PATH/smoke-tests/test.env"
           WORKSPACE_ENV_CONTENT=""
@@ -309,6 +309,16 @@ jobs:
           echo "plugins-metadata-complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
           echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
 
+      - name: Stage smoke test harness
+        env:
+          WORKSPACE_PATH: ${{ needs.resolve.outputs.workspace }}
+        run: |
+          HARNESS_DIR="$WORKSPACE_PATH/smoke-tests/harness"
+          mkdir -p "$HARNESS_DIR"
+          cp smoke-tests/package.json "$HARNESS_DIR/"
+          cp smoke-tests/smoke-test.mjs "$HARNESS_DIR/"
+          cp smoke-tests/app-config.yaml "$HARNESS_DIR/"
+
       - name: Upload smoke test artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -352,11 +362,11 @@ jobs:
             const workspace = core.getInput('workspace');
             const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
-            
+
             let statusDescription = 'Skipped';
             let commentDetail = ' skipped for an unknown reason. Check workflow run for details.\n';
             let summaryDetail = 'Unknown reason. Check workflow run for details.';
-            
+
             if (!workspace || workspace === '') {
               statusDescription = 'Skipped: PR doesn\'t touch one workspace';
               commentDetail = ' skipped: PR doesn\'t touch exactly one workspace.\n';
@@ -370,7 +380,7 @@ jobs:
               commentDetail = ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
               summaryDetail = 'Missing plugin metadata files (`<workspace>/metadata/*.yaml`).';
             }
-            
+
             if (overlayCommit) {
               await github.rest.repos.createCommitStatus({
                 owner: context.repo.owner,
@@ -383,7 +393,7 @@ jobs:
               });
               console.log(`Set success status on ${overlayCommit} (skipped for valid reason)`);
             }
-            
+
             if (pr) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -392,7 +402,7 @@ jobs:
                 body: `:warning: \n[Smoke test workflow](${runUrl})${commentDetail}`,
               });
             }
-            
+
             await core.summary
               .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
               .write();
@@ -431,10 +441,10 @@ jobs:
             const errorLogs = (process.env.ERROR_LOGS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
-            
+
             const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
-            
+
             if (!success) {
               switch (smokeTestsResult) {
                 case 'failure':
@@ -450,7 +460,7 @@ jobs:
                   failureReason = `Smoke tests ended in an unexpected state: ${smokeTestsResult}. Check the workflow logs for details.`;
               }
             }
-            
+
             // Write step summary (always, even if PR is unavailable)
             let summary;
             if (success) {
@@ -465,23 +475,23 @@ jobs:
               }
             }
             await core.summary.addRaw(summary).write();
-            
+
             if (!pr) {
               console.log('No PR associated; skipping status and comment');
               return;
             }
-            
+
             // Get current PR head SHA
             const { data: prData } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: pr,
             });
-            
+
             // Use PR head if different from overlayCommit (/smoketest command), else use overlayCommit (immediate publish)
             const sha = prData.head.sha !== overlayCommit ? prData.head.sha : overlayCommit;
             console.log(`Status SHA: ${sha} (PR head: ${prData.head.sha}, overlay: ${overlayCommit})`);
-            
+
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -491,7 +501,7 @@ jobs:
               target_url: runUrl,
               context: 'smoketest',
             });
-            
+
             let body;
             if (success) {
               body = `:white_check_mark: [Smoke tests workflow](${runUrl}) passed. All plugins loaded successfully.\n`;
@@ -504,7 +514,7 @@ jobs:
                 body += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
               }
             }
-            
+
             await github.rest.issues.createComment({
               issue_number: pr,
               owner: context.repo.owner,
