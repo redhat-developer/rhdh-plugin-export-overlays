@@ -303,7 +303,7 @@ __metadata:
 
 "@red-hat-developer-hub/e2e-test-utils@rostalan/rhdh-e2e-test-utils#install-orch-fix":
   version: 1.1.27
-  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/rostalan/rhdh-e2e-test-utils.git#commit=7124c55db8a49a272eb32a82f9a7d9988ac2c3c1"
+  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/rostalan/rhdh-e2e-test-utils.git#commit=07a1b5c9979ee7a96fea903b2031d1cf5ef9a134"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@backstage-community/plugin-rbac-common": 1.23.0
@@ -325,7 +325,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: b13079ef6b035b881e085571a8621c192c27da8741192ced88e198238479a12fd4eb080e6d75897309ef3e77ddbcc7e708a1fd57bb2a5b309fc407bbc0b9c099
+  checksum: a9e89fc61e886b4eebacc5a35875aaa313814437c6f030b6bff39cbd80312364b861078336b01498adbb44c21ee7a710fc380a13ce0dc31f46a6e78865594b19
   languageName: node
   linkType: hard
 
@@ -1618,9 +1618,9 @@ __metadata:
   linkType: hard
 
 "lru-cache@npm:^11.0.0, lru-cache@npm:^11.1.0, lru-cache@npm:^11.2.1":
-  version: 11.3.2
-  resolution: "lru-cache@npm:11.3.2"
-  checksum: b594ae0a52174301444871284848aadade8bec166bcca782f12650f874aaa17548ede60a652fb2ac43230521e031251ff5d266d919896d80ba1b60170b8343c2
+  version: 11.3.3
+  resolution: "lru-cache@npm:11.3.3"
+  checksum: 35d2d2565e7ac35c90b7b57dacddb2728c8f071640ca9bc3d83f5641a7dd1ca1ac2a0aa23eb72c6fd23653f49a5da04262cc28a19f14946869ff69dcc2e75746
   languageName: node
   linkType: hard
 
