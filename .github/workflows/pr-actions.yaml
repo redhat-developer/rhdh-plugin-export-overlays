@@ -327,6 +327,7 @@ jobs:
       pr: ${{ needs.prepare.outputs.pr-number }}
       release-branch: ${{ needs.prepare.outputs.target-branch }}
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       attestations: write
