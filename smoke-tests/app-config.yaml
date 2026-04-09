@@ -8,9 +8,9 @@ backend:
     port: 7007
   database:
     client: better-sqlite3
-    connection: ':memory:'
+    connection: ":memory:"
   csp:
-    connect-src: ["'self'", 'http:', 'https:']
+    connect-src: ["'self'", "http:", "https:"]
   cors:
     origin: http://localhost:7007
     methods: [GET, POST, PUT, DELETE]
@@ -30,7 +30,7 @@ catalog:
 # This is required by the frontend app plugin for schema validation.
 dynamicPlugins:
   # This directory is used by the backend to unpack OCI plugins.
-  rootDirectory: /opt/app-root/src/dynamic-plugins-root
+  rootDirectory: ./dynamic-plugins-root
   # Disable the default directory scanning for local plugins
   sources:
     local: {}
@@ -43,4 +43,3 @@ analytics: {}
 # Disable the permission plugin for simplified testing.
 permission:
   enabled: false
-
