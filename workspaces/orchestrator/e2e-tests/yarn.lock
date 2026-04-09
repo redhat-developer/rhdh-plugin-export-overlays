@@ -302,8 +302,8 @@ __metadata:
   linkType: hard
 
 "@red-hat-developer-hub/e2e-test-utils@rostalan/rhdh-e2e-test-utils#install-orch-fix":
-  version: 1.1.27
-  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/rostalan/rhdh-e2e-test-utils.git#commit=07a1b5c9979ee7a96fea903b2031d1cf5ef9a134"
+  version: 1.1.29
+  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/rostalan/rhdh-e2e-test-utils.git#commit=2332895ddeab9dcbe4c495c45b1eaea023731735"
   dependencies:
     "@axe-core/playwright": ^4.11.0
     "@backstage-community/plugin-rbac-common": 1.23.0
@@ -325,7 +325,7 @@ __metadata:
     zx: ^8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: a9e89fc61e886b4eebacc5a35875aaa313814437c6f030b6bff39cbd80312364b861078336b01498adbb44c21ee7a710fc380a13ce0dc31f46a6e78865594b19
+  checksum: f925bb8d000a0fdbc85a4778e8d54a83b92384323a111ec6bb886e86151a74492164762628a9c174d73d72ee2871365aec0f530f8a0bce237faf97256567cd76
   languageName: node
   linkType: hard
 
