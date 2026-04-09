@@ -1,9 +1,28 @@
-import { execSync, execFileSync } from "child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import {
+  AuthApiHelper,
+  APIHelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { ensureBaselineRole } from "./rbac-baseline.js";
 import { deploySonataflow } from "./deploy-sonataflow.js";
+
+const GREETING_COMPONENT_LOCATION =
+  "https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/skeleton/catalog-info.yaml";
+
+export async function cleanupGreetingComponentEntity(): Promise<void> {
+  try {
+    const locationId = await APIHelper.getLocationIdByTarget(
+      GREETING_COMPONENT_LOCATION,
+    );
+    if (locationId) {
+      await APIHelper.deleteEntityLocationById(locationId);
+    }
+  } catch (e) {
+    console.warn("Cleanup of greeting-test-component location failed:", e);
+  }
+}
 
 interface WorkflowNode {
   name: string;
@@ -257,10 +276,10 @@ test.describe("Orchestrator", () => {
       }
     });
 
-    test.fixme(
-      "Failswitch links to another workflow and link works",
-      // TODO: only available in 1.37+ OSL operator, see https://github.com/redhat-developer/rhdh-e2e-test-utils/pull/75
-      async ({ page, uiHelper }) => {
+    test("Failswitch links to another workflow and link works", async ({
+      page,
+      uiHelper,
+    }) => {
       test.setTimeout(180_000);
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
@@ -517,6 +536,10 @@ test.describe("Orchestrator", () => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
       ensureDataIndexOrSkip(testInfo.project.name, test);
+    });
+
+    test.afterAll(async () => {
+      await cleanupGreetingComponentEntity();
     });
 
     test("RHIDP-11833: Select existing entity via EntityPicker for workflow run", async ({

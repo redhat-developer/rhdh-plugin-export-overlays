@@ -16,6 +16,7 @@ import {
   SECONDARY_USER,
 } from "./rbac-baseline.js";
 import { deploySonataflow } from "./deploy-sonataflow.js";
+import { cleanupGreetingComponentEntity } from "./orchestrator.spec.js";
 
 test.describe.serial("Test Orchestrator RBAC", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
@@ -1068,7 +1069,13 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test.afterAll(async () => {
+      await cleanupGreetingComponentEntity();
       await deleteRoleAndPolicies(apiToken, roleName);
+    });
+
+    // eslint-disable-next-line playwright/expect-expect
+    test("Pre-cleanup: remove greeting-test-component if present", async () => {
+      await cleanupGreetingComponentEntity();
     });
 
     test("Setup: Create role with catalog+scaffolder but NO orchestrator permissions", async () => {
@@ -1214,7 +1221,13 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test.afterAll(async () => {
+      await cleanupGreetingComponentEntity();
       await deleteRoleAndPolicies(apiToken, roleName);
+    });
+
+    // eslint-disable-next-line playwright/expect-expect
+    test("Pre-cleanup: remove greeting-test-component if present", async () => {
+      await cleanupGreetingComponentEntity();
     });
 
     test("Setup: Create role with catalog+scaffolder+orchestrator permissions", async () => {
@@ -1292,6 +1305,7 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Launch template and run workflow - verify success", async () => {
+      test.setTimeout(180_000);
       await uiHelper.clickLink({ ariaLabel: "Self-service" });
       await uiHelper.verifyHeading("Self-service");
 
@@ -1305,12 +1319,13 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await expect(createButton).toBeVisible({ timeout: 10000 });
       await createButton.click();
 
-      // Accept success or 409 Conflict (entity already registered from a prior run)
       const completed = page.getByText(/Completed|succeeded|finished/i);
       const conflictError = page.getByText(/409 Conflict/i);
       const startOver = page.getByRole("button", { name: "Start Over" });
 
-      await expect(completed.or(conflictError).or(startOver)).toBeVisible({
+      await expect(
+        completed.or(conflictError).or(startOver).first(),
+      ).toBeVisible({
         timeout: 120000,
       });
     });
