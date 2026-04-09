@@ -1,28 +1,12 @@
 import { execSync, execFileSync } from "node:child_process";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  AuthApiHelper,
-  APIHelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { ensureBaselineRole } from "./rbac-baseline.js";
-import { deploySonataflow } from "./deploy-sonataflow.js";
-
-const GREETING_COMPONENT_LOCATION =
-  "https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/skeleton/catalog-info.yaml";
-
-export async function cleanupGreetingComponentEntity(): Promise<void> {
-  try {
-    const locationId = await APIHelper.getLocationIdByTarget(
-      GREETING_COMPONENT_LOCATION,
-    );
-    if (locationId) {
-      await APIHelper.deleteEntityLocationById(locationId);
-    }
-  } catch (e) {
-    console.warn("Cleanup of greeting-test-component location failed:", e);
-  }
-}
+import {
+  ensureBaselineRole,
+  deploySonataflow,
+  cleanupGreetingComponentEntity,
+} from "./test-helpers.js";
 
 interface WorkflowNode {
   name: string;
