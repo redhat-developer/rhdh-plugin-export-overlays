@@ -354,6 +354,7 @@ jobs:
       workspace-path: ${{ needs.prepare.outputs.workspace }}
 
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       issues: read
