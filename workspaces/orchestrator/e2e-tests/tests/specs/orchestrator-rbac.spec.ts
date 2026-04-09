@@ -14,9 +14,9 @@ import {
   roleApiName,
   PRIMARY_USER,
   SECONDARY_USER,
-} from "./rbac-baseline.js";
-import { deploySonataflow } from "./deploy-sonataflow.js";
-import { cleanupGreetingComponentEntity } from "./orchestrator.spec.js";
+  deploySonataflow,
+  cleanupGreetingComponentEntity,
+} from "./test-helpers.js";
 
 test.describe.serial("Test Orchestrator RBAC", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {

@@ -1,7 +1,35 @@
 import { execSync } from "node:child_process";
 import { join } from "node:path";
+import {
+  test,
+  Browser,
+  TestInfo,
+  Page,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  setupBrowser,
+  LoginHelper,
+  UIhelper,
+  AuthApiHelper,
+  APIHelper,
+  RbacApiHelper,
+  Policy,
+  Response,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const PRIMARY_USER = `user:default/${process.env.PRIMARY_TEST_USER || "test1"}`;
+export const SECONDARY_USER = `user:default/${process.env.SECONDARY_TEST_USER || "test2"}`;
+
+export const BASELINE_ROLE_NAME = "role:default/orchestrator-baseline";
+
+const GREETING_COMPONENT_LOCATION =
+  "https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/skeleton/catalog-info.yaml";
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
@@ -13,10 +41,179 @@ const MANIFEST_DIRS = [
 
 const WORKFLOWS = ["greeting", "failswitch"];
 
+// ---------------------------------------------------------------------------
+// RBAC helpers
+// ---------------------------------------------------------------------------
+
+export type PolicySpec = {
+  permission: string;
+  policy: string;
+  effect: string;
+};
+
+export function roleApiName(roleName: string): string {
+  return roleName.replace("role:", "").replace("default/", "");
+}
+
+export function buildPolicies(roleName: string, specs: PolicySpec[]) {
+  return specs.map((spec) => ({ entityReference: roleName, ...spec }));
+}
+
+const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
+  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
+  {
+    permission: "orchestrator.workflow.use",
+    policy: "update",
+    effect: "allow",
+  },
+  { permission: "catalog-entity", policy: "read", effect: "allow" },
+  { permission: "catalog.entity.create", policy: "create", effect: "allow" },
+  { permission: "catalog.location.read", policy: "read", effect: "allow" },
+  { permission: "catalog.location.create", policy: "create", effect: "allow" },
+  {
+    permission: "scaffolder.action.execute",
+    policy: "use",
+    effect: "allow",
+  },
+  { permission: "scaffolder.task.create", policy: "create", effect: "allow" },
+  { permission: "scaffolder.task.read", policy: "read", effect: "allow" },
+  {
+    permission: "scaffolder.template.parameter.read",
+    policy: "read",
+    effect: "allow",
+  },
+  {
+    permission: "scaffolder.template.step.read",
+    policy: "read",
+    effect: "allow",
+  },
+]);
+
+async function withTempPage(
+  browser: Browser,
+  fn: (page: Awaited<ReturnType<typeof browser.newPage>>) => Promise<void>,
+): Promise<void> {
+  const context = await browser.newContext({
+    baseURL: process.env.RHDH_BASE_URL,
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  try {
+    await fn(page);
+  } finally {
+    await context.close();
+  }
+}
+
+export async function setupAuthenticatedPage(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<{
+  page: Page;
+  uiHelper: UIhelper;
+  loginHelper: LoginHelper;
+  apiToken: string;
+}> {
+  const { page } = await setupBrowser(browser, testInfo);
+  const uiHelper = new UIhelper(page);
+  const loginHelper = new LoginHelper(page);
+  await loginHelper.loginAsKeycloakUser();
+  const apiToken = await new AuthApiHelper(page).getToken();
+  return { page, uiHelper, loginHelper, apiToken };
+}
+
+export async function deleteRoleAndPolicies(
+  apiToken: string,
+  roleName: string,
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+  const apiName = roleApiName(roleName);
+  try {
+    const policiesResponse = await rbacApi.getPoliciesByRole(apiName);
+    if (policiesResponse.ok()) {
+      const policies =
+        await Response.removeMetadataFromResponse(policiesResponse);
+      await rbacApi.deletePolicy(apiName, policies as Policy[]);
+    }
+    await rbacApi.deleteRole(apiName);
+  } catch {
+    // role may not exist yet
+  }
+}
+
+export async function ensureBaselineRole(
+  browser: Browser,
+  _testInfo: TestInfo,
+): Promise<void> {
+  await test.runOnce("rbac-baseline-setup", async () => {
+    await withTempPage(browser, async (page) => {
+      const loginHelper = new LoginHelper(page);
+      await loginHelper.loginAsKeycloakUser();
+      const token = await new AuthApiHelper(page).getToken();
+      const rbacApi = await RbacApiHelper.build(token);
+
+      await rbacApi.createRoles({
+        memberReferences: [PRIMARY_USER],
+        name: BASELINE_ROLE_NAME,
+      });
+
+      await rbacApi.createPolicies(BASELINE_POLICIES);
+    });
+  });
+}
+
+export async function removeBaselineRole(
+  browser: Browser,
+  _testInfo: TestInfo,
+): Promise<void> {
+  await test.runOnce("rbac-baseline-cleanup", async () => {
+    await withTempPage(browser, async (page) => {
+      const loginHelper = new LoginHelper(page);
+      await loginHelper.loginAsKeycloakUser();
+      const token = await new AuthApiHelper(page).getToken();
+      await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
+
+      const rbacApi = await RbacApiHelper.build(token);
+      const verifyResponse = await rbacApi.getRoles();
+      if (verifyResponse.ok()) {
+        const roles = await verifyResponse.json();
+        const found = roles.find(
+          (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
+        );
+        if (found) {
+          console.warn(
+            "[rbac-baseline] WARNING: Baseline role was NOT removed successfully!",
+          );
+        }
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Catalog cleanup
+// ---------------------------------------------------------------------------
+
+export async function cleanupGreetingComponentEntity(): Promise<void> {
+  try {
+    const locationId = await APIHelper.getLocationIdByTarget(
+      GREETING_COMPONENT_LOCATION,
+    );
+    if (locationId) {
+      await APIHelper.deleteEntityLocationById(locationId);
+    }
+  } catch (e) {
+    console.warn("Cleanup of greeting-test-component location failed:", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SonataFlow deployment
+// ---------------------------------------------------------------------------
+
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
 
-  // Detect operator versions — try GA label first, fall back to legacy (rhel8/alpha).
   const oslFullVersion = detectOperatorVersion(
     "operators.coreos.com/logic-operator.openshift-operators",
     "operators.coreos.com/logic-operator-rhel8.openshift-operators",
@@ -58,14 +255,11 @@ export async function deploySonataflow(namespace: string): Promise<void> {
 
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
-
     await waitForReconciliation(namespace, workflow, 60);
-
     oc(`rollout status deployment/${workflow} -n ${namespace} --timeout=600s`);
   }
 }
 
-/** Patch a SonataFlow CR's persistence to point at the backstage-psql instance. */
 function patchWorkflowPostgres(namespace: string, workflow: string): string {
   const patch = JSON.stringify({
     spec: {
@@ -90,7 +284,6 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
   );
 }
 
-/** Wait until at least two SonataFlow CRs exist in the namespace. */
 async function waitForCRs(namespace: string): Promise<void> {
   const deadline = Date.now() + 60_000;
   let attempt = 0;
@@ -112,10 +305,6 @@ async function waitForCRs(namespace: string): Promise<void> {
   );
 }
 
-/**
- * Wait for the SonataFlow operator to reconcile after a CR patch by checking
- * whether the corresponding deployment's Progressing condition is True.
- */
 async function waitForReconciliation(
   namespace: string,
   workflow: string,
@@ -143,11 +332,6 @@ async function waitForReconciliation(
   );
 }
 
-/**
- * Widen data-index probe failureThresholds and bump resource limits.
- * SmallRye health checks degrade after ~7 min without a broker, returning 503
- * and removing the pod from Service endpoints.
- */
 function hardenSonataFlowPlatform(namespace: string): void {
   try {
     const sfpPatch = JSON.stringify({
@@ -210,10 +394,6 @@ function hardenSonataFlowPlatform(namespace: string): void {
   }
 }
 
-/**
- * Manifests ship with osl_1_37 image tags; re-tag workflows to match the
- * installed OSL version to avoid "Unrecognized event type" errors.
- */
 function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
   if (!oslMajorMinor || oslMajorMinor === "1.37") return;
 
@@ -242,7 +422,6 @@ function oc(args: string): string {
   return execSync(`oc ${args}`, { encoding: "utf-8" }).trim();
 }
 
-/** Detect operator version from the CSV matching the first available OLM label. */
 function detectOperatorVersion(...labels: string[]): string {
   for (const label of labels) {
     try {
