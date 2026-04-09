@@ -2,29 +2,57 @@ name: Pull Request Actions
 on:
   issue_comment:
     types: [created, edited]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: PR number to act on
+        type: string
+        required: true
+      command-name:
+        description: Command to execute (publish, update-versions, update-commit, smoketest)
+        type: string
+        required: true
 
 jobs:  
   parse:
     runs-on: ubuntu-latest
     name: Parse PR Comment
     if: >
+      github.event_name == 'workflow_dispatch' || (
       github.triggering_actor != 'openshift-ci[bot]' &&
       github.triggering_actor != 'sonarqubecloud[bot]' &&
       github.event.issue.pull_request && (
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
       contains(github.event.comment.body, '/update-commit') ||
-      contains(github.event.comment.body, '/smoketest'))
+      contains(github.event.comment.body, '/smoketest')))
     
     outputs:
       command-name: ${{ steps.extract.outputs.command-name }}
       error-message: ${{ steps.extract.outputs.error-message }}
+      pr-number: ${{ steps.extract.outputs.pr-number }}
     steps:
       - name: Extract command from comment
         id: extract
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
+            if (context.eventName === 'workflow_dispatch') {
+              const commandName = '${{ inputs.command-name }}';
+              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest']);
+              if (!allowed.has(commandName)) {
+                const errorMsg = `Invalid command: ${commandName}`;
+                core.setOutput('error-message', errorMsg);
+                core.setOutput('command-name', '');
+                core.setFailed(errorMsg);
+                return;
+              }
+              core.setOutput('command-name', commandName);
+              core.setOutput('error-message', '');
+              core.setOutput('pr-number', '${{ inputs.pr-number }}');
+              return;
+            }
+            core.setOutput('pr-number', String(context.issue.number));
             const raw = context.payload.comment?.body ?? '';
             const lines = String(raw)
               .split(/\r?\n/)
@@ -59,7 +87,7 @@ jobs:
       - parse
 
     concurrency:
-      group: add_error_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_error_comment-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
 
     permissions:
@@ -72,7 +100,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_ERROR_MESSAGE: ${{ needs.parse.outputs.error-message }}
-          INPUT_PR_NUMBER: ${{ github.event.issue.number }}
+          INPUT_PR_NUMBER: ${{ needs.parse.outputs.pr-number }}
         with:
           script: |
             const errorMessage = core.getInput('error_message');
@@ -92,7 +120,7 @@ jobs:
       - parse
 
     concurrency:
-      group: prepare-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: prepare-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
       
     if: needs.parse.outputs.command-name != ''
@@ -113,7 +141,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
-          INPUT_PR_NUMBER: ${{ github.event.issue.number }}
+          INPUT_PR_NUMBER: ${{ needs.parse.outputs.pr-number }}
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
@@ -178,7 +206,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: publish-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: publish-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: true
 
     if: |
@@ -198,12 +226,13 @@ jobs:
   uploadArtifacts:
     name: Upload Artifacts
     needs:
+      - parse
       - prepare
       - publish
     if: always() && needs.prepare.outputs.overlay-branch != '' && needs.prepare.outputs.pr-number != ''
 
     concurrency:
-      group: uploadArtifacts-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: uploadArtifacts-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
 
     runs-on: ubuntu-latest
@@ -236,7 +265,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: add_no_workspace_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_no_workspace_comment-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
 
     permissions:
@@ -288,7 +317,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: updatePRWithVersions-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: updatePRWithVersions-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: true
     
     if: needs.parse.outputs.command-name == 'update-versions'
@@ -312,7 +341,7 @@ jobs:
       - prepare
 
     concurrency:
-      group: updatePRWithCommit-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: updatePRWithCommit-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: true
     
     if: needs.parse.outputs.command-name == 'update-commit'
@@ -339,7 +368,7 @@ jobs:
       - updatePRWithVersions
 
     concurrency:
-      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_update_versions_completion_comment-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
     
     permissions:
@@ -403,7 +432,7 @@ jobs:
       - updatePRWithCommit
 
     concurrency:
-      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ github.event.issue.number }}
+      group: add_update_commit_completion_comment-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
     
     permissions:
