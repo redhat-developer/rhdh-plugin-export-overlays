@@ -1,18 +1,66 @@
+--- plugins/mcp-actions-backend/src/plugin.ts
++++ plugins/mcp-actions-backend/src/plugin.ts
+@@ -25,7 +25,8 @@
+ import {
+   actionsRegistryServiceRef,
+   actionsServiceRef,
+-  metricsServiceRef,
++  MetricsService,
++  // metricsServiceRef,
+ } from '@backstage/backend-plugin-api/alpha';
+ import { parseServerConfigs } from './config';
+ 
+@@ -48,7 +49,7 @@
+         rootRouter: coreServices.rootHttpRouter,
+         discovery: coreServices.discovery,
+         config: coreServices.rootConfig,
+-        metrics: metricsServiceRef,
++        // metrics: metricsServiceRef,
+       },
+       async init({
+         actions,
+@@ -58,8 +59,20 @@
+         rootRouter,
+         discovery,
+         config,
+-        metrics,
++        // metrics,
+       }) {
++        const noop = () => {};
++        const noopInstrument = { record: noop, add: noop };
++        const noopObservable = { addCallback: noop, removeCallback: noop };
++        const metrics: MetricsService = {
++          createCounter: () => noopInstrument,
++          createUpDownCounter: () => noopInstrument,
++          createHistogram: () => noopInstrument,
++          createGauge: () => noopInstrument,
++          createObservableCounter: () => noopObservable,
++          createObservableUpDownCounter: () => noopObservable,
++          createObservableGauge: () => noopObservable,
++        };
+         const serverConfigs = parseServerConfigs(config);
+         const namespacedToolNames = config.getOptionalBoolean(
+           'mcpActions.namespacedToolNames',
 --- plugins/mcp-actions-backend/src/services/McpService.ts
 +++ plugins/mcp-actions-backend/src/services/McpService.ts
-@@ -20,13 +20,14 @@
-   CallToolRequestSchema,
- } from '@modelcontextprotocol/sdk/types.js';
- import { JsonObject } from '@backstage/types';
- import { ActionsService } from '@backstage/backend-plugin-api/alpha';
+@@ -26,7 +26,7 @@
+   MetricsServiceHistogram,
+   MetricsService,
+ } from '@backstage/backend-plugin-api/alpha';
 -import { version } from '@backstage/plugin-mcp-actions-backend/package.json';
++// import { version } from '@backstage/plugin-mcp-actions-backend/package.json';
  import { NotFoundError } from '@backstage/errors';
+ import { performance } from 'node:perf_hooks';
  
- import { handleErrors } from './handleErrors';
+@@ -34,6 +34,11 @@
+ import { bucketBoundaries, McpServerOperationAttributes } from '../metrics';
+ import { FilterRule, McpServerConfig } from '../config';
  
-+const version = '0.1.9';
++const version = '0.1.11';
++console.log(
++  `Using mcp-actions-backend version ${version} with fixes and patches for compatibility with Backstage 1.45.3`,
++);
 +
  export class McpService {
    private readonly actions: ActionsService;
- 
-   constructor(actions: ActionsService) {
+   private readonly namespacedToolNames: boolean;
