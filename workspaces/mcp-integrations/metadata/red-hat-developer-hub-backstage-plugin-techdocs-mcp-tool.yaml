@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-techdocs-mcp-tool"
-  dynamicArtifact: oci://quay.io/veecode/mcp-integrations:bs_1.45.3!red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool
+  dynamicArtifact: oci://quay.io/veecode/mcp-integrations:bs_1.48.4!red-hat-developer-hub-backstage-plugin-techdocs-mcp-tool
   version: 0.3.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.48.4
   author: Red Hat
   support: dev-preview
   lifecycle: active
