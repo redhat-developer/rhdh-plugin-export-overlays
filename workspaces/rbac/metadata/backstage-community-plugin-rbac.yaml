@@ -5,19 +5,19 @@ metadata:
   namespace: rhdh
   title: RBAC
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://github.com/backstage/community-plugins/issues
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   tags: []
 spec:
   packageName: '@backstage-community/plugin-rbac'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-rbac
-  version: 1.47.4
+  version: 1.49.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -25,28 +25,28 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-  - rbac
+    - rbac
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-rbac:
-            translationResources:
-            - importName: rbacTranslations
-              ref: rbacTranslationRef
-              module: Alpha
-            appIcons:
-            - name: rbacIcon
-              importName: RbacIcon
-            dynamicRoutes:
-            - path: /rbac
-              importName: RbacPage
-              menuItem:
-                icon: rbacIcon
-                text: RBAC
-                textKey: menuItem.rbac
-            menuItems:
-              rbac:
-                parent: default.admin
-                icon: rbacIcon
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-rbac:
+              translationResources:
+                - importName: rbacTranslations
+                  ref: rbacTranslationRef
+                  module: Alpha
+              appIcons:
+                - name: rbacIcon
+                  importName: RbacIcon
+              dynamicRoutes:
+                - path: /rbac
+                  importName: RbacPage
+                  menuItem:
+                    icon: rbacIcon
+                    text: RBAC
+                    textKey: menuItem.rbac
+              menuItems:
+                rbac:
+                  parent: default.admin
+                  icon: rbacIcon
