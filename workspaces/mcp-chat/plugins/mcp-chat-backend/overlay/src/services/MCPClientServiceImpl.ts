@@ -69,7 +69,6 @@ export class MCPClientServiceImpl implements MCPClientService {
   private mcpServers: Promise<MCPServer[]> | null = null;
   private readonly systemPrompt: string;
   private serverConfigs: MCPServerFullConfig[] = [];
-  private _retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: Options) {
     this.logger = options.logger;
@@ -424,7 +423,7 @@ export class MCPClientServiceImpl implements MCPClientService {
     this.logger.info(
       `MCP retry: attempt ${attempt + 1}/${maxRetries} in ${delay / 1000}s`,
     );
-    this._retryTimer = setTimeout(async () => {
+    setTimeout(async () => {
       const failedConfigs = serverConfigs.filter(cfg => {
         const result = serverResults.find(r => r.id === cfg.id);
         return result && !result.status.connected;
