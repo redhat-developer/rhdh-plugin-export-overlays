@@ -1,0 +1,28 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+app:
+  title: RHDH Orchestrator Test Instance
+backend:
+  reading:
+    allow:
+      - host: github.com
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - orchestrator
+    admin:
+      users:
+        - name: user:default/test1
+orchestrator:
+  dataIndexService:
+    url: ${SONATAFLOW_DATA_INDEX_URL}
+catalog:
+  rules:
+    - allow: [Template, Component, System, Group, Resource, Location, API, User]
+  locations:
+    - type: url
+      target: https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/greeting.yaml
+    - type: url
+      target: https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/greeting_w_component.yaml
