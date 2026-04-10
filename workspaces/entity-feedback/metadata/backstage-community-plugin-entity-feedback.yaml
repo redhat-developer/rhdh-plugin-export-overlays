@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-entity-feedback
+  namespace: rhdh
+  title: "@backstage-community/plugin-entity-feedback"
+  links:
+    - url: https://github.com/backstage/community-plugins/blob/main/workspaces/entity-feedback/plugins/entity-feedback/README.md
+      title: Plugin Overview (README)
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/entity-feedback/plugins/entity-feedback
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/entity-feedback
+  tags:
+    - feedback
+    - ratings
+spec:
+  packageName: "@backstage-community/plugin-entity-feedback"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-entity-feedback:bs_1.45.3__0.12.0!backstage-community-plugin-entity-feedback
+  version: 0.12.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  partOf:
+    - entity-feedback
+  appConfigExamples:
+    - title: Like/Dislike rating (default)
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-entity-feedback:
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityFeedbackResponseContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+    - title: Star rating variant
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-entity-feedback:
+              appConfig:
+                entityFeedback:
+                  ratings:
+                    - variant: starred
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityFeedbackResponseContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
