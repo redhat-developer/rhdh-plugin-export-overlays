@@ -17,14 +17,14 @@ metadata:
     - mcp
 spec:
   packageName: '@backstage-community/plugin-mcp-chat'
-  dynamicArtifact: oci://quay.io/veecode/mcp-chat:bs_1.45.3!backstage-community-plugin-mcp-chat
+  dynamicArtifact: oci://quay.io/veecode/mcp-chat:bs_1.48.4!backstage-community-plugin-mcp-chat
   version: 0.2.0
   author: Backstage Community
   support: community
   lifecycle: experimental
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.48.4
   partOf:
     - mcp-chat
   appConfigExamples:
