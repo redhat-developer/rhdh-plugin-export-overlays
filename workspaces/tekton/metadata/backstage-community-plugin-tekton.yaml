@@ -5,19 +5,19 @@ metadata:
   namespace: rhdh
   title: Tekton
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://github.com/backstage/community-plugins/issues
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/community-plugins/tree/main/workspaces/tekton
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tekton
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tekton
   tags: []
 spec:
   packageName: '@backstage-community/plugin-tekton'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.45.3__3.33.3!backstage-community-plugin-tekton
-  version: 3.33.3
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.48.3__3.35.0!backstage-community-plugin-tekton
+  version: 3.35.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -25,22 +25,22 @@ spec:
   support: community
   lifecycle: active
   partOf:
-  - tekton
+    - tekton
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-tekton:
-            translationResources:
-            - importName: tektonTranslations
-              ref: tektonTranslationRef
-            mountPoints:
-            - mountPoint: entity.page.ci/cards
-              importName: TektonCI
-              config:
-                layout:
-                  gridColumn: 1 / -1
-                if:
-                  allOf:
-                  - isTektonCIAvailable
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-tekton:
+              translationResources:
+                - importName: tektonTranslations
+                  ref: tektonTranslationRef
+              mountPoints:
+                - mountPoint: entity.page.ci/cards
+                  importName: TektonCI
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isTektonCIAvailable
