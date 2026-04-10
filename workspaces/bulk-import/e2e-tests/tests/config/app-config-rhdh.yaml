@@ -1,0 +1,10 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+integrations:
+  github:
+    - host: github.com
+      token: ${VAULT_GITHUB_USER_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: temp
