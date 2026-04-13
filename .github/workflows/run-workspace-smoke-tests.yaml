@@ -49,6 +49,9 @@ jobs:
           fi
           skopeo --version
 
+      - name: Install Python dependencies
+        run: pip install pyyaml
+
       - name: Authenticate to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
 
@@ -62,6 +65,21 @@ jobs:
           fi
           echo "=== dynamic-plugins.test.yaml (first 40 lines) ==="
           head -40 ./artifacts/dynamic-plugins.test.yaml || true
+
+      # TODO: Replace with native TypeScript implementation once available upstream.
+      - name: Download install-dynamic-plugins.py
+        run: |
+          curl -fsSL \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/3efb9cc140ff/scripts/install-dynamic-plugins/install-dynamic-plugins.py" \
+            -o ./artifacts/harness/install-dynamic-plugins.py
+
+      - name: Download and extract plugins
+        working-directory: ./artifacts/harness
+        run: |
+          cp ../dynamic-plugins.test.yaml dynamic-plugins.yaml
+          python3 install-dynamic-plugins.py ./dynamic-plugins-root
+        env:
+          SKIP_INTEGRITY_CHECK: "true"
 
       - name: Install smoke test dependencies
         working-directory: ./artifacts/harness
@@ -77,13 +95,17 @@ jobs:
           [ -f ../app-config.yaml ] && CONFIG_ARGS="$CONFIG_ARGS --config ../app-config.yaml"
           [ -f ../app-config.test.yaml ] && CONFIG_ARGS="$CONFIG_ARGS --config ../app-config.test.yaml"
 
+          GENERATED_CFG="./dynamic-plugins-root/app-config.dynamic-plugins.yaml"
+          [ -f "$GENERATED_CFG" ] && CONFIG_ARGS="$CONFIG_ARGS --config $GENERATED_CFG"
+
           ENV_ARGS=""
           [ -f ../test.env ] && ENV_ARGS="--env-file ../test.env"
 
-          echo "Running: node smoke-test.mjs --plugins-yaml ../dynamic-plugins.test.yaml $CONFIG_ARGS $ENV_ARGS"
+          echo "Running: node smoke-test.mjs --plugins-yaml ../dynamic-plugins.test.yaml --skip-download $CONFIG_ARGS $ENV_ARGS"
 
           node smoke-test.mjs \
             --plugins-yaml ../dynamic-plugins.test.yaml \
+            --skip-download \
             $CONFIG_ARGS \
             $ENV_ARGS \
             2>&1 | tee ../smoke-test.log
@@ -136,4 +158,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf ./artifacts/harness/dynamic-plugins-root ./artifacts/harness/.tmp-oci || true
+        run: rm -rf ./artifacts/harness/dynamic-plugins-root || true

@@ -1,17 +1,8 @@
 #!/usr/bin/env node
 
-import { spawnSync, execSync } from "node:child_process";
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-  rmSync,
-  readdirSync,
-} from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
 import yaml from "js-yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -25,10 +16,9 @@ function parseArgs(argv) {
     pluginsYaml: null,
     configs: [],
     envFile: null,
-    port: 7007,
-    timeout: 120,
     pluginsRoot: resolve(__dirname, "dynamic-plugins-root"),
     resultsFile: resolve(__dirname, "results.json"),
+    skipDownload: false,
   };
   for (let i = 0; i < argv.length; i++) {
     switch (argv[i]) {
@@ -41,17 +31,14 @@ function parseArgs(argv) {
       case "--env-file":
         args.envFile = resolve(argv[++i]);
         break;
-      case "--port":
-        args.port = Number.parseInt(argv[++i], 10);
-        break;
-      case "--timeout":
-        args.timeout = Number.parseInt(argv[++i], 10);
+      case "--skip-download":
+        args.skipDownload = true;
         break;
     }
   }
   if (!args.pluginsYaml) {
     console.error(
-      "Usage: node smoke-test.mjs --plugins-yaml <path> [--config <path>...] [--env-file <path>]",
+      "Usage: node smoke-test.mjs --plugins-yaml <path> [--config <path>...] [--env-file <path>] [--skip-download]",
     );
     process.exit(1);
   }
@@ -96,63 +83,29 @@ function isFrontendRole(role) {
 }
 
 // ---------------------------------------------------------------------------
-// OCI Download  (mirrors install-dynamic-plugins.py §663-715)
+// Config helpers
 // ---------------------------------------------------------------------------
 
-function pullOciImage(imageRef, tmpDir) {
-  const hash = createHash("sha256").update(imageRef).digest("hex").slice(0, 16);
-  const localDir = join(tmpDir, hash);
-  mkdirSync(localDir, { recursive: true });
-
-  const result = spawnSync(
-    "skopeo",
-    [
-      "copy",
-      "--override-os=linux",
-      "--override-arch=amd64",
-      `docker://${imageRef}`,
-      `dir:${localDir}`,
-    ],
-    { stdio: "inherit" },
-  );
-  if (result.status !== 0)
-    throw new Error(`skopeo copy failed for ${imageRef}`);
-
-  const manifest = JSON.parse(
-    readFileSync(join(localDir, "manifest.json"), "utf8"),
-  );
-  const [, filename] = manifest.layers[0].digest.split(":");
-  return join(localDir, filename);
-}
-
-function extractPlugin(tarFile, pluginPath, dest) {
-  mkdirSync(join(dest, pluginPath), { recursive: true });
-  execSync(`tar xf "${tarFile}" -C "${dest}" "${pluginPath}/"`, {
-    stdio: "pipe",
-  });
-}
-
-async function downloadPlugins(plugins, dest) {
-  mkdirSync(dest, { recursive: true });
-  const tmpDir = resolve(__dirname, ".tmp-oci");
-  mkdirSync(tmpDir, { recursive: true });
-
-  const imageCache = new Map();
-  for (const plugin of plugins) {
-    const { imageRef, pluginPath } = parseOciRef(plugin.package);
-    if (!imageRef || !pluginPath) {
-      console.warn(`  Skip (invalid ref): ${plugin.package}`);
-      continue;
+function deepMerge(src, dst) {
+  for (const [k, v] of Object.entries(src)) {
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      dst[k] = dst[k] ?? {};
+      deepMerge(v, dst[k]);
+    } else {
+      dst[k] = v;
     }
-    console.log(`  ${pluginPath}`);
-    let tarFile = imageCache.get(imageRef);
-    if (!tarFile) {
-      tarFile = pullOciImage(imageRef, tmpDir);
-      imageCache.set(imageRef, tarFile);
-    }
-    extractPlugin(tarFile, pluginPath, dest);
   }
-  rmSync(tmpDir, { recursive: true, force: true });
+  return dst;
+}
+
+function loadConfigs(configPaths) {
+  const merged = {};
+  for (const p of configPaths) {
+    if (!existsSync(p)) continue;
+    const doc = yaml.load(readFileSync(p, "utf8"));
+    if (doc && typeof doc === "object") deepMerge(doc, merged);
+  }
+  return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,40 +164,12 @@ function validateFrontendBundles(plugins, pluginsRoot) {
 }
 
 // ---------------------------------------------------------------------------
-// Config generation
+// Backend boot (startTestBackend + probe plugin)
 // ---------------------------------------------------------------------------
 
-function deepMerge(src, dst) {
-  for (const [k, v] of Object.entries(src)) {
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      dst[k] = dst[k] ?? {};
-      deepMerge(v, dst[k]);
-    } else {
-      dst[k] = v;
-    }
-  }
-  return dst;
-}
-
-function generateMergedConfig(plugins, pluginsRoot) {
-  const cfg = { dynamicPlugins: { rootDirectory: pluginsRoot } };
-  for (const p of plugins) if (p.pluginConfig) deepMerge(p.pluginConfig, cfg);
-  const outPath = join(pluginsRoot, "app-config.dynamic-plugins.yaml");
-  writeFileSync(outPath, yaml.dump(cfg));
-  return outPath;
-}
-
-// ---------------------------------------------------------------------------
-// Backend boot
-// ---------------------------------------------------------------------------
-
-async function bootBackend(configPaths) {
-  process.argv = ["node", "smoke-test.mjs"];
-  for (const p of configPaths) {
-    if (existsSync(p)) process.argv.push("--config", p);
-  }
-
-  const { createBackend } = await import("@backstage/backend-defaults");
+async function bootBackend(configData) {
+  const { startTestBackend, mockServices } =
+    await import("@backstage/backend-test-utils");
   const {
     dynamicPluginsFeatureLoader,
     CommonJSModuleLoader,
@@ -256,100 +181,66 @@ async function bootBackend(configPaths) {
     await import("@backstage/backend-plugin-api");
   const path = await import("node:path");
 
-  const backend = createBackend();
-
-  backend.add(
-    dynamicPluginsFeatureLoader({
-      schemaLocator(pluginPackage) {
-        const platform = PackageRoles.getRoleInfo(
-          pluginPackage.manifest.backstage.role,
-        ).platform;
-        return path.join(
-          platform === "node" ? "dist" : "dist-scalprum",
-          "configSchema.json",
-        );
-      },
-      moduleLoader: (logger) => new CommonJSModuleLoader({ logger }),
-    }),
-  );
-
-  backend.add(
-    createServiceFactory({
-      service: dynamicPluginsFrontendServiceRef,
-      deps: {},
-      factory: () => ({ setResolverProvider() {} }),
-    }),
-  );
-
-  backend.add(
-    createBackendPlugin({
-      pluginId: "smoke-test-probe",
-      register(env) {
-        env.registerInit({
-          deps: {
-            http: coreServices.httpRouter,
-            dynamicPlugins: dynamicPluginsServiceRef,
-          },
-          async init({ http, dynamicPlugins }) {
-            const { Router } = await import("express");
-            const router = Router();
-            router.get("/loaded-plugins", (_, res) => {
-              res.json(dynamicPlugins.plugins({ includeFailed: true }));
+  const smokeTestProbePlugin = createBackendPlugin({
+    pluginId: "smoke-test-probe",
+    register(env) {
+      env.registerInit({
+        deps: {
+          http: coreServices.httpRouter,
+          dynamicPlugins: dynamicPluginsServiceRef,
+        },
+        async init({ http, dynamicPlugins }) {
+          const { Router } = await import("express");
+          const router = Router();
+          router.get("/loaded-plugins", (_, res) => {
+            res.json(dynamicPlugins.plugins({ includeFailed: true }));
+          });
+          http.use(router);
+          try {
+            http.addAuthPolicy({
+              path: "/loaded-plugins",
+              allow: "unauthenticated",
             });
-            http.use(router);
-            try {
-              http.addAuthPolicy({
-                path: "/loaded-plugins",
-                allow: "unauthenticated",
-              });
-            } catch {
-              /* API may not exist on this version */
-            }
-          },
-        });
-      },
-    }),
-  );
+          } catch {
+            /* API may not exist on this version */
+          }
+        },
+      });
+    },
+  });
 
-  backend.add(import("@backstage/plugin-catalog-backend"));
-  backend.add(
-    import("@backstage/plugin-catalog-backend-module-scaffolder-entity-model"),
-  );
-  backend.add(import("@backstage/plugin-catalog-backend-module-logs"));
-  backend.add(import("@backstage/plugin-auth-backend"));
-  backend.add(import("@backstage/plugin-auth-backend-module-guest-provider"));
-  backend.add(import("@backstage/plugin-permission-backend"));
-  backend.add(
-    import("@backstage/plugin-permission-backend-module-allow-all-policy"),
-  );
-  backend.add(import("@backstage/plugin-scaffolder-backend"));
-  backend.add(import("@backstage/plugin-events-backend"));
-  backend.add(import("@backstage/plugin-search-backend"));
-  backend.add(import("@backstage/plugin-search-backend-module-catalog"));
-  backend.add(import("@backstage/plugin-proxy-backend"));
+  const { server } = await startTestBackend({
+    features: [
+      mockServices.rootConfig.factory({ data: configData }),
+      dynamicPluginsFeatureLoader({
+        schemaLocator(pluginPackage) {
+          const platform = PackageRoles.getRoleInfo(
+            pluginPackage.manifest.backstage.role,
+          ).platform;
+          return path.join(
+            platform === "node" ? "dist" : "dist-scalprum",
+            "configSchema.json",
+          );
+        },
+        moduleLoader: (logger) => new CommonJSModuleLoader({ logger }),
+      }),
+      createServiceFactory({
+        service: dynamicPluginsFrontendServiceRef,
+        deps: {},
+        factory: () => ({ setResolverProvider() {} }),
+      }),
+      smokeTestProbePlugin,
+    ],
+  });
 
-  await backend.start();
-  return backend;
+  const addr = server.address();
+  const port = typeof addr === "object" ? addr.port : 7007;
+  return { server, port };
 }
 
 // ---------------------------------------------------------------------------
-// Health & route probing
+// Plugin metadata & route probing
 // ---------------------------------------------------------------------------
-
-async function waitForReady(port, timeoutSec) {
-  const url = `http://localhost:${port}/.backstage/health/v1/readiness`;
-  const deadline = Date.now() + timeoutSec * 1000;
-  while (Date.now() < deadline) {
-    try {
-      const r = await fetch(url);
-      if (r.ok) return;
-    } catch {
-      /* not ready */
-    }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-  throw new Error(`Backend not ready within ${timeoutSec}s`);
-}
 
 function readPluginMeta(pluginsRoot, pluginPath) {
   try {
@@ -622,8 +513,33 @@ async function main() {
 
   loadEnvFile(args.envFile);
 
-  console.log("\n2. Downloading OCI plugin images");
-  await downloadPlugins(plugins, args.pluginsRoot);
+  if (!args.skipDownload) {
+    console.log(
+      "\n2. Plugin download expected via install-dynamic-plugins.py pre-step",
+    );
+  } else {
+    console.log("\n2. Skipping download (--skip-download)");
+  }
+
+  if (!existsSync(args.pluginsRoot)) {
+    console.error(
+      `  ERROR: plugins root directory not found: ${args.pluginsRoot}`,
+    );
+    console.error(
+      "  Run install-dynamic-plugins.py first, or use --skip-download with a pre-populated directory.",
+    );
+    process.exit(1);
+  }
+
+  const generatedCfg = join(
+    args.pluginsRoot,
+    "app-config.dynamic-plugins.yaml",
+  );
+  if (!existsSync(generatedCfg)) {
+    console.warn(
+      `  WARN: ${generatedCfg} not found — install-dynamic-plugins.py may not have been run`,
+    );
+  }
 
   console.log("\n2b. Validating frontend bundles");
   const bundleResults = validateFrontendBundles(plugins, args.pluginsRoot);
@@ -634,29 +550,25 @@ async function main() {
     `  ${bundleResults.length} frontend plugin(s) checked, ${bundleFailCount} failed`,
   );
 
-  console.log("\n3. Generating merged plugin config");
-  const generatedCfg = generateMergedConfig(plugins, args.pluginsRoot);
-
-  console.log("\n4. Booting Backstage backend");
-  const allConfigs = [...args.configs, generatedCfg];
-  const backend = await bootBackend(allConfigs);
+  console.log("\n3. Booting Backstage backend (startTestBackend)");
+  const allConfigPaths = [...args.configs];
+  if (existsSync(generatedCfg)) allConfigPaths.push(generatedCfg);
+  const configData = loadConfigs(allConfigPaths);
+  const { server, port } = await bootBackend(configData);
 
   let success = false;
   try {
-    console.log("\n5. Waiting for readiness");
-    await waitForReady(args.port, args.timeout);
-
-    console.log("\n6a. Probing backend plugin routes");
+    console.log("\n4a. Probing backend plugin routes");
     const backendResults = await probePluginRoutes(
       plugins,
-      args.port,
+      port,
       args.pluginsRoot,
     );
 
-    console.log("\n6b. Probing frontend loaded plugins");
+    console.log("\n4b. Probing frontend loaded plugins");
     const frontendLoadResults = await probeFrontendPlugins(
       plugins,
-      args.port,
+      port,
       args.pluginsRoot,
     );
 
@@ -669,7 +581,7 @@ async function main() {
     success = reportAndWrite(allResults, args.resultsFile);
   } finally {
     console.log("Shutting down backend...");
-    await backend.stop();
+    server.close();
   }
 
   process.exit(success ? 0 : 1);
