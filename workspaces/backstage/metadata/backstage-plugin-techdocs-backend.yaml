@@ -17,10 +17,10 @@ metadata:
 spec:
   packageName: "@backstage/plugin-techdocs-backend"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-techdocs-backend-dynamic
-  version: 2.1.2
+  version: 2.1.5
   backstage:
     role: backend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.48.3
   author: Red Hat
   support: generally-available
   lifecycle: active
