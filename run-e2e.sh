@@ -37,7 +37,7 @@ export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.57.0}"       # @playwright/test version to pin
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.59.1}"       # @playwright/test version to pin
 
 # Keycloak
 export SKIP_KEYCLOAK_DEPLOYMENT="${SKIP_KEYCLOAK_DEPLOYMENT:-}" # Set "true" to skip Keycloak deploy

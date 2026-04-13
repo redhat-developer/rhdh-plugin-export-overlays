@@ -21,7 +21,7 @@ jobs:
   prepare-required-plugins:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       
       - name: Create the required-plugins file@
         continue-on-error: true
@@ -29,7 +29,7 @@ jobs:
           cat rhdh-community-packages.txt rhdh-techpreview-packages.txt rhdh-supported-packages.txt > required-plugins
 
       - name: Upload required-plugins file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: required-plugins
           path: required-plugins
@@ -50,12 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:      
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: main
 
       - name: Download the required-plugins artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         continue-on-error: true
         with:
           name: required-plugins          

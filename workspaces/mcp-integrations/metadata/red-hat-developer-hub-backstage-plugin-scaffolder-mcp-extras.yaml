@@ -1,0 +1,37 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+  namespace: rhdh
+  title: "@red-hat-developer-hub/backstage-plugin-scaffolder-mcp-extras"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations/plugins/scaffolder-mcp-extras
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/mcp-integrations/plugins/scaffolder-mcp-extras
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-mcp-extras"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.4.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+  version: 0.4.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.48.3
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - scaffolder-mcp-extras
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        backend:
+          actions:
+            pluginSources:
+              - 'scaffolder-mcp-extras'
+              - 'software-catalog-mcp-extras'
+              - 'techdocs-mcp-extras'

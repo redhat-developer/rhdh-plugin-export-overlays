@@ -7,7 +7,7 @@
     "node": ">=22",
     "yarn": ">=3"
   },
-  "packageManager": "yarn@3.8.7",
+  "packageManager": "yarn@4.12.0",
   "description": "E2E tests for Quay plugin",
   "scripts": {
     "test": "playwright test",
@@ -22,16 +22,16 @@
     "check": "yarn tsc:check && yarn lint:check && yarn prettier:check"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@playwright/test": "1.57.0",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.25",
-    "@types/node": "^24.10.1",
-    "dotenv": "^16.4.7",
-    "eslint": "^9.39.2",
-    "eslint-plugin-check-file": "^3.3.1",
-    "eslint-plugin-playwright": "^2.4.0",
-    "prettier": "^3.7.4",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.0"
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.59.1",
+    "@red-hat-developer-hub/e2e-test-utils": "1.1.30",
+    "@types/node": "25.5.2",
+    "dotenv": "17.4.1",
+    "eslint": "10.2.0",
+    "eslint-plugin-check-file": "3.3.1",
+    "eslint-plugin-playwright": "2.10.1",
+    "prettier": "3.8.1",
+    "typescript": "6.0.2",
+    "typescript-eslint": "8.58.1"
   }
 }
