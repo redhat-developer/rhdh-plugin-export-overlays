@@ -24,3 +24,8 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: MTA hub connection
+      content:
+        mta:
+          hubUrl: ${MTA_HUB_URL}

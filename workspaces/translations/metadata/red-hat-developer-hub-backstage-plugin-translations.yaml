@@ -22,3 +22,14 @@ spec:
   author: Red Hat
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-translations:
+              mountPoints:
+                - mountPoint: app.translations.root
+                  importName: TranslationsShell
+                  config:
+                    layout: {}

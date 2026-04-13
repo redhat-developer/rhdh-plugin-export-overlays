@@ -24,7 +24,10 @@ spec:
   author: Red Hat
   support: generally-available
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        signals: {}
   partOf:
     - signals-frontend
     - signals-backend
-  appConfigExamples: []

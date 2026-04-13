@@ -28,8 +28,18 @@ spec:
   partOf:
     - pingidentity
   appConfigExamples:
-    - title: Default configuration
+    - title: PingOne org provider (regional API/auth URLs)
       content:
         catalog:
           providers:
-            pingIdentityOrg: {}
+            pingIdentityOrg:
+              default:
+                apiPath: ${PING_IDENTITY_API_BASE_URL}
+                authPath: ${PING_IDENTITY_AUTH_BASE_URL}
+                envId: ${PING_IDENTITY_ENV_ID}
+                clientId: ${PING_IDENTITY_CLIENT_ID}
+                clientSecret: ${PING_IDENTITY_CLIENT_SECRET}
+                schedule:
+                  frequency: { minutes: 30 }
+                  timeout: { minutes: 10 }
+                  initialDelay: { seconds: 15 }

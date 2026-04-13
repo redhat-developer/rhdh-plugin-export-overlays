@@ -23,5 +23,13 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        todo:
+          schedule:
+            frequency: { minutes: 30 }
+            timeout: { minutes: 3 }
+            initialDelay: { seconds: 30 }
   partOf:
     - todo
