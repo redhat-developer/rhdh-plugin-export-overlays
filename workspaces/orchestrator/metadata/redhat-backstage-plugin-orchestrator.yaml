@@ -22,7 +22,7 @@ spec:
   dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-b\
     ackstage-plugin-orchestrator@sha256:f40d39fb7599d2cbfa8f64d6f4703d69539e4a4\
     b0e49518499f47ca986fbd814"
-  version: 5.5.2
+  version: 5.6.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
