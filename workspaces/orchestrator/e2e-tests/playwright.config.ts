@@ -11,7 +11,6 @@ export default defineConfig({
     {
       name: "orchestrator",
       testMatch: ["specs/orchestrator.spec.ts"],
-      // fullyParallel: false,
     },
   ],
 });
