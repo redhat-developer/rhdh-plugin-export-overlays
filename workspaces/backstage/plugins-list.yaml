@@ -42,8 +42,6 @@ plugins/events-backend-module-bitbucket-server:
 plugins/events-backend-module-gerrit:
 plugins/events-backend-module-github: 
 plugins/events-backend-module-gitlab:
-plugins/example-todo-list:
-plugins/example-todo-list-backend:
 plugins/home:
 plugins/kubernetes:
 plugins/kubernetes-backend:
@@ -52,13 +50,8 @@ plugins/notifications:
 plugins/notifications-backend: --embed-package @backstage/plugin-signals-node
 plugins/notifications-backend-module-email: --embed-package @backstage/plugin-notifications-node
 plugins/org:
-#plugins/permission-backend: ==> Added as a static plugin in RHDH
-#plugins/permission-backend-module-policy-allow-all: ==> Not meaningful for RHDH
 plugins/proxy-backend:
-#plugins/scaffolder: ==> Added as a static plugin in RHDH
-#plugins/scaffolder-backend: ==> Added as a static plugin in RHDH
 plugins/scaffolder-backend-module-azure:
-plugins/scaffolder-backend-module-bitbucket:
 plugins/scaffolder-backend-module-bitbucket-cloud:
 plugins/scaffolder-backend-module-bitbucket-server:
 plugins/scaffolder-backend-module-confluence-to-markdown:
