@@ -10,11 +10,6 @@ test.describe("Github Discovery Catalog", () => {
     // Allow time for deployment + 1 min provider refresh delay + browser setup
     test.setTimeout(10 * 60 * 1000);
 
-    test.info().annotations.push({
-      type: "component",
-      description: "api",
-    });
-
     await rhdh.configure({
       auth: "guest",
       appConfig: "tests/config/github-discovery/app-config-rhdh.yaml",
