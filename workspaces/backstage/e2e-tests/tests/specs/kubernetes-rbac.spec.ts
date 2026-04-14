@@ -1,10 +1,13 @@
+import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import {
+  $,
+  WorkspacePaths,
+  requireEnv,
+} from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
 import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
-import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
-import { requireEnv } from "../../support/utils/require-env";
 
 const $pipe = $({ stdio: "pipe" });
 
