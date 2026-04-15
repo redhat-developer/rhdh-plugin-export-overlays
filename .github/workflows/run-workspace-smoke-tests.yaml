@@ -53,7 +53,9 @@ jobs:
         run: pip install pyyaml
 
       - name: Authenticate to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo $GITHUB_TOKEN | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Verify artifacts
         run: |
