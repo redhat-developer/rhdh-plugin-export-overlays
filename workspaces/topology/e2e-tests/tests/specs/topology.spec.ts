@@ -29,6 +29,8 @@ async function getResourceType(page: Page): Promise<"ingress" | "route"> {
 }
 
 test.describe("Test Topology plugin", () => {
+  const deploymentLocator = `[data-test-id="topology-test"]`;
+
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
@@ -75,7 +77,9 @@ test.describe("Test Topology plugin", () => {
       await uiHelper.verifyText(/\d{1,5} (Succeeded|Failed|Cancelled|Running)/);
     }).toPass({ intervals: [2_000, 5_000], timeout: 30_000 });
     await topology.verifyDeployment("topology-test");
-    await uiHelper.verifyButtonURL("Open URL", "topology-test-route");
+    await uiHelper.verifyButtonURL("Open URL", "topology-test-route", {
+      locator: deploymentLocator,
+    });
     await uiHelper.clickTab("Details");
     await uiHelper.verifyText("Status");
     await uiHelper.verifyText("Active");
@@ -115,6 +119,7 @@ test.describe("Test Topology plugin", () => {
     await uiHelper.verifyButtonURL(
       "Edit source code",
       "https://github.com/janus-idp/backstage-showcase",
+      { locator: deploymentLocator },
     );
     await uiHelper.clickTab("Resources");
     await uiHelper.verifyText("P");
