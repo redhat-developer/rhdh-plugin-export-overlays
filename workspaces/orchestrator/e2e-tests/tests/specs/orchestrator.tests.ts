@@ -1,4 +1,4 @@
-import { execSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
@@ -34,12 +34,30 @@ function decodeEnvVar(name: string): string {
   return Buffer.from(value, "base64").toString();
 }
 
+function runOc(args: string[], timeoutMs: number): string {
+  return execFileSync("oc", args, {
+    encoding: "utf-8",
+    timeout: timeoutMs,
+  }).trim();
+}
+
 function isDataIndexHealthy(ns: string): boolean {
   try {
-    const health = execSync(
-      `oc exec -n ${ns} deploy/sonataflow-platform-data-index-service -- curl -s --max-time 5 http://localhost:8080/q/health/ready`,
-      { encoding: "utf-8", timeout: 15_000 },
-    ).trim();
+    const health = runOc(
+      [
+        "exec",
+        "-n",
+        ns,
+        "deploy/sonataflow-platform-data-index-service",
+        "--",
+        "curl",
+        "-s",
+        "--max-time",
+        "5",
+        "http://localhost:8080/q/health/ready",
+      ],
+      15_000,
+    );
     const parsed = JSON.parse(health);
     return parsed.status === "UP";
   } catch {
@@ -47,18 +65,31 @@ function isDataIndexHealthy(ns: string): boolean {
   }
 }
 
-function recoverDataIndex(ns: string): boolean {
+async function recoverDataIndex(ns: string): Promise<boolean> {
   try {
-    execSync(
-      `oc rollout restart deploy/sonataflow-platform-data-index-service -n ${ns}`,
-      { encoding: "utf-8", timeout: 15_000 },
+    runOc(
+      [
+        "rollout",
+        "restart",
+        "deploy/sonataflow-platform-data-index-service",
+        "-n",
+        ns,
+      ],
+      15_000,
     );
-    execSync(
-      `oc rollout status deploy/sonataflow-platform-data-index-service -n ${ns} --timeout=120s`,
-      { encoding: "utf-8", timeout: 130_000 },
+    runOc(
+      [
+        "rollout",
+        "status",
+        "deploy/sonataflow-platform-data-index-service",
+        "-n",
+        ns,
+        "--timeout=120s",
+      ],
+      130_000,
     );
     for (let attempt = 0; attempt < 6; attempt++) {
-      execSync("sleep 5", { timeout: 10_000 });
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
       if (isDataIndexHealthy(ns)) {
         return true;
       }
@@ -71,16 +102,16 @@ function recoverDataIndex(ns: string): boolean {
 
 let dataIndexRecoveryFailed = false;
 
-function ensureDataIndexOrSkip(
+async function ensureDataIndexOrSkip(
   ns: string,
   test: { skip: (condition: boolean, reason: string) => void },
-): void {
+): Promise<void> {
   if (dataIndexRecoveryFailed) {
     test.skip(true, "Data-index recovery already failed earlier — skipping");
     return;
   }
   if (isDataIndexHealthy(ns)) return;
-  const recovered = recoverDataIndex(ns);
+  const recovered = await recoverDataIndex(ns);
   if (!recovered) {
     dataIndexRecoveryFailed = true;
   }
@@ -118,7 +149,7 @@ test.describe("Orchestrator", () => {
     test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
-      ensureDataIndexOrSkip(testInfo.project.name, test);
+      await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     // eslint-disable-next-line playwright/expect-expect
@@ -154,7 +185,7 @@ test.describe("Orchestrator", () => {
     test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
-      ensureDataIndexOrSkip(testInfo.project.name, test);
+      await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     // eslint-disable-next-line playwright/expect-expect
@@ -458,9 +489,9 @@ test.describe("Orchestrator", () => {
         );
       }
 
-      const sampleServerLogs = execSync(
-        `oc logs -l app=sample-server -n ${namespace} --tail=200`,
-        { encoding: "utf-8", timeout: 30000 },
+      const sampleServerLogs = runOc(
+        ["logs", "-l", "app=sample-server", "-n", namespace, "--tail=200"],
+        30_000,
       );
 
       expect(
@@ -519,7 +550,7 @@ test.describe("Orchestrator", () => {
     test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
       await loginHelper.loginAsKeycloakUser();
-      ensureDataIndexOrSkip(testInfo.project.name, test);
+      await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
     test.afterAll(async () => {
