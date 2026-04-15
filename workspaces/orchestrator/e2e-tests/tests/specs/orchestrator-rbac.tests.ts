@@ -10,7 +10,11 @@ import {
   removeBaselineRole,
   setupAuthenticatedPage,
   deleteRoleAndPolicies,
+  createRoleWithPolicies,
+  verifyRoleWithPolicies,
   buildPolicies,
+  globalWorkflowPolicies,
+  greetingWorkflowPolicies,
   roleApiName,
   PRIMARY_USER,
   SECONDARY_USER,
@@ -56,67 +60,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with global orchestrator.workflow read and update permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow",
-            policy: "read",
-            effect: "allow",
-          },
-          {
-            permission: "orchestrator.workflow.use",
-            policy: "update",
-            effect: "allow",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("allow", "allow"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("allow", "allow"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const readPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow" && p.policy === "read",
-      );
-      const updatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use" && p.policy === "update",
-      );
-
-      expect(readPolicy).toBeDefined();
-      expect(updatePolicy).toBeDefined();
-      expect(readPolicy.effect).toBe("allow");
-      expect(updatePolicy.effect).toBe("allow");
     });
 
     test("Verify global orchestrator workflow access is allowed", async () => {
@@ -158,67 +119,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with global orchestrator.workflow read-only permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow",
-            policy: "read",
-            effect: "allow",
-          },
-          {
-            permission: "orchestrator.workflow.use",
-            policy: "update",
-            effect: "deny",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("allow", "deny"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify read-only role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("allow", "deny"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const readPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow" && p.policy === "read",
-      );
-      const denyUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use" && p.policy === "update",
-      );
-
-      expect(readPolicy).toBeDefined();
-      expect(denyUpdatePolicy).toBeDefined();
-      expect(readPolicy.effect).toBe("allow");
-      expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
     test("Verify global orchestrator workflow read-only access - Run button disabled", async () => {
@@ -268,67 +186,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with global orchestrator.workflow denied permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow",
-            policy: "read",
-            effect: "deny",
-          },
-          {
-            permission: "orchestrator.workflow.use",
-            policy: "update",
-            effect: "deny",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("deny", "deny"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify denied role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        globalWorkflowPolicies("deny", "deny"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const denyReadPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow" && p.policy === "read",
-      );
-      const denyUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use" && p.policy === "update",
-      );
-
-      expect(denyReadPolicy).toBeDefined();
-      expect(denyUpdatePolicy).toBeDefined();
-      expect(denyReadPolicy.effect).toBe("deny");
-      expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
     test("Verify global orchestrator workflow denied access - no workflows visible", async () => {
@@ -365,69 +240,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with greeting workflow denied permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow.greeting",
-            policy: "read",
-            effect: "deny",
-          },
-          {
-            permission: "orchestrator.workflow.use.greeting",
-            policy: "update",
-            effect: "deny",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("deny", "deny"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify greeting workflow denied role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("deny", "deny"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const denyReadPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.greeting" &&
-          p.policy === "read",
-      );
-      const denyUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use.greeting" &&
-          p.policy === "update",
-      );
-
-      expect(denyReadPolicy).toBeDefined();
-      expect(denyUpdatePolicy).toBeDefined();
-      expect(denyReadPolicy.effect).toBe("deny");
-      expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
     test("Verify individual workflow denied access - no workflows visible", async () => {
@@ -468,69 +298,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with greeting workflow read-write permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow.greeting",
-            policy: "read",
-            effect: "allow",
-          },
-          {
-            permission: "orchestrator.workflow.use.greeting",
-            policy: "update",
-            effect: "allow",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("allow", "allow"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify greeting workflow read-write role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("allow", "allow"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const allowReadPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.greeting" &&
-          p.policy === "read",
-      );
-      const allowUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use.greeting" &&
-          p.policy === "update",
-      );
-
-      expect(allowReadPolicy).toBeDefined();
-      expect(allowUpdatePolicy).toBeDefined();
-      expect(allowReadPolicy.effect).toBe("allow");
-      expect(allowUpdatePolicy.effect).toBe("allow");
     });
 
     test("Verify individual workflow read-write access - only Greeting workflow visible and runnable", async () => {
@@ -579,69 +364,24 @@ test.describe.serial("Test Orchestrator RBAC", () => {
       await deleteRoleAndPolicies(apiToken, roleName);
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Create role with greeting workflow read-only permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
-          {
-            permission: "orchestrator.workflow.greeting",
-            policy: "read",
-            effect: "allow",
-          },
-          {
-            permission: "orchestrator.workflow.use.greeting",
-            policy: "update",
-            effect: "deny",
-          },
-        ]),
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("allow", "deny"),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
+    // eslint-disable-next-line playwright/expect-expect
     test("Verify greeting workflow read-only role exists via API", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === roleName,
+      await verifyRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        greetingWorkflowPolicies("allow", "deny"),
       );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(roleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const allowReadPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.greeting" &&
-          p.policy === "read",
-      );
-      const denyUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use.greeting" &&
-          p.policy === "update",
-      );
-
-      expect(allowReadPolicy).toBeDefined();
-      expect(denyUpdatePolicy).toBeDefined();
-      expect(allowReadPolicy.effect).toBe("allow");
-      expect(denyUpdatePolicy.effect).toBe("deny");
     });
 
     test("Verify individual workflow read-only access - only Greeting workflow visible, Run button disabled", async () => {

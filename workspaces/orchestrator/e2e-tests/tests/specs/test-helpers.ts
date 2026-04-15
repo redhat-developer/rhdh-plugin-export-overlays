@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import {
   test,
+  expect,
   Browser,
   TestInfo,
   Page,
@@ -51,12 +52,106 @@ export type PolicySpec = {
   effect: string;
 };
 
+export function globalWorkflowPolicies(
+  readEffect: "allow" | "deny",
+  useEffect: "allow" | "deny",
+): PolicySpec[] {
+  return [
+    {
+      permission: "orchestrator.workflow",
+      policy: "read",
+      effect: readEffect,
+    },
+    {
+      permission: "orchestrator.workflow.use",
+      policy: "update",
+      effect: useEffect,
+    },
+  ];
+}
+
+export function greetingWorkflowPolicies(
+  readEffect: "allow" | "deny",
+  useEffect: "allow" | "deny",
+): PolicySpec[] {
+  return [
+    {
+      permission: "orchestrator.workflow.greeting",
+      policy: "read",
+      effect: readEffect,
+    },
+    {
+      permission: "orchestrator.workflow.use.greeting",
+      policy: "update",
+      effect: useEffect,
+    },
+  ];
+}
+
 export function roleApiName(roleName: string): string {
   return roleName.replace("role:", "").replace("default/", "");
 }
 
 export function buildPolicies(roleName: string, specs: PolicySpec[]) {
   return specs.map((spec) => ({ entityReference: roleName, ...spec }));
+}
+
+export async function createRoleWithPolicies(
+  apiToken: string,
+  roleName: string,
+  memberReferences: string[],
+  policySpecs: PolicySpec[],
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+  const rolePostResponse = await rbacApi.createRoles({
+    memberReferences,
+    name: roleName,
+  });
+  const policyPostResponse = await rbacApi.createPolicies(
+    buildPolicies(roleName, policySpecs),
+  );
+  expect(rolePostResponse.ok()).toBeTruthy();
+  expect(policyPostResponse.ok()).toBeTruthy();
+}
+
+export async function verifyRoleWithPolicies(
+  apiToken: string,
+  roleName: string,
+  expectedMembers: string[],
+  expectedPolicies: PolicySpec[],
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+
+  const rolesResponse = await rbacApi.getRoles();
+  expect(rolesResponse.ok()).toBeTruthy();
+
+  const roles = await rolesResponse.json();
+  const workflowRole = roles.find(
+    (role: { name: string; memberReferences: string[] }) =>
+      role.name === roleName,
+  );
+  expect(workflowRole).toBeDefined();
+  for (const member of expectedMembers) {
+    expect(workflowRole?.memberReferences).toContain(member);
+  }
+
+  const policiesResponse = await rbacApi.getPoliciesByRole(
+    roleApiName(roleName),
+  );
+  expect(policiesResponse.ok()).toBeTruthy();
+
+  const policies = await policiesResponse.json();
+  expect(policies).toHaveLength(expectedPolicies.length);
+
+  for (const expectedPolicy of expectedPolicies) {
+    const actualPolicy = policies.find(
+      (policy: { permission: string; policy: string; effect: string }) =>
+        policy.permission === expectedPolicy.permission &&
+        policy.policy === expectedPolicy.policy,
+    );
+    expect(actualPolicy).toBeDefined();
+    expect(actualPolicy.effect).toBe(expectedPolicy.effect);
+  }
 }
 
 const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
@@ -375,7 +470,7 @@ async function waitForReconciliation(
         "-n",
         namespace,
         "-o",
-        "jsonpath={.status.conditions[?(@.type==\"Progressing\")].status}",
+        'jsonpath={.status.conditions[?(@.type=="Progressing")].status}',
       ]);
       const cleaned = status.replaceAll("'", "");
       if (cleaned === "True") {
@@ -492,7 +587,17 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
       const imgPatch = JSON.stringify({
         spec: { podTemplate: { container: { image } } },
       });
-      runOc(["-n", namespace, "patch", "sonataflow", wf, "--type", "merge", "-p", imgPatch]);
+      runOc([
+        "-n",
+        namespace,
+        "patch",
+        "sonataflow",
+        wf,
+        "--type",
+        "merge",
+        "-p",
+        imgPatch,
+      ]);
     } catch {
       /* ignore per-workflow patch failure */
     }
@@ -500,7 +605,10 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
 }
 
 export function runOc(args: string[], timeoutMs = 30_000): string {
-  return execFileSync("oc", args, { encoding: "utf-8", timeout: timeoutMs }).trim();
+  return execFileSync("oc", args, {
+    encoding: "utf-8",
+    timeout: timeoutMs,
+  }).trim();
 }
 
 function detectOperatorVersion(...labels: string[]): string {
