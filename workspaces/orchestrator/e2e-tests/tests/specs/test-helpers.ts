@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import {
   test,
@@ -256,7 +256,17 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
     await waitForReconciliation(namespace, workflow, 60);
-    oc(`rollout status deployment/${workflow} -n ${namespace} --timeout=600s`);
+    oc(
+      [
+        "rollout",
+        "status",
+        `deployment/${workflow}`,
+        "-n",
+        namespace,
+        "--timeout=600s",
+      ],
+      610_000,
+    );
   }
 }
 
@@ -279,9 +289,7 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
       },
     },
   });
-  return oc(
-    `-n ${namespace} patch sonataflow ${workflow} --type merge -p '${patch}'`,
-  );
+  return oc(["-n", namespace, "patch", "sonataflow", workflow, "--type", "merge", "-p", patch]);
 }
 
 async function waitForCRs(namespace: string): Promise<void> {
@@ -290,7 +298,7 @@ async function waitForCRs(namespace: string): Promise<void> {
   while (Date.now() < deadline) {
     attempt++;
     try {
-      const out = oc(`get sonataflow -n ${namespace} --no-headers`);
+      const out = oc(["get", "sonataflow", "-n", namespace, "--no-headers"]);
       const found = out.split("\n").filter(Boolean).length;
       if (found >= WORKFLOWS.length) {
         return;
@@ -315,9 +323,15 @@ async function waitForReconciliation(
   while (Date.now() < deadline) {
     attempt++;
     try {
-      const status = oc(
-        `get deployment ${workflow} -n ${namespace} -o jsonpath='{.status.conditions[?(@.type=="Progressing")].status}'`,
-      );
+      const status = oc([
+        "get",
+        "deployment",
+        workflow,
+        "-n",
+        namespace,
+        "-o",
+        "jsonpath={.status.conditions[?(@.type==\"Progressing\")].status}",
+      ]);
       const cleaned = status.replaceAll("'", "");
       if (cleaned === "True") {
         return;
@@ -380,14 +394,38 @@ function hardenSonataFlowPlatform(namespace: string): void {
         },
       },
     });
+    oc([
+      "-n",
+      namespace,
+      "patch",
+      "sonataflowplatform",
+      "sonataflow-platform",
+      "--type",
+      "merge",
+      "-p",
+      sfpPatch,
+    ]);
     oc(
-      `-n ${namespace} patch sonataflowplatform sonataflow-platform --type merge -p '${sfpPatch}'`,
+      [
+        "rollout",
+        "status",
+        "deployment/sonataflow-platform-data-index-service",
+        "-n",
+        namespace,
+        "--timeout=300s",
+      ],
+      310_000,
     );
     oc(
-      `rollout status deployment/sonataflow-platform-data-index-service -n ${namespace} --timeout=300s`,
-    );
-    oc(
-      `rollout status deployment/sonataflow-platform-jobs-service -n ${namespace} --timeout=300s`,
+      [
+        "rollout",
+        "status",
+        "deployment/sonataflow-platform-jobs-service",
+        "-n",
+        namespace,
+        "--timeout=300s",
+      ],
+      310_000,
     );
   } catch {
     /* SFP patch non-fatal */
@@ -409,25 +447,30 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
       const imgPatch = JSON.stringify({
         spec: { podTemplate: { container: { image } } },
       });
-      oc(
-        `-n ${namespace} patch sonataflow ${wf} --type merge -p '${imgPatch}'`,
-      );
+      oc(["-n", namespace, "patch", "sonataflow", wf, "--type", "merge", "-p", imgPatch]);
     } catch {
       /* ignore per-workflow patch failure */
     }
   }
 }
 
-function oc(args: string): string {
-  return execSync(`oc ${args}`, { encoding: "utf-8" }).trim();
+function oc(args: string[], timeoutMs = 30_000): string {
+  return execFileSync("oc", args, { encoding: "utf-8", timeout: timeoutMs }).trim();
 }
 
 function detectOperatorVersion(...labels: string[]): string {
   for (const label of labels) {
     try {
-      const version = oc(
-        `get csv -n openshift-operators -o jsonpath={.items[0].spec.version} -l ${label}`,
-      );
+      const version = oc([
+        "get",
+        "csv",
+        "-n",
+        "openshift-operators",
+        "-o",
+        "jsonpath={.items[0].spec.version}",
+        "-l",
+        label,
+      ]);
       if (version) return version;
     } catch {
       /* try next candidate */
