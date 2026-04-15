@@ -14,8 +14,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-npm"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-npm:bs_1.48.3__1.18.1!backstage-community-plugin-npm
-  version: 1.18.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-npm:bs_1.49.4__1.20.0!backstage-community-plugin-npm
+  version: 1.20.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
