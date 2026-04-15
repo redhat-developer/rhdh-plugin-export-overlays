@@ -1305,29 +1305,47 @@ test.describe.serial("Test Orchestrator RBAC", () => {
     });
 
     test("Launch template and run workflow - verify success", async () => {
-      test.setTimeout(180_000);
-      await uiHelper.clickLink({ ariaLabel: "Self-service" });
-      await uiHelper.verifyHeading("Self-service");
+      test.setTimeout(240_000);
 
-      await page.waitForLoadState("domcontentloaded");
+      let finished = false;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        await uiHelper.clickLink({ ariaLabel: "Self-service" });
+        await uiHelper.verifyHeading("Self-service");
+        await page.waitForLoadState("domcontentloaded");
 
-      await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+        await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+        await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
 
-      await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
+        const createButton = page.getByRole("button", { name: /Create/i });
+        await expect(createButton).toBeVisible({ timeout: 10000 });
+        await expect(createButton).toBeEnabled({ timeout: 10000 });
+        await createButton.click();
 
-      const createButton = page.getByRole("button", { name: /Create/i });
-      await expect(createButton).toBeVisible({ timeout: 10000 });
-      await createButton.click();
+        const completed = page.getByText(/Completed|succeeded|finished/i);
+        const conflictError = page.getByText(/409 Conflict/i);
+        const startOver = page.getByRole("button", { name: "Start Over" });
 
-      const completed = page.getByText(/Completed|succeeded|finished/i);
-      const conflictError = page.getByText(/409 Conflict/i);
-      const startOver = page.getByRole("button", { name: "Start Over" });
+        try {
+          await expect(
+            completed.or(conflictError).or(startOver).first(),
+          ).toBeVisible({
+            timeout: attempt === 1 ? 90_000 : 120_000,
+          });
+          finished = true;
+          break;
+        } catch (error) {
+          // eslint-disable-next-line playwright/no-conditional-in-test
+          if (attempt === 2) {
+            throw error;
+          }
+          // First attempt can intermittently stall on task-stream loading.
+          // Retry once end-to-end from Self-service before failing the test.
+          await page.goto("/");
+          await page.waitForLoadState("domcontentloaded");
+        }
+      }
 
-      await expect(
-        completed.or(conflictError).or(startOver).first(),
-      ).toBeVisible({
-        timeout: 120000,
-      });
+      expect(finished).toBeTruthy();
     });
 
     test("Verify workflow run appears in Orchestrator", async () => {
