@@ -358,44 +358,48 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
     return failAll("invalid probe response");
   }
 
-  const results = [];
-  for (const fp of frontendPlugins) {
-    const loaded = body.find(
-      (lp) => lp && typeof lp === "object" && lp.name === fp.pkgName,
-    );
-
+  const toFrontendProbeResult = (fp, loaded) => {
     if (!loaded) {
-      results.push({
+      return {
         pkgName: fp.pkgName,
         role: fp.role,
         pluginPath: fp.pluginPath,
         status: "fail-load",
         detail: "not found in loaded plugins list",
-      });
-    } else if (loaded.platform !== "web") {
-      results.push({
+      };
+    }
+    if (loaded.platform !== "web") {
+      return {
         pkgName: fp.pkgName,
         role: fp.role,
         pluginPath: fp.pluginPath,
         status: "fail-load",
         detail: `unexpected platform: ${loaded.platform}`,
-      });
-    } else if (loaded.failure) {
-      results.push({
+      };
+    }
+    if (loaded.failure) {
+      return {
         pkgName: fp.pkgName,
         role: fp.role,
         pluginPath: fp.pluginPath,
         status: "fail-load",
         detail: `plugin loaded with failure: ${loaded.failure}`,
-      });
-    } else {
-      results.push({
-        pkgName: fp.pkgName,
-        role: fp.role,
-        pluginPath: fp.pluginPath,
-        status: "pass",
-      });
+      };
     }
+    return {
+      pkgName: fp.pkgName,
+      role: fp.role,
+      pluginPath: fp.pluginPath,
+      status: "pass",
+    };
+  };
+
+  const results = [];
+  for (const fp of frontendPlugins) {
+    const loaded = body.find(
+      (lp) => lp && typeof lp === "object" && lp.name === fp.pkgName,
+    );
+    results.push(toFrontendProbeResult(fp, loaded));
   }
   return results;
 }
