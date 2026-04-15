@@ -408,55 +408,74 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
 // Reporting
 // ---------------------------------------------------------------------------
 
+function logPassResult(result) {
+  if (result.pluginId) {
+    return `  PASS  ${result.pkgName}  → /api/${result.pluginId}  (${result.http})`;
+  }
+  if (isFrontendRole(result.role)) {
+    return `  PASS  ${result.pkgName}  (${result.role})`;
+  }
+  return null;
+}
+
+function logResultAndCollectFailures(result, failedPlugins) {
+  const statusHandlers = {
+    skip: () => ({ line: `  SKIP  ${result.pkgName}  (${result.role})` }),
+    pass: () => ({ line: logPassResult(result) }),
+    warn: () => ({
+      line: `  WARN  ${result.pkgName}  → /api/${result.pluginId}  (404 — pluginId guess may be wrong)`,
+    }),
+    "fail-bundle": () => ({
+      line: `  FAIL  ${result.pkgName}  [bundle] ${result.detail}`,
+      failed: true,
+    }),
+    "fail-load": () => ({
+      line: `  FAIL  ${result.pkgName}  [load] ${result.detail}`,
+      failed: true,
+    }),
+  };
+
+  const handled = statusHandlers[result.status]?.() ?? {
+    line: `  FAIL  ${result.pkgName}  ${result.error}`,
+    failed: true,
+  };
+
+  if (handled.line) {
+    console.log(handled.line);
+  }
+  if (handled.failed) {
+    failedPlugins.push(result.pkgName);
+  }
+}
+
+function updateResultCounts(result, backendCounts, frontendCounts) {
+  const isFrontend = isFrontendRole(result.role);
+  if (result.status === "fail-bundle" || result.status === "fail-load") {
+    if (isFrontend) frontendCounts.fail++;
+    else backendCounts.fail++;
+    return;
+  }
+
+  if (isFrontend) {
+    frontendCounts[result.status] = (frontendCounts[result.status] ?? 0) + 1;
+    return;
+  }
+
+  backendCounts[result.status] = (backendCounts[result.status] ?? 0) + 1;
+}
+
 function reportAndWrite(results, resultsFile) {
   console.log("\n========== Smoke Test Results ==========\n");
   const failedPlugins = [];
 
   for (const r of results) {
-    switch (r.status) {
-      case "skip":
-        console.log(`  SKIP  ${r.pkgName}  (${r.role})`);
-        break;
-      case "pass":
-        if (r.pluginId) {
-          console.log(
-            `  PASS  ${r.pkgName}  → /api/${r.pluginId}  (${r.http})`,
-          );
-        } else if (isFrontendRole(r.role)) {
-          console.log(`  PASS  ${r.pkgName}  (${r.role})`);
-        }
-        break;
-      case "warn":
-        console.log(
-          `  WARN  ${r.pkgName}  → /api/${r.pluginId}  (404 — pluginId guess may be wrong)`,
-        );
-        break;
-      case "fail-bundle":
-        console.log(`  FAIL  ${r.pkgName}  [bundle] ${r.detail}`);
-        failedPlugins.push(r.pkgName);
-        break;
-      case "fail-load":
-        console.log(`  FAIL  ${r.pkgName}  [load] ${r.detail}`);
-        failedPlugins.push(r.pkgName);
-        break;
-      default:
-        console.log(`  FAIL  ${r.pkgName}  ${r.error}`);
-        failedPlugins.push(r.pkgName);
-    }
+    logResultAndCollectFailures(r, failedPlugins);
   }
 
   const be = { pass: 0, warn: 0, skip: 0, fail: 0 };
   const fe = { pass: 0, fail: 0 };
   for (const r of results) {
-    const isFe = isFrontendRole(r.role);
-    if (r.status === "fail-bundle" || r.status === "fail-load") {
-      if (isFe) fe.fail++;
-      else be.fail++;
-    } else if (isFe) {
-      fe[r.status] = (fe[r.status] ?? 0) + 1;
-    } else {
-      be[r.status] = (be[r.status] ?? 0) + 1;
-    }
+    updateResultCounts(r, be, fe);
   }
   const total = results.length;
   const totalFail = be.fail + fe.fail;
