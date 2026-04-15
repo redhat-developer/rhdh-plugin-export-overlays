@@ -122,6 +122,41 @@ export async function setupAuthenticatedPage(
   return { page, uiHelper, loginHelper, apiToken };
 }
 
+export async function launchGreetingTemplateFromSelfService(
+  page: Page,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.clickLink({ ariaLabel: "Self-service" });
+  await uiHelper.verifyHeading("Self-service");
+  await page.waitForLoadState("domcontentloaded");
+  await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+  await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
+}
+
+export async function waitForScaffolderTerminalState(
+  page: Page,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const completed = page.getByText(/Completed|succeeded|finished/i);
+  const conflictError = page.getByText(/409 Conflict/i);
+  const startOver = page.getByRole("button", { name: "Start Over" });
+  await completed
+    .or(conflictError)
+    .or(startOver)
+    .first()
+    .waitFor({ state: "visible", timeout: timeoutMs });
+}
+
+export async function clickCreateAndWaitForScaffolderTerminalState(
+  page: Page,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const createButton = page.getByRole("button", { name: /Create/i });
+  await createButton.waitFor({ state: "visible", timeout: 10_000 });
+  await createButton.click();
+  await waitForScaffolderTerminalState(page, timeoutMs);
+}
+
 export async function deleteRoleAndPolicies(
   apiToken: string,
   roleName: string,
@@ -256,7 +291,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
     await waitForReconciliation(namespace, workflow, 60);
-    oc(
+    runOc(
       [
         "rollout",
         "status",
@@ -289,7 +324,17 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
       },
     },
   });
-  return oc(["-n", namespace, "patch", "sonataflow", workflow, "--type", "merge", "-p", patch]);
+  return runOc([
+    "-n",
+    namespace,
+    "patch",
+    "sonataflow",
+    workflow,
+    "--type",
+    "merge",
+    "-p",
+    patch,
+  ]);
 }
 
 async function waitForCRs(namespace: string): Promise<void> {
@@ -298,7 +343,7 @@ async function waitForCRs(namespace: string): Promise<void> {
   while (Date.now() < deadline) {
     attempt++;
     try {
-      const out = oc(["get", "sonataflow", "-n", namespace, "--no-headers"]);
+      const out = runOc(["get", "sonataflow", "-n", namespace, "--no-headers"]);
       const found = out.split("\n").filter(Boolean).length;
       if (found >= WORKFLOWS.length) {
         return;
@@ -323,7 +368,7 @@ async function waitForReconciliation(
   while (Date.now() < deadline) {
     attempt++;
     try {
-      const status = oc([
+      const status = runOc([
         "get",
         "deployment",
         workflow,
@@ -394,7 +439,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
         },
       },
     });
-    oc([
+    runOc([
       "-n",
       namespace,
       "patch",
@@ -405,7 +450,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
       "-p",
       sfpPatch,
     ]);
-    oc(
+    runOc(
       [
         "rollout",
         "status",
@@ -416,7 +461,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
       ],
       310_000,
     );
-    oc(
+    runOc(
       [
         "rollout",
         "status",
@@ -447,21 +492,21 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
       const imgPatch = JSON.stringify({
         spec: { podTemplate: { container: { image } } },
       });
-      oc(["-n", namespace, "patch", "sonataflow", wf, "--type", "merge", "-p", imgPatch]);
+      runOc(["-n", namespace, "patch", "sonataflow", wf, "--type", "merge", "-p", imgPatch]);
     } catch {
       /* ignore per-workflow patch failure */
     }
   }
 }
 
-function oc(args: string[], timeoutMs = 30_000): string {
+export function runOc(args: string[], timeoutMs = 30_000): string {
   return execFileSync("oc", args, { encoding: "utf-8", timeout: timeoutMs }).trim();
 }
 
 function detectOperatorVersion(...labels: string[]): string {
   for (const label of labels) {
     try {
-      const version = oc([
+      const version = runOc([
         "get",
         "csv",
         "-n",

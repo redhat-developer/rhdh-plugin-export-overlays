@@ -6,6 +6,8 @@ import {
   ensureBaselineRole,
   deploySonataflow,
   cleanupGreetingComponentEntity,
+  runOc,
+  clickCreateAndWaitForScaffolderTerminalState,
 } from "./test-helpers.js";
 
 interface WorkflowNode {
@@ -32,13 +34,6 @@ function decodeEnvVar(name: string): string {
     throw new Error(`Environment variable ${name} is not set`);
   }
   return Buffer.from(value, "base64").toString();
-}
-
-function runOc(args: string[], timeoutMs: number): string {
-  return execFileSync("oc", args, {
-    encoding: "utf-8",
-    timeout: timeoutMs,
-  }).trim();
 }
 
 function isDataIndexHealthy(ns: string): boolean {
@@ -744,19 +739,7 @@ test.describe("Orchestrator", () => {
       await reviewButton.click();
       await page.waitForLoadState("domcontentloaded");
 
-      const createButton = page.getByRole("button", { name: /Create/i });
-      await expect(createButton).toBeVisible({ timeout: 10000 });
-      await createButton.click();
-
-      const completed = page.getByText(/Completed|succeeded|finished/i);
-      const conflictError = page.getByText(/409 Conflict/i);
-      const startOver = page.getByRole("button", { name: "Start Over" });
-
-      await expect(
-        completed.or(conflictError).or(startOver).first(),
-      ).toBeVisible({
-        timeout: 120000,
-      });
+      await clickCreateAndWaitForScaffolderTerminalState(page);
 
       await uiHelper.openSidebar("Orchestrator");
       await expect(

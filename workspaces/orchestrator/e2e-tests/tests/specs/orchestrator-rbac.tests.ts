@@ -16,6 +16,8 @@ import {
   SECONDARY_USER,
   deploySonataflow,
   cleanupGreetingComponentEntity,
+  launchGreetingTemplateFromSelfService,
+  clickCreateAndWaitForScaffolderTerminalState,
 } from "./test-helpers.js";
 
 test.describe.serial("Test Orchestrator RBAC", () => {
@@ -1309,28 +1311,13 @@ test.describe.serial("Test Orchestrator RBAC", () => {
 
       let finished = false;
       for (let attempt = 1; attempt <= 2; attempt++) {
-        await uiHelper.clickLink({ ariaLabel: "Self-service" });
-        await uiHelper.verifyHeading("Self-service");
-        await page.waitForLoadState("domcontentloaded");
-
-        await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-        await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
-
-        const createButton = page.getByRole("button", { name: /Create/i });
-        await expect(createButton).toBeVisible({ timeout: 10000 });
-        await expect(createButton).toBeEnabled({ timeout: 10000 });
-        await createButton.click();
-
-        const completed = page.getByText(/Completed|succeeded|finished/i);
-        const conflictError = page.getByText(/409 Conflict/i);
-        const startOver = page.getByRole("button", { name: "Start Over" });
+        await launchGreetingTemplateFromSelfService(page, uiHelper);
 
         try {
-          await expect(
-            completed.or(conflictError).or(startOver).first(),
-          ).toBeVisible({
-            timeout: attempt === 1 ? 90_000 : 120_000,
-          });
+          await clickCreateAndWaitForScaffolderTerminalState(
+            page,
+            attempt === 1 ? 90_000 : 120_000,
+          );
           finished = true;
           break;
         } catch (error) {
