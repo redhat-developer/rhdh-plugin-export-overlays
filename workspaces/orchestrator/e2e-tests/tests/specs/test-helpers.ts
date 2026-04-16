@@ -34,6 +34,9 @@ const GREETING_COMPONENT_LOCATION =
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
+const WORKFLOW_REPO_REF =
+  process.env.SERVERLESS_WORKFLOWS_REF ||
+  "daeeee8dec16beab6d96a81774ef500081a2c2b0";
 
 const MANIFEST_DIRS = [
   "workflows/greeting/manifests",
@@ -370,6 +373,8 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
   try {
     await $`git clone --depth=1 ${WORKFLOW_REPO} ${workflowDir}`;
+    await $`git -C ${workflowDir} fetch --depth=1 origin ${WORKFLOW_REPO_REF}`;
+    await $`git -C ${workflowDir} checkout --detach ${WORKFLOW_REPO_REF}`;
 
     for (const rel of MANIFEST_DIRS) {
       const fullPath = join(workflowDir, rel);
@@ -381,10 +386,20 @@ export async function deploySonataflow(namespace: string): Promise<void> {
 
   await waitForCRs(namespace);
 
-  alignWorkflowImages(namespace, oslMajorMinor);
-
+  // Patch persistence before image alignment so the operator never materializes
+  // ReplicaSets that still reference upstream `sonataflow-psql-postgresql` (missing).
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
+  }
+
+  alignWorkflowImages(namespace, oslMajorMinor);
+
+  // Image patch can trigger another reconcile; re-apply persistence for safety.
+  for (const workflow of WORKFLOWS) {
+    patchWorkflowPostgres(namespace, workflow);
+  }
+
+  for (const workflow of WORKFLOWS) {
     await waitForReconciliation(namespace, workflow, 60);
     runOc(
       [
