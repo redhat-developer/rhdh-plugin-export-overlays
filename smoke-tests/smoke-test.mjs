@@ -83,32 +83,6 @@ function isFrontendRole(role) {
 }
 
 // ---------------------------------------------------------------------------
-// Config helpers
-// ---------------------------------------------------------------------------
-
-function deepMerge(src, dst) {
-  for (const [k, v] of Object.entries(src)) {
-    if (v && typeof v === "object" && !Array.isArray(v)) {
-      dst[k] = dst[k] ?? {};
-      deepMerge(v, dst[k]);
-    } else {
-      dst[k] = v;
-    }
-  }
-  return dst;
-}
-
-function loadConfigs(configPaths) {
-  const merged = {};
-  for (const p of configPaths) {
-    if (!existsSync(p)) continue;
-    const doc = yaml.load(readFileSync(p, "utf8"));
-    if (doc && typeof doc === "object") deepMerge(doc, merged);
-  }
-  return merged;
-}
-
-// ---------------------------------------------------------------------------
 // Frontend bundle validation (Layer 1)
 // ---------------------------------------------------------------------------
 
@@ -167,9 +141,8 @@ function validateFrontendBundles(plugins, pluginsRoot) {
 // Backend boot (startTestBackend + probe plugin)
 // ---------------------------------------------------------------------------
 
-async function bootBackend(configData) {
-  const { startTestBackend, mockServices } =
-    await import("@backstage/backend-test-utils");
+async function bootBackend(configPaths) {
+  const { startTestBackend } = await import("@backstage/backend-test-utils");
   const {
     dynamicPluginsFeatureLoader,
     CommonJSModuleLoader,
@@ -209,29 +182,37 @@ async function bootBackend(configData) {
     },
   });
 
-  const { server } = await startTestBackend({
-    features: [
-      mockServices.rootConfig.factory({ data: configData }),
-      dynamicPluginsFeatureLoader({
-        schemaLocator(pluginPackage) {
-          const platform = PackageRoles.getRoleInfo(
-            pluginPackage.manifest.backstage.role,
-          ).platform;
-          return path.join(
-            platform === "node" ? "dist" : "dist-scalprum",
-            "configSchema.json",
-          );
-        },
-        moduleLoader: (logger) => new CommonJSModuleLoader({ logger }),
-      }),
-      createServiceFactory({
-        service: dynamicPluginsFrontendServiceRef,
-        deps: {},
-        factory: () => ({ setResolverProvider() {} }),
-      }),
-      smokeTestProbePlugin,
-    ],
-  });
+  const baseArgv = [...process.argv];
+  const configArgv = configPaths.flatMap((configPath) => ["--config", configPath]);
+  process.argv = [...baseArgv, ...configArgv];
+
+  let server;
+  try {
+    ({ server } = await startTestBackend({
+      features: [
+        dynamicPluginsFeatureLoader({
+          schemaLocator(pluginPackage) {
+            const platform = PackageRoles.getRoleInfo(
+              pluginPackage.manifest.backstage.role,
+            ).platform;
+            return path.join(
+              platform === "node" ? "dist" : "dist-scalprum",
+              "configSchema.json",
+            );
+          },
+          moduleLoader: (logger) => new CommonJSModuleLoader({ logger }),
+        }),
+        createServiceFactory({
+          service: dynamicPluginsFrontendServiceRef,
+          deps: {},
+          factory: () => ({ setResolverProvider() {} }),
+        }),
+        smokeTestProbePlugin,
+      ],
+    }));
+  } finally {
+    process.argv = baseArgv;
+  }
 
   const addr = server.address();
   const port = typeof addr === "object" ? addr.port : 7007;
@@ -576,8 +557,12 @@ async function main() {
   console.log("\n3. Booting Backstage backend (startTestBackend)");
   const allConfigPaths = [...args.configs];
   if (existsSync(generatedCfg)) allConfigPaths.push(generatedCfg);
-  const configData = loadConfigs(allConfigPaths);
-  const { server, port } = await bootBackend(configData);
+  const configPaths = allConfigPaths.filter((configPath) => {
+    if (existsSync(configPath)) return true;
+    console.warn(`  WARN: config file not found, skipping: ${configPath}`);
+    return false;
+  });
+  const { server, port } = await bootBackend(configPaths);
 
   let success = false;
   try {

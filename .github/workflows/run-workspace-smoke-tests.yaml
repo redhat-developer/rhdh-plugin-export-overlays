@@ -37,9 +37,9 @@ jobs:
           path: ./artifacts
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install skopeo
         run: |
@@ -103,9 +103,9 @@ jobs:
           ENV_ARGS=""
           [ -f ../test.env ] && ENV_ARGS="--env-file ../test.env"
 
-          echo "Running: node smoke-test.mjs --plugins-yaml ../dynamic-plugins.test.yaml --skip-download $CONFIG_ARGS $ENV_ARGS"
+          echo "Running: npm test -- --plugins-yaml ../dynamic-plugins.test.yaml --skip-download $CONFIG_ARGS $ENV_ARGS"
 
-          node smoke-test.mjs \
+          npm test -- \
             --plugins-yaml ../dynamic-plugins.test.yaml \
             --skip-download \
             $CONFIG_ARGS \
