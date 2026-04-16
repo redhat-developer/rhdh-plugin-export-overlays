@@ -45,6 +45,10 @@ const MANIFEST_DIRS = [
 
 const WORKFLOWS = ["greeting", "failswitch"];
 
+/** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
+const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
+const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
+
 // ---------------------------------------------------------------------------
 // RBAC helpers
 // ---------------------------------------------------------------------------
@@ -399,8 +403,18 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     patchWorkflowPostgres(namespace, workflow);
   }
 
+  const postgresAlignTimeoutMs = 120_000;
   for (const workflow of WORKFLOWS) {
-    await waitForReconciliation(namespace, workflow, 60);
+    await waitForWorkflowPostgresDeploymentAligned(
+      namespace,
+      workflow,
+      postgresAlignTimeoutMs,
+    );
+    runOc(
+      ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
+      60_000,
+    );
+    await sleep(2_000);
     runOc(
       [
         "rollout",
@@ -447,6 +461,71 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
   ]);
 }
 
+function parseOcJson<T = unknown>(
+  args: string[],
+  timeoutMs: number,
+): T | undefined {
+  try {
+    return JSON.parse(runOc(args, timeoutMs)) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function sonataFlowUsesE2ePostgresSecret(cr: Record<string, unknown>): boolean {
+  const spec = cr.spec as Record<string, unknown> | undefined;
+  const persistence = spec?.persistence as Record<string, unknown> | undefined;
+  const pg = persistence?.postgresql as Record<string, unknown> | undefined;
+  const secretRef = pg?.secretRef as Record<string, unknown> | undefined;
+  return secretRef?.name === E2E_WORKFLOW_PG_SECRET;
+}
+
+/** True if the live Deployment pod template still references the operator default secret. */
+function deploymentPodTemplateReferencesUpstreamPgSecret(
+  deployment: Record<string, unknown>,
+): boolean {
+  const spec = deployment.spec as Record<string, unknown> | undefined;
+  const template = spec?.template as Record<string, unknown> | undefined;
+  if (!template) return false;
+  return JSON.stringify(template).includes(UPSTREAM_WORKFLOW_PG_SECRET);
+}
+
+/**
+ * Wait until the SonataFlow CR and workflow Deployment both reflect the e2e Postgres
+ * wiring, re-applying the merge patch when the operator lags. Does not restart the rollout.
+ */
+async function waitForWorkflowPostgresDeploymentAligned(
+  namespace: string,
+  workflow: string,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    const cr = parseOcJson<Record<string, unknown>>(
+      ["get", "sonataflow", workflow, "-n", namespace, "-o", "json"],
+      15_000,
+    );
+    const deployment = parseOcJson<Record<string, unknown>>(
+      ["get", "deployment", workflow, "-n", namespace, "-o", "json"],
+      15_000,
+    );
+    const crOk = cr && sonataFlowUsesE2ePostgresSecret(cr);
+    const depOk =
+      deployment &&
+      !deploymentPodTemplateReferencesUpstreamPgSecret(deployment);
+    if (crOk && depOk) {
+      return;
+    }
+    patchWorkflowPostgres(namespace, workflow);
+    await sleep(2_000);
+  }
+  console.warn(
+    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): workflow "${workflow}" not aligned on ${E2E_WORKFLOW_PG_SECRET} (SonataFlow CR + Deployment template; attempts=${attempt})`,
+  );
+}
+
 async function waitForCRs(namespace: string): Promise<void> {
   const deadline = Date.now() + 60_000;
   let attempt = 0;
@@ -465,39 +544,6 @@ async function waitForCRs(namespace: string): Promise<void> {
   }
   console.warn(
     `[deploy-sonataflow] TIMEOUT: Only found fewer than ${WORKFLOWS.length} SonataFlow CRs after ${attempt} attempts`,
-  );
-}
-
-async function waitForReconciliation(
-  namespace: string,
-  workflow: string,
-  timeoutSecs: number,
-): Promise<void> {
-  const deadline = Date.now() + timeoutSecs * 1_000;
-  let attempt = 0;
-  while (Date.now() < deadline) {
-    attempt++;
-    try {
-      const status = runOc([
-        "get",
-        "deployment",
-        workflow,
-        "-n",
-        namespace,
-        "-o",
-        'jsonpath={.status.conditions[?(@.type=="Progressing")].status}',
-      ]);
-      const cleaned = status.replaceAll("'", "");
-      if (cleaned === "True") {
-        return;
-      }
-    } catch {
-      // not available yet
-    }
-    await sleep(2_000);
-  }
-  console.warn(
-    `[deploy-sonataflow] TIMEOUT waiting for reconciliation of ${workflow} after ${timeoutSecs}s (${attempt} attempts)`,
   );
 }
 
