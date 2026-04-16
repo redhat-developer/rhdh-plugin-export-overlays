@@ -31,5 +31,4 @@ spec:
       content:
         dynamicPlugins:
           frontend:
-            backstage.plugin-signals:
-              translationResources: []
+            backstage.plugin-signals: {}

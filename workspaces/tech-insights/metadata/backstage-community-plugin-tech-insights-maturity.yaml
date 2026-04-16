@@ -22,13 +22,5 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
-  appConfigExamples:
-    - title: Tech Insights maturity fact retriever
-      content:
-        techInsights:
-          factRetrievers:
-            maturity:
-              schedule:
-                frequency: { hours: 6 }
-                timeout: { minutes: 10 }
-                initialDelay: { minutes: 1 }
+  appConfigNotRequired: true
+  appConfigExamples: []

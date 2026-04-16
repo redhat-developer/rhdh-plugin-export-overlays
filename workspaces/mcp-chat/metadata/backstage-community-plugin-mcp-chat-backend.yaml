@@ -26,16 +26,10 @@ spec:
     role: backend-plugin
     supportedVersions: 1.45.3
   appConfigExamples:
-    - title: Example provider and MCP server
+    - title: Minimal starter
       content:
         mcpChat:
           providers:
-            - id: example
-              baseUrl: ${MCP_CHAT_PROVIDER_BASE_URL}
-              model: ${MCP_CHAT_MODEL}
-              token: ${MCP_CHAT_PROVIDER_TOKEN}
-          mcpServers:
-            - id: example
-              name: Example MCP
-              url: ${MCP_CHAT_MCP_SERVER_URL}
-              type: streamable-http
+            - id: openai
+              token: ${OPENAI_API_KEY}
+              model: gpt-4o-mini

@@ -25,7 +25,11 @@ spec:
   support: community
   lifecycle: active
   appConfigExamples:
-    - title: MTA hub connection
+    - title: Minimal starter
       content:
         mta:
-          hubUrl: ${MTA_HUB_URL}
+          url: ${MTA_URL}
+          providerAuth:
+            realm: ${MTA_AUTH_REALM}
+            clientID: ${MTA_AUTH_CLIENT_ID}
+            secret: ${MTA_AUTH_CLIENT_SECRET}

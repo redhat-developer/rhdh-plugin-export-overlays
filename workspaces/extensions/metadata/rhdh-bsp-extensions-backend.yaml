@@ -24,9 +24,7 @@ spec:
   author: Red Hat
   support: tech-preview
   lifecycle: active
-  appConfigExamples:
-    - title: Default configuration
-      content:
-        extensions: {}
   partOf:
     - extensions
+  appConfigNotRequired: true
+  appConfigExamples: []
