@@ -113,12 +113,21 @@ gh workflow run export-workspaces-as-dynamic.yaml \
 
 ## PR Commands
 
-When working with Pull Requests, use these comment commands:
+When working with Pull Requests, use these comment commands on the PR (handled by [`pr-actions.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/.github/workflows/pr-actions.yaml)).
+
+**Requirements (all commands in this section):**
+
+- The PR must touch **exactly one** workspace (files under `workspaces/<name>/...`), or the head branch must match `workspaces/release-*__<name>` so the workspace can be inferred.
+- Use **one** slash command per comment (multiple commands in one comment are rejected).
 
 | Command | Action |
 |---------|--------|
 | `/publish` | Build and publish test OCI artifacts |
 | `/smoketest` | Re-run smoke tests (requires prior `/publish`) |
+| `/update-versions` | Copy [`versions.json`](../versions.json) from the PR base branch onto the PR branch so it matches the release line |
+| `/update-commit` | Re-run automatic plugin repo ref discovery for that workspace and update the PR branch |
+
+Use `/update-versions` when CI reports that `versions.json` on your PR does not match the release branch you are targeting. Use `/update-commit` when you want refreshed upstream refs (for example `source.json`) from discovery without editing them by hand.
 
 ### What `/publish` Does
 
@@ -131,6 +140,22 @@ When working with Pull Requests, use these comment commands:
 7. Packages as OCI containers
 8. Publishes to `ghcr.io` with tag `pr_<number>__<version>`
 9. Posts OCI references as a PR comment
+
+### What `/update-versions` Does
+
+1. Reads the root `versions.json` file from the **PR base branch** (for example `release-1.5`).
+2. Writes that same content onto your **PR head branch** so the PR’s `versions.json` matches the release line.
+3. Runs with **force** enabled: if your branch had local edits to `versions.json`, they can be **overwritten**—resolve intentional differences elsewhere (for example follow up with a separate commit only if policy allows).
+
+Workflow: [`update-prs-with-release-branch-commits.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-prs-with-release-branch-commits.yaml).
+
+### What `/update-commit` Does
+
+1. Resolves the single workspace for the PR (same rules as `/publish`).
+2. Invokes the **update plugins repository references** pipeline for that workspace only, scoped to the PR (same automation family as the scheduled discovery workflow, with `allow-workspace-addition` disabled so new workspaces are not created from the comment path).
+3. Updates discovery-managed inputs on the PR branch (such as `source.json` **repo-ref** / discovery outputs for that workspace)—not `versions.json` (use `/update-versions` for that).
+
+Workflow: [`update-plugins-repo-refs.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-plugins-repo-refs.yaml).
 
 ---
 

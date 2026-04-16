@@ -19,6 +19,8 @@ The version of Backstage that the target platform is built on. Defined in `versi
 }
 ```
 
+If an open PR targets a release branch and `versions.json` on the PR branch is behind the base branch, you can align it by commenting **`/update-versions`** on the PR (see [PR Commands](./02-export-tools.md#pr-commands) in the export tools guide).
+
 ### Supported Versions (in metadata)
 
 The Backstage version your plugin is compatible with:
