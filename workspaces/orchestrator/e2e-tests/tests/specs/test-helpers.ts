@@ -623,7 +623,16 @@ export function runOc(args: string[], timeoutMs = 30_000): string {
   return execFileSync("oc", args, {
     encoding: "utf-8",
     timeout: timeoutMs,
+    maxBuffer: 32 * 1024 * 1024,
   }).trim();
+}
+
+function formatOcFailure(err: unknown): string {
+  if (err instanceof Error) {
+    const m = err.message.trim();
+    return m.includes("\n") ? (m.split("\n")[0] ?? m) : m;
+  }
+  return String(err);
 }
 
 /**
@@ -634,7 +643,6 @@ export function logOrchestratorDeployFailureDiagnostics(
   namespace: string,
 ): void {
   const banner = (title: string) => {
-    // eslint-disable-next-line no-console -- diagnostics for CI triage
     console.error(`\n===== [orchestrator-e2e diagnostics] ${title} =====\n`);
   };
 
@@ -642,13 +650,20 @@ export function logOrchestratorDeployFailureDiagnostics(
     try {
       return runOc(args, timeoutMs);
     } catch (err) {
-      // eslint-disable-next-line no-console -- diagnostics for CI triage
       console.error(
-        `[orchestrator-e2e diagnostics] oc ${args.join(" ")} failed:`,
+        `[orchestrator-e2e diagnostics] oc ${args.join(" ")} failed: ${formatOcFailure(err)}`,
       );
-      // eslint-disable-next-line no-console -- diagnostics for CI triage
-      console.error(err);
       return undefined;
+    }
+  };
+
+  /** Print `oc` stdout; empty string usually means “no matches” (message on stderr). */
+  const dumpOc = (out: string | undefined, emptyHint: string) => {
+    if (out === undefined) return;
+    if (out.trim().length > 0) {
+      console.error(out);
+    } else {
+      console.error(emptyHint);
     }
   };
 
@@ -667,94 +682,258 @@ export function logOrchestratorDeployFailureDiagnostics(
 
   if (hubPod) {
     banner(`redhat-developer-hub pod describe (${hubPod})`);
-    safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000);
+    dumpOc(
+      safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000),
+      "(describe produced no stdout)",
+    );
 
     banner(`redhat-developer-hub pod logs (${hubPod}) --all-containers`);
-    safeOc(
-      ["logs", "-n", namespace, hubPod, "--all-containers", "--tail=400"],
-      180_000,
+    dumpOc(
+      safeOc(
+        ["logs", "-n", namespace, hubPod, "--all-containers", "--tail=400"],
+        180_000,
+      ),
+      "(no current container logs on stdout)",
     );
 
     banner(
       `redhat-developer-hub previous pod logs (${hubPod}) --all-containers`,
     );
-    safeOc(
-      [
-        "logs",
-        "-n",
-        namespace,
-        hubPod,
-        "--all-containers",
-        "--previous",
-        "--tail=400",
-      ],
-      180_000,
-    );
+    try {
+      console.error(
+        runOc(
+          [
+            "logs",
+            "-n",
+            namespace,
+            hubPod,
+            "--all-containers",
+            "--previous",
+            "--tail=400",
+          ],
+          180_000,
+        ),
+      );
+    } catch (err) {
+      const msg = formatOcFailure(err);
+      if (/BadRequest|not found|no previous/i.test(msg)) {
+        console.error(
+          "(no previous pod/container logs — single revision or init never restarted)",
+        );
+      } else {
+        console.error(`previous logs unavailable: ${msg}`);
+      }
+    }
   } else {
     banner("redhat-developer-hub pod not found via label selector");
-    safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000);
+    dumpOc(
+      safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000),
+      "(get pods — empty stdout)",
+    );
   }
 
-  banner("sonataflow platform pods (wide)");
-  safeOc(
-    [
-      "get",
-      "pods",
-      "-n",
-      namespace,
-      "-l",
-      "app.kubernetes.io/name=logic-operator",
-      "-o",
-      "wide",
-    ],
-    120_000,
+  banner(
+    "SonataFlow / workflow / data-index pods (namespace-wide — label selectors vary by OSL version)",
   );
-  safeOc(
-    [
-      "get",
-      "pods",
-      "-n",
-      namespace,
-      "-l",
-      "app.kubernetes.io/component=sonataflow-platform",
-      "-o",
-      "wide",
-    ],
-    120_000,
+  dumpOc(
+    safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000),
+    "(no pods listed in namespace)",
   );
 
-  banner("sonataflow workflow pods (failswitch/greeting)");
-  safeOc(
-    [
-      "get",
-      "pods",
-      "-n",
-      namespace,
-      "-l",
-      "sonataflow.org/workflowName=failswitch",
-      "-o",
-      "wide",
-    ],
-    120_000,
+  banner(
+    "sonataflow workflow pods (label selectors — may be empty on some OSL builds)",
   );
-  safeOc(
-    [
-      "get",
-      "pods",
-      "-n",
-      namespace,
-      "-l",
-      "sonataflow.org/workflowName=greeting",
-      "-o",
-      "wide",
-    ],
-    120_000,
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        "sonataflow.org/workflowName=failswitch",
+        "-o",
+        "wide",
+      ],
+      120_000,
+    ),
+    "(no pods with sonataflow.org/workflowName=failswitch — see namespace-wide list above)",
   );
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        "sonataflow.org/workflowName=greeting",
+        "-o",
+        "wide",
+      ],
+      120_000,
+    ),
+    "(no pods with sonataflow.org/workflowName=greeting — see namespace-wide list above)",
+  );
+
+  banner(
+    "SonataFlow CRs (oc get sonataflow … -o yaml — persistence vs operator reconcile)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`sonataflow/${workflow} (full YAML)`);
+    dumpOc(
+      safeOc(
+        ["get", "sonataflow", workflow, "-n", namespace, "-o", "yaml"],
+        120_000,
+      ),
+      `(get sonataflow/${workflow} returned empty stdout)`,
+    );
+  }
+
+  banner(
+    "workflow Deployments (oc describe deployment … — secret/volume mounts on pod template)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`deployment/${workflow} (describe)`);
+    dumpOc(
+      safeOc(["describe", "deployment", workflow, "-n", namespace], 120_000),
+      `(describe deployment/${workflow} returned empty stdout)`,
+    );
+  }
+
+  banner(
+    "Services + Endpoints (workflow — empty endpoints => DNS ok but no ready backends)",
+  );
+  dumpOc(
+    safeOc(
+      ["get", "svc", "failswitch", "greeting", "-n", namespace, "-o", "wide"],
+      60_000,
+    ),
+    "(get svc failswitch greeting — empty stdout)",
+  );
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "endpoints",
+        "failswitch",
+        "greeting",
+        "-n",
+        namespace,
+        "-o",
+        "wide",
+      ],
+      60_000,
+    ),
+    "(get endpoints — empty stdout)",
+  );
+  for (const svc of ["failswitch", "greeting"] as const) {
+    dumpOc(
+      safeOc(
+        [
+          "get",
+          "endpointslices.discovery.k8s.io",
+          "-n",
+          namespace,
+          "-l",
+          `kubernetes.io/service-name=${svc}`,
+          "-o",
+          "wide",
+        ],
+        60_000,
+      ),
+      `(no EndpointSlices for service ${svc} — empty stdout)`,
+    );
+  }
+
+  banner("NetworkPolicy (can block pod-to-pod traffic to workflow Services)");
+  dumpOc(
+    safeOc(["get", "networkpolicy", "-n", namespace, "-o", "wide"], 60_000),
+    "(no NetworkPolicies in namespace)",
+  );
+
+  banner(
+    "Postgres-related Secrets (existence only — compare to Deployment volume/env refs)",
+  );
+  banner("secret/backstage-psql-secret");
+  dumpOc(
+    safeOc(["get", "secret", "backstage-psql-secret", "-n", namespace], 30_000),
+    "(get secret backstage-psql-secret — empty stdout)",
+  );
+  banner(
+    "secret/sonataflow-psql-postgresql (upstream default; often absent in e2e)",
+  );
+  try {
+    dumpOc(
+      runOc(
+        ["get", "secret", "sonataflow-psql-postgresql", "-n", namespace],
+        30_000,
+      ),
+      "(secret absent — expected when workflows use backstage-psql-secret)",
+    );
+  } catch (err) {
+    const msg = formatOcFailure(err);
+    if (/NotFound/i.test(msg)) {
+      console.error(
+        "(not found — expected when workflows are patched to backstage-psql-secret)",
+      );
+    } else {
+      console.error(`unexpected error: ${msg}`);
+    }
+  }
+
+  banner(
+    "ReplicaSets in namespace (workflow — multiple RS generations / stale templates)",
+  );
+  dumpOc(
+    safeOc(["get", "rs", "-n", namespace, "-o", "wide"], 120_000),
+    "(get rs — empty stdout)",
+  );
+
+  banner(
+    "SonataFlow reconcile hints (generation / observedGeneration when present)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`sonataflow/${workflow} (generation line)`);
+    const gen = safeOc(
+      [
+        "get",
+        "sonataflow",
+        workflow,
+        "-n",
+        namespace,
+        "-o",
+        "jsonpath={.metadata.generation}",
+      ],
+      30_000,
+    );
+    if (gen !== undefined) {
+      console.error(`  metadata.generation=${gen.trim()}`);
+    }
+    const observed = safeOc(
+      [
+        "get",
+        "sonataflow",
+        workflow,
+        "-n",
+        namespace,
+        "-o",
+        "jsonpath={.status.observedGeneration}",
+      ],
+      30_000,
+    );
+    if (observed !== undefined && observed.trim() !== "") {
+      console.error(`  status.observedGeneration=${observed.trim()}`);
+    }
+  }
 
   banner("recent namespace warnings/errors (last 200 events)");
-  safeOc(
-    ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
-    120_000,
+  dumpOc(
+    safeOc(
+      ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
+      120_000,
+    ),
+    "(get events — empty stdout)",
   );
 }
 
