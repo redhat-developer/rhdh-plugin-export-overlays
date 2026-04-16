@@ -3,49 +3,114 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs as parseCliArgs } from "node:util";
 import yaml from "js-yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+type ResultStatus =
+  | "skip"
+  | "pass"
+  | "warn"
+  | "fail"
+  | "fail-bundle"
+  | "fail-load";
+
+type CountBuckets = {
+  pass: number;
+  fail: number;
+  warn?: number;
+  skip?: number;
+  [key: string]: number | undefined;
+};
+
+type CliArgs = {
+  pluginsYaml: string;
+  configs: string[];
+  envFile: string | null;
+  pluginsRoot: string;
+  resultsFile: string;
+  skipDownload: boolean;
+};
+
+type PluginEntry = {
+  package: string;
+  disabled?: boolean;
+};
+
+type PluginsDoc = {
+  plugins?: PluginEntry[];
+};
+
+type OciRef = {
+  imageRef: string;
+  pluginPath: string | null;
+};
+
+type PluginMeta = {
+  pkgName: string;
+  role: string;
+  pluginId: string | null;
+};
+
+type ProbeResult = {
+  pkgName: string;
+  role: string;
+  pluginPath: string;
+  status: ResultStatus;
+  pluginId?: string;
+  http?: number;
+  detail?: string;
+  error?: string;
+};
+
+type LoadedPlugin = {
+  name?: string;
+  platform?: string;
+  failure?: string;
+};
+
+function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv) {
-  const args = {
-    pluginsYaml: null,
-    configs: [],
-    envFile: null,
-    pluginsRoot: resolve(__dirname, "dynamic-plugins-root"),
-    resultsFile: resolve(__dirname, "results.json"),
-    skipDownload: false,
-  };
-  for (let i = 0; i < argv.length; i++) {
-    switch (argv[i]) {
-      case "--plugins-yaml":
-        args.pluginsYaml = resolve(argv[++i]);
-        break;
-      case "--config":
-        args.configs.push(resolve(argv[++i]));
-        break;
-      case "--env-file":
-        args.envFile = resolve(argv[++i]);
-        break;
-      case "--skip-download":
-        args.skipDownload = true;
-        break;
-    }
-  }
-  if (!args.pluginsYaml) {
+function parseArgs(argv: string[]): CliArgs {
+  const { values } = parseCliArgs({
+    args: argv,
+    allowPositionals: false,
+    options: {
+      "plugins-yaml": { type: "string" },
+      config: { type: "string", multiple: true },
+      "env-file": { type: "string" },
+      "skip-download": { type: "boolean", default: false },
+    },
+  });
+
+  const pluginsYaml = values["plugins-yaml"]
+    ? resolve(values["plugins-yaml"])
+    : null;
+  if (!pluginsYaml) {
     console.error(
-      "Usage: node smoke-test.mjs --plugins-yaml <path> [--config <path>...] [--env-file <path>] [--skip-download]",
+      "Usage: node smoke-test.ts --plugins-yaml <path> [--config <path>...] [--env-file <path>] [--skip-download]",
     );
     process.exit(1);
   }
-  return args;
+
+  return {
+    pluginsYaml,
+    configs: (values.config ?? []).map((configPath) => resolve(configPath)),
+    envFile: values["env-file"] ? resolve(values["env-file"]) : null,
+    pluginsRoot: resolve(__dirname, "dynamic-plugins-root"),
+    resultsFile: resolve(__dirname, "results.json"),
+    skipDownload: values["skip-download"] ?? false,
+  };
 }
 
-function loadEnvFile(filePath) {
+function loadEnvFile(filePath: string | null): void {
   if (!filePath || !existsSync(filePath)) return;
   for (const line of readFileSync(filePath, "utf8").split("\n")) {
     const t = line.trim();
@@ -60,12 +125,12 @@ function loadEnvFile(filePath) {
 // Plugins YAML
 // ---------------------------------------------------------------------------
 
-function parsePluginsYaml(filePath) {
-  const doc = yaml.load(readFileSync(filePath, "utf8"));
+function parsePluginsYaml(filePath: string): PluginEntry[] {
+  const doc = yaml.load(readFileSync(filePath, "utf8")) as PluginsDoc | undefined;
   return (doc?.plugins ?? []).filter((p) => !p.disabled);
 }
 
-function parseOciRef(packageStr) {
+function parseOciRef(packageStr: string): OciRef {
   const cleaned = packageStr.replace(/^"/, "").replace(/"$/, "");
   const withoutOci = cleaned.replace(/^oci:\/\//, "");
   const bangIdx = withoutOci.indexOf("!");
@@ -78,7 +143,7 @@ function parseOciRef(packageStr) {
 
 const FRONTEND_ROLES = new Set(["frontend-plugin", "frontend-plugin-module"]);
 
-function isFrontendRole(role) {
+function isFrontendRole(role: string): boolean {
   return FRONTEND_ROLES.has(role);
 }
 
@@ -86,7 +151,7 @@ function isFrontendRole(role) {
 // Frontend bundle validation (Layer 1)
 // ---------------------------------------------------------------------------
 
-function findJsFiles(dir) {
+function findJsFiles(dir: string): boolean {
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = join(dir, entry.name);
@@ -99,8 +164,11 @@ function findJsFiles(dir) {
   return false;
 }
 
-function validateFrontendBundles(plugins, pluginsRoot) {
-  const results = [];
+function validateFrontendBundles(
+  plugins: PluginEntry[],
+  pluginsRoot: string,
+): ProbeResult[] {
+  const results: ProbeResult[] = [];
   for (const plugin of plugins) {
     const { pluginPath } = parseOciRef(plugin.package);
     if (!pluginPath) continue;
@@ -141,7 +209,7 @@ function validateFrontendBundles(plugins, pluginsRoot) {
 // Backend boot (startTestBackend + probe plugin)
 // ---------------------------------------------------------------------------
 
-async function bootBackend(configPaths) {
+async function bootBackend(configPaths: string[]): Promise<{ server: any; port: number }> {
   const { startTestBackend } = await import("@backstage/backend-test-utils");
   const {
     dynamicPluginsFeatureLoader,
@@ -156,13 +224,13 @@ async function bootBackend(configPaths) {
 
   const smokeTestProbePlugin = createBackendPlugin({
     pluginId: "smoke-test-probe",
-    register(env) {
+    register(env: any) {
       env.registerInit({
         deps: {
           http: coreServices.httpRouter,
           dynamicPlugins: dynamicPluginsServiceRef,
         },
-        async init({ http, dynamicPlugins }) {
+        async init({ http, dynamicPlugins }: { http: any; dynamicPlugins: any }) {
           const { Router } = await import("express");
           const router = Router();
           router.get("/loaded-plugins", (_, res) => {
@@ -191,7 +259,7 @@ async function bootBackend(configPaths) {
     ({ server } = await startTestBackend({
       features: [
         dynamicPluginsFeatureLoader({
-          schemaLocator(pluginPackage) {
+          schemaLocator(pluginPackage: any) {
             const platform = PackageRoles.getRoleInfo(
               pluginPackage.manifest.backstage.role,
             ).platform;
@@ -200,7 +268,7 @@ async function bootBackend(configPaths) {
               "configSchema.json",
             );
           },
-          moduleLoader: (logger) => new CommonJSModuleLoader({ logger }),
+          moduleLoader: (logger: any) => new CommonJSModuleLoader({ logger }),
         }),
         createServiceFactory({
           service: dynamicPluginsFrontendServiceRef,
@@ -223,7 +291,7 @@ async function bootBackend(configPaths) {
 // Plugin metadata & route probing
 // ---------------------------------------------------------------------------
 
-function readPluginMeta(pluginsRoot, pluginPath) {
+function readPluginMeta(pluginsRoot: string, pluginPath: string): PluginMeta {
   try {
     const pkg = JSON.parse(
       readFileSync(join(pluginsRoot, pluginPath, "package.json"), "utf8"),
@@ -238,8 +306,12 @@ function readPluginMeta(pluginsRoot, pluginPath) {
   }
 }
 
-async function probePluginRoutes(plugins, port, pluginsRoot) {
-  const results = [];
+async function probePluginRoutes(
+  plugins: PluginEntry[],
+  port: number,
+  pluginsRoot: string,
+): Promise<ProbeResult[]> {
+  const results: ProbeResult[] = [];
   for (const plugin of plugins) {
     const { pluginPath } = parseOciRef(plugin.package);
     if (!pluginPath) continue;
@@ -282,7 +354,7 @@ async function probePluginRoutes(plugins, port, pluginsRoot) {
         pluginPath,
         pluginId,
         status: "fail",
-        error: err.message,
+        error: toErrorMessage(err),
       });
     }
   }
@@ -293,8 +365,12 @@ async function probePluginRoutes(plugins, port, pluginsRoot) {
 // Frontend plugin probing (Layer 2)
 // ---------------------------------------------------------------------------
 
-async function probeFrontendPlugins(plugins, port, pluginsRoot) {
-  const frontendPlugins = [];
+async function probeFrontendPlugins(
+  plugins: PluginEntry[],
+  port: number,
+  pluginsRoot: string,
+): Promise<ProbeResult[]> {
+  const frontendPlugins: Array<PluginMeta & { pluginPath: string }> = [];
   for (const plugin of plugins) {
     const { pluginPath } = parseOciRef(plugin.package);
     if (!pluginPath) continue;
@@ -306,7 +382,7 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
 
   if (frontendPlugins.length === 0) return [];
 
-  const failAll = (detail) =>
+  const failAll = (detail: string): ProbeResult[] =>
     frontendPlugins.map((fp) => ({
       pkgName: fp.pkgName,
       role: fp.role,
@@ -321,7 +397,7 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
       `http://localhost:${port}/api/smoke-test-probe/loaded-plugins`,
     );
   } catch (err) {
-    return failAll(`probe endpoint unreachable: ${err.message}`);
+    return failAll(`probe endpoint unreachable: ${toErrorMessage(err)}`);
   }
 
   if (!res.ok) {
@@ -339,7 +415,10 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
     return failAll("invalid probe response");
   }
 
-  const toFrontendProbeResult = (fp, loaded) => {
+  const toFrontendProbeResult = (
+    fp: PluginMeta & { pluginPath: string },
+    loaded: LoadedPlugin | undefined,
+  ): ProbeResult => {
     if (!loaded) {
       return {
         pkgName: fp.pkgName,
@@ -375,11 +454,16 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
     };
   };
 
-  const results = [];
+  const results: ProbeResult[] = [];
   for (const fp of frontendPlugins) {
-    const loaded = body.find(
-      (lp) => lp && typeof lp === "object" && lp.name === fp.pkgName,
+    const loadedCandidate = body.find(
+      (lp: unknown) =>
+        lp && typeof lp === "object" && "name" in lp && (lp as LoadedPlugin).name === fp.pkgName,
     );
+    const loaded =
+      loadedCandidate && typeof loadedCandidate === "object"
+        ? (loadedCandidate as LoadedPlugin)
+        : undefined;
     results.push(toFrontendProbeResult(fp, loaded));
   }
   return results;
@@ -389,7 +473,7 @@ async function probeFrontendPlugins(plugins, port, pluginsRoot) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function logPassResult(result) {
+function logPassResult(result: ProbeResult): string | null {
   if (result.pluginId) {
     return `  PASS  ${result.pkgName}  → /api/${result.pluginId}  (${result.http})`;
   }
@@ -399,8 +483,10 @@ function logPassResult(result) {
   return null;
 }
 
-function logResultAndCollectFailures(result, failedPlugins) {
-  const statusHandlers = {
+function logResultAndCollectFailures(result: ProbeResult, failedPlugins: string[]): void {
+  const statusHandlers: Partial<
+    Record<ResultStatus, () => { line: string | null; failed?: boolean }>
+  > = {
     skip: () => ({ line: `  SKIP  ${result.pkgName}  (${result.role})` }),
     pass: () => ({ line: logPassResult(result) }),
     warn: () => ({
@@ -429,7 +515,11 @@ function logResultAndCollectFailures(result, failedPlugins) {
   }
 }
 
-function updateResultCounts(result, backendCounts, frontendCounts) {
+function updateResultCounts(
+  result: ProbeResult,
+  backendCounts: CountBuckets,
+  frontendCounts: CountBuckets,
+): void {
   const isFrontend = isFrontendRole(result.role);
   if (result.status === "fail-bundle" || result.status === "fail-load") {
     if (isFrontend) frontendCounts.fail++;
@@ -445,9 +535,9 @@ function updateResultCounts(result, backendCounts, frontendCounts) {
   backendCounts[result.status] = (backendCounts[result.status] ?? 0) + 1;
 }
 
-function reportAndWrite(results, resultsFile) {
+function reportAndWrite(results: ProbeResult[], resultsFile: string): boolean {
   console.log("\n========== Smoke Test Results ==========\n");
-  const failedPlugins = [];
+  const failedPlugins: string[] = [];
 
   for (const r of results) {
     logResultAndCollectFailures(r, failedPlugins);
@@ -476,8 +566,11 @@ function reportAndWrite(results, resultsFile) {
 // Result merging
 // ---------------------------------------------------------------------------
 
-function mergeFrontendResults(bundleResults, loadResults) {
-  const loadMap = new Map();
+function mergeFrontendResults(
+  bundleResults: ProbeResult[],
+  loadResults: ProbeResult[],
+): ProbeResult[] {
+  const loadMap = new Map<string, ProbeResult>();
   for (const r of loadResults) {
     if (!loadMap.has(r.pkgName)) loadMap.set(r.pkgName, r);
   }
@@ -502,7 +595,7 @@ function mergeFrontendResults(bundleResults, loadResults) {
 // Main
 // ---------------------------------------------------------------------------
 
-async function main() {
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   console.log("\n=== RHDH Smoke Test (Docker-free) ===\n");
@@ -595,7 +688,7 @@ async function main() {
   process.exit(success ? 0 : 1);
 }
 
-await main().catch((err) => {
-  console.error("\nSmoke test failed:", err.message || err);
+await main().catch((err: unknown) => {
+  console.error("\nSmoke test failed:", toErrorMessage(err));
   process.exit(1);
 });
