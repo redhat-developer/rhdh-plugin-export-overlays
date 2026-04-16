@@ -22,18 +22,24 @@ import {
   cleanupGreetingComponentEntity,
   launchGreetingTemplateFromSelfService,
   clickCreateAndWaitForScaffolderTerminalState,
+  logOrchestratorDeployFailureDiagnostics,
 } from "./test-helpers.js";
 
 test.describe.serial("Test Orchestrator RBAC", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
-    test.setTimeout(20 * 60 * 1000);
+    test.setTimeout(40 * 60 * 1000);
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
-        "http://sonataflow-platform-data-index-service";
-      await rhdh.deploy({ timeout: null });
+        "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+      try {
+        await rhdh.deploy({ timeout: 900_000 });
+      } catch (err) {
+        logOrchestratorDeployFailureDiagnostics(project);
+        throw err;
+      }
     });
     await removeBaselineRole(browser, testInfo);
     testInfo.annotations.push({

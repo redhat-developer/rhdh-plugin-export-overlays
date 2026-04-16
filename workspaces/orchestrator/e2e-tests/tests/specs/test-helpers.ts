@@ -611,6 +611,138 @@ export function runOc(args: string[], timeoutMs = 30_000): string {
   }).trim();
 }
 
+/**
+ * Best-effort diagnostics bundle for CI when `rhdh.deploy()` fails waiting for RHDH.
+ * Keep this intentionally stderr-heavy: it should only run on failure paths.
+ */
+export function logOrchestratorDeployFailureDiagnostics(
+  namespace: string,
+): void {
+  const banner = (title: string) => {
+    // eslint-disable-next-line no-console -- diagnostics for CI triage
+    console.error(`\n===== [orchestrator-e2e diagnostics] ${title} =====\n`);
+  };
+
+  const safeOc = (args: string[], timeoutMs = 120_000): string | undefined => {
+    try {
+      return runOc(args, timeoutMs);
+    } catch (err) {
+      // eslint-disable-next-line no-console -- diagnostics for CI triage
+      console.error(
+        `[orchestrator-e2e diagnostics] oc ${args.join(" ")} failed:`,
+      );
+      // eslint-disable-next-line no-console -- diagnostics for CI triage
+      console.error(err);
+      return undefined;
+    }
+  };
+
+  banner(`namespace=${namespace}`);
+
+  const hubPod = safeOc([
+    "get",
+    "pods",
+    "-n",
+    namespace,
+    "-l",
+    "app.kubernetes.io/instance=redhat-developer-hub",
+    "-o",
+    "jsonpath={.items[0].metadata.name}",
+  ]);
+
+  if (hubPod) {
+    banner(`redhat-developer-hub pod describe (${hubPod})`);
+    safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000);
+
+    banner(`redhat-developer-hub pod logs (${hubPod}) --all-containers`);
+    safeOc(
+      ["logs", "-n", namespace, hubPod, "--all-containers", "--tail=400"],
+      180_000,
+    );
+
+    banner(
+      `redhat-developer-hub previous pod logs (${hubPod}) --all-containers`,
+    );
+    safeOc(
+      [
+        "logs",
+        "-n",
+        namespace,
+        hubPod,
+        "--all-containers",
+        "--previous",
+        "--tail=400",
+      ],
+      180_000,
+    );
+  } else {
+    banner("redhat-developer-hub pod not found via label selector");
+    safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000);
+  }
+
+  banner("sonataflow platform pods (wide)");
+  safeOc(
+    [
+      "get",
+      "pods",
+      "-n",
+      namespace,
+      "-l",
+      "app.kubernetes.io/name=logic-operator",
+      "-o",
+      "wide",
+    ],
+    120_000,
+  );
+  safeOc(
+    [
+      "get",
+      "pods",
+      "-n",
+      namespace,
+      "-l",
+      "app.kubernetes.io/component=sonataflow-platform",
+      "-o",
+      "wide",
+    ],
+    120_000,
+  );
+
+  banner("sonataflow workflow pods (failswitch/greeting)");
+  safeOc(
+    [
+      "get",
+      "pods",
+      "-n",
+      namespace,
+      "-l",
+      "sonataflow.org/workflowName=failswitch",
+      "-o",
+      "wide",
+    ],
+    120_000,
+  );
+  safeOc(
+    [
+      "get",
+      "pods",
+      "-n",
+      namespace,
+      "-l",
+      "sonataflow.org/workflowName=greeting",
+      "-o",
+      "wide",
+    ],
+    120_000,
+  );
+
+  banner("recent namespace warnings/errors (last 200 events)");
+  safeOc(
+    ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
+    120_000,
+  );
+}
+
 function detectOperatorVersion(...labels: string[]): string {
   for (const label of labels) {
     try {

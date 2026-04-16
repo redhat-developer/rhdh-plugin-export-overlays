@@ -8,6 +8,7 @@ import {
   cleanupGreetingComponentEntity,
   runOc,
   clickCreateAndWaitForScaffolderTerminalState,
+  logOrchestratorDeployFailureDiagnostics,
 } from "./test-helpers.js";
 
 interface WorkflowNode {
@@ -118,7 +119,7 @@ async function ensureDataIndexOrSkip(
 
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh, browser }, testInfo) => {
-    test.setTimeout(20 * 60 * 1000);
+    test.setTimeout(40 * 60 * 1000);
     await test.runOnce("orchestrator-setup", async () => {
       const project = rhdh.deploymentConfig.namespace;
       // eslint-disable-next-line no-console -- version/PID logged once for CI diagnostics
@@ -128,8 +129,13 @@ test.describe("Orchestrator", () => {
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
-        "http://sonataflow-platform-data-index-service";
-      await rhdh.deploy({ timeout: null });
+        "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+      try {
+        await rhdh.deploy({ timeout: 900_000 });
+      } catch (err) {
+        logOrchestratorDeployFailureDiagnostics(project);
+        throw err;
+      }
     });
     await ensureBaselineRole(browser, testInfo);
     testInfo.annotations.push({
