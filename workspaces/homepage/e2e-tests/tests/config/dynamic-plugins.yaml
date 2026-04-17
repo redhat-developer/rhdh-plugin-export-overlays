@@ -1,0 +1,47 @@
+# RHDH ships this plugin from dynamic-plugins.default.yaml as
+# ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page with default
+# dynamicRoutes. We enable the GHCR build with custom routes below.
+#
+# Do not also list ./dynamic-plugins/dist/... here: on PR CI, e2e-test-utils replaces every
+# metadata-matched package (dist path and oci://...) with the same PR OCI URL, which makes
+# install-dynamic-plugins.py fail with "Duplicate plugin configuration". The spec passes
+# disableWrappers so the chart dist wrapper is disabled without duplicating that OCI ref.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.48.3__1.11.0!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage
+            mountPoints:
+              - mountPoint: home.page/cards
+                importName: OnboardingSection
+                config:
+                  id: onboarding-section
+                  title: Onboarding section
+              - mountPoint: home.page/cards
+                importName: EntitySection
+                config:
+                  id: entity-section
+                  title: Entity section
+              - mountPoint: home.page/cards
+                importName: RecentlyVisitedCard
+                config:
+                  id: recently-visited-card
+                  title: Recently visited
+              - mountPoint: home.page/cards
+                importName: TopVisitedCard
+                config:
+                  id: top-visited-card
+                  title: Top visited
+              - mountPoint: home.page/cards
+                importName: JokeCard
+                config:
+                  id: joke-card
+                  title: Random joke
+            translationResources:
+              - importName: homepageTranslations
+                ref: homepageTranslationRef
