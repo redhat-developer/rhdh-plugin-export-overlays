@@ -1,0 +1,19 @@
+catalog:
+  rules:
+    - allow: [Component, User, Group, Location, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/RHDH-scorecard-plugin-test/blob/main/rhdh-catalog.yaml
+
+permission:
+  enabled: true
+  rbac:
+    # policies-csv-file: /Users/dsantra/Documents/rhdh/rbac-policy.csv
+    pluginsWithPermission:
+      - catalog
+      - permission
+    admin:
+      superUsers:
+        - name: user:default/test1
+      users:
+        - name: user:default/test1
