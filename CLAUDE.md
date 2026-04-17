@@ -56,6 +56,8 @@ There is no local build system — all building, testing, and publishing happens
 On a PR, comment:
 - `/publish` — Build and publish test OCI images (tagged `pr_<number>__<version>`)
 - `/smoketest` — Run smoke tests against last published artifacts (requires prior `/publish`)
+- `/update-versions` — Copy `versions.json` from the PR base branch onto the PR branch (release-line alignment)
+- `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
 - `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
 ### Important Workflows (`.github/workflows/`)
@@ -64,7 +66,7 @@ On a PR, comment:
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
 | `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
-| `pr-actions.yaml` | PR comments | Handles `/publish` and `/smoketest` commands |
+| `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
