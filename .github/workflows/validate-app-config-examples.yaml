@@ -1,0 +1,47 @@
+name: Validate appConfigExamples
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'workspaces/**/metadata/**'
+      - 'scripts/validate-app-config-examples.py'
+      - '.github/workflows/validate-app-config-examples.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: appConfigExamples coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v4
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate (full tree)
+        if: github.event_name == 'workflow_dispatch'
+        run: python scripts/validate-app-config-examples.py
+
+      - name: Validate (PR — changed metadata only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python scripts/validate-app-config-examples.py --since "$BASE_SHA"

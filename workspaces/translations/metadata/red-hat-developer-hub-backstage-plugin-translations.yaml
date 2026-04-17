@@ -8,9 +8,9 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations
   annotations:
-    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/translations/plugins/translations
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-translations"
@@ -22,3 +22,16 @@ spec:
   author: Red Hat
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-translations:
+              translationResources:
+                - module: alpha
+                  importName: translationsPluginTranslations
+                  ref: translationsPluginTranslationRef
+              dynamicRoutes:
+                - path: /translations
+                  importName: TranslationsPage

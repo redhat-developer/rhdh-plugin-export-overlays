@@ -27,7 +27,7 @@ spec:
   partOf:
     - signals-frontend
   appConfigExamples:
-    - title: Default configuration
+    - title: Default configuration (Signals registers the client API; no routes)
       content:
         dynamicPlugins:
           frontend:

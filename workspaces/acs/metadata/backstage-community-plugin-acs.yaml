@@ -22,4 +22,8 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
-
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        acs:
+          acsUrl: ${ACS_BASE_URL}

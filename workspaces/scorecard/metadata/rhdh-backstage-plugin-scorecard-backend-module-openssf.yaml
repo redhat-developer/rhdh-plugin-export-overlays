@@ -27,6 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - scorecard
-  appConfigExamples:
-    - title: Default configuration
-      content: {}
+  appConfigNotRequired: true
+  appConfigExamples: []
