@@ -1,0 +1,1009 @@
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import {
+  test,
+  expect,
+  Browser,
+  TestInfo,
+  Page,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  setupBrowser,
+  LoginHelper,
+  UIhelper,
+  AuthApiHelper,
+  APIHelper,
+  RbacApiHelper,
+  Policy,
+  Response,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const PRIMARY_USER = `user:default/${process.env.PRIMARY_TEST_USER || "test1"}`;
+export const SECONDARY_USER = `user:default/${process.env.SECONDARY_TEST_USER || "test2"}`;
+
+export const BASELINE_ROLE_NAME = "role:default/orchestrator-baseline";
+
+const GREETING_COMPONENT_LOCATION =
+  "https://github.com/testetson22/greeting_54mjks/blob/main/templates/greeting/skeleton/catalog-info.yaml";
+
+const WORKFLOW_REPO =
+  "https://github.com/rhdhorchestrator/serverless-workflows.git";
+const WORKFLOW_REPO_REF =
+  process.env.SERVERLESS_WORKFLOWS_REF ||
+  "daeeee8dec16beab6d96a81774ef500081a2c2b0";
+
+const MANIFEST_DIRS = [
+  "workflows/greeting/manifests",
+  "workflows/fail-switch/src/main/resources/manifests",
+];
+
+const WORKFLOWS = ["greeting", "failswitch"];
+
+/** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
+const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
+const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
+
+// ---------------------------------------------------------------------------
+// RBAC helpers
+// ---------------------------------------------------------------------------
+
+export type PolicySpec = {
+  permission: string;
+  policy: string;
+  effect: string;
+};
+
+export function globalWorkflowPolicies(
+  readEffect: "allow" | "deny",
+  useEffect: "allow" | "deny",
+): PolicySpec[] {
+  return [
+    {
+      permission: "orchestrator.workflow",
+      policy: "read",
+      effect: readEffect,
+    },
+    {
+      permission: "orchestrator.workflow.use",
+      policy: "update",
+      effect: useEffect,
+    },
+  ];
+}
+
+export function greetingWorkflowPolicies(
+  readEffect: "allow" | "deny",
+  useEffect: "allow" | "deny",
+): PolicySpec[] {
+  return [
+    {
+      permission: "orchestrator.workflow.greeting",
+      policy: "read",
+      effect: readEffect,
+    },
+    {
+      permission: "orchestrator.workflow.use.greeting",
+      policy: "update",
+      effect: useEffect,
+    },
+  ];
+}
+
+export function roleApiName(roleName: string): string {
+  return roleName.replace("role:", "").replace("default/", "");
+}
+
+export function buildPolicies(roleName: string, specs: PolicySpec[]) {
+  return specs.map((spec) => ({ entityReference: roleName, ...spec }));
+}
+
+export async function createRoleWithPolicies(
+  apiToken: string,
+  roleName: string,
+  memberReferences: string[],
+  policySpecs: PolicySpec[],
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+  const rolePostResponse = await rbacApi.createRoles({
+    memberReferences,
+    name: roleName,
+  });
+  const policyPostResponse = await rbacApi.createPolicies(
+    buildPolicies(roleName, policySpecs),
+  );
+  expect(rolePostResponse.ok()).toBeTruthy();
+  expect(policyPostResponse.ok()).toBeTruthy();
+}
+
+export async function verifyRoleWithPolicies(
+  apiToken: string,
+  roleName: string,
+  expectedMembers: string[],
+  expectedPolicies: PolicySpec[],
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+
+  const rolesResponse = await rbacApi.getRoles();
+  expect(rolesResponse.ok()).toBeTruthy();
+
+  const roles = await rolesResponse.json();
+  const workflowRole = roles.find(
+    (role: { name: string; memberReferences: string[] }) =>
+      role.name === roleName,
+  );
+  expect(workflowRole).toBeDefined();
+  for (const member of expectedMembers) {
+    expect(workflowRole?.memberReferences).toContain(member);
+  }
+
+  const policiesResponse = await rbacApi.getPoliciesByRole(
+    roleApiName(roleName),
+  );
+  expect(policiesResponse.ok()).toBeTruthy();
+
+  const policies = await policiesResponse.json();
+  expect(policies).toHaveLength(expectedPolicies.length);
+
+  for (const expectedPolicy of expectedPolicies) {
+    const actualPolicy = policies.find(
+      (policy: { permission: string; policy: string; effect: string }) =>
+        policy.permission === expectedPolicy.permission &&
+        policy.policy === expectedPolicy.policy,
+    );
+    expect(actualPolicy).toBeDefined();
+    expect(actualPolicy.effect).toBe(expectedPolicy.effect);
+  }
+}
+
+const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
+  { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
+  {
+    permission: "orchestrator.workflow.use",
+    policy: "update",
+    effect: "allow",
+  },
+  { permission: "catalog-entity", policy: "read", effect: "allow" },
+  { permission: "catalog.entity.create", policy: "create", effect: "allow" },
+  { permission: "catalog.location.read", policy: "read", effect: "allow" },
+  { permission: "catalog.location.create", policy: "create", effect: "allow" },
+  {
+    permission: "scaffolder.action.execute",
+    policy: "use",
+    effect: "allow",
+  },
+  { permission: "scaffolder.task.create", policy: "create", effect: "allow" },
+  { permission: "scaffolder.task.read", policy: "read", effect: "allow" },
+  {
+    permission: "scaffolder.template.parameter.read",
+    policy: "read",
+    effect: "allow",
+  },
+  {
+    permission: "scaffolder.template.step.read",
+    policy: "read",
+    effect: "allow",
+  },
+]);
+
+async function withTempPage(
+  browser: Browser,
+  fn: (page: Awaited<ReturnType<typeof browser.newPage>>) => Promise<void>,
+): Promise<void> {
+  const context = await browser.newContext({
+    baseURL: process.env.RHDH_BASE_URL,
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+  try {
+    await fn(page);
+  } finally {
+    await context.close();
+  }
+}
+
+export async function setupAuthenticatedPage(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<{
+  page: Page;
+  uiHelper: UIhelper;
+  loginHelper: LoginHelper;
+  apiToken: string;
+}> {
+  const { page } = await setupBrowser(browser, testInfo);
+  const uiHelper = new UIhelper(page);
+  const loginHelper = new LoginHelper(page);
+  await loginHelper.loginAsKeycloakUser();
+  const apiToken = await new AuthApiHelper(page).getToken();
+  return { page, uiHelper, loginHelper, apiToken };
+}
+
+export async function launchGreetingTemplateFromSelfService(
+  page: Page,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.clickLink({ ariaLabel: "Self-service" });
+  await uiHelper.verifyHeading("Self-service");
+  await page.waitForLoadState("domcontentloaded");
+  await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+  await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
+}
+
+export async function waitForScaffolderTerminalState(
+  page: Page,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const completed = page.getByText(/Completed|succeeded|finished/i);
+  const conflictError = page.getByText(/409 Conflict/i);
+  const startOver = page.getByRole("button", { name: "Start Over" });
+  await completed
+    .or(conflictError)
+    .or(startOver)
+    .first()
+    .waitFor({ state: "visible", timeout: timeoutMs });
+}
+
+export async function clickCreateAndWaitForScaffolderTerminalState(
+  page: Page,
+  timeoutMs = 120_000,
+): Promise<void> {
+  const createButton = page.getByRole("button", { name: /Create/i });
+  await createButton.waitFor({ state: "visible", timeout: 10_000 });
+  await createButton.click();
+  await waitForScaffolderTerminalState(page, timeoutMs);
+}
+
+export async function deleteRoleAndPolicies(
+  apiToken: string,
+  roleName: string,
+): Promise<void> {
+  const rbacApi = await RbacApiHelper.build(apiToken);
+  const apiName = roleApiName(roleName);
+  try {
+    const policiesResponse = await rbacApi.getPoliciesByRole(apiName);
+    if (policiesResponse.ok()) {
+      const policies =
+        await Response.removeMetadataFromResponse(policiesResponse);
+      await rbacApi.deletePolicy(apiName, policies as Policy[]);
+    }
+    await rbacApi.deleteRole(apiName);
+  } catch {
+    // role may not exist yet
+  }
+}
+
+export async function ensureBaselineRole(
+  browser: Browser,
+  _testInfo: TestInfo,
+): Promise<void> {
+  await test.runOnce("rbac-baseline-setup", async () => {
+    await withTempPage(browser, async (page) => {
+      const loginHelper = new LoginHelper(page);
+      await loginHelper.loginAsKeycloakUser();
+      const token = await new AuthApiHelper(page).getToken();
+      const rbacApi = await RbacApiHelper.build(token);
+
+      await rbacApi.createRoles({
+        memberReferences: [PRIMARY_USER],
+        name: BASELINE_ROLE_NAME,
+      });
+
+      await rbacApi.createPolicies(BASELINE_POLICIES);
+    });
+  });
+}
+
+export async function removeBaselineRole(
+  browser: Browser,
+  _testInfo: TestInfo,
+): Promise<void> {
+  await test.runOnce("rbac-baseline-cleanup", async () => {
+    await withTempPage(browser, async (page) => {
+      const loginHelper = new LoginHelper(page);
+      await loginHelper.loginAsKeycloakUser();
+      const token = await new AuthApiHelper(page).getToken();
+      await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
+
+      const rbacApi = await RbacApiHelper.build(token);
+      const verifyResponse = await rbacApi.getRoles();
+      if (verifyResponse.ok()) {
+        const roles = await verifyResponse.json();
+        const found = roles.find(
+          (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
+        );
+        if (found) {
+          console.warn(
+            "[rbac-baseline] WARNING: Baseline role was NOT removed successfully!",
+          );
+        }
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Catalog cleanup
+// ---------------------------------------------------------------------------
+
+export async function cleanupGreetingComponentEntity(): Promise<void> {
+  try {
+    const locationId = await APIHelper.getLocationIdByTarget(
+      GREETING_COMPONENT_LOCATION,
+    );
+    if (locationId) {
+      await APIHelper.deleteEntityLocationById(locationId);
+    }
+  } catch (e) {
+    console.warn("Cleanup of greeting-test-component location failed:", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SonataFlow deployment
+// ---------------------------------------------------------------------------
+
+export async function deploySonataflow(namespace: string): Promise<void> {
+  await installOrchestrator(namespace);
+
+  const oslFullVersion = detectOperatorVersion(
+    "operators.coreos.com/logic-operator.openshift-operators",
+    "operators.coreos.com/logic-operator-rhel8.openshift-operators",
+  );
+  const oslMajorMinor = oslFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
+
+  const osFullVersion = detectOperatorVersion(
+    "operators.coreos.com/serverless-operator.openshift-operators",
+  );
+  const osMajorMinor = osFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
+
+  if (oslMajorMinor && osMajorMinor && oslMajorMinor !== osMajorMinor) {
+    console.warn(
+      `[deploy-sonataflow] WARNING: OS (${osMajorMinor}) and OSL (${oslMajorMinor}) major.minor versions differ — this may cause Knative API incompatibilities`,
+    );
+  } else {
+    console.warn(
+      `[deploy-sonataflow] Operator versions: OS=${osFullVersion || "unknown"}, OSL=${oslFullVersion || "unknown"}`,
+    );
+  }
+
+  hardenSonataFlowPlatform(namespace);
+
+  const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
+  try {
+    await $`git clone --depth=1 ${WORKFLOW_REPO} ${workflowDir}`;
+    await $`git -C ${workflowDir} fetch --depth=1 origin ${WORKFLOW_REPO_REF}`;
+    await $`git -C ${workflowDir} checkout --detach ${WORKFLOW_REPO_REF}`;
+
+    for (const rel of MANIFEST_DIRS) {
+      const fullPath = join(workflowDir, rel);
+      await $`oc apply -n ${namespace} -f ${fullPath}`;
+    }
+  } finally {
+    await $`rm -rf ${workflowDir}`.catch(() => {});
+  }
+
+  await waitForCRs(namespace);
+
+  // Patch persistence before image alignment so the operator never materializes
+  // ReplicaSets that still reference upstream `sonataflow-psql-postgresql` (missing).
+  for (const workflow of WORKFLOWS) {
+    patchWorkflowPostgres(namespace, workflow);
+  }
+
+  alignWorkflowImages(namespace, oslMajorMinor);
+
+  // Image patch can trigger another reconcile; re-apply persistence for safety.
+  for (const workflow of WORKFLOWS) {
+    patchWorkflowPostgres(namespace, workflow);
+  }
+
+  const postgresAlignTimeoutMs = 120_000;
+  for (const workflow of WORKFLOWS) {
+    await waitForWorkflowPostgresDeploymentAligned(
+      namespace,
+      workflow,
+      postgresAlignTimeoutMs,
+    );
+    runOc(
+      ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
+      60_000,
+    );
+    await sleep(2_000);
+    runOc(
+      [
+        "rollout",
+        "status",
+        `deployment/${workflow}`,
+        "-n",
+        namespace,
+        "--timeout=600s",
+      ],
+      610_000,
+    );
+  }
+}
+
+function patchWorkflowPostgres(namespace: string, workflow: string): string {
+  const patch = JSON.stringify({
+    spec: {
+      persistence: {
+        postgresql: {
+          secretRef: {
+            name: "backstage-psql-secret",
+            userKey: "POSTGRES_USER",
+            passwordKey: "POSTGRES_PASSWORD",
+          },
+          serviceRef: {
+            name: "backstage-psql",
+            namespace,
+            databaseName: "backstage_plugin_orchestrator",
+          },
+        },
+      },
+    },
+  });
+  return runOc([
+    "-n",
+    namespace,
+    "patch",
+    "sonataflow",
+    workflow,
+    "--type",
+    "merge",
+    "-p",
+    patch,
+  ]);
+}
+
+function parseOcJson<T = unknown>(
+  args: string[],
+  timeoutMs: number,
+): T | undefined {
+  try {
+    return JSON.parse(runOc(args, timeoutMs)) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function sonataFlowUsesE2ePostgresSecret(cr: Record<string, unknown>): boolean {
+  const spec = cr.spec as Record<string, unknown> | undefined;
+  const persistence = spec?.persistence as Record<string, unknown> | undefined;
+  const pg = persistence?.postgresql as Record<string, unknown> | undefined;
+  const secretRef = pg?.secretRef as Record<string, unknown> | undefined;
+  return secretRef?.name === E2E_WORKFLOW_PG_SECRET;
+}
+
+/** True if the live Deployment pod template still references the operator default secret. */
+function deploymentPodTemplateReferencesUpstreamPgSecret(
+  deployment: Record<string, unknown>,
+): boolean {
+  const spec = deployment.spec as Record<string, unknown> | undefined;
+  const template = spec?.template as Record<string, unknown> | undefined;
+  if (!template) return false;
+  return JSON.stringify(template).includes(UPSTREAM_WORKFLOW_PG_SECRET);
+}
+
+/**
+ * Wait until the SonataFlow CR and workflow Deployment both reflect the e2e Postgres
+ * wiring, re-applying the merge patch when the operator lags. Does not restart the rollout.
+ */
+async function waitForWorkflowPostgresDeploymentAligned(
+  namespace: string,
+  workflow: string,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    const cr = parseOcJson<Record<string, unknown>>(
+      ["get", "sonataflow", workflow, "-n", namespace, "-o", "json"],
+      15_000,
+    );
+    const deployment = parseOcJson<Record<string, unknown>>(
+      ["get", "deployment", workflow, "-n", namespace, "-o", "json"],
+      15_000,
+    );
+    const crOk = cr && sonataFlowUsesE2ePostgresSecret(cr);
+    const depOk =
+      deployment &&
+      !deploymentPodTemplateReferencesUpstreamPgSecret(deployment);
+    if (crOk && depOk) {
+      return;
+    }
+    patchWorkflowPostgres(namespace, workflow);
+    await sleep(2_000);
+  }
+  console.warn(
+    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): workflow "${workflow}" not aligned on ${E2E_WORKFLOW_PG_SECRET} (SonataFlow CR + Deployment template; attempts=${attempt})`,
+  );
+}
+
+async function waitForCRs(namespace: string): Promise<void> {
+  const deadline = Date.now() + 60_000;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    try {
+      const out = runOc(["get", "sonataflow", "-n", namespace, "--no-headers"]);
+      const found = out.split("\n").filter(Boolean).length;
+      if (found >= WORKFLOWS.length) {
+        return;
+      }
+    } catch {
+      // not available yet
+    }
+    await sleep(5_000);
+  }
+  console.warn(
+    `[deploy-sonataflow] TIMEOUT: Only found fewer than ${WORKFLOWS.length} SonataFlow CRs after ${attempt} attempts`,
+  );
+}
+
+function hardenSonataFlowPlatform(namespace: string): void {
+  try {
+    const sfpPatch = JSON.stringify({
+      spec: {
+        services: {
+          dataIndex: {
+            podTemplate: {
+              container: {
+                resources: {
+                  requests: { memory: "64Mi", cpu: "250m" },
+                  limits: { memory: "1Gi", cpu: "500m" },
+                },
+                livenessProbe: {
+                  failureThreshold: 200,
+                  httpGet: {
+                    path: "/q/health/live",
+                    port: 8080,
+                    scheme: "HTTP",
+                  },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
+                readinessProbe: {
+                  failureThreshold: 200,
+                  httpGet: {
+                    path: "/q/health/ready",
+                    port: 8080,
+                    scheme: "HTTP",
+                  },
+                  periodSeconds: 10,
+                  timeoutSeconds: 10,
+                },
+              },
+            },
+          },
+          jobService: {
+            podTemplate: {
+              container: {
+                resources: {
+                  requests: { memory: "64Mi", cpu: "250m" },
+                  limits: { memory: "1Gi", cpu: "500m" },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    runOc([
+      "-n",
+      namespace,
+      "patch",
+      "sonataflowplatform",
+      "sonataflow-platform",
+      "--type",
+      "merge",
+      "-p",
+      sfpPatch,
+    ]);
+    runOc(
+      [
+        "rollout",
+        "status",
+        "deployment/sonataflow-platform-data-index-service",
+        "-n",
+        namespace,
+        "--timeout=300s",
+      ],
+      310_000,
+    );
+    runOc(
+      [
+        "rollout",
+        "status",
+        "deployment/sonataflow-platform-jobs-service",
+        "-n",
+        namespace,
+        "--timeout=300s",
+      ],
+      310_000,
+    );
+  } catch {
+    /* SFP patch non-fatal */
+  }
+}
+
+function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
+  if (!oslMajorMinor || oslMajorMinor === "1.37") return;
+
+  const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
+  const imageMap: Record<string, string> = {
+    greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
+    failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
+  };
+  for (const wf of WORKFLOWS) {
+    const image = imageMap[wf];
+    if (!image) continue;
+    try {
+      const imgPatch = JSON.stringify({
+        spec: { podTemplate: { container: { image } } },
+      });
+      runOc([
+        "-n",
+        namespace,
+        "patch",
+        "sonataflow",
+        wf,
+        "--type",
+        "merge",
+        "-p",
+        imgPatch,
+      ]);
+    } catch {
+      /* ignore per-workflow patch failure */
+    }
+  }
+}
+
+export function runOc(args: string[], timeoutMs = 30_000): string {
+  return execFileSync("oc", args, {
+    encoding: "utf-8",
+    timeout: timeoutMs,
+    maxBuffer: 32 * 1024 * 1024,
+  }).trim();
+}
+
+function formatOcFailure(err: unknown): string {
+  if (err instanceof Error) {
+    const m = err.message.trim();
+    return m.includes("\n") ? (m.split("\n")[0] ?? m) : m;
+  }
+  return String(err);
+}
+
+/**
+ * Best-effort diagnostics bundle for CI when `rhdh.deploy()` fails waiting for RHDH.
+ * Keep this intentionally stderr-heavy: it should only run on failure paths.
+ */
+export function logOrchestratorDeployFailureDiagnostics(
+  namespace: string,
+): void {
+  const banner = (title: string) => {
+    console.error(`\n===== [orchestrator-e2e diagnostics] ${title} =====\n`);
+  };
+
+  const safeOc = (args: string[], timeoutMs = 120_000): string | undefined => {
+    try {
+      return runOc(args, timeoutMs);
+    } catch (err) {
+      console.error(
+        `[orchestrator-e2e diagnostics] oc ${args.join(" ")} failed: ${formatOcFailure(err)}`,
+      );
+      return undefined;
+    }
+  };
+
+  /** Print `oc` stdout; empty string usually means “no matches” (message on stderr). */
+  const dumpOc = (out: string | undefined, emptyHint: string) => {
+    if (out === undefined) return;
+    if (out.trim().length > 0) {
+      console.error(out);
+    } else {
+      console.error(emptyHint);
+    }
+  };
+
+  banner(`namespace=${namespace}`);
+
+  const hubPod = safeOc([
+    "get",
+    "pods",
+    "-n",
+    namespace,
+    "-l",
+    "app.kubernetes.io/instance=redhat-developer-hub",
+    "-o",
+    "jsonpath={.items[0].metadata.name}",
+  ]);
+
+  if (hubPod) {
+    banner(`redhat-developer-hub pod describe (${hubPod})`);
+    dumpOc(
+      safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000),
+      "(describe produced no stdout)",
+    );
+
+    banner(`redhat-developer-hub pod logs (${hubPod}) --all-containers`);
+    dumpOc(
+      safeOc(
+        ["logs", "-n", namespace, hubPod, "--all-containers", "--tail=400"],
+        180_000,
+      ),
+      "(no current container logs on stdout)",
+    );
+
+    banner(
+      `redhat-developer-hub previous pod logs (${hubPod}) --all-containers`,
+    );
+    try {
+      console.error(
+        runOc(
+          [
+            "logs",
+            "-n",
+            namespace,
+            hubPod,
+            "--all-containers",
+            "--previous",
+            "--tail=400",
+          ],
+          180_000,
+        ),
+      );
+    } catch (err) {
+      const msg = formatOcFailure(err);
+      if (/BadRequest|not found|no previous/i.test(msg)) {
+        console.error(
+          "(no previous pod/container logs — single revision or init never restarted)",
+        );
+      } else {
+        console.error(`previous logs unavailable: ${msg}`);
+      }
+    }
+  } else {
+    banner("redhat-developer-hub pod not found via label selector");
+    dumpOc(
+      safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000),
+      "(get pods — empty stdout)",
+    );
+  }
+
+  banner(
+    "SonataFlow / workflow / data-index pods (namespace-wide — label selectors vary by OSL version)",
+  );
+  dumpOc(
+    safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 120_000),
+    "(no pods listed in namespace)",
+  );
+
+  banner(
+    "sonataflow workflow pods (label selectors — may be empty on some OSL builds)",
+  );
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        "sonataflow.org/workflowName=failswitch",
+        "-o",
+        "wide",
+      ],
+      120_000,
+    ),
+    "(no pods with sonataflow.org/workflowName=failswitch — see namespace-wide list above)",
+  );
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        "sonataflow.org/workflowName=greeting",
+        "-o",
+        "wide",
+      ],
+      120_000,
+    ),
+    "(no pods with sonataflow.org/workflowName=greeting — see namespace-wide list above)",
+  );
+
+  banner(
+    "SonataFlow CRs (oc get sonataflow … -o yaml — persistence vs operator reconcile)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`sonataflow/${workflow} (full YAML)`);
+    dumpOc(
+      safeOc(
+        ["get", "sonataflow", workflow, "-n", namespace, "-o", "yaml"],
+        120_000,
+      ),
+      `(get sonataflow/${workflow} returned empty stdout)`,
+    );
+  }
+
+  banner(
+    "workflow Deployments (oc describe deployment … — secret/volume mounts on pod template)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`deployment/${workflow} (describe)`);
+    dumpOc(
+      safeOc(["describe", "deployment", workflow, "-n", namespace], 120_000),
+      `(describe deployment/${workflow} returned empty stdout)`,
+    );
+  }
+
+  banner(
+    "Services + Endpoints (workflow — empty endpoints => DNS ok but no ready backends)",
+  );
+  dumpOc(
+    safeOc(
+      ["get", "svc", "failswitch", "greeting", "-n", namespace, "-o", "wide"],
+      60_000,
+    ),
+    "(get svc failswitch greeting — empty stdout)",
+  );
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "endpoints",
+        "failswitch",
+        "greeting",
+        "-n",
+        namespace,
+        "-o",
+        "wide",
+      ],
+      60_000,
+    ),
+    "(get endpoints — empty stdout)",
+  );
+  for (const svc of ["failswitch", "greeting"] as const) {
+    dumpOc(
+      safeOc(
+        [
+          "get",
+          "endpointslices.discovery.k8s.io",
+          "-n",
+          namespace,
+          "-l",
+          `kubernetes.io/service-name=${svc}`,
+          "-o",
+          "wide",
+        ],
+        60_000,
+      ),
+      `(no EndpointSlices for service ${svc} — empty stdout)`,
+    );
+  }
+
+  banner("NetworkPolicy (can block pod-to-pod traffic to workflow Services)");
+  dumpOc(
+    safeOc(["get", "networkpolicy", "-n", namespace, "-o", "wide"], 60_000),
+    "(no NetworkPolicies in namespace)",
+  );
+
+  banner(
+    "Postgres-related Secrets (existence only — compare to Deployment volume/env refs)",
+  );
+  banner("secret/backstage-psql-secret");
+  dumpOc(
+    safeOc(["get", "secret", "backstage-psql-secret", "-n", namespace], 30_000),
+    "(get secret backstage-psql-secret — empty stdout)",
+  );
+  banner(
+    "secret/sonataflow-psql-postgresql (upstream default; often absent in e2e)",
+  );
+  try {
+    dumpOc(
+      runOc(
+        ["get", "secret", "sonataflow-psql-postgresql", "-n", namespace],
+        30_000,
+      ),
+      "(secret absent — expected when workflows use backstage-psql-secret)",
+    );
+  } catch (err) {
+    const msg = formatOcFailure(err);
+    if (/NotFound/i.test(msg)) {
+      console.error(
+        "(not found — expected when workflows are patched to backstage-psql-secret)",
+      );
+    } else {
+      console.error(`unexpected error: ${msg}`);
+    }
+  }
+
+  banner(
+    "ReplicaSets in namespace (workflow — multiple RS generations / stale templates)",
+  );
+  dumpOc(
+    safeOc(["get", "rs", "-n", namespace, "-o", "wide"], 120_000),
+    "(get rs — empty stdout)",
+  );
+
+  banner(
+    "SonataFlow reconcile hints (generation / observedGeneration when present)",
+  );
+  for (const workflow of WORKFLOWS) {
+    banner(`sonataflow/${workflow} (generation line)`);
+    const gen = safeOc(
+      [
+        "get",
+        "sonataflow",
+        workflow,
+        "-n",
+        namespace,
+        "-o",
+        "jsonpath={.metadata.generation}",
+      ],
+      30_000,
+    );
+    if (gen !== undefined) {
+      console.error(`  metadata.generation=${gen.trim()}`);
+    }
+    const observed = safeOc(
+      [
+        "get",
+        "sonataflow",
+        workflow,
+        "-n",
+        namespace,
+        "-o",
+        "jsonpath={.status.observedGeneration}",
+      ],
+      30_000,
+    );
+    if (observed !== undefined && observed.trim() !== "") {
+      console.error(`  status.observedGeneration=${observed.trim()}`);
+    }
+  }
+
+  banner("recent namespace warnings/errors (last 200 events)");
+  dumpOc(
+    safeOc(
+      ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
+      120_000,
+    ),
+    "(get events — empty stdout)",
+  );
+}
+
+function detectOperatorVersion(...labels: string[]): string {
+  for (const label of labels) {
+    try {
+      const version = runOc([
+        "get",
+        "csv",
+        "-n",
+        "openshift-operators",
+        "-o",
+        "jsonpath={.items[0].spec.version}",
+        "-l",
+        label,
+      ]);
+      if (version) return version;
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return "";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
