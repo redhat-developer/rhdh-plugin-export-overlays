@@ -7,8 +7,7 @@ import {
   ROLES_PAGE_COMPONENTS,
 } from "../../support/pages/rbac-obj";
 
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import * as path from "node:path";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
 import {
@@ -24,6 +23,21 @@ import {
   LoginHelper,
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+
+const APP_CONFIG_RHDH_CM_KEY = "app-config-rhdh.yaml";
+
+const PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT = `
+set -euo pipefail
+export KEY="$3"
+export OVERLAY="$2"
+MERGED_FILE=$(mktemp)
+PATCH_FILE=$(mktemp)
+trap 'rm -f "$MERGED_FILE" "$PATCH_FILE"' EXIT
+oc get configmap app-config-rhdh -n "$1" -o yaml | yq eval '.data[strenv(KEY)]' - | yq eval '.permission.rbac.defaultPermissions = (load(strenv(OVERLAY)) | .permission.rbac.defaultPermissions)' - > "$MERGED_FILE"
+export MERGED_FILE
+yq eval -n '.data[strenv(KEY)] = (load(strenv(MERGED_FILE)) | to_yaml)' > "$PATCH_FILE"
+oc patch configmap app-config-rhdh -n "$1" --type merge --patch-file "$PATCH_FILE"
+`.trim();
 
 test.describe("RBAC plugin", () => {
   let rbacPO: RbacPO;
@@ -49,8 +63,7 @@ test.describe("RBAC plugin", () => {
   }
 
   test.beforeAll(async ({ rhdh, browser }) => {
-    const rbacConfigmapPath = path.resolve(
-      process.cwd(),
+    const rbacConfigmapPath = WorkspacePaths.resolve(
       "tests/config/rbac-configmap.yaml",
     );
     await createUsersAndGroups();
@@ -63,6 +76,7 @@ test.describe("RBAC plugin", () => {
       valueFile: "tests/config/values.yaml",
     });
     await rhdh.deploy();
+    await rhdh.waitUntilReady();
 
     // `beforeAll` does not receive a `page` fixture, so a temporary browser
     // context is created solely to perform the admin login and extract the
@@ -318,10 +332,20 @@ test.describe("RBAC plugin", () => {
       await expect(rbacNavLink).toHaveCount(0);
     });
 
+    test("No access user should not see list of components in catalog", async ({
+      uiHelper,
+    }) => {
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyTableIsEmpty();
+    });
+
     test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
       await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText("ERROR : Not Found");
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
   });
 
@@ -626,6 +650,52 @@ test.describe("RBAC plugin", () => {
       );
 
       await rbacPO.deleteRole(RBAC_ROLES.conditionalResource.ref);
+    });
+  });
+
+  test.describe("Check default RBAC permissions", () => {
+    test.beforeAll(async ({ rhdh }) => {
+      test.setTimeout(600_000);
+
+      const namespace = rhdh.deploymentConfig.namespace;
+      const overlayPath = WorkspacePaths.resolve(
+        "tests/config/app-config-rhdh-default-permissions-overlay.yaml",
+      );
+      await $`bash -c ${PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT} _ ${namespace} ${overlayPath} ${APP_CONFIG_RHDH_CM_KEY}`;
+      await rhdh.scaleDownAndRestart();
+      await rhdh.waitUntilReady();
+    });
+
+    test("User should got default permissions", async ({
+      page,
+      uiHelper,
+      loginHelper,
+    }) => {
+      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
+
+      rbacPO = new RbacPO(page, uiHelper);
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.waitForLoad();
+      await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
+    });
+
+    test("Default role should appear in the RBAC page", async ({
+      page,
+      uiHelper,
+      loginHelper,
+    }) => {
+      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
+
+      rbacPO = new RbacPO(page, uiHelper);
+
+      await rbacPO.navigateToRBACPage();
+      await uiHelper.waitForLoad();
+      await rbacPO.filterRolesList(RBAC_ROLES.defaultRole.name);
+      await rbacPO.verifyRoleAndSwitchToOverview(
+        RBAC_ROLES.defaultRole.ref,
+        "Role with default permissions for all users and groups.",
+        ["1 permission"],
+      );
     });
   });
 
