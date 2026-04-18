@@ -25,5 +25,9 @@ export default defineConfig({
       name: "backstage-notifications",
       testMatch: /tests\/specs\/notifications\.spec\.ts/,
     },
+    {
+      name: "backstage-techdocs",
+      testMatch: /tests\/specs\/techdocs\.spec\.ts/,
+    },
   ],
 });
