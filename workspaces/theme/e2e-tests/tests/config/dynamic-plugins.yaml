@@ -1,0 +1,40 @@
+plugins:
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-qe-theme
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-qe-theme:
+            themes:
+              - id: rhdh-plugins-theme-qe-light
+                icon: lightIcon
+                title: RHDH Plugins QE Light
+                variant: light
+                importName: lightThemeProvider
+              - id: rhdh-plugins-theme-qe-dark
+                icon: darkIcon
+                title: RHDH Plugins QE Dark
+                variant: dark
+                importName: darkThemeProvider
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-theme
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-theme:
+            appIcons:
+              - importName: LightIcon
+                name: lightIcon
+              - importName: DarkIcon
+                name: darkIcon
+            themes:
+              - id: light-dynamic
+                icon: lightIcon
+                importName: lightThemeProvider
+                title: Light Dynamic
+                variant: light
+              - icon: darkIcon
+                id: dark-dynamic
+                importName: darkThemeProvider
+                title: Dark Dynamic
+                variant: dark
