@@ -15,13 +15,13 @@ on:
         description: Newline-separated list of plugins that failed to load
         value: ${{ jobs.run.outputs.failed-plugins }}
       error-logs:
-        description: Extracted error messages from container logs
+        description: Extracted error messages from smoke test output
         value: ${{ jobs.run.outputs.error-logs }}
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: read
@@ -36,139 +36,105 @@ jobs:
           name: smoke-test-artifacts
           path: ./artifacts
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: "24"
 
-      - name: Start RHDH with test plugins config
+      - name: Install skopeo
         run: |
-          set -euo pipefail
-          ls -la ./artifacts/ || true
-          
+          if ! command -v skopeo &>/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq skopeo
+          fi
+          skopeo --version
+
+      - name: Install Python dependencies
+        run: pip install pyyaml
+
+      - name: Authenticate to GHCR
+        env: 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo $GITHUB_TOKEN | skopeo login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Verify artifacts
+        run: |
+          ls -la ./artifacts/
+          ls -la ./artifacts/harness/ || true
           if [ ! -f "./artifacts/dynamic-plugins.test.yaml" ]; then
-            echo "Error: dynamic-plugins.test.yaml not found in artifacts"
+            echo "Error: dynamic-plugins.test.yaml not found"
             exit 1
           fi
+          echo "=== dynamic-plugins.test.yaml (first 40 lines) ==="
+          head -40 ./artifacts/dynamic-plugins.test.yaml || true
 
-          echo "dynamic-plugins.test.yaml contents:"
-          sed -n '1,40p' ./artifacts/dynamic-plugins.test.yaml || true
-          
-          # Build Docker run command with conditional volume mounts
-          ENV_ARGS=$( [ -f ./artifacts/test.env ] && echo "--env-file ./artifacts/test.env" || echo "" )
-          DOCKER_CMD="docker run -d --name rhdh -p 7007:7007 $ENV_ARGS"
-          if [ -f "./artifacts/app-config.yaml" ]; then
-            DOCKER_CMD="$DOCKER_CMD -v "$(pwd)"/artifacts/app-config.yaml:/opt/app-root/src/app-config.yaml"
-          fi
-          if [ -f "./artifacts/app-config.test.yaml" ]; then
-            DOCKER_CMD="$DOCKER_CMD -v "$(pwd)"/artifacts/app-config.test.yaml:/opt/app-root/src/app-config.test.yaml"
-          fi
-          DOCKER_CMD="$DOCKER_CMD -v "$(pwd)"/artifacts/dynamic-plugins.test.yaml:/opt/app-root/src/dynamic-plugins.yaml"
-          
-          # Add Docker config and environment variables
-          echo "Using docker auth file: $HOME/.docker/config.json"
-          DOCKER_CMD="$DOCKER_CMD -v $HOME/.docker/config.json:/root/.docker/config.json:ro"
-          DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
-          
-          # Derive image tag from target branch
-          TARGET_BRANCH="${{ inputs.target-branch }}"
-          if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
-            IMAGE_TAG="next-${BASH_REMATCH[1]}"
-          else
-            IMAGE_TAG="next"
-          fi
-          echo "Using RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
-          
-          # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:${IMAGE_TAG} -c '"
-          DOCKER_CMD="$DOCKER_CMD set -ex; "
-          DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
-          DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "
-          DOCKER_CMD="$DOCKER_CMD INSTALL_SCRIPT=/opt/app-root/src/install-dynamic-plugins.sh; "
-          DOCKER_CMD="$DOCKER_CMD mkdir -p \$PLUGINS_ROOT; "
-          DOCKER_CMD="$DOCKER_CMD \$INSTALL_SCRIPT \$PLUGINS_ROOT; "
-          DOCKER_CMD="$DOCKER_CMD exec node packages/backend"
-          
-          # Add config files to command (optional)
-          [ -f "./artifacts/app-config.yaml" ] && DOCKER_CMD="$DOCKER_CMD --config /opt/app-root/src/app-config.yaml"
-          [ -f "./artifacts/app-config.test.yaml" ] && DOCKER_CMD="$DOCKER_CMD --config /opt/app-root/src/app-config.test.yaml"
-          DOCKER_CMD="$DOCKER_CMD --config /opt/app-root/src/dynamic-plugins.yaml"
-          DOCKER_CMD="$DOCKER_CMD --config \$GENERATED_CONFIG'"
-          
-          echo "Running: $DOCKER_CMD"
-          eval "$DOCKER_CMD"
-
-      - name: Wait for RHDH to be ready
+      # TODO: Replace with native TypeScript implementation once available upstream.
+      - name: Download install-dynamic-plugins.py
         run: |
-          set -e
-          for i in $(seq 1 10); do
-            if curl -fsS http://localhost:7007/health >/dev/null; then
-              echo "RHDH is ready"; exit 0; fi
-            echo "Waiting for RHDH... (Attempt ${i}/10)"
-            # Check if container is still running
-            if ! docker ps | grep -q rhdh; then
-              echo "Container stopped unexpectedly."
-              exit 1
-            fi
-            sleep 10
-          done
-          echo "RHDH did not become ready in time."
-          exit 1
+          curl -fsSL \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/3efb9cc140ff/scripts/install-dynamic-plugins/install-dynamic-plugins.py" \
+            -o ./artifacts/harness/install-dynamic-plugins.py
 
-      - name: List installed plugins
-        run: docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
+      - name: Download and extract plugins
+        working-directory: ./artifacts/harness
+        run: |
+          cp ../dynamic-plugins.test.yaml dynamic-plugins.yaml
+          python3 install-dynamic-plugins.py ./dynamic-plugins-root
+        env:
+          SKIP_INTEGRITY_CHECK: "true"
 
-      - name: Print generated dynamic plugins config
-        run: docker exec rhdh cat /opt/app-root/src/dynamic-plugins-root/app-config.dynamic-plugins.yaml
+      - name: Install smoke test dependencies
+        working-directory: ./artifacts/harness
+        run: npm install --ignore-scripts 2>&1 | tail -5
 
-      - name: Verify plugin loading
+      - name: Run smoke test
+        id: smoke-test
+        working-directory: ./artifacts/harness
+        run: |
+          set -o pipefail
+
+          CONFIG_ARGS="--config app-config.yaml"
+          [ -f ../app-config.yaml ] && CONFIG_ARGS="$CONFIG_ARGS --config ../app-config.yaml"
+          [ -f ../app-config.test.yaml ] && CONFIG_ARGS="$CONFIG_ARGS --config ../app-config.test.yaml"
+
+          GENERATED_CFG="./dynamic-plugins-root/app-config.dynamic-plugins.yaml"
+          [ -f "$GENERATED_CFG" ] && CONFIG_ARGS="$CONFIG_ARGS --config $GENERATED_CFG"
+
+          ENV_ARGS=""
+          [ -f ../test.env ] && ENV_ARGS="--env-file ../test.env"
+
+          echo "Running: npm test -- --plugins-yaml ../dynamic-plugins.test.yaml --skip-download $CONFIG_ARGS $ENV_ARGS"
+
+          npm test -- \
+            --plugins-yaml ../dynamic-plugins.test.yaml \
+            --skip-download \
+            $CONFIG_ARGS \
+            $ENV_ARGS \
+            2>&1 | tee ../smoke-test.log
+
+      - name: Collect results
         id: collect-results
+        if: always()
         run: |
-          set -e
-          PLUGINS=$(grep -Eo '!([^[:space:]]+)' ./artifacts/dynamic-plugins.test.yaml | sed -e 's/^!//' -e 's/"$//' | sort -u)
-          if [ -z "$PLUGINS" ]; then
-            echo "No plugins found in dynamic-plugins.test.yaml"
-            echo "success=false" >> "$GITHUB_OUTPUT"
+          RESULTS_FILE="./artifacts/harness/results.json"
+          if [ -f "$RESULTS_FILE" ]; then
+            SUCCESS=$(jq -r '.success' "$RESULTS_FILE")
+            FAILED=$(jq -r '.failedPlugins | join("\n")' "$RESULTS_FILE")
+            echo "success=$SUCCESS" >> "$GITHUB_OUTPUT"
             echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
-            echo "(no-plugins)" >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          LOGS=$(docker logs rhdh || true)
-          failures=()
-          echo "===== Checking logs for plugin loaded messages"
-          for plugin in $PLUGINS; do
-            echo "Asserting plugin loaded: $plugin"
-            # Match either the unpack path or the canonical "loaded dynamic ... plugin '<pkg>' from" message
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'" ; then
-              echo "Plugin loaded: $plugin"
-            else
-              echo "Plugin NOT loaded: $plugin"
-              failures+=("$plugin")
-            fi
-          done
-          if echo "$LOGS" | grep -E "(InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error)" >/dev/null; then
-            echo "Detected dynamic plugin loading errors in logs"
-            failures+=("(log-errors)")
-          fi
-          if [ ${#failures[@]} -eq 0 ]; then
-            echo "success=true" >> "$GITHUB_OUTPUT"
-            echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
-            echo "" >> "$GITHUB_OUTPUT"
+            echo "$FAILED" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           else
             echo "success=false" >> "$GITHUB_OUTPUT"
             echo "failed-plugins<<EOF" >> "$GITHUB_OUTPUT"
-            printf "%s\n" "${failures[@]}" >> "$GITHUB_OUTPUT"
+            echo "(results-file-missing)" >> "$GITHUB_OUTPUT"
             echo "EOF" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Fail if any plugin failed to load
+      - name: Fail if smoke test failed
         if: ${{ steps.collect-results.outputs.success != 'true' }}
         run: |
-          echo "The following plugins failed to load to RHDH:"
+          echo "Smoke test failed. Failed plugins:"
           echo "${{ steps.collect-results.outputs.failed-plugins }}"
           exit 1
 
@@ -177,30 +143,21 @@ jobs:
         id: capture-errors
         continue-on-error: true
         run: |
-          if ! docker ps -a | grep -q rhdh; then
-            echo "error-logs<<EOF" >> "$GITHUB_OUTPUT"
-            echo "'rhdh' container was not available. Check earlier steps for startup errors." >> "$GITHUB_OUTPUT"
-            echo "EOF" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          
-          LOGS=$(docker logs rhdh 2>&1 || echo "Failed to retrieve logs")
-          
-          # Extract errors from logs with short context 
-          ERROR_LINES=$(echo "$LOGS" | grep -iE -B 2 -A 2 "(error|exception|failed|failure|installException)" | grep -vE "(no errors|successfully|resolved|fixed)" | grep -v "^--$" | tail -n 100 || echo "")
-          
+          LOG_FILE="./artifacts/smoke-test.log"
           echo "error-logs<<EOF" >> "$GITHUB_OUTPUT"
-          if [ -n "$ERROR_LINES" ] && [ "$ERROR_LINES" != "" ]; then
-            echo "$ERROR_LINES" >> "$GITHUB_OUTPUT"
+          if [ -f "$LOG_FILE" ]; then
+            grep -iE -B 1 -A 1 "(error|exception|failed|failure)" "$LOG_FILE" \
+              | grep -vE "(no errors|successfully|resolved)" \
+              | tail -100 || echo "No error patterns found in logs."
           else
-            echo "No specific error patterns found in container logs. Check full workflow logs for details." >> "$GITHUB_OUTPUT"
+            echo "No smoke test log available."
           fi
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Print container logs
+      - name: Print full smoke test log
         if: always()
-        run: docker logs rhdh || true
+        run: cat ./artifacts/smoke-test.log 2>/dev/null || echo "No log file"
 
       - name: Cleanup
         if: always()
-        run: docker rm -f rhdh || true
+        run: rm -rf ./artifacts/harness/dynamic-plugins-root || true

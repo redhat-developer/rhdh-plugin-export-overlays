@@ -59,6 +59,11 @@ Thumbs.db
 build/
 *.tsbuildinfo
 
+# Smoke test artifacts
+smoke-tests/dynamic-plugins-root/
+smoke-tests/.tmp-oci/
+smoke-tests/results.json
+
 # Coverage
 coverage/
 .nyc_output/
