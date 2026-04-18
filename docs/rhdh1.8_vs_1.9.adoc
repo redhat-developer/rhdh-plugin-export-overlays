@@ -1,0 +1,92 @@
+
+== Plugins Whose Support Level Has Changed Between RHDH 1.8 and 1.9
+
+[cols="3,1,1"]
+|===
+|Plugin Name |RHDH 1.8 Support Level |RHDH 1.9 Support Level
+
+|backstage-community-plugin-3scale-backend |[.blue]#tech-preview# |community
+|backstage-community-plugin-azure-devops-backend |[.blue]#tech-preview# |community
+|backstage-community-plugin-azure-devops |[.blue]#tech-preview# |community
+|backstage-community-plugin-dynatrace |[.blue]#tech-preview# |community
+|backstage-community-plugin-github-actions |[.blue]#tech-preview# |community
+|backstage-community-plugin-github-issues |[.blue]#tech-preview# |community
+|backstage-community-plugin-jenkins-backend |[.blue]#tech-preview# |community
+|backstage-community-plugin-jenkins |[.blue]#tech-preview# |community
+|backstage-community-plugin-jfrog-artifactory |[.blue]#tech-preview# |community
+|backstage-community-plugin-lighthouse |[.blue]#tech-preview# |community
+|backstage-community-plugin-nexus-repository-manager |[.blue]#tech-preview# |community
+|backstage-community-plugin-quay |[.green]#production# |community
+|backstage-community-plugin-scaffolder-backend-module-quay |[.green]#production# |community
+|backstage-community-plugin-scaffolder-backend-module-servicenow |[.blue]#tech-preview# |community
+|backstage-community-plugin-scaffolder-backend-module-sonarqube |[.blue]#tech-preview# |community
+|backstage-community-plugin-servicenow-backend |dev-preview |community
+|backstage-community-plugin-servicenow |dev-preview |community
+|backstage-community-plugin-sonarqube-backend |[.blue]#tech-preview# |community
+|backstage-community-plugin-sonarqube |[.blue]#tech-preview# |community
+|backstage-community-plugin-tech-radar-backend |[.blue]#tech-preview# |[.green]#generally-available#
+|backstage-community-plugin-tech-radar |[.blue]#tech-preview# |[.green]#generally-available#
+|backstage-community-plugin-tekton |[.green]#production# |community
+|backstage-plugin-catalog-backend-module-bitbucket-cloud |[.blue]#tech-preview# |community
+|backstage-plugin-catalog-backend-module-bitbucket-server |[.blue]#tech-preview# |community
+|backstage-plugin-catalog-backend-module-msgraph |[.blue]#tech-preview# |[.green]#production#
+|backstage-plugin-scaffolder-backend-module-azure |[.blue]#tech-preview# |community
+|backstage-plugin-scaffolder-backend-module-bitbucket-cloud |[.blue]#tech-preview# |community
+|backstage-plugin-scaffolder-backend-module-bitbucket-server |[.blue]#tech-preview# |community
+|backstage-plugin-scaffolder-backend-module-gerrit |[.blue]#tech-preview# |community
+|immobiliarelabs-backstage-plugin-gitlab-backend |[.blue]#tech-preview# |community
+|immobiliarelabs-backstage-plugin-gitlab |[.blue]#tech-preview# |community
+|pagerduty-backstage-plugin-backend |[.blue]#tech-preview# |community
+|pagerduty-backstage-plugin |[.blue]#tech-preview# |community
+|redhat-backstage-plugin-orchestrator-backend |[.blue]#tech-preview# |[.green]#production#
+|redhat-backstage-plugin-orchestrator-form-widgets |[.blue]#tech-preview# |[.green]#production#
+|roadiehq-backstage-plugin-argo-cd-backend |[.green]#production# |community
+|roadiehq-backstage-plugin-datadog |[.blue]#tech-preview# |community
+|roadiehq-backstage-plugin-github-insights |[.blue]#tech-preview# |community
+|roadiehq-backstage-plugin-github-pull-requests |[.blue]#tech-preview# |community
+|roadiehq-backstage-plugin-jira |[.blue]#tech-preview# |community
+|roadiehq-backstage-plugin-security-insights |[.blue]#tech-preview# |community
+|roadiehq-scaffolder-backend-argocd |[.blue]#tech-preview# |community
+|roadiehq-scaffolder-backend-module-http-request |[.blue]#tech-preview# |[.green]#production#
+|roadiehq-scaffolder-backend-module-utils |[.blue]#tech-preview# |community
+|===
+
+== New Plugin Packages in RHDH 1.9
+
+[cols="3,1"]
+|===
+|Plugin Name |RHDH 1.9 Support Level
+
+|aws-aws-codebuild-plugin-for-backstage-backend |community
+|aws-aws-codebuild-plugin-for-backstage |community
+|backstage-community-plugin-argocd-backend |community
+|backstage-community-plugin-argocd |community
+|backstage-community-plugin-catalog-backend-module-azure-devops-annotator-processor |community
+|backstage-community-plugin-github-pull-requests-board |community
+|backstage-community-plugin-kiali-backend |community
+|backstage-community-plugin-kiali |community
+|backstage-community-plugin-lighthouse-backend |community
+|backstage-community-plugin-mcp-chat-backend |community
+|backstage-community-plugin-mcp-chat |community
+|backstage-community-plugin-quay-backend |community
+|backstage-community-plugin-scaffolder-backend-module-azure-devops |community
+|backstage-community-plugin-scaffolder-backend-module-dotnet |community
+|backstage-community-plugin-scaffolder-backend-module-jenkins |community
+|backstage-community-plugin-search-backend-module-azure-devops |community
+|backstage-plugin-events-backend-module-github |[.blue]#tech-preview#
+|bcp-ctlg-backend-mod-scaffolder-relation-processor |[.blue]#tech-preview#
+|redhat-backstage-plugin-orchestrator-backend-module-loki |[.green]#production#
+|rhdh-backstage-plugin-scorecard-backend-module-openssf |dev-preview
+|rhdh-bs-plugin-catalog-backend-module-model-catalog |dev-preview
+|rhdh-bs-plugin-catalog-techdoc-url-reader-backend |dev-preview
+|rhdh-bsp-adoption-insights-backend |[.green]#production#
+|rhdh-bsp-adoption-insights |[.green]#production#
+|rhdh-bsp-analytics-mod-adoption-insights |[.green]#production#
+|rhdh-bsp-ctlg-backend-mod-extensions |[.blue]#tech-preview#
+|rhdh-bsp-extensions-backend |[.blue]#tech-preview#
+|rhdh-bsp-extensions |[.blue]#tech-preview#
+|rhdh-bsp-global-floating-action-button |[.green]#production#
+|rhdh-bsp-quickstart |[.green]#production#
+|rhdh-bsp-software-ctlg-mcp-tool |dev-preview
+|roadiehq-backstage-plugin-argo-cd |community
+|===
