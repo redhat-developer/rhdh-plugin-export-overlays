@@ -5,19 +5,19 @@ metadata:
   namespace: rhdh
   title: Lighthouse
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://github.com/backstage/community-plugins/issues
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
   tags: []
 spec:
   packageName: '@backstage-community/plugin-lighthouse'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.45.3__0.16.0!backstage-community-plugin-lighthouse
-  version: 0.16.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.48.3__0.19.0!backstage-community-plugin-lighthouse
+  version: 0.19.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -25,31 +25,31 @@ spec:
   support: community
   lifecycle: active
   partOf:
-  - lighthouse
+    - lighthouse
   appConfigExamples:
-  - title: Default configuration
-    content:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-lighthouse:
-            appIcons:
-            - name: lighthouse
-              importName: LighthouseIcon
-            dynamicRoutes:
-            - path: /lighthouse
-              importName: LighthousePage
-              menuItem:
-                icon: lighthouse
-                text: menuItem.lighthouse
-                textKey: menuItem.lighthouse
-            mountPoints:
-            - mountPoint: entity.page.overview/cards
-              importName: EntityLastLighthouseAuditCard
-              config:
-                layout:
-                  gridColumnEnd:
-                    md: span 6
-                    xs: span 12
-                if:
-                  allOf:
-                  - isLighthouseAvailable
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-lighthouse:
+              appIcons:
+                - name: lighthouse
+                  importName: LighthouseIcon
+              dynamicRoutes:
+                - path: /lighthouse
+                  importName: LighthousePage
+                  menuItem:
+                    icon: lighthouse
+                    text: menuItem.lighthouse
+                    textKey: menuItem.lighthouse
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityLastLighthouseAuditCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        md: span 6
+                        xs: span 12
+                    if:
+                      allOf:
+                        - isLighthouseAvailable
