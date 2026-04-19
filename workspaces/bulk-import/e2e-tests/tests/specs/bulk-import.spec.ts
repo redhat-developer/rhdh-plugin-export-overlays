@@ -80,7 +80,7 @@ async function catalogImportRegisterFromComponentUrl(page: Page, url: string) {
   await waitForLoad(page);
 }
 
-export const GITHUB_ORG = 'janus-qe';
+export const GITHUB_ORG = "janus-qe";
 
 test.describe.serial("Bulk Import plugin", () => {
   test.skip(
