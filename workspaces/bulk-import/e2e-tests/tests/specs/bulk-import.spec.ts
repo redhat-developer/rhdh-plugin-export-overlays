@@ -418,10 +418,7 @@ test.describe
   });
 
   test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser(
-      process.env.GH_USER2_ID,
-      process.env.GH_USER2_PASS,
-    );
+    await loginHelper.loginAsKeycloakUser();
   });
 
   test("Verify existing repo from app-config is displayed in bulk import Added repositories", async ({
