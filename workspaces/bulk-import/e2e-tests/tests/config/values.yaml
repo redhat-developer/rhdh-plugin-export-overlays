@@ -1,8 +1,4 @@
 upstream:
-  image:
-    registry: quay.io
-    repository: rhdh-community/rhdh
-    tag: next
   backstage:
     extraVolumeMounts:
       # NOTE: Lists will not be merged with the default values file. So need to append all the defaults if you want to add a new item here
