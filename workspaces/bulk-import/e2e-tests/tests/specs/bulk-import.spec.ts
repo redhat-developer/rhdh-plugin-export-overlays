@@ -80,6 +80,8 @@ async function catalogImportRegisterFromComponentUrl(page: Page, url: string) {
   await waitForLoad(page);
 }
 
+export const GITHUB_ORG = 'janus-qe';
+
 test.describe.serial("Bulk Import plugin", () => {
   test.skip(
     () => !!process.env.JOB_NAME?.includes("osd-gcp"),
@@ -87,12 +89,12 @@ test.describe.serial("Bulk Import plugin", () => {
   );
   test.describe.configure({ retries: process.env.CI ? 5 : 0 });
 
-  const catalogRepoName = `cloud-eda-1-bulk-import-test-${Date.now()}`;
+  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetails = {
     name: catalogRepoName,
-    url: `github.com/cloud-eda/${catalogRepoName}`,
-    org: "github.com/cloud-eda",
-    owner: "cloud-eda",
+    url: `github.com/${GITHUB_ORG}/${catalogRepoName}`,
+    org: `github.com/${GITHUB_ORG}`,
+    owner: GITHUB_ORG,
   };
 
   const catalogInfoYamlContent = `apiVersion: backstage.io/v1alpha1
@@ -100,7 +102,7 @@ kind: Component
 metadata:
   name: ${catalogRepoName}
   annotations:
-    github.com/project-slug: cloud-eda/${catalogRepoName}
+    github.com/project-slug: ${GITHUB_ORG}/${catalogRepoName}
 spec:
   type: other
   lifecycle: unknown
@@ -108,11 +110,11 @@ spec:
 
   const newRepoName = `bulk-import-${Date.now()}`;
   const newRepoDetails = {
-    owner: "cloud-eda",
+    owner: `${GITHUB_ORG}`,
     repoName: newRepoName,
     updatedComponentName: `${newRepoName}-updated`,
     labels: `bulkimport1: test1;bulkimport2: test2`,
-    repoUrl: `github.com/cloud-eda/${newRepoName}`,
+    repoUrl: `github.com/${GITHUB_ORG}/${newRepoName}`,
   };
 
   test.beforeAll(async ({ rhdh }) => {
@@ -394,7 +396,7 @@ test.describe
   const existingComponentDetails = {
     name: "janus-test-2-bulk-import-test",
     repoName: "janus-test-2-bulk-import-test",
-    url: "https://github.com/cloud-eda/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml",
+    url: `https://github.com/${GITHUB_ORG}/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml`,
   };
 
   test.beforeAll(async ({ rhdh }) => {
@@ -503,13 +505,12 @@ test.describe
 // ============================================================================
 
 test.describe("Bulk import tests orchestrator mode", () => {
-  const catalogRepoName = `cloud-eda-1-bulk-import-test-${Date.now()}`;
-  const githubOrg = "cloud-eda";
+  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetailsForOrchestrator = {
     name: catalogRepoName,
-    url: `github.com/${githubOrg}/${catalogRepoName}`,
-    org: `github.com/${githubOrg}`,
-    owner: githubOrg,
+    url: `github.com/${GITHUB_ORG}/${catalogRepoName}`,
+    org: `github.com/${GITHUB_ORG}`,
+    owner: GITHUB_ORG,
   };
 
   test.beforeAll(async ({ rhdh }) => {
