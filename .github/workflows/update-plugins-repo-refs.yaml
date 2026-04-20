@@ -231,8 +231,17 @@ jobs:
     steps:
       - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: collect
+        env:
+          INPUT_PR_TO_UPDATE: ${{ inputs.pr-to-update }}
         with:
           script: |
+            const prToUpdate = core.getInput('pr_to_update');
+            if (prToUpdate) {
+              const numbers = [Number(prToUpdate)];
+              core.setOutput('pr-numbers', JSON.stringify(numbers));
+              core.info(`Using specified PR for auto-publish: ${numbers}`);
+              return;
+            }
             const run = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,
