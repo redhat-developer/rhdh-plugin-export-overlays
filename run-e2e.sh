@@ -211,8 +211,20 @@ for ws in "${E2E_WORKSPACES[@]}"; do
     WS_DIR="workspaces/${ws}/e2e-tests"
     WS_CONFIG="${WS_DIR}/playwright.config.ts"
 
-    # Extract content between "projects: [" and "]," (the project objects)
-    PROJECTS_BLOCK=$(sed -n '/projects: \[/,/^\s*\],/{ /projects: \[/d; /^\s*\],/d; p; }' "$WS_CONFIG")
+    # Extract content between "projects: [" and its matching "]".
+    # Uses awk with bracket-depth tracking so nested arrays (e.g. testMatch: [...])
+    # don't prematurely terminate the extraction.
+    PROJECTS_BLOCK=$(awk '
+      /projects:[[:space:]]*\[/ { inside=1; depth=1; next }
+      inside {
+        for (i=1; i<=length($0); i++) {
+          c = substr($0, i, 1)
+          if (c == "[") depth++
+          if (c == "]") { depth--; if (depth == 0) { inside=0; next } }
+        }
+        if (inside) print
+      }
+    ' "$WS_CONFIG")
 
     if [[ -z "$PROJECTS_BLOCK" ]]; then
         echo "[WARN] No projects found in $WS_CONFIG, skipping"
