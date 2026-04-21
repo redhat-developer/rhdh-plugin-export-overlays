@@ -83,12 +83,6 @@ async function catalogImportRegisterFromComponentUrl(page: Page, url: string) {
 export const GITHUB_ORG = "janus-qe";
 
 test.describe.serial("Bulk Import plugin", () => {
-  test.skip(
-    () => !!process.env.JOB_NAME?.includes("osd-gcp"),
-    "skipping due to RHDHBUGS-555 on OSD Env",
-  );
-  test.describe.configure({ retries: process.env.CI ? 5 : 0 });
-
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetails = {
     name: catalogRepoName,
@@ -386,11 +380,6 @@ spec:
 
 test.describe
   .serial("Bulk Import - Verify existing repo are displayed in bulk import Added repositories", () => {
-  test.skip(
-    () => !!process.env.JOB_NAME?.includes("osd-gcp"),
-    "skipping due to RHDHBUGS-555 on OSD Env",
-  );
-
   const existingRepoFromAppConfig = "janus-test-3-bulk-import";
 
   const existingComponentDetails = {
@@ -467,11 +456,6 @@ test.describe
 
 test.describe
   .serial("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
-  test.skip(
-    () => !!process.env.JOB_NAME?.includes("osd-gcp"),
-    "skipping due to RHDHBUGS-555 on OSD Env",
-  );
-
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
@@ -511,11 +495,14 @@ test.describe("Bulk import tests orchestrator mode", () => {
   };
 
   test.beforeAll(async ({ rhdh }) => {
+    await rhdh.teardown();
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
     });
+    await rhdh.deploy();
+    await rhdh.waitUntilReady();
 
     const orchestratorNamespace = "orchestrator";
 
@@ -523,9 +510,6 @@ test.describe("Bulk import tests orchestrator mode", () => {
       await installOrchestrator(orchestratorNamespace);
       await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
     });
-
-    await rhdh.deploy({ forceUpdate: true });
-    await rhdh.waitUntilReady();
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetailsForOrchestrator.owner,
