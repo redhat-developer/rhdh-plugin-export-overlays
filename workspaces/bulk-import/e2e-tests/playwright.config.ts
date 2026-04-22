@@ -10,7 +10,13 @@ export default defineConfig({
   projects: [
     {
       name: "bulk-import",
-      timeout: 30 * 60 * 1000, // 30 min
+      testMatch: "**/tests/specs/bulk-import.spec.ts",
+      timeout: 30 * 60 * 1000,
+    },
+    {
+      name: "bulk-import-orchestrator",
+      testMatch: "**/tests/specs/bulk-import-orchestrator.spec.ts",
+      timeout: 30 * 60 * 1000,
     },
   ],
 });
