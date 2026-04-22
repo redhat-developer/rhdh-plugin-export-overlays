@@ -6,7 +6,7 @@ import { CatalogImportPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 // Pre-req: Enable janus-idp-backstage-plugin-quay plugin
 test.describe("Testing scaffolder-backend-module-http-request to invoke an external request", () => {
   test.skip(
-    () => process.env.JOB_NAME.includes("osd-gcp"),
+    () => process.env?.JOB_NAME?.includes("osd-gcp") ?? false,
     "skipping due to RHDHBUGS-555 on OSD Env",
   );
 
