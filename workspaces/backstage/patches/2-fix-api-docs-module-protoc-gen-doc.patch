@@ -1,0 +1,11 @@
+--- plugins/api-docs-module-protoc-gen-doc/package.json
++++ plugins/api-docs-module-protoc-gen-doc/package.json
+@@ -38,6 +38,9 @@
+   },
+   "dependencies": {
++    "@backstage/catalog-model": "workspace:^",
++    "@backstage/core-plugin-api": "workspace:^",
++    "@backstage/plugin-api-docs": "workspace:^",
+     "grpc-docs": "^1.1.2"
+   },
+   "devDependencies": {
