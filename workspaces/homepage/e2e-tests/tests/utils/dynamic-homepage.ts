@@ -22,16 +22,21 @@ export class DynamicHomePagePo {
     private readonly ui: UIhelper,
   ) {}
 
-  private editButton = () => this.page.getByText("Edit");
-  private saveButton = () => this.page.getByText("Save", { exact: true });
-  private clearAllButton = () => this.page.getByText("Clear all");
-  private restoreDefaultsButton = () => this.page.getByText("Restore defaults");
-  private addWidgetButton = () =>
+  private readonly editButton = () => this.page.getByText("Edit");
+  private readonly saveButton = () =>
+    this.page.getByText("Save", {
+      exact: true,
+    });
+  private readonly clearAllButton = () => this.page.getByText("Clear all");
+  private readonly restoreDefaultsButton = () =>
+    this.page.getByText("Restore defaults");
+  private readonly addWidgetButton = () =>
     this.page.getByRole("button", { name: "Add widget" });
-  private resizeHandles = () => this.page.locator(".react-resizable-handle");
-  private deleteButtons = () =>
+  private readonly resizeHandles = () =>
+    this.page.locator(".react-resizable-handle");
+  private readonly deleteButtons = () =>
     this.page.getByRole("button", { name: "Delete widget" });
-  private greetingText = () =>
+  private readonly greetingText = () =>
     this.page.getByText(/Good (morning|afternoon|evening)/);
 
   async verifyHomePageLoaded(): Promise<void> {
