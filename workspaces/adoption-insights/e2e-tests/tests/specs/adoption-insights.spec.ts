@@ -13,11 +13,11 @@ import {
 } from "../utils/adoption-insights";
 
 /** Chart dist wrapper names (see ../metadata `spec.dynamicArtifact` basenames). */
-const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES = [
+const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-adoption-insights",
   "red-hat-developer-hub-backstage-plugin-adoption-insights-backend-dynamic",
   "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights-dynamic",
-] as const;
+];
 
 test.describe.serial("Test Adoption Insights", () => {
   let context: BrowserContext | undefined;
@@ -25,15 +25,15 @@ test.describe.serial("Test Adoption Insights", () => {
   let uiHelper: UIhelper;
   let testHelper: TestHelper;
 
-  test.beforeAll(async ({ browser, rhdhDeploymentWorker }) => {
-    await rhdhDeploymentWorker.configure({
+  test.beforeAll(async ({ browser, rhdh }) => {
+    await rhdh.configure({
       auth: "keycloak",
-      disableWrappers: [...ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES],
+      disableWrappers: ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES,
     });
-    await rhdhDeploymentWorker.deploy();
+    await rhdh.deploy();
 
     context = await browser.newContext({
-      baseURL: rhdhDeploymentWorker.rhdhUrl,
+      baseURL: rhdh.rhdhUrl,
     });
     page = await context.newPage();
     uiHelper = new UIhelper(page);
