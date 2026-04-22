@@ -42,8 +42,6 @@ plugins/events-backend-module-bitbucket-server:
 plugins/events-backend-module-gerrit:
 plugins/events-backend-module-github: 
 plugins/events-backend-module-gitlab:
-plugins/example-todo-list:
-plugins/example-todo-list-backend:
 plugins/home:
 plugins/kubernetes:
 plugins/kubernetes-backend:
@@ -58,7 +56,6 @@ plugins/proxy-backend:
 #plugins/scaffolder: ==> Added as a static plugin in RHDH
 #plugins/scaffolder-backend: ==> Added as a static plugin in RHDH
 plugins/scaffolder-backend-module-azure:
-plugins/scaffolder-backend-module-bitbucket:
 plugins/scaffolder-backend-module-bitbucket-cloud:
 plugins/scaffolder-backend-module-bitbucket-server:
 plugins/scaffolder-backend-module-confluence-to-markdown:
@@ -81,3 +78,35 @@ plugins/signals-backend:
 plugins/techdocs:
 plugins/techdocs-backend: --embed-package @backstage/plugin-search-backend-module-techdocs --suppress-native-package cpu-features
 plugins/techdocs-module-addons-contrib:
+plugins/api-docs-module-protoc-gen-doc:
+plugins/api-docs:
+plugins/app-backend:
+plugins/app-visualizer:
+plugins/app:
+plugins/auth-backend-module-auth0-provider:
+plugins/auth-backend-module-bitbucket-server-provider:
+plugins/auth-backend-module-guest-provider:
+plugins/auth-backend-module-onelogin-provider:
+plugins/auth-backend-module-openshift-provider:
+plugins/catalog-backend-module-gitea:
+plugins/catalog-backend-module-logs:
+plugins/catalog-backend-module-openapi:
+plugins/catalog-backend-module-scaffolder-entity-model:
+plugins/catalog-backend:
+plugins/catalog-graph:
+plugins/catalog-import:
+plugins/catalog-unprocessed-entities:
+plugins/catalog:
+plugins/events-backend-module-google-pubsub:
+plugins/events-backend-module-kafka:
+plugins/events-backend:
+plugins/gateway-backend:
+plugins/kubernetes-cluster:
+plugins/mui-to-bui:
+plugins/notifications-backend-module-slack:
+plugins/search-backend-module-catalog:
+plugins/search-backend-module-pg:
+plugins/search-backend:
+plugins/search:
+plugins/user-settings-backend:
+plugins/user-settings:
