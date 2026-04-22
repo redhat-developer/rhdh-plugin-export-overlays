@@ -54,13 +54,11 @@ export class NotificationPage {
   }
 
   async markNotificationAsRead(text: string) {
-    const row = this.page.locator(`tr:has-text("${text}")`);
-    await row.getByRole("button").nth(1).click();
+    await this.toggleRead("unread", text);
   }
 
   async markLastNotificationAsUnRead() {
-    const row = this.page.locator("td:nth-child(3) > div").first();
-    await row.getByRole("button").nth(1).click();
+    await this.toggleRead("read");
   }
 
   async viewRead() {
@@ -77,5 +75,19 @@ export class NotificationPage {
       .getByRole("option", { name: "Unread notifications", exact: true })
       .click();
     await this.uiHelper.waitForLoad();
+  }
+
+  private async toggleRead(currentState: "read" | "unread", text?: string) {
+    const rows = this.page.getByRole("row").filter({ hasText: "Notification" });
+    const count = await rows.count();
+
+    const row = text ? rows.filter({ hasText: text }) : rows.first();
+    await row.getByRole("button").nth(1).click();
+
+    if (
+      await this.page.getByText(`${currentState} notifications (`).isVisible()
+    ) {
+      await expect(rows).toHaveCount(count - 1);
+    }
   }
 }

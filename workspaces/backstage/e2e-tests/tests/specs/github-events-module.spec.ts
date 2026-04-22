@@ -170,7 +170,7 @@ spec:
 
             await page.getByRole("link", { name: catalogRepoName }).click();
             // wait for page to load
-            await uiHelper.waitForLoad(5000);
+            await uiHelper.verifyHeading("description");
             return await page.getByText(updatedDescription).isVisible();
           },
           {
