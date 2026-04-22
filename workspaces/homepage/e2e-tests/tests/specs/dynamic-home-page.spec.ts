@@ -58,7 +58,6 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards can be resized in edit mode", async () => {
-    await home.enterEditMode();
     await home.addWidget("Entity Section");
     await home.resizeFirstCard();
     await home.exitEditMode();
