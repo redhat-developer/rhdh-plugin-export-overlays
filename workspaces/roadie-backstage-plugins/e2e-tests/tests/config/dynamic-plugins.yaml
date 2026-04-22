@@ -1,3 +1,5 @@
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd:bs_1.45.3__2.12.4!roadiehq-backstage-plugin-argo-cd
     disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.45.3__5.6.0!roadiehq-scaffolder-backend-module-http-request
+    disabled: false
