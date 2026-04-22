@@ -329,34 +329,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@patch:@red-hat-developer-hub/e2e-test-utils@npm%3A1.1.24#./.yarn/patches/@red-hat-developer-hub-e2e-test-utils-npm-1.1.24-6549bb1cad.patch::locator=homepage-e2e-tests%40workspace%3A.":
-  version: 1.1.24
-  resolution: "@red-hat-developer-hub/e2e-test-utils@patch:@red-hat-developer-hub/e2e-test-utils@npm%3A1.1.24#./.yarn/patches/@red-hat-developer-hub-e2e-test-utils-npm-1.1.24-6549bb1cad.patch::version=1.1.24&hash=8ededf&locator=homepage-e2e-tests%40workspace%3A."
-  dependencies:
-    "@axe-core/playwright": ^4.11.0
-    "@backstage-community/plugin-rbac-common": 1.23.0
-    "@eslint/js": ^9.39.1
-    "@keycloak/keycloak-admin-client": ^26.0.0
-    "@kubernetes/client-node": ^1.4.0
-    eslint: ^9.39.1
-    eslint-plugin-check-file: ^3.3.1
-    eslint-plugin-playwright: ^2.4.0
-    fs-extra: ^11.3.2
-    js-yaml: ^4.1.1
-    lodash.clonedeepwith: ^4.5.0
-    lodash.mergewith: ^4.6.2
-    otplib: 12.0.1
-    prettier: ^3.7.4
-    proper-lockfile: ^4.1.2
-    typescript: ^5.9.3
-    typescript-eslint: ^8.48.1
-    zx: ^8.8.5
-  peerDependencies:
-    "@playwright/test": ^1.57.0
-  checksum: d80ad4bfa9970e2850aef39085f1273246bcfeed036aada16ea14c8542adb7e7a3d036bd3ebfd03cb065226360884a5615fb969e4f3e4b1ce2103aa7fea024ff
-  languageName: node
-  linkType: hard
-
 "@types/estree@npm:^1.0.6":
   version: 1.0.8
   resolution: "@types/estree@npm:1.0.8"
