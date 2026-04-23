@@ -210,6 +210,7 @@ jobs:
     needs: [update-branches, update-main-branch]
     if: |
       always() && 
+      inputs.pr-to-update == '' &&
       (needs.update-branches.result != 'skipped' ||  
        needs.update-main-branch.result != 'skipped')
     uses: ./.github/workflows/label-mandatory-workspace-prs.yaml
@@ -231,8 +232,17 @@ jobs:
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         id: collect
+        env:
+          INPUT_PR_TO_UPDATE: ${{ inputs.pr-to-update }}
         with:
           script: |
+            const prToUpdate = core.getInput('pr_to_update');
+            if (prToUpdate) {
+              const numbers = [Number(prToUpdate)];
+              core.setOutput('pr-numbers', JSON.stringify(numbers));
+              core.info(`Using specified PR for auto-publish: ${numbers}`);
+              return;
+            }
             const run = await github.rest.actions.getWorkflowRun({
               owner: context.repo.owner,
               repo: context.repo.repo,

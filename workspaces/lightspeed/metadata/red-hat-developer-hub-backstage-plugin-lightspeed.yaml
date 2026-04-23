@@ -8,7 +8,8 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should
+        raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed
   annotations:
@@ -16,13 +17,13 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.45.3__1.4.0!red-hat-developer-hub-backstage-plugin-lightspeed
-  version: 1.4.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.1.0!red-hat-developer-hub-backstage-plugin-lightspeed
+  version: 2.1.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
   author: Red Hat
-  support: dev-preview
+  support: generally-available
   lifecycle: active
   partOf:
     - lightspeed
