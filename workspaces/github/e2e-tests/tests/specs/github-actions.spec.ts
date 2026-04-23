@@ -3,10 +3,14 @@ import {
   APIHelper,
   GITHUB_API_ENDPOINTS,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("Test github-actions", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({
+      auth: "github",
+      appConfig: `${WorkspacePaths.configDir}/github-actions/app-config-rhdh.yaml`,
+    });
     await rhdh.deploy();
   });
 
