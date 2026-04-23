@@ -289,15 +289,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.31":
-  version: 1.1.31
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.31"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.33":
+  version: 1.1.33
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.33"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
     "@eslint/js": "npm:10.0.1"
     "@keycloak/keycloak-admin-client": "npm:26.5.6"
     "@kubernetes/client-node": "npm:1.4.0"
+    dotenv: "npm:17.4.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
     eslint-plugin-playwright: "npm:2.10.1"
@@ -313,7 +314,7 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10/a807422e66b75b452726a299ec5e993fcd1662c4082d5216750df5cc404e2027d67a5e8b8edf683e4f1a755055e53521f51be66e2c4159badc84298356aa082f
+  checksum: 10/11e1b5230e38c5251a283e232894d26f5eb3989cdb4b3a0012a27809b3d10b27a7d9647f79f2d4b0156b0b71a51dc4a070cd07e57f042fa0536f5335ab64ea76
   languageName: node
   linkType: hard
 
@@ -822,10 +823,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:17.4.1":
-  version: 17.4.1
-  resolution: "dotenv@npm:17.4.1"
-  checksum: 10/addbff54aed55b80b5d4527ba0a221a63718835c10a2ed7d949f5caeab96995796a4c88f30263724aa71014aa4e3092a1ef551559ddef44d68c429494e13ff68
+"dotenv@npm:17.4.2":
+  version: 17.4.2
+  resolution: "dotenv@npm:17.4.2"
+  checksum: 10/ca1b6f54d58e39914901e1518958e86083aca8deb5aa2e7f2a51acd53291d97852479b0ab26ed949b6a45a0e9adcc7b0d1c3c72375e8ea670f7005e341c6daba
   languageName: node
   linkType: hard
 
@@ -2105,9 +2106,8 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:1.1.31"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:1.1.33"
     "@types/node": "npm:25.5.2"
-    dotenv: "npm:17.4.1"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
     eslint-plugin-playwright: "npm:2.10.1"
