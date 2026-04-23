@@ -1,0 +1,24 @@
+app:
+  title: RHDH GitLab plugin e2e
+
+integrations:
+  gitlab:
+    - host: gitlab.com
+      token: ${GITLAB_TOKEN}
+
+catalog:
+  providers:
+    gitlab:
+      my-test-provider:
+        group: rhdh-qe-test
+        host: gitlab.com
+        schedule:
+          frequency:
+            hours: 24
+          initialDelay:
+            seconds: 5
+          timeout:
+            minutes: 1
+
+permission:
+  enabled: false

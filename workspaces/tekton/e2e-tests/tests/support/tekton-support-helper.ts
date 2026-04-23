@@ -48,12 +48,11 @@ export class TektonSupportHelper {
     return ["NAME", "STATUS", "TASK STATUS", "STARTED", "DURATION"];
   }
 
-  async clickOnExpandRowFromPipelineRunsTable(): Promise<void> {
+  async clickOnExpandRowFromPipelineRunsTable(runName: string): Promise<void> {
     await this.page
-      .locator(
-        'table[aria-labelledby="Pipeline Runs"] button[aria-label="expand row"]',
-      )
-      .first()
+      .getByRole("row")
+      .filter({ hasText: runName })
+      .getByRole("button", { name: "expand row" })
       .click();
   }
 

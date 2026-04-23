@@ -42,7 +42,9 @@ test.describe("Test Tekton plugin", () => {
   }) => {
     const tekton = new TektonSupportHelper(page);
     await tekton.goToBackstageJanusProjectCITab();
-    await tekton.clickOnExpandRowFromPipelineRunsTable();
+    await tekton.clickOnExpandRowFromPipelineRunsTable(
+      "hello-world-pipeline-run",
+    );
     await tekton.openModalEchoHelloWorld();
     await tekton.verifyModalOpened();
     await tekton.checkPipelineStages(["echo-hello-world", "echo-bye"]);

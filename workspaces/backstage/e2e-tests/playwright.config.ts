@@ -14,6 +14,10 @@ export default defineConfig({
       testMatch: /tests\/specs\/github-discovery\.spec\.ts/,
     },
     {
+      name: "backstage-gitlab-discovery",
+      testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
+    },
+    {
       name: "backstage-github-events",
       testMatch: /tests\/specs\/github-events-module\.spec\.ts/,
     },

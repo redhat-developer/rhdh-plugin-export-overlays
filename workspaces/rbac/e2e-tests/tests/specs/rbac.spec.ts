@@ -321,7 +321,9 @@ test.describe("RBAC plugin", () => {
     test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
       await rbacPO.go();
       await uiHelper.waitForLoad();
-      await uiHelper.verifyText("ERROR : Not Found");
+      await uiHelper.verifyText(
+        "ERROR 403: Insufficient permissions to access this page",
+      );
     });
   });
 

@@ -5,20 +5,20 @@ metadata:
   namespace: rhdh
   title: Catalog Backend Module LDAP
   links:
-  - url: https://red.ht/rhdh
-    title: Homepage
-  - url: https://github.com/backstage/backstage/issues
-    title: Bugs
-  - title: Source Code
-    url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
   annotations:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-ldap
   tags:
-  - software-catalog
+    - software-catalog
 spec:
   packageName: '@backstage/plugin-catalog-backend-module-ldap'
   dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
-  version: 0.12.2
+  version: 0.12.3
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.48.3
@@ -26,30 +26,30 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-  - ldap-catalog-integration
+    - ldap-catalog-integration
   appConfigExamples:
-  - title: Default configuration
-    content:
-      catalog:
-        providers:
-          ldapOrg:
-            default:
-              target: ${LDAP_TARGET_URL}
-              bind:
-                dn: ${LDAP_BIND_DN}
-                secret: ${LDAP_BIND_SECRET}
-              users:
-              - dn: ${LDAP_USERS_DN}
-                options:
-                  filter: (uid=*)
-              groups:
-              - dn: ${LDAP_GROUPS_DN}
-                options:
-                  filter: (cn=*)
-              schedule:
-                frequency:
-                  minutes: 60
-                initialDelay:
-                  seconds: 15
-                timeout:
-                  minutes: 15
+    - title: Default configuration
+      content:
+        catalog:
+          providers:
+            ldapOrg:
+              default:
+                target: ${LDAP_TARGET_URL}
+                bind:
+                  dn: ${LDAP_BIND_DN}
+                  secret: ${LDAP_BIND_SECRET}
+                users:
+                  - dn: ${LDAP_USERS_DN}
+                    options:
+                      filter: (uid=*)
+                groups:
+                  - dn: ${LDAP_GROUPS_DN}
+                    options:
+                      filter: (cn=*)
+                schedule:
+                  frequency:
+                    minutes: 60
+                  initialDelay:
+                    seconds: 15
+                  timeout:
+                    minutes: 15
