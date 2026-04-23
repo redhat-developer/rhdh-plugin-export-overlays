@@ -6,7 +6,10 @@ import {
 
 test.describe("Test github-actions", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({ 
+      auth: "github", 
+      appConfig: "tests/config/github-actions/app-config-rhdh.yaml"
+    });
     await rhdh.deploy();
   });
 

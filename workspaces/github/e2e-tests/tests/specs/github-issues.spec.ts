@@ -11,7 +11,10 @@ interface GHIssue {
 
 test.describe("Test github-issues", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({
+      auth: "github",
+      appConfig: "tests/config/github-issues/app-config-rhdh.yaml",
+    });
     await rhdh.deploy();
   });
 
