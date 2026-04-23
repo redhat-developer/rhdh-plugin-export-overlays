@@ -30,7 +30,7 @@ spec:
       content:
         dynamicPlugins:
           frontend:
-            backstage-community.plugin-pull-requests-board:
+            backstage-community.plugin-github-pull-requests-board:
               entityTabs:
                 - mountPoint: entity.page.pull-requests-board
                   path: /pull-requests-board
