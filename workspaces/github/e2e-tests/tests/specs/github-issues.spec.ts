@@ -3,6 +3,7 @@ import {
   APIHelper,
   GITHUB_API_ENDPOINTS,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 interface GHIssue {
   pull_request: boolean; // eslint-disable-line @typescript-eslint/naming-convention
@@ -13,7 +14,8 @@ test.describe("Test github-issues", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "github",
-      appConfig: "tests/config/github-issues/app-config-rhdh.yaml",
+      appConfig: `${WorkspacePaths.configDir}/github-issues/app-config-rhdh.yaml`,
+      dynamicPlugins: `${WorkspacePaths.configDir}/github-issues/dynamic-plugins.yaml`,
     });
     await rhdh.deploy();
   });
