@@ -96,6 +96,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
   test("Click login on the login popup and verify that Overview tab renders", async () => {
     await uiHelper.verifyLink("About RHDH", { exact: false });
+    await loginHelper.clickOnGHloginPopup();
     await uiHelper.waitForLoad();
 
     await uiHelper.verifyText(/Average Size Of PR\d+ lines/);
