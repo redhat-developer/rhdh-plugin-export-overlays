@@ -62,6 +62,18 @@ test.describe("GitHub Happy path", () => {
     }
   };
 
+  const getShowcasePRs = async (
+    state: "open" | "closed" | "all",
+    paginated = false,
+  ) => {
+    return await APIHelper.getGitHubPRs(
+      "redhat-developer",
+      "rhdh",
+      state,
+      paginated,
+    );
+  };
+
   test.beforeAll(async ({ browser, rhdh }, testInfo) => {
     test.info().annotations.push({
       type: "component",
@@ -214,11 +226,7 @@ test.describe("GitHub Happy path", () => {
     expect(page.url()).toContain(expectedPath);
 
     await uiHelper.clickTab("Pull/Merge Requests");
-    const openPRs = await APIHelper.getGitHubPRs(
-      "redhat-developer",
-      "rhdh",
-      "open",
-    );
+    const openPRs = await getShowcasePRs("open");
     await verifyPRRows(openPRs, 0, 5);
   });
 
@@ -228,11 +236,7 @@ test.describe("GitHub Happy path", () => {
     await expect(closedButton).toBeVisible();
     await expect(closedButton).toBeEnabled();
     await closedButton.click();
-    const closedPRs = await APIHelper.getGitHubPRs(
-      "redhat-developer",
-      "rhdh",
-      "closed",
-    );
+    const closedPRs = await getShowcasePRs("closed");
     await uiHelper.waitForLoad();
     await verifyPRRows(closedPRs, 0, 5);
   });
@@ -241,12 +245,7 @@ test.describe("GitHub Happy path", () => {
   test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
     await uiHelper.clickTab("Pull/Merge Requests");
 
-    const allPRs = await APIHelper.getGitHubPRs(
-      "redhat-developer",
-      "rhdh",
-      "all",
-      true,
-    );
+    const allPRs = await getShowcasePRs("all", true);
 
     const allButton = page.getByRole("button", { name: "ALL" });
     await expect(allButton).toBeVisible();
@@ -275,11 +274,7 @@ test.describe("GitHub Happy path", () => {
     // await loginHelper.clickOnGHloginPopup();
     await uiHelper.clickTab("Pull/Merge Requests");
     await uiHelper.waitForLoad();
-    const openPRs = await APIHelper.getGitHubPRs(
-      "redhat-developer",
-      "rhdh",
-      "open",
-    );
+    const openPRs = await getShowcasePRs("open");
 
     for (const rows of [5, 10, 20]) {
       await page.click(TABLE_SELECTORS.pageSelectBox);
