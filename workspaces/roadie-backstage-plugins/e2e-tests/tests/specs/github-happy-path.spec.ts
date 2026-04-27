@@ -109,6 +109,18 @@ test.describe("GitHub Happy path", () => {
     await loginHelper.loginAsGithubUser();
   });
 
+  test.beforeEach(async () => {
+    await uiHelper.openCatalogSidebar("Component");
+    await uiHelper.clickLink("Red Hat Developer Hub");
+
+    const expectedPath = "/catalog/default/component/red-hat-developer-hub";
+    await page.waitForURL(`**${expectedPath}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 20000,
+    });
+    expect(page.url()).toContain(expectedPath);
+  });
+
   //   test("Login as a Github user from Settings page.", async () => {
   //     await loginHelper.loginAsGithubUser();
 
@@ -176,15 +188,6 @@ test.describe("GitHub Happy path", () => {
 
   // backstage-plugin-github-pull-requests
   test("Click login on the login popup and verify that Overview tab renders", async () => {
-    await uiHelper.openCatalogSidebar("Component");
-    await uiHelper.clickLink("Red Hat Developer Hub");
-
-    const expectedPath = "/catalog/default/component/red-hat-developer-hub";
-    await page.waitForURL(`**${expectedPath}`, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
-    });
-    expect(page.url()).toContain(expectedPath);
 
     // await loginHelper.clickOnGHloginPopup();
     await uiHelper.verifyLink("About RHDH", { exact: false });
@@ -232,16 +235,7 @@ test.describe("GitHub Happy path", () => {
 
   // backstage-plugin-github-pull-requests
   test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
-    await uiHelper.openCatalogSidebar("Component");
-    await uiHelper.clickLink("Red Hat Developer Hub");
-
-    const expectedPath = "/catalog/default/component/red-hat-developer-hub";
-    await page.waitForURL(`**${expectedPath}`, {
-      waitUntil: "domcontentloaded",
-      timeout: 20000,
-    });
-    expect(page.url()).toContain(expectedPath);
-
+    // navigation done in beforeEach
     await uiHelper.clickTab("Pull/Merge Requests");
     const openPRs = await getShowcasePRs("open");
     await verifyPRRows(openPRs, 0, 5);
@@ -286,9 +280,7 @@ test.describe("GitHub Happy path", () => {
 
   // backstage-plugin-github-pull-requests
   test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
-    await uiHelper.openCatalogSidebar("Component");
-    await uiHelper.clickLink("Red Hat Developer Hub");
-    // await loginHelper.clickOnGHloginPopup();
+    // navigation done in beforeEach
     await uiHelper.clickTab("Pull/Merge Requests");
     await uiHelper.waitForLoad();
     const openPRs = await getShowcasePRs("open");
