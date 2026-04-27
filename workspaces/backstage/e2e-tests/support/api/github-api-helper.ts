@@ -152,20 +152,11 @@ export class GitHubApiHelper extends APIHelper {
     }
   }
 
-  static async getOrganizationReposUrl(
-    org = RHDH_GITHUB_TEST_ORGANIZATION,
-  ): Promise<string> {
-    const response = await this.safeGithubRequest(
-      "GET",
-      GITHUB_API_ENDPOINTS.getOrg(org),
-    );
-    return (await response.json())["repos_url"];
-  }
-
   static async getReposFromOrg(org = RHDH_GITHUB_TEST_ORGANIZATION) {
-    const reposUrl = await this.getOrganizationReposUrl(org);
     // GitHub defaults to 30; use 100 to reduce API calls.
-    return this.getGithubPaginatedRequest(`${reposUrl}?per_page=100`);
+    return this.getGithubPaginatedRequest(
+      `${GITHUB_API_ENDPOINTS.getOrg(org)}/repos?per_page=100`,
+    );
   }
 
   static async fileExistsInRepo(
