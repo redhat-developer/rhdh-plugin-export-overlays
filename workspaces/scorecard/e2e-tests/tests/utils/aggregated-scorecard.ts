@@ -29,9 +29,7 @@ export function aggregatedScorecardHelpers(page: Page) {
       card: Locator,
       metric: AggregatedScorecardMetric,
     ) {
-      await expect(
-        card.getByText(metric.title, { exact: true }),
-      ).toBeVisible();
+      await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
       await expect(card).toContainText(metric.description);
       await expect(card.getByText("Success", { exact: true })).toBeVisible();
     },
