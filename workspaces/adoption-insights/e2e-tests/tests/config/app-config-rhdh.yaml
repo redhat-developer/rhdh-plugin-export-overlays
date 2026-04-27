@@ -1,0 +1,6 @@
+catalog:
+  rules:
+    - allow: [Component, User, Group, Location, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/RHDH-scorecard-plugin-test/blob/main/rhdh-catalog.yaml

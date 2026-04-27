@@ -32,6 +32,7 @@ export class KubeClient extends KubernetesClientHelper {
             `Kubeconfig locations checked:\n` +
             `  - KUBECONFIG env: ${process.env.KUBECONFIG || "(not set)"}\n` +
             `  - Default: ~/.kube/config`,
+          { cause: error },
         );
       }
       throw error;

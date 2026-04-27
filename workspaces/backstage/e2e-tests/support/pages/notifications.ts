@@ -12,18 +12,15 @@ export class NotificationPage {
 
   async clickNotificationsNavBarItem() {
     await this.uiHelper.openSidebar("Notifications");
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.verifyHeading("Notifications");
+    await this.uiHelper.waitForLoad();
   }
 
   async notificationContains(text: string | RegExp) {
     await this.page.getByLabel("rows").click();
     // always expand the notifications table to show as many notifications as possible
     await this.page.getByRole("option", { name: "20" }).click();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
     const row = this.page.locator(`tr`, { hasText: text }).first();
     await expect(row).toHaveCount(1);
   }
@@ -38,9 +35,7 @@ export class NotificationPage {
     await expect(
       this.page.getByRole("table").filter({ hasText: "Rows per page" }),
     ).toBeVisible();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
   }
 
   async saveSelected() {
@@ -49,27 +44,21 @@ export class NotificationPage {
       .getByTitle("Save selected for later")
       .getByRole("button")
       .click();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
   }
 
   async viewSaved() {
     await this.page.getByLabel("View").click();
     await this.page.getByRole("option", { name: "Saved" }).click();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
   }
 
   async markNotificationAsRead(text: string) {
-    const row = this.page.locator(`tr:has-text("${text}")`);
-    await row.getByRole("button").nth(1).click();
+    await this.toggleRead("unread", text);
   }
 
   async markLastNotificationAsUnRead() {
-    const row = this.page.locator("td:nth-child(3) > div").first();
-    await row.getByRole("button").nth(1).click();
+    await this.toggleRead("read");
   }
 
   async viewRead() {
@@ -77,9 +66,7 @@ export class NotificationPage {
     await this.page
       .getByRole("option", { name: "Read notifications", exact: true })
       .click();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
   }
 
   async viewUnRead() {
@@ -87,8 +74,20 @@ export class NotificationPage {
     await this.page
       .getByRole("option", { name: "Unread notifications", exact: true })
       .click();
-    await expect(
-      this.page.getByTestId("loading-indicator").getByRole("img"),
-    ).toHaveCount(0);
+    await this.uiHelper.waitForLoad();
+  }
+
+  private async toggleRead(currentState: "read" | "unread", text?: string) {
+    const rows = this.page.getByRole("row").filter({ hasText: "Notification" });
+    const count = await rows.count();
+
+    const row = text ? rows.filter({ hasText: text }) : rows.first();
+    await row.getByRole("button").nth(1).click();
+
+    if (
+      await this.page.getByText(`${currentState} notifications (`).isVisible()
+    ) {
+      await expect(rows).toHaveCount(count - 1);
+    }
   }
 }

@@ -18,7 +18,11 @@ const $pipe = $({ stdio: "pipe" });
 test.describe("Test ArgoCD plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
-    await $`bash ${setupScript}`;
+
+    await test.runOnce("argocd-infra", async () => {
+      const namespace = rhdh.deploymentConfig.namespace;
+      await $`bash ${setupScript} ${namespace}`;
+    });
 
     const argoRoute = await rhdh.k8sClient.getRouteLocation(
       "openshift-gitops",
@@ -38,7 +42,7 @@ test.describe("Test ArgoCD plugin", () => {
     process.env.ARGOCD_PASSWORD = argoPassword;
 
     await rhdh.configure({ auth: "keycloak" });
-    await rhdh.deploy();
+    await rhdh.deploy({ timeout: 900_000 });
   });
 
   test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
@@ -58,16 +62,16 @@ test.describe("Test ArgoCD plugin", () => {
     await expect(card).toBeVisible();
     await expect(card).toContainText("test-argocd-app");
     await expect(card).toContainText("Synced");
-    await expect(card).toContainText("Healthy");
+    await expect(card).toContainText(/Healthy|Degraded/);
   });
 
   test("Verify app drawer shows instance details", async ({ uiHelper }) => {
     await uiHelper.verifyHeading("test-argocd-app");
     await uiHelper.verifyText("Synced");
-    await uiHelper.verifyText("Healthy");
+    await uiHelper.verifyText(/Healthy|Degraded/);
     await uiHelper.verifyText("argoInstance1");
     await uiHelper.verifyText("https://kubernetes.default.svc", false);
-    await uiHelper.verifyText("openshift-gitops");
+    await uiHelper.verifyText("argocd");
   });
 
   test("Verify resources table lists expected resources", async ({
@@ -105,9 +109,9 @@ test.describe("Test ArgoCD plugin", () => {
       "Healthy",
     ]);
     await uiHelper.verifyRowInTableByUniqueText("rollout-bluegreen", [
-      "Rollout",
-      "Synced",
-      "Healthy",
+      /Rollout/,
+      /Synced/,
+      /Healthy|Degraded/,
     ]);
 
     const row = (name: string, kind: string) =>

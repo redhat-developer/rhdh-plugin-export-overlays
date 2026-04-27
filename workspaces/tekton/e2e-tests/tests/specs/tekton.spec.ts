@@ -1,12 +1,6 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import * as path from "node:path";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { TektonSupportHelper } from "../support/tekton-support-helper";
-
-const operatorInstallPath = path.resolve(
-  process.cwd(),
-  "tests/config/operator-install.sh",
-);
 
 test.describe("Test Tekton plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -15,6 +9,9 @@ test.describe("Test Tekton plugin", () => {
     });
     const namespace = rhdh.deploymentConfig.namespace;
     // operator-install.sh: Tekton/Pipelines operator + waits, then namespace Active wait, pipeline-tests + RBAC (see operator::grant_default_service_account_cluster_reader_and_tekton).
+    const operatorInstallPath = WorkspacePaths.resolve(
+      "tests/config/operator-install.sh",
+    );
     await $`bash ${operatorInstallPath} ${namespace}`;
     await rhdh.deploy();
   });
@@ -45,7 +42,9 @@ test.describe("Test Tekton plugin", () => {
   }) => {
     const tekton = new TektonSupportHelper(page);
     await tekton.goToBackstageJanusProjectCITab();
-    await tekton.clickOnExpandRowFromPipelineRunsTable();
+    await tekton.clickOnExpandRowFromPipelineRunsTable(
+      "hello-world-pipeline-run",
+    );
     await tekton.openModalEchoHelloWorld();
     await tekton.verifyModalOpened();
     await tekton.checkPipelineStages(["echo-hello-world", "echo-bye"]);

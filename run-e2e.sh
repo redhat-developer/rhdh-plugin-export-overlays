@@ -37,7 +37,7 @@ export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.57.0}"       # @playwright/test version to pin
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.59.1}"       # @playwright/test version to pin
 
 # Keycloak
 export SKIP_KEYCLOAK_DEPLOYMENT="${SKIP_KEYCLOAK_DEPLOYMENT:-}" # Set "true" to skip Keycloak deploy
@@ -54,13 +54,8 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
-# Pin e2e-test-utils version. Defaults to "latest" in nightly mode to pick up nightly support.
-# TODO: Remove default once all workspaces pin a version that supports nightly jobs.
-if [[ "$E2E_NIGHTLY_MODE" == "true" ]]; then
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-latest}"
-else
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
-fi
+# Pin specific e2e-test-utils version.
+E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
@@ -83,6 +78,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
+# (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
+if [[ -n "$JOB_NAME" ]]; then
+    JOB_SUFFIX=$(echo "$JOB_NAME" | sed -n 's/.*-e2e-//p')
+    if [[ -n "$JOB_SUFFIX" ]]; then
+        E2E_SKIP_TAG="@skip-${JOB_SUFFIX}(?!-)"
+        PLAYWRIGHT_ARGS=("--grep-invert" "$E2E_SKIP_TAG" "${PLAYWRIGHT_ARGS[@]}")
+        echo "[INFO] Skip tag: $E2E_SKIP_TAG (derived from JOB_NAME)"
+    fi
+fi
 
 GENERATED_FILES=()
 
