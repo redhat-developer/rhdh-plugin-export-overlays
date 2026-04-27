@@ -188,7 +188,6 @@ test.describe("GitHub Happy path", () => {
 
   // backstage-plugin-github-pull-requests
   test("Click login on the login popup and verify that Overview tab renders", async () => {
-
     // await loginHelper.clickOnGHloginPopup();
     await uiHelper.verifyLink("About RHDH", { exact: false });
     await uiHelper.waitForLoad();
@@ -233,61 +232,62 @@ test.describe("GitHub Happy path", () => {
   //     }
   //   });
 
-  // backstage-plugin-github-pull-requests
-  test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
-    // navigation done in beforeEach
-    await uiHelper.clickTab("Pull/Merge Requests");
-    const openPRs = await getShowcasePRs("open");
-    await verifyPRRows(openPRs, 0, 5);
-  });
+  test.describe("Pull/Merge Requests tab", () => {
+    test.beforeEach(async () => {
+      await uiHelper.clickTab("Pull/Merge Requests");
+    });
 
-  // backstage-plugin-github-pull-requests
-  test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
-    const closedButton = page.getByRole("button", { name: "CLOSED" });
-    await expect(closedButton).toBeVisible();
-    await expect(closedButton).toBeEnabled();
-    await closedButton.click();
-    const closedPRs = await getShowcasePRs("closed");
-    await uiHelper.waitForLoad();
-    await verifyPRRows(closedPRs, 0, 5);
-  });
+    // backstage-plugin-github-pull-requests
+    test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
+      const openPRs = await getShowcasePRs("open");
+      await verifyPRRows(openPRs, 0, 5);
+    });
 
-  // backstage-plugin-github-pull-requests
-  test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
-    await uiHelper.clickTab("Pull/Merge Requests");
+    // backstage-plugin-github-pull-requests
+    test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
+      await uiHelper.waitForLoad();
+      const closedButton = page.getByRole("button", { name: "CLOSED" });
+      await expect(closedButton).toBeVisible();
+      await expect(closedButton).toBeEnabled();
+      await closedButton.click();
+      const closedPRs = await getShowcasePRs("closed");
+      await uiHelper.waitForLoad();
+      await verifyPRRows(closedPRs, 0, 5);
+    });
 
-    const allPRs = await getShowcasePRs("all", true);
+    // backstage-plugin-github-pull-requests
+    test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
+      const allPRs = await getShowcasePRs("all", true);
 
-    const allButton = page.getByRole("button", { name: "ALL" });
-    await expect(allButton).toBeVisible();
-    await expect(allButton).toBeEnabled();
-    await allButton.click();
-    await verifyPRRows(allPRs, 0, 5);
+      const allButton = page.getByRole("button", { name: "ALL" });
+      await expect(allButton).toBeVisible();
+      await expect(allButton).toBeEnabled();
+      await allButton.click();
+      await verifyPRRows(allPRs, 0, 5);
 
-    await page.click(TABLE_SELECTORS.nextPage);
-    await verifyPRRows(allPRs, 5, 10);
+      await page.click(TABLE_SELECTORS.nextPage);
+      await verifyPRRows(allPRs, 5, 10);
 
-    // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
-    const lastPagePRs = 996;
+      // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
+      const lastPagePRs = 996;
 
-    await page.click(TABLE_SELECTORS.lastPage);
-    await verifyPRRows(allPRs, lastPagePRs, 1000);
+      await page.click(TABLE_SELECTORS.lastPage);
+      await verifyPRRows(allPRs, lastPagePRs, 1000);
 
-    await page.click(TABLE_SELECTORS.previousPage);
-    await uiHelper.waitForLoad();
-    await verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
-  });
+      await page.click(TABLE_SELECTORS.previousPage);
+      await uiHelper.waitForLoad();
+      await verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
+    });
 
-  // backstage-plugin-github-pull-requests
-  test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
-    // navigation done in beforeEach
-    await uiHelper.clickTab("Pull/Merge Requests");
-    await uiHelper.waitForLoad();
-    const openPRs = await getShowcasePRs("open");
+    // backstage-plugin-github-pull-requests
+    test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
+      await uiHelper.waitForLoad();
+      const openPRs = await getShowcasePRs("open");
 
-    for (const rows of [5, 10, 20]) {
-      await verifyPRRowsPerPage(rows, openPRs);
-    }
+      for (const rows of [5, 10, 20]) {
+        await verifyPRRowsPerPage(rows, openPRs);
+      }
+    });
   });
 
   // TODO: https://issues.redhat.com/browse/RHDHBUGS-2099
