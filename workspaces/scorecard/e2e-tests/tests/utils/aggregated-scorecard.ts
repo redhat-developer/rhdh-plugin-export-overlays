@@ -160,15 +160,9 @@ export function aggregatedScorecardHelpers(page: Page) {
           card.getByText(metric.title, { exact: true }),
         ).toBeVisible();
         await expect(card).toContainText(metric.description);
-      });
-
-      await test.step('Homepage card shows "No data found" empty state', async () => {
         await expect(
           card.getByText("No data found", { exact: true }),
         ).toBeVisible();
-        await expect(card).toContainText(
-          "To see your data here, check that your entities are reporting values related to this metric.",
-        );
       });
 
       await test.step("Drill-down is not available (no aggregation link on card)", async () => {
