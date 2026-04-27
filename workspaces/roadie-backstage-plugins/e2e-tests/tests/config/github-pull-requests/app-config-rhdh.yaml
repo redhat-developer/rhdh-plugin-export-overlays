@@ -1,0 +1,52 @@
+app:
+  title: RHDH Roadie Plugins Test Instance
+  baseUrl: ${RHDH_BASE_URL}
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  cors:
+    origin: ${RHDH_BASE_URL}
+auth:
+  #   environment: development
+  providers:
+    #     guest:
+    #       dangerouslyAllowOutsideDevelopment: true
+    github:
+      #       development:
+      #         clientId: ${GITHUB_CLIENT_ID}
+      #         clientSecret: ${GITHUB_CLIENT_SECRET}
+      #         signIn:
+      #           resolvers:
+      #             - resolver: usernameMatchingUserEntityName
+      #               dangerouslyAllowSignInWithoutUserInCatalog: true
+      production:
+        #         clientId: ${GITHUB_CLIENT_ID}
+        #         clientSecret: ${GITHUB_CLIENT_SECRET}
+        signIn:
+          resolvers:
+            - resolver: usernameMatchingUserEntityName
+              dangerouslyAllowSignInWithoutUserInCatalog: true
+integrations:
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
+# proxy:
+#   skipInvalidProxies: true
+#   endpoints:
+#     "/quay/api":
+#       target: https://quay.io/
+#       headers:
+#         X-Requested-With: "XMLHttpRequest"
+#       changeOrigin: true
+#       secure: true
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [ Component, System, Group, Resource, Location, Template, API ]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+    # - type: url
+    #   target: https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates.yaml

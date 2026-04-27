@@ -66,7 +66,12 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       description: "core",
     });
 
-    await rhdh.configure({ auth: "github" });
+    await rhdh.configure({
+      auth: "github",
+      appConfig: "tests/config/github-pull-requests/app-config-rhdh.yaml",
+      secrets: "tests/config/github-pull-requests/rhdh-secrets.yaml",
+      dynamicPlugins: "tests/config/github-pull-requests/dynamic-plugins.yaml",
+    });
     await rhdh.deploy();
 
     ({ page } = await setupBrowser(browser, testInfo));

@@ -20,7 +20,11 @@ test.describe("Testing scaffolder-backend-module-http-request to invoke an exter
       description: "plugins",
     });
 
-    await rhdh.configure({ auth: "guest" });
+    await rhdh.configure({
+      auth: "guest",
+      appConfig: "tests/config/http-request/app-config-rhdh.yaml",
+      dynamicPlugins: "tests/config/http-request/dynamic-plugins.yaml",
+    });
     await rhdh.deploy();
   });
 

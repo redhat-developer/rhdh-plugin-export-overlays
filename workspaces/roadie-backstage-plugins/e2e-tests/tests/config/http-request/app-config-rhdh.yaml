@@ -1,0 +1,28 @@
+app:
+  title: RHDH Roadie Plugins Test Instance for HTTP Request plugin
+  baseUrl: ${RHDH_BASE_URL}
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  cors:
+    origin: ${RHDH_BASE_URL}
+proxy:
+  skipInvalidProxies: true
+  endpoints:
+    "/quay/api":
+      target: https://quay.io/
+      headers:
+        X-Requested-With: "XMLHttpRequest"
+      changeOrigin: true
+      secure: true
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [ Component, System, Group, Resource, Location, Template, API ]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+    # - type: url
+    #   target: https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates.yaml
