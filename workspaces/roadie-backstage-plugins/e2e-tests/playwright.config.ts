@@ -6,7 +6,14 @@ dotenv.config({ path: `${import.meta.dirname}/.env` });
 export default defineConfig({
   projects: [
     {
-      name: "roadie-backstage-plugins",
+      name: "backstage-plugin-github-pull-requests",
+      testMatch:
+        /tests\/specs\/backstage-plugin-github-pull-requests\.spec\.ts/,
+    },
+    {
+      name: "scaffolder-backend-module-http-request",
+      testMatch:
+        /tests\/specs\/scaffolder-backend-module-http-request\.spec\.ts/,
     },
   ],
 });
