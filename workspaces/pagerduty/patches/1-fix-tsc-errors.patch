@@ -3,7 +3,7 @@
 @@ -2,8 +2,8 @@
    "name": "@pagerduty/backstage-plugin",
    "description": "A Backstage plugin that integrates towards PagerDuty",
-   "version": "0.16.4",
+   "version": "0.18.0",
 -  "main": "dist/index.esm.js",
 -  "types": "dist/index.d.ts",
 +  "main": "src/index.ts",
@@ -16,7 +16,7 @@
 @@ -1,8 +1,8 @@
  {
    "name": "@pagerduty/backstage-plugin-backend",
-   "version": "0.10.1",
+   "version": "0.11.0",
 -  "main": "dist/index.cjs.js",
 -  "types": "dist/index.d.ts",
 +  "main": "src/index.ts",
@@ -29,7 +29,7 @@
 @@ -1,8 +1,8 @@
  {
    "name": "@pagerduty/backstage-plugin-entity-processor",
-   "version": "0.3.6",
+   "version": "0.3.9",
 -  "main": "dist/index.cjs.js",
 -  "types": "dist/index.d.ts",
 +  "main": "src/index.ts",
