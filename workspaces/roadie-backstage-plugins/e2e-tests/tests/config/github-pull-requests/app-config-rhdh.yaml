@@ -28,7 +28,7 @@ auth:
 integrations:
   github:
     - host: github.com
-      token: ${GITHUB_TOKEN}
+      token: ${VAULT_GITHUB_USER_TOKEN}
 # proxy:
 #   skipInvalidProxies: true
 #   endpoints:
