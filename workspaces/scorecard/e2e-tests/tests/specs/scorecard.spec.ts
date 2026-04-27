@@ -54,7 +54,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     await context?.close();
   });
 
-  test.skip("Setup aggregated scorecards on homepage", async () => {
+  test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
     await scorecard.enterEditModeIfNeeded();
