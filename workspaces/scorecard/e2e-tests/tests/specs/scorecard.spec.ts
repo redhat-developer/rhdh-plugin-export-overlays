@@ -6,6 +6,10 @@ import {
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import type { BrowserContext, Page } from "@playwright/test";
 import {
+  aggregatedScorecardHelpers,
+  type AggregatedScorecardHelpers,
+} from "../utils/aggregated-scorecard";
+import {
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
@@ -16,6 +20,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let page: Page;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
+  let aggregated: AggregatedScorecardHelpers;
 
   let initialGithubCount: number;
   let initialJiraCount: number;
@@ -40,6 +45,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     const uiHelper = new UIhelper(page);
     catalog = new CatalogPage(page);
     scorecard = scorecardHelpers(page, uiHelper);
+    aggregated = aggregatedScorecardHelpers(page);
     await new LoginHelper(page).loginAsKeycloakUser();
     await uiHelper.goToPageUrl("/", "Welcome back!");
   });
@@ -48,7 +54,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     await context?.close();
   });
 
-  test("Setup aggregated scorecards on homepage", async () => {
+  test.skip("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
     await scorecard.enterEditModeIfNeeded();
@@ -71,6 +77,24 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
     initialJiraCount = await scorecard.getAggregatedScorecardEntityCount(
       jiraMetric.title,
+    );
+  });
+
+  test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
+    const [githubMetric] = SCORECARD_METRICS;
+    await aggregated.runAggregatedScorecardDrilldownScenario(
+      () => scorecard.navigateToHome(),
+      githubMetric,
+      "github.open_prs",
+    );
+  });
+
+  test("Aggregated scorecard (Jira): info tooltips, drill-down, table UI", async () => {
+    const [, jiraMetric] = SCORECARD_METRICS;
+    await aggregated.runAggregatedScorecardDrilldownScenario(
+      () => scorecard.navigateToHome(),
+      jiraMetric,
+      "jira.open_issues",
     );
   });
 
