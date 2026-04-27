@@ -1,0 +1,13 @@
+proxy:
+  endpoints:
+    "/acr/api":
+      target: "https://rhdhqetest.azurecr.io/acr/v1/"
+      changeOrigin: true
+      headers:
+        Authorization: "${ACR_SECRET}"
+      secure: false
+
+catalog:
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/acr-catalog/blob/main/catalog-info.yaml

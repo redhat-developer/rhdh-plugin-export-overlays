@@ -1,0 +1,25 @@
+catalog:
+  processingInterval: { hours: 24 }
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Component, Group]
+  locations:
+    - type: url
+      target: https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/rbac-test-migration/workspaces/rbac/e2e-tests/tests/config/catalog-entities.yaml
+permission:
+  enabled: true
+  rbac:
+    maxDepth: 1
+    policyFileReload: true
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    conditionalPoliciesFile: "./rbac/conditional-policy.yaml"
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - scaffolder
+    admin:
+      users:
+        - name: user:default/rbac-admin
+    policyDecisionPrecedence: conditional # default behavior
+includeTransitiveGroupOwnership: true

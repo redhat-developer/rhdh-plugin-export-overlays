@@ -1,0 +1,11 @@
+dynamicPlugins:
+  frontend:
+    proberaum.backstage-plugin-env-viewer:
+      translationResources:
+        - importName: envViewerTranslations
+          ref: envViewerTranslationRef
+      dynamicRoutes:
+        - path: /env-viewer
+          importName: EnvViewerPage
+          menuItem:
+            text: Env viewer

@@ -1,0 +1,12 @@
+--- package.json
++++ package.json
+@@ -32,7 +32,8 @@
+   "workspaces": {
+     "packages": [
+       "packages/*",
+-      "plugins/**",
++      "plugins/*",
++      "plugins/*/*",
+       "utils/**"
+     ]
+   },

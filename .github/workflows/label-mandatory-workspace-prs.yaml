@@ -1,0 +1,278 @@
+name: Label Workspace PRs
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6:00 AM UTC
+  workflow_dispatch:  # Allow manual triggering
+  workflow_call:  # Allow calling from other workflows
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  label-workspace-prs:
+    runs-on: ubuntu-latest
+    name: Label PRs based on Workspace Changes
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Label PRs based on workspace changes
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // read the 3 rhdh-supported-packages.txt, rhdh-techpreview-packages.txt, rhdh-community-packages.txt files to get required packages
+            const downstreamPluginsContent = fs.readFileSync('rhdh-supported-packages.txt', 'utf8') + 
+              fs.readFileSync('rhdh-techpreview-packages.txt', 'utf8') + fs.readFileSync('rhdh-community-packages.txt', 'utf8');
+
+            const requiredPlugins = [];
+            
+            const lines = downstreamPluginsContent.split('\n');
+            for (const line of lines) {
+              const trimmedLine = line.trim();
+              // Skip empty lines and comments
+              if (trimmedLine === '' || trimmedLine.startsWith('#')) {
+                continue;
+              }
+              requiredPlugins.push(trimmedLine);
+            }
+            
+            console.log(`Found ${requiredPlugins.length} required plugins in rhdh-supported-packages.txt, rhdh-techpreview-packages.txt + rhdh-community-packages.txt`);
+            
+            // function to check if a workspace contains required plugins
+            function workspaceHasRequiredPlugins(workspace) {
+              // Check if any required plugin line starts with the workspace name
+              return requiredPlugins.some(pluginLine => pluginLine.startsWith(`${workspace}/`));
+            }
+            
+            // function to check if a workspace directory exists on the target branch
+            async function workspaceExistsOnTargetBranch(workspace, targetBranch) {
+              try {
+                await github.rest.repos.getContent({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  path: `workspaces/${workspace}`,
+                  ref: targetBranch
+                });
+                return true;
+              } catch (error) {
+                if (error.status === 404) {
+                  return false;
+                }
+                throw error;
+              }
+            }
+            
+            // Define the labels we'll apply
+            const LABELS = {
+              UPDATE: 'workspace-update', 
+              ADDITION: 'workspace-addition',
+              OUTSIDE: 'non-workspace-changes',
+              MANDATORY: 'mandatory-workspace',
+              RELEASE_PATCH: 'release-branch-patch'
+            };
+            
+            // Ensure all labels exist
+            for (const [key, labelName] of Object.entries(LABELS)) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: labelName
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  let description, color;
+                  switch (key) {
+                    case 'UPDATE':
+                      description = 'PR modifies files in an existing workspace';
+                      color = '0075ca';  // Blue
+                      break;
+                    case 'ADDITION':
+                      description = 'PR adds a new workspace';
+                      color = '0e8a16';  // Green
+                      break;
+                    case 'OUTSIDE':
+                      description = 'PR changes files outside workspace directories';
+                      color = '6f42c1';  // Purple
+                      break;
+                    case 'MANDATORY':
+                      description = 'PR affects a workspace with required plugins for releases';
+                      color = 'd73a4a';  // Red
+                      break;
+                    case 'RELEASE_PATCH':
+                      description = 'PR modifies workspace on a release branch';
+                      color = 'fbca04';  // Yellow
+                      break;
+                  }
+                  
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: labelName,
+                    description: description,
+                    color: color
+                  });
+                  console.log(`Created label: ${labelName}`);
+                } else {
+                  throw error;
+                }
+              }
+            }
+            
+            // Get all open PRs
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            
+            console.log(`Found ${prs.length} open PRs`);
+            
+            for (const pr of prs) {
+              try {
+                console.log(`\n--- Processing PR #${pr.number}: ${pr.title} ---`);
+                
+                // Get current labels on the PR
+                const currentLabels = pr.labels.map(label => label.name);
+                const currentWorkspaceLabels = currentLabels.filter(label => 
+                  Object.values(LABELS).includes(label)
+                );
+                
+                // Analyze PR files to know what changes this PR contains
+                const prFiles = await github.rest.pulls.listFiles({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number
+                });
+                
+                // Categorize files
+                const workspaceFiles = [];
+                const nonWorkspaceFiles = [];
+                const allAffectedWorkspaces = new Set();
+                
+                for (const file of prFiles.data) {
+                  const workspaceMatch = file.filename.match(/^workspaces\/([^\/]+)\/.*/);
+                  if (workspaceMatch) {
+                    const workspace = workspaceMatch[1];
+                    workspaceFiles.push({ file, workspace });
+                    allAffectedWorkspaces.add(workspace);
+                  } else {
+                    nonWorkspaceFiles.push(file);
+                  }
+                }
+                
+                const newWorkspaces = new Set();
+                const existingWorkspaces = new Set();
+                
+                for (const workspace of allAffectedWorkspaces) {
+                  const exists = await workspaceExistsOnTargetBranch(workspace, pr.base.ref);
+                  if (exists) {
+                    existingWorkspaces.add(workspace);
+                    console.log(`Workspace ${workspace} exists on ${pr.base.ref} - treating as update`);
+                  } else {
+                    newWorkspaces.add(workspace);
+                    console.log(`Workspace ${workspace} doesn't exist on ${pr.base.ref} - treating as addition`);
+                  }
+                }
+                
+                // Determine label(s)
+                let targetLabels = [];
+                let logMessage = `PR #${pr.number}`;
+                const isMainBranch = pr.base.ref === 'main';
+                const isReleaseBranch = pr.base.ref.startsWith('release-');
+                
+                if (workspaceFiles.length === 0) {
+                  // No workspace files changed - outside workspaces
+                  targetLabels = [LABELS.OUTSIDE];
+                  logMessage += ` affects only non-workspace files`;
+                  
+                } else {
+                  const totalAffectedWorkspaces = newWorkspaces.size + existingWorkspaces.size;
+                  
+                  if (totalAffectedWorkspaces === 1) {
+                    const workspace = newWorkspaces.size === 1 
+                      ? Array.from(newWorkspaces)[0]
+                      : Array.from(existingWorkspaces)[0];
+                    
+                    if (newWorkspaces.has(workspace)) {
+                      targetLabels = [LABELS.ADDITION];
+                      logMessage += ` adds new workspace: ${workspace}`;
+                    } else {
+                      targetLabels = [LABELS.UPDATE];
+                      logMessage += ` updates workspace: ${workspace}`;
+                    }
+                    
+                    // Add branch-specific labels
+                    if (isMainBranch && workspaceHasRequiredPlugins(workspace)) {
+                      targetLabels.push(LABELS.MANDATORY);
+                      logMessage += ` (contains required plugins, main branch)`;
+                    } else if (isReleaseBranch) {
+                      targetLabels.push(LABELS.RELEASE_PATCH);
+                      logMessage += ` (release branch patch)`;
+                    }
+                  } else {
+                    // Multiple workspaces affected - this should not be labeled for publishing at least from what i understand
+                    targetLabels = []; // No specific labels
+                    const allWorkspaceNames = [...newWorkspaces, ...existingWorkspaces];
+                    logMessage += ` affects multiple workspaces: ${allWorkspaceNames.join(', ')}`;
+                    
+                    // Note: we intentionally don't label multi-workspace PRs as they can't be published or they are hard to publish after talk with david
+                  }
+                }
+                
+                console.log(logMessage);
+                
+                // Apply label changes
+                const labelsToAdd = targetLabels.filter(label => !currentLabels.includes(label));
+                const labelsToRemove = currentWorkspaceLabels.filter(label => !targetLabels.includes(label));
+                
+                // Add new labels
+                if (labelsToAdd.length > 0) {
+                  await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    labels: labelsToAdd
+                  });
+                  console.log(`Added labels: ${labelsToAdd.join(', ')}`);
+                }
+                
+                // Remove old labels
+                for (const label of labelsToRemove) {
+                  try {
+                    await github.rest.issues.removeLabel({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      issue_number: pr.number,
+                      name: label
+                    });
+                    console.log(`Removed label: ${label}`);
+                  } catch (error) {
+                    if (error.status !== 404) {
+                      console.error(`Failed to remove label ${label}:`, error.message);
+                    }
+                  }
+                }
+                
+                if (labelsToAdd.length === 0 && labelsToRemove.length === 0) {
+                  console.log(`✓ Labels already correct`);
+                }
+                
+              } catch (error) {
+                console.error(`Error processing PR #${pr.number}:`, error.message);
+                // Continue with next PR instead of failing the entire workflow
+              }
+            }
+            
+            console.log('Finished labeling workspace PRs');

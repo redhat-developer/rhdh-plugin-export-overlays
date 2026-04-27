@@ -1,0 +1,197 @@
+name: Check Workspace Backstage Compatibility 
+on:
+  workflow_dispatch:
+    inputs:
+      workspace-path:
+        description: Relative path of a single workspace on which the export workflow should be applied.
+        required: false
+        type: string
+
+      overlay-branch:
+        description: Branch of the overlay structure
+        type: string
+        required: true
+  
+      fail-for-required-only:
+        description: Fail only when some required workspaces are incompatible.
+        type: boolean
+        required: false
+        default: false
+
+      debug:
+        description: Debug the shell scripts
+        type: boolean
+        required: false
+        default: false
+
+  push:
+    branches:
+      - 'main'
+  
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare-required-plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      
+      - name: Create the required-plugins file@
+        continue-on-error: true
+        run: |
+          cat rhdh-community-packages.txt rhdh-techpreview-packages.txt rhdh-supported-packages.txt > required-plugins
+
+      - name: Upload required-plugins file
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: required-plugins
+          path: required-plugins
+
+  check:
+    needs:
+      - prepare-required-plugins
+
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    with:
+      overlay-branch: ${{ inputs.overlay-branch }}
+      workspace-path: ${{ inputs.workspace-path }}
+      debug: ${{ inputs.debug || false }}
+      fail-for-required-only: ${{ inputs.fail-for-required-only || false }}
+
+  update-badge:
+    needs:
+      - check
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:      
+      - name: Checkout metadata branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: metadata
+
+      - name: Update badge Json on the metadata branch.
+        env:
+          INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-required-workspaces }}
+          INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-unrequired-workspaces }}
+        
+        run: |
+          if [[ "${{ inputs.debug }}" == "true" ]]
+          then
+            set -x
+          fi
+
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          set +e
+          required=$(echo "${INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES}" | grep -c .)
+          optional=$(echo "${INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES}" | grep -c .)          
+          set -e
+          cat <<EOF > incompatible-workspaces.json
+            {
+              "schemaVersion": 1,
+              "label": "Target Backstage Compatibility",
+              "message": "$((${optional}+${required})) incompatible workspaces, ${required} of which are mandatory",
+              "color": "$(if [[ ${required} -gt 0 ]]; then echo red; elif [ ${optional} -gt 0 ]; then echo orange; else echo green; fi)"
+            }
+          EOF
+
+          if ! git diff --quiet incompatible-workspaces.json
+          then
+            echo "Commiting changes in file: incompatible-workspaces.json"
+            git add incompatible-workspaces.json
+            git commit -m "Update badge metadata about incompatible workspaces"
+            git push -f origin metadata
+          else
+            echo "No change detected in file: incompatible-workspaces.json"
+          fi
+
+    permissions:
+      contents: write
+
+  update-wiki:
+    needs:
+      - check
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Checkout wiki
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download compatibility report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: backstage-compatibility-report
+          path: ./
+          
+      - name: Verify compatibility report
+        run: |
+          if [ -f "backstage-compatibility-report.md" ]; then
+            echo "Successfully downloaded backstage-compatibility-report.md"
+          else
+            echo "backstage-compatibility-report.md not found, failing workflow"
+            exit 1
+          fi
+
+      - name: Update wiki page
+        run: |
+          set -euo pipefail
+
+          cd wiki
+
+          default_branch=$(git remote show origin | awk '/HEAD branch/ {print $NF}')
+          if [[ -z "${default_branch}" ]]; then
+            echo "Unable to determine wiki default branch"
+            exit 1
+          fi
+
+          git checkout "${default_branch}"
+
+          # Configure git
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Normalize any pre-existing compatibility report filenames
+          # Copy the generated markdown to wiki
+          cp ../backstage-compatibility-report.md "Backstage-Compatibility-Report.md"
+
+          # Stage the report and check for changes
+          git add "Backstage-Compatibility-Report.md"
+
+          if ! git diff --cached --quiet; then
+
+            # Calculate counts for commit message
+            required_count=$(echo "${INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES}" | wc -w)
+            unrequired_count=$(echo "${INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES}" | wc -w)
+            total_count=$((required_count + unrequired_count))
+
+            git commit -m "Update Backstage Compatibility Report
+
+            - Total incompatible: ${total_count}
+            - Required: ${required_count}
+            - Optional: ${unrequired_count}
+
+            Generated from: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}"
+            git push origin "${default_branch}"
+            echo "Wiki page updated successfully"
+          else
+            git restore --staged "Backstage-Compatibility-Report.md"
+            echo "No changes detected, wiki page is up to date"
+          fi
+        env:
+          INPUT_INCOMPATIBLE_REQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-required-workspaces }}
+          INPUT_INCOMPATIBLE_UNREQUIRED_WORKSPACES: ${{ needs.check.outputs.incompatible-unrequired-workspaces }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+    permissions:
+      contents: write

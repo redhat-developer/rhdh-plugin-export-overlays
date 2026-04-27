@@ -1,0 +1,24 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-tech-insights
+  namespace: rhdh
+  title: Tech Insights
+  links:
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-insights
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-tech-insights"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-insights:bs_1.45.3__0.6.2!backstage-community-plugin-tech-insights
+  version: 0.6.2
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Backstage Community
+  support: community
+  lifecycle: active

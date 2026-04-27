@@ -1,0 +1,11 @@
+dynamicPlugins:
+  frontend:
+    proberaum.backstage-plugin-icon-viewer:
+      translationResources:
+        - importName: iconViewerTranslations
+          ref: iconViewerTranslationRef
+      dynamicRoutes:
+        - path: /icon-viewer
+          importName: IconViewerPage
+          menuItem:
+            text: Icon viewer

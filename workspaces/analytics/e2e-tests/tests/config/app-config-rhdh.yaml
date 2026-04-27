@@ -1,0 +1,33 @@
+app:
+  title: RHDH Analytics Segment Test
+  analytics:
+    segment:
+      writeKey: test-segment-write-key-e2e
+      testMode: false
+      maskIP: true
+      appVersion: e2e-test
+      backstageVersion: e2e-test
+
+backend:
+  csp:
+    script-src:
+      - "'self'"
+      - "'unsafe-eval'"
+      - https://cdn.segment.com
+    connect-src:
+      - "'self'"
+      - https://api.segment.io
+      - https://cdn.segment.com
+
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+
+catalog:
+  rules:
+    - allow: [Component, System, API, Resource, Location, Template, Group]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml

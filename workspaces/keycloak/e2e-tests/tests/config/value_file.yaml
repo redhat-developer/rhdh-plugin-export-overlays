@@ -1,0 +1,6 @@
+upstream:
+  service:
+    extraPorts:
+      - name: http-metrics
+        port: 9464
+        targetPort: 9464

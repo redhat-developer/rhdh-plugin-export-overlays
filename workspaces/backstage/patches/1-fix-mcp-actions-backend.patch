@@ -1,0 +1,19 @@
+--- plugins/mcp-actions-backend/src/services/McpService.ts
++++ plugins/mcp-actions-backend/src/services/McpService.ts
+@@ -26,7 +26,6 @@ import {
+   MetricsServiceHistogram,
+   MetricsService,
+ } from '@backstage/backend-plugin-api/alpha';
+-import { version } from '@backstage/plugin-mcp-actions-backend/package.json';
+ import { NotFoundError } from '@backstage/errors';
+ import { performance } from 'node:perf_hooks';
+ 
+@@ -34,6 +33,8 @@ import { handleErrors } from './handleErrors';
+ import { bucketBoundaries, McpServerOperationAttributes } from '../metrics';
+ import { FilterRule, McpServerConfig } from '../config';
+ 
++const version = '0.1.11'
++
+ export class McpService {
+   private readonly actions: ActionsService;
+   private readonly namespacedToolNames: boolean;
