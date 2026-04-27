@@ -52,6 +52,16 @@ test.describe("GitHub Happy path", () => {
   const component =
     "https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml";
 
+  const verifyPRRows = async (
+    allPRs: { title: string }[],
+    startRow: number,
+    lastRow: number,
+  ) => {
+    for (let i = startRow; i < lastRow; i++) {
+      await uiHelper?.verifyRowsInTable([allPRs[i].title], false);
+    }
+  };
+
   test.beforeAll(async ({ browser, rhdh }, testInfo) => {
     test.info().annotations.push({
       type: "component",
@@ -209,9 +219,7 @@ test.describe("GitHub Happy path", () => {
       "rhdh",
       "open",
     );
-    for (let i = 0; i < 5; i++) {
-      await uiHelper.verifyRowsInTable([openPRs[i].title], false);
-    }
+    await verifyPRRows(openPRs, 0, 5);
   });
 
   // backstage-plugin-github-pull-requests
@@ -226,9 +234,7 @@ test.describe("GitHub Happy path", () => {
       "closed",
     );
     await uiHelper.waitForLoad();
-    for (let i = 0; i < 5; i++) {
-      await uiHelper.verifyRowsInTable([closedPRs[i].title], false);
-    }
+    await verifyPRRows(closedPRs, 0, 5);
   });
 
   // backstage-plugin-github-pull-requests
@@ -246,28 +252,20 @@ test.describe("GitHub Happy path", () => {
     await expect(allButton).toBeVisible();
     await expect(allButton).toBeEnabled();
     await allButton.click();
-    for (let i = 0; i < 5; i++) {
-      await uiHelper.verifyRowsInTable([allPRs[i].title], false);
-    }
+    await verifyPRRows(allPRs, 0, 5);
 
     await page.click(TABLE_SELECTORS.nextPage);
-    for (let i = 5; i < 10; i++) {
-      await uiHelper.verifyRowsInTable([allPRs[i].title], false);
-    }
+    await verifyPRRows(allPRs, 5, 10);
 
     // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
     const lastPagePRs = 996;
 
     await page.click(TABLE_SELECTORS.lastPage);
-    for (let i = lastPagePRs; i < 1000; i++) {
-      await uiHelper.verifyRowsInTable([allPRs[i].title], false);
-    }
+    await verifyPRRows(allPRs, lastPagePRs, 1000);
 
     await page.click(TABLE_SELECTORS.previousPage);
     await uiHelper.waitForLoad();
-    for (let i = lastPagePRs - 5; i < lastPagePRs - 1; i++) {
-      await uiHelper.verifyRowsInTable([allPRs[i].title], false);
-    }
+    await verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
   });
 
   // backstage-plugin-github-pull-requests
