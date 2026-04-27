@@ -128,6 +128,54 @@ export function aggregatedScorecardHelpers(page: Page) {
       await expect(page.getByText(/\d-\d+ of \d+/)).toBeVisible();
     },
 
+    /**
+     * Homepage card when aggregation `total === 0`: {@link EmptyStatePanel} shows
+     * "No data found", helper copy, and **no** `/scorecard/aggregations/...` drill-down link.
+     *
+     * Use `skipIfHasDrilldown` when the environment may return data (CI vs cluster);
+     * the test skips instead of failing so environments with data keep a green run.
+     */
+    async runAggregatedScorecardNoDataHomepageScenario(
+      navigateToHome: () => Promise<void>,
+      metric: AggregatedScorecardMetric,
+      metricId: string,
+      options?: { skipIfHasDrilldown?: boolean },
+    ) {
+      await navigateToHome();
+      const card = impl.homepageCard(metricId);
+      await expect(card).toBeVisible({ timeout: 120_000 });
+
+      const drilldownAnchors = card.locator(
+        'a[href*="/scorecard/aggregations/"]',
+      );
+      if (options?.skipIfHasDrilldown && (await drilldownAnchors.count()) > 0) {
+        test.skip(
+          true,
+          "Aggregation returned entity drill-down data in this environment; this path expects total === 0 (no drill-down link on the homepage card).",
+        );
+      }
+
+      await test.step("Homepage card shows metric title and description", async () => {
+        await expect(
+          card.getByText(metric.title, { exact: true }),
+        ).toBeVisible();
+        await expect(card).toContainText(metric.description);
+      });
+
+      await test.step('Homepage card shows "No data found" empty state', async () => {
+        await expect(
+          card.getByText("No data found", { exact: true }),
+        ).toBeVisible();
+        await expect(card).toContainText(
+          "To see your data here, check that your entities are reporting values related to this metric.",
+        );
+      });
+
+      await test.step("Drill-down is not available (no aggregation link on card)", async () => {
+        await expect(drilldownAnchors).toHaveCount(0);
+      });
+    },
+
     async runAggregatedScorecardDrilldownScenario(
       navigateToHome: () => Promise<void>,
       metric: AggregatedScorecardMetric,

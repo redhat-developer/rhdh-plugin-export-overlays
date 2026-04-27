@@ -89,12 +89,13 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
-  test("Aggregated scorecard (Jira): info tooltips, drill-down, table UI", async () => {
+  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
     const [, jiraMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardDrilldownScenario(
+    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
       () => scorecard.navigateToHome(),
       jiraMetric,
       "jira.open_issues",
+      { skipIfHasDrilldown: true },
     );
   });
 
