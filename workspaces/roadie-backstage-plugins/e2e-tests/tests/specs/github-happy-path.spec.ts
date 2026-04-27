@@ -74,6 +74,23 @@ test.describe("GitHub Happy path", () => {
     );
   };
 
+  const verifyPRRowsPerPage = async (
+    rows: number,
+    allPRs: { title: string; number: number }[],
+  ) => {
+    await page.click(TABLE_SELECTORS.pageSelectBox);
+    await page.click(`ul[role="listbox"] li[data-value="${rows}"]`);
+
+    await uiHelper.waitForLoad();
+    await uiHelper.verifyText(allPRs[rows - 1].title, false);
+    await uiHelper.verifyLink(allPRs[rows].number.toString(), {
+      exact: false,
+      notVisible: true,
+    });
+    const tableRows = page.locator(TABLE_SELECTORS.rows);
+    await expect(tableRows).toHaveCount(rows);
+  };
+
   test.beforeAll(async ({ browser, rhdh }, testInfo) => {
     test.info().annotations.push({
       type: "component",
@@ -277,16 +294,7 @@ test.describe("GitHub Happy path", () => {
     const openPRs = await getShowcasePRs("open");
 
     for (const rows of [5, 10, 20]) {
-      await page.click(TABLE_SELECTORS.pageSelectBox);
-      await page.click(`ul[role="listbox"] li[data-value="${rows}"]`);
-      await uiHelper.waitForLoad();
-      await uiHelper.verifyText(openPRs[rows - 1].title, false);
-      await uiHelper.verifyLink(openPRs[rows].number.toString(), {
-        exact: false,
-        notVisible: true,
-      });
-      const tableRows = page.locator(TABLE_SELECTORS.rows);
-      await expect(tableRows).toHaveCount(rows);
+      await verifyPRRowsPerPage(rows, openPRs);
     }
   });
 
