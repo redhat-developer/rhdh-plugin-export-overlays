@@ -8,6 +8,7 @@ import {
 import type { Page } from "@playwright/test";
 
 import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
+import { getGitHubPRs } from "../../support/api/github-pull-requests";
 
 let page: Page;
 
@@ -23,18 +24,6 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     for (let i = startRow; i < lastRow; i++) {
       await uiHelper?.verifyRowsInTable([allPRs[i].title], false);
     }
-  };
-
-  const getShowcasePRs = async (
-    state: "open" | "closed" | "all",
-    paginated = false,
-  ) => {
-    return await APIHelper.getGitHubPRs(
-      "redhat-developer",
-      "rhdh",
-      state,
-      paginated,
-    );
   };
 
   const verifyPRRowsPerPage = async (
@@ -107,7 +96,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
 
     test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
-      const openPRs = await getShowcasePRs("open");
+      const openPRs = await getGitHubPRs("open");
       await verifyPRRows(openPRs, 0, 5);
     });
 
@@ -117,13 +106,13 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await expect(closedButton).toBeVisible();
       await expect(closedButton).toBeEnabled();
       await closedButton.click();
-      const closedPRs = await getShowcasePRs("closed");
+      const closedPRs = await getGitHubPRs("closed");
       await uiHelper.waitForLoad();
       await verifyPRRows(closedPRs, 0, 5);
     });
 
     test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
-      const allPRs = await getShowcasePRs("all", true);
+      const allPRs = await getGitHubPRs("all", true);
 
       const allButton = page.getByRole("button", { name: "ALL" });
       await expect(allButton).toBeVisible();
@@ -150,7 +139,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
     test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
       await uiHelper.waitForLoad();
-      const openPRs = await getShowcasePRs("open");
+      const openPRs = await getGitHubPRs("open");
 
       for (const rows of [5, 10, 20]) {
         await verifyPRRowsPerPage(rows, openPRs);
