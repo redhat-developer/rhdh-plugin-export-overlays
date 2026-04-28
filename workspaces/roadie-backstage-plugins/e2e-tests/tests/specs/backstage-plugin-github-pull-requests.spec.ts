@@ -2,46 +2,20 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   setupBrowser,
   UIhelper,
-  APIHelper,
   LoginHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { Page } from "@playwright/test";
 
 import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
 import { getGitHubPRs } from "../../support/api/github-pull-requests";
+import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 let page: Page;
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   let loginHelper: LoginHelper;
   let uiHelper: UIhelper;
-
-  const verifyPRRows = async (
-    allPRs: { title: string }[],
-    startRow: number,
-    lastRow: number,
-  ) => {
-    for (let i = startRow; i < lastRow; i++) {
-      await uiHelper?.verifyRowsInTable([allPRs[i].title], false);
-    }
-  };
-
-  const verifyPRRowsPerPage = async (
-    rows: number,
-    allPRs: { title: string; number: number }[],
-  ) => {
-    await page.locator(TABLE_SELECTORS.pageSelectBox).click();
-    await page.locator(`ul[role="listbox"] li[data-value="${rows}"]`).click();
-
-    await uiHelper.waitForLoad();
-    await uiHelper.verifyText(allPRs[rows - 1].title, false);
-    await uiHelper.verifyLink(allPRs[rows].number.toString(), {
-      exact: false,
-      notVisible: true,
-    });
-    const tableRows = page.locator(TABLE_SELECTORS.rows);
-    await expect(tableRows).toHaveCount(rows);
-  };
+  let prPage: PullRequestsPage;
 
   test.beforeAll(async ({ browser, rhdh }, testInfo) => {
     test.info().annotations.push({
@@ -60,6 +34,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     ({ page } = await setupBrowser(browser, testInfo));
     uiHelper = new UIhelper(page);
     loginHelper = new LoginHelper(page);
+    prPage = new PullRequestsPage(page, uiHelper);
     test.info().setTimeout(600 * 1000);
 
     await loginHelper.loginAsGithubUser();
@@ -97,7 +72,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
     test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
       const openPRs = await getGitHubPRs("open");
-      await verifyPRRows(openPRs, 0, 5);
+      await prPage.verifyPRRows(openPRs, 0, 5);
     });
 
     test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
@@ -108,7 +83,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await closedButton.click();
       const closedPRs = await getGitHubPRs("closed");
       await uiHelper.waitForLoad();
-      await verifyPRRows(closedPRs, 0, 5);
+      await prPage.verifyPRRows(closedPRs, 0, 5);
     });
 
     test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
@@ -119,22 +94,22 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await expect(allButton).toBeEnabled();
       await allButton.click();
       await uiHelper.waitForLoad();
-      await verifyPRRows(allPRs, 0, 5);
+      await prPage.verifyPRRows(allPRs, 0, 5);
 
       await page.locator(TABLE_SELECTORS.nextPage).click();
       await uiHelper.waitForLoad();
-      await verifyPRRows(allPRs, 5, 10);
+      await prPage.verifyPRRows(allPRs, 5, 10);
 
       // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
       const lastPagePRs = 996;
 
       await page.locator(TABLE_SELECTORS.lastPage).click();
       await uiHelper.waitForLoad();
-      await verifyPRRows(allPRs, lastPagePRs, 1000);
+      await prPage.verifyPRRows(allPRs, lastPagePRs, 1000);
 
       await page.locator(TABLE_SELECTORS.previousPage).click();
       await uiHelper.waitForLoad();
-      await verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
+      await prPage.verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
     });
 
     test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
@@ -142,7 +117,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       const openPRs = await getGitHubPRs("open");
 
       for (const rows of [5, 10, 20]) {
-        await verifyPRRowsPerPage(rows, openPRs);
+        await prPage.verifyPRRowsPerPage(rows, openPRs);
       }
     });
   });
