@@ -17,8 +17,8 @@ metadata:
     - software-catalog
 spec:
   packageName: "@backstage-community/plugin-kiali"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.45.3__1.49.0!backstage-community-plugin-kiali
-  version: 1.49.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-kiali:bs_1.49.4__1.50.1!backstage-community-plugin-kiali
+  version: 1.50.1
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -49,3 +49,7 @@ spec:
                         - hasAnnotation: backstage.io/kubernetes-namespace
                   importName: EntityKialiContent
                   mountPoint: entity.page.kiali/cards
+        kiali:
+          providers:
+            - name: 'default'
+              url: ${KIALI_ENDPOINT}

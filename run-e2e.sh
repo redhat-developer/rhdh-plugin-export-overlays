@@ -18,6 +18,9 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
+#   # Auto-fetch secrets from HashiCorp Vault during global setup
+#   VAULT=1 ./run-e2e.sh -w tech-radar
+#
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 #
@@ -166,7 +169,7 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@3.8.7",
+  "packageManager": "yarn@4.12.0",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }
