@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: backstage-plugin-catalog-backend-module-github
   namespace: rhdh
-  title: Catalog Backend Module GitHub
+  title: GitHub Catalog Entity Discovery
   description: |
     Provides a GitHub integration for the Software Catalog. Searches your
     GitHub organization and registers catalog files matching the configured path.
