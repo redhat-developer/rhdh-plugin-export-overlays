@@ -305,7 +305,7 @@ jobs:
       target-branch: ${{ needs.resolve.outputs.target-branch }}
 
   add-skipped-test-comment:
-    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins-metadata-complete != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
+    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result == 'success' && (needs.prepare-test-config.outputs.plugins-metadata-complete != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
@@ -374,6 +374,55 @@ jobs:
 
             await core.summary
               .addRaw('\n### Tests Skipped\n\n' + summaryDetail)
+              .write();
+
+  add-prepare-failure-comment:
+    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && needs.resolve.outputs.workspace != '' && needs.prepare-test-config.result == 'failure' }}
+    needs:
+      - resolve
+      - prepare-test-config
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - name: Report preparation failure
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlay-commit }}
+          INPUT_PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const overlayCommit = process.env.OVERLAY_COMMIT;
+            const pr = Number(core.getInput('pr_number') || '0');
+            const failureReason =
+              'Smoke test workflow failed while preparing test configuration. Check workflow logs for details (for example, missing environment variables in workspace `smoke-tests/test.env`).';
+
+            if (overlayCommit) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: overlayCommit,
+                description: 'Smoke test preparation failed',
+                state: 'failure',
+                target_url: runUrl,
+                context: 'smoketest',
+              });
+            }
+
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body: `:x: [Smoke test workflow](${runUrl}) failed during preparation.\n\n:warning: ${failureReason}`,
+              });
+            }
+
+            await core.summary
+              .addRaw('\n### Smoke Tests Preparation Failed\n\n' + failureReason)
               .write();
 
   add-test-result-comment:
