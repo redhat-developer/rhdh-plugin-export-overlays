@@ -7,13 +7,7 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { Page } from "@playwright/test";
 
-const TABLE_SELECTORS = {
-  nextPage: 'button[aria-label="Next Page"]',
-  previousPage: 'button[aria-label="Previous Page"]',
-  lastPage: 'button[aria-label="Last Page"]',
-  rows: 'table[class*="MuiTable-root-"] tbody tr',
-  pageSelectBox: 'div[class*="MuiTablePagination-input"]',
-};
+import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
 
 let page: Page;
 
