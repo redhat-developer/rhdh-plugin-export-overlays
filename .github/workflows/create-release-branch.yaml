@@ -26,7 +26,6 @@ jobs:
       - name: Create the required-plugins file@
         continue-on-error: true
         run: |
-          # omit plugins listed in rhdh-community-packages.txt as they are not "part of the core"
           cat rhdh-supported-packages.txt rhdh-community-packages.txt > required-plugins
 
       - name: Upload required-plugins file
