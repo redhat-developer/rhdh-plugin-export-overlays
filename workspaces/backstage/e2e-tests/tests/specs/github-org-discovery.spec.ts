@@ -1,6 +1,21 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  const verifyAppearanceInCatalog = async (
+    uiHelper: UIhelper,
+    kind: "Group" | "User",
+    checks: Array<{ search: string; expectedRows: string[] }>,
+  ) => {
+    await uiHelper.openSidebar("Catalog");
+    await uiHelper.selectMuiBox("Kind", kind);
+
+    for (const check of checks) {
+      await uiHelper.searchInputPlaceholder(check.search);
+      await uiHelper.verifyRowsInTable(check.expectedRows);
+    }
+  };
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",
@@ -26,38 +41,28 @@ test.describe("GitHub Integration Org", () => {
   test("Verify that fetching the groups of the first org works", async ({
     uiHelper,
   }) => {
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.selectMuiBox("Kind", "Group");
-
-    await uiHelper.searchInputPlaceholder("maintainers");
-    await uiHelper.verifyRowsInTable(["maintainers"]);
-
-    await uiHelper.searchInputPlaceholder("r");
-    await uiHelper.verifyRowsInTable(["rhdh-qes"]);
+    await verifyAppearanceInCatalog(uiHelper, "Group", [
+      { search: "maintainers", expectedRows: ["maintainers"] },
+      { search: "r", expectedRows: ["rhdh-qes"] },
+    ]);
   });
 
   // eslint-disable-next-line playwright/expect-expect
   test("Verify that fetching the groups of the second org works", async ({
     uiHelper,
   }) => {
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.selectMuiBox("Kind", "Group");
-
-    await uiHelper.searchInputPlaceholder("c");
-    await uiHelper.verifyRowsInTable(["catalog-group"]);
-
-    await uiHelper.searchInputPlaceholder("j");
-    await uiHelper.verifyRowsInTable(["janus-test"]);
+    await verifyAppearanceInCatalog(uiHelper, "Group", [
+      { search: "c", expectedRows: ["catalog-group"] },
+      { search: "j", expectedRows: ["janus-test"] },
+    ]);
   });
 
   // eslint-disable-next-line playwright/expect-expect
   test("Verify that fetching the users of the orgs works", async ({
     uiHelper,
   }) => {
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.selectMuiBox("Kind", "User");
-
-    await uiHelper.searchInputPlaceholder("r");
-    await uiHelper.verifyRowsInTable(["rhdh-qe"]);
+    await verifyAppearanceInCatalog(uiHelper, "User", [
+      { search: "r", expectedRows: ["rhdh-qe"] },
+    ]);
   });
 });
