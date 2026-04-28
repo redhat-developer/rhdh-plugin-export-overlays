@@ -6,21 +6,9 @@ backend:
   cors:
     origin: ${RHDH_BASE_URL}
 auth:
-  #   environment: development
   providers:
-    #     guest:
-    #       dangerouslyAllowOutsideDevelopment: true
     github:
-      #       development:
-      #         clientId: ${GITHUB_CLIENT_ID}
-      #         clientSecret: ${GITHUB_CLIENT_SECRET}
-      #         signIn:
-      #           resolvers:
-      #             - resolver: usernameMatchingUserEntityName
-      #               dangerouslyAllowSignInWithoutUserInCatalog: true
       production:
-        #         clientId: ${GITHUB_CLIENT_ID}
-        #         clientSecret: ${GITHUB_CLIENT_SECRET}
         signIn:
           resolvers:
             - resolver: usernameMatchingUserEntityName
@@ -29,15 +17,6 @@ integrations:
   github:
     - host: github.com
       token: ${VAULT_GITHUB_USER_TOKEN}
-# proxy:
-#   skipInvalidProxies: true
-#   endpoints:
-#     "/quay/api":
-#       target: https://quay.io/
-#       headers:
-#         X-Requested-With: "XMLHttpRequest"
-#       changeOrigin: true
-#       secure: true
 
 catalog:
   import:
@@ -48,5 +27,3 @@ catalog:
   locations:
     - type: url
       target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
-    # - type: url
-    #   target: https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates.yaml
