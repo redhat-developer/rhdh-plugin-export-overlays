@@ -1,7 +1,7 @@
 # Enable Scorecard plugin for e2e tests.
 # Dynamic Home Page is provided by the RHDH chart default; do not redefine it here to avoid config merge conflicts.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -14,6 +14,9 @@ plugins:
               - path: "/scorecard"
                 title: Scorecard
                 mountPoint: entity.page.scorecard
+            dynamicRoutes:
+              - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
+                importName: ScorecardPage
             mountPoints:
               - mountPoint: entity.page.scorecard/cards
                 importName: EntityScorecardContent
@@ -34,7 +37,7 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     metricId: "github.open_prs"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend
     disabled: false
     pluginConfig:
       scorecard:
@@ -51,13 +54,13 @@ plugins:
                 frequency: { minutes: 1 }
                 timeout: { minutes: 15 }
                 initialDelay: { seconds: 5 }
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
     disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.45.3__2.3.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
     disabled: false
     pluginConfig:
       jira:
-        baseUrl: https://redhat-team-f703ynt3.atlassian.net
+        baseUrl: https://redhat.atlassian.net
         token: ${JIRA_TOKEN}
         product: cloud
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page

@@ -1,0 +1,39 @@
+plugins:
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage
+            mountPoints:
+              - mountPoint: home.page/cards
+                importName: OnboardingSection
+                config:
+                  id: onboarding-section
+                  title: Onboarding section
+              - mountPoint: home.page/cards
+                importName: EntitySection
+                config:
+                  id: entity-section
+                  title: Entity section
+              - mountPoint: home.page/cards
+                importName: RecentlyVisitedCard
+                config:
+                  id: recently-visited-card
+                  title: Recently visited
+              - mountPoint: home.page/cards
+                importName: TopVisitedCard
+                config:
+                  id: top-visited-card
+                  title: Top visited
+              - mountPoint: home.page/cards
+                importName: JokeCard
+                config:
+                  id: joke-card
+                  title: Random joke
+            translationResources:
+              - importName: homepageTranslations
+                ref: homepageTranslationRef

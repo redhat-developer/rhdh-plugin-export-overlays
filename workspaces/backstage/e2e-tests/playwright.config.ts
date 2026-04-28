@@ -10,6 +10,10 @@ dotenv.config({ path: `${import.meta.dirname}/.env` });
 export default defineConfig({
   projects: [
     {
+      name: "backstage-github-discovery",
+      testMatch: /tests\/specs\/github-discovery\.spec\.ts/,
+    },
+    {
       name: "backstage-gitlab-discovery",
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
     },

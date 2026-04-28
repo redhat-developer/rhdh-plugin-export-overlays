@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-search-backend-module-github-discussions
+  namespace: rhdh
+  title: "GitHub Discussions Search Backend Module"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/github/plugins/search-backend-module-github-discussions
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/github
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-search-backend-module-github-discussions"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-github-discussions:bs_1.49.4__0.11.0!backstage-community-plugin-search-backend-module-github-discussions
+  version: 0.11.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        search:
+          collators:
+            githubDiscussions:
+              url: ${GITHUB_DISCUSSIONS_REPO_URL}
