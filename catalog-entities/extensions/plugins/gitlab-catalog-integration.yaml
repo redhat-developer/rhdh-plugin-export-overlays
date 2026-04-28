@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: gitlab-catalog-integration
   namespace: rhdh
-  title: GitLab Catalog Integration
+  title: GitLab Catalog Discovery
   description: |
     This plugin provides GitLab catalog integration for the Red Hat Developer Hub. Searches your
     GitLab organization and registers catalog files matching the configured path.

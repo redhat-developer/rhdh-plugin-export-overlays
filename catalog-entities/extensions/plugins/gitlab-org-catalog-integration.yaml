@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: gitlab-org-catalog-integration
   namespace: rhdh
-  title: GitLab Org Catalog Integration
+  title: GitLab Organizational Data Provider
   description: |
     This is an extension module to the plugin-catalog-backend plugin, that can be used to ingest organization data like users and groups from Github. 
   annotations:

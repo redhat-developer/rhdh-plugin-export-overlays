@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: backstage-plugin-catalog-backend-module-github-org
   namespace: rhdh
-  title: Catalog Backend Module GitHub Organization
+  title: GitHub Organizational Data Provider
   description: |
     This is an extension module to the plugin-catalog-backend plugin, that can be used to ingest organization data like users and groups from Github. 
   annotations:
