@@ -5,14 +5,12 @@ import {
   LoginHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { Page } from "@playwright/test";
-
 import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
 import { getGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
-let page: Page;
-
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
+  let page: Page;
   let loginHelper: LoginHelper;
   let uiHelper: UIhelper;
   let prPage: PullRequestsPage;
@@ -32,8 +30,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     await rhdh.deploy();
 
     ({ page } = await setupBrowser(browser, testInfo));
-    uiHelper = new UIhelper(page);
     loginHelper = new LoginHelper(page);
+    uiHelper = new UIhelper(page);
     prPage = new PullRequestsPage(page, uiHelper);
     test.info().setTimeout(600 * 1000);
 
@@ -77,10 +75,12 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
     test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
       await uiHelper.waitForLoad();
+
       const closedButton = page.getByRole("button", { name: "CLOSED" });
       await expect(closedButton).toBeVisible();
       await expect(closedButton).toBeEnabled();
       await closedButton.click();
+
       const closedPRs = await getGitHubPRs("closed");
       await uiHelper.waitForLoad();
       await prPage.verifyPRRows(closedPRs, 0, 5);

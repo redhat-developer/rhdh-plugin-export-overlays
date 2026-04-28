@@ -30,11 +30,13 @@ export class PullRequestsPage {
   async verifyPRRowsPerPage(rows: number, allPRs: GitHubPR[]): Promise<void> {
     await this.selectRowsPerPage(rows);
     await this.uiHelper.waitForLoad();
+
     await this.uiHelper.verifyText(allPRs[rows - 1].title, false);
     await this.uiHelper.verifyLink(allPRs[rows].number.toString(), {
       exact: false,
       notVisible: true,
     });
+
     const tableRows = this.page.locator(TABLE_SELECTORS.rows);
     await expect(tableRows).toHaveCount(rows);
   }
