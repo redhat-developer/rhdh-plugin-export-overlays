@@ -47,8 +47,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     rows: number,
     allPRs: { title: string; number: number }[],
   ) => {
-    await page.click(TABLE_SELECTORS.pageSelectBox);
-    await page.click(`ul[role="listbox"] li[data-value="${rows}"]`);
+    await page.locator(TABLE_SELECTORS.pageSelectBox).click();
+    await page.locator(`ul[role="listbox"] li[data-value="${rows}"]`).click();
 
     await uiHelper.waitForLoad();
     await uiHelper.verifyText(allPRs[rows - 1].title, false);
@@ -138,18 +138,18 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, 0, 5);
 
-      await page.click(TABLE_SELECTORS.nextPage);
+      await page.locator(TABLE_SELECTORS.nextPage).click();
       await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, 5, 10);
 
       // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
       const lastPagePRs = 996;
 
-      await page.click(TABLE_SELECTORS.lastPage);
+      await page.locator(TABLE_SELECTORS.lastPage).click();
       await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, lastPagePRs, 1000);
 
-      await page.click(TABLE_SELECTORS.previousPage);
+      await page.locator(TABLE_SELECTORS.previousPage).click();
       await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
     });
