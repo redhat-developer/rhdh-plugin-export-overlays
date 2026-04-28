@@ -284,15 +284,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.30":
-  version: 1.1.30
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.30"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.35":
+  version: 1.1.35
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.35"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
     "@eslint/js": "npm:10.0.1"
     "@keycloak/keycloak-admin-client": "npm:26.5.6"
     "@kubernetes/client-node": "npm:1.4.0"
+    dotenv: "npm:17.4.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
     eslint-plugin-playwright: "npm:2.10.1"
@@ -308,7 +309,7 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10/3bc1013ca11fa5169af703c6992eb435be8bdd9634081e878564fb0ea77578a9692300c8cb5c56afecd0a93320d14adc9d3e0931bfcf44567174315585415edf
+  checksum: 10/e2d84b54e92ff4496306312ef3eebfe53cbb047a9f88d2a23dfd5edf67435a489976d124e7d3d7d437b41ca5559ad9a4432880041e8a12eceedb0302285529fc
   languageName: node
   linkType: hard
 
@@ -808,10 +809,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:17.4.1":
-  version: 17.4.1
-  resolution: "dotenv@npm:17.4.1"
-  checksum: 10/addbff54aed55b80b5d4527ba0a221a63718835c10a2ed7d949f5caeab96995796a4c88f30263724aa71014aa4e3092a1ef551559ddef44d68c429494e13ff68
+"dotenv@npm:17.4.2":
+  version: 17.4.2
+  resolution: "dotenv@npm:17.4.2"
+  checksum: 10/ca1b6f54d58e39914901e1518958e86083aca8deb5aa2e7f2a51acd53291d97852479b0ab26ed949b6a45a0e9adcc7b0d1c3c72375e8ea670f7005e341c6daba
   languageName: node
   linkType: hard
 
@@ -1932,9 +1933,8 @@ __metadata:
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:1.1.30"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:1.1.35"
     "@types/node": "npm:25.5.2"
-    dotenv: "npm:17.4.1"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
     eslint-plugin-playwright: "npm:2.10.1"
