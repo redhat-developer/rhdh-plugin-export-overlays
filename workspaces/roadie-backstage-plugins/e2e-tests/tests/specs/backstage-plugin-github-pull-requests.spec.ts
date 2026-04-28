@@ -135,15 +135,18 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await expect(allButton).toBeVisible();
       await expect(allButton).toBeEnabled();
       await allButton.click();
+      await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, 0, 5);
 
       await page.click(TABLE_SELECTORS.nextPage);
+      await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, 5, 10);
 
       // redhat-developer/rhdh have more than 1000 PRs; plugin caps at 1000 results
       const lastPagePRs = 996;
 
       await page.click(TABLE_SELECTORS.lastPage);
+      await uiHelper.waitForLoad();
       await verifyPRRows(allPRs, lastPagePRs, 1000);
 
       await page.click(TABLE_SELECTORS.previousPage);
