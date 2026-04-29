@@ -4,11 +4,10 @@ kind: Plugin
 metadata:
   name: gitlab-catalog-integration
   namespace: rhdh
-  title: GitLab Catalog Integration
+  title: GitLab Catalog Discovery
   description: |
     This plugin provides GitLab catalog integration for the Red Hat Developer Hub. Searches your
-    GitLab account and registers catalog files matching the configured path.
-    It can also import your users and groups from GitLab.
+    GitLab organization and registers catalog files matching the configured path.
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
   links:
@@ -40,19 +39,19 @@ spec:
     - Provides GitLab catalog integration
 
   description: |
-    This plugin provides GitLab catalog integration for the Red Hat Developer Hub. This is an
-    extension module to the plugin-catalog-backend plugin that provides group and user entities
-    by scrapping or receiving events from a GitLab instance.
+    This plugin provides GitLab catalog integration for the Red Hat Developer Hub. Searches your
+    Gitlab organization and registers catalog files matching the configured path.
+
 
     ## Adding The Plugin To Red Hat Developer Hub
 
-    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/integrating_red_hat_developer_hub_with_your_git_provider/integrate-with-gitlab_integrate-with-github)
     for further instructions on how to add, enable, configure, and remove plugins in your instance.
 
     ## Configuring The Plugin ##
 
     Plugins often need additional configuration to work correctly - particularly those that integrate with other
-    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/integrating_red_hat_developer_hub_with_your_git_provider/integrate-with-gitlab_integrate-with-github)
     for further details regarding the configuration required.
 
   packages:

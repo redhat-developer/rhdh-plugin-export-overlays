@@ -4,10 +4,9 @@ kind: Plugin
 metadata:
   name: backstage-plugin-catalog-backend-module-github-org
   namespace: rhdh
-  title: GitHub Org Software Catalog Integration
+  title: GitHub Organizational Data Provider
   description: |
-    Provides a GitHub integration for the Software Catalog. 
-    Searches your GitHub account and imports your users and groups from GitHub.
+    This is an extension module to the plugin-catalog-backend plugin, that can be used to ingest organization data like users and groups from Github. 
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
     extensions.backstage.io/verified-by: Red Hat
@@ -34,27 +33,23 @@ spec:
   publisher: Red Hat
 
   highlights:
-    - Provides a GitHub integration for the Software Catalog
-    - Ingests org data (users and groups) from GitHub.
+    - Ingests data (users and groups) from your GitHub Organization.
 
   categories:
     - Software Catalog
 
   description: |
-    Discovers users and groups located in [GitHub](https://github.com). The provider will search your
-    GitHub account and register catalog files matching the configured path as Location entity and via
-    following processing steps add all contained catalog entities. This can be useful as an
-    alternative to static locations or manually adding things to the catalog.
+    Ingest data (users and groups) from your [GitHub](https://github.com) Organization to establish identities required for Github Authentication
 
     ## Adding The Plugin To Red Hat Developer Hub
 
-    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/import-users-and-groups-from-your-identity-provider_authentication-in-rhdh#import-users-and-groups-from-github_import-users-and-groups-from-your-identity-provider)
     for further instructions on how to add, enable, configure, and remove plugins in your instance.
 
     ## Configuring The Plugin ##
 
     Plugins often need additional configuration to work correctly - particularly those that integrate with other
-    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/import-users-and-groups-from-your-identity-provider_authentication-in-rhdh#import-users-and-groups-from-github_import-users-and-groups-from-your-identity-provider)
     for further details regarding the configuration required.
 
   packages:

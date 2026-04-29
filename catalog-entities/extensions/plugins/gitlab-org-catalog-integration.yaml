@@ -4,10 +4,9 @@ kind: Plugin
 metadata:
   name: gitlab-org-catalog-integration
   namespace: rhdh
-  title: GitLab Org Catalog Integration
+  title: GitLab Organizational Data Provider
   description: |
-    This plugin provides GitLab catalog integration for the Red Hat Developer Hub.
-    Searches your GitLab account and imports your users and groups from GitLab.
+    This is an extension module to the plugin-catalog-backend plugin, that can be used to ingest organization data like users and groups from Github. 
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
   links:
@@ -29,29 +28,27 @@ spec:
   publisher: Red Hat
   support:
     provider: Red Hat
-    level: tech-preview
+    level: generally-available
   lifecycle: active
 
   categories:
     - Software Catalog
 
   highlights:
-    - Provides GitLab catalog integration
+    - Ingests data (users and groups) from your GitLab Organization.
 
   description: |
-    This plugin provides GitLab catalog integration for the Red Hat Developer Hub. This is an
-    extension module to the plugin-catalog-backend plugin that provides group and user entities
-    by scrapping or receiving events from a GitLab instance.
+    Ingest data (users and groups) from your GitLab Organization to establish identities required for GitLab Authentication
 
     ## Adding The Plugin To Red Hat Developer Hub
 
-    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/enable-authentication-with-your-identity-provider_authentication-in-rhdh#enable-authentication-with-gitlab_enable-authentication-with-your-identity-provider)
     for further instructions on how to add, enable, configure, and remove plugins in your instance.
 
     ## Configuring The Plugin ##
 
     Plugins often need additional configuration to work correctly - particularly those that integrate with other
-    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/1.9/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/enable-authentication-with-your-identity-provider_authentication-in-rhdh#enable-authentication-with-gitlab_enable-authentication-with-your-identity-provider)
     for further details regarding the configuration required.
 
   packages:

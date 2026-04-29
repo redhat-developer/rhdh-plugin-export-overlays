@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: keycloak-catalog-integration
   namespace: rhdh
-  title: Keycloak Catalog Integration
+  title: Keycloak Data Provider 
   description: |
     Automatically import Keycloak users and groups into Red Hat Developer Hub for enterprise ready authentication and authorization.
   annotations:

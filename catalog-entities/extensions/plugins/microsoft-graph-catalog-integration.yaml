@@ -4,7 +4,7 @@ kind: Plugin
 metadata:
   name: microsoft-graph-catalog-integration
   namespace: rhdh
-  title: Catalog Backend Module for Microsoft Graph
+  title: Microsoft Entra Tenant Data Provider
   description: |
     This is an extension module to the `plugin-catalog-backend` plugin, providing a `MicrosoftGraphOrgEntityProvider`
     that can be used to ingest organization data from the Microsoft Graph API.
