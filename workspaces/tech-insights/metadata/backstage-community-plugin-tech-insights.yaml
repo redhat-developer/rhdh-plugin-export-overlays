@@ -22,3 +22,24 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-tech-insights:
+              dynamicRoutes:
+                - path: /tech-insights
+                  importName: TechInsightsScorecardPage
+                  menuItem:
+                    text: Tech Insights
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityTechInsightsScorecardCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        md: span 6
+                        xs: span 12
+                    props:
+                      title: Tech Insights

@@ -22,3 +22,12 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Optional registry configuration
+      content:
+        npm:
+          defaultRegistry: ${NPM_DEFAULT_REGISTRY}
+          registries:
+            - name: private
+              url: ${NPM_REGISTRY_URL}
+              token: ${NPM_REGISTRY_TOKEN}

@@ -22,3 +22,8 @@ spec:
   author: Proberaum
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        envViewer:
+          dangerouslyAnyoneCanReadAllEnvVars: false
