@@ -1,4 +1,14 @@
+catalog:
+  processingInterval: { hours: 24 }
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Component, Group]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/rbac/e2e-tests/tests/config/catalog-entities.yaml
 permission:
+  enabled: true
   rbac:
     defaultPermissions:
       defaultRole: role:default/default-role
@@ -6,3 +16,14 @@ permission:
         - permission: catalog-entity
           action: read
           effect: allow
+    maxDepth: 1
+    policyFileReload: true
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - scaffolder
+    admin:
+      users:
+        - name: user:default/rbac-admin
+    policyDecisionPrecedence: conditional # default behavior
+includeTransitiveGroupOwnership: true

@@ -4,6 +4,11 @@ export default defineConfig({
   projects: [
     {
       name: "rbac",
+      testMatch: "rbac.spec.ts",
+    },
+    {
+      name: "rbac-default-permissions",
+      testMatch: "rbac-default-permissions.spec.ts",
     },
   ],
 });

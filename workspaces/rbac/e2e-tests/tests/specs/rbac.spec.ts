@@ -24,21 +24,6 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
-const APP_CONFIG_RHDH_CM_KEY = "app-config-rhdh.yaml";
-
-const PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT = `
-set -euo pipefail
-export KEY="$3"
-export OVERLAY="$2"
-MERGED_FILE=$(mktemp)
-PATCH_FILE=$(mktemp)
-trap 'rm -f "$MERGED_FILE" "$PATCH_FILE"' EXIT
-oc get configmap app-config-rhdh -n "$1" -o yaml | yq eval '.data[strenv(KEY)]' - | yq eval '.permission.rbac.defaultPermissions = (load(strenv(OVERLAY)) | .permission.rbac.defaultPermissions)' - > "$MERGED_FILE"
-export MERGED_FILE
-yq eval -n '.data[strenv(KEY)] = (load(strenv(MERGED_FILE)) | to_yaml)' > "$PATCH_FILE"
-oc patch configmap app-config-rhdh -n "$1" --type merge --patch-file "$PATCH_FILE"
-`.trim();
-
 test.describe("RBAC plugin", () => {
   let rbacPO: RbacPO;
   let apiToken: string;
@@ -653,53 +638,6 @@ test.describe("RBAC plugin", () => {
     });
   });
 
-  test.describe("Check default RBAC permissions", () => {
-    test.beforeAll(async ({ rhdh }) => {
-      test.setTimeout(600_000);
-
-      const namespace = rhdh.deploymentConfig.namespace;
-      const overlayPath = WorkspacePaths.resolve(
-        "tests/config/app-config-rhdh-default-permissions-overlay.yaml",
-      );
-      await $`bash -c ${PATCH_DEFAULT_RBAC_PERMISSIONS_SCRIPT} _ ${namespace} ${overlayPath} ${APP_CONFIG_RHDH_CM_KEY}`;
-      await rhdh.scaleDownAndRestart();
-      await rhdh.waitUntilReady();
-    });
-
-    test("User should got default permissions", async ({
-      page,
-      uiHelper,
-      loginHelper,
-    }) => {
-      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
-
-      rbacPO = new RbacPO(page, uiHelper);
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.waitForLoad();
-      await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
-    });
-
-    test("Default role should appear in the RBAC page", async ({
-      page,
-      uiHelper,
-      loginHelper,
-    }) => {
-      await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.rbacAdmin);
-
-      rbacPO = new RbacPO(page, uiHelper);
-
-      await rbacPO.navigateToRBACPage();
-      await uiHelper.waitForLoad();
-      await rbacPO.filterRolesList(RBAC_ROLES.defaultRole.name);
-      await rbacPO.verifyRoleAndSwitchToOverview(
-        RBAC_ROLES.defaultRole.ref,
-        "Role with default permissions for all users and groups.",
-        ["1 permission"],
-      );
-    });
-  });
-
-  // Ensure we clean up in the event that a test fails so that we do not impact other tests
   test.afterAll(async () => {
     await cleanupRoles(RBAC_ROLES, apiToken);
   });
