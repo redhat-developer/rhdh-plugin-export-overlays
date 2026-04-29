@@ -22,7 +22,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
 
     await rhdh.configure({
-      auth: "github",
+      // auth: "github",
+      auth: "guest",
       appConfig: "tests/config/github-pull-requests/app-config-rhdh.yaml",
       secrets: "tests/config/github-pull-requests/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-pull-requests/dynamic-plugins.yaml",
@@ -35,7 +36,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     prPage = new PullRequestsPage(page, uiHelper);
     test.info().setTimeout(600 * 1000);
 
-    await loginHelper.loginAsGithubUser();
+    // await loginHelper.loginAsGithubUser();
+    await loginHelper.loginAsGuest();
   });
 
   test.beforeEach(async () => {
