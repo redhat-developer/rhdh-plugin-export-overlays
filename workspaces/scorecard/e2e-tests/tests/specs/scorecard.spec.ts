@@ -10,8 +10,8 @@ import {
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
-  SCORECARD_METRICS,
   OPENSSF_MAINTAINED_SCORECARD,
+  SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/scorecard";
@@ -107,7 +107,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
 
-      for (const metric of [...SCORECARD_METRICS, ...OPENSSF_MAINTAINED_SCORECARD]) {
+      for (const metric of [
+        ...SCORECARD_METRICS,
+        ...OPENSSF_MAINTAINED_SCORECARD,
+      ]) {
         await scorecard.validateScorecardAriaFor(metric);
       }
     });
