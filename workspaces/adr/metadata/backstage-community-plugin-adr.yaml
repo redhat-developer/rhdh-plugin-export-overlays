@@ -22,3 +22,17 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-adr:
+              entityTabs:
+                - mountPoint: entity.page.adrs
+                  path: /adrs
+                  title: ADRs
+                  config:
+                    if:
+                      allOf:
+                        - isAdrAvailable

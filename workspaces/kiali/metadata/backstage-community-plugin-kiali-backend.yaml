@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-community-plugin-kiali-backend
   namespace: rhdh
-  title: "Kiali Backend"
+  title: 'Kiali Backend'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -30,7 +30,7 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        catalog:
+        kiali:
           providers:
             - name: kiali
               url: '${KIALI_ENDPOINT}'

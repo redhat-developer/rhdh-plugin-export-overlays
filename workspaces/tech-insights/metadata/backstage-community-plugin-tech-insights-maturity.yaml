@@ -22,3 +22,22 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-tech-insights-maturity:
+              dynamicRoutes:
+                - path: /tech-insights-maturity
+                  importName: MaturityPage
+                  menuItem:
+                    text: Maturity
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityMaturitySummaryCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        md: span 6
+                        xs: span 12

@@ -63,3 +63,8 @@ build/
 # Coverage
 coverage/
 .nyc_output/
+
+# Python Caches
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/

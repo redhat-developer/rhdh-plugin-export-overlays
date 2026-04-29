@@ -22,3 +22,12 @@ spec:
   author: Red Hat
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Optional X2A runtime overrides
+      content:
+        x2a:
+          callbackBaseUrl: ${X2A_CALLBACK_BASE_URL}
+          kubernetes:
+            namespace: ${X2A_KUBERNETES_NAMESPACE}
+            image: ${X2A_CONVERTOR_IMAGE}
+            imageTag: ${X2A_CONVERTOR_IMAGE_TAG}

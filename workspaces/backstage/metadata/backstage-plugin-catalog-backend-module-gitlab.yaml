@@ -28,8 +28,15 @@ spec:
   partOf:
     - gitlab-catalog-integration
   appConfigExamples:
-    - title: Default configuration
+    - title: GitLab discovery provider (requires matching integrations.gitlab host)
       content:
         catalog:
           providers:
-            gitlab: {}
+            gitlab:
+              default:
+                host: ${GITLAB_HOST}
+                group: ${GITLAB_DISCOVERY_GROUP}
+                schedule:
+                  frequency: { minutes: 30 }
+                  timeout: { minutes: 3 }
+                  initialDelay: { seconds: 15 }

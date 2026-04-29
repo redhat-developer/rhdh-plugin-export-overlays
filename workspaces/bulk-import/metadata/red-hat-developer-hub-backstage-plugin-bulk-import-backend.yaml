@@ -25,6 +25,10 @@ spec:
   author: Red Hat
   support: tech-preview
   lifecycle: active
+  appConfigExamples:
+    - title: Default PR-based import workflow
+      content:
+        bulkImport:
+          importAPI: open-pull-requests
   partOf:
     - bulk-import
-  appConfigExamples: []

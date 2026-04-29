@@ -27,4 +27,8 @@ spec:
   lifecycle: active
   partOf:
     - extensions
-  appConfigExamples: []
+  appConfigExamples:
+    - title: Optional extensions directory
+      content:
+        extensions:
+          directory: ${RHDH_EXTENSIONS_DIRECTORY}

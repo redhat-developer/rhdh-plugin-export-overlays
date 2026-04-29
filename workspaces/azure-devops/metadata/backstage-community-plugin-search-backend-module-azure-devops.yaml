@@ -25,6 +25,21 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Azure DevOps wiki collator
+      content:
+        search:
+          collators:
+            azureDevOpsWikiCollator:
+              baseUrl: ${AZURE_DEVOPS_BASE_URL}
+              token: ${AZURE_DEVOPS_TOKEN}
+              wikis:
+                - wikiIdentifier: ${AZURE_DEVOPS_WIKI_IDENTIFIER}
+                  organization: ${AZURE_DEVOPS_ORGANIZATION}
+                  project: ${AZURE_DEVOPS_PROJECT}
+              schedule:
+                frequency: { minutes: 30 }
+                initialDelay: { seconds: 30 }
+                timeout: { minutes: 10 }
   partOf:
     - azure-devops
-  appConfigExamples: []
