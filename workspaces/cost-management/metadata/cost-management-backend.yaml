@@ -22,7 +22,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/plugin-cost-management-backend"
   dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.0.2!red-hat-developer-hub-plugin-cost-management-backend
-  version: 2.0.2
+  version: 2.1.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
@@ -38,7 +38,7 @@ spec:
           endpoints:
             '/cost-management/v1':
               target: https://console.redhat.com/api/cost-management/v1
-              allowedHeaders: ['Authorization']
+              allowedHeaders: [ 'Authorization' ]
               credentials: dangerously-allow-unauthenticated
         costManagement:
           clientId: ${CM_CLIENT_ID}
