@@ -18,12 +18,9 @@ metadata:
     - software-templates
     - automation
 spec:
-  packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module\
-    -orchestrator"
-  # Tag: 1.10.0--1.3.3, Build date: 2026-01-29T16:21:53Z
-  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-b\
-    ackstage-plugin-scaffolder-backend-module-orchestrator@sha256:566c09637572f\
-    e80c3769d92e6847f1def5b8a7e2a7fc52e046b55cfc6dcea4f"
+  packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator"
+  # Tag: 1.10.0--1.3.3, Build date: 2026-03-24T19:58:48Z
+  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:5b52adc153afcf79fb134262aa01b1e117085bf59c1a1997ff2e3a6f31c7647a"
   version: 1.5.2
   backstage:
     role: backend-plugin-module

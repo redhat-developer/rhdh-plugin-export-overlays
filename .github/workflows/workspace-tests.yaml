@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Download published-exports artifact for this PR
         if: inputs.workspace != '' && inputs.pr-number != ''
-        uses: dawidd6/action-download-artifact@8305c0f1062bb0d184d09ef4493ecb9288447732 # v20
+        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151 # v21
         with:
           name: published-exports-pr-${{ inputs.pr-number }}
           workflow: pr-actions.yaml
