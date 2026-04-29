@@ -22,3 +22,16 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Optional collator schedule
+      content:
+        search:
+          collators:
+            adr:
+              schedule:
+                frequency:
+                  minutes: 30
+                initialDelay:
+                  seconds: 30
+                timeout:
+                  minutes: 3

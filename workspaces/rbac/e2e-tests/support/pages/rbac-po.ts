@@ -528,7 +528,7 @@ export class RbacPO {
     await this.selectOption("scaffolder");
 
     // Close the plugins dropdown to access the permissions table
-    await this.page.getByRole("button", { name: "Close" }).click();
+    await this.page.getByRole("button", { name: "Close", exact: true }).click();
 
     // Expand the Scaffolder row to access its permissions
     await this.page

@@ -22,3 +22,9 @@ spec:
   author: Proberaum
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Minimal configuration
+      content:
+        configViewer:
+          files:
+            - ${CONFIG_VIEWER_APP_CONFIG_FILES}

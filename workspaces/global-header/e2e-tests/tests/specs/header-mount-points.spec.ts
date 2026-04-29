@@ -2,8 +2,10 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Header mount points", () => {
   test.beforeAll(async ({ rhdh }) => {
-    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({
+      auth: "keycloak",
+      disableWrappers: ["red-hat-developer-hub-backstage-plugin-global-header"],
+    });
     await rhdh.deploy();
   });
 

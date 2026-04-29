@@ -28,8 +28,16 @@ spec:
   partOf:
     - gitlab-org-catalog-integration
   appConfigExamples:
-    - title: Default configuration
+    - title: GitLab org provider (users/groups; requires matching integrations.gitlab host)
       content:
         catalog:
           providers:
-            gitlab: {}
+            gitlab:
+              orgProvider:
+                host: ${GITLAB_HOST}
+                orgEnabled: true
+                group: ${GITLAB_ORG_GROUP}
+                schedule:
+                  frequency: { minutes: 30 }
+                  timeout: { minutes: 3 }
+                  initialDelay: { seconds: 15 }

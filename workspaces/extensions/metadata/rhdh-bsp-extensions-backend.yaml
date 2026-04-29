@@ -27,4 +27,11 @@ spec:
   lifecycle: active
   partOf:
     - extensions
-  appConfigExamples: []
+  appConfigExamples:
+    - title: Installation export (disabled by default)
+      content:
+        extensions:
+          installation:
+            enabled: false
+            saveToSingleFile:
+              file: ${RHDH_EXTENSIONS_INSTALL_EXPORT_PATH}
