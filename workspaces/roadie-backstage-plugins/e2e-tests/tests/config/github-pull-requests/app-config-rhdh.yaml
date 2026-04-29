@@ -1,22 +1,22 @@
 app:
   title: RHDH Roadie Plugins Test Instance
-  baseUrl: ${RHDH_BASE_URL}
-backend:
-  baseUrl: ${RHDH_BASE_URL}
-  cors:
-    origin: ${RHDH_BASE_URL}
-auth:
-  providers:
-    github:
-      production:
-        signIn:
-          resolvers:
-            - resolver: usernameMatchingUserEntityName
-              dangerouslyAllowSignInWithoutUserInCatalog: true
-integrations:
-  github:
-    - host: github.com
-      token: ${VAULT_GITHUB_USER_TOKEN}
+#   baseUrl: ${RHDH_BASE_URL}
+# backend:
+#   baseUrl: ${RHDH_BASE_URL}
+#   cors:
+#     origin: ${RHDH_BASE_URL}
+# auth:
+#   providers:
+#     github:
+#       production:
+#         signIn:
+#           resolvers:
+#             - resolver: usernameMatchingUserEntityName
+#               dangerouslyAllowSignInWithoutUserInCatalog: true
+# integrations:
+#   github:
+#     - host: github.com
+#       token: ${VAULT_GITHUB_USER_TOKEN}
 
 catalog:
   import:
