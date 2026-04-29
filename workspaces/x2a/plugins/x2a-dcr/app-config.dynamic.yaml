@@ -1,6 +1,0 @@
-dynamicPlugins:
-  frontend:
-    red-hat-developer-hub.backstage-plugin-x2a-dcr: 
-      dynamicRoutes:
-        - path: /oauth2/*
-          importName: DcrConsentPage      
