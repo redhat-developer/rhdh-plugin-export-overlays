@@ -14,6 +14,12 @@ export const SCORECARD_METRICS = [
   },
 ] as const;
 
+export const OPENSSF_MAINTAINED_SCORECARD = [{
+  title: "OpenSSF Maintained",
+  description:
+    'Determines if the project is "actively maintained" according to OpenSSF Security Scorecards.',
+}] as const;
+
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   return {
     async openTab() {

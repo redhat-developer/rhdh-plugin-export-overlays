@@ -85,3 +85,5 @@ plugins:
                   title: "Entity section"
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
+    disabled: false

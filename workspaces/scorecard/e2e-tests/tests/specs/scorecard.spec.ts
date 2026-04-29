@@ -11,6 +11,7 @@ import {
 } from "../utils/aggregated-scorecard";
 import {
   SCORECARD_METRICS,
+  OPENSSF_MAINTAINED_SCORECARD,
   scorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/scorecard";
@@ -100,13 +101,13 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   });
 
   test.describe("Entity Scorecards", () => {
-    test("Validate scorecard tabs for GitHub PRs and Jira tickets", async () => {
+    test("Validate scorecard tabs for GitHub PRs, Jira tickets and OpenSSF Security Scorecards", async () => {
       await page.waitForTimeout(6000);
       await catalog.go();
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
 
-      for (const metric of SCORECARD_METRICS) {
+      for (const metric of [...SCORECARD_METRICS, ...OPENSSF_MAINTAINED_SCORECARD]) {
         await scorecard.validateScorecardAriaFor(metric);
       }
     });
@@ -153,6 +154,22 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardVisible(jiraMetric.title);
       await scorecard.validateScorecardAriaFor(jiraMetric);
+    });
+
+    test("Validate only OpenSSF Security Scorecard is displayed", async () => {
+      await page.waitForTimeout(6000);
+      await catalog.go();
+      await catalog.goToByName("openssf-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+
+      await scorecard.expectScorecardHidden(githubMetric.title);
+      await scorecard.expectScorecardHidden(jiraMetric.title);
+
+      for (const metric of OPENSSF_MAINTAINED_SCORECARD) {
+        await scorecard.validateScorecardAriaFor(metric);
+      }
     });
 
     test("Display error state for invalid threshold config while rendering metrics", async () => {
