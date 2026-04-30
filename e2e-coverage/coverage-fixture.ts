@@ -17,24 +17,12 @@
 import { test as base, type Page } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
-
-const COVERAGE_DIR = path.resolve(
-  process.cwd(),
-  process.env.COVERAGE_OUTPUT_DIR || "coverage/istanbul",
-);
-const COLLECT_COVERAGE = process.env.E2E_COLLECT_COVERAGE === "1";
-
-interface CoverageData {
-  [filePath: string]: {
-    path: string;
-    statementMap: Record<string, unknown>;
-    fnMap: Record<string, unknown>;
-    branchMap: Record<string, unknown>;
-    s: Record<string, number>;
-    f: Record<string, number>;
-    b: Record<string, number[]>;
-  };
-}
+import {
+  COLLECT_COVERAGE,
+  COVERAGE_DIR,
+  type CoverageData,
+  mergeCoverage,
+} from "./coverage-utils";
 
 async function collectCoverage(page: Page): Promise<CoverageData | null> {
   try {
@@ -45,40 +33,6 @@ async function collectCoverage(page: Page): Promise<CoverageData | null> {
   } catch {
     return null;
   }
-}
-
-function mergeCoverage(
-  target: CoverageData,
-  source: CoverageData,
-): CoverageData {
-  for (const [filePath, fileCov] of Object.entries(source)) {
-    if (!target[filePath]) {
-      target[filePath] = fileCov;
-      continue;
-    }
-
-    const existing = target[filePath];
-
-    for (const [key, count] of Object.entries(fileCov.s)) {
-      existing.s[key] = (existing.s[key] || 0) + count;
-    }
-
-    for (const [key, count] of Object.entries(fileCov.f)) {
-      existing.f[key] = (existing.f[key] || 0) + count;
-    }
-
-    for (const [key, counts] of Object.entries(fileCov.b)) {
-      if (!existing.b[key]) {
-        existing.b[key] = counts;
-      } else {
-        existing.b[key] = existing.b[key].map(
-          (v: number, i: number) => v + (counts[i] || 0),
-        );
-      }
-    }
-  }
-
-  return target;
 }
 
 let mergedCoverage: CoverageData = {};
