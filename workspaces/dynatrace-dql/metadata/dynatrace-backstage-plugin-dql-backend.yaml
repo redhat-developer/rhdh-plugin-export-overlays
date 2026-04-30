@@ -31,7 +31,7 @@ spec:
       content:
         dynatrace:
           environments:
-            - name: ${DYNATRACE_NAME}
+            ${DYNATRACE_NAME}:
               url: ${DYNATRACE_URL}
               tokenUrl: ${DYNATRACE_TOKEN_URL}
               accountUrn: ${DYNATRACE_ACCOUNT_URN}
