@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets"
   # Tag: 1.9.2--1.6.4, Build date: 2026-03-18T10:58:45Z
-  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:90ad03763a07ab8f49f48a0eaafdb73f792eab033089637a37d8b7a259cf75a9"
+  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:972c825fa1e850f57aacc59cadde18750cce4a65b67823c2a0ed2647e67470ab"
   version: 1.6.9
   backstage:
     role: frontend-plugin
@@ -33,4 +33,4 @@ spec:
       content:
         dynamicPlugins:
           frontend:
-            red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: { }
+            red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
