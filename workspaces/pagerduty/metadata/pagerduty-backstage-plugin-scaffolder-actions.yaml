@@ -26,6 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - pagerduty
-  appConfigExamples:
-    - title: Default configuration
-      content: {}
+  appConfigNotRequired: true
+  appConfigExamples: []
