@@ -1,0 +1,29 @@
+--- a/plugins/dql-backend/config.d.ts
++++ b/plugins/dql-backend/config.d.ts
+@@ -17,7 +17,7 @@
+ export type Config = {
+   dynatrace: {
+-    environments:
++    environments: (
+     {
+       /**
+        * @visibility frontend
+@@ -44,7 +44,7 @@
+        */
+       tokenUrl?: string;
+-    } | {
++    }
++    | {
+       /**
+-         * @visibility frontend
+-         */
++       * @visibility frontend
++       */
+       url: string;
+@@ -55,7 +55,7 @@
+        */
+       platformToken: string;
+-    }[],
++    )[],
+ 
+     queries?: {
