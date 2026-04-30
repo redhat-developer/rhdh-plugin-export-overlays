@@ -1,2 +1,15 @@
 plugins/ecs/frontend:
 plugins/ecs/backend: --embed-package @aws/aws-core-plugin-for-backstage-common --embed-package @aws/aws-core-plugin-for-backstage-node
+plugins/codebuild/backend:
+plugins/codebuild/frontend:
+plugins/codepipeline/backend:
+plugins/codepipeline/frontend:
+plugins/core/catalog-config:
+plugins/core/scaffolder-actions:
+plugins/cost-insights/backend:
+plugins/cost-insights/frontend:
+plugins/ecr/backend:
+plugins/ecr/frontend:
+plugins/genai/agent-langgraph:
+plugins/genai/backend:
+plugins/genai/frontend:
