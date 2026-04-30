@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+#
+# Build an Istanbul-instrumented version of a dynamic plugin for E2E coverage collection.
+#
+# Usage:
+#   ./scripts/instrument-plugin.sh <workspace-name> [plugin-name]
+#
+# Example:
+#   ./scripts/instrument-plugin.sh tech-radar
+#   ./scripts/instrument-plugin.sh bulk-import backstage-plugin-bulk-import
+#
+# The script:
+#   1. Reads source.json for the upstream repo URL and git ref
+#   2. Clones the upstream repo at that ref
+#   3. Builds the plugin normally (backstage-cli + janus-cli export-dynamic)
+#   4. Post-processes the webpack output with nyc instrument to add Istanbul coverage
+#   5. Outputs the instrumented bundle to .instrumented/<workspace>/
+#
+# The source maps in the webpack output reference original source files (e.g., RadarPage.tsx),
+# enabling coverage remapping back to the actual plugin source code.
+
+set -euo pipefail
+
+WORKSPACE="${1:?Usage: $0 <workspace-name> [plugin-name]}"
+PLUGIN_NAME="${2:-}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORKSPACE_DIR="$REPO_ROOT/workspaces/$WORKSPACE"
+OUTPUT_DIR="$REPO_ROOT/.instrumented/$WORKSPACE"
+CLONE_DIR="$REPO_ROOT/.instrumented/.sources/$WORKSPACE"
+
+if [[ ! -f "$WORKSPACE_DIR/source.json" ]]; then
+  echo "ERROR: $WORKSPACE_DIR/source.json not found"
+  exit 1
+fi
+
+REPO_URL=$(python3 -c "import json; print(json.load(open('$WORKSPACE_DIR/source.json'))['repo'])")
+REPO_REF=$(python3 -c "import json; print(json.load(open('$WORKSPACE_DIR/source.json'))['repo-ref'])")
+REPO_FLAT=$(python3 -c "import json; print(json.load(open('$WORKSPACE_DIR/source.json')).get('repo-flat', False))")
+
+echo "=== Instrumenting plugin for workspace: $WORKSPACE ==="
+echo "  Upstream repo: $REPO_URL"
+echo "  Ref: $REPO_REF"
+echo "  Flat repo: $REPO_FLAT"
+
+# Step 1: Clone upstream repo at the exact ref
+echo ""
+echo "--- Step 1: Cloning upstream repo ---"
+rm -rf "$CLONE_DIR"
+mkdir -p "$CLONE_DIR"
+
+git clone --depth 1 "$REPO_URL" "$CLONE_DIR" 2>/dev/null || {
+  git clone "$REPO_URL" "$CLONE_DIR"
+}
+cd "$CLONE_DIR"
+git fetch --depth 1 origin "$REPO_REF" 2>/dev/null || git fetch origin "$REPO_REF"
+git checkout "$REPO_REF"
+
+# Step 2: Navigate to the plugin workspace
+echo ""
+echo "--- Step 2: Finding plugin workspace ---"
+if [[ "$REPO_FLAT" == "True" ]]; then
+  PLUGIN_WORKSPACE_DIR="$CLONE_DIR"
+else
+  PLUGIN_WORKSPACE_DIR="$CLONE_DIR/workspaces/$WORKSPACE"
+fi
+
+if [[ ! -d "$PLUGIN_WORKSPACE_DIR" ]]; then
+  echo "ERROR: Plugin workspace not found at $PLUGIN_WORKSPACE_DIR"
+  echo "Available workspaces:"
+  ls "$CLONE_DIR/workspaces/" 2>/dev/null || echo "  (none)"
+  exit 1
+fi
+
+cd "$PLUGIN_WORKSPACE_DIR"
+echo "  Plugin workspace: $PLUGIN_WORKSPACE_DIR"
+
+# Step 3: Find the frontend plugin package
+echo ""
+echo "--- Step 3: Finding frontend plugin package ---"
+if [[ -n "$PLUGIN_NAME" ]]; then
+  PLUGIN_PKG_DIR=$(find . -name "package.json" -path "*/$PLUGIN_NAME/*" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+else
+  PLUGIN_PKG_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/e2e-*/*" -not -path "*/backend*/*" -not -path "*/module-*/*" -not -path "./package.json" | while read pkg; do
+    if grep -q '"backstage"' "$pkg" && grep -q '"frontend-plugin"' "$pkg" 2>/dev/null; then
+      dirname "$pkg"
+      break
+    fi
+  done)
+fi
+
+if [[ -z "$PLUGIN_PKG_DIR" ]]; then
+  echo "ERROR: Could not find frontend plugin package"
+  echo "Hint: specify the plugin name as the second argument"
+  exit 1
+fi
+
+echo "  Plugin package: $PLUGIN_PKG_DIR"
+PLUGIN_PKG_NAME=$(python3 -c "import json; print(json.load(open('$PLUGIN_PKG_DIR/package.json'))['name'])")
+echo "  Plugin npm name: $PLUGIN_PKG_NAME"
+
+# Step 4: Install dependencies
+echo ""
+echo "--- Step 4: Installing dependencies ---"
+cd "$PLUGIN_WORKSPACE_DIR"
+
+if [[ -f "yarn.lock" ]]; then
+  yarn install --no-immutable 2>&1 | tail -5
+elif [[ -f "package-lock.json" ]]; then
+  npm install 2>&1 | tail -5
+fi
+
+# Step 5: Build the plugin (standard build, no instrumentation at this stage)
+echo ""
+echo "--- Step 5: Building plugin ---"
+cd "$PLUGIN_WORKSPACE_DIR"
+
+# Generate TypeScript declarations
+npx tsc --build 2>&1 | tail -5 || true
+
+cd "$PLUGIN_PKG_DIR"
+if command -v backstage-cli &>/dev/null; then
+  backstage-cli package build 2>&1 | tail -5
+else
+  npx --yes @backstage/cli package build 2>&1 | tail -5
+fi
+
+# Step 6: Export as dynamic plugin (webpack + module federation)
+echo ""
+echo "--- Step 6: Exporting as dynamic plugin ---"
+cd "$PLUGIN_PKG_DIR"
+
+if command -v janus-cli &>/dev/null; then
+  janus-cli package export-dynamic-plugin 2>&1 | tail -5
+elif npx --yes @janus-idp/cli package export-dynamic-plugin --help &>/dev/null 2>&1; then
+  npx @janus-idp/cli package export-dynamic-plugin 2>&1 | tail -5
+elif npx --yes @red-hat-developer-hub/cli package export-dynamic-plugin --help &>/dev/null 2>&1; then
+  npx @red-hat-developer-hub/cli package export-dynamic-plugin 2>&1 | tail -5
+else
+  echo "ERROR: No dynamic plugin CLI found (janus-cli / @janus-idp/cli / @red-hat-developer-hub/cli)"
+  exit 1
+fi
+
+# Step 7: Post-process with nyc instrument
+# This is the key step: webpack's module federation externalizes shared modules,
+# causing babel-plugin-istanbul (applied pre-webpack) to be stripped.
+# Instead, we instrument the FINAL webpack output, which contains all the
+# plugin's compiled code in the exposed-PluginRoot chunk.
+echo ""
+echo "--- Step 7: Instrumenting webpack output with nyc ---"
+
+DIST_SCALPRUM=$(find . -path "*/dist-dynamic/dist-scalprum" -o -path "*/dist-scalprum" | grep -v node_modules | head -1)
+if [[ -z "$DIST_SCALPRUM" ]]; then
+  echo "ERROR: No dist-scalprum directory found after export"
+  exit 1
+fi
+
+STATIC_DIR="$DIST_SCALPRUM/static"
+if [[ ! -d "$STATIC_DIR" ]]; then
+  echo "ERROR: No static/ directory in dist-scalprum"
+  exit 1
+fi
+
+INSTRUMENTED_STATIC="${STATIC_DIR}-instrumented"
+npx --yes nyc instrument "$STATIC_DIR" "$INSTRUMENTED_STATIC" --source-map 2>&1 | tail -3
+
+# Replace original static/ with instrumented version
+rm -rf "$STATIC_DIR"
+mv "$INSTRUMENTED_STATIC" "$STATIC_DIR"
+
+# Step 8: Copy output
+echo ""
+echo "--- Step 8: Copying instrumented bundle ---"
+rm -rf "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR"
+cp -r "$DIST_SCALPRUM"/* "$OUTPUT_DIR/"
+
+# Also copy package.json for metadata
+cp "$PLUGIN_PKG_DIR/package.json" "$OUTPUT_DIR/package.json" 2>/dev/null || true
+
+echo ""
+echo "=== Done ==="
+echo "  Instrumented bundle: $OUTPUT_DIR/"
+echo "  Source repo: $REPO_URL"
+echo "  Source ref:  $REPO_REF"
+
+# Verify instrumentation
+echo ""
+echo "--- Verification ---"
+INSTRUMENTED_FILES=$(grep -r "__coverage__" "$OUTPUT_DIR/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$INSTRUMENTED_FILES" -gt 0 ]]; then
+  echo "  Istanbul instrumentation: $INSTRUMENTED_FILES files instrumented"
+
+  # Check source map references
+  SRC_FILES=$(grep -roh 'webpack://[^"]*\./src/[^"]*' "$OUTPUT_DIR/" --include="*.map" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  echo "  Source map references: $SRC_FILES original source files"
+  echo ""
+  echo "  Source files covered:"
+  grep -roh 'webpack://[^"]*\./src/[^"]*' "$OUTPUT_DIR/" --include="*.map" 2>/dev/null | sort -u | sed 's|webpack://[^/]*/||' | head -20
+else
+  echo "  WARNING: No __coverage__ instrumentation found!"
+  echo "  nyc instrument may have failed."
+  exit 1
+fi
