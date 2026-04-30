@@ -1,2 +1,4 @@
 plugins/backstage-plugin-backend: --embed-package @backstage/backend-common --suppress-native-package cpu-features
 plugins/backstage-plugin:
+plugins/backstage-plugin-entity-processor:
+plugins/backstage-plugin-scaffolder-actions:
