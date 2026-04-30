@@ -4,30 +4,13 @@ import {
   RBAC_GROUPS,
 } from "../constants/users-and-groups";
 
-export async function createUsersAndGroups(
-  newRealm: string = "rhdh",
-): Promise<void> {
+export async function createUsersAndGroups(): Promise<void> {
   const keycloak = new KeycloakHelper();
 
-  const isRunnig = await keycloak.isRunning();
-  if (!isRunnig) {
-    await keycloak.deploy();
-  } else {
-    await keycloak.connect({
-      baseUrl: keycloak.keycloakUrl,
-      realm: keycloak.realm,
-      username: "admin",
-      password: "admin123",
-    });
-  }
+  await keycloak.deploy();
 
   // Check if users already exist due to a test failure/restart
-  const realm = newRealm ?? process.env.KEYCLOAK_REALM ?? "";
-  await keycloak.createRealm({
-    realm: realm,
-    displayName: realm,
-    enabled: true,
-  });
+  const realm = process.env.KEYCLOAK_REALM ?? "";
 
   if (await keycloak.getUsers(realm)) {
     // Randomly generated passwords will be recreated everytime the tests are restarted

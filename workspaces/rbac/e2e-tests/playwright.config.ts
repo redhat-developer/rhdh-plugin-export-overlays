@@ -9,6 +9,7 @@ export default defineConfig({
     {
       name: "rbac-default-permissions",
       testMatch: "rbac-default-permissions.spec.ts",
+      dependencies: ["rbac"],
     },
   ],
 });

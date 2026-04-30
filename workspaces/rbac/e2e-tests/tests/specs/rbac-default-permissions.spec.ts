@@ -16,14 +16,7 @@ test.describe("Check default RBAC permissions", () => {
   let apiToken: string;
 
   test.beforeAll(async ({ rhdh, browser }) => {
-    await createUsersAndGroups("rhdh-default-permissions");
-
-    // Override Keycloak realm env vars to use custom realm
-    const customRealm = "rhdh-default-permissions";
-    const keycloakBaseUrl = process.env.KEYCLOAK_BASE_URL;
-    process.env.KEYCLOAK_REALM = customRealm;
-    process.env.KEYCLOAK_LOGIN_REALM = customRealm;
-    process.env.KEYCLOAK_METADATA_URL = `${keycloakBaseUrl}/realms/${customRealm}`;
+    await createUsersAndGroups();
 
     await rhdh.configure({
       auth: "keycloak",
