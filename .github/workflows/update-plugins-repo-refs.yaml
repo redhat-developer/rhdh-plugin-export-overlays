@@ -47,6 +47,11 @@ on:
         type: boolean
         required: false
         default: false
+      force:
+        description: "Force metadata re-application even when source hasn't changed"
+        type: boolean
+        required: false
+        default: false
 
   workflow_call:
     inputs:
@@ -91,6 +96,10 @@ on:
         default: false        
       debug:
         description: enable debug mode in bash scripts
+        type: boolean
+        required: false
+        default: false
+      force:
         type: boolean
         required: false
         default: false
@@ -182,6 +191,7 @@ jobs:
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
       allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
+      force: ${{ inputs.force != '' && inputs.force }}
     permissions:
       contents: write
       pull-requests: write
