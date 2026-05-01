@@ -36,8 +36,7 @@ The repo has two distinct metadata systems that serve different purposes:
 ### Support Tiers
 
 Plugins fall into three support levels, tracked in text files at the repo root:
-- `rhdh-supported-packages.txt` — GA (Generally Available), Red Hat supported
-- `rhdh-techpreview-packages.txt` — Tech Preview, heading toward GA
+- `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
 ### Plugin Scopes
