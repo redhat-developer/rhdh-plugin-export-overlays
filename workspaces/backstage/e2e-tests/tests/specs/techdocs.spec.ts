@@ -33,6 +33,7 @@ test.describe.skip("TechDocs", () => {
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
+      dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       disableWrappers: TECHDOCS_WRAPPER_DIST_NAMES,
     });
 
