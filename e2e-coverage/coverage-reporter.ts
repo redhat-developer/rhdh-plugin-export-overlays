@@ -29,20 +29,17 @@ function coverageToLcov(coverage: CoverageData): string {
   const lines: string[] = [];
 
   for (const [filePath, fileCov] of Object.entries(coverage)) {
-    lines.push("TN:");
-    lines.push(`SF:${fileCov.path || filePath}`);
+    lines.push("TN:", `SF:${fileCov.path || filePath}`);
 
     for (const [key, fnData] of Object.entries(fileCov.fnMap)) {
       lines.push(
         `FN:${fnData.decl.start.line},${fnData.name || "(anonymous)"}`,
-      );
-      lines.push(
         `FNDA:${fileCov.f[key] || 0},${fnData.name || "(anonymous)"}`,
       );
     }
 
-    lines.push(`FNF:${Object.keys(fileCov.fnMap).length}`);
     lines.push(
+      `FNF:${Object.keys(fileCov.fnMap).length}`,
       `FNH:${Object.values(fileCov.f).filter((v) => v > 0).length}`,
     );
 
@@ -59,8 +56,7 @@ function coverageToLcov(coverage: CoverageData): string {
 
     const totalLines = Object.keys(lineCounts).length;
     const hitLines = Object.values(lineCounts).filter((v) => v > 0).length;
-    lines.push(`LF:${totalLines}`);
-    lines.push(`LH:${hitLines}`);
+    lines.push(`LF:${totalLines}`, `LH:${hitLines}`);
 
     let branchIdx = 0;
     for (const [key, branchData] of Object.entries(fileCov.branchMap)) {
@@ -81,10 +77,7 @@ function coverageToLcov(coverage: CoverageData): string {
       (sum, counts) => sum + counts.filter((v) => v > 0).length,
       0,
     );
-    lines.push(`BRF:${totalBranches}`);
-    lines.push(`BRH:${hitBranches}`);
-
-    lines.push("end_of_record");
+    lines.push(`BRF:${totalBranches}`, `BRH:${hitBranches}`, "end_of_record");
   }
 
   return lines.join("\n");

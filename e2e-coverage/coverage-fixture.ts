@@ -24,7 +24,8 @@ import {
 async function collectCoverage(page: Page): Promise<CoverageData | null> {
   try {
     const coverage = await page.evaluate(
-      () => (window as unknown as { __coverage__?: CoverageData }).__coverage__,
+      () =>
+        (globalThis as unknown as { __coverage__?: CoverageData }).__coverage__,
     );
     return coverage ?? null;
   } catch {
@@ -62,7 +63,7 @@ export async function collectAndSaveCoverage(
   const coverage = await collectCoverage(page);
   if (!coverage) return;
 
-  const sanitizedName = testName.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const sanitizedName = testName.replaceAll(/[^a-zA-Z0-9-_]/g, "_");
   const outFile = path.join(COVERAGE_DIR, `${sanitizedName}.json`);
   fs.mkdirSync(COVERAGE_DIR, { recursive: true });
   fs.writeFileSync(outFile, JSON.stringify(coverage));

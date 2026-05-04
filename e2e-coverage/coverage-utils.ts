@@ -46,12 +46,12 @@ export function mergeCoverage(
     }
 
     for (const [key, counts] of Object.entries(fileCov.b)) {
-      if (!existing.b[key]) {
-        existing.b[key] = counts;
-      } else {
+      if (existing.b[key]) {
         existing.b[key] = existing.b[key].map(
           (v: number, i: number) => v + (counts[i] || 0),
         );
+      } else {
+        existing.b[key] = counts;
       }
     }
   }
