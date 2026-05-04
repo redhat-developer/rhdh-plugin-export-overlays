@@ -17,7 +17,7 @@ metadata:
   tags: []
 spec:
   packageName: "@aws/aws-codepipeline-plugin-for-backstage-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codepipeline-plugin-for-backstage-backend:bs_1.45.3__0.10.0!aws-aws-codepipeline-plugin-for-backstage-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codepipeline-plugin-for-backstage-backend:bs_1.45.3__0.10.0
   version: 0.10.0
   backstage:
     role: backend-plugin
@@ -26,7 +26,7 @@ spec:
   support: community
   lifecycle: active
   partOf:
-    - aws-codepipeline
+    - backstage-plugins-for-aws
   appConfigExamples:
     - title: AWS Credentials Configuration
       content: |
