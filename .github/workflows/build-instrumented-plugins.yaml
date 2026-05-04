@@ -1,0 +1,219 @@
+name: Build Instrumented Plugin Images for E2E Coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workspaces/*/source.json'
+
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Single workspace to instrument (leave empty for all with E2E tests)'
+        type: string
+        required: false
+      force-rebuild:
+        description: 'Force rebuild even if instrumented image already exists'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-workspaces:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 2
+
+      - name: Detect workspaces to instrument
+        id: detect
+        run: |
+          WORKSPACES=()
+
+          if [[ -n "${{ inputs.workspace }}" ]]; then
+            WORKSPACES=("${{ inputs.workspace }}")
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            # Detect which source.json files changed in this push
+            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'workspaces/*/source.json' 2>/dev/null || true)
+            for file in $CHANGED; do
+              WS=$(echo "$file" | cut -d'/' -f2)
+              WORKSPACES+=("$WS")
+            done
+          else
+            # Manual dispatch without specific workspace: instrument all with e2e-tests
+            for dir in workspaces/*/e2e-tests; do
+              WS=$(echo "$dir" | cut -d'/' -f2)
+              WORKSPACES+=("$WS")
+            done
+          fi
+
+          # Filter: only workspaces that have e2e-tests AND source.json
+          VALID=()
+          for ws in "${WORKSPACES[@]}"; do
+            if [[ -d "workspaces/$ws/e2e-tests" ]] && [[ -f "workspaces/$ws/source.json" ]]; then
+              VALID+=("$ws")
+            else
+              echo "Skipping $ws (no e2e-tests/ or source.json)"
+            fi
+          done
+
+          if [[ ${#VALID[@]} -eq 0 ]]; then
+            echo "No workspaces to instrument"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+          else
+            JSON=$(printf '%s\n' "${VALID[@]}" | jq -R . | jq -sc .)
+            echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+            echo "Workspaces to instrument: ${VALID[*]}"
+          fi
+
+  instrument:
+    needs: detect-workspaces
+    if: needs.detect-workspaces.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        workspace: ${{ fromJson(needs.detect-workspaces.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Read source.json metadata
+        id: meta
+        run: |
+          SOURCE_JSON="workspaces/${{ matrix.workspace }}/source.json"
+          REPO_REF=$(python3 -c "import json; print(json.load(open('$SOURCE_JSON'))['repo-ref'])")
+          REPO_URL=$(python3 -c "import json; print(json.load(open('$SOURCE_JSON'))['repo'])")
+          SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
+          REF_SHORT="${REPO_REF:0:12}"
+
+          # Find the frontend plugin package name from metadata
+          PLUGIN_IMAGE_NAME=""
+          for meta_file in workspaces/${{ matrix.workspace }}/metadata/*.yaml; do
+            [ -e "$meta_file" ] || continue
+            ROLE=$(yq -r '.spec.backstage.role // ""' "$meta_file")
+            if [[ "$ROLE" == "frontend-plugin" ]]; then
+              PKG=$(yq -r '.spec.packageName // ""' "$meta_file")
+              if [[ -n "$PKG" && "$PKG" != "null" ]]; then
+                PLUGIN_IMAGE_NAME=$(echo "$PKG" | sed 's|^@||; s|/|-|')
+                break
+              fi
+            fi
+          done
+
+          if [[ -z "$PLUGIN_IMAGE_NAME" ]]; then
+            echo "No frontend plugin found in metadata for ${{ matrix.workspace }}"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          IMAGE_REPO="ghcr.io/${{ github.repository }}/${PLUGIN_IMAGE_NAME}-coverage"
+          IMAGE_TAG="ref-${REF_SHORT}"
+          IMAGE_REF="${IMAGE_REPO}:${IMAGE_TAG}"
+
+          echo "repo-ref=$REPO_REF" >> "$GITHUB_OUTPUT"
+          echo "repo-url=$REPO_URL" >> "$GITHUB_OUTPUT"
+          echo "repo-slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "ref-short=$REF_SHORT" >> "$GITHUB_OUTPUT"
+          echo "plugin-image-name=$PLUGIN_IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "image-repo=$IMAGE_REPO" >> "$GITHUB_OUTPUT"
+          echo "image-tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "image-ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          echo "  Workspace:    ${{ matrix.workspace }}"
+          echo "  Source ref:   $REPO_REF"
+          echo "  Plugin:       $PLUGIN_IMAGE_NAME"
+          echo "  Image:        $IMAGE_REF"
+
+      - name: Check if instrumented image already exists
+        if: steps.meta.outputs.skip != 'true'
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PACKAGE_PATH="${{ github.repository }}/${{ steps.meta.outputs.plugin-image-name }}-coverage"
+          PACKAGE_PATH_ENCODED=$(echo "$PACKAGE_PATH" | sed 's|/|%2F|g')
+          TAG="${{ steps.meta.outputs.image-tag }}"
+
+          # Check if the package version with this tag exists via GitHub API
+          EXISTS=$(gh api "/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_PATH_ENCODED}/versions" \
+            --jq "[.[] | select(.metadata.container.tags[] == \"$TAG\")] | length" 2>/dev/null || echo "0")
+
+          if [[ "$EXISTS" -gt 0 ]] && [[ "${{ inputs.force-rebuild }}" != "true" ]]; then
+            echo "Instrumented image already exists: ${{ steps.meta.outputs.image-ref }}"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Instrumented image not found, will build"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'versions.json'
+
+      - name: Build instrumented plugin
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        run: ./scripts/instrument-plugin.sh "${{ matrix.workspace }}"
+
+      - name: Log in to GitHub Container Registry
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish instrumented OCI image
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        run: |
+          BUNDLE_DIR=".instrumented/${{ matrix.workspace }}"
+          IMAGE_REF="${{ steps.meta.outputs.image-ref }}"
+
+          if [[ ! -d "$BUNDLE_DIR" ]]; then
+            echo "ERROR: Instrumented bundle not found at $BUNDLE_DIR"
+            exit 1
+          fi
+
+          # Create tarball of the instrumented bundle
+          TAR_FILE=".instrumented/${{ matrix.workspace }}.tar.gz"
+          tar -czf "$TAR_FILE" -C "$BUNDLE_DIR" .
+
+          # Push as OCI artifact using oras
+          npx --yes oras push "$IMAGE_REF" \
+            --artifact-type "application/vnd.rhdh.dynamic-plugin.coverage.v1" \
+            "$TAR_FILE:application/gzip"
+
+          echo "Published instrumented image: $IMAGE_REF"
+
+      - name: Write job summary
+        if: always() && steps.meta.outputs.skip != 'true'
+        run: |
+          {
+            echo "### Instrumented Plugin: ${{ matrix.workspace }}"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Source ref | \`${{ steps.meta.outputs.repo-ref }}\` |"
+            echo "| Source repo | ${{ steps.meta.outputs.repo-slug }} |"
+            echo "| Plugin | ${{ steps.meta.outputs.plugin-image-name }} |"
+            echo "| Image | \`${{ steps.meta.outputs.image-ref }}\` |"
+            if [[ "${{ steps.check.outputs.exists }}" == "true" ]]; then
+              echo "| Status | Skipped (image already exists) |"
+            else
+              echo "| Status | Built and published |"
+            fi
+            echo ""
+            echo "**Codecov flag:** \`e2e-${{ matrix.workspace }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
