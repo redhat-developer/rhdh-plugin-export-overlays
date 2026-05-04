@@ -1,5 +1,12 @@
 import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
+/** Chart dist wrapper names (see ../metadata `spec.dynamicArtifact` basenames). */
+const TECHDOCS_WRAPPER_DIST_NAMES: string[] = [
+  "backstage-plugin-techdocs",
+  "backstage-plugin-techdocs-backend-dynamic",
+  "backstage-plugin-techdocs-module-addons-contrib",
+];
+
 async function docsTextHighlight(page: Page) {
   await page.evaluate(() => {
     const host = document.querySelector(
@@ -26,7 +33,7 @@ test.describe.skip("TechDocs", () => {
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
-      dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
+      disableWrappers: TECHDOCS_WRAPPER_DIST_NAMES,
     });
 
     await rhdh.deploy();
