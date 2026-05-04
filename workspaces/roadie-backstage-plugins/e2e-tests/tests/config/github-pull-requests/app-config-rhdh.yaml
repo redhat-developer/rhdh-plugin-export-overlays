@@ -1,14 +1,5 @@
 app:
   title: RHDH Roadie Plugins Test Instance
-# auth:
-#   providers:
-#     github:
-#       production:
-#         signIn:
-#           resolvers:
-#             - resolver: usernameMatchingUserEntityName
-#               dangerouslyAllowSignInWithoutUserInCatalog: true
-
 catalog:
   import:
     entityFilename: catalog-info.yaml
