@@ -28,18 +28,18 @@ COVERAGE_DIR="${COVERAGE_OUTPUT_DIR:-$REPO_ROOT/coverage/istanbul}"
 LCOV_FILE="$COVERAGE_DIR/lcov.info"
 
 if [[ ! -f "$LCOV_FILE" ]]; then
-  echo "ERROR: No lcov file found at $LCOV_FILE"
-  echo "Run tests with E2E_COLLECT_COVERAGE=1 first"
+  echo "ERROR: No lcov file found at $LCOV_FILE" >&2
+  echo "Run tests with E2E_COLLECT_COVERAGE=1 first" >&2
   exit 1
 fi
 
 if [[ ! -f "$WORKSPACE_DIR/source.json" ]]; then
-  echo "ERROR: source.json not found at $WORKSPACE_DIR/source.json"
+  echo "ERROR: source.json not found at $WORKSPACE_DIR/source.json" >&2
   exit 1
 fi
 
-REPO_URL=$(python3 -c "import json; print(json.load(open('$WORKSPACE_DIR/source.json'))['repo'])")
-REPO_REF=$(python3 -c "import json; print(json.load(open('$WORKSPACE_DIR/source.json'))['repo-ref'])")
+REPO_URL=$(jq -r '.repo' "$WORKSPACE_DIR/source.json")
+REPO_REF=$(jq -r '.["repo-ref"]' "$WORKSPACE_DIR/source.json")
 
 # Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
 SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
@@ -56,16 +56,16 @@ if ! command -v codecov &>/dev/null; then
   echo ""
   echo "Installing Codecov CLI..."
   pip install codecov-cli 2>/dev/null || {
-    echo "ERROR: Could not install codecov-cli"
-    echo "Install manually: pip install codecov-cli"
+    echo "ERROR: Could not install codecov-cli" >&2
+    echo "Install manually: pip install codecov-cli" >&2
     exit 1
   }
 fi
 
 if [[ -z "${CODECOV_TOKEN:-}" ]]; then
   echo ""
-  echo "ERROR: CODECOV_TOKEN is not set"
-  echo "Set it to an org-level Codecov token that has upload access to $SLUG"
+  echo "ERROR: CODECOV_TOKEN is not set" >&2
+  echo "Set it to an org-level Codecov token that has upload access to $SLUG" >&2
   exit 1
 fi
 

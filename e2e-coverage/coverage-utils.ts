@@ -1,4 +1,4 @@
-import * as path from "path";
+import * as path from "node:path";
 
 export const COVERAGE_DIR = path.resolve(
   process.cwd(),
@@ -6,16 +6,23 @@ export const COVERAGE_DIR = path.resolve(
 );
 export const COLLECT_COVERAGE = process.env.E2E_COLLECT_COVERAGE === "1";
 
+export interface SourceLocation {
+  start: { line: number; column: number };
+  end: { line: number; column: number };
+}
+
+export interface FileCoverage {
+  path: string;
+  statementMap: Record<string, SourceLocation>;
+  fnMap: Record<string, { name: string; decl: SourceLocation; loc: SourceLocation }>;
+  branchMap: Record<string, { loc: SourceLocation; type: string; locations: SourceLocation[] }>;
+  s: Record<string, number>;
+  f: Record<string, number>;
+  b: Record<string, number[]>;
+}
+
 export interface CoverageData {
-  [filePath: string]: {
-    path: string;
-    statementMap: Record<string, { start: { line: number; column: number }; end: { line: number; column: number } }>;
-    fnMap: Record<string, { name: string; decl: { start: { line: number; column: number }; end: { line: number; column: number } }; loc: { start: { line: number; column: number }; end: { line: number; column: number } } }>;
-    branchMap: Record<string, { loc: { start: { line: number; column: number }; end: { line: number; column: number } }; type: string; locations: Array<{ start: { line: number; column: number }; end: { line: number; column: number } }> }>;
-    s: Record<string, number>;
-    f: Record<string, number>;
-    b: Record<string, number[]>;
-  };
+  [filePath: string]: FileCoverage;
 }
 
 export function mergeCoverage(

@@ -13,13 +13,12 @@
  */
 
 import { test as base, type Page } from "@playwright/test";
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   COLLECT_COVERAGE,
   COVERAGE_DIR,
   type CoverageData,
-  mergeCoverage,
 } from "./coverage-utils";
 
 async function collectCoverage(page: Page): Promise<CoverageData | null> {
@@ -33,9 +32,6 @@ async function collectCoverage(page: Page): Promise<CoverageData | null> {
   }
 }
 
-let mergedCoverage: CoverageData = {};
-let testCount = 0;
-
 export const coverageTest = base.extend<{ coveragePage: Page }>({
   coveragePage: async ({ page }, use) => {
     if (!COLLECT_COVERAGE) {
@@ -47,12 +43,9 @@ export const coverageTest = base.extend<{ coveragePage: Page }>({
 
     const coverage = await collectCoverage(page);
     if (coverage) {
-      mergedCoverage = mergeCoverage(mergedCoverage, coverage);
-      testCount++;
-
       const workerFile = path.join(
         COVERAGE_DIR,
-        `worker-${process.pid}-${testCount}.json`,
+        `worker-${process.pid}-${Date.now()}.json`,
       );
       fs.mkdirSync(COVERAGE_DIR, { recursive: true });
       fs.writeFileSync(workerFile, JSON.stringify(coverage));
@@ -73,31 +66,4 @@ export async function collectAndSaveCoverage(
   const outFile = path.join(COVERAGE_DIR, `${sanitizedName}.json`);
   fs.mkdirSync(COVERAGE_DIR, { recursive: true });
   fs.writeFileSync(outFile, JSON.stringify(coverage));
-}
-
-export function mergeCoverageFiles(coverageDir?: string): void {
-  const dir = coverageDir || COVERAGE_DIR;
-  if (!fs.existsSync(dir)) return;
-
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".json") && f !== "coverage-final.json");
-
-  if (files.length === 0) return;
-
-  let merged: CoverageData = {};
-  for (const file of files) {
-    const data = JSON.parse(
-      fs.readFileSync(path.join(dir, file), "utf-8"),
-    ) as CoverageData;
-    merged = mergeCoverage(merged, data);
-  }
-
-  const outFile = path.join(dir, "coverage-final.json");
-  fs.writeFileSync(outFile, JSON.stringify(merged, null, 2));
-
-  const fileCount = Object.keys(merged).length;
-  console.log(
-    `\n=== Coverage Summary ===\nFiles covered: ${fileCount}\nTests collected: ${files.length}\nOutput: ${outFile}\n`,
-  );
 }

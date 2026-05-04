@@ -16,8 +16,8 @@ import type {
   TestCase,
   TestResult,
 } from "@playwright/test/reporter";
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   COLLECT_COVERAGE,
   COVERAGE_DIR,
@@ -32,13 +32,10 @@ function coverageToLcov(coverage: CoverageData): string {
     lines.push("TN:");
     lines.push(`SF:${fileCov.path || filePath}`);
 
-    for (const [, fnData] of Object.entries(fileCov.fnMap)) {
+    for (const [key, fnData] of Object.entries(fileCov.fnMap)) {
       lines.push(
         `FN:${fnData.decl.start.line},${fnData.name || "(anonymous)"}`,
       );
-    }
-
-    for (const [key, fnData] of Object.entries(fileCov.fnMap)) {
       lines.push(
         `FNDA:${fileCov.f[key] || 0},${fnData.name || "(anonymous)"}`,
       );

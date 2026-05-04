@@ -30,26 +30,27 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Detect workspaces to instrument
         id: detect
         env:
           INPUT_WORKSPACE: ${{ inputs.workspace }}
           EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
         run: |
           WORKSPACES=()
 
           if [[ -n "$INPUT_WORKSPACE" ]]; then
             # Validate: only allow alphanumeric, hyphens, underscores
             if [[ ! "$INPUT_WORKSPACE" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-              echo "ERROR: Invalid workspace name: $INPUT_WORKSPACE"
+              echo "ERROR: Invalid workspace name: $INPUT_WORKSPACE" >&2
               exit 1
             fi
             WORKSPACES=("$INPUT_WORKSPACE")
           elif [[ "$EVENT_NAME" == "push" ]]; then
-            # Detect which source.json files changed in this push
-            CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'workspaces/*/source.json' 2>/dev/null || true)
+            # Detect all source.json changes across the entire push (handles multi-commit merges)
+            CHANGED=$(git diff --name-only "${PUSH_BEFORE}..HEAD" -- 'workspaces/*/source.json' 2>/dev/null || true)
             for file in $CHANGED; do
               WS=$(echo "$file" | cut -d'/' -f2)
               WORKSPACES+=("$WS")
@@ -89,6 +90,7 @@ jobs:
         workspace: ${{ fromJson(needs.detect-workspaces.outputs.matrix) }}
       fail-fast: false
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
@@ -102,8 +104,8 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
         run: |
           SOURCE_JSON="workspaces/${WORKSPACE}/source.json"
-          REPO_REF=$(python3 -c "import json; print(json.load(open('$SOURCE_JSON'))['repo-ref'])")
-          REPO_URL=$(python3 -c "import json; print(json.load(open('$SOURCE_JSON'))['repo'])")
+          REPO_REF=$(jq -r '.["repo-ref"]' "$SOURCE_JSON")
+          REPO_URL=$(jq -r '.repo' "$SOURCE_JSON")
           SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
           REF_SHORT="${REPO_REF:0:12}"
 
@@ -172,11 +174,16 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Resolve Node.js version
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        id: node-version
+        run: echo "version=$(jq -r '.node' versions.json)" >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version-file: 'versions.json'
+          node-version: ${{ steps.node-version.outputs.version }}
 
       - name: Build instrumented plugin
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
