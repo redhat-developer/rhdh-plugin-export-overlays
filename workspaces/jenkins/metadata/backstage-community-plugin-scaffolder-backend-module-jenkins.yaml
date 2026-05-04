@@ -12,14 +12,13 @@ metadata:
     - title: Source Code
       url: https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins/plugins/scaffolder-backend-module-jenkins
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins/plugins/scaffolder-backend-module-jenkins
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/jenkins/plugins/scaffolder-backend-module-jenkins
   tags:
     - software-templates
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-jenkins"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.45.3__0.16.0
-  version: 0.16.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-jenkins:bs_1.49.4__0.20.0
+  version: 0.20.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
@@ -28,4 +27,5 @@ spec:
   lifecycle: active
   partOf:
     - jenkins
+  appConfigNotRequired: true
   appConfigExamples: []

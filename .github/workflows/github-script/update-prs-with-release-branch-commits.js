@@ -201,5 +201,8 @@ ${sourceContent}
   if (prComments.length > 0) {
     core.setOutput('pr-comments', prComments);
   }
+  if (updatedPullRequests.length > 0) {
+    core.setOutput('updated-pr-numbers', JSON.stringify(updatedPullRequests.map(pr => pr.number)));
+  }
 
 }

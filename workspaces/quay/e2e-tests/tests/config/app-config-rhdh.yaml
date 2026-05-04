@@ -1,0 +1,19 @@
+proxy:
+  skipInvalidProxies: true
+  endpoints:
+    "/quay/api":
+      target: https://quay.io/
+      headers:
+        X-Requested-With: "XMLHttpRequest"
+      changeOrigin: true
+      secure: true
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+    - type: url
+      target: https://github.com/backstage/community-plugins/blob/main/workspaces/quay/plugins/quay-actions/examples/templates/01-quay-template.yaml

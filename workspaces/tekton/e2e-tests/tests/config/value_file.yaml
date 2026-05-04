@@ -1,0 +1,7 @@
+upstream:
+  # Run the hub as the namespace default SA so the in-cluster token matches RBAC
+  serviceAccount:
+    create: false
+    name: default
+  commonLabels:
+    backstage.io/kubernetes-id: developer-hub

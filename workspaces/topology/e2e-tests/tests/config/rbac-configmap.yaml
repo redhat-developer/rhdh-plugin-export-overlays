@@ -1,0 +1,13 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: rbac-policy
+data:
+  rbac-policy.csv: |
+    g, user:default/test2, role:default/topology-limited
+    p, role:default/topology-limited, kubernetes.clusters.read, read, allow
+    p, role:default/topology-limited, kubernetes.resources.read, read, allow
+    p, role:default/topology-limited, catalog-entity, read, allow
+
+    g, user:development/guest, role:default/topology-viewer
+    p, role:default/topology-viewer, catalog-entity, read, allow

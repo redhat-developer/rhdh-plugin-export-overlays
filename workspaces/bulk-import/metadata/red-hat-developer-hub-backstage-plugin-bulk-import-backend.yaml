@@ -8,23 +8,27 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should
+        raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/bulk-import
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/bulk-import
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/bulk-import
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-bulk-import-backend"
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
-  version: 6.5.1
+  version: 7.3.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.39.1
+    supportedVersions: 1.45.3
   author: Red Hat
   support: tech-preview
   lifecycle: active
+  appConfigExamples:
+    - title: Default PR-based import workflow
+      content:
+        bulkImport:
+          importAPI: open-pull-requests
   partOf:
     - bulk-import
-  appConfigExamples: []

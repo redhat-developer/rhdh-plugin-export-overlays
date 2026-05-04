@@ -58,10 +58,15 @@ However, best-effort backstage version matches involve some risk. When a pull re
 
 ### 1. Create or look for a Pull Request for your plugins
 
-GitHub workflows runs **daily** to automatically generate or update PRs for plugins under the following scopes: `@backstage-community`, `@red-hat-developer-hub` and `@roadiehq`. These PRs are created **per workspace, per release branch** for plugin updates.
+A GitHub workflow runs **daily on the `main` branch** to automatically update existing workspaces and discover new plugins.
 
-- When run on release branches, the workflow will only create PRs that propose updates to existing workspaces.
-- When run on the `main` branch, the workflow will also create PRs that add newly-discovered workspaces.
+The workflow operates in two complementary modes:
+
+1. **Overlay-first package enumeration** — All existing workspaces are enumerated directly from the overlay repository. Their source repos are scanned to discover plugin package names, regardless of npm scope. Published versions are then fetched from npm (`npm view`) and checked for Backstage compatibility. This means plugins outside the auto-discovery scopes (e.g., `@immobiliarelabs/`, `@pagerduty/`) are updated automatically once their workspace exists.
+
+2. **npm search discovery** — Plugins under the auto-discovery scopes (`@backstage-community`, `@red-hat-developer-hub`, `@roadiehq`) are also discovered via `npm search` to detect newly-published packages of workspaces not yet in the overlay. New workspaces can be proposed on `main`.
+
+> **Release branches (`release-x.y`)** do not have scheduled automatic updates. To update a workspace on a release branch, trigger the workflow manually with `workspace-path` and `single-branch`.
 
 If you can't find a PR for your plugin, you can manually trigger one as explained below.
 
@@ -72,8 +77,9 @@ If you can't find a PR for your plugin, you can manually trigger one as explaine
 
 - Navigate to https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-plugins-repo-refs.yaml
 - For "use workflow from" select `main`.
-- For "regexps", specify the regular expression matching the plugins you want to package. For example, to package all RBAC plugins, the regexp would be "@backstage-community/plugin-rbac".
-- For "single-branch", specify the branch you want to update. if you want to add a new workspace, you would enter `main`. 
+- To **update an existing workspace**, use "workspace-path" (e.g., `workspaces/gitlab`). This works for any workspace regardless of npm scope.
+- To **add a new workspace**, use "regexps" with `allow-workspace-addition` enabled. Specify the regular expression or single-quoted literal package name matching the plugins you want to add. For example, to add all RBAC plugins, the regexp would be `@backstage-community/plugin-rbac`.
+- For "single-branch", specify the branch you want to update. If you want to add a new workspace, you would enter `main`. 
 - Running the workflow will generate PRs against the single branch you specified.
 
 ### Manually Creating a PR
@@ -120,29 +126,29 @@ Plugin testing can be performed automatically via CI workflows or manually in yo
 
 #### Automatic Testing
 
-The repository includes an automated integration testing workflow that verifies plugins load correctly in RHDH.
+The repository includes an automated smoke testing workflow that verifies plugins load correctly in RHDH.
 
 **Prerequisites:**
 - PR must touch exactly one workspace
 - Each plugin must have its own metadata file in `workspaces/<modified_workspace>/metadata/`
 
-**Triggering tests:**
-- After `/publish`: Tests run automatically upon successful publish completion
-- Manual testing: Use `/test` comment on the PR to rerun the tests using the latest published artifacts
-  - For `/test` command, a previous successful `/publish` run is required
+**Triggering smoke tests:**
+- After `/publish`: Smoke tests run automatically upon successful publish completion
+- Manual testing: Use `/smoketest` comment on the PR to rerun the smoke tests using the latest published artifacts
+  - For `/smoketest` command, a previous successful `/publish` run is required
 
-**Testing workflow steps:**
+**Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata and copies other configuration files (`tests/app-config.yaml`, workspace-specific `app-config.test.yaml` and `test.env`)
-3. **Run integration tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). The optional `app-config.test.yaml` is for test-only or shared workspace settings that should not appear in the user-facing `appConfigExamples` in metadata.
+3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
-**Environment Variables in Tests:**
-If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/tests/test.env`.
-- If the `.env` file is missing but required, tests are skipped.
-- If the `.env` file exists but is missing variables, the workflow fails.
+**Environment Variables in Smoke Tests:**
+If your plugin configuration (in `metadata/*.yaml`) uses environment variables (e.g., `${API_TOKEN}`), you must provide them in a `test.env` file located at `workspaces/<workspace>/smoke-tests/test.env`.
+- If the `test.env` file is missing but required, smoke tests are skipped.
+- If the `test.env` file exists but is missing variables, the workflow fails.
 
-- **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `integration-tests/run` step.
+- **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `smoke-tests/run` step.
 
 #### Manual Testing
 

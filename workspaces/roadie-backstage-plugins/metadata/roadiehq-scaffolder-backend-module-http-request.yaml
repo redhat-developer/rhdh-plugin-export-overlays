@@ -10,22 +10,23 @@ metadata:
     - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   annotations:
-    backstage.io/source-location: url
-      https://github.com/backstage/community-plugins/tree/main/workspaces/roadie-backstage-plugins
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-module-http-request
   tags:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-http-request"
-  dynamicArtifact: ./dynamic-plugins/dist/roadiehq-scaffolder-backend-module-http-request-dynamic
-  version: 5.4.2
+  # Tag: 1.10.0--5.5.1, Build date: 2026-01-29T15:59:37Z
+  dynamicArtifact: "oci://registry.access.redhat.com/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:2e498033306df2711ec2a548db0a9db921f911eb9b99af2b9e44162b4851bbe8"
+  version: 5.6.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.42.5
   author: Roadie
-  support:  production
+  support: generally-available
   lifecycle: active
   partOf:
     - http-request-scaffolder-action
+  appConfigNotRequired: true
   appConfigExamples: []
