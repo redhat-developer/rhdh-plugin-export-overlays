@@ -49,5 +49,6 @@ upstream:
         emptyDir: {}
       - name: rbac-policy
         configMap:
+          optional: true
           defaultMode: 420
           name: rbac-policy

@@ -1,3 +1,5 @@
 plugins/x2a: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common --no-generate-module-federation-assets
-plugins/x2a-backend: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common
+plugins/x2a-dcr: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common
+plugins/x2a-backend: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common --embed-package @red-hat-developer-hub/backstage-plugin-x2a-node
+plugins/x2a-mcp-extras: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common --embed-package @red-hat-developer-hub/backstage-plugin-x2a-node
 plugins/scaffolder-backend-module-x2a: --embed-package @red-hat-developer-hub/backstage-plugin-x2a-common

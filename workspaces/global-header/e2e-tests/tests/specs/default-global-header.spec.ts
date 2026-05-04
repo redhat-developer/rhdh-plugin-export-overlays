@@ -7,13 +7,9 @@ import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
-    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
-
     await rhdh.configure({
       auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh.yaml",
-      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
-      valueFile: "tests/config/value_file.yaml",
+      disableWrappers: ["red-hat-developer-hub-backstage-plugin-global-header"],
     });
     await rhdh.deploy();
   });

@@ -14,8 +14,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-bookmarks"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-bookmarks:bs_1.48.3__0.8.0!backstage-community-plugin-bookmarks
-  version: 0.8.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-bookmarks:bs_1.49.4__0.9.0!backstage-community-plugin-bookmarks
+  version: 0.9.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3

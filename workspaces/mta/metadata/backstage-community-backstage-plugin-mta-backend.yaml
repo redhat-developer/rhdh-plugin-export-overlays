@@ -24,3 +24,12 @@ spec:
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Minimal starter
+      content:
+        mta:
+          url: ${MTA_URL}
+          providerAuth:
+            realm: ${MTA_AUTH_REALM}
+            clientID: ${MTA_AUTH_CLIENT_ID}
+            secret: ${MTA_AUTH_CLIENT_SECRET}
