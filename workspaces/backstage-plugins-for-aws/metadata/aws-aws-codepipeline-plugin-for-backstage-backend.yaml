@@ -17,8 +17,8 @@ metadata:
   tags: []
 spec:
   packageName: "@aws/aws-codepipeline-plugin-for-backstage-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codepipeline-plugin-for-backstage-backend:bs_1.45.3__0.10.0
-  version: 0.10.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codepipeline-plugin-for-backstage-backend:bs_1.49.4__0.10.1
+  version: 0.10.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
