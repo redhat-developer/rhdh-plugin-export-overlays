@@ -6,7 +6,7 @@ export type RbacRef = {
 /**
  * All roles referenced by the RBAC e2e test suite.
  *
- * Note: `rbacAdmin` and `guest` are system-managed roles (sourced from app-config
+ * Note: `rbacAdmin` and `guest` and defaultRole are system-managed roles (sourced from app-config
  * and a CSV policy file respectively) and cannot be deleted via the API — they are
  * skipped during cleanup in `cleanupRoles`.
  */
@@ -42,5 +42,9 @@ export const RBAC_ROLES: Record<string, RbacRef> = {
   guest: {
     name: "guests",
     ref: "role:default/guests",
+  },
+  defaultRole: {
+    name: "default-role",
+    ref: "role:default/default-role",
   },
 };
