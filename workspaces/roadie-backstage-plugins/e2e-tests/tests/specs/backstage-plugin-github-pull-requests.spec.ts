@@ -4,6 +4,7 @@ import {
   UIhelper,
   LoginHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import type { Page } from "@playwright/test";
 import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
 import { searchGitHubPRs } from "../../support/api/github-pull-requests";
@@ -23,8 +24,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
     await rhdh.configure({
       auth: "github",
-      appConfig: "tests/config/github-pull-requests/app-config-rhdh.yaml",
-      dynamicPlugins: "tests/config/github-pull-requests/dynamic-plugins.yaml",
+      appConfig: `${WorkspacePaths.configDir}/github-pull-requests/app-config-rhdh.yaml`,
+      dynamicPlugins: `${WorkspacePaths.configDir}/github-pull-requests/dynamic-plugins.yaml`,
     });
     await rhdh.deploy();
 
