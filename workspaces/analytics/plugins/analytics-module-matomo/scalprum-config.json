@@ -1,6 +1,6 @@
 {
   "name": "backstage-community.plugin-analytics-module-matomo",
   "exposedModules": {
-    "PluginRoot": "./src/api.ts"
+    "PluginRoot": "./src/exportedApi.ts"
   }
 }
