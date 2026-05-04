@@ -24,7 +24,7 @@ spec:
     role: backend-plugin-module
     supportedVersions: 1.49.3
   author: Red Hat
-  support: tech-preview
+  support: generally-available
   lifecycle: active
   partOf:
     - orchestrator
@@ -35,3 +35,4 @@ spec:
           workflowLogProvider:
             loki:
               baseUrl: ${LOKI_BASE_URL}
+              token: ${AUTH_TOKEN}
