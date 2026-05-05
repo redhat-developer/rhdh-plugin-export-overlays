@@ -69,6 +69,11 @@ def is_downstream_quay_rhdh() -> bool:
     return REGISTRY_BASE == "quay.io/rhdh"
 
 
+def _is_quay_rhdh_ref(registry_reference: str) -> bool:
+    """Check if a registry reference targets quay.io/rhdh/ (not quay.io/rhdh-community/)."""
+    return registry_reference.startswith("quay.io/rhdh/")
+
+
 def get_ghcr_token(repository: str) -> Optional[str]:
     """Get anonymous bearer token for ghcr.io"""
     try:
@@ -106,10 +111,10 @@ def get_registry_auth(registry: str, repository: str):
 def get_query_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for querying.
-    In downstream mode (quay.io/rhdh), query quay.io directly.
-    Otherwise query the reference as-is.
+    For registry.access.redhat.com refs, swap to quay.io for unauthenticated verification.
+    Per-reference check — works with mixed-registry plugin_builds.
     """
-    if is_downstream_quay_rhdh():
+    if registry_reference.startswith("registry.access.redhat.com/rhdh/"):
         return registry_reference.replace("registry.access.redhat.com/rhdh/", "quay.io/rhdh/")
     return registry_reference
 
@@ -117,9 +122,10 @@ def get_query_registry_reference(registry_reference: str) -> str:
 def get_output_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for output/storage.
-    In downstream mode, swap quay.io/rhdh/ to registry.access.redhat.com/rhdh/.
+    For quay.io/rhdh/ refs, swap to registry.access.redhat.com/rhdh/ for GA output.
+    Per-reference check — works with mixed-registry plugin_builds.
     """
-    if is_downstream_quay_rhdh():
+    if _is_quay_rhdh_ref(registry_reference):
         return registry_reference.replace("quay.io/rhdh/", "registry.access.redhat.com/rhdh/")
     return registry_reference
 
@@ -176,6 +182,12 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
             config_digest = manifest['config']['digest']
 
         metadata = {'digest': digest}
+
+        # Extract OCI manifest-level annotations (e.g., io.backstage.dynamic-packages)
+        manifest_annotations = manifest.get('annotations', {})
+        dynamic_packages = manifest_annotations.get('io.backstage.dynamic-packages')
+        if dynamic_packages:
+            metadata['io.backstage.dynamic-packages'] = dynamic_packages
 
         if config_digest:
             blob_url = f"https://{registry}/v2/{repository}/blobs/{config_digest}"
@@ -272,8 +284,12 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             plugin_data['midstream'] = metadata['midstream']
                             modified = True
 
-                        # In downstream mode, swap quay.io/rhdh refs to registry.access.redhat.com/rhdh
-                        if is_downstream_quay_rhdh() and registry_reference.startswith("quay.io/rhdh/"):
+                        if 'io.backstage.dynamic-packages' in metadata:
+                            plugin_data['io.backstage.dynamic-packages'] = metadata['io.backstage.dynamic-packages']
+                            modified = True
+
+                        # Swap quay.io/rhdh refs to registry.access.redhat.com/rhdh (per-reference check)
+                        if _is_quay_rhdh_ref(registry_reference):
                             registry_reference_GA = get_output_registry_reference(registry_reference)
                             log_debug(f"registry_reference switched from quay.io to: {registry_reference_GA}")
                             plugin_data['registryReference'] = registry_reference_GA
@@ -285,7 +301,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                         print(f" ")
                 else:
                     fields_removed = []
-                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream']:
+                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', 'io.backstage.dynamic-packages']:
                         if field in plugin_data:
                             del plugin_data[field]
                             fields_removed.append(field)
@@ -317,8 +333,8 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
 
                 # Update the equivalent metadata.yaml file in the overlays directory
                 # Skip metadata write-back for ghcr.io — those images use tagged dynamicArtifacts
-                # and don't include build-date labels
-                if "ghcr.io" in REGISTRY_BASE:
+                # and don't include build-date labels (per-reference check)
+                if registry_reference.startswith("ghcr.io/"):
                     log_debug(f"Skipping metadata write-back for ghcr.io plugin: {relative_path}")
                 else:
                     metadata_dir = overlays_dir / "workspaces" / relative_path.parent / "metadata"
@@ -333,8 +349,8 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                                 ref_base = (registry_reference_tag.split("@")[0] if "@" in registry_reference_tag
                                             else registry_reference_tag.rsplit(":", 1)[0])
                                 registry_reference_digest = f"{ref_base}@{digest}"
-                            # In downstream mode, ensure output uses registry.access.redhat.com
-                            if is_downstream_quay_rhdh():
+                            # For quay.io/rhdh refs, swap to registry.access.redhat.com in output
+                            if _is_quay_rhdh_ref(registry_reference_digest):
                                 registry_reference_digest = registry_reference_digest.replace("quay.io/rhdh/", "registry.access.redhat.com/rhdh/")
                             metadata_file = None
                             for f in metadata_dir.glob("*.yaml"):
@@ -407,9 +423,22 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
 def main():
     usage="""
 Usage: python3 generatePluginBuildInfo.py [--debug] \\
-    --overlays-dir  /path/to/overlays \\
-    --plugin-builds-dir /path/to/plugin_builds \\
-    --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays
+    -d|--overlays-dir  /path/to/overlays \\
+    -b|--plugin-builds-dir /path/to/plugin_builds \\
+    -r|--registry image-registry
+
+Examples:
+    # Enrich plugin_builds/ with ghcr.io image metadata
+    python3 generatePluginBuildInfo.py \\
+        -d . \\
+        -b plugin_builds/community \\
+        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
+
+    # Enrich plugin_builds/ with quay.io/rhdh image metadata (downstream mode)
+    python3 generatePluginBuildInfo.py \\
+        -d . \\
+        -b plugin_builds/supported \\
+        -r quay.io/rhdh
 """
 
     global DEBUG
@@ -424,6 +453,7 @@ Usage: python3 generatePluginBuildInfo.py [--debug] \\
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=usage
     )
+    parser.error = lambda msg: (print(f"\n{Colors.RED}[ERROR] {msg}{Colors.NORM}\n{usage}", file=sys.stderr), sys.exit(2))
 
     parser.add_argument(
         '-d', '--overlays-dir',
