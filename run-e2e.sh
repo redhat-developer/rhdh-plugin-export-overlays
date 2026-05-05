@@ -302,6 +302,11 @@ npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT
 # ── Upload coverage ──────────────────────────────────────────────────────
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]] && [[ -f "coverage/istanbul/lcov.info" ]]; then
     echo ""
+    if [[ ${#E2E_WORKSPACES[@]} -gt 1 ]]; then
+        echo "[WARN] Coverage data is merged across all ${#E2E_WORKSPACES[@]} workspaces into a single lcov.info."
+        echo "[WARN] Each upload will contain coverage from all workspaces, not just the target."
+        echo "[WARN] For clean per-workspace coverage, run with a single -w flag."
+    fi
     echo "[INFO] Uploading E2E coverage to Codecov..."
     for ws in "${E2E_WORKSPACES[@]}"; do
         if [[ -f "workspaces/$ws/source.json" ]]; then
