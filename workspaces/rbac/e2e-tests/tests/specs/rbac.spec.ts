@@ -7,8 +7,7 @@ import {
   ROLES_PAGE_COMPONENTS,
 } from "../../support/pages/rbac-obj";
 
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import * as path from "node:path";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { createUsersAndGroups } from "../../support/utils/create-users";
 import { cleanupRoles } from "../../support/utils/cleanup";
 import {
@@ -49,8 +48,7 @@ test.describe("RBAC plugin", () => {
   }
 
   test.beforeAll(async ({ rhdh, browser }) => {
-    const rbacConfigmapPath = path.resolve(
-      process.cwd(),
+    const rbacConfigmapPath = WorkspacePaths.resolve(
       "tests/config/rbac-configmap.yaml",
     );
     await createUsersAndGroups();
@@ -63,6 +61,7 @@ test.describe("RBAC plugin", () => {
       valueFile: "tests/config/values.yaml",
     });
     await rhdh.deploy();
+    await rhdh.waitUntilReady();
 
     // `beforeAll` does not receive a `page` fixture, so a temporary browser
     // context is created solely to perform the admin login and extract the
@@ -316,6 +315,14 @@ test.describe("RBAC plugin", () => {
         .getByRole("navigation", { name: "sidebar nav" })
         .getByRole("link", { name: "RBAC" });
       await expect(rbacNavLink).toHaveCount(0);
+    });
+
+    test("No access user should not see list of components in catalog", async ({
+      uiHelper,
+    }) => {
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.waitForLoad();
+      await uiHelper.verifyTableIsEmpty();
     });
 
     test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
@@ -631,7 +638,6 @@ test.describe("RBAC plugin", () => {
     });
   });
 
-  // Ensure we clean up in the event that a test fails so that we do not impact other tests
   test.afterAll(async () => {
     await cleanupRoles(RBAC_ROLES, apiToken);
   });

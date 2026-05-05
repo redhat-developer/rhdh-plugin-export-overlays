@@ -1,7 +1,7 @@
 # Enable Scorecard plugin for e2e tests.
 # Dynamic Home Page is provided by the RHDH chart default; do not redefine it here to avoid config merge conflicts.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -37,32 +37,41 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     metricId: "github.open_prs"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
     disabled: false
     pluginConfig:
+      scorecard:
+        plugins:
+          github:
+            open_prs:
+              schedule:
+                frequency:
+                  hours: 0
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
+    disabled: false
+    pluginConfig:
+      jira:
+        baseUrl: ${JIRA_URL}
+        token: ${JIRA_TOKEN}
+        product: cloud
       scorecard:
         plugins:
           jira:
             open_issues:
               schedule:
-                frequency: { minutes: 1 }
-                timeout: { minutes: 5 }
-                initialDelay: { seconds: 5 }
-          github:
-            open_prs:
-              schedule:
-                frequency: { minutes: 1 }
-                timeout: { minutes: 15 }
-                initialDelay: { seconds: 5 }
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
-    disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
-    disabled: false
-    pluginConfig:
-      jira:
-        baseUrl: https://redhat.atlassian.net
-        token: ${JIRA_TOKEN}
-        product: cloud
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 5
+                initialDelay:
+                  seconds: 5
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:

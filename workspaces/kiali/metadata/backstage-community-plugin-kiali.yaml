@@ -49,7 +49,3 @@ spec:
                         - hasAnnotation: backstage.io/kubernetes-namespace
                   importName: EntityKialiContent
                   mountPoint: entity.page.kiali/cards
-        kiali:
-          providers:
-            - name: 'default'
-              url: ${KIALI_ENDPOINT}

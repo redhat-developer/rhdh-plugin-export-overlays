@@ -203,22 +203,37 @@ spec:
 
 ## Automated Version Updates
 
-### Daily Workflow
+### Daily Workflow (main branch only)
 
-The `update-plugins-repo-refs.yaml` workflow runs daily and:
+The `update-plugins-repo-refs.yaml` workflow runs daily **on the `main` branch only** and:
 
-1. Scans for new plugin releases
-2. Checks compatibility with target Backstage version
-3. Creates/updates PRs with version bumps
+1. **Enumerates plugin package names** from all existing workspaces in the overlay repository (by scanning each workspace's source repo tree)
+2. Queries npm (`npm view`) for published versions of each discovered package
+3. Checks Backstage version compatibility against the target version
+4. Additionally runs `npm search` to discover new plugins under auto-discovery scopes
+5. Creates/updates PRs with version bumps
+
+This means **all existing workspaces are updated regardless of their npm scope** — including third-party plugins like `@immobiliarelabs/`, `@pagerduty/`, or `@dynatrace/`. What the overlay-first approach avoids is the regexp-based `npm search` step for package name discovery; actual version data still comes from npm.
+
+> **Note:** Release branches (`release-x.y`) do not have a scheduled automatic update. Updates to release branches must be triggered manually (see below).
 
 ### Manual Trigger
 
-Use single quotes around the package name for an exact literal match (see [Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for details on quoting):
+To **update a specific existing workspace** (works for any scope — preferred for updates):
+
+```bash
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="main"
+```
+
+To **add a new workspace** via npm discovery (see [Trigger Workflow Manually](./01-getting-started.md#option-2-trigger-workflow-manually) for details on quoting):
 
 ```bash
 gh workflow run update-plugins-repo-refs.yaml \
   -f regexps="'@backstage-community/plugin-your-plugin'" \
-  -f single-branch="main"
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
 ```
 
 ---
@@ -287,10 +302,25 @@ This badge shows whether mandatory plugins are compatible with the target versio
 - Track specific platform releases
 - Only accept updates to **existing** workspaces
 - Must maintain compatibility with that release's Backstage version
+- **No scheduled automatic updates** — must be triggered manually
 
-### Backporting Updates
+### Updating Release Branches
 
-To update a plugin on a release branch:
+#### Option 1: Trigger the workflow manually (preferred)
+
+Use the workflow with `workspace-path` and `single-branch` to update a specific workspace on a release branch:
+
+```bash
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="release-1.6"
+```
+
+This will find the latest compatible version and create/update a PR against that release branch.
+
+#### Option 2: Manual PR
+
+For cases where you need full control over the version (e.g., pinning to a specific commit):
 
 ```bash
 # Checkout release branch

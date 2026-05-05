@@ -129,7 +129,7 @@ spec:
 | `main` | Development branch for the **next** platform release |
 | `release-x.y` | Long-running branches for specific platform versions (e.g., `release-1.6`) |
 
-> **Rule:** New workspaces are **only** added to `main`. Release branches receive plugin updates only.
+> **Rule:** New workspaces are **only** added to `main`. Release branches receive plugin updates only, and have no scheduled automatic updates — they must be triggered manually.
 
 ---
 
@@ -143,56 +143,88 @@ spec:
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
 
-### How Automatic Discovery Works
+### How Automatic Updates and Discovery Work
 
-The overlay repository runs an automated workflow (`update-plugins-repo-refs.yaml`) twice daily. It scans npm registries for new releases of packages matching the scope patterns defined in the `workspace-discovery-include` file:
+The overlay repository runs an automated workflow (`update-plugins-repo-refs.yaml`) **daily on the `main` branch only**. It operates in two complementary modes:
+
+#### 1. Overlay-first package enumeration (all existing workspaces)
+
+The workflow enumerates all existing workspaces directly from the overlay repository, reads each workspace's `source.json`, and scans the source repository tree to discover plugin package names. It then queries npm (`npm view`) for each discovered package to find published versions and check Backstage compatibility. This works for **any workspace regardless of npm scope** — once a workspace is added to the overlay, it will receive automatic version updates. What's avoided is the regexp-based `npm search` step for package name discovery.
+
+#### 2. npm search discovery (new packages)
+
+The workflow also runs `npm search` to discover new packages matching the scope patterns defined in the `workspace-discovery-include` file:
 
 - `@backstage-community/`
 - `@red-hat-developer-hub/`
 - `@roadiehq/`
 
-When a new release is found, the workflow creates or updates a PR with the necessary `source.json`, `plugins-list.yaml`, and `metadata/*.yaml` changes.
+When a new release is found that doesn't correspond to an existing workspace, the workflow can propose adding a new workspace (on `main` only, with `allow-workspace-addition` enabled).
 
-#### Where automatic discovery works
+#### Where automatic updates work
 
-Automatic discovery works for plugins published under the scopes listed above. If a new package version is published to npm under one of those scopes, the workflow will detect it and propose an update.
+- **All existing workspaces** are updated automatically regardless of their npm scope. This includes third-party plugins (e.g., `@immobiliarelabs/`, `@pagerduty/`, `@dynatrace/`) as long as they have a workspace in the overlay.
+- **Plugins under the auto-discovery scopes** are additionally scanned on npm, enabling discovery of new workspaces.
 
 #### Where automatic discovery does not work
 
-- **Plugins outside the supported scopes** (e.g., `@pagerduty/`, `@dynatrace/`, or any other third-party namespace) are not scanned. These must be added manually.
+- **Plugins outside the supported scopes** (e.g., `@pagerduty/`, `@dynatrace/`, or any other third-party namespace), which are part of new workspaces, are not discovered automatically. They must be added manually. However, once added, they **are** updated automatically.
 - **Workspaces listed in `workspace-discovery-exclude`** are skipped entirely by the scheduled run.
 - **Unpublished or pre-release versions** that are not yet on npm will not be discovered.
 - **New workspaces** are only proposed when the scheduled workflow has the `allow-workspace-addition` flag enabled; otherwise only existing workspaces receive updates.
 
-### Option 1: Automatic Discovery (Preferred)
+### Option 1: Automatic Updates (Preferred, `main` only)
 
-If your plugin is published under a supported scope, wait for the daily automation to create a PR. No action is needed on your part.
+If your workspace already exists in the overlay, the daily automation on `main` will detect new published versions and create a PR automatically. No action is needed on your part. For release branches, use Option 2.
 
 ### Option 2: Trigger Workflow Manually
 
-You can trigger the discovery workflow on demand. The `regexps` input accepts either a regular expression or a literal package name.
+You can trigger the update workflow on demand. The two main inputs serve different purposes:
 
-**Wrapping a value in single quotes** tells the workflow to treat it as an exact (literal) package name rather than a regular expression. This is the recommended approach when you want to target a specific plugin package directly, because it avoids accidentally matching other packages with similar names.
+| Input | Purpose | When to use |
+|-------|---------|-------------|
+| `workspace-path` | Update a specific existing workspace | Preferred for updates — works for any scope |
+| `regexps` | Discover new plugins via npm search | For adding workspaces not yet in the overlay |
 
-```bash
-# Target a single package by exact name (recommended — note the single quotes)
-gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="'@backstage-community/plugin-your-plugin'" \
-  -f single-branch="main"
+> **Important:** When `workspace-path` is set, only that workspace is updated (no npm search runs). When only `regexps` is provided, ALL existing workspaces are updated via overlay-first enumeration, and then npm search runs additionally to discover new workspaces.
 
-# Target multiple packages matching a regex pattern (no quotes)
-gh workflow run update-plugins-repo-refs.yaml \
-  -f regexps="@backstage-community/plugin-catalog-backend-module-.*" \
-  -f single-branch="main"
-```
+#### Update an existing workspace (preferred)
 
-You can also scope the run to a specific workspace:
+Use `workspace-path` to target a specific workspace. This uses overlay-first enumeration and works for **any workspace regardless of npm scope**. Use `single-branch` to target a specific branch (required for release branches, which have no scheduled updates):
 
 ```bash
+# Update on main
 gh workflow run update-plugins-repo-refs.yaml \
   -f workspace-path="workspaces/your-workspace" \
   -f single-branch="main"
+
+# Update on a release branch
+gh workflow run update-plugins-repo-refs.yaml \
+  -f workspace-path="workspaces/your-workspace" \
+  -f single-branch="release-1.6"
 ```
+
+This reads the workspace's `source.json`, scans its source repo for plugin package names, then queries npm for published versions and creates/updates PRs for any new compatible versions.
+
+#### Add a new workspace via discovery
+
+Use `regexps` with `allow-workspace-addition` to discover and add a new plugin not yet in the overlay. **Wrapping a value in single quotes** tells the workflow to treat it as an exact (literal) package name rather than a regular expression:
+
+```bash
+# Add a specific new plugin by exact name (note the single quotes)
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="'@backstage-community/plugin-your-plugin'" \
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
+
+# Discover multiple new packages matching a regex pattern
+gh workflow run update-plugins-repo-refs.yaml \
+  -f regexps="@backstage-community/plugin-catalog-backend-module-.*" \
+  -f single-branch="main" \
+  -f allow-workspace-addition=true
+```
+
+> **Note:** Running with `regexps` alone (without `workspace-path`) also updates all existing workspaces as a side effect, since overlay-first enumeration always runs first.
 
 ### Option 3: Manual PR (Fallback)
 
