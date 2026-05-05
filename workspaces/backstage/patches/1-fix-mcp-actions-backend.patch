@@ -1,18 +1,19 @@
 --- plugins/mcp-actions-backend/src/services/McpService.ts
 +++ plugins/mcp-actions-backend/src/services/McpService.ts
-@@ -20,13 +20,14 @@
-   CallToolRequestSchema,
- } from '@modelcontextprotocol/sdk/types.js';
- import { JsonObject } from '@backstage/types';
- import { ActionsService } from '@backstage/backend-plugin-api/alpha';
+@@ -26,7 +26,6 @@ import {
+   MetricsServiceHistogram,
+   MetricsService,
+ } from '@backstage/backend-plugin-api/alpha';
 -import { version } from '@backstage/plugin-mcp-actions-backend/package.json';
  import { NotFoundError } from '@backstage/errors';
+ import { performance } from 'node:perf_hooks';
  
- import { handleErrors } from './handleErrors';
+@@ -34,6 +33,8 @@ import { handleErrors } from './handleErrors';
+ import { bucketBoundaries, McpServerOperationAttributes } from '../metrics';
+ import { FilterRule, McpServerConfig } from '../config';
  
-+const version = '0.1.9';
++const version = '0.1.11'
 +
  export class McpService {
    private readonly actions: ActionsService;
- 
-   constructor(actions: ActionsService) {
+   private readonly namespacedToolNames: boolean;

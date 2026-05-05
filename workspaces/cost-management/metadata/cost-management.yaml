@@ -21,13 +21,13 @@ metadata:
     - openshift
 spec:
   packageName: "@red-hat-developer-hub/plugin-cost-management"
-  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:1.3.3-rc.4!red-hat-developer-hub-plugin-cost-management
-  version: 1.3.3-rc.4
+  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.0!red-hat-developer-hub-plugin-cost-management
+  version: 2.2.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Red Hat
-  support: dev-preview
+  support: tech-preview
   lifecycle: active
   partOf:
     - cost-management
@@ -52,10 +52,10 @@ spec:
                     icon: costManagementIconOutlined
                     text: OpenShift
               menuItems:
-                cost-management/optimizations:
+                cost-management.optimizations:
                   parent: cost-management
                   priority: 10
-                cost-management/openshift:
+                cost-management.openshift:
                   parent: cost-management
                   priority: 20
                 cost-management:

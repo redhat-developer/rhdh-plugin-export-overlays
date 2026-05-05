@@ -18,6 +18,9 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
+#   # Auto-fetch secrets from HashiCorp Vault during global setup
+#   VAULT=1 ./run-e2e.sh -w tech-radar
+#
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 #
@@ -32,7 +35,8 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+# export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="1.10-114-CI"                       # Pinned due to RHDHBUGS-3030
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
@@ -78,6 +82,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
+# (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
+if [[ -n "$JOB_NAME" ]]; then
+    JOB_SUFFIX=$(echo "$JOB_NAME" | sed -n 's/.*-e2e-//p')
+    if [[ -n "$JOB_SUFFIX" ]]; then
+        E2E_SKIP_TAG="@skip-${JOB_SUFFIX}(?!-)"
+        PLAYWRIGHT_ARGS=("--grep-invert" "$E2E_SKIP_TAG" "${PLAYWRIGHT_ARGS[@]}")
+        echo "[INFO] Skip tag: $E2E_SKIP_TAG (derived from JOB_NAME)"
+    fi
+fi
 
 GENERATED_FILES=()
 
@@ -154,7 +169,7 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@3.8.7",
+  "packageManager": "yarn@4.12.0",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { requireEnv } from "../../support/utils/require-env";
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("gitlab discovery UI tests", () => {
   test.beforeAll(async ({ rhdh }) => {
