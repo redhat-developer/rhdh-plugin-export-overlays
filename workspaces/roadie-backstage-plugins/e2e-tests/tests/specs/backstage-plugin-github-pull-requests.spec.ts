@@ -75,17 +75,24 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
     test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
       const openPRs = await searchGitHubPRs("open");
+
+      const openButton = page.getByRole("button", { name: "OPEN" });
+      await expect(openButton).toBeVisible();
+      await expect(openButton).toBeEnabled();
+      await uiHelper.waitForLoad();
+
       await prPage.verifyPRRows(openPRs, 0, 5);
     });
 
     test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
+      const closedPRs = await searchGitHubPRs("closed");
+
       const closedButton = page.getByRole("button", { name: "CLOSED" });
       await expect(closedButton).toBeVisible();
       await expect(closedButton).toBeEnabled();
       await uiHelper.waitForLoad();
       await closedButton.click();
 
-      const closedPRs = await searchGitHubPRs("closed");
       await uiHelper.waitForLoad();
       await prPage.verifyPRRows(closedPRs, 0, 5);
     });
@@ -98,6 +105,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await expect(allButton).toBeEnabled();
       await allButton.click();
       await uiHelper.waitForLoad();
+
       await prPage.verifyPRRows(allPRs, 0, 5);
 
       await page.locator(TABLE_SELECTORS.nextPage).click();
@@ -117,8 +125,9 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
 
     test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
-      await uiHelper.waitForLoad();
       const openPRs = await searchGitHubPRs("open");
+
+      await uiHelper.waitForLoad();
 
       for (const rows of [5, 10, 20]) {
         await prPage.verifyPRRowsPerPage(rows, openPRs);
