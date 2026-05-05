@@ -34,6 +34,7 @@ test.describe.skip("TechDocs", () => {
       auth: "keycloak",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
+      secrets: "tests/config/techdocs/rhdh-secrets.yaml",
       disableWrappers: TECHDOCS_WRAPPER_DIST_NAMES,
     });
 
