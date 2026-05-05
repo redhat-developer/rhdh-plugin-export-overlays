@@ -88,6 +88,13 @@ class CoverageReporter implements Reporter {
     if (COLLECT_COVERAGE) {
       console.log("\n[coverage-reporter] Coverage collection enabled");
       fs.mkdirSync(COVERAGE_DIR, { recursive: true });
+
+      // Remove leftover JSON files from previous runs to prevent merging stale data
+      for (const file of fs.readdirSync(COVERAGE_DIR)) {
+        if (file.endsWith(".json")) {
+          fs.unlinkSync(path.join(COVERAGE_DIR, file));
+        }
+      }
     }
   }
 
