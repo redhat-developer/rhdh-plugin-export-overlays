@@ -48,6 +48,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       timeout: 20000,
     });
     expect(page.url()).toContain(expectedPath);
+
+    await uiHelper.waitForTitle("Red Hat Developer Hub");
   });
 
   test("Click login on the login popup and verify that Overview tab renders", async () => {
