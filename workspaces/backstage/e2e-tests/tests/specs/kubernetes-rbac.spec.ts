@@ -11,7 +11,15 @@ import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 
 const $pipe = $({ stdio: "pipe" });
 
-test.describe("Kubernetes", () => {
+test.describe(
+  "Kubernetes",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "backstage" },
+    ],
+  },
+  () => {
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

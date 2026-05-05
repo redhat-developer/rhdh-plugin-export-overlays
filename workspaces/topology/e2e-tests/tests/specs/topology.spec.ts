@@ -28,7 +28,15 @@ async function getResourceType(page: Page): Promise<"ingress" | "route"> {
   return hasIngresses ? "ingress" : "route";
 }
 
-test.describe("Test Topology plugin", () => {
+test.describe(
+  "Test Topology plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "topology" },
+    ],
+  },
+  () => {
   const deploymentLocator = `[data-test-id="topology-test"]`;
 
   test.beforeAll(async ({ rhdh }) => {

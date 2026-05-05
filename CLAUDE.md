@@ -143,11 +143,21 @@ Each Playwright project creates a **separate Kubernetes namespace** (project nam
 
 ### Standard Test Pattern
 
+Every `test.describe` block must include `component` and `workspace` annotations in the details parameter. The `component` is always `"plugins"` in this repo. The `workspace` value must match the workspace directory name (e.g., `tech-radar`, `rbac`, `backstage`).
+
 ```typescript
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-test.describe("My Plugin", () => {
+test.describe(
+  "My Plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "my-workspace" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     // Optional: deploy external services before RHDH

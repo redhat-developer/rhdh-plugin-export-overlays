@@ -3,7 +3,15 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 import { RHDH_GITHUB_TEST_ORGANIZATION } from "../../support/constants/github/organization";
 
-test.describe("Github Discovery Catalog", () => {
+test.describe(
+  "Github Discovery Catalog",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "backstage" },
+    ],
+  },
+  () => {
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {

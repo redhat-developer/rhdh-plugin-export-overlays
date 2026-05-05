@@ -1,7 +1,15 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { KubeClient } from "../../support/utils/kube-client";
 
-test.describe("Test Kubernetes Actions plugin", () => {
+test.describe(
+  "Test Kubernetes Actions plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "scaffolder-backend-module-kubernetes" },
+    ],
+  },
+  () => {
   let kubeClient: KubeClient;
   let namespace: string;
 

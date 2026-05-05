@@ -33,7 +33,15 @@ async function createNotification(
   return title;
 }
 
-test.describe("Backstage Notifications Plugin", () => {
+test.describe(
+  "Backstage Notifications Plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "backstage" },
+    ],
+  },
+  () => {
   let notificationPage: NotificationPage;
 
   test.beforeAll(async ({ rhdh }) => {

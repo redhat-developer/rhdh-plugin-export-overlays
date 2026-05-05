@@ -1,6 +1,14 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
-test.describe("Header mount points", () => {
+test.describe(
+  "Header mount points",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "global-header" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

@@ -10,7 +10,15 @@ import { GitHubEventsHelper } from "../../support/api/github-events";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
-test.describe("GitHub Events Module", () => {
+test.describe(
+  "GitHub Events Module",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "backstage" },
+    ],
+  },
+  () => {
   let githubEventsHelper: GitHubEventsHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;

@@ -1,6 +1,14 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
-test.describe("Test Quick Start plugin", () => {
+test.describe(
+  "Test Quick Start plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "quickstart" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy();

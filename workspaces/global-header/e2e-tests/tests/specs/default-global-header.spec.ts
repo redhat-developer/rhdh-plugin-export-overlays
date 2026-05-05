@@ -5,7 +5,15 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 
-test.describe("Default Global Header", () => {
+test.describe(
+  "Default Global Header",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "global-header" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

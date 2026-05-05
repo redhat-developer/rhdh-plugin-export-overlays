@@ -5,7 +5,15 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-test.describe("Test github-actions", () => {
+test.describe(
+  "Test github-actions",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "github" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "github",

@@ -1,7 +1,15 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-test.describe("gitlab discovery UI tests", () => {
+test.describe(
+  "gitlab discovery UI tests",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "backstage" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 

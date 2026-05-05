@@ -2,7 +2,15 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { TektonSupportHelper } from "../support/tekton-support-helper";
 
-test.describe("Test Tekton plugin", () => {
+test.describe(
+  "Test Tekton plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "tekton" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",

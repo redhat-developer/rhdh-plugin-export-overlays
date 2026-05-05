@@ -19,7 +19,15 @@ const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights-dynamic",
 ];
 
-test.describe.serial("Test Adoption Insights", () => {
+test.describe.serial(
+  "Test Adoption Insights",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "adoption-insights" },
+    ],
+  },
+  () => {
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

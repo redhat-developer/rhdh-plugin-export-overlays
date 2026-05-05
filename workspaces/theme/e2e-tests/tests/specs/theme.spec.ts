@@ -3,7 +3,15 @@ import { ThemeConstants } from "../../utils/theme-constants";
 import { ThemeVerifier } from "../../utils/theme-verifier";
 import { CUSTOM_FAVICON, CUSTOM_SIDEBAR_LOGO } from "../../utils/custom-theme";
 
-test.describe("Theme Plugin tests", () => {
+test.describe(
+  "Theme Plugin tests",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "theme" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

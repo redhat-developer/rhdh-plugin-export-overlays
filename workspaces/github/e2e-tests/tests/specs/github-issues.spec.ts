@@ -10,7 +10,15 @@ interface GHIssue {
   title: string;
 }
 
-test.describe("Test github-issues", () => {
+test.describe(
+  "Test github-issues",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "github" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "github",

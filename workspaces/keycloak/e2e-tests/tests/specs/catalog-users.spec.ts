@@ -14,7 +14,15 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import { CatalogUsersPO } from "../support/page-objects/catalog-users-obj";
 
-test.describe("Test Keycloak plugin", () => {
+test.describe(
+  "Test Keycloak plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "keycloak" },
+    ],
+  },
+  () => {
   let keycloakHelper: KeycloakHelper;
   let keycloakRealm: string;
 
@@ -110,15 +118,16 @@ async function checkUserDetails(
   await CatalogUsersPO.visitBaseURL(page);
 }
 
-test.describe("Test Keycloak plugin metrics", () => {
+test.describe(
+  "Test Keycloak plugin metrics",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "keycloak" },
+    ],
+  },
+  () => {
   let portForward: ChildProcessWithoutNullStreams;
-
-  test.beforeAll(() => {
-    test.info().annotations.push({
-      type: "component",
-      description: "plugins",
-    });
-  });
 
   test.beforeEach(async ({ rhdh }: { rhdh: RHDHDeployment }) => {
     const namespace = rhdh.deploymentConfig.namespace;

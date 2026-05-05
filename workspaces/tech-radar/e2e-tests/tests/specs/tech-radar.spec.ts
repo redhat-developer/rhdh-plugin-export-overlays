@@ -7,7 +7,15 @@ const setupScript = path.join(
   "deploy-customization-provider.sh",
 );
 
-test.describe("Test tech-radar plugin", () => {
+test.describe(
+  "Test tech-radar plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "tech-radar" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
     await rhdh.configure({ auth: "keycloak" });

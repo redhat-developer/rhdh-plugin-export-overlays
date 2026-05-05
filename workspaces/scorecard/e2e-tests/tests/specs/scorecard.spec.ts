@@ -15,7 +15,15 @@ import {
   type ScorecardHelpers,
 } from "../utils/scorecard";
 
-test.describe.serial("Scorecard Plugin Tests", () => {
+test.describe.serial(
+  "Scorecard Plugin Tests",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "scorecard" },
+    ],
+  },
+  () => {
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;

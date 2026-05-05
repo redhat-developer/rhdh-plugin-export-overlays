@@ -1,6 +1,14 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
-test.describe("Test ACR plugin", () => {
+test.describe(
+  "Test ACR plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "acr" },
+    ],
+  },
+  () => {
   const dateRegex =
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2},\s\d{4}/gm;
 

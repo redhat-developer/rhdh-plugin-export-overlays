@@ -13,7 +13,15 @@ const DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES: string[] = [
 
 /* Assertions live in DynamicHomePagePo (expect/verify*), matching RHDH core structure. */
 /* eslint-disable playwright/expect-expect -- see DynamicHomePagePo */
-test.describe.serial("Dynamic home page customization", () => {
+test.describe.serial(
+  "Dynamic home page customization",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "homepage" },
+    ],
+  },
+  () => {
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

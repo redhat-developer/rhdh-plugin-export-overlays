@@ -15,7 +15,15 @@ const setupScript = path.join(
 );
 const $pipe = $({ stdio: "pipe" });
 
-test.describe("Test ArgoCD plugin", () => {
+test.describe(
+  "Test ArgoCD plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "argocd" },
+    ],
+  },
+  () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

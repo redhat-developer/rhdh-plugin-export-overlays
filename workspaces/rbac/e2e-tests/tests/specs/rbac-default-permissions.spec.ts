@@ -11,7 +11,15 @@ import {
   LoginHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
-test.describe("Check default RBAC permissions", () => {
+test.describe(
+  "Check default RBAC permissions",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "rbac" },
+    ],
+  },
+  () => {
   let rbacPO: RbacPO;
   let apiToken: string;
 

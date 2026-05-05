@@ -2,7 +2,15 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { ImageRegistry } from "../utils/image-registry";
 import { QuayClient } from "../utils/quay-client";
 
-test.describe("Test Quay.io plugin", () => {
+test.describe(
+  "Test Quay.io plugin",
+  {
+    annotation: [
+      { type: "component", description: "plugins" },
+      { type: "workspace", description: "quay" },
+    ],
+  },
+  () => {
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {
