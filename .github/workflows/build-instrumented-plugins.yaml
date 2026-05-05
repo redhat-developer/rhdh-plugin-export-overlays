@@ -201,6 +201,12 @@ jobs:
           WORKSPACE: ${{ matrix.workspace }}
         run: ./scripts/instrument-plugin.sh "$WORKSPACE"
 
+      - name: Setup ORAS CLI
+        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
+        uses: oras-project/setup-oras@5c0b487ce3fe0ce3ab0d034e63669e426e294e4d # v1.2.2
+        with:
+          version: 1.2.2
+
       - name: Log in to GitHub Container Registry
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -225,7 +231,7 @@ jobs:
           TAR_FILE=".instrumented/${WORKSPACE}.tar.gz"
           tar -czf "$TAR_FILE" -C "$BUNDLE_DIR" .
 
-          npx --yes oras push "$IMAGE_REF" \
+          oras push "$IMAGE_REF" \
             --artifact-type "application/vnd.rhdh.dynamic-plugin.coverage.v1" \
             "$TAR_FILE:application/gzip"
 
