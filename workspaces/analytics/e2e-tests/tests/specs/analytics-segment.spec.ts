@@ -44,73 +44,76 @@ test.describe(
     ],
   },
   () => {
-  test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "guest" });
-    await rhdh.deploy();
-  });
+    test.beforeAll(async ({ rhdh }) => {
+      await rhdh.configure({ auth: "guest" });
+      await rhdh.deploy();
+    });
 
-  test("Verify analytics events are sent to Segment on navigation", async ({
-    page,
-    loginHelper,
-    uiHelper,
-  }) => {
-    await page.route("**/cdn.segment.com/**", (route) => {
-      if (route.request().url().includes("/settings")) {
+    test("Verify analytics events are sent to Segment on navigation", async ({
+      page,
+      loginHelper,
+      uiHelper,
+    }) => {
+      await page.route("**/cdn.segment.com/**", (route) => {
+        if (route.request().url().includes("/settings")) {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify(SEGMENT_SETTINGS_RESPONSE),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/javascript",
+          body: "/* mock */",
+        });
+      });
+
+      const segmentRequests: {
+        url: string;
+        method: string;
+        body: Record<string, unknown> | null;
+      }[] = [];
+
+      await page.route("**/api.segment.io/**", (route) => {
+        let body: Record<string, unknown> | null = null;
+        const postData = route.request().postData();
+        if (postData) {
+          try {
+            body = JSON.parse(postData) as Record<string, unknown>;
+          } catch {
+            /* raw post data, not JSON */
+          }
+        }
+
+        segmentRequests.push({
+          url: route.request().url(),
+          method: route.request().method(),
+          body,
+        });
+
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(SEGMENT_SETTINGS_RESPONSE),
+          body: JSON.stringify({ success: true }),
         });
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: "application/javascript",
-        body: "/* mock */",
       });
+
+      await loginHelper.loginAsGuest();
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.clickLink("Red Hat Developer Hub");
+
+      await expect
+        .poll(() => segmentRequests.length, {
+          message: "Waiting for Segment API requests",
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(0);
+
+      const pageRequests = segmentRequests.filter((r) =>
+        r.url.includes("/v1/p"),
+      );
+      expect(pageRequests.length).toBeGreaterThan(0);
     });
-
-    const segmentRequests: {
-      url: string;
-      method: string;
-      body: Record<string, unknown> | null;
-    }[] = [];
-
-    await page.route("**/api.segment.io/**", (route) => {
-      let body: Record<string, unknown> | null = null;
-      const postData = route.request().postData();
-      if (postData) {
-        try {
-          body = JSON.parse(postData) as Record<string, unknown>;
-        } catch {
-          /* raw post data, not JSON */
-        }
-      }
-
-      segmentRequests.push({
-        url: route.request().url(),
-        method: route.request().method(),
-        body,
-      });
-
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true }),
-      });
-    });
-
-    await loginHelper.loginAsGuest();
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.clickLink("Red Hat Developer Hub");
-
-    await expect
-      .poll(() => segmentRequests.length, {
-        message: "Waiting for Segment API requests",
-        timeout: 10_000,
-      })
-      .toBeGreaterThan(0);
-
-    const pageRequests = segmentRequests.filter((r) => r.url.includes("/v1/p"));
-    expect(pageRequests.length).toBeGreaterThan(0);
-  });
-});
+  },
+);

@@ -16,35 +16,36 @@ test.describe(
     ],
   },
   () => {
-  test.beforeAll(async ({ rhdh }) => {
-    const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
-    await $`bash ${setupScript} ${project}`;
-    process.env.TECH_RADAR_DATA_URL = (
-      await rhdh.k8sClient.getRouteLocation(
-        project,
-        "test-backstage-customization-provider",
-      )
-    ).replace("http://", "");
-    await rhdh.deploy();
-  });
+    test.beforeAll(async ({ rhdh }) => {
+      const project = rhdh.deploymentConfig.namespace;
+      await rhdh.configure({ auth: "keycloak" });
+      await $`bash ${setupScript} ${project}`;
+      process.env.TECH_RADAR_DATA_URL = (
+        await rhdh.k8sClient.getRouteLocation(
+          project,
+          "test-backstage-customization-provider",
+        )
+      ).replace("http://", "");
+      await rhdh.deploy();
+    });
 
-  test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
-  });
+    test.beforeEach(async ({ loginHelper }) => {
+      await loginHelper.loginAsKeycloakUser();
+    });
 
-  test("Verify tech-radar", async ({ page, uiHelper }) => {
-    await uiHelper.openSidebar("Tech Radar");
-    await uiHelper.verifyHeading("Tech Radar");
-    await uiHelper.verifyHeading("Company Radar");
+    test("Verify tech-radar", async ({ page, uiHelper }) => {
+      await uiHelper.openSidebar("Tech Radar");
+      await uiHelper.verifyHeading("Tech Radar");
+      await uiHelper.verifyHeading("Company Radar");
 
-    await verifyRadarDetails(page, "Languages", "JavaScript");
-    // TODO: This is cluster-dependent and we need tests cluster-agnostic, remove if not needed
-    // await verifyRadarDetails(page, "Storage", "AWS S3");
-    await verifyRadarDetails(page, "Frameworks", "React");
-    await verifyRadarDetails(page, "Infrastructure", "GitHub Actions");
-  });
-});
+      await verifyRadarDetails(page, "Languages", "JavaScript");
+      // TODO: This is cluster-dependent and we need tests cluster-agnostic, remove if not needed
+      // await verifyRadarDetails(page, "Storage", "AWS S3");
+      await verifyRadarDetails(page, "Frameworks", "React");
+      await verifyRadarDetails(page, "Infrastructure", "GitHub Actions");
+    });
+  },
+);
 
 async function verifyRadarDetails(page: Page, section: string, text: string) {
   const sectionLocator = page

@@ -20,164 +20,173 @@ test.describe(
     ],
   },
   () => {
-  let kubernetesPage: KubernetesPage;
-  let clusterName: string;
+    let kubernetesPage: KubernetesPage;
+    let clusterName: string;
 
-  test.beforeAll(async ({ rhdh }) => {
-    requireEnv(
-      "KEYCLOAK_BASE_URL",
-      "KEYCLOAK_REALM",
-      "VAULT_KEYCLOAK_ADMIN_USERNAME",
-      "VAULT_KEYCLOAK_ADMIN_PASSWORD",
-    );
-    const namespace = rhdh.deploymentConfig.namespace;
-
-    // Setup Cluster Service Account
-    const rbacConfigsPath = WorkspacePaths.resolve(
-      "tests/config/kubernetes/rbac/",
-    );
-    await $`kubectl apply -f ${rbacConfigsPath}/service-account.yaml -n ${namespace}`;
-    await $`kubectl apply -f ${rbacConfigsPath}/service-account-secret.yaml -n ${namespace}`;
-
-    // Setup ClusterRoles and ClusterRoleBindings
-    await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-k8s.yaml -n ${namespace}`;
-    await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-binding-k8s.yaml -n ${namespace}`;
-
-    // Setup Kubernetes test resources
-    const resourcesConfigsPath = WorkspacePaths.resolve(
-      "tests/config/kubernetes/resources/",
-    );
-    await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test.yaml -n ${namespace}`;
-    await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test-ingress.yaml -n ${namespace}`;
-
-    // Setup variables
-    const clusterUrl = (
-      await $pipe`kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
-    ).stdout.trim();
-
-    const tokenB64 = (
-      await $pipe`kubectl -n ${namespace} get secret rhdh-k8s-plugin-secret -o jsonpath='{.data.token}'`
-    ).stdout.trim();
-
-    process.env.K8S_CLUSTER_URL = clusterUrl;
-    process.env.K8S_CLUSTER_NAME ??= "test-cluster";
-    clusterName = process.env.K8S_CLUSTER_NAME;
-    process.env.K8S_CLUSTER_TOKEN = Buffer.from(tokenB64, "base64").toString();
-
-    // Setup users
-    const keycloak = new KeycloakHelper();
-    await keycloak.connect({
-      baseUrl: process.env.KEYCLOAK_BASE_URL!,
-      username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
-      password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
-    });
-    for (const user of Object.values(KUBERNETES_USERS)) {
-      await keycloak.createUser(process.env.KEYCLOAK_REALM!, user);
-    }
-    // Setup RHDH RBAC permissions
-    await $`kubectl apply -f ${rbacConfigsPath}/rbac-configmap.yaml -n ${namespace}`;
-
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/kubernetes/app-config-rhdh.yaml",
-      dynamicPlugins: "tests/config/kubernetes/dynamic-plugins.yaml",
-      secrets: "tests/config/kubernetes/rhdh-secrets.yaml",
-      valueFile: "tests/config/kubernetes/value_file.yaml",
-    });
-
-    await rhdh.deploy();
-  });
-
-  test.beforeEach(async ({ page }) => {
-    kubernetesPage = new KubernetesPage(page);
-  });
-
-  test.describe("Verify that a user with permissions is able to access the Kubernetes plugin", () => {
-    test.beforeEach(async ({ page, loginHelper }) => {
-      await loginHelper.loginAsKeycloakUser(
-        KUBERNETES_USERS.kubernetesLogsReader.username,
-        KUBERNETES_USERS.kubernetesLogsReader.password,
+    test.beforeAll(async ({ rhdh }) => {
+      requireEnv(
+        "KEYCLOAK_BASE_URL",
+        "KEYCLOAK_REALM",
+        "VAULT_KEYCLOAK_ADMIN_USERNAME",
+        "VAULT_KEYCLOAK_ADMIN_PASSWORD",
       );
-      await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
+      const namespace = rhdh.deploymentConfig.namespace;
 
-      await page
-        .locator(KUBERNETES_COMPONENTS.MuiAccordion)
-        .getByRole("button", { name: `${clusterName} Cluster` })
-        .click();
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify pods visibility in the Kubernetes tab", async () => {
-      await kubernetesPage.verifyDeployment("kubernetes-test");
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify pod logs visibility in the Kubernetes tab", async () => {
-      await kubernetesPage.verifyPodLogs(
-        "kubernetes-test",
-        "kubernetes-test",
-        true,
+      // Setup Cluster Service Account
+      const rbacConfigsPath = WorkspacePaths.resolve(
+        "tests/config/kubernetes/rbac/",
       );
-    });
-  });
+      await $`kubectl apply -f ${rbacConfigsPath}/service-account.yaml -n ${namespace}`;
+      await $`kubectl apply -f ${rbacConfigsPath}/service-account-secret.yaml -n ${namespace}`;
 
-  test.describe("Verify that a user without permissions is not able to access parts of the Kubernetes plugin", () => {
-    // User is able to read from the catalog
-    // User is unable to read kubernetes resources / clusters and use kubernetes proxy (needed for pod logs)
-    test("Verify pods are not visible in the Kubernetes tab", async ({
-      page,
-      loginHelper,
-    }) => {
-      await loginHelper.loginAsKeycloakUser(
-        KUBERNETES_USERS.noKubernetesAccess.username,
-        KUBERNETES_USERS.noKubernetesAccess.password,
+      // Setup ClusterRoles and ClusterRoleBindings
+      await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-k8s.yaml -n ${namespace}`;
+      await $`kubectl apply -f ${rbacConfigsPath}/cluster-role-binding-k8s.yaml -n ${namespace}`;
+
+      // Setup Kubernetes test resources
+      const resourcesConfigsPath = WorkspacePaths.resolve(
+        "tests/config/kubernetes/resources/",
       );
-      await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
+      await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test.yaml -n ${namespace}`;
+      await $`kubectl apply -f ${resourcesConfigsPath}/kubernetes-test-ingress.yaml -n ${namespace}`;
 
-      await expect(
-        page.locator("h6").filter({ hasText: "Warning: Permission required" }),
-      ).toBeVisible();
+      // Setup variables
+      const clusterUrl = (
+        await $pipe`kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'`
+      ).stdout.trim();
+
+      const tokenB64 = (
+        await $pipe`kubectl -n ${namespace} get secret rhdh-k8s-plugin-secret -o jsonpath='{.data.token}'`
+      ).stdout.trim();
+
+      process.env.K8S_CLUSTER_URL = clusterUrl;
+      process.env.K8S_CLUSTER_NAME ??= "test-cluster";
+      clusterName = process.env.K8S_CLUSTER_NAME;
+      process.env.K8S_CLUSTER_TOKEN = Buffer.from(
+        tokenB64,
+        "base64",
+      ).toString();
+
+      // Setup users
+      const keycloak = new KeycloakHelper();
+      await keycloak.connect({
+        baseUrl: process.env.KEYCLOAK_BASE_URL!,
+        username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+        password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+      });
+      for (const user of Object.values(KUBERNETES_USERS)) {
+        await keycloak.createUser(process.env.KEYCLOAK_REALM!, user);
+      }
+      // Setup RHDH RBAC permissions
+      await $`kubectl apply -f ${rbacConfigsPath}/rbac-configmap.yaml -n ${namespace}`;
+
+      await rhdh.configure({
+        auth: "keycloak",
+        appConfig: "tests/config/kubernetes/app-config-rhdh.yaml",
+        dynamicPlugins: "tests/config/kubernetes/dynamic-plugins.yaml",
+        secrets: "tests/config/kubernetes/rhdh-secrets.yaml",
+        valueFile: "tests/config/kubernetes/value_file.yaml",
+      });
+
+      await rhdh.deploy();
     });
 
-    // User is able to read from the catalog and read kubernetes resources and kubernetes clusters
-    // User is unable to use kubernetes proxy (needed for pod logs)
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify pod logs are not visible in the Kubernetes tab", async ({
-      page,
-      loginHelper,
-    }) => {
-      await loginHelper.loginAsKeycloakUser(
-        KUBERNETES_USERS.kubernetesReader.username,
-        KUBERNETES_USERS.kubernetesReader.password,
+    test.beforeEach(async ({ page }) => {
+      kubernetesPage = new KubernetesPage(page);
+    });
+
+    test.describe("Verify that a user with permissions is able to access the Kubernetes plugin", () => {
+      test.beforeEach(async ({ page, loginHelper }) => {
+        await loginHelper.loginAsKeycloakUser(
+          KUBERNETES_USERS.kubernetesLogsReader.username,
+          KUBERNETES_USERS.kubernetesLogsReader.password,
+        );
+        await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
+
+        await page
+          .locator(KUBERNETES_COMPONENTS.MuiAccordion)
+          .getByRole("button", { name: `${clusterName} Cluster` })
+          .click();
+      });
+
+      // eslint-disable-next-line playwright/expect-expect
+      test("Verify pods visibility in the Kubernetes tab", async () => {
+        await kubernetesPage.verifyDeployment("kubernetes-test");
+      });
+
+      // eslint-disable-next-line playwright/expect-expect
+      test("Verify pod logs visibility in the Kubernetes tab", async () => {
+        await kubernetesPage.verifyPodLogs(
+          "kubernetes-test",
+          "kubernetes-test",
+          true,
+        );
+      });
+    });
+
+    test.describe("Verify that a user without permissions is not able to access parts of the Kubernetes plugin", () => {
+      // User is able to read from the catalog
+      // User is unable to read kubernetes resources / clusters and use kubernetes proxy (needed for pod logs)
+      test("Verify pods are not visible in the Kubernetes tab", async ({
+        page,
+        loginHelper,
+      }) => {
+        await loginHelper.loginAsKeycloakUser(
+          KUBERNETES_USERS.noKubernetesAccess.username,
+          KUBERNETES_USERS.noKubernetesAccess.password,
+        );
+        await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
+
+        await expect(
+          page
+            .locator("h6")
+            .filter({ hasText: "Warning: Permission required" }),
+        ).toBeVisible();
+      });
+
+      // User is able to read from the catalog and read kubernetes resources and kubernetes clusters
+      // User is unable to use kubernetes proxy (needed for pod logs)
+      // eslint-disable-next-line playwright/expect-expect
+      test("Verify pod logs are not visible in the Kubernetes tab", async ({
+        page,
+        loginHelper,
+      }) => {
+        await loginHelper.loginAsKeycloakUser(
+          KUBERNETES_USERS.kubernetesReader.username,
+          KUBERNETES_USERS.kubernetesReader.password,
+        );
+        await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
+
+        await page
+          .locator(KUBERNETES_COMPONENTS.MuiAccordion)
+          .getByRole("button", { name: `${clusterName} Cluster` })
+          .click();
+        await kubernetesPage.verifyPodLogs(
+          "kubernetes-test",
+          "kubernetes-test",
+        );
+      });
+    });
+
+    test.afterAll(async () => {
+      requireEnv(
+        "KEYCLOAK_BASE_URL",
+        "KEYCLOAK_REALM",
+        "VAULT_KEYCLOAK_ADMIN_USERNAME",
+        "VAULT_KEYCLOAK_ADMIN_PASSWORD",
       );
-      await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
-      await page
-        .locator(KUBERNETES_COMPONENTS.MuiAccordion)
-        .getByRole("button", { name: `${clusterName} Cluster` })
-        .click();
-      await kubernetesPage.verifyPodLogs("kubernetes-test", "kubernetes-test");
+      // Need to re-authenticate anyway since admin access tokens expire
+      const keycloak = new KeycloakHelper();
+      await keycloak.connect({
+        baseUrl: process.env.KEYCLOAK_BASE_URL!,
+        username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+        password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+      });
+
+      for (const user of Object.values(KUBERNETES_USERS)) {
+        await keycloak.deleteUser(process.env.KEYCLOAK_REALM!, user.username);
+      }
     });
-  });
-
-  test.afterAll(async () => {
-    requireEnv(
-      "KEYCLOAK_BASE_URL",
-      "KEYCLOAK_REALM",
-      "VAULT_KEYCLOAK_ADMIN_USERNAME",
-      "VAULT_KEYCLOAK_ADMIN_PASSWORD",
-    );
-
-    // Need to re-authenticate anyway since admin access tokens expire
-    const keycloak = new KeycloakHelper();
-    await keycloak.connect({
-      baseUrl: process.env.KEYCLOAK_BASE_URL!,
-      username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
-      password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
-    });
-
-    for (const user of Object.values(KUBERNETES_USERS)) {
-      await keycloak.deleteUser(process.env.KEYCLOAK_REALM!, user.username);
-    }
-  });
-});
+  },
+);
