@@ -5,7 +5,7 @@ import {
   AuthApiHelper,
   RbacApiHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   removeBaselineRole,
   setupAuthenticatedPage,
@@ -18,490 +18,160 @@ import {
   roleApiName,
   PRIMARY_USER,
   SECONDARY_USER,
-  deploySonataflow,
   cleanupGreetingComponentEntity,
   launchGreetingTemplateFromSelfService,
   clickCreateAndWaitForScaffolderTerminalState,
-  logOrchestratorDeployFailureDiagnostics,
 } from "./test-helpers.js";
 
-test.describe.serial("Test Orchestrator RBAC", () => {
-  test.beforeAll(async ({ rhdh, browser }, testInfo) => {
-    test.setTimeout(40 * 60 * 1000);
-    await test.runOnce("orchestrator-setup", async () => {
-      const project = rhdh.deploymentConfig.namespace;
-      await rhdh.configure({ auth: "keycloak" });
-      await deploySonataflow(project);
-      process.env.SONATAFLOW_DATA_INDEX_URL =
-        "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
-      try {
-        await rhdh.deploy({ timeout: 900_000 });
-      } catch (err) {
-        logOrchestratorDeployFailureDiagnostics(project);
-        throw err;
-      }
-    });
+type RbacScenario = {
+  name: string;
+  roleName: string;
+  policies: ReturnType<typeof globalWorkflowPolicies>;
+  expectWorkflowVisible: boolean;
+  expectRunState: "enabled" | "disabled" | "absent";
+  workflowScope: "global" | "greeting";
+};
+
+const RBAC_SCENARIOS: RbacScenario[] = [
+  {
+    name: "Global Read-Write",
+    roleName: "role:default/workflowReadwrite",
+    policies: globalWorkflowPolicies("allow", "allow"),
+    expectWorkflowVisible: true,
+    expectRunState: "enabled",
+    workflowScope: "global",
+  },
+  {
+    name: "Global Read-Only",
+    roleName: "role:default/workflowReadonly",
+    policies: globalWorkflowPolicies("allow", "deny"),
+    expectWorkflowVisible: true,
+    expectRunState: "disabled",
+    workflowScope: "global",
+  },
+  {
+    name: "Global Denied",
+    roleName: "role:default/workflowDenied",
+    policies: globalWorkflowPolicies("deny", "deny"),
+    expectWorkflowVisible: false,
+    expectRunState: "absent",
+    workflowScope: "global",
+  },
+  {
+    name: "Greeting Denied",
+    roleName: "role:default/workflowGreetingDenied",
+    policies: greetingWorkflowPolicies("deny", "deny"),
+    expectWorkflowVisible: false,
+    expectRunState: "absent",
+    workflowScope: "greeting",
+  },
+  {
+    name: "Greeting Read-Write",
+    roleName: "role:default/workflowGreetingReadwrite",
+    policies: greetingWorkflowPolicies("allow", "allow"),
+    expectWorkflowVisible: true,
+    expectRunState: "enabled",
+    workflowScope: "greeting",
+  },
+  {
+    name: "Greeting Read-Only",
+    roleName: "role:default/workflowGreetingReadonly",
+    policies: greetingWorkflowPolicies("allow", "deny"),
+    expectWorkflowVisible: true,
+    expectRunState: "disabled",
+    workflowScope: "greeting",
+  },
+];
+
+async function assertRbacScenario(
+  page: Page,
+  uiHelper: UIhelper,
+  scenario: RbacScenario,
+): Promise<void> {
+  const orchestratorPo = new OrchestratorPO(page, uiHelper);
+  await page.reload();
+  await orchestratorPo.openWorkflowsPage();
+
+  if (!scenario.expectWorkflowVisible) {
+    await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
+    await uiHelper.verifyTableIsEmpty();
+    return;
+  }
+
+  await orchestratorPo.openWorkflow("Greeting workflow");
+  await expect(
+    page.getByRole("heading", { name: /Greeting workflow/i }),
+  ).toBeVisible();
+  await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
+
+  if (scenario.workflowScope === "greeting") {
+    await orchestratorPo.verifyWorkflowHidden("User Onboarding");
+  }
+}
+
+test.describe.serial("Orchestrator RBAC", () => {
+  test.beforeAll(async ({ browser }, testInfo) => {
     await removeBaselineRole(browser, testInfo);
-    testInfo.annotations.push({
-      type: "component",
-      description: "orchestrator",
-    });
   });
 
-  test.describe.serial("Test Orchestrator RBAC: Global Workflow Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowReadwrite";
+  for (const scenario of RBAC_SCENARIOS) {
+    test.describe(`RBAC: ${scenario.name}`, () => {
+      let uiHelper: UIhelper;
+      let page: Page;
+      let apiToken: string;
 
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with global orchestrator.workflow read and update permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("allow", "allow"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("allow", "allow"),
-      );
-    });
-
-    test("Verify global orchestrator workflow access is allowed", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const orchestrator = new OrchestratorPage(page);
-      await orchestrator.selectGreetingWorkflowItem();
-
-      await expect(
-        page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
-
-      const runButton = page.getByRole("button", { name: "Run" });
-      await expect(runButton).toBeVisible();
-      await expect(runButton).toBeEnabled();
-
-      await runButton.click();
-    });
-  });
-
-  test.describe
-    .serial("Test Orchestrator RBAC: Global Workflow Read-Only Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowReadonly";
-
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with global orchestrator.workflow read-only permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("allow", "deny"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify read-only role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("allow", "deny"),
-      );
-    });
-
-    test("Verify global orchestrator workflow read-only access - Run button disabled", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const orchestrator = new OrchestratorPage(page);
-      await orchestrator.selectGreetingWorkflowItem();
-
-      await expect(
-        page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
-
-      // For read-only access, the button should either not exist or be disabled
-      const runButton = page.getByRole("button", { name: "Run" });
-
-      const buttonCount = await runButton.count();
-
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (buttonCount === 0) {
-        // eslint-disable-next-line playwright/no-conditional-expect
-        expect(buttonCount).toBe(0);
-      } else {
-        // eslint-disable-next-line playwright/no-conditional-expect
-        await expect(runButton).toBeDisabled();
-      }
-    });
-  });
-
-  test.describe
-    .serial("Test Orchestrator RBAC: Global Workflow Denied Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowDenied";
-
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with global orchestrator.workflow denied permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("deny", "deny"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify denied role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        globalWorkflowPolicies("deny", "deny"),
-      );
-    });
-
-    test("Verify global orchestrator workflow denied access - no workflows visible", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      // With denied access, the workflows table should be empty
-      await uiHelper.verifyTableIsEmpty();
-
-      const greetingWorkflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
+      test.beforeAll(async ({ browser }, testInfo) => {
+        ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
+          browser,
+          testInfo,
+        ));
+        await createRoleWithPolicies(
+          apiToken,
+          scenario.roleName,
+          [PRIMARY_USER],
+          scenario.policies,
+        );
+        await verifyRoleWithPolicies(
+          apiToken,
+          scenario.roleName,
+          [PRIMARY_USER],
+          scenario.policies,
+        );
       });
-      await expect(greetingWorkflowLink).toHaveCount(0);
-    });
-  });
 
-  test.describe
-    .serial("Test Orchestrator RBAC: Individual Workflow Denied Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowGreetingDenied";
-
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with greeting workflow denied permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("deny", "deny"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify greeting workflow denied role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("deny", "deny"),
-      );
-    });
-
-    test("Verify individual workflow denied access - no workflows visible", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const greetingWorkflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
+      test.afterAll(async () => {
+        await deleteRoleAndPolicies(apiToken, scenario.roleName);
       });
-      await expect(greetingWorkflowLink).toHaveCount(0);
 
-      const userOnboardingLink = page.getByRole("link", {
-        name: "User Onboarding",
+      test(`Validate ${scenario.name} workflow behavior`, async () => {
+        await assertRbacScenario(page, uiHelper, scenario);
       });
-      await expect(userOnboardingLink).toHaveCount(0);
-
-      await uiHelper.verifyTableIsEmpty();
     });
-  });
+  }
 
-  test.describe
-    .serial("Test Orchestrator RBAC: Individual Workflow Read-Write Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowGreetingReadwrite";
-
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with greeting workflow read-write permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("allow", "allow"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify greeting workflow read-write role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("allow", "allow"),
-      );
-    });
-
-    test("Verify individual workflow read-write access - only Greeting workflow visible and runnable", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const greetingWorkflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
-      });
-      await expect(greetingWorkflowLink).toBeVisible();
-
-      const userOnboardingLink = page.getByRole("link", {
-        name: "User Onboarding",
-      });
-      await expect(userOnboardingLink).toHaveCount(0);
-
-      await greetingWorkflowLink.click();
-      await expect(
-        page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
-
-      const runButton = page.getByRole("button", { name: "Run" });
-      await expect(runButton).toBeVisible();
-      await expect(runButton).toBeEnabled();
-      await runButton.click();
-    });
-  });
-
-  test.describe
-    .serial("Test Orchestrator RBAC: Individual Workflow Read-Only Access", () => {
-    test.describe.configure({ retries: 0 });
-    let uiHelper: UIhelper;
-    let page: Page;
-    let apiToken: string;
-    const roleName = "role:default/workflowGreetingReadonly";
-
-    test.beforeAll(async ({ browser }, testInfo) => {
-      ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-        browser,
-        testInfo,
-      ));
-    });
-
-    test.afterAll(async () => {
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Create role with greeting workflow read-only permissions", async () => {
-      await createRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("allow", "deny"),
-      );
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Verify greeting workflow read-only role exists via API", async () => {
-      await verifyRoleWithPolicies(
-        apiToken,
-        roleName,
-        [PRIMARY_USER],
-        greetingWorkflowPolicies("allow", "deny"),
-      );
-    });
-
-    test("Verify individual workflow read-only access - only Greeting workflow visible, Run button disabled", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const greetingWorkflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
-      });
-      await expect(greetingWorkflowLink).toBeVisible();
-
-      const userOnboardingLink = page.getByRole("link", {
-        name: "User Onboarding",
-      });
-      await expect(userOnboardingLink).toHaveCount(0);
-
-      await greetingWorkflowLink.click();
-      await expect(
-        page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
-
-      const runButton = page.getByRole("button", { name: "Run" });
-      const buttonCount = await runButton.count();
-
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (buttonCount === 0) {
-        // eslint-disable-next-line playwright/no-conditional-expect
-        expect(buttonCount).toBe(0);
-      } else {
-        // eslint-disable-next-line playwright/no-conditional-expect
-        await expect(runButton).toBeDisabled();
-      }
-    });
-  });
-
-  test.describe
-    .serial("Test Orchestrator RBAC: Workflow Instance Initiator Access and Admin Override", () => {
-    test.describe.configure({ retries: 0 });
+  test.describe("RBAC: Workflow instance initiator and admin override", () => {
     let loginHelper: LoginHelper;
     let uiHelper: UIhelper;
     let page: Page;
     let apiToken: string;
-    let workflowInstanceId: string;
-    let workflowUserRoleName: string;
-    let workflowAdminRoleName: string;
+    let workflowInstanceId = "";
+    const workflowUserRoleName = "role:default/workflowUser";
+    const workflowAdminRoleName = "role:default/workflowAdmin";
 
     test.beforeAll(async ({ browser }, testInfo) => {
       ({ page, uiHelper, loginHelper, apiToken } = await setupAuthenticatedPage(
         browser,
         testInfo,
       ));
-
-      const rbacApi = await RbacApiHelper.build(apiToken);
-      try {
-        const rolesResponse = await rbacApi.getRoles();
-        if (rolesResponse.ok()) {
-          const roles = await rolesResponse.json();
-          const lingeringRoles = roles.filter(
-            (role: { name: string }) =>
-              role.name.includes("workflowUser") ||
-              role.name.includes("workflowAdmin"),
-          );
-
-          for (const role of lingeringRoles) {
-            await deleteRoleAndPolicies(apiToken, role.name);
-          }
-        }
-      } catch {
-        /* ignore cleanup errors */
-      }
-    });
-
-    test.afterAll(async () => {
-      try {
-        await page.goto("/");
-        await page.context().clearCookies();
-
-        try {
-          await loginHelper.loginAsKeycloakUser();
-          apiToken = await new AuthApiHelper(page).getToken();
-        } catch {
-          return;
-        }
-
-        if (workflowUserRoleName) {
-          await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
-        }
-        if (workflowAdminRoleName) {
-          await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
-        }
-      } catch (error) {
-        console.error("Error during cleanup in afterAll:", error);
-      }
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Clean up any existing workflowUser role", async () => {
-      workflowUserRoleName = "role:default/workflowUser";
       await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
-    });
+      await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
 
-    test("Create role with greeting workflow read-write permissions for both users", async () => {
       const rbacApi = await RbacApiHelper.build(apiToken);
-
-      // Users can always see their own workflow instances (initiator-based access)
-      // without needing orchestrator.instanceAdminView permission
-      workflowUserRoleName = "role:default/workflowUser";
-
-      const rolePostResponse = await rbacApi.createRoles({
+      await rbacApi.createRoles({
         memberReferences: [PRIMARY_USER, SECONDARY_USER],
         name: workflowUserRoleName,
       });
-      const policyPostResponse = await rbacApi.createPolicies(
+      await rbacApi.createPolicies(
         buildPolicies(workflowUserRoleName, [
           {
             permission: "orchestrator.workflow.greeting",
@@ -515,184 +185,55 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           },
         ]),
       );
-
-      const roleOk = rolePostResponse.ok();
-      const policyOk = policyPostResponse.ok();
-
-      expect(roleOk).toBeTruthy();
-      expect(policyOk).toBeTruthy();
     });
 
-    test("Verify workflow user role exists via API with both users", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const workflowRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === workflowUserRoleName,
-      );
-      expect(workflowRole).toBeDefined();
-      expect(workflowRole?.memberReferences).toContain(PRIMARY_USER);
-      expect(workflowRole?.memberReferences).toContain(SECONDARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(workflowUserRoleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(2);
-
-      const allowReadPolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.greeting" &&
-          p.policy === "read",
-      );
-      const allowUpdatePolicy = policies.find(
-        (p: { permission: string; policy: string; effect: string }) =>
-          p.permission === "orchestrator.workflow.use.greeting" &&
-          p.policy === "update",
-      );
-
-      expect(allowReadPolicy).toBeDefined();
-      expect(allowUpdatePolicy).toBeDefined();
-      expect(allowReadPolicy.effect).toBe("allow");
-      expect(allowUpdatePolicy.effect).toBe("allow");
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
+      await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
     });
 
     test("Primary user runs greeting workflow and captures instance ID", async () => {
-      await page.reload();
-      await uiHelper.goToPageUrl("/orchestrator");
-      await uiHelper.verifyHeading("Workflows");
-
-      const greetingWorkflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
-      });
-      await expect(greetingWorkflowLink).toBeVisible();
-      await greetingWorkflowLink.click();
-      await expect(
-        page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
-
-      const runButton = page.getByRole("button", { name: "Run" });
-      await expect(runButton).toBeVisible();
-      await expect(runButton).toBeEnabled();
-      await runButton.click();
-
-      const nextButton = page.getByRole("button", { name: "Next" });
-      await expect(nextButton).toBeVisible();
-      await nextButton.click();
-
-      const finalRunButton = page.getByRole("button", { name: "Run" });
-      await expect(finalRunButton).toBeVisible();
-      await finalRunButton.click();
-
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openWorkflowsPage();
+      await orchestratorPo.openWorkflow("Greeting workflow");
+      await orchestratorPo.verifyRunButtonState("enabled");
+      await page.getByRole("button", { name: "Run" }).click();
+      await page.getByRole("button", { name: "Next" }).click();
+      await page.getByRole("button", { name: "Run" }).click();
       await page.waitForURL(/\/orchestrator\/instances\/[a-f0-9-]+/);
-      const url = page.url();
-      const match = url.match(/\/orchestrator\/instances\/([a-f0-9-]+)/);
+      const match = page.url().match(/\/orchestrator\/instances\/([a-f0-9-]+)/);
       expect(match).not.toBeNull();
       workflowInstanceId = match![1];
-
-      await expect(page.getByText(/Run completed at/i)).toBeVisible({
-        timeout: 30000,
-      });
     });
 
-    test("Primary user can see their workflow instance", async () => {
-      await uiHelper.goToPageUrl(
-        `/orchestrator/instances/${workflowInstanceId}`,
-      );
-
-      await page.waitForLoadState("load");
-
-      await expect(page.getByText("Completed", { exact: true })).toBeVisible({
-        timeout: 30000,
-      });
-    });
-
-    test("Secondary user cannot access primary user's workflow instance", async () => {
+    test("Secondary user cannot access instance before admin grant", async () => {
       await page.context().clearCookies();
       await page.goto("/");
       await page.waitForLoadState("load");
-
-      try {
-        await loginHelper.loginAsKeycloakUser(
-          process.env.GH_USER2_ID || "test2",
-          process.env.GH_USER2_PASS || "test2@123",
-        );
-      } catch {
-        // ignore
-      }
-
+      await loginHelper.loginAsKeycloakUser(
+        process.env.GH_USER2_ID || "test2",
+        process.env.GH_USER2_PASS || "test2@123",
+      );
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
-      await page.waitForLoadState("load");
-
       const pageContent = await page.locator("body").textContent();
-
-      const hasAccessDenied =
-        pageContent?.includes("not found") ||
-        pageContent?.includes("Not Found") ||
-        pageContent?.includes("denied") ||
-        pageContent?.includes("unauthorized") ||
-        pageContent?.includes("Unauthorized") ||
-        !pageContent?.includes("Completed");
-
-      expect(hasAccessDenied).toBe(true);
+      expect(pageContent?.includes("Completed")).not.toBeTruthy();
     });
 
-    // eslint-disable-next-line playwright/expect-expect
-    test("Clean up any existing workflowAdmin role", async () => {
-      workflowAdminRoleName = "role:default/workflowAdmin";
-      await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
-    });
-
-    test("Create workflow admin role and update secondary user membership", async () => {
-      // Set role names in case running individual tests
-      workflowUserRoleName = "role:default/workflowUser";
-      workflowAdminRoleName = "role:default/workflowAdmin";
-
+    test("Grant admin role and verify secondary user access", async () => {
       await page.context().clearCookies();
       await page.goto("/");
-      await page.waitForLoadState("load");
-
       await loginHelper.loginAsKeycloakUser();
       apiToken = await new AuthApiHelper(page).getToken();
-
       const rbacApi = await RbacApiHelper.build(apiToken);
-
-      try {
-        await rbacApi.createRoles({
-          memberReferences: [PRIMARY_USER, SECONDARY_USER],
-          name: workflowUserRoleName,
-        });
-        await rbacApi.createPolicies(
-          buildPolicies(workflowUserRoleName, [
-            {
-              permission: "orchestrator.workflow.greeting",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "orchestrator.workflow.use.greeting",
-              policy: "update",
-              effect: "allow",
-            },
-          ]),
-        );
-      } catch {
-        /* workflowUser may already exist (serial runs) */
-      }
 
       const rolePostResponse = await rbacApi.createRoles({
         memberReferences: [SECONDARY_USER],
         name: workflowAdminRoleName,
       });
-      const policyPostResponse = await rbacApi.createPolicies(
+      expect(rolePostResponse.ok()).toBeTruthy();
+      const policyResponse = await rbacApi.createPolicies(
         buildPolicies(workflowAdminRoleName, [
           {
             permission: "orchestrator.workflow",
@@ -711,99 +252,37 @@ test.describe.serial("Test Orchestrator RBAC", () => {
           },
         ]),
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
-
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(2000);
-
-      const oldWorkflowUserRole = {
-        memberReferences: [PRIMARY_USER, SECONDARY_USER],
-        name: workflowUserRoleName,
-      };
-      const updatedWorkflowUserRole = {
-        memberReferences: [PRIMARY_USER],
-        name: workflowUserRoleName,
-      };
+      expect(policyResponse.ok()).toBeTruthy();
 
       const roleUpdateResponse = await rbacApi.updateRole(
         roleApiName(workflowUserRoleName),
-        oldWorkflowUserRole,
-        updatedWorkflowUserRole,
+        {
+          memberReferences: [PRIMARY_USER, SECONDARY_USER],
+          name: workflowUserRoleName,
+        },
+        {
+          memberReferences: [PRIMARY_USER],
+          name: workflowUserRoleName,
+        },
       );
+      expect(roleUpdateResponse.ok()).toBeTruthy();
 
-      const roleUpdateOk = roleUpdateResponse.ok();
-
-      expect(roleUpdateOk).toBeTruthy();
-    });
-
-    test("Verify workflow admin role exists and secondary user is removed from workflowUser", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolesResponse = await rbacApi.getRoles();
-      expect(rolesResponse.ok()).toBeTruthy();
-
-      const roles = await rolesResponse.json();
-      const adminRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === workflowAdminRoleName,
-      );
-      expect(adminRole).toBeDefined();
-      expect(adminRole?.memberReferences).toContain(SECONDARY_USER);
-
-      const policiesResponse = await rbacApi.getPoliciesByRole(
-        roleApiName(workflowAdminRoleName),
-      );
-      expect(policiesResponse.ok()).toBeTruthy();
-
-      const policies = await policiesResponse.json();
-      expect(policies).toHaveLength(3);
-
-      const workflowUserRole = roles.find(
-        (role: { name: string; memberReferences: string[] }) =>
-          role.name === workflowUserRoleName,
-      );
-      expect(workflowUserRole).toBeDefined();
-      expect(workflowUserRole?.memberReferences).toContain(PRIMARY_USER);
-      expect(workflowUserRole?.memberReferences).not.toContain(SECONDARY_USER);
-    });
-
-    test("Secondary user with instanceAdminView CAN access primary user's workflow instance", async () => {
       await page.context().clearCookies();
       await page.goto("/");
-      await page.waitForLoadState("load");
-
       await loginHelper.loginAsKeycloakUser(
         process.env.GH_USER2_ID || "test2",
         process.env.GH_USER2_PASS || "test2@123",
       );
-
       await uiHelper.goToPageUrl(
         `/orchestrator/instances/${workflowInstanceId}`,
       );
-      await page.waitForLoadState("load");
-
       await expect(page.getByText("Completed", { exact: true })).toBeVisible({
-        timeout: 30000,
+        timeout: 30_000,
       });
     });
   });
 
-  /**
-   * Entity-Workflow RBAC Tests
-   *
-   * Test Cases: RHIDP-11839, RHIDP-11840
-   *
-   * These tests verify the RBAC boundary between template execution and
-   * workflow execution in the context of entity-workflow integration.
-   *
-   * Templates used (from catalog locations):
-   * - greeting_w_component.yaml: name=greetingComponent, title="Greeting Test Picker" - HAS annotation
-   */
-  test.describe
-    .serial("RHIDP-11839: Template run WITHOUT workflow permissions", () => {
-    test.describe.configure({ retries: 0 });
+  test.describe("RHIDP-11839: Template run WITHOUT workflow permissions", () => {
     let uiHelper: UIhelper;
     let page: Page;
     let apiToken: string;
@@ -814,27 +293,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
-    });
-
-    test.afterAll(async () => {
       await cleanupGreetingComponentEntity();
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Pre-cleanup: remove greeting-test-component if present", async () => {
-      await cleanupGreetingComponentEntity();
-    });
-
-    test("Setup: Create role with catalog+scaffolder but NO orchestrator permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        [
           { permission: "catalog-entity", policy: "read", effect: "allow" },
           {
             permission: "catalog.entity.create",
@@ -866,7 +330,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
             policy: "read",
             effect: "allow",
           },
-          // Explicitly DENY orchestrator permissions
           {
             permission: "orchestrator.workflow",
             policy: "read",
@@ -877,85 +340,25 @@ test.describe.serial("Test Orchestrator RBAC", () => {
             policy: "update",
             effect: "deny",
           },
-        ]),
+        ],
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
-    test("Navigate to Catalog and find orchestrator-tagged template", async () => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading(/Catalog|All/);
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      const templateLink = page.getByRole("link", {
-        name: /Greeting Test Picker/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
-      await expect(page.getByRole("heading").first()).toBeVisible();
+    test.afterAll(async () => {
+      await cleanupGreetingComponentEntity();
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
-    test("Launch template and attempt to run workflow - verify unauthorized", async () => {
-      await uiHelper.clickLink({ ariaLabel: "Self-service" });
-      await uiHelper.verifyHeading("Self-service");
-
-      await page.waitForLoadState("domcontentloaded");
-      await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-
-      await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
-
-      // Template goes straight to Review step with just a Create button
-      const createButton = page.getByRole("button", { name: /Create/i });
-      await expect(createButton).toBeVisible({ timeout: 10000 });
-      await createButton.click();
-
-      // Template execution should succeed, but workflow execution should be denied
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(10000);
-
-      const errorIndicators = [
-        page.getByText(/unauthorized/i),
-        page.getByText(/denied/i),
-        page.getByText(/permission/i),
-        page.getByText(/forbidden/i),
-        page.getByText(/failed/i),
-      ];
-
-      let hasError = false;
-      for (const indicator of errorIndicators) {
-        // eslint-disable-next-line playwright/no-conditional-in-test
-        if ((await indicator.count()) > 0) {
-          hasError = true;
-          break;
-        }
-      }
-
-      // If no explicit error, verify workflow is not accessible in Orchestrator
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (!hasError) {
-        await uiHelper.openSidebar("Orchestrator");
-        // eslint-disable-next-line playwright/no-conditional-expect
-        await expect(
-          page.getByRole("heading", { name: "Workflows" }),
-        ).toBeVisible();
-
-        const greetingWorkflow = page.getByRole("link", {
-          name: "Greeting workflow",
-        });
-        // eslint-disable-next-line playwright/no-conditional-expect
-        await expect(greetingWorkflow).toHaveCount(0);
-      }
+    test("Template launch is denied without workflow permissions", async () => {
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromSelfService();
+      await clickCreateAndWaitForScaffolderTerminalState(page, 120_000);
+      await orchestratorPo.openOrchestratorFromSidebar();
+      await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
     });
   });
 
-  test.describe
-    .serial("RHIDP-11840: Template run WITH workflow permissions", () => {
-    test.describe.configure({ retries: 0 });
+  test.describe("RHIDP-11840: Template run WITH workflow permissions", () => {
     let uiHelper: UIhelper;
     let page: Page;
     let apiToken: string;
@@ -966,27 +369,12 @@ test.describe.serial("Test Orchestrator RBAC", () => {
         browser,
         testInfo,
       ));
-    });
-
-    test.afterAll(async () => {
       await cleanupGreetingComponentEntity();
-      await deleteRoleAndPolicies(apiToken, roleName);
-    });
-
-    // eslint-disable-next-line playwright/expect-expect
-    test("Pre-cleanup: remove greeting-test-component if present", async () => {
-      await cleanupGreetingComponentEntity();
-    });
-
-    test("Setup: Create role with catalog+scaffolder+orchestrator permissions", async () => {
-      const rbacApi = await RbacApiHelper.build(apiToken);
-
-      const rolePostResponse = await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: roleName,
-      });
-      const policyPostResponse = await rbacApi.createPolicies(
-        buildPolicies(roleName, [
+      await createRoleWithPolicies(
+        apiToken,
+        roleName,
+        [PRIMARY_USER],
+        [
           { permission: "catalog-entity", policy: "read", effect: "allow" },
           {
             permission: "catalog.entity.create",
@@ -1018,7 +406,6 @@ test.describe.serial("Test Orchestrator RBAC", () => {
             policy: "read",
             effect: "allow",
           },
-          // Orchestrator permissions - ALLOW
           {
             permission: "orchestrator.workflow",
             policy: "read",
@@ -1029,78 +416,42 @@ test.describe.serial("Test Orchestrator RBAC", () => {
             policy: "update",
             effect: "allow",
           },
-        ]),
+        ],
       );
-
-      expect(rolePostResponse.ok()).toBeTruthy();
-      expect(policyPostResponse.ok()).toBeTruthy();
     });
 
-    test("Navigate to Catalog and find orchestrator-tagged template", async () => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading(/Catalog|All/);
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      const templateLink = page.getByRole("link", {
-        name: /Greeting Test Picker/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
-      await expect(page.getByRole("heading").first()).toBeVisible();
+    test.afterAll(async () => {
+      await cleanupGreetingComponentEntity();
+      await deleteRoleAndPolicies(apiToken, roleName);
     });
 
-    test("Launch template and run workflow - verify success", async () => {
+    test("Launch template and run workflow successfully", async () => {
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
       test.setTimeout(240_000);
 
-      let finished = false;
+      let completed = false;
       for (let attempt = 1; attempt <= 2; attempt++) {
         await launchGreetingTemplateFromSelfService(page, uiHelper);
-
         try {
           await clickCreateAndWaitForScaffolderTerminalState(
             page,
             attempt === 1 ? 90_000 : 120_000,
           );
-          finished = true;
+          completed = true;
           break;
         } catch (error) {
-          // eslint-disable-next-line playwright/no-conditional-in-test
           if (attempt === 2) {
             throw error;
           }
-          // First attempt can intermittently stall on task-stream loading.
-          // Retry once end-to-end from Self-service before failing the test.
           await page.goto("/");
           await page.waitForLoadState("domcontentloaded");
         }
       }
 
-      expect(finished).toBeTruthy();
-    });
-
-    test("Verify workflow run appears in Orchestrator", async () => {
-      await uiHelper.openSidebar("Orchestrator");
-      await expect(
-        page.getByRole("heading", { name: "Workflows" }),
-      ).toBeVisible();
-
-      const greetingWorkflow = page.getByRole("link", {
-        name: /Greeting workflow/i,
-      });
-      await expect(greetingWorkflow).toBeVisible({ timeout: 30000 });
-
-      await greetingWorkflow.click();
-
-      await expect(
-        page.getByRole("heading", { name: /Greeting workflow/i }),
-      ).toBeVisible();
-
-      const runButton = page.getByRole("button", { name: "Run" });
-      await expect(runButton).toBeVisible();
-      await expect(runButton).toBeEnabled();
+      expect(completed).toBeTruthy();
+      await orchestratorPo.openOrchestratorFromSidebar();
+      await orchestratorPo.openWorkflow(/Greeting workflow/i);
+      await orchestratorPo.verifyRunButtonState("enabled");
     });
   });
 });

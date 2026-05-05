@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
@@ -22,6 +22,23 @@ const WORKFLOWS = ["greeting", "failswitch"];
 /** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
 const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
 const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
+
+const PR_IMAGE_CHECK_RETRIES = readPositiveIntFromEnv(
+  "ORCHESTRATOR_PR_IMAGE_CHECK_RETRIES",
+  20,
+);
+const PR_IMAGE_CHECK_DELAY_MS = readPositiveIntFromEnv(
+  "ORCHESTRATOR_PR_IMAGE_CHECK_DELAY_MS",
+  15_000,
+);
+const PR_IMAGE_REGISTRY_REPO =
+  process.env.ORCHESTRATOR_PR_IMAGE_REGISTRY_REPO ||
+  "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+
+type PluginMetadataEntry = {
+  packageName: string;
+  version: string;
+};
 
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
@@ -100,6 +117,56 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   }
 
   await deployTokenPropagationWorkflow(namespace, postgresAlignTimeoutMs);
+}
+
+export async function ensurePublishedOrchestratorPrImagesAvailable(): Promise<void> {
+  const prNumber = process.env.GIT_PR_NUMBER?.trim();
+  if (!prNumber) {
+    return;
+  }
+
+  const metadataDir = resolveOrchestratorMetadataDir();
+  const metadataEntries = readPluginMetadataEntries(metadataDir);
+  if (metadataEntries.length === 0) {
+    console.warn(
+      `[orchestrator-e2e] No metadata entries found in ${metadataDir}; skipping PR image availability preflight.`,
+    );
+    return;
+  }
+
+  const imageRefs = metadataEntries.map((entry) => {
+    const imageName = toImageName(entry.packageName);
+    return `${PR_IMAGE_REGISTRY_REPO}/${imageName}:pr_${prNumber}__${entry.version}`;
+  });
+
+  const missingByAttempt: string[] = [];
+  for (let attempt = 1; attempt <= PR_IMAGE_CHECK_RETRIES; attempt++) {
+    const missing = imageRefs.filter(
+      (imageRef) => !isImageRefAvailable(imageRef),
+    );
+    if (missing.length === 0) {
+      if (attempt > 1) {
+        console.warn(
+          `[orchestrator-e2e] PR image preflight succeeded on retry ${attempt}/${PR_IMAGE_CHECK_RETRIES}.`,
+        );
+      }
+      return;
+    }
+
+    missingByAttempt.length = 0;
+    missingByAttempt.push(...missing);
+
+    if (attempt < PR_IMAGE_CHECK_RETRIES) {
+      console.warn(
+        `[orchestrator-e2e] PR image preflight attempt ${attempt}/${PR_IMAGE_CHECK_RETRIES} missing ${missing.length} image(s); retrying in ${PR_IMAGE_CHECK_DELAY_MS}ms.\n${missing.join("\n")}`,
+      );
+      await sleep(PR_IMAGE_CHECK_DELAY_MS);
+    }
+  }
+
+  throw new Error(
+    `[orchestrator-e2e] PR image preflight failed after ${PR_IMAGE_CHECK_RETRIES} attempts. Missing published image manifests:\n${missingByAttempt.join("\n")}\nEnsure publish completed for current metadata versions before running orchestrator e2e.`,
+  );
 }
 
 function patchWorkflowPostgres(namespace: string, workflow: string): string {
@@ -560,9 +627,82 @@ export function logOrchestratorDeployFailureDiagnostics(
       ),
       "(no container logs on stdout)",
     );
+
+    banner(
+      `redhat-developer-hub init logs (${hubPod}) container=install-dynamic-plugins --previous`,
+    );
+    dumpOc(
+      safeOc(
+        [
+          "logs",
+          "-n",
+          namespace,
+          hubPod,
+          "-c",
+          "install-dynamic-plugins",
+          "--previous",
+          "--tail=400",
+        ],
+        120_000,
+      ),
+      "(no previous init-container logs on stdout)",
+    );
+
+    banner(
+      `redhat-developer-hub init logs (${hubPod}) container=install-dynamic-plugins`,
+    );
+    dumpOc(
+      safeOc(
+        [
+          "logs",
+          "-n",
+          namespace,
+          hubPod,
+          "-c",
+          "install-dynamic-plugins",
+          "--tail=400",
+        ],
+        120_000,
+      ),
+      "(no current init-container logs on stdout)",
+    );
   } else {
     banner("redhat-developer-hub pod not found via label selector");
   }
+
+  banner("dynamic plugin config map");
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "configmap",
+        "redhat-developer-hub-dynamic-plugins",
+        "-n",
+        namespace,
+        "-o",
+        "yaml",
+      ],
+      60_000,
+    ),
+    "(dynamic plugin config map not available)",
+  );
+
+  banner("dynamic plugin registry auth secret");
+  dumpOc(
+    safeOc(
+      [
+        "get",
+        "secret",
+        "redhat-developer-hub-dynamic-plugins-registry-auth",
+        "-n",
+        namespace,
+        "-o",
+        "yaml",
+      ],
+      60_000,
+    ),
+    "(dynamic plugin registry auth secret not available)",
+  );
 
   banner("recent namespace events (last 40 lines)");
   const events = safeOc(
@@ -596,6 +736,86 @@ function detectOperatorVersion(...labels: string[]): string {
     }
   }
   return "";
+}
+
+function resolveOrchestratorMetadataDir(): string {
+  const cwd = process.cwd();
+  const candidates = [
+    join(cwd, "../metadata"),
+    join(cwd, "workspaces/orchestrator/metadata"),
+    join(cwd, "../../metadata"),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `[orchestrator-e2e] Cannot locate orchestrator metadata directory from cwd=${cwd}. Tried:\n${candidates.join("\n")}`,
+  );
+}
+
+function readPluginMetadataEntries(metadataDir: string): PluginMetadataEntry[] {
+  const files = readdirSync(metadataDir).filter((file) =>
+    file.endsWith(".yaml"),
+  );
+  const entries: PluginMetadataEntry[] = [];
+
+  for (const file of files) {
+    const metadataFile = join(metadataDir, file);
+    const content = readFileSync(metadataFile, "utf-8");
+    const packageMatch = content.match(
+      /^\s*packageName:\s*["']?([^"'\n]+)["']?\s*$/m,
+    );
+    const versionMatch = content.match(
+      /^\s*version:\s*["']?([^"'\n]+)["']?\s*$/m,
+    );
+
+    if (!packageMatch?.[1] || !versionMatch?.[1]) {
+      throw new Error(
+        `[orchestrator-e2e] Invalid metadata in ${metadataFile}: expected both spec.packageName and spec.version.`,
+      );
+    }
+
+    entries.push({
+      packageName: packageMatch[1].trim(),
+      version: versionMatch[1].trim(),
+    });
+  }
+
+  return entries;
+}
+
+function toImageName(packageName: string): string {
+  return packageName.replace(/^@/, "").replace("/", "-");
+}
+
+function isImageRefAvailable(imageRef: string): boolean {
+  try {
+    // `oc image info` expects a plain OCI reference, not a transport-prefixed one.
+    runOc(["image", "info", imageRef], 60_000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPositiveIntFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    console.warn(
+      `[orchestrator-e2e] Invalid ${name}=${raw}; using default ${fallback}.`,
+    );
+    return fallback;
+  }
+  return parsed;
 }
 
 function sleep(ms: number): Promise<void> {

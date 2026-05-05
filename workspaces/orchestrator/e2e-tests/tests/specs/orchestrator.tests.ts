@@ -2,9 +2,11 @@ import { execFileSync } from "node:child_process";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   ensureBaselineRole,
   deploySonataflow,
+  ensurePublishedOrchestratorPrImagesAvailable,
   cleanupGreetingComponentEntity,
   runOc,
   clickCreateAndWaitForScaffolderTerminalState,
@@ -124,6 +126,7 @@ test.describe("Orchestrator", () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
+      await ensurePublishedOrchestratorPrImagesAvailable();
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
       try {
@@ -601,20 +604,8 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading("My Org Catalog");
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      // "Greeting Test Picker" (greeting_w_component.yaml) HAS the
-      // orchestrator.io/workflows annotation: '["greeting"]'
-      const templateLink = page.getByRole("link", {
-        name: /Greeting Test Picker/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
       await orchestrator.clickWorkflowsTab();
       await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
@@ -657,26 +648,12 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading("My Org Catalog");
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      const templateLink = page.getByRole("link", {
-        name: /Greeting Test Picker/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
       await orchestrator.clickWorkflowsTab();
 
-      const workflowLink = page.getByRole("link", {
-        name: "Greeting workflow",
-      });
-      await expect(workflowLink).toBeVisible({ timeout: 10000 });
-      await workflowLink.click();
+      await orchestratorPo.openWorkflow("Greeting workflow");
 
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
@@ -752,18 +729,8 @@ test.describe("Orchestrator", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading("My Org Catalog");
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      const templateLink = page.getByRole("link", {
-        name: /Greeting Test Picker/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
       await orchestrator.verifyWorkflowsTabVisible();
 
