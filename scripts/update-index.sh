@@ -6,31 +6,21 @@
 #
 # Usage examples:
 #
-#   # Community index (filtered by support level, no DPDY)
-#   scripts/update-index.sh \
-#     --overlays-dir . \
-#     --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
-#     --output-dir catalog-index/community \
-#     --plugin-builds-dir plugin_builds/community \
-#     --support-filter community
-#
-#   # Supported index (filtered by support level, with DPDY)
+#   # Productized index (default.packages.yaml is source of truth for core plugins)
 #   scripts/update-index.sh \
 #     --overlays-dir . \
 #     --registry quay.io/rhdh-community \
 #     --output-dir catalog-index/supported \
 #     --plugin-builds-dir plugin_builds/supported \
-#     --support-filter generally-available tech-preview \
 #     --packages-file catalog-index/default.packages.yaml
 #
-#   # Community index (legacy: filtered by package list files)
+#   # Community index (exclude core packages)
 #   scripts/update-index.sh \
 #     --overlays-dir . \
 #     --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
 #     --output-dir catalog-index/community \
 #     --plugin-builds-dir plugin_builds/community \
-#     --packages-filter rhdh-community-packages.txt \
-#     --packages-file catalog-index/default.packages.yaml
+#     --exclude-packages-file catalog-index/default.packages.yaml
 #
 #   # Midstream (quay.io/rhdh → registry.access.redhat.com)
 #   scripts/update-index.sh \
@@ -51,11 +41,12 @@ blue="\033[1;34m"
 
 OVERLAYS_DIR=""
 REGISTRY=""
+RHDH_VERSION=""
+COMMUNITY_REGISTRY="ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 OUTPUT_DIR=""
 PLUGIN_BUILDS_DIR=""
 PACKAGES_FILE=""
-PACKAGES_FILTER=()
-SUPPORT_FILTER=()
+EXCLUDE_PACKAGES_FILE=""
 DEBUG_FLAG=""
 DEBUG=0
 
@@ -65,65 +56,67 @@ Orchestrator script to generate plugin_builds/ and catalog-index/.
 
 Usage:
     update-index.sh \
-        --overlays-dir PATH \
-        --registry BASE \
-        --output-dir PATH \
-        --plugin-builds-dir PATH \
-        [--packages-file PATH] \
-        [--packages-filter FILE [FILE ...]] \
-        [--support-filter LEVEL [LEVEL ...]] \
+        -d|--overlays-dir PATH \
+        -r|--registry BASE \
+        -o|--output-dir PATH \
+        -b|--plugin-builds-dir PATH \
+        [-v|--rhdh-version VERSION] \
+        [-p|--packages-file PATH] \
+        [-e|--exclude-packages-file PATH] \
+        [-cr|--community-registry BASE] \
         [--debug] \
-        [-h | --help]
+        [-h|--help]
 
 Arguments:
-  --overlays-dir       Path to overlays repo root (contains workspaces/)
-  --registry           Registry base (e.g., ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
-  --output-dir         Output directory for catalog-index
-  --plugin-builds-dir  Directory for plugin_builds/ JSON files
-  --packages-file      Path to default.packages.yaml (optional; skips DPDY generation if omitted)
-  --packages-filter    One or more package list files to filter by (mutually exclusive with --support-filter)
-  --support-filter     One or more support levels to filter by (e.g., community, generally-available)
-                       Mutually exclusive with --packages-filter.
-  --debug              Enable debug output
+  -d,  --overlays-dir          Path to overlays repo root (contains workspaces/)
+  -r,  --registry              Registry base (e.g., ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
+  -v,  --rhdh-version          RHDH version for non-ghcr.io tag convention (e.g., 1.5).
+                               Required when registry is not ghcr.io.
+  -cr, --community-registry    Registry base for community-tier plugins
+                               (default: ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
+  -o,  --output-dir            Output directory for catalog-index
+  -b,  --plugin-builds-dir     Directory for plugin_builds/ JSON files
+  -p,  --packages-file         Path to default.packages.yaml — include only core packages (skips DPDY if omitted)
+  -e,  --exclude-packages-file Path to default.packages.yaml — exclude core packages (for community index)
+       --debug                 Enable debug output
+  -h,  --help                  Show this help
 USAGE
     exit 1
 }
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-    '--overlays-dir')
+    '-d' | '--overlays-dir')
         OVERLAYS_DIR="$2"
         shift 2
         ;;
-    '--registry')
+    '-r' | '--registry')
         REGISTRY="$2"
         shift 2
         ;;
-    '--output-dir')
+    '-v' | '--rhdh-version')
+        RHDH_VERSION="$2"
+        shift 2
+        ;;
+    '-o' | '--output-dir')
         OUTPUT_DIR="$2"
         shift 2
         ;;
-    '--plugin-builds-dir')
+    '-b' | '--plugin-builds-dir')
         PLUGIN_BUILDS_DIR="$2"
         shift 2
         ;;
-    '--packages-file')
+    '-p' | '--packages-file')
         PACKAGES_FILE="$2"
         shift 2
         ;;
-    '--packages-filter')
-        shift 1
-        while [[ "$#" -gt 0 ]] && [[ "$1" != --* ]]; do
-            PACKAGES_FILTER+=("$1")
-            shift 1
-        done
+    '-cr' | '--community-registry')
+        COMMUNITY_REGISTRY="$2"
+        shift 2
         ;;
-    '--support-filter')
-        shift 1
-        while [[ "$#" -gt 0 ]] && [[ "$1" != --* ]]; do
-            SUPPORT_FILTER+=("$1")
-            shift 1
-        done
+    '-e' | '--exclude-packages-file')
+        EXCLUDE_PACKAGES_FILE="$2"
+        shift 2
         ;;
     '--debug')
         DEBUG=1
@@ -147,32 +140,16 @@ if [[ -z "$OVERLAYS_DIR" ]] || [[ -z "$REGISTRY" ]] || [[ -z "$OUTPUT_DIR" ]] ||
     usage
 fi
 
-# Validate mutual exclusivity
-if [[ ${#PACKAGES_FILTER[@]} -gt 0 ]] && [[ ${#SUPPORT_FILTER[@]} -gt 0 ]]; then
-    echo -e "${red}[ERROR] --packages-filter and --support-filter are mutually exclusive${norm}"
-    exit 1
-fi
-
-# Build filter args
-FILTER_ARGS=""
-if [[ ${#PACKAGES_FILTER[@]} -gt 0 ]]; then
-    FILTER_ARGS="--packages-filter ${PACKAGES_FILTER[*]}"
-fi
-
-SUPPORT_FILTER_ARGS=""
-if [[ ${#SUPPORT_FILTER[@]} -gt 0 ]]; then
-    SUPPORT_FILTER_ARGS="--support-filter ${SUPPORT_FILTER[*]}"
-fi
-
 if [[ $DEBUG -eq 1 ]]; then
     echo "#################################"
-    echo "OVERLAYS_DIR     = $OVERLAYS_DIR"
-    echo "REGISTRY         = $REGISTRY"
-    echo "OUTPUT_DIR       = $OUTPUT_DIR"
-    echo "PLUGIN_BUILDS_DIR = $PLUGIN_BUILDS_DIR"
-    echo "PACKAGES_FILE    = $PACKAGES_FILE"
-    echo "PACKAGES_FILTER  = ${PACKAGES_FILTER[*]:-<none>}"
-    echo "SUPPORT_FILTER   = ${SUPPORT_FILTER[*]:-<none>}"
+    echo "OVERLAYS_DIR       = $OVERLAYS_DIR"
+    echo "REGISTRY           = $REGISTRY"
+    echo "RHDH_VERSION       = $RHDH_VERSION"
+    echo "COMMUNITY_REGISTRY = $COMMUNITY_REGISTRY"
+    echo "OUTPUT_DIR         = $OUTPUT_DIR"
+    echo "PLUGIN_BUILDS_DIR  = $PLUGIN_BUILDS_DIR"
+    echo "PACKAGES_FILE      = $PACKAGES_FILE"
+    echo "EXCLUDE_PKGS_FILE  = $EXCLUDE_PACKAGES_FILE"
     echo "#################################"
 fi
 
@@ -180,13 +157,28 @@ fi
 # Step 1: Bootstrap plugin_builds/ from metadata
 ##############################################
 echo -e "\n${green}=== Step 1: Bootstrap plugin_builds/ from metadata ===${norm}"
+BOOTSTRAP_FILTER_ARGS=""
+COMMUNITY_REGISTRY_ARG=""
+if [[ -n "$PACKAGES_FILE" ]]; then
+    BOOTSTRAP_FILTER_ARGS="--core-packages-file $PACKAGES_FILE"
+    if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
+        COMMUNITY_REGISTRY_ARG="--community-registry $COMMUNITY_REGISTRY"
+    fi
+elif [[ -n "$EXCLUDE_PACKAGES_FILE" ]]; then
+    BOOTSTRAP_FILTER_ARGS="--exclude-packages-file $EXCLUDE_PACKAGES_FILE"
+fi
+RHDH_VERSION_ARG=""
+if [[ -n "$RHDH_VERSION" ]]; then
+    RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
+fi
 # shellcheck disable=SC2086
 python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
-    $FILTER_ARGS \
-    $SUPPORT_FILTER_ARGS \
+    $RHDH_VERSION_ARG \
+    $BOOTSTRAP_FILTER_ARGS \
+    $COMMUNITY_REGISTRY_ARG \
     $DEBUG_FLAG
 if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] bootstrapPluginBuilds.py failed!${norm}"; exit 1; fi
 
@@ -223,12 +215,22 @@ fi
 # Step 4: Generate catalog index
 ##############################################
 echo -e "\n${green}=== Step 4: Generate catalog index ===${norm}"
+PACKAGES_FILE_ARG=""
+if [[ -n "$PACKAGES_FILE" ]]; then
+    PACKAGES_FILE_ARG="--packages-file $PACKAGES_FILE"
+fi
+EXCLUDE_PACKAGES_FILE_ARG=""
+if [[ -n "$EXCLUDE_PACKAGES_FILE" ]]; then
+    EXCLUDE_PACKAGES_FILE_ARG="--exclude-packages-file $EXCLUDE_PACKAGES_FILE"
+fi
 # shellcheck disable=SC2086
 python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
+    $PACKAGES_FILE_ARG \
+    $EXCLUDE_PACKAGES_FILE_ARG \
     $DEBUG_FLAG
 if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}"; exit 1; fi
 

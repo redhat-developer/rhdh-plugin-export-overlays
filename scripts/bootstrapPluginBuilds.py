@@ -47,40 +47,25 @@ def log_error(message: str) -> None:
     print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
 
 
-def load_packages_filter(filter_files: list[str]) -> set[str] | None:
-    """Load plugin paths from one or more package list files.
-    Returns None if no filter files are specified (include all)."""
-    if not filter_files:
-        return None
+def load_core_packages_from_yaml(packages_file: str) -> set[str]:
+    """Load core package names from default.packages.yaml.
+    Returns set of npm package names from both enabled and disabled sections."""
+    path = Path(packages_file)
+    if not path.exists():
+        log_error(f"Core packages file not found: {packages_file}")
+        sys.exit(1)
 
-    plugins = set()
-    for file_path in filter_files:
-        path = Path(file_path)
-        if not path.exists():
-            log_warn(f"Filter file not found: {file_path}")
-            continue
-        with open(path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    continue
-                plugins.add(line)
+    with open(path, 'r') as f:
+        data = yaml.safe_load(f)
 
-    return plugins
+    packages = set()
+    for section in ['enabled', 'disabled']:
+        for entry in data.get('packages', {}).get(section, []) or []:
+            pkg = entry.get('package', '').strip()
+            if pkg:
+                packages.add(pkg)
 
-
-def check_plugin_in_filter(workspace_path: str, filter_set: set[str]) -> bool:
-    """Check if a workspace path matches any entry in the filter set."""
-    for entry in filter_set:
-        if entry in workspace_path or workspace_path in entry:
-            return True
-        if '/' in entry and '/' in workspace_path:
-            entry_parts = entry.split('/')
-            path_parts = workspace_path.split('/')
-            if len(entry_parts) >= 2 and len(path_parts) >= 2:
-                if entry_parts[0] == path_parts[0] and entry_parts[-1] in path_parts[-1]:
-                    return True
-    return False
+    return packages
 
 
 def read_plugins_list(workspace_dir: Path) -> list[str]:
@@ -184,8 +169,9 @@ Usage: python3 bootstrapPluginBuilds.py [--debug] \\
     -b|--plugin-builds-dir /path/to/plugin_builds \\
     -r|--registry image-registry \\
     [-v|--rhdh-version VERSION] \\
-    [-s|--support-filter LEVEL [LEVEL ...]] \\
-    [-f|--packages-filter FILE [FILE ...]]
+    [-cr|--community-registry BASE] \\
+    [-c|--core-packages-file FILE] \\
+    [-e|--exclude-packages-file FILE]
 
 Examples:
     # All plugins on ghcr.io (no --rhdh-version needed)
@@ -194,20 +180,13 @@ Examples:
         -b plugin_builds/all \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 
-    # Supported + tech-preview plugins on quay.io/rhdh (--rhdh-version required)
+    # Core plugins from default.packages.yaml
     python3 bootstrapPluginBuilds.py \\
         -d . \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh \\
         -v 1.5 \\
-        -s generally-available tech-preview
-
-    # Filter by package list files
-    python3 bootstrapPluginBuilds.py \\
-        -d . \\
-        -b plugin_builds/custom \\
-        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
-        -f rhdh-supported-packages.txt rhdh-techpreview-packages.txt
+        -c catalog-index/default.packages.yaml
 """
 
     global DEBUG
@@ -221,6 +200,7 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=usage
     )
+    parser.error = lambda msg: (print(f"\n{Colors.RED}[ERROR] {msg}{Colors.NORM}\n{usage}", file=sys.stderr), sys.exit(2))
     parser.add_argument(
         '-d', '--overlays-dir',
         type=str,
@@ -249,20 +229,29 @@ Examples:
         help='RHDH version for non-ghcr.io tag convention (e.g., 1.5). Required when registry is not ghcr.io.',
     )
     parser.add_argument(
-        '-f', '--packages-filter',
+        '-c', '--core-packages-file',
         type=str,
-        nargs='+',
         metavar='FILE',
-        help='Only process plugins listed in these package list files (mutually exclusive with --support-filter)',
+        help='Path to default.packages.yaml. Filter to only include packages whose '
+             'spec.packageName appears in this file (enabled + disabled sections). '
+             'Mutually exclusive with --exclude-packages-file.',
     )
     parser.add_argument(
-        '-s', '--support-filter',
+        '-cr', '--community-registry',
         type=str,
-        nargs='+',
-        metavar='LEVEL',
-        help='Only process plugins whose spec.support matches one of these values '
-             '(e.g., community, generally-available, tech-preview, dev-preview). '
-             'Mutually exclusive with --packages-filter.',
+        metavar='BASE',
+        default='ghcr.io/redhat-developer/rhdh-plugin-export-overlays',
+        help='Registry base for community-tier plugins '
+             '(default: ghcr.io/redhat-developer/rhdh-plugin-export-overlays). '
+             'Community plugins use this registry instead of --registry.',
+    )
+    parser.add_argument(
+        '-e', '--exclude-packages-file',
+        type=str,
+        metavar='FILE',
+        help='Path to default.packages.yaml. Exclude packages whose '
+             'spec.packageName appears in this file (enabled + disabled sections). '
+             'Mutually exclusive with --core-packages-file.',
     )
     parser.add_argument(
         '--debug',
@@ -273,18 +262,22 @@ Examples:
     args = parser.parse_args()
     DEBUG = args.debug
 
-    if args.packages_filter and args.support_filter:
-        log_error("--packages-filter and --support-filter are mutually exclusive. Use one or the other.")
+    if args.core_packages_file and args.exclude_packages_file:
+        log_error("--core-packages-file and --exclude-packages-file are mutually exclusive.")
         sys.exit(1)
 
     overlays_dir = Path(args.overlays_dir)
     plugin_builds_dir = Path(args.plugin_builds_dir)
     registry_base = args.registry.rstrip('/')
+    community_registry = args.community_registry.rstrip('/')
     rhdh_version = args.rhdh_version or ""
 
     if 'ghcr.io' not in registry_base and not rhdh_version:
         log_error("--rhdh-version is required when registry is not ghcr.io")
         sys.exit(1)
+
+    if community_registry != registry_base:
+        log_info(f"Community plugins will use registry: {community_registry}")
 
     if not overlays_dir.exists():
         log_error(f"Overlays directory not found: {overlays_dir}")
@@ -305,15 +298,17 @@ Examples:
     if not backstage_version:
         log_warn("Could not read backstage version from versions.json")
 
-    # Load packages filter
-    filter_set = load_packages_filter(args.packages_filter or [])
-    if filter_set is not None:
-        log_info(f"Filtering to {len(filter_set)} entries from package list files")
+    # Load core packages filter (from default.packages.yaml)
+    core_packages_set = None
+    if args.core_packages_file:
+        core_packages_set = load_core_packages_from_yaml(args.core_packages_file)
+        log_info(f"Filtering to {len(core_packages_set)} core packages from {args.core_packages_file}")
 
-    # Load support-level filter
-    support_filter = set(args.support_filter) if args.support_filter else None
-    if support_filter is not None:
-        log_info(f"Filtering to support levels: {', '.join(sorted(support_filter))}")
+    # Load exclude packages filter (inverse of core)
+    exclude_packages_set = None
+    if args.exclude_packages_file:
+        exclude_packages_set = load_core_packages_from_yaml(args.exclude_packages_file)
+        log_info(f"Excluding {len(exclude_packages_set)} packages from {args.exclude_packages_file}")
 
     print(f"\n{Colors.GREEN}=== Bootstrap plugin_builds from workspace metadata ==={Colors.NORM}\n")
 
@@ -361,22 +356,26 @@ Examples:
                     workspace_path = f"{workspace_name}/{stem}"
                     log_debug(f"No plugins-list match for {stem}, using fallback: {workspace_path}")
 
-                # Check packages filter
-                if filter_set is not None:
-                    if not check_plugin_in_filter(workspace_path, filter_set):
+                # Check core packages filter (by npm package name)
+                if core_packages_set is not None:
+                    if package_name not in core_packages_set:
                         skipped_count += 1
                         continue
 
-                # Check support-level filter
-                if support_filter is not None:
-                    if support_level not in support_filter:
+                # Check exclude packages filter (inverse of core)
+                if exclude_packages_set is not None:
+                    if package_name in exclude_packages_set:
                         skipped_count += 1
                         continue
 
                 # Construct registryReference
+                # Use community registry for community-tier plugins
                 image_name = package_name_to_image_name(package_name) if package_name else stem
+                effective_registry = registry_base
+                if support_level == 'community' and community_registry != registry_base:
+                    effective_registry = community_registry
                 registry_reference = construct_registry_reference(
-                    registry_base, image_name, version, backstage_version, rhdh_version, dynamic_artifact,
+                    effective_registry, image_name, version, backstage_version, rhdh_version, dynamic_artifact,
                 )
 
                 if not registry_reference:
