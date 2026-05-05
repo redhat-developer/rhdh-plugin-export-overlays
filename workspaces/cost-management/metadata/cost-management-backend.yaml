@@ -21,8 +21,8 @@ metadata:
     - openshift
 spec:
   packageName: "@red-hat-developer-hub/plugin-cost-management-backend"
-  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.1.0!red-hat-developer-hub-plugin-cost-management-backend
-  version: 2.1.0
+  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.0!red-hat-developer-hub-plugin-cost-management-backend
+  version: 2.2.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.49.4
@@ -34,12 +34,7 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        proxy:
-          endpoints:
-            '/cost-management/v1':
-              target: https://console.redhat.com/api/cost-management/v1
-              allowedHeaders: [ 'Authorization' ]
-              credentials: dangerously-allow-unauthenticated
         costManagement:
           clientId: ${CM_CLIENT_ID}
           clientSecret: ${CM_CLIENT_SECRET}
+          optimizationWorkflowId: 'patch-k8s-resource'
