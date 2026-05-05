@@ -49,12 +49,22 @@ jobs:
             fi
             WORKSPACES=("$INPUT_WORKSPACE")
           elif [[ "$EVENT_NAME" == "push" ]]; then
-            # Detect all source.json changes across the entire push (handles multi-commit merges)
-            CHANGED=$(git diff --name-only "${PUSH_BEFORE}..HEAD" -- 'workspaces/*/source.json' 2>/dev/null || true)
-            for file in $CHANGED; do
-              WS=$(echo "$file" | cut -d'/' -f2)
-              WORKSPACES+=("$WS")
-            done
+            # On first push (new branch or initial commit), PUSH_BEFORE is the zero SHA.
+            # git diff with zero SHA fails, so fall back to instrumenting all workspaces.
+            if [[ "$PUSH_BEFORE" == "0000000000000000000000000000000000000000" ]]; then
+              echo "Initial push detected (zero SHA), instrumenting all workspaces with e2e-tests"
+              for dir in workspaces/*/e2e-tests; do
+                WS=$(echo "$dir" | cut -d'/' -f2)
+                WORKSPACES+=("$WS")
+              done
+            else
+              # Detect all source.json changes across the entire push (handles multi-commit merges)
+              CHANGED=$(git diff --name-only "${PUSH_BEFORE}..HEAD" -- 'workspaces/*/source.json' 2>/dev/null || true)
+              for file in $CHANGED; do
+                WS=$(echo "$file" | cut -d'/' -f2)
+                WORKSPACES+=("$WS")
+              done
+            fi
           else
             # Manual dispatch without specific workspace: instrument all with e2e-tests
             for dir in workspaces/*/e2e-tests; do
