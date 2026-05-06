@@ -58,8 +58,13 @@ jobs:
                 WORKSPACES+=("$WS")
               done
             else
-              # Detect all source.json changes across the entire push (handles multi-commit merges)
+              # Detect all source.json changes across the entire push (handles multi-commit merges).
+              # On force-push, PUSH_BEFORE may reference a commit that no longer exists —
+              # git diff will fail (caught by || true), producing an empty CHANGED list.
               CHANGED=$(git diff --name-only "${PUSH_BEFORE}..HEAD" -- 'workspaces/*/source.json' 2>/dev/null || true)
+              if [[ -z "$CHANGED" ]]; then
+                echo "No source.json changes detected (push may be a force-push or no-op)"
+              fi
               for file in $CHANGED; do
                 WS=$(echo "$file" | cut -d'/' -f2)
                 WORKSPACES+=("$WS")

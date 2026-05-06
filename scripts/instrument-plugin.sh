@@ -77,13 +77,13 @@ fi
 cd "$PLUGIN_WORKSPACE_DIR"
 echo "  Plugin workspace: $PLUGIN_WORKSPACE_DIR"
 
-# Step 3: Find the frontend plugin package
+# Step 3: Find the frontend plugin package (first frontend-plugin match wins)
 echo ""
 echo "--- Step 3: Finding frontend plugin package ---"
 if [[ -n "$PLUGIN_NAME" ]]; then
-  PLUGIN_PKG_DIR=$(find . -name "package.json" -path "*/$PLUGIN_NAME/*" -not -path "*/node_modules/*" | head -1 | xargs dirname)
+  PLUGIN_PKG_DIR=$(find "$PLUGIN_WORKSPACE_DIR" -name "package.json" -path "*/$PLUGIN_NAME/*" -not -path "*/node_modules/*" | head -1 | xargs dirname)
 else
-  PLUGIN_PKG_DIR=$(find . -name "package.json" -not -path "*/node_modules/*" -not -path "*/e2e-*/*" -not -path "*/backend*/*" -not -path "*/module-*/*" -not -path "./package.json" | while read -r pkg; do
+  PLUGIN_PKG_DIR=$(find "$PLUGIN_WORKSPACE_DIR" -name "package.json" -not -path "*/node_modules/*" -not -path "*/e2e-*/*" -not -path "*/backend*/*" -not -path "*/module-*/*" -not -path "$PLUGIN_WORKSPACE_DIR/package.json" | while read -r pkg; do
     if jq -e '.backstage.role == "frontend-plugin"' "$pkg" >/dev/null 2>&1; then
       dirname "$pkg"
       break

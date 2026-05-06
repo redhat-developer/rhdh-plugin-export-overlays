@@ -13,8 +13,6 @@ import type {
   FullResult,
   Reporter,
   Suite,
-  TestCase,
-  TestResult,
 } from "@playwright/test/reporter";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -97,8 +95,6 @@ class CoverageReporter implements Reporter {
       }
     }
   }
-
-  onTestEnd(_test: TestCase, _result: TestResult) {}
 
   onEnd(_result: FullResult) {
     if (!COLLECT_COVERAGE) return;

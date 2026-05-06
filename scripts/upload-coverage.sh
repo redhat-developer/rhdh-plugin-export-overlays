@@ -52,12 +52,13 @@ echo "  Target SHA:  $REPO_REF"
 echo "  Flag:        e2e-$WORKSPACE"
 
 # Check for codecov CLI
+CODECOV_CLI_VERSION="${CODECOV_CLI_VERSION:-11.2.6}"
 if ! command -v codecov &>/dev/null; then
   echo ""
-  echo "Installing Codecov CLI..."
-  pip install codecov-cli 2>/dev/null || {
+  echo "Installing Codecov CLI v${CODECOV_CLI_VERSION}..."
+  pip install "codecov-cli==${CODECOV_CLI_VERSION}" 2>/dev/null || {
     echo "ERROR: Could not install codecov-cli" >&2
-    echo "Install manually: pip install codecov-cli" >&2
+    echo "Install manually: pip install codecov-cli==${CODECOV_CLI_VERSION}" >&2
     exit 1
   }
 fi
@@ -76,6 +77,7 @@ codecov upload-process \
   --sha "$REPO_REF" \
   --slug "$SLUG" \
   --token "$CODECOV_TOKEN" \
+  --git-service github \
   --name "overlay-e2e-$WORKSPACE" \
   --disable-search
 

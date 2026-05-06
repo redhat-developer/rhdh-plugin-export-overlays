@@ -300,6 +300,9 @@ TEST_EXIT_CODE=0
 npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
 
 # ── Upload coverage ──────────────────────────────────────────────────────
+# The merged lcov.info contains coverage from ALL workspaces. Each upload
+# sends the full file with a different --flag and --sha (from source.json).
+# Codecov scopes coverage by --slug, so cross-repo data is ignored.
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]] && [[ -f "coverage/istanbul/lcov.info" ]]; then
     echo ""
     if [[ ${#E2E_WORKSPACES[@]} -gt 1 ]]; then
