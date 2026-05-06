@@ -27,7 +27,7 @@ spec:
     - konflux
   appConfigExamples:
     - title: Default configuration
-      content: |
+      content:
         dynamicPlugins:
           frontend:
             red-hat-developer-hub.backstage-plugin-konflux:
