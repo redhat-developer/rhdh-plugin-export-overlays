@@ -130,6 +130,121 @@ async function loginAsKeycloakUserWithRetry(
   throw lastError;
 }
 
+type TemplatePermissionScenario = {
+  id: "RHIDP-11839" | "RHIDP-11840";
+  name: string;
+  roleName: string;
+  orchestratorWorkflowEffect: "allow" | "deny";
+  orchestratorWorkflowUseEffect: "allow" | "deny";
+  expectWorkflowVisible: boolean;
+  expectRunState: "enabled" | "absent";
+  terminalTimeoutsMs: number[];
+  testTimeoutMs: number;
+};
+
+const TEMPLATE_PERMISSION_BASE_POLICIES = [
+  { permission: "catalog-entity", policy: "read", effect: "allow" as const },
+  {
+    permission: "catalog.entity.create",
+    policy: "create",
+    effect: "allow" as const,
+  },
+  {
+    permission: "catalog.location.read",
+    policy: "read",
+    effect: "allow" as const,
+  },
+  {
+    permission: "catalog.location.create",
+    policy: "create",
+    effect: "allow" as const,
+  },
+  {
+    permission: "scaffolder.action.execute",
+    policy: "use",
+    effect: "allow" as const,
+  },
+  {
+    permission: "scaffolder.task.create",
+    policy: "create",
+    effect: "allow" as const,
+  },
+  {
+    permission: "scaffolder.task.read",
+    policy: "read",
+    effect: "allow" as const,
+  },
+];
+
+const TEMPLATE_PERMISSION_SCENARIOS: TemplatePermissionScenario[] = [
+  {
+    id: "RHIDP-11839",
+    name: "Template run WITHOUT workflow permissions",
+    roleName: "role:default/catalogSuperuserNoWorkflowTest",
+    orchestratorWorkflowEffect: "deny",
+    orchestratorWorkflowUseEffect: "deny",
+    expectWorkflowVisible: false,
+    expectRunState: "absent",
+    terminalTimeoutsMs: [120_000],
+    testTimeoutMs: 180_000,
+  },
+  {
+    id: "RHIDP-11840",
+    name: "Template run WITH workflow permissions",
+    roleName: "role:default/catalogSuperuserWithWorkflowTest",
+    orchestratorWorkflowEffect: "allow",
+    orchestratorWorkflowUseEffect: "allow",
+    expectWorkflowVisible: true,
+    expectRunState: "enabled",
+    terminalTimeoutsMs: [90_000, 120_000],
+    testTimeoutMs: 240_000,
+  },
+];
+
+function buildTemplatePermissionPolicies(
+  scenario: TemplatePermissionScenario,
+): Array<{ permission: string; policy: string; effect: "allow" | "deny" }> {
+  return [
+    ...TEMPLATE_PERMISSION_BASE_POLICIES,
+    {
+      permission: "orchestrator.workflow",
+      policy: "read",
+      effect: scenario.orchestratorWorkflowEffect,
+    },
+    {
+      permission: "orchestrator.workflow.use",
+      policy: "update",
+      effect: scenario.orchestratorWorkflowUseEffect,
+    },
+  ];
+}
+
+async function runGreetingTemplateAndWaitForScaffolderTerminal(
+  page: Page,
+  uiHelper: UIhelper,
+  terminalTimeoutsMs: number[],
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < terminalTimeoutsMs.length; attempt++) {
+    await launchGreetingTemplateFromSelfService(page, uiHelper);
+    try {
+      await clickCreateAndWaitForScaffolderTerminalState(
+        page,
+        terminalTimeoutsMs[attempt],
+      );
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === terminalTimeoutsMs.length - 1) {
+        throw error;
+      }
+      await page.goto("/");
+      await page.waitForLoadState("domcontentloaded");
+    }
+  }
+  throw lastError;
+}
+
 export function registerOrchestratorRbacTests(): void {
   test.describe("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
@@ -309,177 +424,51 @@ export function registerOrchestratorRbacTests(): void {
       });
     });
 
-    test.describe("RHIDP-11839: Template run WITHOUT workflow permissions", () => {
-      let uiHelper: UIhelper;
-      let page: Page;
-      let apiToken: string;
-      const roleName = "role:default/catalogSuperuserNoWorkflowTest";
+    for (const scenario of TEMPLATE_PERMISSION_SCENARIOS) {
+      test.describe(`${scenario.id}: ${scenario.name}`, () => {
+        let uiHelper: UIhelper;
+        let page: Page;
+        let apiToken: string;
 
-      test.beforeAll(async ({ browser }, testInfo) => {
-        ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-          browser,
-          testInfo,
-        ));
-        await cleanupGreetingComponentEntity();
-        await createRoleWithPolicies(
-          apiToken,
-          roleName,
-          [PRIMARY_USER],
-          [
-            { permission: "catalog-entity", policy: "read", effect: "allow" },
-            {
-              permission: "catalog.entity.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "catalog.location.read",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "catalog.location.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.action.execute",
-              policy: "use",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.task.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.task.read",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "orchestrator.workflow",
-              policy: "read",
-              effect: "deny",
-            },
-            {
-              permission: "orchestrator.workflow.use",
-              policy: "update",
-              effect: "deny",
-            },
-          ],
-        );
-      });
+        test.beforeAll(async ({ browser }, testInfo) => {
+          ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
+            browser,
+            testInfo,
+          ));
+          await cleanupGreetingComponentEntity();
+          await createRoleWithPolicies(
+            apiToken,
+            scenario.roleName,
+            [PRIMARY_USER],
+            buildTemplatePermissionPolicies(scenario),
+          );
+        });
 
-      test.afterAll(async () => {
-        await cleanupGreetingComponentEntity();
-        await deleteRoleAndPolicies(apiToken, roleName);
-      });
+        test.afterAll(async () => {
+          await cleanupGreetingComponentEntity();
+          await deleteRoleAndPolicies(apiToken, scenario.roleName);
+        });
 
-      test("Template launch is denied without workflow permissions", async () => {
-        const orchestratorPo = new OrchestratorPO(page, uiHelper);
-        await orchestratorPo.openGreetingTemplateFromSelfService();
-        await clickCreateAndWaitForScaffolderTerminalState(page, 120_000);
-        await orchestratorPo.openOrchestratorFromSidebar();
-        await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
-      });
-    });
+        test(`Validate ${scenario.id} behavior`, async () => {
+          test.setTimeout(scenario.testTimeoutMs);
+          const orchestratorPo = new OrchestratorPO(page, uiHelper);
 
-    test.describe("RHIDP-11840: Template run WITH workflow permissions", () => {
-      let uiHelper: UIhelper;
-      let page: Page;
-      let apiToken: string;
-      const roleName = "role:default/catalogSuperuserWithWorkflowTest";
+          await runGreetingTemplateAndWaitForScaffolderTerminal(
+            page,
+            uiHelper,
+            scenario.terminalTimeoutsMs,
+          );
+          await orchestratorPo.openOrchestratorFromSidebar();
 
-      test.beforeAll(async ({ browser }, testInfo) => {
-        ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-          browser,
-          testInfo,
-        ));
-        await cleanupGreetingComponentEntity();
-        await createRoleWithPolicies(
-          apiToken,
-          roleName,
-          [PRIMARY_USER],
-          [
-            { permission: "catalog-entity", policy: "read", effect: "allow" },
-            {
-              permission: "catalog.entity.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "catalog.location.read",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "catalog.location.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.action.execute",
-              policy: "use",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.task.create",
-              policy: "create",
-              effect: "allow",
-            },
-            {
-              permission: "scaffolder.task.read",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "orchestrator.workflow",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "orchestrator.workflow.use",
-              policy: "update",
-              effect: "allow",
-            },
-          ],
-        );
-      });
-
-      test.afterAll(async () => {
-        await cleanupGreetingComponentEntity();
-        await deleteRoleAndPolicies(apiToken, roleName);
-      });
-
-      test("Launch template and run workflow successfully", async () => {
-        const orchestratorPo = new OrchestratorPO(page, uiHelper);
-        test.setTimeout(240_000);
-
-        let completed = false;
-        for (let attempt = 1; attempt <= 2; attempt++) {
-          await launchGreetingTemplateFromSelfService(page, uiHelper);
-          try {
-            await clickCreateAndWaitForScaffolderTerminalState(
-              page,
-              attempt === 1 ? 90_000 : 120_000,
-            );
-            completed = true;
-            break;
-          } catch (error) {
-            if (attempt === 2) {
-              throw error;
-            }
-            await page.goto("/");
-            await page.waitForLoadState("domcontentloaded");
+          if (!scenario.expectWorkflowVisible) {
+            await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
+            return;
           }
-        }
 
-        expect(completed).toBeTruthy();
-        await orchestratorPo.openOrchestratorFromSidebar();
-        await orchestratorPo.openWorkflow(/Greeting workflow/i);
-        await orchestratorPo.verifyRunButtonState("enabled");
+          await orchestratorPo.openWorkflow(/Greeting workflow/i);
+          await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
+        });
       });
-    });
+    }
   });
 }
