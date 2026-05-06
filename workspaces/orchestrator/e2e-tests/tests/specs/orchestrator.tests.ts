@@ -11,7 +11,7 @@ import {
   runOc,
   clickCreateAndWaitForScaffolderTerminalState,
   logOrchestratorDeployFailureDiagnostics,
-} from "./test-helpers.js";
+} from "../support/utils/test-helpers.js";
 
 interface WorkflowNode {
   name: string;

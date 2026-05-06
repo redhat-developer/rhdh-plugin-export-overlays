@@ -21,7 +21,7 @@ import {
   cleanupGreetingComponentEntity,
   launchGreetingTemplateFromSelfService,
   clickCreateAndWaitForScaffolderTerminalState,
-} from "./test-helpers.js";
+} from "../support/utils/test-helpers.js";
 
 type RbacScenario = {
   name: string;
