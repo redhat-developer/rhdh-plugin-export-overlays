@@ -17,6 +17,7 @@ git config core.hooksPath .githooks
 Runs **ESLint**, **Prettier**, and **TypeScript** checks on staged `workspaces/*/e2e-tests/**` files. Uses the same shared script as the [E2E Code Quality](../.github/workflows/e2e-code-quality.yaml) CI workflow.
 
 - Auto-fixes ESLint and Prettier issues and re-stages the fixed files
+- Stashes unstaged changes before running fixers, restoring them after — this protects partially staged files from being fully staged
 - TypeScript type-checking runs in check-only mode (no auto-fix available)
 - Only triggers when e2e-tests files are staged (zero overhead otherwise)
 - Automatically installs dependencies via `yarn install --immutable`
