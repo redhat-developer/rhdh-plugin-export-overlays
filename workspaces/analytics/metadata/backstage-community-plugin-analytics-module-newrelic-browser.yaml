@@ -1,0 +1,43 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-analytics-module-newrelic-browser
+  namespace: rhdh
+  title: "Analytics Module Newrelic Browser"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-newrelic-browser
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/analytics/plugins/analytics-module-newrelic-browser
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-analytics-module-newrelic-browser"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-module-newrelic-browser:bs_1.49.4__0.18.0!backstage-community-plugin-analytics-module-newrelic-browser
+  version: 0.18.0
+  backstage:
+    role: frontend-plugin-module
+    supportedVersions: 1.49.2
+  author: The Backstage Community
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-analytics-module-newrelic-browser:
+              apiFactories:
+                - importName: newRelicAnalyticsApi
+        app:
+          analytics:
+            newRelic:
+              endpoint: ${NEWRELIC_ENDPOINT}
+              accountId: ${NEWRELIC_ACCOUNT_ID}
+              applicationId: ${NEWRELIC_APPLICATION_ID}
+              licenseKey: ${NEWRELIC_LICENSE_KEY}
+              distributedTracingEnabled: false
+              cookiesEnabled: false
