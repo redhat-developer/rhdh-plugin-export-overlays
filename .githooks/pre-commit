@@ -3,7 +3,8 @@
 # Pre-commit hook for E2E code quality checks.
 #
 # Detects staged e2e-tests files and delegates to
-# scripts/e2e-code-quality.sh (shared with CI).
+# scripts/e2e-code-quality.sh --fix (shared with CI).
+# Auto-fixes ESLint and Prettier issues, then re-stages the fixed files.
 #
 # After the repo checks pass, chains to the user's existing
 # pre-commit hook (global core.hooksPath or .git/hooks/).
@@ -29,10 +30,13 @@ if [[ -n "$CHANGED_FILES" ]]; then
   done < <(echo "$CHANGED_FILES" | sed -n 's|^workspaces/\([^/]*\)/e2e-tests/.*|\1|p' | sort -u)
 
   if [[ ${#WORKSPACES[@]} -gt 0 ]]; then
-    echo "E2E Code Quality: checking staged changes"
+    echo "E2E Code Quality: fixing and checking staged changes"
     echo ""
 
-    "${REPO_ROOT}/scripts/e2e-code-quality.sh" "${WORKSPACES[@]}"
+    "${REPO_ROOT}/scripts/e2e-code-quality.sh" --fix "${WORKSPACES[@]}"
+
+    # Re-stage files that were auto-fixed
+    echo "$CHANGED_FILES" | xargs git add
   fi
 fi
 

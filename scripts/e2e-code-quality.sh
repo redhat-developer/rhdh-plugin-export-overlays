@@ -4,14 +4,26 @@
 # Runs ESLint, Prettier, and TypeScript checks for the given workspaces.
 #
 # Usage:
-#   scripts/e2e-code-quality.sh <workspace1> [workspace2] ...
+#   scripts/e2e-code-quality.sh [--fix] <workspace1> [workspace2] ...
+#
+# Options:
+#   --fix  Run lint:fix and prettier:fix instead of lint:check and prettier:check.
+#          TypeScript (tsc:check) always runs in check mode.
 #
 # Called by:
-#   - .githooks/pre-commit (staged file detection)
-#   - .github/workflows/e2e-code-quality.yaml (PR diff detection)
+#   - .githooks/pre-commit (with --fix for auto-fixing)
+#   - .github/workflows/e2e-code-quality.yaml (without --fix for CI checks)
 #
 
 set -euo pipefail
+
+# Parse --fix flag: switches lint and prettier from :check to :fix mode.
+# TypeScript (tsc:check) always runs in check mode — no fix variant exists.
+MODE="check"
+if [[ "${1:-}" == "--fix" ]]; then
+  MODE="fix"
+  shift
+fi
 
 # Print error message to stderr. Uses GitHub Actions annotation syntax
 # in CI, plain text locally.
@@ -59,7 +71,7 @@ for WORKSPACE in "$@"; do
 
   echo ""
   echo "--- ESLint ---"
-  if (cd "$E2E_DIR" && yarn lint:check 2>&1); then
+  if (cd "$E2E_DIR" && yarn "lint:${MODE}" 2>&1); then
     echo "ESLint: passed"
   else
     report_error "ESLint failed for ${WORKSPACE}"
@@ -69,7 +81,7 @@ for WORKSPACE in "$@"; do
 
   echo ""
   echo "--- Prettier ---"
-  if (cd "$E2E_DIR" && yarn prettier:check 2>&1); then
+  if (cd "$E2E_DIR" && yarn "prettier:${MODE}" 2>&1); then
     echo "Prettier: passed"
   else
     report_error "Prettier failed for ${WORKSPACE}"
