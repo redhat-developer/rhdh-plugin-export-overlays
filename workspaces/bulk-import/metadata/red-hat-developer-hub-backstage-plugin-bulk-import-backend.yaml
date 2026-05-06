@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-bulk-import-backend"
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
-  version: 7.3.1
+  version: 7.3.2
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3

@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/backstage-plugin-catalog-backend-module-mta-entity-provider"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-catalog-backend-module-mta-entity-provider:bs_1.45.3__0.4.0!backstage-community-backstage-plugin-catalog-backend-module-mta-entity-provider
-  version: 0.4.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-catalog-backend-module-mta-entity-provider:bs_1.49.4__0.4.1!backstage-community-backstage-plugin-catalog-backend-module-mta-entity-provider
+  version: 0.4.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3

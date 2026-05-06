@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/backstage-plugin-scaffolder-backend-module-mta"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-scaffolder-backend-module-mta:bs_1.45.3__0.5.0!backstage-community-backstage-plugin-scaffolder-backend-module-mta
-  version: 0.5.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-scaffolder-backend-module-mta:bs_1.49.4__0.5.1!backstage-community-backstage-plugin-scaffolder-backend-module-mta
+  version: 0.5.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
