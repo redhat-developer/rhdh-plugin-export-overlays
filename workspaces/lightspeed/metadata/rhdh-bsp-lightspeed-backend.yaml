@@ -28,7 +28,7 @@ spec:
     - lightspeed
   appConfigExamples:
     - title: Default configuration
-      content: |
+      content:
         lightspeed: 
           # REQUIRED: Configure LLM servers with OpenAI API compatibility
           servers:

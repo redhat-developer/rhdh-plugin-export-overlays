@@ -28,7 +28,7 @@ spec:
     - lightspeed
   appConfigExamples:
     - title: Default configuration
-      content: |
+      content:
         lightspeed:
           # OPTIONAL: Custom users prompts displayed to users
           # If not provided, the plugin uses built-in default prompts
