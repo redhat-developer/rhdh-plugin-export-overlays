@@ -72,6 +72,8 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
+    disabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:
