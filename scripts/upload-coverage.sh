@@ -42,7 +42,7 @@ REPO_URL=$(jq -r '.repo' "$WORKSPACE_DIR/source.json")
 REPO_REF=$(jq -r '.["repo-ref"]' "$WORKSPACE_DIR/source.json")
 
 # Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
-SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
+SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
 
 echo "=== Uploading E2E coverage to Codecov ==="
 echo "  Workspace:  $WORKSPACE"

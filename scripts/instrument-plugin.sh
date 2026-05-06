@@ -192,11 +192,12 @@ INSTRUMENTED_FILES=$(grep -r "__coverage__" "$OUTPUT_DIR/" --include="*.js" -l 2
 if [[ "$INSTRUMENTED_FILES" -gt 0 ]]; then
   echo "  Istanbul instrumentation: $INSTRUMENTED_FILES files instrumented"
 
-  SRC_FILES=$(grep -roh 'webpack://[^"]*\./src/[^"]*' "$OUTPUT_DIR/" --include="*.map" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  WEBPACK_SRCS=$(grep -roh 'webpack://[^"]*\./src/[^"]*' "$OUTPUT_DIR/" --include="*.map" 2>/dev/null | sort -u)
+  SRC_FILES=$(echo "$WEBPACK_SRCS" | grep -c . 2>/dev/null || echo "0")
   echo "  Source map references: $SRC_FILES original source files"
   echo ""
   echo "  Source files covered:"
-  grep -roh 'webpack://[^"]*\./src/[^"]*' "$OUTPUT_DIR/" --include="*.map" 2>/dev/null | sort -u | sed 's|webpack://[^/]*/||' | head -20
+  echo "$WEBPACK_SRCS" | sed 's|webpack://[^/]*/||' | head -20
 else
   echo "  WARNING: No __coverage__ instrumentation found!" >&2
   echo "  nyc instrument may have failed." >&2

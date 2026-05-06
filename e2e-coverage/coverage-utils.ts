@@ -25,6 +25,15 @@ export interface CoverageData {
   [filePath: string]: FileCoverage;
 }
 
+function addCounts(
+  target: Record<string, number>,
+  source: Record<string, number>,
+) {
+  for (const [key, count] of Object.entries(source)) {
+    target[key] = (target[key] || 0) + count;
+  }
+}
+
 export function mergeCoverage(
   target: CoverageData,
   source: CoverageData,
@@ -36,23 +45,13 @@ export function mergeCoverage(
     }
 
     const existing = target[filePath];
-
-    for (const [key, count] of Object.entries(fileCov.s)) {
-      existing.s[key] = (existing.s[key] || 0) + count;
-    }
-
-    for (const [key, count] of Object.entries(fileCov.f)) {
-      existing.f[key] = (existing.f[key] || 0) + count;
-    }
+    addCounts(existing.s, fileCov.s);
+    addCounts(existing.f, fileCov.f);
 
     for (const [key, counts] of Object.entries(fileCov.b)) {
-      if (existing.b[key]) {
-        existing.b[key] = existing.b[key].map(
-          (v: number, i: number) => v + (counts[i] || 0),
-        );
-      } else {
-        existing.b[key] = counts;
-      }
+      existing.b[key] =
+        existing.b[key]?.map((v: number, i: number) => v + (counts[i] ?? 0)) ??
+        counts;
     }
   }
 

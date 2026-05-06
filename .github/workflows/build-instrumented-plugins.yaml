@@ -121,7 +121,7 @@ jobs:
           SOURCE_JSON="workspaces/${WORKSPACE}/source.json"
           REPO_REF=$(jq -r '.["repo-ref"]' "$SOURCE_JSON")
           REPO_URL=$(jq -r '.repo' "$SOURCE_JSON")
-          SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||' | sed 's|\.git$||')
+          SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
           REF_SHORT="${REPO_REF:0:12}"
 
           # Find the frontend plugin package name from metadata

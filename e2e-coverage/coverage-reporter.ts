@@ -67,11 +67,12 @@ function coverageToLcov(coverage: CoverageData): string {
       branchIdx++;
     }
 
-    const totalBranches = Object.values(fileCov.b).reduce(
+    const branchCounts = Object.values(fileCov.b);
+    const totalBranches = branchCounts.reduce(
       (sum, counts) => sum + counts.length,
       0,
     );
-    const hitBranches = Object.values(fileCov.b).reduce(
+    const hitBranches = branchCounts.reduce(
       (sum, counts) => sum + counts.filter((v) => v > 0).length,
       0,
     );
