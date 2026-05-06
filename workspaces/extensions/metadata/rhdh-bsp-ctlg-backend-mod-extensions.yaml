@@ -8,8 +8,7 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: "Report issues here. Note: Customers of Red Hat Developer Hub should
-        raise a Red Hat support case instead."
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
   annotations:
@@ -18,7 +17,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions"
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions-dynamic
-  version: 0.16.0
+  version: 0.16.1
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
