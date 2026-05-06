@@ -596,7 +596,9 @@ export function registerOrchestratorWorkflowTests(): void {
 
         await orchestrator.clickWorkflowsTab();
         await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
-        await expect(page.getByText("Greeting workflow")).toBeVisible();
+        await expect(
+          page.getByRole("link", { name: "Greeting workflow", exact: true }),
+        ).toBeVisible();
       });
 
       test("RHIDP-11835: Template WITHOUT orchestrator.io/workflows annotation (negative)", async ({
