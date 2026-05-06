@@ -32,6 +32,10 @@ type RbacScenario = {
   workflowScope: "global" | "greeting";
 };
 
+const KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS = 5_000;
+const LOGIN_SUCCESS_TIMEOUT_MS = 15_000;
+const WORKFLOW_INSTANCE_VISIBLE_TIMEOUT_MS = 30_000;
+
 const RBAC_SCENARIOS: RbacScenario[] = [
   {
     name: "Global Read-Write",
@@ -130,12 +134,16 @@ async function loginAsKeycloakUserWithRetry(
         await page.goto("/");
         await page.waitForLoadState("domcontentloaded");
         const userInput = page.locator("#username");
-        if (await userInput.isVisible({ timeout: 5_000 })) {
+        if (
+          await userInput.isVisible({
+            timeout: KEYCLOAK_FORM_VISIBLE_TIMEOUT_MS,
+          })
+        ) {
           await userInput.fill(resolvedUsername);
           await page.locator("#password").fill(resolvedPassword);
           await page.locator("#kc-login").click();
           await expect(page.locator("nav a").first()).toBeVisible({
-            timeout: 15_000,
+            timeout: LOGIN_SUCCESS_TIMEOUT_MS,
           });
           return;
         }
@@ -266,6 +274,21 @@ async function runGreetingTemplateAndWaitForScaffolderTerminal(
   throw lastError;
 }
 
+async function assertTemplatePermissionScenarioOutcome(
+  page: Page,
+  orchestratorPo: OrchestratorPO,
+  scenario: TemplatePermissionScenario,
+): Promise<void> {
+  if (!scenario.expectWorkflowVisible) {
+    await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
+    return;
+  }
+
+  await orchestratorPo.openWorkflow(/Greeting workflow/i);
+  await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
+  await expect(page).toHaveURL(/\/orchestrator/);
+}
+
 export function registerOrchestratorRbacTests(): void {
   test.describe("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
@@ -303,6 +326,7 @@ export function registerOrchestratorRbacTests(): void {
 
         test(`Validate ${scenario.name} workflow behavior`, async () => {
           await assertRbacScenario(page, uiHelper, scenario);
+          await expect(page).toHaveURL(/\/orchestrator/);
         });
       });
     }
@@ -440,7 +464,7 @@ export function registerOrchestratorRbacTests(): void {
           `/orchestrator/instances/${workflowInstanceId}`,
         );
         await expect(page.getByText("Completed", { exact: true })).toBeVisible({
-          timeout: 30_000,
+          timeout: WORKFLOW_INSTANCE_VISIBLE_TIMEOUT_MS,
         });
       });
     });
@@ -480,14 +504,12 @@ export function registerOrchestratorRbacTests(): void {
             scenario.terminalTimeoutsMs,
           );
           await orchestratorPo.openOrchestratorFromSidebar();
-
-          if (!scenario.expectWorkflowVisible) {
-            await orchestratorPo.verifyWorkflowHidden("Greeting workflow");
-            return;
-          }
-
-          await orchestratorPo.openWorkflow(/Greeting workflow/i);
-          await orchestratorPo.verifyRunButtonState(scenario.expectRunState);
+          await assertTemplatePermissionScenarioOutcome(
+            page,
+            orchestratorPo,
+            scenario,
+          );
+          await expect(page).toHaveURL(/\/orchestrator/);
         });
       });
     }

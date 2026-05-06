@@ -590,9 +590,13 @@ export function registerOrchestratorWorkflowTests(): void {
       }) => {
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
+        await expect(
+          page.getByRole("heading", { name: /Greeting Test Picker/i }),
+        ).toBeVisible();
 
         await orchestrator.clickWorkflowsTab();
         await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
+        await expect(page.getByText("Greeting workflow")).toBeVisible();
       });
 
       test("RHIDP-11835: Template WITHOUT orchestrator.io/workflows annotation (negative)", async ({
