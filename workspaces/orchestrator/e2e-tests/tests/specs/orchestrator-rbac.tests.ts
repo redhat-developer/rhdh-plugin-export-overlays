@@ -109,6 +109,27 @@ async function assertRbacScenario(
   }
 }
 
+async function loginAsKeycloakUserWithRetry(
+  page: Page,
+  loginHelper: LoginHelper,
+  username?: string,
+  password?: string,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await loginHelper.loginAsKeycloakUser(username, password);
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.goto("/");
+      await page.waitForLoadState("load");
+      await page.waitForLoadState("domcontentloaded");
+    }
+  }
+  throw lastError;
+}
+
 export function registerOrchestratorRbacTests(): void {
   test.describe.serial("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
@@ -211,7 +232,9 @@ export function registerOrchestratorRbacTests(): void {
         await page.context().clearCookies();
         await page.goto("/");
         await page.waitForLoadState("load");
-        await loginHelper.loginAsKeycloakUser(
+        await loginAsKeycloakUserWithRetry(
+          page,
+          loginHelper,
           process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
@@ -225,7 +248,7 @@ export function registerOrchestratorRbacTests(): void {
       test("Grant admin role and verify secondary user access", async () => {
         await page.context().clearCookies();
         await page.goto("/");
-        await loginHelper.loginAsKeycloakUser();
+        await loginAsKeycloakUserWithRetry(page, loginHelper);
         apiToken = await new AuthApiHelper(page).getToken();
         const rbacApi = await RbacApiHelper.build(apiToken);
 
@@ -270,7 +293,9 @@ export function registerOrchestratorRbacTests(): void {
 
         await page.context().clearCookies();
         await page.goto("/");
-        await loginHelper.loginAsKeycloakUser(
+        await loginAsKeycloakUserWithRetry(
+          page,
+          loginHelper,
           process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
