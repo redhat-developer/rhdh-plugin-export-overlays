@@ -10,14 +10,13 @@ metadata:
     - url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux-backend
       title: Source Code
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux-backend
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux-backend
   tags:
     - cicd
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-konflux-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.49.4__0.1.7!red-hat-developer-hub-backstage-plugin-konflux-backend
-  version: 0.1.7
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux-backend:bs_1.49.4__0.1.8!red-hat-developer-hub-backstage-plugin-konflux-backend
+  version: 0.1.8
   backstage:
     role: backend-plugin
     supportedVersions: 1.49.4

@@ -8,8 +8,7 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: "Report issues here. Note: Customers of Red Hat Developer Hub should
-        raise a Red Hat support case instead."
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/quickstart
   annotations:
@@ -17,7 +16,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-quickstart'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-quickstart
-  version: 1.9.2
+  version: 1.9.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
@@ -34,8 +33,7 @@ spec:
             - title: Set up authentication
               titleKey: steps.setupAuthentication.title
               icon: Admin
-              description: Set up secure login credentials to protect your account from
-                unauthorized access.
+              description: Set up secure login credentials to protect your account from unauthorized access.
               descriptionKey: steps.setupAuthentication.description
               cta:
                 text: Learn more
@@ -44,8 +42,7 @@ spec:
             - title: Configure RBAC
               titleKey: steps.configureRbac.title
               icon: Rbac
-              description: Assign roles and permissions to control who can view, create, or
-                edit resources, ensuring secure and efficient collaboration.
+              description: Assign roles and permissions to control who can view, create, or edit resources, ensuring secure and efficient collaboration.
               descriptionKey: steps.configureRbac.description
               cta:
                 text: Manage access
@@ -54,8 +51,7 @@ spec:
             - title: Configure Git
               titleKey: steps.configureGit.title
               icon: Git
-              description: Connect your Git providers, such as GitHub to manage code, automate
-                workflows, and integrate with platform features.
+              description: Connect your Git providers, such as GitHub to manage code, automate workflows, and integrate with platform features.
               descriptionKey: steps.configureGit.description
               cta:
                 text: Learn more
@@ -64,8 +60,7 @@ spec:
             - title: Manage plugins
               titleKey: steps.managePlugins.title
               icon: Plugins
-              description: Browse and install extensions to add features, connect with
-                external tools, and customize your experience.
+              description: Browse and install extensions to add features, connect with external tools, and customize your experience.
               descriptionKey: steps.managePlugins.description
               cta:
                 text: Explore plugins
@@ -75,8 +70,7 @@ spec:
               roles:
                 - developer
               icon: Import
-              description: Import your existing code and services into the catalog to organize
-                and access them through your developer portal.
+              description: Import your existing code and services into the catalog to organize and access them through your developer portal.
               cta:
                 text: Import
                 link: /bulk-import
@@ -84,8 +78,7 @@ spec:
               roles:
                 - developer
               icon: Catalog
-              description: Discover all software components, services, and APIs, and view
-                their owners and documentation.
+              description: Discover all software components, services, and APIs, and view their owners and documentation.
               cta:
                 text: View Catalog
                 link: /catalog
@@ -93,8 +86,7 @@ spec:
               roles:
                 - developer
               icon: SelfService
-              description: Use our self-service templates to quickly set up new projects,
-                services, or documentation.
+              description: Use our self-service templates to quickly set up new projects, services, or documentation.
               cta:
                 text: Explore templates
                 link: /create
@@ -102,9 +94,7 @@ spec:
               roles:
                 - developer
               icon: Learning
-              description: Integrate tailored e-learning into your workflows with Learning
-                Paths to accelerate onboarding, close skill gaps, and promote
-                best practices.
+              description: Integrate tailored e-learning into your workflows with Learning Paths to accelerate onboarding, close skill gaps, and promote best practices.
               cta:
                 text: View Learning Paths
                 link: /learning-paths
