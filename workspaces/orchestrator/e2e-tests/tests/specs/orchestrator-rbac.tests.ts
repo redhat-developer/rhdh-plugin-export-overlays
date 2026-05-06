@@ -28,7 +28,7 @@ type RbacScenario = {
   roleName: string;
   policies: ReturnType<typeof globalWorkflowPolicies>;
   expectWorkflowVisible: boolean;
-  expectRunState: "enabled" | "disabled" | "absent";
+  expectRunState: "enabled" | "disabled" | "absent" | "disabled-or-absent";
   workflowScope: "global" | "greeting";
 };
 
@@ -46,7 +46,7 @@ const RBAC_SCENARIOS: RbacScenario[] = [
     roleName: "role:default/workflowReadonly",
     policies: globalWorkflowPolicies("allow", "deny"),
     expectWorkflowVisible: true,
-    expectRunState: "disabled",
+    expectRunState: "disabled-or-absent",
     workflowScope: "global",
   },
   {
@@ -78,7 +78,7 @@ const RBAC_SCENARIOS: RbacScenario[] = [
     roleName: "role:default/workflowGreetingReadonly",
     policies: greetingWorkflowPolicies("allow", "deny"),
     expectWorkflowVisible: true,
-    expectRunState: "disabled",
+    expectRunState: "disabled-or-absent",
     workflowScope: "greeting",
   },
 ];

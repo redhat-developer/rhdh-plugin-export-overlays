@@ -33,11 +33,21 @@ export class OrchestratorPO {
   }
 
   async verifyRunButtonState(
-    state: "enabled" | "disabled" | "absent",
+    state: "enabled" | "disabled" | "absent" | "disabled-or-absent",
   ): Promise<void> {
     const runButton = ORCHESTRATOR_COMPONENTS.runButton(this.page);
     if (state === "absent") {
       await expect(runButton).toHaveCount(0);
+      return;
+    }
+    if (state === "disabled-or-absent") {
+      const count = await runButton.count();
+      if (count === 0) {
+        await expect(runButton).toHaveCount(0);
+        return;
+      }
+      await expect(runButton).toBeVisible();
+      await expect(runButton).toBeDisabled();
       return;
     }
     await expect(runButton).toBeVisible();

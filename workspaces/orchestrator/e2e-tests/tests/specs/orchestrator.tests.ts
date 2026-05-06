@@ -244,7 +244,7 @@ test.describe("Orchestrator", () => {
       await uiHelper.openSidebar("Orchestrator");
       await orchestrator.selectFailSwitchWorkflowItem();
       await orchestrator.runFailSwitchWorkflow("OK");
-      await orchestrator.validateWorkflowStatusDetails("Completed");
+      await orchestrator.validateCurrentWorkflowStatus("Completed");
     });
 
     // eslint-disable-next-line playwright/expect-expect
