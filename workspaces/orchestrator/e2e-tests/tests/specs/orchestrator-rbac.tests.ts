@@ -115,13 +115,34 @@ async function loginAsKeycloakUserWithRetry(
   username?: string,
   password?: string,
 ): Promise<void> {
+  const resolvedUsername = username || process.env.GH_USER_ID || "test1";
+  const resolvedPassword = password || process.env.GH_USER_PASS || "test1@123";
   let lastError: unknown;
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      await loginHelper.loginAsKeycloakUser(username, password);
+      await loginHelper.loginAsKeycloakUser(resolvedUsername, resolvedPassword);
       return;
     } catch (error) {
       lastError = error;
+
+      // Fallback path: handle non-popup Keycloak auth flow directly in-page.
+      try {
+        await page.goto("/");
+        await page.waitForLoadState("domcontentloaded");
+        const userInput = page.locator("#username");
+        if (await userInput.isVisible({ timeout: 5_000 })) {
+          await userInput.fill(resolvedUsername);
+          await page.locator("#password").fill(resolvedPassword);
+          await page.locator("#kc-login").click();
+          await expect(page.locator("nav a").first()).toBeVisible({
+            timeout: 15_000,
+          });
+          return;
+        }
+      } catch (fallbackError) {
+        lastError = fallbackError;
+      }
+
       await page.goto("/");
       await page.waitForLoadState("load");
       await page.waitForLoadState("domcontentloaded");
