@@ -15,6 +15,9 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    await page.context().clearCookies();
+    await page.goto("/");
+
     await loginHelper.loginAsGithubUser();
 
     await uiHelper.openCatalogSidebar("Component");
