@@ -38,14 +38,13 @@ spec:
         dynamicPlugins:
           frontend:
             red-hat-developer-hub.backstage-plugin-lightspeed:
-              appIcons:
-                - name: LightspeedIcon
-                  module: LightspeedPlugin
-                  importName: LightspeedIcon
+              translationResources:
+                - importName: lightspeedTranslations
+                  module: Alpha
+                  ref: lightspeedTranslationRef
               dynamicRoutes:
                 - path: /lightspeed
                   importName: LightspeedPage
-                  module: LightspeedPlugin
               mountPoints:
                 - mountPoint: application/listener
                   importName: LightspeedFAB
