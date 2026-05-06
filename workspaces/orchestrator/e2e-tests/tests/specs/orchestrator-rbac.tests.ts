@@ -131,7 +131,7 @@ async function loginAsKeycloakUserWithRetry(
 }
 
 export function registerOrchestratorRbacTests(): void {
-  test.describe.serial("Orchestrator RBAC", () => {
+  test.describe("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
       await removeBaselineRole(browser, testInfo);
     });
@@ -171,7 +171,8 @@ export function registerOrchestratorRbacTests(): void {
       });
     }
 
-    test.describe("RBAC: Workflow instance initiator and admin override", () => {
+    test.describe
+      .serial("RBAC: Workflow instance initiator and admin override", () => {
       let loginHelper: LoginHelper;
       let uiHelper: UIhelper;
       let page: Page;
