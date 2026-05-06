@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
@@ -11,6 +10,9 @@ import {
   runOc,
   clickCreateAndWaitForScaffolderTerminalState,
   logOrchestratorDeployFailureDiagnostics,
+  patchHttpbin,
+  restartAndWait,
+  cleanupAfterTest,
 } from "../support/utils/test-helpers.js";
 
 interface WorkflowNode {
@@ -259,16 +261,16 @@ test.describe("Orchestrator", () => {
 
       const originalHttpbin = "https://httpbin.org/";
       try {
-        await patchHttpbin(ns!, "https://foobar.org/");
-        await restartAndWait(ns!);
+        patchHttpbin(ns!, "https://foobar.org/");
+        restartAndWait(ns!);
 
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
         await orchestrator.runFailSwitchWorkflow("Wait");
         await orchestrator.validateCurrentWorkflowStatus("Failed");
 
-        await patchHttpbin(ns!, originalHttpbin);
-        await restartAndWait(ns!);
+        patchHttpbin(ns!, originalHttpbin);
+        restartAndWait(ns!);
 
         await orchestrator.reRunOnFailure("From failure point");
         await orchestrator.validateCurrentWorkflowStatus("Completed");
@@ -281,7 +283,7 @@ test.describe("Orchestrator", () => {
         throw e;
       } finally {
         try {
-          await cleanupAfterTest(ns!, originalHttpbin);
+          cleanupAfterTest(ns!, originalHttpbin);
         } catch (cleanupErr) {
           testInfo.annotations.push({
             type: "cleanup-error",
@@ -743,103 +745,3 @@ test.describe("Orchestrator", () => {
     });
   });
 });
-
-function getHttpbinValue(ns: string): string | undefined {
-  try {
-    const result = execFileSync(
-      "oc",
-      [
-        "-n",
-        ns,
-        "get",
-        "sonataflow",
-        "failswitch",
-        "-o",
-        `jsonpath={.spec.podTemplate.container.env[?(@.name=='HTTPBIN')].value}`,
-      ],
-      { encoding: "utf-8", timeout: 30_000 },
-    );
-    const value = result.trim() || undefined;
-    return value;
-  } catch {
-    return undefined;
-  }
-}
-
-async function patchHttpbin(ns: string, value: string): Promise<void> {
-  let existing: Array<{ name: string; value: string }> = [];
-  try {
-    const raw = execFileSync(
-      "oc",
-      [
-        "-n",
-        ns,
-        "get",
-        "sonataflow",
-        "failswitch",
-        "-o",
-        "jsonpath={.spec.podTemplate.container.env}",
-      ],
-      { encoding: "utf-8", timeout: 30_000 },
-    ).trim();
-    if (raw && raw !== "null" && raw !== "") {
-      existing = JSON.parse(raw);
-    }
-  } catch {
-    // ignore
-  }
-  const idx = existing.findIndex((e: { name: string }) => e.name === "HTTPBIN");
-  if (idx >= 0) existing[idx] = { name: "HTTPBIN", value };
-  else existing.push({ name: "HTTPBIN", value });
-  const patch = JSON.stringify({
-    spec: { podTemplate: { container: { env: existing } } },
-  });
-  execFileSync(
-    "oc",
-    [
-      "-n",
-      ns,
-      "patch",
-      "sonataflow",
-      "failswitch",
-      "--type",
-      "merge",
-      "-p",
-      patch,
-    ],
-    { encoding: "utf-8", timeout: 30_000 },
-  );
-}
-
-async function restartAndWait(ns: string): Promise<void> {
-  execFileSync(
-    "oc",
-    ["-n", ns, "rollout", "restart", "deployment", "failswitch"],
-    { encoding: "utf-8", timeout: 30_000 },
-  );
-
-  execFileSync(
-    "oc",
-    [
-      "-n",
-      ns,
-      "rollout",
-      "status",
-      "deployment",
-      "failswitch",
-      "--timeout=60s",
-    ],
-    { encoding: "utf-8", timeout: 90_000 },
-  );
-}
-
-async function cleanupAfterTest(
-  ns: string,
-  originalHttpbin: string,
-): Promise<void> {
-  const currentHttpbin = getHttpbinValue(ns);
-  if (currentHttpbin !== originalHttpbin) {
-    await patchHttpbin(ns, originalHttpbin);
-    await restartAndWait(ns);
-  }
-}
