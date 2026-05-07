@@ -98,6 +98,11 @@ async function recoverDataIndex(ns: string): Promise<boolean> {
 }
 
 let dataIndexRecoveryFailed = false;
+const TOKEN_PROPAGATION_TIMEOUT_MS = 5 * 60 * 1000;
+const TOKEN_PROPAGATION_POLL_INTERVAL_MS = 5_000;
+const TOKEN_PROPAGATION_MAX_POLLS = 30;
+const TOKEN_PROPAGATION_POLL_TIMEOUT_MS =
+  TOKEN_PROPAGATION_POLL_INTERVAL_MS * TOKEN_PROPAGATION_MAX_POLLS;
 
 async function ensureDataIndexOrSkip(
   ns: string,
@@ -134,9 +139,8 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Greeting workflow execution and workflow tab validation", async ({
+      test("Run Greeting workflow and verify Workflows tab", async ({
         uiHelper,
-        page: _page,
       }) => {
         test.setTimeout(150_000);
         await uiHelper.openSidebar("Orchestrator");
@@ -147,10 +151,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Greeting workflow run details validation", async ({
-        uiHelper,
-        page: _page,
-      }) => {
+      test("Verify Greeting workflow run details", async ({ uiHelper }) => {
         test.setTimeout(150_000);
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectGreetingWorkflowItem();
@@ -170,9 +171,8 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Failswitch workflow execution and workflow tab validation", async ({
+      test("Run Failswitch workflow and verify statuses", async ({
         uiHelper,
-        page: _page,
       }) => {
         test.setTimeout(180_000);
         await uiHelper.openSidebar("Orchestrator");
@@ -193,7 +193,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Abort workflow", async ({ uiHelper, page: _page }) => {
+      test("Abort workflow", async ({ uiHelper }) => {
         test.setTimeout(180_000);
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
@@ -202,7 +202,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Running status validations", async ({ uiHelper, page: _page }) => {
+      test("Verify Running status details", async ({ uiHelper }) => {
         test.setTimeout(180_000);
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
@@ -211,7 +211,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Failed status validations", async ({ uiHelper, page: _page }) => {
+      test("Verify Failed status details", async ({ uiHelper }) => {
         test.setTimeout(180_000);
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
@@ -220,10 +220,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Completed status validations", async ({
-        uiHelper,
-        page: _page,
-      }) => {
+      test("Verify Completed status details", async ({ uiHelper }) => {
         test.setTimeout(180_000);
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.selectFailSwitchWorkflowItem();
@@ -232,7 +229,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Rerunning from failure point using failswitch workflow", async ({
+      test("Rerun Failswitch from failure point", async ({
         uiHelper,
       }, testInfo) => {
         // 4 minutes: pod restarts + 60s sleep + failure/recovery time
@@ -275,7 +272,7 @@ export function registerOrchestratorWorkflowTests(): void {
         }
       });
 
-      test("Failswitch links to another workflow and link works", async ({
+      test("Verify Failswitch suggested workflow link", async ({
         page,
         uiHelper,
       }) => {
@@ -307,12 +304,12 @@ export function registerOrchestratorWorkflowTests(): void {
     });
 
     test.describe("Token propagation workflow API", () => {
-      test("Token propagation workflow executes successfully via API", async ({
+      test("Execute token-propagation workflow via API", async ({
         page,
         loginHelper,
       }) => {
         // 5 minutes for workflow execution + polling
-        test.setTimeout(5 * 60 * 1000);
+        test.setTimeout(TOKEN_PROPAGATION_TIMEOUT_MS);
 
         await loginHelper.loginAsKeycloakUser();
 
@@ -379,43 +376,33 @@ export function registerOrchestratorWorkflowTests(): void {
         const { id: instanceId } = await executeResponse.json();
         expect(instanceId).toBeTruthy();
 
-        const maxPolls = 30;
-        const pollInterval = 5000;
-        let finalState = "";
         let statusBody: WorkflowInstance = {} as WorkflowInstance;
-
-        for (let poll = 1; poll <= maxPolls; poll++) {
-          const statusResponse = await page.request.get(
-            `/api/orchestrator/v2/workflows/instances/${instanceId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${backstageToken}`,
-              },
+        await expect
+          .poll(
+            async () => {
+              const statusResponse = await page.request.get(
+                `/api/orchestrator/v2/workflows/instances/${instanceId}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${backstageToken}`,
+                  },
+                },
+              );
+              expect(statusResponse.ok()).toBeTruthy();
+              statusBody = await statusResponse.json();
+              if (statusBody.state === "ERROR") {
+                throw new Error(
+                  `Token propagation workflow reached ERROR state: ${JSON.stringify(statusBody)}`,
+                );
+              }
+              return statusBody.state;
             },
-          );
-          expect(statusResponse.ok()).toBeTruthy();
-          statusBody = await statusResponse.json();
-          finalState = statusBody.state;
-
-          // eslint-disable-next-line playwright/no-conditional-in-test
-          if (finalState === "COMPLETED") {
-            break;
-          }
-
-          // eslint-disable-next-line playwright/no-conditional-in-test
-          if (finalState === "ERROR") {
-            console.error(
-              "Workflow failed with ERROR state:",
-              JSON.stringify(statusBody),
-            );
-            break;
-          }
-
-          // eslint-disable-next-line playwright/no-wait-for-timeout
-          await page.waitForTimeout(pollInterval);
-        }
-
-        expect(finalState).toBe("COMPLETED");
+            {
+              timeout: TOKEN_PROPAGATION_POLL_TIMEOUT_MS,
+              intervals: [TOKEN_PROPAGATION_POLL_INTERVAL_MS],
+            },
+          )
+          .toBe("COMPLETED");
 
         expect(statusBody.workflowdata.result.completedWith).toBe("success");
         expect(statusBody.workflowdata.result.message).toContain(
@@ -496,7 +483,7 @@ export function registerOrchestratorWorkflowTests(): void {
       });
 
       // eslint-disable-next-line playwright/expect-expect
-      test("Workflow All Runs Validation", async ({ uiHelper }) => {
+      test("Verify Workflow All Runs", async ({ uiHelper }) => {
         await uiHelper.openSidebar("Orchestrator");
         await orchestrator.validateWorkflowAllRuns();
       });
@@ -535,7 +522,7 @@ export function registerOrchestratorWorkflowTests(): void {
         await cleanupGreetingComponentEntity();
       });
 
-      test("RHIDP-11833: Select existing entity via EntityPicker for workflow run", async ({
+      test("RHIDP-11833: Run workflow using EntityPicker selection", async ({
         page,
         uiHelper,
       }) => {
@@ -584,7 +571,7 @@ export function registerOrchestratorWorkflowTests(): void {
         });
       });
 
-      test("RHIDP-11834: Template WITH orchestrator.io/workflows annotation", async ({
+      test("RHIDP-11834: Template with orchestrator.io/workflows annotation", async ({
         page,
         uiHelper,
       }) => {
@@ -601,7 +588,7 @@ export function registerOrchestratorWorkflowTests(): void {
         ).toBeVisible();
       });
 
-      test("RHIDP-11835: Template WITHOUT orchestrator.io/workflows annotation (negative)", async ({
+      test("RHIDP-11835: Template without orchestrator.io/workflows annotation", async ({
         page,
         uiHelper,
       }) => {
@@ -634,7 +621,7 @@ export function registerOrchestratorWorkflowTests(): void {
         }
       });
 
-      test("RHIDP-11836: Catalog <-> Workflows breadcrumb navigation", async ({
+      test("RHIDP-11836: Verify Catalog <-> Workflows breadcrumbs", async ({
         page,
         uiHelper,
       }) => {
@@ -671,7 +658,7 @@ export function registerOrchestratorWorkflowTests(): void {
         }
       });
 
-      test("RHIDP-11837: Template run produces visible workflow runs", async ({
+      test("RHIDP-11837: Template run appears in Workflows list", async ({
         page,
         uiHelper,
       }) => {
