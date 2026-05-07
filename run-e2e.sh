@@ -298,29 +298,7 @@ npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT
 
 # ── Merge and upload coverage ────────────────────────────────────────────
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    COVERAGE_JSON_DIR="node_modules/.cache/e2e-test-results/coverage"
-    if ls "$COVERAGE_JSON_DIR"/*.json &>/dev/null; then
-        echo ""
-        echo "[INFO] Merging coverage data with nyc..."
-        mkdir -p .nyc_output
-        npx nyc merge "$COVERAGE_JSON_DIR" .nyc_output/out.json
-        npx nyc report --reporter=lcov --reporter=text-summary --report-dir coverage
-
-        if [[ ${#E2E_WORKSPACES[@]} -gt 1 ]]; then
-            echo "[WARN] Coverage data is merged across all ${#E2E_WORKSPACES[@]} workspaces."
-            echo "[WARN] For clean per-workspace coverage, run with a single -w flag."
-        fi
-
-        echo "[INFO] Uploading E2E coverage to Codecov..."
-        for ws in "${E2E_WORKSPACES[@]}"; do
-            if [[ -f "workspaces/$ws/source.json" ]]; then
-                "$SCRIPT_DIR/scripts/upload-coverage.sh" "$ws" || \
-                    echo "[WARN] Coverage upload failed for $ws (non-fatal)"
-            fi
-        done
-    else
-        echo "[INFO] No coverage data found (no instrumented plugins loaded?)"
-    fi
+    "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
