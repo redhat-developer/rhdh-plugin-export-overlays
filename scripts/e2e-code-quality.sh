@@ -25,12 +25,12 @@ if [[ "${1:-}" == "--fix" ]]; then
   shift
 fi
 
-# Print error message to stderr. Uses GitHub Actions annotation syntax
-# in CI, plain text locally.
+# Print error message. Uses GitHub Actions annotation syntax in CI
+# (must be on stdout for Actions to parse it), plain text to stderr locally.
 report_error() {
   local msg="$1"
   if [[ -n "${CI:-}" ]]; then
-    echo "::error::${msg}" >&2
+    echo "::error::${msg}"
   else
     echo "ERROR: ${msg}" >&2
   fi
