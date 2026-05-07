@@ -6,7 +6,6 @@
 # and multi-format package list handling (YAML npm names + txt workspace paths).
 
 import sys
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 

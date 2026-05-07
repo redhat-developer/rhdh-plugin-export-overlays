@@ -69,6 +69,11 @@ def is_downstream_quay_rhdh() -> bool:
     return REGISTRY_BASE == "quay.io/rhdh"
 
 
+def is_downstream_rarc() -> bool:
+    """Check if the user requested registry.access.redhat.com output via -r"""
+    return REGISTRY_BASE.startswith("registry.access.redhat.com")
+
+
 def _is_quay_rhdh_ref(registry_reference: str) -> bool:
     """Check if a registry reference targets quay.io/rhdh/ (not quay.io/rhdh-community/)."""
     return registry_reference.startswith("quay.io/rhdh/")
@@ -122,10 +127,10 @@ def get_query_registry_reference(registry_reference: str) -> str:
 def get_output_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for output/storage.
-    For quay.io/rhdh/ refs, swap to registry.access.redhat.com/rhdh/ for GA output.
-    Per-reference check — works with mixed-registry plugin_builds.
+    Only swap quay.io/rhdh/ → registry.access.redhat.com/rhdh/ when the user
+    explicitly requested r.a.r.c output via -r registry.access.redhat.com/rhdh.
     """
-    if _is_quay_rhdh_ref(registry_reference):
+    if is_downstream_rarc() and _is_quay_rhdh_ref(registry_reference):
         return registry_reference.replace("quay.io/rhdh/", "registry.access.redhat.com/rhdh/")
     return registry_reference
 
@@ -288,12 +293,11 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             plugin_data['io.backstage.dynamic-packages'] = metadata['io.backstage.dynamic-packages']
                             modified = True
 
-                        # Swap quay.io/rhdh refs to registry.access.redhat.com/rhdh (per-reference check)
-                        if _is_quay_rhdh_ref(registry_reference):
-                            registry_reference_GA = get_output_registry_reference(registry_reference)
-                            log_debug(f"registry_reference switched from quay.io to: {registry_reference_GA}")
-                            plugin_data['registryReference'] = registry_reference_GA
-                            registry_reference = registry_reference_GA
+                        output_ref = get_output_registry_reference(registry_reference)
+                        if output_ref != registry_reference:
+                            log_debug(f"registry_reference switched to: {output_ref}")
+                            plugin_data['registryReference'] = output_ref
+                            registry_reference = output_ref
                     else:
                         print(f" ")
                         missing_refs.append(registry_reference)
@@ -349,9 +353,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                                 ref_base = (registry_reference_tag.split("@")[0] if "@" in registry_reference_tag
                                             else registry_reference_tag.rsplit(":", 1)[0])
                                 registry_reference_digest = f"{ref_base}@{digest}"
-                            # For quay.io/rhdh refs, swap to registry.access.redhat.com in output
-                            if _is_quay_rhdh_ref(registry_reference_digest):
-                                registry_reference_digest = registry_reference_digest.replace("quay.io/rhdh/", "registry.access.redhat.com/rhdh/")
+                            registry_reference_digest = get_output_registry_reference(registry_reference_digest)
                             metadata_file = None
                             for f in metadata_dir.glob("*.yaml"):
                                 try:
