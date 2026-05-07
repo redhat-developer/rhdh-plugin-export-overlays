@@ -250,9 +250,8 @@ for ws in "${E2E_WORKSPACES[@]}"; do
     done <<< "$PROJECTS_BLOCK"
 done
 
-COVERAGE_REPORTER_LINE=""
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    COVERAGE_REPORTER_LINE="  reporter: [...(baseConfig.reporter || []), ['./e2e-coverage/coverage-reporter.ts']],"
+    export COVERAGE_OUTPUT_DIR="$SCRIPT_DIR/coverage/istanbul"
     echo "[INFO] Coverage collection enabled (E2E_COLLECT_COVERAGE=1)"
 fi
 
@@ -264,7 +263,6 @@ import path from 'path';
 
 export default defineConfig({
   ...baseConfig,
-${COVERAGE_REPORTER_LINE}
   projects: [
 ${PROJECT_ENTRIES}  ],
 });
@@ -299,24 +297,31 @@ echo ""
 TEST_EXIT_CODE=0
 npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
 
-# ── Upload coverage ──────────────────────────────────────────────────────
-# The merged lcov.info contains coverage from ALL workspaces. Each upload
-# sends the full file with a different --flag and --sha (from source.json).
-# Codecov scopes coverage by --slug, so cross-repo data is ignored.
-if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]] && [[ -f "coverage/istanbul/lcov.info" ]]; then
-    echo ""
-    if [[ ${#E2E_WORKSPACES[@]} -gt 1 ]]; then
-        echo "[WARN] Coverage data is merged across all ${#E2E_WORKSPACES[@]} workspaces into a single lcov.info."
-        echo "[WARN] Each upload will contain coverage from all workspaces, not just the target."
-        echo "[WARN] For clean per-workspace coverage, run with a single -w flag."
-    fi
-    echo "[INFO] Uploading E2E coverage to Codecov..."
-    for ws in "${E2E_WORKSPACES[@]}"; do
-        if [[ -f "workspaces/$ws/source.json" ]]; then
-            "$SCRIPT_DIR/scripts/upload-coverage.sh" "$ws" || \
-                echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+# ── Merge and upload coverage ────────────────────────────────────────────
+if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
+    COVERAGE_JSON_DIR="${COVERAGE_OUTPUT_DIR:-$SCRIPT_DIR/coverage/istanbul}"
+    if ls "$COVERAGE_JSON_DIR"/*.json &>/dev/null; then
+        echo ""
+        echo "[INFO] Merging coverage data with nyc..."
+        mkdir -p .nyc_output
+        npx nyc merge "$COVERAGE_JSON_DIR" .nyc_output/out.json
+        npx nyc report --reporter=lcov --reporter=text-summary --report-dir coverage
+
+        if [[ ${#E2E_WORKSPACES[@]} -gt 1 ]]; then
+            echo "[WARN] Coverage data is merged across all ${#E2E_WORKSPACES[@]} workspaces."
+            echo "[WARN] For clean per-workspace coverage, run with a single -w flag."
         fi
-    done
+
+        echo "[INFO] Uploading E2E coverage to Codecov..."
+        for ws in "${E2E_WORKSPACES[@]}"; do
+            if [[ -f "workspaces/$ws/source.json" ]]; then
+                "$SCRIPT_DIR/scripts/upload-coverage.sh" "$ws" || \
+                    echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+            fi
+        done
+    else
+        echo "[INFO] No coverage data found (no instrumented plugins loaded?)"
+    fi
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────

@@ -14,9 +14,6 @@
 #
 # Required environment:
 #   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads)
-#
-# Optional environment:
-#   COVERAGE_OUTPUT_DIR - Override coverage directory (default: coverage/istanbul)
 
 set -euo pipefail
 
@@ -24,7 +21,7 @@ WORKSPACE="${1:?Usage: $0 <workspace-name>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKSPACE_DIR="$REPO_ROOT/workspaces/$WORKSPACE"
-COVERAGE_DIR="${COVERAGE_OUTPUT_DIR:-$REPO_ROOT/coverage/istanbul}"
+COVERAGE_DIR="$REPO_ROOT/coverage"
 LCOV_FILE="$COVERAGE_DIR/lcov.info"
 
 if [[ ! -f "$LCOV_FILE" ]]; then
