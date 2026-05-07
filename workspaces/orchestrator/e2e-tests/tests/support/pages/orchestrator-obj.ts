@@ -24,4 +24,16 @@ export const ORCHESTRATOR_COMPONENTS = {
     page.getByRole("button", { name: "Start Over" }),
   workflowsTab: (page: Page): Locator =>
     page.getByRole("tab", { name: "Workflows" }),
+  nextButton: (page: Page): Locator =>
+    page.getByRole("button", { name: "Next" }),
+  runWorkflowButton: (page: Page): Locator =>
+    page.getByRole("button", { name: /run workflow/i }),
+  suggestedNextWorkflowHeading: (page: Page): Locator =>
+    page.getByRole("heading", { name: /suggested next workflow/i }),
+  suggestedGreetingLink: (page: Page): Locator =>
+    page.getByRole("link", { name: /greeting/i }),
+  greetingWorkflowDialog: (page: Page): Locator =>
+    page.getByRole("dialog", { name: /greeting workflow/i }),
+  completedStatus: (page: Page): Locator =>
+    page.getByText("Completed", { exact: true }),
 };

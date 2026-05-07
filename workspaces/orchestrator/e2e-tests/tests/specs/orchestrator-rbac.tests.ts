@@ -324,7 +324,7 @@ export function registerOrchestratorRbacTests(): void {
           await deleteRoleAndPolicies(apiToken, scenario.roleName);
         });
 
-        test(`Validate ${scenario.name} workflow behavior`, async () => {
+        test(`Validate ${scenario.name} workflow behavior`, async (_fixtures) => {
           await assertRbacScenario(page, uiHelper, scenario);
           await expect(page).toHaveURL(/\/orchestrator/);
         });
@@ -373,23 +373,17 @@ export function registerOrchestratorRbacTests(): void {
         await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
       });
 
-      test("Primary user runs greeting workflow and captures instance ID", async () => {
+      test("Primary user runs greeting workflow and captures instance ID", async (_fixtures) => {
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
-        await orchestratorPo.openWorkflowsPage();
-        await orchestratorPo.openWorkflow("Greeting workflow");
+        await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
-        await page.getByRole("button", { name: "Run" }).click();
-        await page.getByRole("button", { name: "Next" }).click();
-        await page.getByRole("button", { name: "Run" }).click();
-        await page.waitForURL(/\/orchestrator\/instances\/[a-f0-9-]+/);
-        const match = page
-          .url()
-          .match(/\/orchestrator\/instances\/([a-f0-9-]+)/);
-        expect(match).not.toBeNull();
-        workflowInstanceId = match![1];
+        workflowInstanceId =
+          await orchestratorPo.runGreetingWorkflowAndCaptureInstanceId();
+        expect(workflowInstanceId).toBeTruthy();
       });
 
-      test("Secondary user cannot access instance before admin grant", async () => {
+      test("Secondary user cannot access instance before admin grant", async (_fixtures) => {
+        const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
         await page.waitForLoadState("load");
@@ -399,14 +393,14 @@ export function registerOrchestratorRbacTests(): void {
           process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
-        await uiHelper.goToPageUrl(
-          `/orchestrator/instances/${workflowInstanceId}`,
-        );
-        const pageContent = await page.locator("body").textContent();
-        expect(pageContent?.includes("Completed")).not.toBeTruthy();
+        await orchestratorPo.openWorkflowInstance(workflowInstanceId);
+        expect(
+          await orchestratorPo.isWorkflowCompletedStatusVisible(),
+        ).toBeFalsy();
       });
 
-      test("Grant admin role and verify secondary user access", async () => {
+      test("Grant admin role and verify secondary user access", async (_fixtures) => {
+        const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
         await loginAsKeycloakUserWithRetry(page, loginHelper);
@@ -460,12 +454,10 @@ export function registerOrchestratorRbacTests(): void {
           process.env.GH_USER2_ID || "test2",
           process.env.GH_USER2_PASS || "test2@123",
         );
-        await uiHelper.goToPageUrl(
-          `/orchestrator/instances/${workflowInstanceId}`,
+        await orchestratorPo.openWorkflowInstance(workflowInstanceId);
+        await orchestratorPo.verifyWorkflowCompletedStatusVisible(
+          WORKFLOW_INSTANCE_VISIBLE_TIMEOUT_MS,
         );
-        await expect(page.getByText("Completed", { exact: true })).toBeVisible({
-          timeout: WORKFLOW_INSTANCE_VISIBLE_TIMEOUT_MS,
-        });
       });
     });
 
@@ -494,7 +486,7 @@ export function registerOrchestratorRbacTests(): void {
           await deleteRoleAndPolicies(apiToken, scenario.roleName);
         });
 
-        test(`Validate ${scenario.id} behavior`, async () => {
+        test(`Validate ${scenario.id} behavior`, async (_fixtures) => {
           test.setTimeout(scenario.testTimeoutMs);
           const orchestratorPo = new OrchestratorPO(page, uiHelper);
 

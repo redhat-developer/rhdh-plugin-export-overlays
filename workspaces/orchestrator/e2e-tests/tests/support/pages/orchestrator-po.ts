@@ -30,6 +30,19 @@ export class OrchestratorPO {
     await workflow.click();
   }
 
+  async openWorkflowFromSidebar(name: string | RegExp): Promise<void> {
+    await this.openOrchestratorFromSidebar();
+    await this.openWorkflow(name);
+  }
+
+  async openGreetingWorkflowFromSidebar(): Promise<void> {
+    await this.openWorkflowFromSidebar(/Greeting workflow/i);
+  }
+
+  async openFailswitchWorkflowFromSidebar(): Promise<void> {
+    await this.openWorkflowFromSidebar(/Failswitch workflow/i);
+  }
+
   async verifyWorkflowHidden(name: string | RegExp): Promise<void> {
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowLink(this.page, name),
@@ -60,6 +73,27 @@ export class OrchestratorPO {
       return;
     }
     await expect(runButton).toBeDisabled();
+  }
+
+  async runWorkflowInDetailsPage(): Promise<void> {
+    const runButton = ORCHESTRATOR_COMPONENTS.runButton(this.page);
+    await expect(runButton).toBeVisible();
+    await runButton.click();
+  }
+
+  async runGreetingWorkflowAndCaptureInstanceId(): Promise<string> {
+    await this.runWorkflowInDetailsPage();
+    await expect(ORCHESTRATOR_COMPONENTS.nextButton(this.page)).toBeVisible();
+    await ORCHESTRATOR_COMPONENTS.nextButton(this.page).click();
+    await this.runWorkflowInDetailsPage();
+    await this.page.waitForURL(/\/orchestrator\/instances\/[a-f0-9-]+/);
+    const match = this.page
+      .url()
+      .match(/\/orchestrator\/instances\/([a-f0-9-]+)/);
+    if (!match) {
+      throw new Error("Workflow instance id not found in URL");
+    }
+    return match[1];
   }
 
   async openGreetingTemplateFromCatalog(
@@ -180,5 +214,48 @@ export class OrchestratorPO {
     await entityBreadcrumb.click();
     await this.page.waitForLoadState("load");
     return true;
+  }
+
+  async openWorkflowInstance(instanceId: string): Promise<void> {
+    await this.uiHelper.goToPageUrl(`/orchestrator/instances/${instanceId}`);
+  }
+
+  async isWorkflowCompletedStatusVisible(timeoutMs = 3_000): Promise<boolean> {
+    return ORCHESTRATOR_COMPONENTS.completedStatus(this.page)
+      .isVisible({ timeout: timeoutMs })
+      .catch(() => false);
+  }
+
+  async verifyWorkflowCompletedStatusVisible(timeoutMs: number): Promise<void> {
+    await expect(
+      ORCHESTRATOR_COMPONENTS.completedStatus(this.page),
+    ).toBeVisible({
+      timeout: timeoutMs,
+    });
+  }
+
+  async followSuggestedGreetingWorkflow(): Promise<void> {
+    await expect(
+      ORCHESTRATOR_COMPONENTS.suggestedNextWorkflowHeading(this.page),
+    ).toBeVisible();
+    const greetingLink = ORCHESTRATOR_COMPONENTS.suggestedGreetingLink(
+      this.page,
+    );
+    await expect(greetingLink).toBeVisible();
+    await greetingLink.click();
+
+    await expect(
+      ORCHESTRATOR_COMPONENTS.greetingWorkflowDialog(this.page),
+    ).toBeVisible();
+    const runWorkflowButton = ORCHESTRATOR_COMPONENTS.runWorkflowButton(
+      this.page,
+    );
+    await expect(runWorkflowButton).toBeVisible();
+    await runWorkflowButton.click();
+
+    await expect(
+      this.page.getByRole("heading", { name: "Greeting workflow" }),
+    ).toBeVisible();
+    await expect(ORCHESTRATOR_COMPONENTS.nextButton(this.page)).toBeVisible();
   }
 }
