@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.6.5!red-hat-developer-hub-backstage-plugin-lightspeed-backend
-  version: 2.6.5
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.6.6!red-hat-developer-hub-backstage-plugin-lightspeed-backend
+  version: 2.6.6
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
@@ -29,10 +29,9 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        lightspeed: 
+        lightspeed:
           # OPTIONAL: Port for lightspeed service (default: 8080)
           servicePort: 8080
-          
           # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
           # mcpServers:
           #  - name: <mcp server name>
