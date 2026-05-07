@@ -48,7 +48,7 @@ if [[ -n "$CHANGED_FILES" ]]; then
         STASH_NEEDED=false
       fi
     }
-    trap cleanup EXIT
+    trap cleanup EXIT INT TERM
 
     if ! git diff --quiet; then
       git stash push --keep-index --quiet -m "pre-commit hook backup"
