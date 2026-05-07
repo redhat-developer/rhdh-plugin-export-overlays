@@ -39,6 +39,17 @@ if [[ -n "$CHANGED_FILES" ]]; then
     # Stash unstaged changes so fixers only see staged content.
     # This protects partially staged files from being fully staged.
     STASH_NEEDED=false
+    cleanup() {
+      if [[ "$STASH_NEEDED" == true ]]; then
+        echo "Restoring unstaged changes from stash..." >&2
+        git stash pop --quiet 2>/dev/null || {
+          echo "WARNING: Could not auto-restore stash. Run 'git stash pop' manually." >&2
+        }
+        STASH_NEEDED=false
+      fi
+    }
+    trap cleanup EXIT
+
     if ! git diff --quiet; then
       git stash push --keep-index --quiet -m "pre-commit hook backup"
       STASH_NEEDED=true
@@ -48,12 +59,9 @@ if [[ -n "$CHANGED_FILES" ]]; then
     FIX_EXIT=0
     "${REPO_ROOT}/scripts/e2e-code-quality.sh" --fix "${WORKSPACES[@]}" || FIX_EXIT=$?
 
-    # Re-stage files that were auto-fixed
-    echo "$CHANGED_FILES" | xargs git add
-
-    # Restore unstaged changes
-    if [[ "$STASH_NEEDED" == true ]]; then
-      git stash pop --quiet
+    # Re-stage files that were auto-fixed (only on success)
+    if [[ "$FIX_EXIT" -eq 0 ]]; then
+      echo "$CHANGED_FILES" | xargs git add
     fi
 
     # Exit with the fixer's exit code
