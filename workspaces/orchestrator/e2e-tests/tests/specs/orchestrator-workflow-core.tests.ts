@@ -27,7 +27,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Run Greeting workflow and verify Workflows tab", async (_fixtures) => {
+    test("Run Greeting workflow and verify Workflows tab", async ({}) => {
       test.setTimeout(150_000);
       await orchestratorPo.openGreetingWorkflowFromSidebar();
       await orchestrator.runGreetingWorkflow();
@@ -36,7 +36,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Greeting workflow run details", async (_fixtures) => {
+    test("Verify Greeting workflow run details", async ({}) => {
       test.setTimeout(150_000);
       await orchestratorPo.openGreetingWorkflowFromSidebar();
       await orchestrator.runGreetingWorkflow();
@@ -57,7 +57,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Run Failswitch workflow and verify statuses", async (_fixtures) => {
+    test("Run Failswitch workflow and verify statuses", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("OK");
@@ -75,7 +75,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Abort workflow", async (_fixtures) => {
+    test("Abort workflow", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("Wait");
@@ -83,7 +83,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Running status details", async (_fixtures) => {
+    test("Verify Running status details", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("Wait");
@@ -91,7 +91,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Failed status details", async (_fixtures) => {
+    test("Verify Failed status details", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("KO");
@@ -99,7 +99,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Completed status details", async (_fixtures) => {
+    test("Verify Completed status details", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("OK");
@@ -107,7 +107,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Rerun Failswitch from failure point", async (_fixtures, testInfo) => {
+    test("Rerun Failswitch from failure point", async ({}, testInfo) => {
       // 4 minutes: pod restarts + 60s sleep + failure/recovery time
       test.setTimeout(240_000);
       const ns = testInfo.project.name;
@@ -148,7 +148,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Failswitch suggested workflow link", async (_fixtures) => {
+    test("Verify Failswitch suggested workflow link", async ({}) => {
       test.setTimeout(180_000);
       await orchestratorPo.openFailswitchWorkflowFromSidebar();
       await orchestrator.runFailSwitchWorkflow("OK");
@@ -167,7 +167,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Verify Workflow All Runs", async (_fixtures) => {
+    test("Verify Workflow All Runs", async ({}) => {
       await orchestratorPo.openOrchestratorFromSidebar();
       await orchestrator.validateWorkflowAllRuns();
     });

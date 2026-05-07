@@ -324,7 +324,7 @@ export function registerOrchestratorRbacTests(): void {
           await deleteRoleAndPolicies(apiToken, scenario.roleName);
         });
 
-        test(`Validate ${scenario.name} workflow behavior`, async (_fixtures) => {
+        test(`Validate ${scenario.name} workflow behavior`, async ({}) => {
           await assertRbacScenario(page, uiHelper, scenario);
           await expect(page).toHaveURL(/\/orchestrator/);
         });
@@ -373,7 +373,7 @@ export function registerOrchestratorRbacTests(): void {
         await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
       });
 
-      test("Primary user runs greeting workflow and captures instance ID", async (_fixtures) => {
+      test("Primary user runs greeting workflow and captures instance ID", async ({}) => {
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
@@ -382,7 +382,7 @@ export function registerOrchestratorRbacTests(): void {
         expect(workflowInstanceId).toBeTruthy();
       });
 
-      test("Secondary user cannot access instance before admin grant", async (_fixtures) => {
+      test("Secondary user cannot access instance before admin grant", async ({}) => {
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
@@ -399,7 +399,7 @@ export function registerOrchestratorRbacTests(): void {
         ).toBeFalsy();
       });
 
-      test("Grant admin role and verify secondary user access", async (_fixtures) => {
+      test("Grant admin role and verify secondary user access", async ({}) => {
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
@@ -486,7 +486,7 @@ export function registerOrchestratorRbacTests(): void {
           await deleteRoleAndPolicies(apiToken, scenario.roleName);
         });
 
-        test(`Validate ${scenario.id} behavior`, async (_fixtures) => {
+        test(`Validate ${scenario.id} behavior`, async ({}) => {
           test.setTimeout(scenario.testTimeoutMs);
           const orchestratorPo = new OrchestratorPO(page, uiHelper);
 
