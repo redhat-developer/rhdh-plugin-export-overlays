@@ -55,7 +55,7 @@ if [[ -n "$CHANGED_FILES" ]]; then
       STASH_NEEDED=true
     fi
 
-    # Run fixers; capture exit code to ensure stash is restored on failure
+    # Run fixers; capture exit code
     FIX_EXIT=0
     "${REPO_ROOT}/scripts/e2e-code-quality.sh" --fix "${WORKSPACES[@]}" || FIX_EXIT=$?
 
@@ -64,7 +64,7 @@ if [[ -n "$CHANGED_FILES" ]]; then
       echo "$CHANGED_FILES" | xargs git add
     fi
 
-    # Exit with the fixer's exit code
+    # Exit with the fixer's exit code (trap restores stash on exit)
     if [[ "$FIX_EXIT" -ne 0 ]]; then
       exit "$FIX_EXIT"
     fi
@@ -89,5 +89,5 @@ else
 fi
 
 if [[ -x "$USER_HOOK" ]]; then
-  exec "$USER_HOOK"
+  "$USER_HOOK"
 fi
