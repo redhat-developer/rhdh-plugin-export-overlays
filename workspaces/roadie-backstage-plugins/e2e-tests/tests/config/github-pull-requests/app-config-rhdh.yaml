@@ -1,5 +1,9 @@
 app:
   title: RHDH Roadie Plugins Test Instance
+integrations:
+  github:
+    - host: github.com
+      token: ${VAULT_GITHUB_USER_TOKEN}
 catalog:
   import:
     entityFilename: catalog-info.yaml
