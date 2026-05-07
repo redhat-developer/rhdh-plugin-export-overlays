@@ -22,39 +22,18 @@ from pathlib import Path
 import requests
 import yaml
 
-# Global debug flag
-DEBUG = False
+from plugin_utils import (
+    Colors,
+    log_debug,
+    log_info,
+    log_warn,
+    log_error,
+    set_debug,
+    load_and_resolve_to_stems,
+)
 
 # Global registry config
 REGISTRY_BASE = ""
-
-
-class Colors:
-    """ANSI color codes for terminal output"""
-    NORM = "\033[0;39m"
-    GREEN = "\033[1;32m"
-    BLUE = "\033[1;34m"
-    RED = "\033[1;31m"
-    ORANGE = "\033[38;5;208m"
-    YELLOW = "\033[1;33m"
-    RESET = "\033[0m"
-
-
-def log_debug(message: str) -> None:
-    if DEBUG:
-        print(f"{Colors.ORANGE}[DEBUG]{Colors.NORM} {message}")
-
-
-def log_info(message: str) -> None:
-    print(f"{Colors.GREEN}[INFO]{Colors.NORM} {message}")
-
-
-def log_warn(message: str) -> None:
-    print(f"{Colors.BLUE}[WARN]{Colors.NORM} {message}")
-
-
-def log_error(message: str) -> None:
-    print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
 
 
 def is_registry_rarc() -> bool:
@@ -558,66 +537,6 @@ def _support_label_color(label: str) -> str:
     return colors.get(label, Colors.RED)
 
 
-def load_core_packages_from_yaml(packages_file: str) -> set[str]:
-    """Load core package names from default.packages.yaml.
-    Returns set of npm package names from both enabled and disabled sections."""
-    path = Path(packages_file)
-    if not path.exists():
-        log_error(f"Core packages file not found: {packages_file}")
-        sys.exit(1)
-
-    with open(path, 'r') as f:
-        data = yaml.safe_load(f)
-
-    packages = set()
-    for section in ['enabled', 'disabled']:
-        for entry in data.get('packages', {}).get(section, []) or []:
-            pkg = entry.get('package', '').strip()
-            if pkg:
-                packages.add(pkg)
-
-    return packages
-
-
-def build_npm_to_stem_map(overlays_dir: Path) -> dict[str, str]:
-    """Build mapping from npm package names to metadata entity stems.
-    Scans workspaces/*/metadata/*.yaml files.
-    Returns: {'@backstage/plugin-techdocs': 'backstage-plugin-techdocs', ...}
-    """
-    mapping = {}
-    workspaces = overlays_dir / "workspaces"
-    if not workspaces.exists():
-        return mapping
-
-    for yaml_file in workspaces.glob("*/metadata/*.yaml"):
-        try:
-            with open(yaml_file, 'r') as f:
-                data = yaml.safe_load(f)
-            if not data or data.get('kind') != 'Package':
-                continue
-            spec = data.get('spec', {})
-            package_name = spec.get('packageName', '')
-            stem = data.get('metadata', {}).get('name', yaml_file.stem)
-            if package_name:
-                mapping[package_name] = stem
-        except Exception:
-            continue
-
-    return mapping
-
-
-def get_core_stems(core_npm_packages: set[str], npm_to_stem: dict[str, str]) -> set[str]:
-    """Convert core npm package names to their metadata entity stems."""
-    stems = set()
-    for npm_name in core_npm_packages:
-        stem = npm_to_stem.get(npm_name)
-        if stem:
-            stems.add(stem)
-        else:
-            log_warn(f"Core package '{npm_name}' not found in workspace metadata")
-    return stems
-
-
 def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
     """Scrub a single Plugin entity YAML file.
     - If no packages are core: delete the file
@@ -693,136 +612,11 @@ def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
         return 'skipped'
 
 
-def scrub_plugin_entity_file_exclude(yaml_file: Path, core_stems: set[str]) -> str:
-    """Inverse scrub: remove core plugins, keep non-core.
-    - If ALL packages are core: delete the file
-    - If NO packages are core: keep as-is
-    - If mixed: strip core package refs using line-based editing
 
-    Returns: 'removed' | 'stripped' | 'kept' | 'skipped'
-    """
-    try:
-        with open(yaml_file, 'r') as f:
-            data = yaml.safe_load(f)
-
-        if not data or data.get('kind') != 'Plugin':
-            return 'skipped'
-
-        spec = data.get('spec', {})
-        packages = spec.get('packages', [])
-
-        if not packages:
-            return 'kept'
-
-        pkg_list = [p for p in packages if isinstance(p, str)]
-        if not pkg_list:
-            return 'kept'
-
-        core_packages = set(p for p in pkg_list if p in core_stems)
-        non_core_packages = [p for p in pkg_list if p not in core_stems]
-
-        if not non_core_packages:
-            yaml_file.unlink()
-            return 'removed'
-
-        if not core_packages:
-            return 'kept'
-
-        # Mixed plugin: remove core package lines using line-based editing
-        with open(yaml_file, 'r') as f:
-            lines = f.readlines()
-
-        new_lines = []
-        in_packages = False
-        for line in lines:
-            stripped = line.strip()
-
-            if stripped.startswith('packages:'):
-                in_packages = True
-                new_lines.append(line)
-                continue
-
-            if in_packages:
-                if stripped.startswith('- '):
-                    pkg_name = stripped[2:].strip()
-                    if pkg_name in core_packages:
-                        continue
-                    new_lines.append(line)
-                    continue
-                elif not stripped or stripped.startswith('#'):
-                    new_lines.append(line)
-                    continue
-                else:
-                    in_packages = False
-
-            new_lines.append(line)
-
-        with open(yaml_file, 'w') as f:
-            f.writelines(new_lines)
-
-        return 'stripped'
-
-    except Exception as e:
-        log_error(f"Error scrubbing plugin entity {yaml_file}: {e}")
-        return 'skipped'
-
-
-def exclude_scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_file: str) -> None:
-    """Inverse scrub: remove core plugins/packages, keep only non-core content."""
-    core_npm_packages = load_core_packages_from_yaml(packages_file)
-    log_info(f"Loaded {len(core_npm_packages)} core packages to exclude from {packages_file}")
-
-    npm_to_stem = build_npm_to_stem_map(overlays_dir)
-    core_stems = get_core_stems(core_npm_packages, npm_to_stem)
-    log_info(f"Resolved {len(core_stems)} core package stems to exclude")
-
-    # Scrub Plugin entity YAMLs (remove core, keep non-core)
-    plugins_dir = output_dir / "catalog-entities" / "extensions" / "plugins"
-    removed = stripped = kept = skipped = 0
-    if plugins_dir.exists():
-        for yaml_file in sorted(plugins_dir.glob("*.yaml")):
-            if yaml_file.name in ("all.yaml", "1-boilerplate.yaml.sample"):
-                continue
-            result = scrub_plugin_entity_file_exclude(yaml_file, core_stems)
-            if result == 'removed':
-                removed += 1
-                log_debug(f"Removed core plugin: {yaml_file.name}")
-            elif result == 'stripped':
-                stripped += 1
-                log_info(f"Stripped core packages from: {yaml_file.name}")
-            elif result == 'kept':
-                kept += 1
-            else:
-                skipped += 1
-
-    log_info(f"Plugin entities (exclude mode): {kept} kept, {stripped} stripped, {removed} removed" +
-             (f", {skipped} skipped" if skipped else ""))
-
-    # Pre-prune Package metadata to remove core packages
-    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-    if packages_dir.exists():
-        pkg_removed = 0
-        for yaml_file in sorted(packages_dir.glob("*.yaml")):
-            if yaml_file.name == "all.yaml":
-                continue
-            if yaml_file.stem in core_stems:
-                yaml_file.unlink()
-                pkg_removed += 1
-                log_debug(f"Removed core package metadata: {yaml_file.name}")
-        if pkg_removed > 0:
-            log_info(f"Package metadata: removed {pkg_removed} core files")
-
-
-def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_file: str) -> None:
-    """Scrub catalog entities to only retain core plugins/packages based on default.packages.yaml."""
-    core_npm_packages = load_core_packages_from_yaml(packages_file)
-    log_info(f"Loaded {len(core_npm_packages)} core packages from {packages_file}")
-
-    npm_to_stem = build_npm_to_stem_map(overlays_dir)
-    log_info(f"Built npm-to-stem mapping with {len(npm_to_stem)} entries")
-
-    core_stems = get_core_stems(core_npm_packages, npm_to_stem)
-    log_info(f"Resolved {len(core_stems)} core package stems")
+def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files: list[str]) -> None:
+    """Scrub catalog entities to only retain plugins/packages from the provided package files."""
+    core_stems = load_and_resolve_to_stems(packages_files, overlays_dir)
+    log_info(f"Resolved {len(core_stems)} package stems from {len(packages_files)} file(s)")
 
     # Scrub Plugin entity YAMLs
     plugins_dir = output_dir / "catalog-entities" / "extensions" / "plugins"
@@ -862,7 +656,6 @@ def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_file: 
 
 
 def main():
-    global DEBUG
     global REGISTRY_BASE
 
     usage = """
@@ -871,33 +664,33 @@ Usage: python3 generateCatalogIndex.py [--debug] \\
     -o|--output-dir    /path/to/catalog-index \\
     -b|--plugin-builds-dir /path/to/plugin_builds \\
     -r|--registry image-registry \\
-    [-p|--packages-file FILE] \\
-    [-e|--exclude-packages-file FILE] \\
+    [-p|--packages-file FILE ...] \\
     [-c|--catalog-entities-dir PATH]
 
 Examples:
-    # Generate catalog index for all plugins
+    # Generate catalog index for all plugins (no filtering)
     python3 generateCatalogIndex.py \\
         -d . \\
-        -o catalog-index/community \\
-        -b plugin_builds/community \\
+        -o catalog-index/all \\
+        -b plugin_builds/all \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 
-    # Generate productized catalog index (scrub to core packages only)
+    # Generate supported catalog index (union of YAML + txt package lists)
     python3 generateCatalogIndex.py \\
         -d . \\
         -o catalog-index/supported \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh \\
-        -p catalog-index/default.packages.yaml
+        -p catalog-index/default.packages.yaml \\
+        -p rhdh-supported-packages.txt
 
-    # Generate community catalog index (exclude core packages)
+    # Generate community catalog index
     python3 generateCatalogIndex.py \\
         -d . \\
         -o catalog-index/community \\
         -b plugin_builds/community \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
-        -e catalog-index/default.packages.yaml
+        -p rhdh-community-packages.txt
 """
 
     if len(sys.argv) == 1:
@@ -943,16 +736,11 @@ Examples:
     parser.add_argument(
         '-p', '--packages-file',
         type=str,
+        action='append',
         metavar='FILE',
-        help='Path to default.packages.yaml. When specified, scrub catalog entities to only '
-             'include plugins/packages that reference core packages from this file.',
-    )
-    parser.add_argument(
-        '-e', '--exclude-packages-file',
-        type=str,
-        metavar='FILE',
-        help='Path to default.packages.yaml. When specified, scrub catalog entities to EXCLUDE '
-             'plugins/packages that reference core packages from this file (inverse of --packages-file).',
+        help='Package list file to filter catalog entities. Can be specified multiple times. '
+             'Accepts YAML (default.packages.yaml format with npm names) or txt '
+             '(workspace paths, one per line). Stems from all files are unioned.',
     )
     parser.add_argument(
         '-c', '--catalog-entities-dir',
@@ -969,7 +757,7 @@ Examples:
 
     args = parser.parse_args()
 
-    DEBUG = args.debug
+    set_debug(args.debug)
     REGISTRY_BASE = args.registry.rstrip('/')
 
     overlays_dir = Path(args.overlays_dir)
@@ -989,13 +777,10 @@ Examples:
     print(f"\n{Colors.GREEN}=== Copy workspaces/*/metadata/*.yaml to output packages/ ==={Colors.NORM}")
     yaml_file_names, _ = copy_workspace_metadata_files(overlays_dir, output_dir)
 
-    # Scrub catalog entities based on default.packages.yaml
+    # Scrub catalog entities based on package list files
     if args.packages_file:
-        print(f"\n{Colors.GREEN}=== Scrub catalog entities to core packages ==={Colors.NORM}")
+        print(f"\n{Colors.GREEN}=== Scrub catalog entities to packages from {len(args.packages_file)} file(s) ==={Colors.NORM}")
         scrub_catalog_entities(output_dir, overlays_dir, args.packages_file)
-    elif args.exclude_packages_file:
-        print(f"\n{Colors.GREEN}=== Scrub catalog entities (exclude core) ==={Colors.NORM}")
-        exclude_scrub_catalog_entities(output_dir, overlays_dir, args.exclude_packages_file)
 
     print(f"\n{Colors.GREEN}=== Generate index.json from plugin_builds ==={Colors.NORM}")
     index_data, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data = generate_index_json(plugin_builds_dir, output_dir)
