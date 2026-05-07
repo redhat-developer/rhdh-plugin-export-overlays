@@ -251,7 +251,6 @@ for ws in "${E2E_WORKSPACES[@]}"; do
 done
 
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    export COVERAGE_OUTPUT_DIR="$SCRIPT_DIR/coverage/istanbul"
     echo "[INFO] Coverage collection enabled (E2E_COLLECT_COVERAGE=1)"
 fi
 
@@ -299,7 +298,7 @@ npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT
 
 # ── Merge and upload coverage ────────────────────────────────────────────
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    COVERAGE_JSON_DIR="${COVERAGE_OUTPUT_DIR:-$SCRIPT_DIR/coverage/istanbul}"
+    COVERAGE_JSON_DIR="node_modules/.cache/e2e-test-results/coverage"
     if ls "$COVERAGE_JSON_DIR"/*.json &>/dev/null; then
         echo ""
         echo "[INFO] Merging coverage data with nyc..."
