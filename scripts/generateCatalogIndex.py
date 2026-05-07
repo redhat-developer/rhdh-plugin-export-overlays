@@ -1010,6 +1010,13 @@ Examples:
     print(f"\n{Colors.GREEN}=== Regenerate all.yaml files ==={Colors.NORM}")
     regenerate_all_yaml_files(output_dir)
 
+    # Re-derive yaml_file_names from what actually remains after scrub+prune
+    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
+    if packages_dir.exists():
+        yaml_file_names = set(
+            f.stem for f in packages_dir.glob("*.yaml") if f.name != "all.yaml"
+        )
+
     # Compare YAML files vs plugins found
     if yaml_file_names:
         found_plugins_set = set(found_plugins)
