@@ -51,49 +51,15 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      await uiHelper.clickLink({ ariaLabel: "Self-service" });
-      await uiHelper.verifyHeading("Self-service");
-
-      await page.waitForLoadState("domcontentloaded");
-
-      await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-
-      await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
-      await page.waitForLoadState("domcontentloaded");
-      await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
-
-      const languageField = page.getByLabel("Language");
-      await expect(languageField).toBeVisible({ timeout: 15000 });
-      await languageField.click();
-      await page.getByRole("option", { name: "English" }).click();
-
-      const nameField = page.getByLabel("Name");
-      await expect(nameField).toBeVisible({ timeout: 10000 });
-      const uniqueName = `test-entity-${Date.now()}`;
-      await nameField.fill(uniqueName);
-
-      const reviewButton = page.getByRole("button", { name: /Review/i });
-      await expect(reviewButton).toBeVisible({ timeout: 10000 });
-      await reviewButton.click();
-      await page.waitForLoadState("domcontentloaded");
-
-      const createButton = page.getByRole("button", { name: /Create/i });
-      await expect(createButton).toBeVisible({ timeout: 10000 });
-      await createButton.click();
-
-      const viewInCatalog = page.getByRole("link", {
-        name: "View in catalog",
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromSelfService();
+      await orchestratorPo.fillGreetingTemplateFormAndSubmit({
+        selectLanguage: true,
       });
-      const openWorkflowRun = page.getByRole("link", {
-        name: "Open workflow run",
-      });
-      const startOver = page.getByRole("button", { name: "Start Over" });
-
+      await orchestratorPo.waitForTemplateRunCompletionArtifacts(120_000);
       await expect(
-        viewInCatalog.or(openWorkflowRun).or(startOver),
-      ).toBeVisible({
-        timeout: 120000,
-      });
+        orchestratorPo.templateRunCompletionArtifacts(),
+      ).toBeVisible();
     });
 
     test("RHIDP-11834: Template with orchestrator.io/workflows annotation", async ({
@@ -117,30 +83,18 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
-      await uiHelper.verifyHeading("My Org Catalog");
-      await uiHelper.selectMuiBox("Kind", "Template");
-
-      // "Greeting workflow" (greeting.yaml) does NOT have the
-      // orchestrator.io/workflows annotation
-      const templateLink = page.getByRole("link", {
-        name: /Greeting workflow/i,
-      });
-
-      await expect(templateLink).toBeVisible({ timeout: 30000 });
-      await templateLink.click();
-
-      await page.waitForLoadState("domcontentloaded");
-
-      const workflowsTab = page.getByRole("tab", { name: "Workflows" });
-      const tabCount = await workflowsTab.count();
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openTemplateFromCatalogByName(
+        /Greeting workflow/i,
+        "My Org Catalog",
+      );
 
       // eslint-disable-next-line playwright/no-conditional-in-test
-      if (tabCount > 0) {
+      if (await orchestratorPo.openWorkflowsTabIfVisible()) {
         // Tab exists but should not list greeting (no annotation)
-        await workflowsTab.click();
-        await page.waitForLoadState("domcontentloaded");
-        const greetingWorkflow = page.getByText("Greeting workflow");
+        const greetingWorkflow = page.getByRole("link", {
+          name: /Greeting workflow/i,
+        });
         // eslint-disable-next-line playwright/no-conditional-expect
         await expect(greetingWorkflow).toHaveCount(0);
       }
@@ -162,24 +116,12 @@ export function registerEntityWorkflowIntegrationTests(
       ).toBeVisible();
 
       const entityName = "greetingComponent";
-      const breadcrumb = page.getByRole("navigation", {
-        name: /breadcrumb/i,
-      });
-      const breadcrumbCount = await breadcrumb.count();
       // eslint-disable-next-line playwright/no-conditional-in-test
-      if (breadcrumbCount > 0 && entityName) {
-        const entityBreadcrumb = breadcrumb.getByText(entityName);
-        const entityBreadcrumbCount = await entityBreadcrumb.count();
-        // eslint-disable-next-line playwright/no-conditional-in-test
-        if (entityBreadcrumbCount > 0) {
-          await entityBreadcrumb.click();
-          await page.waitForLoadState("load");
-
-          // eslint-disable-next-line playwright/no-conditional-expect
-          await expect(
-            page.getByRole("heading", { name: /Greeting Test Picker/i }),
-          ).toBeVisible();
-        }
+      if (await orchestratorPo.followEntityBreadcrumbIfVisible(entityName)) {
+        // eslint-disable-next-line playwright/no-conditional-expect
+        await expect(
+          page.getByRole("heading", { name: /Greeting Test Picker/i }),
+        ).toBeVisible();
       }
     });
 
@@ -187,33 +129,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      await uiHelper.clickLink({ ariaLabel: "Self-service" });
-      await uiHelper.verifyHeading("Self-service");
-
-      await page.waitForLoadState("domcontentloaded");
-      await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-
-      await page.waitForURL(/\/create\/templates\//, { timeout: 30000 });
-      await page.waitForLoadState("domcontentloaded");
-      await uiHelper.verifyHeading(/Greeting Test Picker/i, 30000);
-
-      const nameField = page.getByLabel("Name");
-      await expect(nameField).toBeVisible({ timeout: 10000 });
-      const uniqueName = `test-entity-${Date.now()}`;
-      await nameField.fill(uniqueName);
-
-      const languageField = page.getByLabel("Language");
-      // eslint-disable-next-line playwright/no-conditional-in-test
-      if (await languageField.isVisible({ timeout: 5000 })) {
-        await languageField.click();
-        await page.getByRole("option", { name: "English" }).click();
-      }
-
-      const reviewButton = page.getByRole("button", { name: /Review/i });
-      await expect(reviewButton).toBeVisible({ timeout: 10000 });
-      await reviewButton.click();
-      await page.waitForLoadState("domcontentloaded");
-
+      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await orchestratorPo.openGreetingTemplateFromSelfService();
+      await orchestratorPo.fillGreetingTemplateFormAndSubmit({
+        submitCreate: false,
+      });
       await clickCreateAndWaitForScaffolderTerminalState(page);
 
       await uiHelper.openSidebar("Orchestrator");

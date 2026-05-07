@@ -1,4 +1,8 @@
-import { expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import {
+  expect,
+  Locator,
+  Page,
+} from "@red-hat-developer-hub/e2e-test-utils/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ORCHESTRATOR_COMPONENTS } from "./orchestrator-obj.js";
 
@@ -80,5 +84,101 @@ export class OrchestratorPO {
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
     await this.uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
+  }
+
+  async openTemplateFromCatalogByName(
+    templateName: string | RegExp,
+    catalogHeading: string | RegExp = /Catalog|All/,
+  ): Promise<void> {
+    await this.uiHelper.openSidebar("Catalog");
+    await this.uiHelper.verifyHeading(catalogHeading);
+    await this.uiHelper.selectMuiBox("Kind", "Template");
+    const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
+      this.page,
+      templateName,
+    );
+    await expect(templateLink).toBeVisible({ timeout: 30_000 });
+    await templateLink.click();
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async fillGreetingTemplateFormAndSubmit(options?: {
+    uniqueName?: string;
+    selectLanguage?: boolean;
+    submitCreate?: boolean;
+  }): Promise<string> {
+    const uniqueName = options?.uniqueName || `test-entity-${Date.now()}`;
+    const selectLanguage = options?.selectLanguage ?? true;
+    const submitCreate = options?.submitCreate ?? true;
+
+    if (selectLanguage) {
+      const languageField = ORCHESTRATOR_COMPONENTS.languageField(this.page);
+      if (await languageField.isVisible({ timeout: 5_000 })) {
+        await languageField.click();
+        await this.page.getByRole("option", { name: "English" }).click();
+      }
+    }
+
+    const nameField = ORCHESTRATOR_COMPONENTS.nameField(this.page);
+    await expect(nameField).toBeVisible({ timeout: 10_000 });
+    await nameField.fill(uniqueName);
+
+    const reviewButton = ORCHESTRATOR_COMPONENTS.reviewButton(this.page);
+    await expect(reviewButton).toBeVisible({ timeout: 10_000 });
+    await reviewButton.click();
+    await this.page.waitForLoadState("domcontentloaded");
+
+    const createButton = ORCHESTRATOR_COMPONENTS.createButton(this.page);
+    if (submitCreate) {
+      await expect(createButton).toBeVisible({ timeout: 10_000 });
+      await createButton.click();
+    }
+    return uniqueName;
+  }
+
+  async waitForTemplateRunCompletionArtifacts(
+    timeoutMs = 120_000,
+  ): Promise<void> {
+    await expect(this.templateRunCompletionArtifacts()).toBeVisible({
+      timeout: timeoutMs,
+    });
+  }
+
+  templateRunCompletionArtifacts(): Locator {
+    const viewInCatalog = ORCHESTRATOR_COMPONENTS.viewInCatalogLink(this.page);
+    const openWorkflowRun = ORCHESTRATOR_COMPONENTS.openWorkflowRunLink(
+      this.page,
+    );
+    const startOver = ORCHESTRATOR_COMPONENTS.startOverButton(this.page);
+    return viewInCatalog.or(openWorkflowRun).or(startOver);
+  }
+
+  async openWorkflowsTabIfVisible(): Promise<boolean> {
+    const workflowsTab = ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
+    const count = await workflowsTab.count();
+    if (count === 0) {
+      return false;
+    }
+    await workflowsTab.click();
+    await this.page.waitForLoadState("domcontentloaded");
+    return true;
+  }
+
+  async followEntityBreadcrumbIfVisible(entityName: string): Promise<boolean> {
+    const breadcrumb = ORCHESTRATOR_COMPONENTS.breadcrumbNav(this.page);
+    const breadcrumbCount = await breadcrumb.count();
+    if (breadcrumbCount === 0) {
+      return false;
+    }
+
+    const entityBreadcrumb = breadcrumb.getByText(entityName);
+    const entityBreadcrumbCount = await entityBreadcrumb.count();
+    if (entityBreadcrumbCount === 0) {
+      return false;
+    }
+
+    await entityBreadcrumb.click();
+    await this.page.waitForLoadState("load");
+    return true;
   }
 }
