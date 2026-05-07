@@ -10,6 +10,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-pull-requests/app-config-rhdh.yaml`,
       dynamicPlugins: `${WorkspacePaths.configDir}/github-pull-requests/dynamic-plugins.yaml`,
+      secrets: `${WorkspacePaths.configDir}/github-pull-requests/rhdh-secrets.yaml`,
     });
     await rhdh.deploy();
   });
