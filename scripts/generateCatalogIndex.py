@@ -434,7 +434,8 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             break
 
                     if not matched:
-                        empty_artifact_pattern = r"^(\s*)dynamicArtifact:\s*(''|\"\"|\~|null)?\s*$"
+                        # Pattern matches: dynamicArtifact: '', dynamicArtifact: "", dynamicArtifact: ~, dynamicArtifact: null, or just dynamicArtifact:
+                        empty_artifact_pattern = r"^(\s*)dynamicArtifact:(\s+(?:''|\"\"|\~|null))?\s*$"
                         empty_match = re.match(empty_artifact_pattern, line)
                         if empty_match:
                             indent = empty_match.group(1)
