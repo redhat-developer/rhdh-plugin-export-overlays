@@ -32,6 +32,12 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     expect(page.url()).toContain(expectedPath);
 
     await uiHelper.waitForTitle("Red Hat Developer Hub");
+
+    await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
+      { timeout: 10000 },
+    );
+
+    await loginHelper.clickOnGHloginPopup();
   });
 
   test("Click login on the login popup and verify that Overview tab renders", async ({
