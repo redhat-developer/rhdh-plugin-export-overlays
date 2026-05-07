@@ -6,21 +6,22 @@
 #
 # Usage examples:
 #
-#   # Productized index (default.packages.yaml is source of truth for core plugins)
+#   # Supported index (union of default.packages.yaml + rhdh-supported-packages.txt)
 #   scripts/update-index.sh \
 #     --overlays-dir . \
 #     --registry quay.io/rhdh-community \
 #     --output-dir catalog-index/supported \
 #     --plugin-builds-dir plugin_builds/supported \
-#     --packages-file catalog-index/default.packages.yaml
+#     --packages-file catalog-index/default.packages.yaml \
+#     --packages-file rhdh-supported-packages.txt
 #
-#   # Community index (exclude core packages)
+#   # Community index (from rhdh-community-packages.txt)
 #   scripts/update-index.sh \
 #     --overlays-dir . \
 #     --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
 #     --output-dir catalog-index/community \
 #     --plugin-builds-dir plugin_builds/community \
-#     --exclude-packages-file catalog-index/default.packages.yaml
+#     --packages-file rhdh-community-packages.txt
 #
 #   # Midstream (quay.io/rhdh → registry.access.redhat.com)
 #   scripts/update-index.sh \
@@ -28,7 +29,8 @@
 #     --registry quay.io/rhdh \
 #     --output-dir /path/to/catalog-index \
 #     --plugin-builds-dir /path/to/plugin_builds \
-#     --packages-file /path/to/catalog-index/default.packages.yaml
+#     --packages-file /path/to/catalog-index/default.packages.yaml \
+#     --packages-file /path/to/rhdh-supported-packages.txt
 
 set -euo pipefail
 
@@ -45,8 +47,7 @@ RHDH_VERSION=""
 COMMUNITY_REGISTRY="ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 OUTPUT_DIR=""
 PLUGIN_BUILDS_DIR=""
-PACKAGES_FILE=""
-EXCLUDE_PACKAGES_FILE=""
+PACKAGES_FILES=()
 DEBUG_FLAG=""
 DEBUG=0
 
@@ -61,8 +62,7 @@ Usage:
         -o|--output-dir PATH \
         -b|--plugin-builds-dir PATH \
         [-v|--rhdh-version VERSION] \
-        [-p|--packages-file PATH] \
-        [-e|--exclude-packages-file PATH] \
+        [-p|--packages-file PATH ...] \
         [-cr|--community-registry BASE] \
         [--debug] \
         [-h|--help]
@@ -76,8 +76,10 @@ Arguments:
                                (default: ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
   -o,  --output-dir            Output directory for catalog-index
   -b,  --plugin-builds-dir     Directory for plugin_builds/ JSON files
-  -p,  --packages-file         Path to default.packages.yaml — include only core packages (skips DPDY if omitted)
-  -e,  --exclude-packages-file Path to default.packages.yaml — exclude core packages (for community index)
+  -p,  --packages-file         Package list file (YAML or txt). Can be specified multiple times.
+                               Files are unioned. Supports default.packages.yaml (npm names)
+                               and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
+                               DPDY generation uses only the first .yaml file.
        --debug                 Enable debug output
   -h,  --help                  Show this help
 USAGE
@@ -107,15 +109,11 @@ while [[ "$#" -gt 0 ]]; do
         shift 2
         ;;
     '-p' | '--packages-file')
-        PACKAGES_FILE="$2"
+        PACKAGES_FILES+=("$2")
         shift 2
         ;;
     '-cr' | '--community-registry')
         COMMUNITY_REGISTRY="$2"
-        shift 2
-        ;;
-    '-e' | '--exclude-packages-file')
-        EXCLUDE_PACKAGES_FILE="$2"
         shift 2
         ;;
     '--debug')
@@ -148,25 +146,26 @@ if [[ $DEBUG -eq 1 ]]; then
     echo "COMMUNITY_REGISTRY = $COMMUNITY_REGISTRY"
     echo "OUTPUT_DIR         = $OUTPUT_DIR"
     echo "PLUGIN_BUILDS_DIR  = $PLUGIN_BUILDS_DIR"
-    echo "PACKAGES_FILE      = $PACKAGES_FILE"
-    echo "EXCLUDE_PKGS_FILE  = $EXCLUDE_PACKAGES_FILE"
+    echo "PACKAGES_FILES     = ${PACKAGES_FILES[*]:-<none>}"
     echo "#################################"
+fi
+
+# Build --packages-file args for bootstrapPluginBuilds.py
+BOOTSTRAP_FILTER_ARGS=""
+COMMUNITY_REGISTRY_ARG=""
+if [[ ${#PACKAGES_FILES[@]} -gt 0 ]]; then
+    for pf in "${PACKAGES_FILES[@]}"; do
+        BOOTSTRAP_FILTER_ARGS="$BOOTSTRAP_FILTER_ARGS --packages-file $pf"
+    done
+    if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
+        COMMUNITY_REGISTRY_ARG="--community-registry $COMMUNITY_REGISTRY"
+    fi
 fi
 
 ##############################################
 # Step 1: Bootstrap plugin_builds/ from metadata
 ##############################################
 echo -e "\n${green}=== Step 1: Bootstrap plugin_builds/ from metadata ===${norm}"
-BOOTSTRAP_FILTER_ARGS=""
-COMMUNITY_REGISTRY_ARG=""
-if [[ -n "$PACKAGES_FILE" ]]; then
-    BOOTSTRAP_FILTER_ARGS="--core-packages-file $PACKAGES_FILE"
-    if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
-        COMMUNITY_REGISTRY_ARG="--community-registry $COMMUNITY_REGISTRY"
-    fi
-elif [[ -n "$EXCLUDE_PACKAGES_FILE" ]]; then
-    BOOTSTRAP_FILTER_ARGS="--exclude-packages-file $EXCLUDE_PACKAGES_FILE"
-fi
 RHDH_VERSION_ARG=""
 if [[ -n "$RHDH_VERSION" ]]; then
     RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
@@ -197,40 +196,44 @@ if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generatePluginBuildInfo.py failed
 ##############################################
 # Step 3: Generate dynamic-plugins.default.yaml
 ##############################################
-if [[ -n "$PACKAGES_FILE" ]]; then
+# DPDY only uses the first .yaml file (needs enabled/disabled structure)
+DPDY_PACKAGES_FILE=""
+for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
+    if [[ "$pf" == *.yaml ]] || [[ "$pf" == *.yml ]]; then
+        DPDY_PACKAGES_FILE="$pf"
+        break
+    fi
+done
+
+if [[ -n "$DPDY_PACKAGES_FILE" ]]; then
     echo -e "\n${green}=== Step 3: Generate dynamic-plugins.default.yaml ===${norm}"
     mkdir -p "$OUTPUT_DIR"
     # shellcheck disable=SC2086
     "$SCRIPT_DIR/generateDynamicPluginsDefaultYaml.sh" \
-        --packages-file "$PACKAGES_FILE" \
+        --packages-file "$DPDY_PACKAGES_FILE" \
         --output-file "$OUTPUT_DIR/dynamic-plugins.default.yaml" \
         --overlays-dir "$OVERLAYS_DIR" \
         $DEBUG_FLAG
     if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}"; exit 1; fi
 else
-    echo -e "\n${blue}=== Step 3: Skipped (no --packages-file provided) ===${norm}"
+    echo -e "\n${blue}=== Step 3: Skipped (no .yaml packages file provided) ===${norm}"
 fi
 
 ##############################################
 # Step 4: Generate catalog index
 ##############################################
 echo -e "\n${green}=== Step 4: Generate catalog index ===${norm}"
-PACKAGES_FILE_ARG=""
-if [[ -n "$PACKAGES_FILE" ]]; then
-    PACKAGES_FILE_ARG="--packages-file $PACKAGES_FILE"
-fi
-EXCLUDE_PACKAGES_FILE_ARG=""
-if [[ -n "$EXCLUDE_PACKAGES_FILE" ]]; then
-    EXCLUDE_PACKAGES_FILE_ARG="--exclude-packages-file $EXCLUDE_PACKAGES_FILE"
-fi
+PACKAGES_FILE_ARGS=""
+for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
+    PACKAGES_FILE_ARGS="$PACKAGES_FILE_ARGS --packages-file $pf"
+done
 # shellcheck disable=SC2086
 python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
-    $PACKAGES_FILE_ARG \
-    $EXCLUDE_PACKAGES_FILE_ARG \
+    $PACKAGES_FILE_ARGS \
     $DEBUG_FLAG
 if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}"; exit 1; fi
 

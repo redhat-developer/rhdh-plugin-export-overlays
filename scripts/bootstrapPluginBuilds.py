@@ -16,95 +16,17 @@ from pathlib import Path
 
 import yaml
 
-# Global debug flag
-DEBUG = False
-
-
-class Colors:
-    """ANSI color codes for terminal output"""
-    NORM = "\033[0;39m"
-    GREEN = "\033[1;32m"
-    BLUE = "\033[1;34m"
-    RED = "\033[1;31m"
-    ORANGE = "\033[38;5;208m"
-    YELLOW = "\033[1;33m"
-
-
-def log_debug(message: str) -> None:
-    if DEBUG:
-        print(f"{Colors.ORANGE}[DEBUG]{Colors.NORM} {message}")
-
-
-def log_info(message: str) -> None:
-    print(f"{Colors.GREEN}[INFO]{Colors.NORM} {message}")
-
-
-def log_warn(message: str) -> None:
-    print(f"{Colors.YELLOW}[WARN]{Colors.NORM} {message}")
-
-
-def log_error(message: str) -> None:
-    print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
-
-
-def load_core_packages_from_yaml(packages_file: str) -> set[str]:
-    """Load core package names from default.packages.yaml.
-    Returns set of npm package names from both enabled and disabled sections."""
-    path = Path(packages_file)
-    if not path.exists():
-        log_error(f"Core packages file not found: {packages_file}")
-        sys.exit(1)
-
-    with open(path, 'r') as f:
-        data = yaml.safe_load(f)
-
-    packages = set()
-    for section in ['enabled', 'disabled']:
-        for entry in data.get('packages', {}).get(section, []) or []:
-            pkg = entry.get('package', '').strip()
-            if pkg:
-                packages.add(pkg)
-
-    return packages
-
-
-def read_plugins_list(workspace_dir: Path) -> list[str]:
-    """Read plugins-list.yaml and return list of plugin paths (without trailing colon/args)."""
-    plugins_list_file = workspace_dir / "plugins-list.yaml"
-    if not plugins_list_file.exists():
-        return []
-
-    paths = []
-    with open(plugins_list_file, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            # Strip trailing colon and any CLI args (e.g., "plugins/acr:" or "plugins/foo: --embed-package bar")
-            path = line.split(':')[0].strip()
-            if path:
-                paths.append(path)
-    return paths
-
-
-def match_metadata_to_plugin_path(metadata_name: str, plugin_paths: list[str]) -> str | None:
-    """
-    Match a metadata file stem to a plugins-list.yaml entry.
-    metadata_name: e.g., 'backstage-community-plugin-acr'
-    plugin_paths:  e.g., ['plugins/acr']
-    Returns the matching path or None.
-    """
-    # Sort by longest last segment first for most specific match
-    sorted_paths = sorted(plugin_paths, key=lambda p: -len(p.split('/')[-1]))
-    for path in sorted_paths:
-        last_segment = path.split('/')[-1]
-        if metadata_name == last_segment:
-            return path
-        if metadata_name.endswith('-' + last_segment):
-            return path
-        if metadata_name.endswith(last_segment):
-            return path
-    return None
+from plugin_utils import (
+    Colors,
+    log_debug,
+    log_info,
+    log_warn,
+    log_error,
+    set_debug,
+    read_plugins_list,
+    match_metadata_to_plugin_path,
+    load_and_resolve_to_npm_names,
+)
 
 
 def package_name_to_image_name(package_name: str) -> str:
@@ -126,7 +48,6 @@ def parse_dynamic_artifact(dynamic_artifact: str) -> str:
     ref = dynamic_artifact
     if ref.startswith('oci://'):
         ref = ref[len('oci://'):]
-    # Strip !fragment (e.g., oci://ghcr.io/.../plugin:tag!plugin-name)
     if '!' in ref:
         ref = ref.split('!')[0]
     return ref
@@ -149,11 +70,9 @@ def construct_registry_reference(
     """
     existing_ref = parse_dynamic_artifact(dynamic_artifact)
 
-    # If the existing ref already points to this registry, use it
     if existing_ref and existing_ref.startswith(registry_base + '/'):
         return existing_ref
 
-    # Construct based on registry convention
     if 'ghcr.io' in registry_base:
         tag = f"bs_{backstage_version}__{version}"
     else:
@@ -170,8 +89,7 @@ Usage: python3 bootstrapPluginBuilds.py [--debug] \\
     -r|--registry image-registry \\
     [-v|--rhdh-version VERSION] \\
     [-cr|--community-registry BASE] \\
-    [-c|--core-packages-file FILE] \\
-    [-e|--exclude-packages-file FILE]
+    [-p|--packages-file FILE ...]
 
 Examples:
     # All plugins on ghcr.io (no --rhdh-version needed)
@@ -180,16 +98,22 @@ Examples:
         -b plugin_builds/all \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 
-    # Core plugins from default.packages.yaml
+    # Supported plugins from multiple package list files
     python3 bootstrapPluginBuilds.py \\
         -d . \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh \\
         -v 1.5 \\
-        -c catalog-index/default.packages.yaml
-"""
+        -p catalog-index/default.packages.yaml \\
+        -p rhdh-supported-packages.txt
 
-    global DEBUG
+    # Community plugins
+    python3 bootstrapPluginBuilds.py \\
+        -d . \\
+        -b plugin_builds/community \\
+        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
+        -p rhdh-community-packages.txt
+"""
 
     if len(sys.argv) == 1:
         print(usage)
@@ -229,12 +153,13 @@ Examples:
         help='RHDH version for non-ghcr.io tag convention (e.g., 1.5). Required when registry is not ghcr.io.',
     )
     parser.add_argument(
-        '-c', '--core-packages-file',
+        '-p', '--packages-file',
         type=str,
+        action='append',
         metavar='FILE',
-        help='Path to default.packages.yaml. Filter to only include packages whose '
-             'spec.packageName appears in this file (enabled + disabled sections). '
-             'Mutually exclusive with --exclude-packages-file.',
+        help='Package list file to filter plugins. Can be specified multiple times. '
+             'Accepts YAML (default.packages.yaml format with npm names) or txt '
+             '(workspace paths, one per line). Packages from all files are unioned.',
     )
     parser.add_argument(
         '-cr', '--community-registry',
@@ -246,25 +171,13 @@ Examples:
              'Community plugins use this registry instead of --registry.',
     )
     parser.add_argument(
-        '-e', '--exclude-packages-file',
-        type=str,
-        metavar='FILE',
-        help='Path to default.packages.yaml. Exclude packages whose '
-             'spec.packageName appears in this file (enabled + disabled sections). '
-             'Mutually exclusive with --core-packages-file.',
-    )
-    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug output',
     )
 
     args = parser.parse_args()
-    DEBUG = args.debug
-
-    if args.core_packages_file and args.exclude_packages_file:
-        log_error("--core-packages-file and --exclude-packages-file are mutually exclusive.")
-        sys.exit(1)
+    set_debug(args.debug)
 
     overlays_dir = Path(args.overlays_dir)
     plugin_builds_dir = Path(args.plugin_builds_dir)
@@ -298,17 +211,11 @@ Examples:
     if not backstage_version:
         log_warn("Could not read backstage version from versions.json")
 
-    # Load core packages filter (from default.packages.yaml)
-    core_packages_set = None
-    if args.core_packages_file:
-        core_packages_set = load_core_packages_from_yaml(args.core_packages_file)
-        log_info(f"Filtering to {len(core_packages_set)} core packages from {args.core_packages_file}")
-
-    # Load exclude packages filter (inverse of core)
-    exclude_packages_set = None
-    if args.exclude_packages_file:
-        exclude_packages_set = load_core_packages_from_yaml(args.exclude_packages_file)
-        log_info(f"Excluding {len(exclude_packages_set)} packages from {args.exclude_packages_file}")
+    # Load packages filter
+    packages_set = None
+    if args.packages_file:
+        packages_set = load_and_resolve_to_npm_names(args.packages_file, overlays_dir)
+        log_info(f"Filtering to {len(packages_set)} packages from {len(args.packages_file)} file(s)")
 
     print(f"\n{Colors.GREEN}=== Bootstrap plugin_builds from workspace metadata ==={Colors.NORM}\n")
 
@@ -356,20 +263,13 @@ Examples:
                     workspace_path = f"{workspace_name}/{stem}"
                     log_debug(f"No plugins-list match for {stem}, using fallback: {workspace_path}")
 
-                # Check core packages filter (by npm package name)
-                if core_packages_set is not None:
-                    if package_name not in core_packages_set:
-                        skipped_count += 1
-                        continue
-
-                # Check exclude packages filter (inverse of core)
-                if exclude_packages_set is not None:
-                    if package_name in exclude_packages_set:
+                # Check packages filter (by npm package name)
+                if packages_set is not None:
+                    if package_name not in packages_set:
                         skipped_count += 1
                         continue
 
                 # Construct registryReference
-                # Use community registry for community-tier plugins
                 image_name = package_name_to_image_name(package_name) if package_name else stem
                 effective_registry = registry_base
                 if support_level == 'community' and community_registry != registry_base:
