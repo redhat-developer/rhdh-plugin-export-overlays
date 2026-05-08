@@ -309,7 +309,7 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
     log_info(f"Regenerated index.json with {Colors.GREEN}{found_count}{Colors.NORM} of {Colors.BLUE}{len(json_files)}{Colors.NORM} plugins")
 
     if missing_count > 0:
-        print(f"\n========")
+        print("\n========")
         log_warn(f"Could not find {Colors.RED}{missing_count}{Colors.NORM} plugins - remember to export and publish them, then re-run this script")
 
     return combined_index, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data
@@ -413,9 +413,9 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                         if re.match(pattern, line):
                             new_lines.append(f"  # - package: oci://{registry_reference_for_oci}\n")
                             new_lines.append(f"  {comment}\n")
-                            new_lines.append(f"  # new approach using oci images: to switch to the new approach, uncomment\n")
-                            new_lines.append(f"  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n")
-                            new_lines.append(f"  # disabled: true\n")
+                            new_lines.append("  # new approach using oci images: to switch to the new approach, uncomment\n")
+                            new_lines.append("  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n")
+                            new_lines.append("  # disabled: true\n")
 
                             new_lines.append(line)
 
@@ -479,7 +479,7 @@ def prune_packages_dir(output_dir: Path, found_plugins: list[str]) -> None:
     found_set = set(found_plugins)
     removed_count = 0
 
-    for yaml_file in list(packages_dir.glob("*.yaml")):
+    for yaml_file in packages_dir.glob("*.yaml"):
         if yaml_file.name == "all.yaml":
             continue
         if yaml_file.stem not in found_set:
@@ -538,11 +538,11 @@ def _support_label_color(label: str) -> str:
     return colors.get(label, Colors.RED)
 
 
-def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
+def scrub_plugin_entity_file(yaml_file: Path, filtered_stems: set[str]) -> str:
     """Scrub a single Plugin entity YAML file.
-    - If no packages are core: delete the file
-    - If all packages are core: keep as-is
-    - If mixed: use line-based editing to remove non-core package refs
+    - If no packages match the filter: delete the file
+    - If all packages match the filter: keep as-is
+    - If mixed: use line-based editing to remove excluded package refs
 
     Returns: 'removed' | 'stripped' | 'kept' | 'skipped'
     """
@@ -564,17 +564,17 @@ def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
         if not pkg_list:
             return 'kept'
 
-        core_packages = [p for p in pkg_list if p in core_stems]
-        non_core_packages = set(p for p in pkg_list if p not in core_stems)
+        matched_packages = [p for p in pkg_list if p in filtered_stems]
+        excluded_packages = {p for p in pkg_list if p not in filtered_stems}
 
-        if not core_packages:
+        if not matched_packages:
             yaml_file.unlink()
             return 'removed'
 
-        if not non_core_packages:
+        if not excluded_packages:
             return 'kept'
 
-        # Mixed plugin: remove non-core package lines using line-based editing
+        # Mixed plugin: remove excluded package lines using line-based editing
         with open(yaml_file, 'r') as f:
             lines = f.readlines()
 
@@ -591,7 +591,7 @@ def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
             if in_packages:
                 if stripped.startswith('- '):
                     pkg_name = stripped[2:].strip()
-                    if pkg_name in non_core_packages:
+                    if pkg_name in excluded_packages:
                         continue
                     new_lines.append(line)
                     continue
@@ -616,8 +616,8 @@ def scrub_plugin_entity_file(yaml_file: Path, core_stems: set[str]) -> str:
 
 def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files: list[str]) -> None:
     """Scrub catalog entities to only retain plugins/packages from the provided package files."""
-    core_stems = load_and_resolve_to_stems(packages_files, overlays_dir)
-    log_info(f"Resolved {len(core_stems)} package stems from {len(packages_files)} file(s)")
+    filtered_stems = load_and_resolve_to_stems(packages_files, overlays_dir)
+    log_info(f"Resolved {len(filtered_stems)} filtered package stems from {len(packages_files)} file(s)")
 
     # Scrub Plugin entity YAMLs
     plugins_dir = output_dir / "catalog-entities" / "extensions" / "plugins"
@@ -626,13 +626,13 @@ def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files:
         for yaml_file in sorted(plugins_dir.glob("*.yaml")):
             if yaml_file.name in ("all.yaml", "1-boilerplate.yaml.sample"):
                 continue
-            result = scrub_plugin_entity_file(yaml_file, core_stems)
+            result = scrub_plugin_entity_file(yaml_file, filtered_stems)
             if result == 'removed':
                 removed += 1
-                log_debug(f"Removed non-core plugin: {yaml_file.name}")
+                log_debug(f"Removed excluded plugin: {yaml_file.name}")
             elif result == 'stripped':
                 stripped += 1
-                log_info(f"Stripped non-core packages from: {yaml_file.name}")
+                log_info(f"Stripped excluded packages from: {yaml_file.name}")
             elif result == 'kept':
                 kept += 1
             else:
@@ -641,19 +641,19 @@ def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files:
     log_info(f"Plugin entities: {kept} kept, {stripped} stripped, {removed} removed" +
              (f", {skipped} skipped" if skipped else ""))
 
-    # Pre-prune Package metadata to only keep core
+    # Pre-prune Package metadata to only keep filtered plugins
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
         pkg_removed = 0
         for yaml_file in sorted(packages_dir.glob("*.yaml")):
             if yaml_file.name == "all.yaml":
                 continue
-            if yaml_file.stem not in core_stems:
+            if yaml_file.stem not in filtered_stems:
                 yaml_file.unlink()
                 pkg_removed += 1
-                log_debug(f"Removed non-core package metadata: {yaml_file.name}")
+                log_debug(f"Removed excluded package metadata: {yaml_file.name}")
         if pkg_removed > 0:
-            log_info(f"Package metadata: removed {pkg_removed} non-core files")
+            log_info(f"Package metadata: removed {pkg_removed} excluded files")
 
 
 def main():
@@ -661,24 +661,16 @@ def main():
 
     usage = """
 Usage: python3 generateCatalogIndex.py [--debug] \\
-    -d|--overlays-dir  /path/to/overlays \\
-    -o|--output-dir    /path/to/catalog-index \\
-    -b|--plugin-builds-dir /path/to/plugin_builds \\
     -r|--registry image-registry \\
+    [-d|--overlays-dir PATH] \\
+    [-o|--output-dir PATH] \\
+    [-b|--plugin-builds-dir PATH] \\
     [-p|--packages-file FILE ...] \\
     [-c|--catalog-entities-dir PATH]
 
 Examples:
-    # Generate catalog index for all plugins (no filtering)
-    python3 generateCatalogIndex.py \\
-        -d . \\
-        -o catalog-index/all \\
-        -b plugin_builds/all \\
-        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
-
     # Generate supported catalog index (union of YAML + txt package lists)
     python3 generateCatalogIndex.py \\
-        -d . \\
         -o catalog-index/supported \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh \\
@@ -687,16 +679,11 @@ Examples:
 
     # Generate community catalog index
     python3 generateCatalogIndex.py \\
-        -d . \\
         -o catalog-index/community \\
         -b plugin_builds/community \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
         -p rhdh-community-packages.txt
 """
-
-    if len(sys.argv) == 1:
-        print(usage)
-        sys.exit(1)
 
     parser = argparse.ArgumentParser(
         description='Generate catalog index from plugin_builds and workspace metadata. '
@@ -709,23 +696,23 @@ Examples:
     parser.add_argument(
         '-d', '--overlays-dir',
         type=str,
-        required=True,
+        default='.',
         metavar='PATH',
-        help='Path to overlays directory containing workspaces/ and catalog-entities/',
+        help='Path to overlays directory containing workspaces/ and catalog-entities/ (default: .)',
     )
     parser.add_argument(
         '-o', '--output-dir',
         type=str,
-        required=True,
+        default='catalog-index',
         metavar='PATH',
-        help='Output directory for catalog-index (index.json, catalog-entities/, etc.)',
+        help='Output directory for catalog-index (index.json, catalog-entities/, etc.) (default: catalog-index)',
     )
     parser.add_argument(
         '-b', '--plugin-builds-dir',
         type=str,
-        required=True,
+        default='plugin_builds',
         metavar='PATH',
-        help='Path to plugin_builds/ directory',
+        help='Path to plugin_builds/ directory (default: plugin_builds)',
     )
     parser.add_argument(
         '-r', '--registry',
@@ -799,9 +786,9 @@ Examples:
     # Re-derive yaml_file_names from what actually remains after scrub+prune
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
-        yaml_file_names = set(
+        yaml_file_names = {
             f.stem for f in packages_dir.glob("*.yaml") if f.name != "all.yaml"
-        )
+        }
 
     # Compare YAML files vs plugins found
     if yaml_file_names:
@@ -810,7 +797,7 @@ Examples:
         plugin_without_yaml = found_plugins_set - yaml_file_names
 
         if yaml_without_plugin or plugin_without_yaml:
-            print(f"\n========")
+            print("\n========")
             print(f"{Colors.BLUE}[INFO] Catalog Entity vs Plugin Analysis:{Colors.NORM}")
             print(f"  - {len(yaml_file_names)} Catalog Entity Package yaml files moved")
             print(f"  - {len(found_plugins)} plugins found with valid OCI images")
@@ -834,7 +821,7 @@ Examples:
                 print(f"  - {color}[{label}]{Colors.NORM} {workspace_path}")
 
     if missing_references:
-        print(f"\n========")
+        print("\n========")
         log_warn(f"Could not find {Colors.RED}{len(missing_references)}{Colors.NORM} plugins listed in plugin_builds/ folder! Remember to export and publish them, then re-run this script.")
         for json_file, plugin_name, reference in missing_references:
             print(f"  - {json_file} > {Colors.RED}https://{reference}{Colors.NORM}")

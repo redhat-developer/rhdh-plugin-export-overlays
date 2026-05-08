@@ -23,60 +23,39 @@ from typing import Dict, List, Optional, Tuple
 import requests
 import yaml
 
-# Global debug flag
-DEBUG = False
+from plugin_utils import (
+    Colors,
+    log_debug,
+    log_info,
+    log_warn,
+    log_error,
+    set_debug,
+)
 
 # Global registry config
 REGISTRY_BASE = ""
 
-class Colors:
-    """ANSI color codes for terminal output"""
-    NORM = "\033[0;39m"
-    GREEN = "\033[1;32m"
-    BLUE = "\033[1;34m"
-    YELLOW = "\033[1;33m"
-    ORANGE = "\033[38;5;208m"
-    RED = "\033[1;31m"
+# Registry path constants
+QUAY_RHDH_PREFIX = "quay.io/rhdh/"
+RARC_DOMAIN = "registry.access.redhat.com"
+RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 
-def log_debug(message: str) -> None:
-    """Print debug message in orange only if DEBUG global is True"""
-    if DEBUG:
-        print(f"{Colors.ORANGE}[DEBUG]{Colors.NORM} {message}")
-
-
-def log_notice(message: str) -> None:
-    """Print into message in blue"""
-    print(f"{message}")
-
-
-def log_info(message: str) -> None:
-    """Print info message in green"""
-    print(f"{Colors.GREEN}[INFO]{Colors.NORM} {message}")
-
-
-def log_warn(message: str) -> None:
-    """Print warning message in yellow"""
-    print(f"{Colors.YELLOW}[WARN]{Colors.NORM} {message}")
-
-
-def log_error(message: str) -> None:
-    """Print error message in red"""
-    print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
+DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
 
 def is_downstream_quay_rhdh() -> bool:
     """Check if we're in downstream mode (quay.io/rhdh — NOT quay.io/rhdh-community)"""
-    return REGISTRY_BASE == "quay.io/rhdh"
+    return REGISTRY_BASE + "/" == QUAY_RHDH_PREFIX
 
 
 def is_downstream_rarc() -> bool:
     """Check if the user requested registry.access.redhat.com output via -r"""
-    return REGISTRY_BASE.startswith("registry.access.redhat.com")
+    return REGISTRY_BASE.startswith(RARC_DOMAIN)
 
 
 def _is_quay_rhdh_ref(registry_reference: str) -> bool:
     """Check if a registry reference targets quay.io/rhdh/ (not quay.io/rhdh-community/)."""
-    return registry_reference.startswith("quay.io/rhdh/")
+    return registry_reference.startswith(QUAY_RHDH_PREFIX)
 
 
 def get_ghcr_token(repository: str) -> Optional[str]:
@@ -119,8 +98,8 @@ def get_query_registry_reference(registry_reference: str) -> str:
     For registry.access.redhat.com refs, swap to quay.io for unauthenticated verification.
     Per-reference check — works with mixed-registry plugin_builds.
     """
-    if registry_reference.startswith("registry.access.redhat.com/rhdh/"):
-        return registry_reference.replace("registry.access.redhat.com/rhdh/", "quay.io/rhdh/")
+    if registry_reference.startswith(RARC_RHDH_PREFIX):
+        return registry_reference.replace(RARC_RHDH_PREFIX, QUAY_RHDH_PREFIX)
     return registry_reference
 
 
@@ -131,7 +110,7 @@ def get_output_registry_reference(registry_reference: str) -> str:
     explicitly requested r.a.r.c output via -r registry.access.redhat.com/rhdh.
     """
     if is_downstream_rarc() and _is_quay_rhdh_ref(registry_reference):
-        return registry_reference.replace("quay.io/rhdh/", "registry.access.redhat.com/rhdh/")
+        return registry_reference.replace(QUAY_RHDH_PREFIX, RARC_RHDH_PREFIX)
     return registry_reference
 
 
@@ -190,9 +169,9 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
 
         # Extract OCI manifest-level annotations (e.g., io.backstage.dynamic-packages)
         manifest_annotations = manifest.get('annotations', {})
-        dynamic_packages = manifest_annotations.get('io.backstage.dynamic-packages')
+        dynamic_packages = manifest_annotations.get(DYNAMIC_PACKAGES_ANNOTATION)
         if dynamic_packages:
-            metadata['io.backstage.dynamic-packages'] = dynamic_packages
+            metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
 
         if config_digest:
             blob_url = f"https://{registry}/v2/{repository}/blobs/{config_digest}"
@@ -262,9 +241,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                 registry_reference = plugin_data.get('registryReference')
 
                 if registry_reference:
-                    if DEBUG:
-                        print(f"\n")
-                        log_debug(f"Fetching metadata for {registry_reference}")
+                    log_debug(f"\nFetching metadata for {registry_reference}")
 
                     metadata = get_image_metadata(registry_reference)
 
@@ -289,8 +266,8 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             plugin_data['midstream'] = metadata['midstream']
                             modified = True
 
-                        if 'io.backstage.dynamic-packages' in metadata:
-                            plugin_data['io.backstage.dynamic-packages'] = metadata['io.backstage.dynamic-packages']
+                        if DYNAMIC_PACKAGES_ANNOTATION in metadata:
+                            plugin_data[DYNAMIC_PACKAGES_ANNOTATION] = metadata[DYNAMIC_PACKAGES_ANNOTATION]
                             modified = True
 
                         output_ref = get_output_registry_reference(registry_reference)
@@ -299,13 +276,13 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             plugin_data['registryReference'] = output_ref
                             registry_reference = output_ref
                     else:
-                        print(f" ")
+                        print(" ")
                         missing_refs.append(registry_reference)
                         log_warn(f"[{Colors.YELLOW}{len(missing_refs)}{Colors.NORM}] Could not find metadata for https://{Colors.YELLOW}{registry_reference}{Colors.NORM} !")
-                        print(f" ")
+                        print(" ")
                 else:
                     fields_removed = []
-                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', 'io.backstage.dynamic-packages']:
+                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', DYNAMIC_PACKAGES_ANNOTATION]:
                         if field in plugin_data:
                             del plugin_data[field]
                             fields_removed.append(field)
@@ -402,15 +379,13 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                                         f.write("\n".join(out))
                                         f.write("\n")
                                     overlays_metadata_changes += 1
-                                    if DEBUG:
-                                        log_debug(f"Set 'dynamicArtifact: oci://{registry_reference_digest}'")
-                                        log_debug(f" in {metadata_file}")
-                                    else:
-                                        print(
-                                            f"[{i}/{len(json_files)}]   >> https://{Colors.GREEN}"
-                                            f"{registry_reference_digest.replace('@', ' @')}"
-                                            f"{Colors.NORM}\n"
-                                        )
+                                    log_debug(f"Set 'dynamicArtifact: oci://{registry_reference_digest}'")
+                                    log_debug(f" in {metadata_file}")
+                                    print(
+                                        f"[{i}/{len(json_files)}]   >> https://{Colors.GREEN}"
+                                        f"{registry_reference_digest.replace('@', ' @')}"
+                                        f"{Colors.NORM}\n"
+                                    )
 
         except json.JSONDecodeError as e:
             log_error(f"Error parsing JSON file {json_file}: {e}")
@@ -425,30 +400,22 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
 def main():
     usage="""
 Usage: python3 generatePluginBuildInfo.py [--debug] \\
-    -d|--overlays-dir  /path/to/overlays \\
-    -b|--plugin-builds-dir /path/to/plugin_builds \\
-    -r|--registry image-registry
+    -r|--registry image-registry \\
+    [-d|--overlays-dir PATH] \\
+    [-b|--plugin-builds-dir PATH]
 
 Examples:
-    # Enrich plugin_builds/ with ghcr.io image metadata
+    # From repo root with defaults (overlays-dir=., plugin-builds-dir=plugin_builds)
     python3 generatePluginBuildInfo.py \\
-        -d . \\
-        -b plugin_builds/community \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 
-    # Enrich plugin_builds/ with quay.io/rhdh image metadata (downstream mode)
+    # Enrich specific plugin_builds/ with quay.io/rhdh image metadata
     python3 generatePluginBuildInfo.py \\
-        -d . \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh
 """
 
-    global DEBUG
     global REGISTRY_BASE
-
-    if len(sys.argv) == 1:
-        print(usage)
-        sys.exit(1)
 
     parser = argparse.ArgumentParser(
         description='Update plugin_builds/*.json with container image metadata from the registry.',
@@ -460,16 +427,16 @@ Examples:
     parser.add_argument(
         '-d', '--overlays-dir',
         type=str,
-        required=True,
+        default='.',
         metavar='PATH',
-        help='Path to overlays directory containing workspaces/',
+        help='Path to overlays directory containing workspaces/ (default: .)',
     )
     parser.add_argument(
         '-b', '--plugin-builds-dir',
         type=str,
-        required=True,
+        default='plugin_builds',
         metavar='PATH',
-        help='Path to plugin_builds/ directory',
+        help='Path to plugin_builds/ directory (default: plugin_builds)',
     )
     parser.add_argument(
         '-r', '--registry',
@@ -485,7 +452,7 @@ Examples:
     )
 
     args = parser.parse_args()
-    DEBUG = args.debug
+    set_debug(args.debug)
     REGISTRY_BASE = args.registry.rstrip('/')
 
     overlays_dir = Path(args.overlays_dir)
@@ -495,11 +462,11 @@ Examples:
         print(f"Error: Overlays directory not found: {overlays_dir}")
         sys.exit(1)
 
-    log_notice("\n=== Update plugin_builds/*.json files with container metadata ===")
+    log_info("\n=== Update plugin_builds/*.json files with container metadata ===")
     updated_count, error_count, missing_refs, overlays_metadata_changes = update_plugin_build_files(plugin_builds_dir, overlays_dir)
     total = updated_count + error_count + len(missing_refs)
 
-    log_notice(f"\n=== Results ===")
+    log_info("\n=== Results ===")
     log_info(f"Updated: {Colors.GREEN}{updated_count}{Colors.NORM} of {total}")
     if len(missing_refs) > 0:
         log_warn(f"Missing Tags: {Colors.YELLOW}{len(missing_refs)}{Colors.NORM}")

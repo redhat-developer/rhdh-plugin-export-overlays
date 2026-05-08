@@ -4,7 +4,7 @@
 #
 # Orchestrator script to generate plugin_builds/ and catalog-index/ directories.
 #
-# Usage examples:
+# Usage examples (defaults: --overlays-dir=. --output-dir=catalog-index --plugin-builds-dir=plugin_builds):
 #
 #   # Supported index (union of default.packages.yaml + rhdh-supported-packages.txt)
 #   scripts/update-index.sh \
@@ -41,12 +41,12 @@ green="\033[1;32m"
 red="\033[1;31m"
 blue="\033[1;34m"
 
-OVERLAYS_DIR=""
+OVERLAYS_DIR="."
 REGISTRY=""
 RHDH_VERSION=""
 COMMUNITY_REGISTRY="ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
-OUTPUT_DIR=""
-PLUGIN_BUILDS_DIR=""
+OUTPUT_DIR="catalog-index"
+PLUGIN_BUILDS_DIR="plugin_builds"
 PACKAGES_FILES=()
 DEBUG_FLAG=""
 DEBUG=0
@@ -57,10 +57,10 @@ Orchestrator script to generate plugin_builds/ and catalog-index/.
 
 Usage:
     update-index.sh \
-        -d|--overlays-dir PATH \
         -r|--registry BASE \
-        -o|--output-dir PATH \
-        -b|--plugin-builds-dir PATH \
+        [-d|--overlays-dir PATH] \
+        [-o|--output-dir PATH] \
+        [-b|--plugin-builds-dir PATH] \
         [-v|--rhdh-version VERSION] \
         [-p|--packages-file PATH ...] \
         [-cr|--community-registry BASE] \
@@ -68,14 +68,17 @@ Usage:
         [-h|--help]
 
 Arguments:
-  -d,  --overlays-dir          Path to overlays repo root (contains workspaces/)
   -r,  --registry              Registry base (e.g., ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
+  -d,  --overlays-dir          Path to overlays repo root (contains workspaces/)
+                               (default: .)
+  -o,  --output-dir            Output directory for catalog-index
+                               (default: catalog-index)
+  -b,  --plugin-builds-dir     Directory for plugin_builds/ JSON files
+                               (default: plugin_builds)
   -v,  --rhdh-version          RHDH version for non-ghcr.io tag convention (e.g., 1.5).
                                Required when registry is not ghcr.io.
   -cr, --community-registry    Registry base for community-tier plugins
                                (default: ghcr.io/redhat-developer/rhdh-plugin-export-overlays)
-  -o,  --output-dir            Output directory for catalog-index
-  -b,  --plugin-builds-dir     Directory for plugin_builds/ JSON files
   -p,  --packages-file         Package list file (YAML or txt). Can be specified multiple times.
                                Files are unioned. Supports default.packages.yaml (npm names)
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
@@ -133,8 +136,8 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Validate required args
-if [[ -z "$OVERLAYS_DIR" ]] || [[ -z "$REGISTRY" ]] || [[ -z "$OUTPUT_DIR" ]] || [[ -z "$PLUGIN_BUILDS_DIR" ]]; then
-    echo -e "${red}[ERROR] Missing required arguments${norm}\n"
+if [[ -z "$REGISTRY" ]]; then
+    echo -e "${red}[ERROR] Missing required argument: --registry${norm}\n"
     usage
 fi
 
