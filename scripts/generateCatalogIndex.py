@@ -154,7 +154,13 @@ def check_image_exists(registry_reference: str) -> bool:
         registry = parts[0]
         image_and_tag = parts[1]
 
-        if ':' in image_and_tag:
+        if '@' in image_and_tag:
+            name_part, tag = image_and_tag.split('@', 1)
+            if ':' in name_part:
+                repository = name_part.rsplit(':', 1)[0]
+            else:
+                repository = name_part
+        elif ':' in image_and_tag:
             repository, tag = image_and_tag.rsplit(':', 1)
         else:
             repository = image_and_tag
@@ -532,7 +538,6 @@ def _support_label_color(label: str) -> str:
     colors = {
         'community': Colors.NORM,
         'generally-available': Colors.GREEN,
-        'tech-preview': Colors.YELLOW,
         'dev-preview': Colors.ORANGE,
     }
     return colors.get(label, Colors.RED)
