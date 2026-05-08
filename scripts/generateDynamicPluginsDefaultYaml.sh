@@ -31,7 +31,10 @@ Once complete, you should:
 5. Run generateCatalogIndex.py to generate the catalog index, and to
 6. Add oci ref comments into the DPDY file (see build/ci/update-index.sh)
 
-Requires: yq
+Requires: yq (kislyuk/pypi-yq or mikefarah/yq). Prefer to use ~/.local/bin/yq_mf
+
+Note: Using mikefarah yq, plugin yaml emission uses --unwrapScalar=false and 
+env()+eval --expression to reduce YAML scalar rewrites.
 USAGE
 }
 
@@ -86,17 +89,38 @@ if [[ ! -d "$OVERLAYS_DIR" ]]; then
   exit 1
 fi
 
-if ! command -v yq &>/dev/null; then
-  echo "Error: yq is required (mikefarah/yq or kislyuk/yq)." >&2
+# Prefer mikefarah installed as yq_mf (e.g. builder image), else yq on PATH.
+if command -v yq_mf &>/dev/null; then
+  YQ_BIN=$(command -v yq_mf)
+elif [[ -x "${HOME}/.local/bin/yq_mf" ]]; then
+  YQ_BIN="${HOME}/.local/bin/yq_mf"
+elif command -v yq &>/dev/null; then
+  YQ_BIN=$(command -v yq)
+else
+  echo "Error: yq is required (mikefarah or kislyuk)." >&2
   exit 1
 fi
 
-# Detect yq variant: mikefarah uses -o=json for JSON; kislyuk (Python/jq wrapper) outputs JSON by default
-if yq -o=json '.' /dev/null 2>/dev/null; then
-  YQ_YAML_OPT="-P"
+# Detect yq variant: only mikefarah accepts -o=json here; kislyuk fails this probe.
+if "$YQ_BIN" -o=json '.' /dev/null >/dev/null 2>&1; then
+  YQ_IS_MIKE_FARAH=1
 else
-  YQ_YAML_OPT="-y"
+  YQ_IS_MIKE_FARAH=0
 fi
+
+# Yaml-output flag for kislyuk `yq -s …` / plugin entry (replacing hardcoded -y).
+YQ_YAML_OPT="-y"
+
+# Raw jq-style scalar read (kislyuk: yq -r; mikefarah: yq eval -r).
+yq_raw() {
+  local expr=$1
+  shift
+  if [[ "${YQ_IS_MIKE_FARAH:-0}" -eq 1 ]]; then
+    "$YQ_BIN" eval -r "$expr" "$@"
+  else
+    "$YQ_BIN" -r "$expr" "$@"
+  fi
+}
 
 # -----------------------------------------------------------------------------
 # Build metadata map: package name -> path to metadata YAML
@@ -118,8 +142,8 @@ if [[ ! -d "$WORKSPACES_DIR" ]]; then
   echo "Warning: Workspaces directory not found: $WORKSPACES_DIR" >&2
 else
   while IFS= read -r -d '' meta_path; do
-    package_name=$(yq -r '.spec.packageName // ""' "$meta_path" 2>/dev/null) || continue
-    dynamic_artifact=$(yq -r '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
+    package_name=$(yq_raw '.spec.packageName // ""' "$meta_path" 2>/dev/null) || continue
+    dynamic_artifact=$(yq_raw '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
 
     # Index by file stem (basename without .yaml) for fallback lookup
     meta_basename=$(basename "$meta_path" .yaml)
@@ -148,6 +172,7 @@ else
 fi
 
 if [[ $DEBUG -eq 1 ]]; then
+  echo "Using yq binary: $YQ_BIN (mikefarah=$YQ_IS_MIKE_FARAH)"
   echo "Loading packages from: $PACKAGES_FILE"
   echo "Scanning metadata files in: $OVERLAYS_DIR"
   echo "Found ${#METADATA_MAP[@]} metadata files"
@@ -179,7 +204,7 @@ build_plugin_entry() {
   local disabled=$2
 
   local dynamic_artifact package_value
-  dynamic_artifact=$(yq -r '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
+  dynamic_artifact=$(yq_raw '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
 
   if [[ "$dynamic_artifact" == ./.* ]]; then
     package_value=$dynamic_artifact
@@ -190,26 +215,36 @@ build_plugin_entry() {
     package_value=$dynamic_artifact
   fi
 
-  # Build entry as YAML: package, disabled, and optional pluginConfig from file
-  entry=$(yq -y \
-    --arg pkg "$package_value" \
-    --argjson dis "$disabled" \
-    '({package: $pkg, disabled: $dis} +
-     (if .spec.appConfigExamples[0].content then {pluginConfig: .spec.appConfigExamples[0].content} else {} end))
-     | with_entries(select(.value != null))' \
-    "$meta_path")
+  local entry
+  if [[ "${YQ_IS_MIKE_FARAH:-0}" -eq 1 ]]; then
+    # Preserve nested scalar quoting (pluginConfig); pass package/disabled via env — mikefarah has no jq --arg on eval.
+    export MF_PKG="$package_value"
+    export MF_DIS="$disabled"
+    entry=$("$YQ_BIN" --unwrapScalar=false eval --expression \
+      '{"package": env(MF_PKG), "disabled": (env(MF_DIS) == "true"), "pluginConfig": .spec.appConfigExamples[0].content} | with_entries(select(.value != null))' \
+      "$meta_path" -o yaml)
+  else
+    # shellcheck disable=SC2016
+    entry=$("$YQ_BIN" "${YQ_YAML_OPT}" \
+      --arg pkg "$package_value" \
+      --argjson dis "$disabled" \
+      '({package: $pkg, disabled: $dis} +
+       (if .spec.appConfigExamples[0].content then {pluginConfig: .spec.appConfigExamples[0].content} else {} end))
+       | with_entries(select(.value != null))' \
+      "$meta_path")
+  fi
   # fix indenting so that the entire entry is precended by 2 spaces per line
   # shellcheck disable=SC2001
-  entry=$(echo "$entry" | sed 's/^/  /')
+  entry=$(printf '%s\n' "$entry" | sed 's/^/  /')
   echo "$entry"
 }
 
 # -----------------------------------------------------------------------------
 # Collect enabled and disabled package entries from default.packages.yaml
-# Each plugin entry is built as YAML and appended to a temp file for sort + merge with yq.
+# Each plugin entry is appended to a temp file; merged in default.packages.yaml order (enabled then disabled).
 # -----------------------------------------------------------------------------
-enabled_count=$(yq -r '.packages.enabled // [] | length' "$PACKAGES_FILE")
-disabled_count=$(yq -r '.packages.disabled // [] | length' "$PACKAGES_FILE")
+enabled_count=$(yq_raw '.packages.enabled // [] | length' "$PACKAGES_FILE")
+disabled_count=$(yq_raw '.packages.disabled // [] | length' "$PACKAGES_FILE")
 echo ""
 echo "Processing $enabled_count enabled packages..."
 
@@ -219,7 +254,7 @@ first=true
 
 idx=0
 while [[ $idx -lt $enabled_count ]]; do
-  pkg_name=$(yq -r '.packages.enabled['"$idx"'].package // ""' "$PACKAGES_FILE")
+  pkg_name=$(yq_raw '.packages.enabled['"$idx"'].package // ""' "$PACKAGES_FILE")
   [[ "$pkg_name" == "null" ]] && pkg_name=""
   pkg_name=${pkg_name//\"}; pkg_name=${pkg_name//\'}
   meta_path="${METADATA_MAP[$pkg_name]:-}"
@@ -249,7 +284,7 @@ echo ""
 echo "Processing $disabled_count disabled packages..."
 idx=0
 while [[ $idx -lt $disabled_count ]]; do
-  pkg_name=$(yq -r '.packages.disabled['"$idx"'].package // ""' "$PACKAGES_FILE")
+  pkg_name=$(yq_raw '.packages.disabled['"$idx"'].package // ""' "$PACKAGES_FILE")
   [[ "$pkg_name" == "null" ]] && pkg_name=""
   pkg_name=${pkg_name//\"}; pkg_name=${pkg_name//\'}
   meta_path="${METADATA_MAP[$pkg_name]:-}"
@@ -272,24 +307,39 @@ while [[ $idx -lt $disabled_count ]]; do
 done
 
 # -----------------------------------------------------------------------------
-# Sort (disabled false first, then by package name) and wrap as {plugins: [...]} with yq
+# Wrap as {plugins: [...]} preserving list order (kislyuk: yq -s; mikefarah: eval-all).
 # -----------------------------------------------------------------------------
 echo ""
-echo "Sorting plugins and writing to $OUTPUT_FILE..."
+echo "Merging plugin entries and writing to $OUTPUT_FILE..."
 mkdir -p "$(dirname "$OUTPUT_FILE")"
-if [[ "$YQ_YAML_OPT" == "-P" ]]; then
-  yq -s 'sort_by([.disabled, (.package | ascii_downcase)]) | {plugins: .}' "$ENTRIES_TMP" | yq -P '.' > "$OUTPUT_FILE"
+if [[ "${YQ_IS_MIKE_FARAH:-0}" -eq 1 ]]; then
+  "$YQ_BIN" eval-all --unwrapScalar=false '[.] | {"plugins": .}' "$ENTRIES_TMP" -o yaml > "$OUTPUT_FILE"
 else
-  yq -s -y 'sort_by([.disabled, (.package | ascii_downcase)]) | {plugins: .}' "$ENTRIES_TMP" > "$OUTPUT_FILE"
+  "$YQ_BIN" -s "${YQ_YAML_OPT}" '{plugins: .}' "$ENTRIES_TMP" > "$OUTPUT_FILE"
 fi
+
+# add header onto file so people stop asking how it's maintained
+cat << EOL > "$OUTPUT_FILE".head
+# THIS FILE IS GENERATED - DO NOT EDIT!
+#
+# File dynamic-plugins.default.yaml is now generated from default.packages.yaml
+# and default configuration located in the overlays repo under workspaces/*/metadata/*.yaml
+# See https://github.com/redhat-developer/rhdh-plugin-export-overlays/
+#
+# To update this file, trigger a rebuld of the index image from 
+# https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
+EOL
+cat "$OUTPUT_FILE".head "$OUTPUT_FILE" > "$OUTPUT_FILE"_
+mv "$OUTPUT_FILE"_ "$OUTPUT_FILE"
+rm -f "$OUTPUT_FILE".head
 
 # -----------------------------------------------------------------------------
 # Stats (from final YAML)
 # -----------------------------------------------------------------------------
-total=$(yq -r '.plugins | length' "$OUTPUT_FILE")
-enabled_num=$(yq -r '[.plugins[] | select(.disabled == false)] | length' "$OUTPUT_FILE")
-disabled_num=$(yq -r '[.plugins[] | select(.disabled == true)] | length' "$OUTPUT_FILE")
-with_config=$(yq -r '[.plugins[] | select(has("pluginConfig"))] | length' "$OUTPUT_FILE")
+total=$(yq_raw '.plugins | length' "$OUTPUT_FILE")
+enabled_num=$(yq_raw '[.plugins[] | select(.disabled == false)] | length' "$OUTPUT_FILE")
+disabled_num=$(yq_raw '[.plugins[] | select(.disabled == true)] | length' "$OUTPUT_FILE")
+with_config=$(yq_raw '[.plugins[] | select(has("pluginConfig"))] | length' "$OUTPUT_FILE")
 
 if [[ $DEBUG -eq 1 ]]; then
   echo ""
