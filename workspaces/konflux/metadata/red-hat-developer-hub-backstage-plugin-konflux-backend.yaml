@@ -27,7 +27,7 @@ spec:
     - konflux
   appConfigExamples:
     - title: Default configuration
-      content: |
+      content:
         konflux:
           authProvider: impersonationHeaders
           clusters:
