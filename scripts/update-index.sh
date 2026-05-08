@@ -128,7 +128,7 @@ while [[ "$#" -gt 0 ]]; do
         usage
         ;;
     *)
-        echo -e "${red}[ERROR] Invalid parameter: $1${norm}"
+        echo -e "${red}[ERROR] Invalid parameter: $1${norm}" >&2
         echo
         usage
         ;;
@@ -137,7 +137,7 @@ done
 
 # Validate required args
 if [[ -z "$REGISTRY" ]]; then
-    echo -e "${red}[ERROR] Missing required argument: --registry${norm}\n"
+    echo -e "${red}[ERROR] Missing required argument: --registry${norm}\n" >&2
     usage
 fi
 
@@ -174,27 +174,29 @@ if [[ -n "$RHDH_VERSION" ]]; then
     RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
 fi
 # shellcheck disable=SC2086
-python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
+if ! python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
     $RHDH_VERSION_ARG \
     $BOOTSTRAP_FILTER_ARGS \
     $COMMUNITY_REGISTRY_ARG \
-    $DEBUG_FLAG
-if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] bootstrapPluginBuilds.py failed!${norm}"; exit 1; fi
+    $DEBUG_FLAG; then
+    echo -e "${red}[ERROR] bootstrapPluginBuilds.py failed!${norm}" >&2; exit 1
+fi
 
 ##############################################
 # Step 2: Enrich plugin_builds/ with registry metadata
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
 # shellcheck disable=SC2086
-python3 "$SCRIPT_DIR/generatePluginBuildInfo.py" \
+if ! python3 "$SCRIPT_DIR/generatePluginBuildInfo.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
-    $DEBUG_FLAG
-if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generatePluginBuildInfo.py failed!${norm}"; exit 1; fi
+    $DEBUG_FLAG; then
+    echo -e "${red}[ERROR] generatePluginBuildInfo.py failed!${norm}" >&2; exit 1
+fi
 
 ##############################################
 # Step 3: Generate dynamic-plugins.default.yaml
@@ -212,12 +214,13 @@ if [[ -n "$DPDY_PACKAGES_FILE" ]]; then
     echo -e "\n${green}=== Step 3: Generate dynamic-plugins.default.yaml ===${norm}"
     mkdir -p "$OUTPUT_DIR"
     # shellcheck disable=SC2086
-    "$SCRIPT_DIR/generateDynamicPluginsDefaultYaml.sh" \
+    if ! "$SCRIPT_DIR/generateDynamicPluginsDefaultYaml.sh" \
         --packages-file "$DPDY_PACKAGES_FILE" \
         --output-file "$OUTPUT_DIR/dynamic-plugins.default.yaml" \
         --overlays-dir "$OVERLAYS_DIR" \
-        $DEBUG_FLAG
-    if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}"; exit 1; fi
+        $DEBUG_FLAG; then
+        echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2; exit 1
+    fi
 else
     echo -e "\n${blue}=== Step 3: Skipped (no .yaml packages file provided) ===${norm}"
 fi
@@ -231,14 +234,15 @@ for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
     PACKAGES_FILE_ARGS="$PACKAGES_FILE_ARGS --packages-file $pf"
 done
 # shellcheck disable=SC2086
-python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
+if ! python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
     $PACKAGES_FILE_ARGS \
-    $DEBUG_FLAG
-if [[ $? -ne 0 ]]; then echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}"; exit 1; fi
+    $DEBUG_FLAG; then
+    echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}" >&2; exit 1
+fi
 
 echo -e "\n${green}=== Done ===${norm}"
 echo -e "${blue}Output: $OUTPUT_DIR${norm}"
