@@ -84,40 +84,30 @@ def construct_registry_reference(
 def main():
     usage="""
 Usage: python3 bootstrapPluginBuilds.py [--debug] \\
-    -d|--overlays-dir  /path/to/overlays \\
-    -b|--plugin-builds-dir /path/to/plugin_builds \\
     -r|--registry image-registry \\
+    [-d|--overlays-dir PATH] \\
+    [-b|--plugin-builds-dir PATH] \\
     [-v|--rhdh-version VERSION] \\
     [-cr|--community-registry BASE] \\
     [-p|--packages-file FILE ...]
 
 Examples:
-    # All plugins on ghcr.io (no --rhdh-version needed)
-    python3 bootstrapPluginBuilds.py \\
-        -d . \\
-        -b plugin_builds/all \\
-        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 
     # Supported plugins from multiple package list files
     python3 bootstrapPluginBuilds.py \\
-        -d . \\
         -b plugin_builds/supported \\
         -r quay.io/rhdh \\
-        -v 1.5 \\
+        -cr ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
+        -v 1.10 \\
         -p catalog-index/default.packages.yaml \\
         -p rhdh-supported-packages.txt
 
-    # Community plugins
+    # Community plugins (no --rhdh-version needed)
     python3 bootstrapPluginBuilds.py \\
-        -d . \\
         -b plugin_builds/community \\
         -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
         -p rhdh-community-packages.txt
 """
-
-    if len(sys.argv) == 1:
-        print(usage)
-        sys.exit(1)
 
     parser = argparse.ArgumentParser(
         description='Bootstrap plugin_builds/ from workspace metadata.',
@@ -128,16 +118,16 @@ Examples:
     parser.add_argument(
         '-d', '--overlays-dir',
         type=str,
-        required=True,
+        default='.',
         metavar='PATH',
-        help='Path to overlays directory containing workspaces/',
+        help='Path to overlays directory containing workspaces/ (default: .)',
     )
     parser.add_argument(
         '-b', '--plugin-builds-dir',
         type=str,
-        required=True,
+        default='plugin_builds',
         metavar='PATH',
-        help='Output directory for plugin_builds/',
+        help='Output directory for plugin_builds/ (default: plugin_builds)',
     )
     parser.add_argument(
         '-r', '--registry',
@@ -264,10 +254,9 @@ Examples:
                     log_debug(f"No plugins-list match for {stem}, using fallback: {workspace_path}")
 
                 # Check packages filter (by npm package name)
-                if packages_set is not None:
-                    if package_name not in packages_set:
-                        skipped_count += 1
-                        continue
+                if packages_set is not None and package_name not in packages_set:
+                    skipped_count += 1
+                    continue
 
                 # Construct registryReference
                 image_name = package_name_to_image_name(package_name) if package_name else stem
@@ -292,7 +281,7 @@ Examples:
                     try:
                         with open(json_file, 'r') as f:
                             existing_data = json.load(f)
-                    except (json.JSONDecodeError, Exception):
+                    except (json.JSONDecodeError, OSError):
                         existing_data = {}
 
                 # Preserve existing enrichment fields (digest, build-date, etc.)

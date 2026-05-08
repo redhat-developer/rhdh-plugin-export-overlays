@@ -39,7 +39,7 @@ def log_info(message: str) -> None:
 
 
 def log_warn(message: str) -> None:
-    print(f"{Colors.BLUE}[WARN]{Colors.NORM} {message}")
+    print(f"{Colors.YELLOW}[WARN]{Colors.NORM} {message}")
 
 
 def log_error(message: str) -> None:
@@ -91,12 +91,12 @@ def detect_file_format(file_path: str) -> str:
     return 'txt'
 
 
-def load_core_packages_from_yaml(packages_file: str) -> set[str]:
-    """Load core package names from default.packages.yaml.
+def load_filtered_packages_from_yaml(packages_file: str) -> set[str]:
+    """Load filtered package names from default.packages.yaml.
     Returns set of npm package names from both enabled and disabled sections."""
     path = Path(packages_file)
     if not path.exists():
-        log_error(f"Core packages file not found: {packages_file}")
+        log_error(f"Packages file not found: {packages_file}")
         sys.exit(1)
 
     with open(path, 'r') as f:
@@ -272,7 +272,7 @@ def build_workspace_mappings(overlays_dir: Path) -> WorkspaceMappings:
             mappings.npm_to_stem[npm_name] = stem
             mappings.stem_to_npm[stem] = npm_name
 
-    log_debug(f"Workspace mapping complete: {len(mappings.npm_to_stem)} packages across {len(set(p.split('/')[0] for p in mappings.ws_path_to_npm))} workspaces")
+    log_debug(f"Workspace mapping complete: {len(mappings.npm_to_stem)} packages across {len({ p.split('/')[0] for p in mappings.ws_path_to_npm })} workspaces")
 
     return mappings
 
@@ -282,7 +282,7 @@ def _load_file_entries(file_path: str) -> tuple[str, set[str]]:
     Returns (format, set_of_entries) where entries are npm names or workspace paths."""
     fmt = detect_file_format(file_path)
     if fmt == 'yaml':
-        entries = load_core_packages_from_yaml(file_path)
+        entries = load_filtered_packages_from_yaml(file_path)
     else:
         entries = set(load_packages_from_txt(file_path))
     log_debug(f"Loaded {len(entries)} packages from {file_path} ({fmt} format)")
