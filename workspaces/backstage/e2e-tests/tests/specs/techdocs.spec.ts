@@ -31,7 +31,7 @@ test.describe.skip("TechDocs", () => {
     test.setTimeout(10 * 60 * 1000);
 
     await rhdh.configure({
-      auth: "keycloak",
+      auth: "guest",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       secrets: "tests/config/techdocs/rhdh-secrets.yaml",
@@ -42,7 +42,7 @@ test.describe.skip("TechDocs", () => {
   });
 
   test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
+    await loginHelper.loginAsGuest();
   });
 
   test("Verify that TechDocs is visible in sidebar", async ({ uiHelper }) => {
