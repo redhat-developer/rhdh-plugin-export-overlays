@@ -15,11 +15,17 @@ test.describe("Orchestrator", () => {
       await deploySonataflow(project);
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+      const originalPrNumber = process.env.GIT_PR_NUMBER;
+      delete process.env.GIT_PR_NUMBER;
       try {
         await rhdh.deploy({ timeout: 900_000 });
       } catch (err) {
         logOrchestratorDeployFailureDiagnostics(project);
         throw err;
+      } finally {
+        if (originalPrNumber !== undefined) {
+          process.env.GIT_PR_NUMBER = originalPrNumber;
+        }
       }
     });
     testInfo.annotations.push({
