@@ -2,7 +2,11 @@ import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
-import { GITHUB_ORG, WAIT_OBJECTS } from "./bulk-import-shared";
+import {
+  GITHUB_ORG,
+  WAIT_OBJECTS,
+  handleGitHubAuthDialogIfPresent,
+} from "./bulk-import-shared";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
 async function clickLinkWithNewTab(
@@ -51,8 +55,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
     );
   });
 
-  test.beforeEach(async ({ loginHelper }) => {
+  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
     await loginHelper.loginAsKeycloakUser();
+    await uiHelper.openSidebar("Bulk import");
+    await handleGitHubAuthDialogIfPresent(page);
   });
 
   test("should display plugin page", async ({ page, uiHelper }) => {
@@ -125,6 +131,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
       .locator(`tr:has(:text-is("${catalogRepoDetailsForOrchestrator.name}"))`)
       .getByRole("checkbox")
       .check();
+
     await uiHelper.verifyRowInTableByUniqueText(
       catalogRepoDetailsForOrchestrator.name,
       [catalogRepoDetailsForOrchestrator.url],

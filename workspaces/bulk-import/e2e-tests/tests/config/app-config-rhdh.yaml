@@ -9,7 +9,13 @@ catalog:
     - allow: [Component, System, Group, User, Resource, Location, Template, API]
   locations:
     - type: url
-      target: https://github.com/janus-test/janus-test-3-bulk-import/blob/main/catalog-info.yaml
+      target: https://github.com/cloud-eda/janus-test-3-bulk-import/blob/main/catalog-info.yaml
+
+# todo remove it
+    - type: url
+      target: https://github.com/AndrienkoAleksandr/catalog-model/blob/rbac/examples/acme-corp.yaml
+      rules:
+        - allow: [User, Group]
 
 integrations:
   github:
@@ -18,6 +24,17 @@ integrations:
   gitlab:
     - host: gitlab.com
       token: temp
+
+# todo remove it
+auth:
+  providers:
+    github:
+      production:
+        clientId: ${GITHUB_APP_CLIENT_ID}
+        clientSecret: ${GITHUB_APP_CLIENT_SECRET}
+        signIn:
+          resolvers:
+            - resolver: usernameMatchingUserEntityName
 
 permission:
   enabled: true
