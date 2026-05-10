@@ -9,6 +9,14 @@ integrations:
     - host: gitlab.com
       token: temp
 
+auth:
+  providers:
+    github:
+      development:
+        clientId: ${GITHUB_APP_CLIENT_ID}
+        clientSecret: ${GITHUB_APP_CLIENT_SECRET}
+        # callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+
 bulkImport:
   importAPI: orchestrator
   orchestratorWorkflow: universal-pr
