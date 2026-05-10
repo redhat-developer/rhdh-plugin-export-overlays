@@ -1,12 +1,13 @@
-import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
+import { defineConfig } from "@playwright/test";
+import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
-dotenv.config({ path: `${import.meta.dirname}/.env` });
 /**
  * Bulk import plugin e2e test configuration.
  * Extends the base config from rhdh-e2e-test-utils.
  */
 export default defineConfig({
+  ...baseConfig,
+  workers: 1,
   projects: [
     {
       name: "bulk-import",
