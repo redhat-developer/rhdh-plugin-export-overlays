@@ -1,7 +1,6 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   deploySonataflow,
-  ensurePublishedOrchestratorPrImagesAvailable,
   logOrchestratorDeployFailureDiagnostics,
 } from "../support/utils/test-helpers.js";
 import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
@@ -14,7 +13,6 @@ test.describe("Orchestrator", () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
       await deploySonataflow(project);
-      await ensurePublishedOrchestratorPrImagesAvailable();
       process.env.SONATAFLOW_DATA_INDEX_URL =
         "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
       try {

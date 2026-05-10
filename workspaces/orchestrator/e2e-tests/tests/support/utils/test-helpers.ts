@@ -17,7 +17,6 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 export {
   deploySonataflow,
-  ensurePublishedOrchestratorPrImagesAvailable,
   runOc,
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
