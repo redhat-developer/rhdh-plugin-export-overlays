@@ -1,8 +1,13 @@
-import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { CatalogApiHelper } from "../../support/api/catalog-api-helper.js";
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
+import {
+  bootstrapGitLabEventsApiClient,
+  deployGitLabEventsHub,
+  fetchCatalogSessionToken,
+  prepareGitLabEventsParentGroup,
+  runGitLabEventsCleanupSafely,
+} from "../../support/gitlab-events-test-setup.js";
 
 test.describe("GitLab Events - Discovery", () => {
   let testPrefix: string;
@@ -15,43 +20,12 @@ test.describe("GitLab Events - Discovery", () => {
   let catalogToken: string;
 
   test.beforeAll(async ({ rhdh }) => {
-    // Environment validation
-    requireEnv("VAULT_EVENTS_GITLAB_TOKEN");
-    requireEnv("VAULT_EVENTS_GITLAB_HOST");
-    requireEnv("VAULT_EVENTS_GITLAB_PARENT_ORG");
-    requireEnv("VAULT_GITLAB_WEBHOOK_SECRET");
+    testPrefix = bootstrapGitLabEventsApiClient();
+    rhdhUrl = await deployGitLabEventsHub(rhdh);
 
-    const gitlabToken = process.env.VAULT_EVENTS_GITLAB_TOKEN!;
-
-    // Initialize GitLab API helper with the same token for both regular and admin operations
-    GitLabApiHelper.init(
-      `https://${process.env.VAULT_EVENTS_GITLAB_HOST!}`,
-      gitlabToken,
-    );
-
-    // Generate unique test prefix
-    testPrefix = GitLabApiHelper.generateTestPrefix();
-
-    // Configure and deploy RHDH
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/gitlab-events/app-config-rhdh.yaml",
-      secrets: "tests/config/gitlab-events/rhdh-secrets.yaml",
-      dynamicPlugins: "tests/config/gitlab-events/dynamic-plugins.yaml",
-    });
-
-    await rhdh.deploy();
-    rhdhUrl = rhdh.rhdhUrl;
-
-    // Get parent group ID
-    const parentGroup = await GitLabApiHelper.getGroupByPath(
-      process.env.VAULT_EVENTS_GITLAB_PARENT_ORG,
-    );
-    parentGroupPath = parentGroup.full_path;
-    parentGroupId = parentGroup.id;
-
-    // Clean up stale resources (older than 1 hour)
-    await GitLabApiHelper.cleanupStaleResources(parentGroupId, "e2e-", 1);
+    const parent = await prepareGitLabEventsParentGroup();
+    parentGroupPath = parent.parentGroupPath;
+    parentGroupId = parent.parentGroupId;
 
     // Create test group for this run
     const testGroupName = `${testPrefix}-test-group`;
@@ -80,45 +54,12 @@ test.describe("GitLab Events - Discovery", () => {
     await loginHelper.loginAsKeycloakUser();
 
     if (!catalogToken) {
-      const authApiHelper = new AuthApiHelper(page);
-      await page.goto(rhdhUrl);
-      await uiHelper.waitForLoad();
-      await page.locator("nav").first().waitFor({ state: "visible" });
-      await page
-        .locator(
-          'button[data-testid="user-settings-menu"], [aria-label*="user"]',
-        )
-        .first()
-        .waitFor({ state: "visible", timeout: 10000 })
-        .catch(() => {});
-
-      await expect
-        .poll(
-          async () => {
-            try {
-              const token = await authApiHelper.getToken();
-              if (token && token.length > 0) {
-                catalogToken = token;
-                return true;
-              }
-              return false;
-            } catch {
-              return false;
-            }
-          },
-          {
-            message: "Token should be retrieved after session is established",
-            timeout: 30000,
-            intervals: [2000],
-          },
-        )
-        .toBe(true);
+      catalogToken = await fetchCatalogSessionToken(page, uiHelper, rhdhUrl);
     }
   });
 
   test.afterAll(async () => {
-    // Clean up test resources with permanent removal
-    try {
+    await runGitLabEventsCleanupSafely(async () => {
       // Webhook must go before removing the project
       if (projectWebhookId && testProjectId) {
         await GitLabApiHelper.deleteProjectWebhook(
@@ -134,11 +75,7 @@ test.describe("GitLab Events - Discovery", () => {
       if (testGroupId) {
         await GitLabApiHelper.deleteGroup(testGroupId, true);
       }
-    } catch (error) {
-      console.warn(
-        `Cleanup error: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    });
   });
 
   test.describe.serial("Catalog Sync via Webhooks", () => {
