@@ -12,13 +12,13 @@ export class CatalogApiHelper {
     token: string,
     kind: string,
     name: string,
-    namespace = 'default',
+    namespace = "default",
   ): Promise<boolean> {
     try {
       await this.getEntity(baseUrl, token, kind, name, namespace);
       return true;
     } catch (error) {
-      if (error instanceof Error && error.message.includes('404')) {
+      if (error instanceof Error && error.message.includes("404")) {
         return false;
       }
       throw error;
@@ -33,7 +33,7 @@ export class CatalogApiHelper {
     token: string,
     kind: string,
     name: string,
-    namespace = 'default',
+    namespace = "default",
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
     const context = await request.newContext({
@@ -64,28 +64,34 @@ export class CatalogApiHelper {
     token: string,
     kind: string,
     name: string,
-    namespace = 'default',
+    namespace = "default",
     timeoutMs = 60000,
     intervalMs = 2000,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeoutMs) {
       try {
-        const entity = await this.getEntity(baseUrl, token, kind, name, namespace);
+        const entity = await this.getEntity(
+          baseUrl,
+          token,
+          kind,
+          name,
+          namespace,
+        );
         return entity;
       } catch (error) {
-        if (!(error instanceof Error && error.message.includes('404'))) {
+        if (!(error instanceof Error && error.message.includes("404"))) {
           throw error;
         }
       }
-      
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
-    
+
     throw new Error(
-      `Timeout: Entity ${kind}:${namespace}/${name} did not appear within ${timeoutMs}ms`
+      `Timeout: Entity ${kind}:${namespace}/${name} did not appear within ${timeoutMs}ms`,
     );
   }
 
@@ -97,23 +103,29 @@ export class CatalogApiHelper {
     token: string,
     kind: string,
     name: string,
-    namespace = 'default',
+    namespace = "default",
     timeoutMs = 60000,
     intervalMs = 2000,
   ): Promise<void> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeoutMs) {
-      const exists = await this.entityExists(baseUrl, token, kind, name, namespace);
+      const exists = await this.entityExists(
+        baseUrl,
+        token,
+        kind,
+        name,
+        namespace,
+      );
       if (!exists) {
         return;
       }
-      
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
-    
+
     throw new Error(
-      `Timeout: Entity ${kind}:${namespace}/${name} was not removed within ${timeoutMs}ms`
+      `Timeout: Entity ${kind}:${namespace}/${name} was not removed within ${timeoutMs}ms`,
     );
   }
 

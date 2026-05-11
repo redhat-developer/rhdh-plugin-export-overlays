@@ -370,7 +370,9 @@ export class GitLabApiHelper {
   }
 
   /** Full path GitLab expects for {@code permanently_remove} — must match Ruby {@code Group#full_path}. */
-  private static resolveGroupPermanentDeleteFullPath(group: GitLabGroup): string {
+  private static resolveGroupPermanentDeleteFullPath(
+    group: GitLabGroup,
+  ): string {
     const fp = group.full_path;
     if (typeof fp === "string" && fp.trim().length > 0) {
       return fp.trim();
@@ -389,7 +391,9 @@ export class GitLabApiHelper {
     );
   }
 
-  private static async scheduleGroupForDeletion(groupId: number): Promise<void> {
+  private static async scheduleGroupForDeletion(
+    groupId: number,
+  ): Promise<void> {
     try {
       await this.safeGitLabRequest("DELETE", `/groups/${groupId}`);
       console.log(`Group ${groupId} marked for deletion`);
@@ -426,8 +430,7 @@ export class GitLabApiHelper {
       );
       return permanentPath;
     } catch (e) {
-      const hint =
-        e instanceof Error ? e.message : JSON.stringify(String(e));
+      const hint = e instanceof Error ? e.message : JSON.stringify(String(e));
       throw new Error(
         `Could not GET group ${groupId} after scheduling deletion (${hint}); refusing blind permanent_delete`,
         { cause: e },
@@ -446,9 +449,8 @@ export class GitLabApiHelper {
       if (permanentlyRemove) {
         console.log(`Permanently deleting group ${groupId}`);
         await this.scheduleGroupForDeletion(groupId);
-        const permanentPath = await this.getGroupFullPathForPermanentDelete(
-          groupId,
-        );
+        const permanentPath =
+          await this.getGroupFullPathForPermanentDelete(groupId);
         await this.safeGitLabRequest("DELETE", `/groups/${groupId}`, {
           permanently_remove: true,
           full_path: permanentPath,
@@ -684,7 +686,9 @@ export class GitLabApiHelper {
   /**
    * Get group by path
    */
-  static async getGroupByPath(groupPath: string | undefined): Promise<GitLabGroup> {
+  static async getGroupByPath(
+    groupPath: string | undefined,
+  ): Promise<GitLabGroup> {
     if (!groupPath) {
       throw new TypeError("groupPath is required");
     }
@@ -720,9 +724,7 @@ export class GitLabApiHelper {
       }
 
       if (prefix) {
-        allProjects.push(
-          ...projects.filter((p) => p.name.startsWith(prefix)),
-        );
+        allProjects.push(...projects.filter((p) => p.name.startsWith(prefix)));
       } else {
         allProjects.push(...projects);
       }
