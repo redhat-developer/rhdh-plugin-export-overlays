@@ -6,6 +6,7 @@ import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 
 test.describe("GitLab Events - Discovery", () => {
   let testPrefix: string;
+  let parentGroupPath: string;
   let parentGroupId: number;
   let testGroupId: number;
   let testProjectId: number;
@@ -44,8 +45,9 @@ test.describe("GitLab Events - Discovery", () => {
 
     // Get parent group ID
     const parentGroup = await GitLabApiHelper.getGroupByPath(
-      process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!,
+      process.env.VAULT_EVENTS_GITLAB_PARENT_ORG,
     );
+    parentGroupPath = parentGroup.full_path;
     parentGroupId = parentGroup.id;
 
     // Clean up stale resources (older than 1 hour)
@@ -150,7 +152,7 @@ kind: Component
 metadata:
   name: ${entityName}
   annotations:
-    gitlab.com/project-slug: ${process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!}/${testPrefix}-test-project
+    gitlab.com/project-slug: ${parentGroupPath}/${testPrefix}-test-project
 spec:
   type: service
   lifecycle: experimental
@@ -196,7 +198,7 @@ metadata:
   name: ${entityName}
   description: "Updated description via webhook"
   annotations:
-    gitlab.com/project-slug: ${process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!}/${testPrefix}-test-project
+    gitlab.com/project-slug: ${parentGroupPath}/${testPrefix}-test-project
 spec:
   type: service
   lifecycle: production

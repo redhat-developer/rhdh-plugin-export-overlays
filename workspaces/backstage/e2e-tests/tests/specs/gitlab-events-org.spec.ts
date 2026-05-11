@@ -41,7 +41,9 @@ test.describe("GitLab Events - Org Data", () => {
     rhdhUrl = rhdh.rhdhUrl;
     
     // Get parent group ID
-    const parentGroup = await GitLabApiHelper.getGroupByPath(process.env.VAULT_EVENTS_GITLAB_PARENT_ORG!);
+    const parentGroup = await GitLabApiHelper.getGroupByPath(
+      process.env.VAULT_EVENTS_GITLAB_PARENT_ORG,
+    );
     parentGroupId = parentGroup.id;
     
     // Clean up stale resources (older than 1 hour)
