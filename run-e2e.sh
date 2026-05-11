@@ -26,6 +26,9 @@ set -euo pipefail
 #
 #   # Pin a specific npm version of e2e-test-utils (default: "latest" for nightly)
 #   E2E_TEST_UTILS_VERSION=1.1.24 ./run-e2e.sh -w tech-radar
+#
+#   # Use an unpublished git branch of e2e-test-utils (clones and builds locally)
+#   E2E_TEST_UTILS_GIT_REF=owner/rhdh-e2e-test-utils#my-branch ./run-e2e.sh -w tech-radar
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -60,6 +63,16 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
 # Pin specific e2e-test-utils version.
 E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
+# Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
+E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
+
+if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
+    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
+    rm -rf "$CLONE_DIR"
+    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
+        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
+    E2E_TEST_UTILS_PATH="$CLONE_DIR"
+fi
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
