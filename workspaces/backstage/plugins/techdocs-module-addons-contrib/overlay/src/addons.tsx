@@ -1,7 +1,5 @@
-import {
-  ReportIssue as ReportIssueBase,
-  techdocsModuleAddonsContribPlugin,
-} from '@backstage/plugin-techdocs-module-addons-contrib';
+import { techdocsModuleAddonsContribPlugin } from './plugin';
+import { ReportIssueAddon } from './ReportIssue';
 
 import {
   createTechDocsAddonExtension,
@@ -42,7 +40,7 @@ const ReportIssueWrapper = () => {
   return (
     <div id="techdocs-report-issue-wrapper">
       <ShadowRootStylesProvider>
-        <ReportIssueBase />
+        <ReportIssueAddon />
       </ShadowRootStylesProvider>
     </div>
   );
