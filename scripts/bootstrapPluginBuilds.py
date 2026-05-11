@@ -70,12 +70,10 @@ def construct_registry_reference(
     """
     existing_ref = parse_dynamic_artifact(dynamic_artifact)
 
-    if existing_ref and existing_ref.startswith(registry_base + '/'):
-        if '@' in existing_ref:
-            log_error(f"dynamicArtifact contains digest ref instead of tag: {dynamic_artifact}")
-            log_error("Source metadata should use tag-based refs (e.g. :1.10--2.6.0), not digests (@sha256:...).")
-            log_error("This usually means a previous run's write-back was not reverted. Fix the metadata and re-run.")
-            sys.exit(1)
+    if existing_ref and '@' in existing_ref:
+        log_warn(f"dynamicArtifact contains digest instead of tag: {dynamic_artifact}")
+
+    if existing_ref and existing_ref.startswith(registry_base + '/') and '@' not in existing_ref:
         return existing_ref
 
     if 'ghcr.io' in registry_base:
