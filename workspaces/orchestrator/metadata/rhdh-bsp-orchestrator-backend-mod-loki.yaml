@@ -35,4 +35,4 @@ spec:
           workflowLogProvider:
             loki:
               baseUrl: ${LOKI_BASE_URL}
-              token: ${LOKI_TOKEN}
+              token: ${AUTH_TOKEN}

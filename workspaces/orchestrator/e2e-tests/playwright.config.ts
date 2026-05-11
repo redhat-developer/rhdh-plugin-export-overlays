@@ -16,7 +16,6 @@ export default defineConfig({
   projects: [
     {
       name: "orchestrator",
-      testMatch: ["specs/orchestrator.spec.ts"],
     },
   ],
 });

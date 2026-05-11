@@ -1,5 +1,0 @@
-# Temporary workaround for chart tpl regression with Lightspeed plugin placeholders.
-# TODO(RHDHBUGS-3030): Remove this override once {{inherit}} handling is fixed in chart CI tags.
-global:
-  lightspeed:
-    enabled: false
