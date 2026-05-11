@@ -131,8 +131,14 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
         registry = parts[0]
         image_and_tag = parts[1]
 
-        # Split image from tag
-        if ':' in image_and_tag:
+        # Split image from tag/digest
+        if '@' in image_and_tag:
+            name_part, tag = image_and_tag.split('@', 1)
+            if ':' in name_part:
+                repository = name_part.rsplit(':', 1)[0]
+            else:
+                repository = name_part
+        elif ':' in image_and_tag:
             repository, tag = image_and_tag.rsplit(':', 1)
         else:
             repository = image_and_tag
