@@ -72,7 +72,7 @@ test.describe("GitLab Events - Discovery", () => {
     projectWebhookId = await GitLabApiHelper.createProjectWebhook(
       testProjectId,
       webhookUrl,
-      process.env.VAULT_GITLAB_WEBHOOK_SECRET!,
+      process.env.VAULT_GITLAB_WEBHOOK_SECRET,
     );
   });
 

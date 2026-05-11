@@ -130,7 +130,7 @@ export class GitLabApiHelper {
 
   private static assertJsonArray<T>(value: unknown): T[] {
     if (!Array.isArray(value)) {
-      throw new Error("GitLab API returned a non-array JSON payload");
+      throw new TypeError("GitLab API returned a non-array JSON payload");
     }
     return value as T[];
   }
@@ -476,8 +476,11 @@ export class GitLabApiHelper {
   static async createProjectWebhook(
     projectId: number,
     url: string,
-    secret: string,
+    secret: string | undefined,
   ): Promise<number> {
+    if (secret === undefined) {
+      throw new TypeError("GitLab webhook secret is required");
+    }
     const response = await this.safeGitLabRequest(
       "POST",
       `/projects/${projectId}/hooks`,
@@ -528,7 +531,13 @@ export class GitLabApiHelper {
   /**
    * Create a system hook (requires admin privileges)
    */
-  static async createSystemHook(url: string, secret: string): Promise<number> {
+  static async createSystemHook(
+    url: string,
+    secret: string | undefined,
+  ): Promise<number> {
+    if (secret === undefined) {
+      throw new TypeError("GitLab webhook secret is required");
+    }
     const response = await this.safeGitLabRequest("POST", "/hooks", {
       url,
       token: secret,

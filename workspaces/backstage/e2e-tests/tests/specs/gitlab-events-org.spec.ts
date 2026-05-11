@@ -55,7 +55,7 @@ test.describe("GitLab Events - Org Data", () => {
     const webhookUrl = `${rhdhUrl}/api/events/http/gitlab`;
     systemHookId = await GitLabApiHelper.createSystemHook(
       webhookUrl,
-      process.env.VAULT_GITLAB_WEBHOOK_SECRET!,
+      process.env.VAULT_GITLAB_WEBHOOK_SECRET,
     );
   });
 
