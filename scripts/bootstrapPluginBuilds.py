@@ -62,19 +62,14 @@ def construct_registry_reference(
     dynamic_artifact: str,
 ) -> str:
     """
-    Construct a registryReference for a plugin.
-    If dynamicArtifact already has an OCI ref matching the registry, use it.
-    Otherwise construct from convention:
+    Construct a registryReference for a plugin from version fields.
+    Always constructs a tag-based ref from spec.version + rhdh_version/backstage_version:
       - ghcr.io: bs_{backstage_version}__{version}
       - quay.io/rhdh: {rhdh_version}--{version}
     """
     existing_ref = parse_dynamic_artifact(dynamic_artifact)
-
     if existing_ref and '@' in existing_ref:
-        log_warn(f"dynamicArtifact contains digest instead of tag: {dynamic_artifact}")
-
-    if existing_ref and existing_ref.startswith(registry_base + '/') and '@' not in existing_ref:
-        return existing_ref
+        log_warn(f"metadata's dynamicArtifact contains digest instead of tag: {dynamic_artifact}")
 
     if 'ghcr.io' in registry_base:
         tag = f"bs_{backstage_version}__{version}"
