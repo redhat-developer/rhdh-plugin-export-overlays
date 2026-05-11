@@ -827,11 +827,11 @@ export class GitLabApiHelper {
   }
 
   /**
-   * Generate a unique test prefix for resource names
+   * Generate a unique test prefix for GitLab resource names (not for secrets).
    */
   static generateTestPrefix(): string {
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
+    const random = randomBytes(4).toString("hex");
     return `e2e-${timestamp}-${random}`;
   }
 

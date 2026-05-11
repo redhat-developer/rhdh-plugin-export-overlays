@@ -232,15 +232,14 @@ test.describe("GitLab Events - Org Data", () => {
       const groupName = `${testPrefix}-membership-group`;
       const userName = `${testPrefix}-membership-user`;
 
-      const { groupId, userId } = await createGitLabGroupAndUserVisibleInCatalog(
-        {
+      const { groupId, userId } =
+        await createGitLabGroupAndUserVisibleInCatalog({
           parentGroupId,
           rhdhUrl,
           catalogToken,
           groupName,
           userName,
-        },
-      );
+        });
 
       await addGitLabUserToGroupAndWaitForCatalogMember({
         rhdhUrl,
@@ -259,15 +258,14 @@ test.describe("GitLab Events - Org Data", () => {
       const groupName = `${testPrefix}-removal-group`;
       const userName = `${testPrefix}-removal-user`;
 
-      const { groupId, userId } = await createGitLabGroupAndUserVisibleInCatalog(
-        {
+      const { groupId, userId } =
+        await createGitLabGroupAndUserVisibleInCatalog({
           parentGroupId,
           rhdhUrl,
           catalogToken,
           groupName,
           userName,
-        },
-      );
+        });
 
       await addGitLabUserToGroupAndWaitForCatalogMember({
         rhdhUrl,

@@ -88,9 +88,7 @@ export async function fetchCatalogSessionToken(
   await uiHelper.waitForLoad();
   await page.locator("nav").first().waitFor({ state: "visible" });
   await page
-    .locator(
-      'button[data-testid="user-settings-menu"], [aria-label*="user"]',
-    )
+    .locator('button[data-testid="user-settings-menu"], [aria-label*="user"]')
     .first()
     .waitFor({ state: "visible", timeout: 10000 })
     .catch(() => {});
