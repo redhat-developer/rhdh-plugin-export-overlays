@@ -125,8 +125,9 @@ jobs:
     if: ${{ needs.resolve.outputs.workspace != '' }}
     runs-on: ubuntu-latest
     outputs:
-      plugins-metadata-complete: ${{ steps.build-dynamic-plugins.outputs.plugins-metadata-complete }}
+      has-runnable-plugins: ${{ steps.build-dynamic-plugins.outputs.has-runnable-plugins }}
       skip-tests-missing-env: ${{ steps.build-dynamic-plugins.outputs.skip-tests-missing-env }}
+      missing-metadata-plugins: ${{ steps.build-dynamic-plugins.outputs.missing-metadata-plugins }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -141,16 +142,20 @@ jobs:
           PUBLISHED_EXPORTS: ${{ needs.resolve.outputs.published-exports }}
         run: |
           PLUGINS_FOUND=0
+          PLUGINS_SKIPPED_MISSING_METADATA=0
           PLUGINS_SKIPPED_MISSING_ENV=0
           TEST_PLUGINS_SKIPPED=0
           TOTAL_PLUGINS=0
-          PLUGINS_METADATA_COMPLETE="false"
+          HAS_RUNNABLE_PLUGINS="false"
           SKIP_TESTS_MISSING_ENV="false"
+          MISSING_METADATA_PLUGINS=()
 
           if [ -z "$PUBLISHED_EXPORTS" ]; then
             echo "No published exports provided."
-            echo "plugins-metadata-complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+            echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
             echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
+            echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -203,7 +208,9 @@ jobs:
                   echo "Plugin $PLUGIN_NAME is a test plugin without metadata, skipping this individual plugin test"
                   TEST_PLUGINS_SKIPPED=$((TEST_PLUGINS_SKIPPED + 1))
                 else
-                  echo "Metadata mapping not found for $PLUGIN_NAME: test workflow will be skipped"
+                  echo "Metadata mapping not found for $PLUGIN_NAME: skipping this plugin"
+                  PLUGINS_SKIPPED_MISSING_METADATA=$((PLUGINS_SKIPPED_MISSING_METADATA + 1))
+                  MISSING_METADATA_PLUGINS+=("$PLUGIN_NAME")
                 fi
                 continue
               fi
@@ -211,6 +218,8 @@ jobs:
               PACKAGE_NAME=$(yq -r '.spec.packageName' "$METADATA_FILE")
               if [ -z "$PACKAGE_NAME" ] || [ "$PACKAGE_NAME" = "null" ]; then
                 echo "spec.packageName not found in $METADATA_FILE, skipping"
+                PLUGINS_SKIPPED_MISSING_METADATA=$((PLUGINS_SKIPPED_MISSING_METADATA + 1))
+                MISSING_METADATA_PLUGINS+=("$PLUGIN_NAME")
                 continue
               fi
 
@@ -264,19 +273,23 @@ jobs:
 
           if [ "$PLUGINS_FOUND" -eq 0 ]; then
             echo "[]" >> "$OUT_FILE"
+          else
+            HAS_RUNNABLE_PLUGINS="true"
           fi
 
-          # Check if all plugins were accounted for (found, skipped due to missing env, or test-only)
-          TOTAL_PROCESSED=$((PLUGINS_FOUND + PLUGINS_SKIPPED_MISSING_ENV + TEST_PLUGINS_SKIPPED))
           echo "Plugins: $PLUGINS_FOUND/$TOTAL_PLUGINS processed successfully"
+          [ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_METADATA (missing runnable metadata)"
           [ "${PLUGINS_SKIPPED_MISSING_ENV:-0}" -gt 0 ] && echo "Skipped $PLUGINS_SKIPPED_MISSING_ENV (missing test.env)"
-
-          if [ "$TOTAL_PROCESSED" -eq "$TOTAL_PLUGINS" ] && [ "$TOTAL_PLUGINS" -gt 0 ]; then
-            PLUGINS_METADATA_COMPLETE="true"
+          [ "${TEST_PLUGINS_SKIPPED:-0}" -gt 0 ] && echo "Skipped $TEST_PLUGINS_SKIPPED test plugin(s) without metadata"
+          if [ "${PLUGINS_SKIPPED_MISSING_METADATA:-0}" -gt 0 ]; then
+            echo "Some published plugins were skipped because they do not have runnable metadata."
           fi
 
-          echo "plugins-metadata-complete=$PLUGINS_METADATA_COMPLETE" >> "$GITHUB_OUTPUT"
+          echo "has-runnable-plugins=$HAS_RUNNABLE_PLUGINS" >> "$GITHUB_OUTPUT"
           echo "skip-tests-missing-env=$SKIP_TESTS_MISSING_ENV" >> "$GITHUB_OUTPUT"
+          echo "missing-metadata-plugins<<EOF" >> "$GITHUB_OUTPUT"
+          printf "%s\n" "${MISSING_METADATA_PLUGINS[@]}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Upload smoke test artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -289,13 +302,13 @@ jobs:
     needs:
       - resolve
       - prepare-test-config
-    if: ${{ needs.prepare-test-config.outputs.plugins-metadata-complete == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
+    if: ${{ needs.prepare-test-config.outputs.has-runnable-plugins == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
     uses: ./.github/workflows/run-workspace-smoke-tests.yaml
     with:
       target-branch: ${{ needs.resolve.outputs.target-branch }}
 
   add-skipped-test-comment:
-    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.plugins-metadata-complete != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
+    if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.has-runnable-plugins != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
     needs:
       - resolve
       - prepare-test-config
@@ -310,8 +323,9 @@ jobs:
         env:
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlay-commit }}
           INPUT_WORKSPACE: ${{ needs.resolve.outputs.workspace }}
-          INPUT_PLUGINS_METADATA_COMPLETE: ${{ needs.prepare-test-config.outputs.plugins-metadata-complete || '' }}
+          INPUT_HAS_RUNNABLE_PLUGINS: ${{ needs.prepare-test-config.outputs.has-runnable-plugins || '' }}
           INPUT_SKIP_TESTS_MISSING_ENV: ${{ needs.prepare-test-config.outputs.skip-tests-missing-env || '' }}
+          INPUT_MISSING_METADATA_PLUGINS: ${{ needs.prepare-test-config.outputs.missing-metadata-plugins || '' }}
           INPUT_PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
         with:
           script: |
@@ -319,8 +333,9 @@ jobs:
             const overlayCommit = process.env.OVERLAY_COMMIT;
             const pr = Number(core.getInput('pr_number') || '0');
             const workspace = core.getInput('workspace');
-            const pluginsMetadataComplete = core.getInput('plugins_metadata_complete') === 'true';
+            const hasRunnablePlugins = core.getInput('has_runnable_plugins') === 'true';
             const skipTestsMissingEnv = core.getInput('skip_tests_missing_env') === 'true';
+            const missingMetadataPlugins = (core.getInput('missing_metadata_plugins') || '').trim();
             
             let statusDescription = 'Skipped';
             let commentDetail = ' skipped for an unknown reason. Check workflow run for details.\n';
@@ -334,10 +349,15 @@ jobs:
               statusDescription = 'Skipped: missing smoke-tests/test.env';
               commentDetail = ' skipped: missing workspace `smoke-tests/test.env` file.\n';
               summaryDetail = 'Missing workspace `smoke-tests/test.env` file.';
-            } else if (!pluginsMetadataComplete) {
-              statusDescription = 'Skipped: missing plugin metadata';
-              commentDetail = ' skipped: missing plugin metadata files (`<workspace>/metadata/*.yaml`).\n';
-              summaryDetail = 'Missing plugin metadata files (`<workspace>/metadata/*.yaml`).';
+            } else if (!hasRunnablePlugins) {
+              statusDescription = 'Skipped: no runnable plugin metadata';
+              commentDetail = ' skipped: no published plugins in this workspace have runnable metadata entries.\n';
+              summaryDetail = 'No published plugins in this workspace have runnable metadata entries.';
+            }
+
+            if (missingMetadataPlugins) {
+              commentDetail += `\nPublished plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\`\n`;
+              summaryDetail += `\n\nPublished plugins skipped due to missing runnable metadata:\n${missingMetadataPlugins}`;
             }
             
             if (overlayCommit) {
@@ -367,7 +387,7 @@ jobs:
               .write();
 
   add-test-result-comment:
-    if: ${{ always() && needs.prepare-test-config.outputs.plugins-metadata-complete == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
+    if: ${{ always() && needs.prepare-test-config.outputs.has-runnable-plugins == 'true' && needs.prepare-test-config.outputs.skip-tests-missing-env != 'true' }}
     needs:
       - resolve
       - prepare-test-config
@@ -389,6 +409,7 @@ jobs:
           SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
           FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
           ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
+          MISSING_METADATA_PLUGINS: ${{ needs.prepare-test-config.outputs.missing-metadata-plugins || '' }}
           PR_NUMBER: ${{ needs.resolve.outputs.pr-number }}
           OVERLAY_COMMIT: ${{ needs.resolve.outputs.overlay-commit }}
         with:
@@ -398,6 +419,7 @@ jobs:
             const successOutput = process.env.SUCCESS;
             const failed = (process.env.FAILED_PLUGINS || '').trim();
             const errorLogs = (process.env.ERROR_LOGS || '').trim();
+            const missingMetadataPlugins = (process.env.MISSING_METADATA_PLUGINS || '').trim();
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
@@ -432,6 +454,9 @@ jobs:
               if (errorLogs) {
                 summary += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
               }
+            }
+            if (missingMetadataPlugins) {
+              summary += `\n\n**Published plugins skipped due to missing runnable metadata:**\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
             await core.summary.addRaw(summary).write();
             
@@ -472,6 +497,9 @@ jobs:
               if (errorLogs) {
                 body += `\n\n<details><summary>Error logs from container</summary>\n\n\`\`\`\n${errorLogs}\n\`\`\`\n\n</details>`;
               }
+            }
+            if (missingMetadataPlugins) {
+              body += `\n\n:warning: Published plugins skipped due to missing runnable metadata:\n\`\`\`\n${missingMetadataPlugins}\n\`\`\``;
             }
             
             await github.rest.issues.createComment({

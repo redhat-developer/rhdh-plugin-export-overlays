@@ -278,7 +278,9 @@ This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
 After `/publish` completes, smoke tests run automatically if:
 - PR touches exactly one workspace
-- Each plugin has a metadata file
+- At least one published plugin has runnable metadata
+
+Published plugins without runnable metadata are skipped individually. Smoke tests are skipped only when no published plugin in the workspace can produce runnable metadata, or when plugin config references environment variables and the workspace `smoke-tests/test.env` file is missing. If the file exists but required variables are missing from it, the workflow fails instead of skipping.
 
 To re-run smoke tests manually:
 
