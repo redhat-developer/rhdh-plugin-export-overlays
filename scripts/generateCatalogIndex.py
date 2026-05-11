@@ -41,6 +41,25 @@ def is_registry_rarc() -> bool:
     return REGISTRY_BASE.startswith("registry.access.redhat.com")
 
 
+def get_image_name_from_package_yaml(yaml_path: Path) -> str | None:
+    """Extract the image name from a Package entity YAML file.
+    Uses spec.packageName (e.g. @red-hat-developer-hub/backstage-plugin-foo)
+    converted to image name format (red-hat-developer-hub-backstage-plugin-foo).
+    This matches the key used in plugin_builds JSON and found_plugins.
+    Falls back to metadata.name, then filename stem."""
+    try:
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+        if not data:
+            return yaml_path.stem
+        pkg_name = (data.get('spec') or {}).get('packageName', '')
+        if pkg_name:
+            return pkg_name.lstrip('@').replace('/', '-')
+        return data.get('metadata', {}).get('name', yaml_path.stem)
+    except Exception:
+        return yaml_path.stem
+
+
 def get_query_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for querying.
@@ -93,6 +112,8 @@ def copy_catalog_entities_extensions(source_dir: Path, output_dir: Path) -> None
     log_info(f"Copy content from\n  {source_dir} to\n  {target_dir}")
 
     for item in source_dir.iterdir():
+        if item.name == "README.md":
+            continue
         target_item = target_dir / item.name
         if target_item.exists():
             if target_item.is_dir():
@@ -488,7 +509,9 @@ def prune_packages_dir(output_dir: Path, found_plugins: list[str]) -> None:
     for yaml_file in packages_dir.glob("*.yaml"):
         if yaml_file.name == "all.yaml":
             continue
-        if yaml_file.stem not in found_set:
+        image_name = get_image_name_from_package_yaml(yaml_file)
+
+        if image_name not in found_set:
             yaml_file.unlink()
             removed_count += 1
             log_debug(f"Pruned {yaml_file.name}")
@@ -646,14 +669,21 @@ def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files:
     log_info(f"Plugin entities: {kept} kept, {stripped} stripped, {removed} removed" +
              (f", {skipped} skipped" if skipped else ""))
 
-    # Pre-prune Package metadata to only keep filtered plugins
+    # Pre-prune Package metadata to only keep filtered plugins.
+    # filtered_stems uses metadata.name (from build_workspace_mappings), so match on that.
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
         pkg_removed = 0
         for yaml_file in sorted(packages_dir.glob("*.yaml")):
             if yaml_file.name == "all.yaml":
                 continue
-            if yaml_file.stem not in filtered_stems:
+            try:
+                with open(yaml_file, 'r') as f:
+                    data = yaml.safe_load(f)
+                entity_name = (data or {}).get('metadata', {}).get('name', yaml_file.stem)
+            except Exception:
+                entity_name = yaml_file.stem
+            if entity_name not in filtered_stems:
                 yaml_file.unlink()
                 pkg_removed += 1
                 log_debug(f"Removed excluded package metadata: {yaml_file.name}")
@@ -788,11 +818,14 @@ Examples:
     print(f"\n{Colors.GREEN}=== Regenerate all.yaml files ==={Colors.NORM}")
     regenerate_all_yaml_files(output_dir)
 
-    # Re-derive yaml_file_names from what actually remains after scrub+prune
+    # Re-derive yaml_file_names from what actually remains after scrub+prune.
+    # Use spec.packageName→image_name to match found_plugins (which uses the same derivation).
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
         yaml_file_names = {
-            f.stem for f in packages_dir.glob("*.yaml") if f.name != "all.yaml"
+            get_image_name_from_package_yaml(f)
+            for f in packages_dir.glob("*.yaml")
+            if f.name != "all.yaml"
         }
 
     # Compare YAML files vs plugins found

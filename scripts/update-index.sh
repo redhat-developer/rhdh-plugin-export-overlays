@@ -186,6 +186,28 @@ if ! python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
 fi
 
 ##############################################
+# Backup metadata files before Step 2 modifies them (write-back adds sha256 digests).
+# Restored on exit so digests don't persist in source for future runs.
+##############################################
+METADATA_BACKUP=""
+OVERLAYS_DIR_ABS=$(cd "$OVERLAYS_DIR" && pwd)
+if [[ -d "$OVERLAYS_DIR_ABS/workspaces" ]]; then
+    METADATA_BACKUP=$(mktemp -d)
+    echo -e "${blue}Backing up workspaces/*/metadata/ to $METADATA_BACKUP${norm}"
+    (cd "$OVERLAYS_DIR_ABS" && find workspaces -path "*/metadata/*.yaml" -print0 | tar cf "$METADATA_BACKUP/metadata.tar" --null -T -)
+fi
+
+restore_metadata() {
+    if [[ -n "$METADATA_BACKUP" && -f "$METADATA_BACKUP/metadata.tar" ]]; then
+        echo -e "\n${blue}Restoring original metadata files...${norm}"
+        (cd "$OVERLAYS_DIR_ABS" && tar xf "$METADATA_BACKUP/metadata.tar")
+        rm -rf "$METADATA_BACKUP"
+        echo -e "${blue}Metadata restored.${norm}"
+    fi
+}
+trap restore_metadata EXIT
+
+##############################################
 # Step 2: Enrich plugin_builds/ with registry metadata
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
