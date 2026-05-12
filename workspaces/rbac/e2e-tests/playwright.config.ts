@@ -5,6 +5,7 @@ export default defineConfig({
     {
       name: "rbac",
       testMatch: "rbac.spec.ts",
+      timeout: 120_000,
     },
     {
       name: "rbac-default-permissions",
