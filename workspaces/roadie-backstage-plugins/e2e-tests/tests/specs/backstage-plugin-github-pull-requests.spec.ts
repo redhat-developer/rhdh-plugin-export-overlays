@@ -58,6 +58,10 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
 
   test("Verify that Overview tab renders PR statistics", async () => {
     await uiHelper.verifyLink("About RHDH", { exact: false });
+    // forces the test to wait for the loading spinner to appear in place of this text, ensuring 'waitForLoad' won't skip waiting due to no spinner being present at the moment it would be called
+    await uiHelper.waitForTextDisappear(
+      "You are not logged into GitHub. You need to be signed in to see the content of this card.",
+    );
     await uiHelper.waitForLoad(130_000);
 
     await uiHelper.verifyText(/Average Size Of PR\d+ lines/);
