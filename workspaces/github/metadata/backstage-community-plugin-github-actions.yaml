@@ -10,9 +10,9 @@ metadata:
     - url: https://github.com/backstage/community-plugins/issues
       title: Bugs
     - title: Source Code
-      url: https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/github/plugins/github-actions
   annotations:
-    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/github-actions
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/github
   tags: []
 spec:
   packageName: "@backstage-community/plugin-github-actions"

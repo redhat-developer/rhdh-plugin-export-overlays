@@ -78,6 +78,16 @@ gh workflow run update-plugins-repo-refs.yaml -f regexps="@backstage-community/p
 gh workflow run sync-user-guide-to-wiki.yaml -f dry_run=true
 ```
 
+## Developer Setup
+
+After cloning, enable the pre-commit hook to run E2E code quality checks (ESLint, Prettier, TypeScript) locally before pushing:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zero overhead otherwise. It uses the same shared script (`scripts/e2e-code-quality.sh`) as the CI workflow, so checks are always in sync. See `.githooks/README.md` for details on combining with existing hooks.
+
 ## Working with Workspaces
 
 ### Adding a New Workspace
