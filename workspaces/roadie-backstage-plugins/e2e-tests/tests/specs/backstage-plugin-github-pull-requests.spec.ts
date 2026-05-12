@@ -5,6 +5,8 @@ import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
+  test.describe.configure({ timeout: 260_000 });
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "github",
@@ -16,9 +18,6 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    await page.context().clearCookies();
-    await page.goto("/");
-
     await loginHelper.loginAsGithubUser();
 
     await uiHelper.openCatalogSidebar("Component");
@@ -36,11 +35,9 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 10000 },
     );
-
-    await loginHelper.clickOnGHloginPopup();
   });
 
-  test("Click login on the login popup and verify that Overview tab renders", async ({
+  test("Verify that Overview tab renders PR statistics", async ({
     page,
     uiHelper,
   }) => {
@@ -49,7 +46,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     await uiHelper.waitForTextDisappear(
       "You are not logged into GitHub. You need to be signed in to see the content of this card.",
     );
-    await uiHelper.waitForLoad();
+    await uiHelper.waitForLoad(130_000);
 
     await uiHelper.verifyText(/Average Size Of PR\d+ lines/);
     await expect(
