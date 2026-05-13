@@ -11,8 +11,7 @@ import {
 
 import { useApi } from '@backstage/core-plugin-api';
 import { TechDocsAddons } from '@backstage/plugin-techdocs-react';
-import { getTechdocsAddonComponents } from './utils';
-import { type DynamicConfig } from './types';
+import { type DynamicConfig, getTechdocsAddonComponents } from './utils';
 
 export const TechDocsReaderPage = {
   element: TechDocsReaderPageBase,
