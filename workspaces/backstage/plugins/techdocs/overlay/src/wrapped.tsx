@@ -1,7 +1,7 @@
 import {
   EntityTechdocsContent as EntityTechdocsContentBase,
   TechDocsReaderPage as TechDocsReaderPageBase,
-} from '@backstage/plugin-techdocs';
+} from './plugin';
 import { SearchFilter, useSearch } from '@backstage/plugin-search-react';
 
 import {
