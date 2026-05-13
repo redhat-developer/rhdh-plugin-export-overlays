@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: backstage-community-plugin-bookmarks
+  namespace: rhdh
+  title: Bookmarks
+  annotations:
+    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+  links:
+    - title: Plugin Overview (README)
+      url: https://github.com/backstage/community-plugins/blob/main/workspaces/bookmarks/README.md
+    - title: Frontend Plugin Documentation
+      url: https://github.com/backstage/community-plugins/blob/main/workspaces/bookmarks/plugins/bookmarks/README.md
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/bookmarks
+  tags:
+    - bookmarks
+    - productivity
+    - navigation
+  description: |
+    Save and manage bookmarks for entities in the Backstage software catalog
+spec:
+  author: Backstage Community
+  support:
+    provider: Backstage Community
+    level: community
+  lifecycle: active
+  publisher: Backstage Community
+
+  categories:
+    - Productivity
+
+  description: |
+    With the Bookmarks plugin, you can save and manage bookmarks for entities in the Backstage software catalog,
+    so that you can quickly return to frequently visited catalog items.
+
+    ## Features
+
+    - **Entity bookmarking**: You can bookmark any entity in the software catalog for quick access.
+    - **Entity tab**: A dedicated bookmarks tab on entity pages displays your bookmarked items.
+    - **Catalog integration**: Integrates with the Backstage software catalog.
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin
+
+    Plugins often require additional configuration to work correctly, particularly those that integrate with other
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    for more information about the required configuration.
+
+  highlights:
+    - Bookmark entities in the software catalog for quick access
+    - Dedicated bookmarks tab on entity pages
+
+  mountPoints:
+    - entityTab
+
+  history: # Not used yet
+    added: '2026-05-13'
+
+  packages:
+    - backstage-community-plugin-bookmarks
