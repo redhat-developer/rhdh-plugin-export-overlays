@@ -1,3 +1,29 @@
+/*
+ * Copyright 2020 The Backstage Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * Federated entry for dynamic plugins (see scalprum-config.json `PluginRoot`).
+ * Matches the public API of `./index` but swaps reader/entity/search exports for
+ * wrapped variants that inject TechDocsAddons — same pattern as the RHDH wrapper
+ * package re-exporting from `@backstage/plugin-techdocs` plus `./wrapped`.
+ *
+ * `./index` must keep upstream `TechDocsReaderPage` / `EntityTechdocsContent` types
+ * so the Backstage monorepo typecheck passes for static apps that import this package.
+ */
+
 import {
   TechDocsEntityMetadata,
   TechDocsMetadata,
