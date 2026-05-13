@@ -55,6 +55,7 @@ There is no local build system — all building, testing, and publishing happens
 On a PR, comment:
 - `/publish` — Build and publish test OCI images (tagged `pr_<number>__<version>`)
 - `/smoketest` — Run smoke tests against last published artifacts (requires prior `/publish`)
+- `/override-backstage` — Override workspace Backstage compatibility version (creates `backstage.json` and rewrites metadata OCI tags)
 - `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
 ### Important Workflows (`.github/workflows/`)
