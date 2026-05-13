@@ -289,9 +289,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.39":
+"@red-hat-developer-hub/e2e-test-utils@github:dom-aug/rhdh-e2e-test-utils#feat/increase-github-login-timeout":
   version: 1.1.39
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.39"
+  resolution: "@red-hat-developer-hub/e2e-test-utils@https://github.com/dom-aug/rhdh-e2e-test-utils.git#commit=10831e8fa590b5b2b84cb06a297f260957ba49c6"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -314,7 +314,7 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10c0/39c666d5c2dc06407451c6ee4c877921ed77ac604795da2f2c4e100ba026b49e488e589c1aa3d1078cd9663d07bd7bfd19af7a6720020d7b6681ae92f1acd9e6
+  checksum: 10c0/ce86e760c3b818cb1e6a8ed54e24331ad61fc7c990a7f78b861398a49a160d015f3fb10cf92d4d140ddfbf3e2736e4eab0e9c4822f10be61f560321d9bdf6e4e
   languageName: node
   linkType: hard
 
@@ -1927,7 +1927,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:1.1.39"
+    "@red-hat-developer-hub/e2e-test-utils": "github:dom-aug/rhdh-e2e-test-utils#feat/increase-github-login-timeout"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
