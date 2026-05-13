@@ -1,11 +1,5 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  setupBrowser,
-  UIhelper,
-  LoginHelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import type { Page } from "@playwright/test";
 import { TABLE_SELECTORS } from "../../support/constants/github-pull-requests";
 import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
@@ -13,12 +7,7 @@ import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   test.describe.configure({ timeout: 600_000 });
 
-  let page: Page;
-  let uiHelper: UIhelper;
-  let loginHelper: LoginHelper;
-  let prPage: PullRequestsPage;
-
-  test.beforeAll(async ({ browser, rhdh }, testInfo) => {
+  test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(600_000);
 
     await rhdh.configure({
@@ -28,16 +17,14 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       secrets: `${WorkspacePaths.configDir}/github-pull-requests/rhdh-secrets.yaml`,
     });
     await rhdh.deploy();
-
-    ({ page } = await setupBrowser(browser, testInfo));
-    uiHelper = new UIhelper(page);
-    loginHelper = new LoginHelper(page);
-    prPage = new PullRequestsPage(page, uiHelper);
-
-    await loginHelper.loginAsGithubUser();
   });
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    await page.context().clearCookies();
+    await page.goto("/");
+
+    await loginHelper.loginAsGithubUser();
+
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
 
@@ -49,17 +36,19 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     expect(page.url()).toContain(expectedPath);
 
     await uiHelper.waitForTitle("Red Hat Developer Hub");
-  });
-
-  test("Verify that Overview tab renders PR statistics", async () => {
-    await uiHelper.verifyLink("About RHDH", { exact: false });
 
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 60000 },
     );
 
     await loginHelper.clickOnGHloginPopup();
+  });
 
+  test("Verify that Overview tab renders PR statistics", async ({
+    page,
+    uiHelper,
+  }) => {
+    await uiHelper.verifyLink("About RHDH", { exact: false });
     // forces the test to wait for the loading spinner to appear in place of this text, ensuring 'waitForLoad' won't skip waiting due to no spinner being present at the moment it would be called
     await uiHelper.waitForTextDisappear(
       "You are not logged into GitHub. You need to be signed in to see the content of this card.",
@@ -75,11 +64,15 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.describe("Pull/Merge Requests tab", () => {
-    test.beforeEach(async () => {
+    test.beforeEach(async ({ uiHelper }) => {
       await uiHelper.clickTab("Pull/Merge Requests");
     });
 
-    test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async () => {
+    test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async ({
+      page,
+      uiHelper,
+    }) => {
+      const prPage = new PullRequestsPage(page, uiHelper);
       const openPRs = await searchGitHubPRs("open");
 
       const openButton = page.getByRole("button", { name: "OPEN" });
@@ -90,7 +83,11 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await prPage.verifyPRRows(openPRs, 0, 5);
     });
 
-    test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async () => {
+    test("Click on the CLOSED filter and verify that the 5 most recently updated Closed PRs are rendered (same with ALL)", async ({
+      page,
+      uiHelper,
+    }) => {
+      const prPage = new PullRequestsPage(page, uiHelper);
       const closedPRs = await searchGitHubPRs("closed");
 
       const closedButton = page.getByRole("button", { name: "CLOSED" });
@@ -103,7 +100,11 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await prPage.verifyPRRows(closedPRs, 0, 5);
     });
 
-    test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async () => {
+    test("Click on the arrows to verify that the next/previous/first/last pages of PRs are loaded", async ({
+      page,
+      uiHelper,
+    }) => {
+      const prPage = new PullRequestsPage(page, uiHelper);
       const allPRs = await searchGitHubPRs("all");
 
       const allButton = page.getByRole("button", { name: "ALL" });
@@ -130,7 +131,11 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       await prPage.verifyPRRows(allPRs, lastPagePRs - 5, lastPagePRs - 1);
     });
 
-    test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async () => {
+    test("Verify that the 5, 10, 20 items per page option properly displays the correct number of PRs", async ({
+      page,
+      uiHelper,
+    }) => {
+      const prPage = new PullRequestsPage(page, uiHelper);
       const openPRs = await searchGitHubPRs("open");
 
       await uiHelper.waitForLoad();
