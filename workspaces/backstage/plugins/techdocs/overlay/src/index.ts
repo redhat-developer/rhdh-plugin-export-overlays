@@ -3,7 +3,7 @@ import {
   TechDocsMetadata,
 } from '@backstage/plugin-techdocs-react';
 
-export * from './types';
+export * from '../types';
 export * from './api';
 export * from './client';
 export * from './reader';
@@ -51,4 +51,4 @@ export {
   TechDocsReaderPage,
   TechdocsSearchFilter,
   techdocsSearchType,
-} from './wrapped';
+} from '../wrapped';
