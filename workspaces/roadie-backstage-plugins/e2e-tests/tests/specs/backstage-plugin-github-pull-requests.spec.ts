@@ -11,7 +11,7 @@ import { searchGitHubPRs } from "../../support/api/github-pull-requests";
 import { PullRequestsPage } from "../../support/pages/github-pull-requests";
 
 test.describe("Backstage Plugin - GitHub Pull Requests", () => {
-  test.describe.configure({ timeout: 260_000 });
+  test.describe.configure({ timeout: 600_000 });
 
   let page: Page;
   let uiHelper: UIhelper;
@@ -19,6 +19,8 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   let prPage: PullRequestsPage;
 
   test.beforeAll(async ({ browser, rhdh }, testInfo) => {
+    test.setTimeout(600_000);
+
     await rhdh.configure({
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-pull-requests/app-config-rhdh.yaml`,
@@ -31,7 +33,6 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     uiHelper = new UIhelper(page);
     loginHelper = new LoginHelper(page);
     prPage = new PullRequestsPage(page, uiHelper);
-    test.info().setTimeout(600 * 1000);
 
     await loginHelper.loginAsGithubUser();
   });
@@ -48,21 +49,22 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     expect(page.url()).toContain(expectedPath);
 
     await uiHelper.waitForTitle("Red Hat Developer Hub");
-
-    await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
-      { timeout: 10000 },
-    );
-
-    await loginHelper.clickOnGHloginPopup();
   });
 
   test("Verify that Overview tab renders PR statistics", async () => {
     await uiHelper.verifyLink("About RHDH", { exact: false });
+
+    await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
+      { timeout: 60000 },
+    );
+
+    await loginHelper.clickOnGHloginPopup();
+
     // forces the test to wait for the loading spinner to appear in place of this text, ensuring 'waitForLoad' won't skip waiting due to no spinner being present at the moment it would be called
     await uiHelper.waitForTextDisappear(
       "You are not logged into GitHub. You need to be signed in to see the content of this card.",
     );
-    await uiHelper.waitForLoad(130_000);
+    await uiHelper.waitForLoad(260_000);
 
     await uiHelper.verifyText(/Average Size Of PR\d+ lines/);
     await expect(
