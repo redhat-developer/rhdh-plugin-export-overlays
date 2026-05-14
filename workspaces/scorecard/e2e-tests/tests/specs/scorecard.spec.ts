@@ -4,7 +4,7 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { expect, type BrowserContext, type Page } from "@playwright/test";
+import { type BrowserContext, type Page } from "@playwright/test";
 import {
   aggregatedScorecardHelpers,
   type AggregatedScorecardHelpers,
