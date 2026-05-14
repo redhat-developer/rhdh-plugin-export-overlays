@@ -187,45 +187,25 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
     });
 
-    test("filecheck.readme is 'exist' for filecheck-scorecard-github", async () => {
-      await catalog.go();
-      await catalog.goToByName("filecheck-scorecard-github");
-      await scorecard.openTab();
-      await scorecard.expectFilecheckValue(
-        FILECHECK_METRICS.readme.title,
-        "exist",
-      );
-    });
+    const filecheckCases = [
+      { entity: "filecheck-scorecard-github", key: "readme", expected: "exist" },
+      { entity: "filecheck-scorecard-github", key: "license", expected: "missing" },
+      { entity: "filecheck-scorecard-gitlab", key: "readme", expected: "exist" },
+      { entity: "filecheck-scorecard-gitlab", key: "license", expected: "missing" },
+    ] as const;
 
-    test("filecheck.license is 'missing' for filecheck-scorecard-github", async () => {
-      await catalog.go();
-      await catalog.goToByName("filecheck-scorecard-github");
-      await scorecard.openTab();
-      await scorecard.expectFilecheckValue(
-        FILECHECK_METRICS.license.title,
-        "missing",
-      );
-    });
-
-    test("filecheck.readme is 'exist' for filecheck-scorecard-gitlab", async () => {
-      await catalog.go();
-      await catalog.goToByName("filecheck-scorecard-gitlab");
-      await scorecard.openTab();
-      await scorecard.expectFilecheckValue(
-        FILECHECK_METRICS.readme.title,
-        "exist",
-      );
-    });
-
-    test("filecheck.license is 'missing' for filecheck-scorecard-gitlab", async () => {
-      await catalog.go();
-      await catalog.goToByName("filecheck-scorecard-gitlab");
-      await scorecard.openTab();
-      await scorecard.expectFilecheckValue(
-        FILECHECK_METRICS.license.title,
-        "missing",
-      );
-    });
+    for (const { entity, key, expected } of filecheckCases) {
+      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+        await scorecard.expectFilecheckForEntity(
+          async () => {
+            await catalog.go();
+            await catalog.goToByName(entity);
+          },
+          FILECHECK_METRICS[key].title,
+          expected,
+        );
+      });
+    }
   });
 
   // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed

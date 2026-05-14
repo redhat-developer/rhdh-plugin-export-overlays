@@ -136,6 +136,15 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       const card = page.locator("article").filter({ hasText: metricTitle });
       await expect(card).toContainText(`${expectedCount} entities`);
     },
+    async expectFilecheckForEntity(
+      navigate: () => Promise<void>,
+      metricTitle: string,
+      expectedStatus: "exist" | "missing",
+    ) {
+      await navigate();
+      await this.openTab();
+      await this.expectFilecheckValue(metricTitle, expectedStatus);
+    },
     async expectFilecheckValue(
       metricTitle: string,
       expectedStatus: "exist" | "missing",
