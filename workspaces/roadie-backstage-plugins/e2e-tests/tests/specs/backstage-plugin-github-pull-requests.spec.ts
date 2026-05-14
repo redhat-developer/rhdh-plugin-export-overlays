@@ -110,9 +110,10 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       const allButton = page.getByRole("button", { name: "ALL" });
       await expect(allButton).toBeVisible();
       await expect(allButton).toBeEnabled();
-      await allButton.click();
       await uiHelper.waitForLoad();
+      await allButton.click();
 
+      await uiHelper.waitForLoad();
       await prPage.verifyPRRows(allPRs, 0, 5);
 
       await page.locator(TABLE_SELECTORS.nextPage).click();
