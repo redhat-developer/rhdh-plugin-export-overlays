@@ -6,7 +6,7 @@ export const WAIT_OBJECTS = {
   muiCircularProgress: '[class*="MuiCircularProgress-root"]',
 };
 
-export const GITHUB_ORG = "cloud-eda";
+export const GITHUB_ORG = "janus-qe";
 
 /**
  * Save in the catalog-info preview. `uiHelper.clickButton("Save")` matches globally and `.first()`
