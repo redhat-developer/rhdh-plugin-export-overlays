@@ -7,10 +7,8 @@ import {
   createGitLabGroupAndUserVisibleInCatalog,
   deployGitLabEventsHub,
   fetchCatalogSessionToken,
-  permanentlyDeleteGitLabUserAndGroup,
   prepareGitLabEventsParentGroup,
   runGitLabEventsCleanupSafely,
-  waitForCatalogGroupMemberAbsent,
 } from "../../support/gitlab-events-test-setup.js";
 
 test.describe("GitLab Events - Org Data", () => {
@@ -250,8 +248,10 @@ test.describe("GitLab Events - Org Data", () => {
         userId,
       });
 
+      // Clean up
       await GitLabApiHelper.removeUserFromGroup(groupId, userId);
-      await permanentlyDeleteGitLabUserAndGroup(userId, groupId);
+      await GitLabApiHelper.deleteUser(userId, true);
+      await GitLabApiHelper.deleteGroup(groupId, true);
     });
 
     test("Removing user from group updates membership", async () => {
@@ -278,14 +278,22 @@ test.describe("GitLab Events - Org Data", () => {
 
       await GitLabApiHelper.removeUserFromGroup(groupId, userId);
 
-      await waitForCatalogGroupMemberAbsent({
-        rhdhUrl,
-        catalogToken,
-        groupName,
-        userName,
+      // Polls the catalog until the user no longer appears in the group's member list.
+      await expect(async () => {
+        const groupMembers = await CatalogApiHelper.getGroupMembers(
+          rhdhUrl,
+          catalogToken,
+          groupName,
+        );
+        expect(groupMembers).not.toContain(userName);
+      }).toPass({
+        timeout: 60_000,
+        intervals: [2_000],
       });
 
-      await permanentlyDeleteGitLabUserAndGroup(userId, groupId);
+      // Clean up
+      await GitLabApiHelper.deleteUser(userId, true);
+      await GitLabApiHelper.deleteGroup(groupId, true);
     });
   });
 });

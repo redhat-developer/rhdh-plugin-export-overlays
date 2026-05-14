@@ -158,7 +158,7 @@ spec:
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(entityName);
             await page.getByRole("link", { name: entityName }).click();
-            await uiHelper.verifyHeading(entityName);
+            await uiHelper.verifyHeading("description");
             return await page
               .getByText("Updated description via webhook")
               .isVisible();

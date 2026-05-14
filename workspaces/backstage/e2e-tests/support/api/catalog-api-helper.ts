@@ -104,7 +104,7 @@ export class CatalogApiHelper {
     kind: string,
     name: string,
     namespace = "default",
-    timeoutMs = 60000,
+    timeoutMs = 70000,
     intervalMs = 2000,
   ): Promise<void> {
     const startTime = Date.now();

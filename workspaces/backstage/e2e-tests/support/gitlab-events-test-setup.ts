@@ -6,11 +6,6 @@ import type { Page } from "@playwright/test";
 import { CatalogApiHelper } from "./api/catalog-api-helper.js";
 import { GitLabApiHelper } from "./api/gitlab-api-helper.js";
 
-const CATALOG_MEMBERSHIP_POLL_MS = 60_000;
-const CATALOG_MEMBERSHIP_INTERVAL_MS = 2_000;
-const CATALOG_ENTITY_WAIT_MS = 60_000;
-const CATALOG_ENTITY_INTERVAL_MS = 2_000;
-
 const GITLAB_EVENTS_RHDH_CONFIG = {
   auth: "keycloak" as const,
   appConfig: "tests/config/gitlab-events/app-config-rhdh.yaml",
@@ -158,8 +153,8 @@ export async function createGitLabGroupAndUserVisibleInCatalog(options: {
     "Group",
     groupName,
     "default",
-    CATALOG_ENTITY_WAIT_MS,
-    CATALOG_ENTITY_INTERVAL_MS,
+    60_000,
+    2_000,
   );
   await CatalogApiHelper.waitForEntity(
     rhdhUrl,
@@ -167,8 +162,8 @@ export async function createGitLabGroupAndUserVisibleInCatalog(options: {
     "User",
     userName,
     "default",
-    CATALOG_ENTITY_WAIT_MS,
-    CATALOG_ENTITY_INTERVAL_MS,
+    60_000,
+    2_000,
   );
   return { groupId, userId };
 }
@@ -195,39 +190,7 @@ export async function addGitLabUserToGroupAndWaitForCatalogMember(options: {
     );
     expect(groupMembers).toContain(userName);
   }).toPass({
-    timeout: CATALOG_MEMBERSHIP_POLL_MS,
-    intervals: [CATALOG_MEMBERSHIP_INTERVAL_MS],
+    timeout: 60_000,
+    intervals: [2_000],
   });
-}
-
-/**
- * Polls the catalog until the user no longer appears in the group's member list.
- */
-export async function waitForCatalogGroupMemberAbsent(options: {
-  rhdhUrl: string;
-  catalogToken: string;
-  groupName: string;
-  userName: string;
-}): Promise<void> {
-  const { rhdhUrl, catalogToken, groupName, userName } = options;
-  await expect(async () => {
-    const groupMembers = await CatalogApiHelper.getGroupMembers(
-      rhdhUrl,
-      catalogToken,
-      groupName,
-    );
-    expect(groupMembers).not.toContain(userName);
-  }).toPass({
-    timeout: CATALOG_MEMBERSHIP_POLL_MS,
-    intervals: [CATALOG_MEMBERSHIP_INTERVAL_MS],
-  });
-}
-
-/** Hard-deletes a GitLab user and group (e.g. after membership tests). */
-export async function permanentlyDeleteGitLabUserAndGroup(
-  userId: number,
-  groupId: number,
-): Promise<void> {
-  await GitLabApiHelper.deleteUser(userId, true);
-  await GitLabApiHelper.deleteGroup(groupId, true);
 }
