@@ -36,7 +36,7 @@ export function aggregatedScorecardHelpers(page: Page) {
 
     /** Hovers each visible success / warning / error color swatch and checks the chart tooltip text. */
     async expectChartThresholdTooltips(card: Locator) {
-      const chart = page.locator(".docked-drawer-open");
+      const chart = page.locator(".v5-MuiBox-root");
 
       const expectTooltipText = async () => {
         await expect(chart.getByText(/%|No entities/i)).toBeVisible({
