@@ -35,9 +35,9 @@ export function aggregatedScorecardHelpers(page: Page) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
       await expect(card).toContainText(metric.description);
-      await expect(
-        card.getByText(labels[0], { exact: true }),
-      ).toBeVisible({ timeout: 60_000 });
+      await expect(card.getByText(labels[0], { exact: true })).toBeVisible({
+        timeout: 60_000,
+      });
     },
 
     /** Hovers each visible threshold color swatch and checks the chart tooltip text. */

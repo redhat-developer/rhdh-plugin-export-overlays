@@ -69,7 +69,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
-    await scorecard.expectAggregatedScorecardVisible(FILECHECK_METRICS.readme.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      FILECHECK_METRICS.readme.title,
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -188,10 +190,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     });
 
     const filecheckCases = [
-      { entity: "filecheck-scorecard-github", key: "readme", expected: "exist" },
-      { entity: "filecheck-scorecard-github", key: "license", expected: "missing" },
-      { entity: "filecheck-scorecard-gitlab", key: "readme", expected: "exist" },
-      { entity: "filecheck-scorecard-gitlab", key: "license", expected: "missing" },
+      {
+        entity: "filecheck-scorecard-github",
+        key: "readme",
+        expected: "exist",
+      },
+      {
+        entity: "filecheck-scorecard-github",
+        key: "license",
+        expected: "missing",
+      },
+      {
+        entity: "filecheck-scorecard-gitlab",
+        key: "readme",
+        expected: "exist",
+      },
+      {
+        entity: "filecheck-scorecard-gitlab",
+        key: "license",
+        expected: "missing",
+      },
     ] as const;
 
     for (const { entity, key, expected } of filecheckCases) {

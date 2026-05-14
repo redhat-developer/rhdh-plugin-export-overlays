@@ -50,12 +50,12 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       const section = page
         .locator("article")
         .filter({ hasText: scorecard.title });
-        await expect(section).toBeVisible();
-        await expect(section).toContainText(scorecard.title);
-        await expect(section).toContainText(scorecard.description);
-        await expect(section).toContainText(/Success/);
-        await expect(section).toContainText(/Warning/);
-        await expect(section).toContainText(/Error/);
+      await expect(section).toBeVisible();
+      await expect(section).toContainText(scorecard.title);
+      await expect(section).toContainText(scorecard.description);
+      await expect(section).toContainText(/Success/);
+      await expect(section).toContainText(/Warning/);
+      await expect(section).toContainText(/Error/);
     },
     async expectScorecardVisible(title: string) {
       await expect(page.getByText(title, { exact: true })).toBeVisible();
