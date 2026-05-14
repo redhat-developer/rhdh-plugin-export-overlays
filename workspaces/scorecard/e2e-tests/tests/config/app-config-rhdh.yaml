@@ -27,6 +27,10 @@ catalog:
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/metrics-unavailable.yaml
     - type: url
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/invalid-threshold.yaml
+    - type: url
+      target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/filecheck-scorecard-github.yaml
+    - type: url
+      target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/filecheck-scorecard-gitlab.yaml
 
 permission:
   enabled: true
@@ -46,11 +50,7 @@ integrations:
   # Plugin: GitHub
   github:
     - host: github.com
-      apps:
-        - appId: ${GITHUB_APP_APP_ID}
-          clientId: ${GITHUB_APP_CLIENT_ID}
-          clientSecret: ${GITHUB_APP_CLIENT_SECRET}
-          webhookUrl: ${GITHUB_APP_WEBHOOK_URL}
-          webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
-          privateKey: |
-            ${GITHUB_APP_PRIVATE_KEY}
+      token: ${GITHUB_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: ${GITLAB_TOKEN}
