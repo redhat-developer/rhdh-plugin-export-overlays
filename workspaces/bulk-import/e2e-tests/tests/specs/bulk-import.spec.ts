@@ -396,7 +396,7 @@ test.describe
   const existingComponentDetails = {
     name: "janus-test-2-bulk-import-test",
     repoName: "janus-test-2-bulk-import-test",
-    url: `https://github.com/cloud-eda/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml`,
+    url: `https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml`,
   };
 
   test.beforeAll(async ({ rhdh }) => {
