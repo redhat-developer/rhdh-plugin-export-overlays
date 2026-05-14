@@ -17,10 +17,10 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-analytics-provider-segment"
   dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-analytics-provider-segment
-  version: 1.22.2
+  version: 1.27.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.2
   author: Red Hat
   support: generally-available
   lifecycle: active

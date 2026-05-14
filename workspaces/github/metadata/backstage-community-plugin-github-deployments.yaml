@@ -1,0 +1,43 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-github-deployments
+  namespace: rhdh
+  title: "GitHub Deployments"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/github/plugins/github-deployments
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/github
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-github-deployments"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-deployments:bs_1.49.4__0.18.0!backstage-community-plugin-github-deployments
+  version: 0.18.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - github-deployments
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-github-deployments:
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityGithubDeploymentsCard
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isGithubDeploymentsAvailable

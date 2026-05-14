@@ -12,8 +12,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-qe-theme"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-qe-theme:bs_1.45.3__0.10.0!red-hat-developer-hub-backstage-plugin-qe-theme
-  version: 0.10.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-qe-theme:bs_1.49.4__0.11.0!red-hat-developer-hub-backstage-plugin-qe-theme
+  version: 0.11.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3

@@ -13,6 +13,7 @@ spec:
     - ./argocd-scaffolder-actions.yaml
     - ./aws-scaffolder-actions.yaml
     - ./aws-codebuild.yaml
+    - ./aws-codepipeline.yaml
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
@@ -23,6 +24,7 @@ spec:
     - ./bitbucket-server-catalog-integration.yaml
     - ./bulk-import.yaml
     - ./contrib-techdocs-addons.yaml
+    - ./cost-management.yaml
     - ./datadog.yaml
     - ./dynatrace-commercial.yaml
     - ./dynatrace-community.yaml
@@ -69,7 +71,6 @@ spec:
     - ./quickstart.yaml
     - ./rbac.yaml
     - ./argocd.yaml
-    - ./redhat-resource-optimization.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
     - ./roadie-scaffolder-util-actions.yaml
@@ -80,12 +81,13 @@ spec:
     - ./servicenow.yaml
     - ./signals-backend.yaml
     - ./signals.yaml
-    - ./software-catalog-mcp-tool.yaml
+    - ./software-catalog-mcp-extras.yaml
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
     - ./tech-radar.yaml
     - ./techdocs.yaml
-    - ./techdocs-mcp-tool.yaml
+    - ./techdocs-mcp-extras.yaml
+    - ./scaffolder-mcp-extras.yaml
     - ./tekton.yaml
     - ./todo.yaml
     - ./topology.yaml

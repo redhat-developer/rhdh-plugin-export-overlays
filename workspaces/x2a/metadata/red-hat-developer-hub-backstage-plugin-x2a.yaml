@@ -14,11 +14,29 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-x2a"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a:bs_1.45.3__1.1.1!red-hat-developer-hub-backstage-plugin-x2a
-  version: 1.1.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a:bs_1.49.4__1.2.2!red-hat-developer-hub-backstage-plugin-x2a
+  version: 1.2.2
   backstage:
     role: frontend-plugin
     supportedVersions: 1.45.3
   author: Red Hat
   support: community
   lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-x2a:
+              translationResources:
+                - importName: x2aPluginTranslations
+                  ref: x2aPluginTranslationRef
+              appIcons:
+                - name: x2aIcon
+                  importName: X2AIcon
+              dynamicRoutes:
+                - path: /x2a
+                  importName: X2APage
+                  menuItem:
+                    icon: x2aIcon
+                    text: X2A

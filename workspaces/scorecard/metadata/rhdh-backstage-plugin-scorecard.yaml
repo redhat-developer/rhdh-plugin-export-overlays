@@ -17,13 +17,13 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.45.3__2.4.0!red-hat-developer-hub-backstage-plugin-scorecard
-  version: 2.4.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
+  version: 2.7.4
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.3
   author: Red Hat
-  support: tech-preview
+  support: dev-preview
   lifecycle: active
   partOf:
     - scorecard
@@ -34,7 +34,7 @@ spec:
           frontend:
             red-hat-developer-hub.backstage-plugin-scorecard:
               entityTabs:
-                - path: '/scorecard'
+                - path: "/scorecard"
                   title: Scorecard
                   mountPoint: entity.page.scorecard
               mountPoints:

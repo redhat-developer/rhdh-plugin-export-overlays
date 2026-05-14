@@ -18,11 +18,17 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
+#   # Auto-fetch secrets from HashiCorp Vault during global setup
+#   VAULT=1 ./run-e2e.sh -w tech-radar
+#
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 #
 #   # Pin a specific npm version of e2e-test-utils (default: "latest" for nightly)
 #   E2E_TEST_UTILS_VERSION=1.1.24 ./run-e2e.sh -w tech-radar
+#
+#   # Use an unpublished git branch of e2e-test-utils (clones and builds locally)
+#   E2E_TEST_UTILS_GIT_REF=owner/rhdh-e2e-test-utils#my-branch ./run-e2e.sh -w tech-radar
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,12 +38,13 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+# export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="1.10-114-CI"                       # Pinned due to RHDHBUGS-3030
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.57.0}"       # @playwright/test version to pin
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.59.1}"       # @playwright/test version to pin
 
 # Keycloak
 export SKIP_KEYCLOAK_DEPLOYMENT="${SKIP_KEYCLOAK_DEPLOYMENT:-}" # Set "true" to skip Keycloak deploy
@@ -54,12 +61,17 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
-# Pin e2e-test-utils version. Defaults to "latest" in nightly mode to pick up nightly support.
-# TODO: Remove default once all workspaces pin a version that supports nightly jobs.
-if [[ "$E2E_NIGHTLY_MODE" == "true" ]]; then
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-latest}"
-else
-    E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
+# Pin specific e2e-test-utils version.
+E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
+# Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
+E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
+
+if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
+    CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
+    rm -rf "$CLONE_DIR"
+    git clone --depth 1 --branch "${E2E_TEST_UTILS_GIT_REF#*#}" \
+        "https://github.com/${E2E_TEST_UTILS_GIT_REF%%#*}.git" "$CLONE_DIR"
+    E2E_TEST_UTILS_PATH="$CLONE_DIR"
 fi
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
@@ -83,6 +95,17 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
+# (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
+if [[ -n "$JOB_NAME" ]]; then
+    JOB_SUFFIX=$(echo "$JOB_NAME" | sed -n 's/.*-e2e-//p')
+    if [[ -n "$JOB_SUFFIX" ]]; then
+        E2E_SKIP_TAG="@skip-${JOB_SUFFIX}(?!-)"
+        PLAYWRIGHT_ARGS=("--grep-invert" "$E2E_SKIP_TAG" "${PLAYWRIGHT_ARGS[@]}")
+        echo "[INFO] Skip tag: $E2E_SKIP_TAG (derived from JOB_NAME)"
+    fi
+fi
 
 GENERATED_FILES=()
 
@@ -159,7 +182,7 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@3.8.7",
+  "packageManager": "yarn@4.12.0",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }
@@ -188,8 +211,20 @@ for ws in "${E2E_WORKSPACES[@]}"; do
     WS_DIR="workspaces/${ws}/e2e-tests"
     WS_CONFIG="${WS_DIR}/playwright.config.ts"
 
-    # Extract content between "projects: [" and "]," (the project objects)
-    PROJECTS_BLOCK=$(sed -n '/projects: \[/,/^\s*\],/{ /projects: \[/d; /^\s*\],/d; p; }' "$WS_CONFIG")
+    # Extract content between "projects: [" and its matching "]".
+    # Uses awk with bracket-depth tracking so nested arrays (e.g. testMatch: [...])
+    # don't prematurely terminate the extraction.
+    PROJECTS_BLOCK=$(awk '
+      /projects:[[:space:]]*\[/ { inside=1; depth=1; next }
+      inside {
+        for (i=1; i<=length($0); i++) {
+          c = substr($0, i, 1)
+          if (c == "[") depth++
+          if (c == "]") { depth--; if (depth == 0) { inside=0; next } }
+        }
+        if (inside) print
+      }
+    ' "$WS_CONFIG")
 
     if [[ -z "$PROJECTS_BLOCK" ]]; then
         echo "[WARN] No projects found in $WS_CONFIG, skipping"

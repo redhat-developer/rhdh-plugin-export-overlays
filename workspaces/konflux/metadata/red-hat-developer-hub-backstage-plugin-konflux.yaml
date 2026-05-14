@@ -10,17 +10,16 @@ metadata:
     - url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux
       title: Source Code
   annotations:
-    backstage.io/source-location: url
-      https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux
+    backstage.io/source-location: url https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/konflux/plugins/konflux
   tags:
     - cicd
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-konflux"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux:bs_1.45.3__0.1.5!red-hat-developer-hub-backstage-plugin-konflux
-  version: 0.1.5
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-konflux:bs_1.49.4__0.1.8!red-hat-developer-hub-backstage-plugin-konflux
+  version: 0.1.8
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Red Hat
   support: dev-preview
   lifecycle: active
@@ -28,7 +27,7 @@ spec:
     - konflux
   appConfigExamples:
     - title: Default configuration
-      content: |
+      content:
         dynamicPlugins:
           frontend:
             red-hat-developer-hub.backstage-plugin-konflux:
