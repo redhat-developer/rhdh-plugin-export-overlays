@@ -33,7 +33,8 @@ metadata:
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0!backstage-community-plugin-3scale-backend
+  # OCI reference is `repository:tag` only (do not append `!package-id`; older RHDH builds used that suffix)
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0
   version: 3.2.0 # The plugin version
   backstage:
     role: backend-plugin

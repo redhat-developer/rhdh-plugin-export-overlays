@@ -1,7 +1,7 @@
 # Enable Scorecard plugin for e2e tests.
 # Dynamic Home Page is provided by the RHDH chart default; do not redefine it here to avoid config merge conflicts.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.1
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -37,9 +37,9 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     metricId: "github.open_prs"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.1
     disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.1
     disabled: false
     pluginConfig:
       scorecard:
@@ -54,7 +54,7 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 5
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.1
     disabled: false
     pluginConfig:
       jira:
@@ -72,7 +72,7 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 5
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3
     disabled: false
     pluginConfig:
       dynamicPlugins:
