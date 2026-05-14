@@ -4,18 +4,23 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import type { BrowserContext, Page } from "@playwright/test";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 import {
   aggregatedScorecardHelpers,
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
+  FILECHECK_METRICS,
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
+  // Override the 90 s base timeout for all tests and hooks in this group.
+  // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
+  test.describe.configure({ timeout: 15 * 60 * 1000 });
+
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;
@@ -26,16 +31,12 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialJiraCount: number;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    // Allow time for deployment + 2 min stabilization delay + browser setup
-    test.setTimeout(10 * 60 * 1000);
-
     await rhdh.configure({
       auth: "keycloak",
       version: process.env.RHDH_VERSION ?? "1.10",
     });
     await rhdh.deploy();
 
-    // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
 
     context = await browser.newContext({
@@ -57,20 +58,18 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.enterEditModeIfNeeded();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("GitHub open PRs");
+    await scorecard.addWidget("GitHub open PRs");
     await scorecard.expectNoProgressBar();
-    await scorecard.enterEditMode();
+    await scorecard.addWidget("Jira open blocking tickets");
     await scorecard.expectNoProgressBar();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("Jira open blocking tickets");
-    await scorecard.saveChanges();
+    await scorecard.addWidget("README file exists");
+    await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(FILECHECK_METRICS.readme.title);
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -99,9 +98,16 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+    await aggregated.runAggregatedScorecardDrilldownScenario(
+      () => scorecard.navigateToHome(),
+      FILECHECK_METRICS.readme,
+      "filecheck.readme",
+    );
+  });
+
   test.describe("Entity Scorecards", () => {
     test("Validate scorecard tabs for GitHub PRs and Jira tickets", async () => {
-      await page.waitForTimeout(6000);
       await catalog.go();
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
@@ -179,6 +185,46 @@ test.describe.serial("Scorecard Plugin Tests", () => {
 
       await scorecard.expectScorecardVisible(githubMetric.title);
       await scorecard.expectScorecardVisible(jiraMetric.title);
+    });
+
+    test("filecheck.readme is 'exist' for filecheck-scorecard-github", async () => {
+      await catalog.go();
+      await catalog.goToByName("filecheck-scorecard-github");
+      await scorecard.openTab();
+      await scorecard.expectFilecheckValue(
+        FILECHECK_METRICS.readme.title,
+        "exist",
+      );
+    });
+
+    test("filecheck.license is 'missing' for filecheck-scorecard-github", async () => {
+      await catalog.go();
+      await catalog.goToByName("filecheck-scorecard-github");
+      await scorecard.openTab();
+      await scorecard.expectFilecheckValue(
+        FILECHECK_METRICS.license.title,
+        "missing",
+      );
+    });
+
+    test("filecheck.readme is 'exist' for filecheck-scorecard-gitlab", async () => {
+      await catalog.go();
+      await catalog.goToByName("filecheck-scorecard-gitlab");
+      await scorecard.openTab();
+      await scorecard.expectFilecheckValue(
+        FILECHECK_METRICS.readme.title,
+        "exist",
+      );
+    });
+
+    test("filecheck.license is 'missing' for filecheck-scorecard-gitlab", async () => {
+      await catalog.go();
+      await catalog.goToByName("filecheck-scorecard-gitlab");
+      await scorecard.openTab();
+      await scorecard.expectFilecheckValue(
+        FILECHECK_METRICS.license.title,
+        "missing",
+      );
     });
   });
 
