@@ -64,7 +64,6 @@ test.describe("Test Topology plugin", () => {
     topology = new Topology(page);
     await navigateToTopology(uiHelper);
     await uiHelper.verifyHeading("backstage-janus");
-    await uiHelper.clickButton("Hide");
     await page.getByRole("button", { name: "Fit to Screen" }).click();
     await expect(async () => {
       await page
