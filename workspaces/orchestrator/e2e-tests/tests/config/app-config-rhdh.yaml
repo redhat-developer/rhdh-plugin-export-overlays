@@ -10,6 +10,8 @@ backend:
 permission:
   enabled: true
   rbac:
+    policyFileReload: true
+    policies-csv-file: ./rbac/rbac-policy.csv
     pluginsWithPermission:
       - orchestrator
     admin:

@@ -2,7 +2,17 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
+/** ConfigMap required by tests/config/value_file.yaml (rbac-policy volume). */
+export async function applyOrchestratorRbacPolicy(
+  namespace: string,
+): Promise<void> {
+  const rbacConfigmapPath = WorkspacePaths.resolve(
+    "tests/config/rbac-configmap.yaml",
+  );
+  await $`oc apply -f ${rbacConfigmapPath} -n ${namespace}`;
+}
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
@@ -15,9 +25,16 @@ const WORKFLOW_REPO_REF =
 const MANIFEST_DIRS = [
   "workflows/greeting/manifests",
   "workflows/fail-switch/src/main/resources/manifests",
+  "workflows/sample-retry-test/manifests",
+  "workflows/test-object-type-uiprops/manifests",
 ];
 
-const WORKFLOWS = ["greeting", "failswitch"];
+const WORKFLOWS = [
+  "greeting",
+  "failswitch",
+  "sample-retry-test",
+  "test-object-type-uiprops",
+];
 
 /** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
 const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
@@ -100,6 +117,8 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   }
 
   await deployTokenPropagationWorkflow(namespace, postgresAlignTimeoutMs);
+
+  await applyOrchestratorRbacPolicy(namespace);
 }
 
 function patchWorkflowPostgres(namespace: string, workflow: string): string {
@@ -314,6 +333,10 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
     greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
     failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
   };
+  imageMap["sample-retry-test"] =
+    `quay.io/orchestrator/serverless-workflow-sample-retry-test:${oslTag}`;
+  imageMap["test-object-type-uiprops"] =
+    `quay.io/orchestrator/serverless-workflow-test-object-type-uiprops:${oslTag}`;
   for (const wf of WORKFLOWS) {
     const image = imageMap[wf];
     if (!image) continue;
