@@ -77,8 +77,6 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async enterEditModeIfNeeded() {
       const editButton = page.getByRole("button", { name: "Edit" });
       try {
-        // Wait for the page to settle after navigation before checking edit state.
-        // isVisible() is a snapshot and returns false on a page that is still loading.
         await editButton.waitFor({ state: "visible", timeout: 10_000 });
         await editButton.click();
       } catch {
@@ -89,7 +87,6 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await this.enterEditModeIfNeeded();
       await this.openAddWidgetDialog();
       await this.selectWidget(cardName);
-      // Auto-wait for Save button then click it; fall back if widget auto-saved
       try {
         await page
           .getByRole("button", { name: "Save" })
@@ -97,7 +94,6 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       } catch {
         // Widget auto-saved (e.g. first widget on a fresh page)
       }
-      // Wait for Save to disappear — confirms we've exited edit mode
       await page
         .getByRole("button", { name: "Save" })
         .waitFor({ state: "hidden", timeout: 5000 });
@@ -150,7 +146,6 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       expectedStatus: "exist" | "missing",
     ) {
       const section = page.locator("article").filter({ hasText: metricTitle });
-      // Wait for the article to appear, then for any loading spinner inside it to clear
       await expect(section).toBeVisible({ timeout: 60_000 });
       await expect(section.getByRole("progressbar")).toHaveCount(0, {
         timeout: 60_000,

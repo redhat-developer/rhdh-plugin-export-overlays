@@ -100,7 +100,7 @@ export function aggregatedScorecardHelpers(page: Page) {
       await expect(card).toBeVisible({ timeout: 120_000 });
 
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
-      const paragraphLines = labels
+      const thresholdLabelSnapshots = labels
         .map((l) => `            - paragraph: "${l}"`)
         .join("\n");
 
@@ -109,7 +109,7 @@ export function aggregatedScorecardHelpers(page: Page) {
             - text: "${metric.title}"
             - separator
             - paragraph: "${metric.description}"
-${paragraphLines}
+${thresholdLabelSnapshots}
             - application
         `);
     },
