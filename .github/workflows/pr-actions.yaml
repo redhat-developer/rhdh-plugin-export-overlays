@@ -603,7 +603,7 @@ jobs:
             let body;
             if (fork) {
               const targetVersion = core.getInput('target_version');
-              body = `[Override Backstage workflow](${workflowRun.data.html_url}) — skipped: PR is from a fork.\n\nPlease manually:\n1. Create \`backstage.json\` with \`{"version": "${targetVersion}"}\`\n2. Update all \`metadata/*.yaml\` OCI tags from \`bs_<old>__\` to \`bs_${targetVersion}__\``;
+              body = `[Override Backstage workflow](${workflowRun.data.html_url}) — skipped: PR is from a fork.\n\nPlease manually:\n1. Create \`backstage.json\` with \`{"version": "${targetVersion}"}\`\n2. Update all \`metadata/*.yaml\` OCI tags from \`bs_<old>__\` to \`bs_${targetVersion}__\`\n3. Update \`supportedVersions\` in all \`metadata/*.yaml\` to \`${targetVersion}\``;
             } else if (success) {
               const targetVersion = core.getInput('target_version');
               const sourceVersion = core.getInput('source_version');
@@ -615,7 +615,7 @@ jobs:
               body += `- Source version: \`${sourceVersion}\`\n`;
               body += `- Target version: \`${targetVersion}\`\n`;
               body += `- \`backstage.json\` created/updated\n`;
-              body += `- ${modifiedFiles} metadata file(s) updated with new OCI tags\n`;
+              body += `- ${modifiedFiles} metadata file(s) updated (OCI tags + \`supportedVersions\`)\n`;
               if (skippedFiles !== '0') {
                 body += `- ${skippedFiles} metadata file(s) skipped (local path, no OCI reference)\n`;
               }

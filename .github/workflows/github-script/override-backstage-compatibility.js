@@ -65,7 +65,7 @@ module.exports = async ({github, context, core}) => {
     core.info('No metadata directory found. Creating backstage.json only.');
   }
 
-  // Read metadata file contents and determine which need OCI tag rewrites
+  // Read metadata file contents and determine which need OCI tag or supportedVersions rewrites
   /** @type {Array<{path: string, newContent: string}>} */
   const filesToUpdate = [];
   let skippedCount = 0;
@@ -85,15 +85,21 @@ module.exports = async ({github, context, core}) => {
     ).toString('utf-8');
 
     const ociTagRegex = /(dynamicArtifact:\s+oci:\/\/[^:]+:)bs_[\d.]+__/g;
-    if (!ociTagRegex.test(content)) {
+    const supportedVersionsRegex = /(supportedVersions:\s+)[\d.]+/g;
+    if (!ociTagRegex.test(content) && !supportedVersionsRegex.test(content)) {
       skippedCount++;
       continue;
     }
 
-    const newContent = content.replace(
-      /(dynamicArtifact:\s+oci:\/\/[^:]+:)bs_[\d.]+__/g,
-      `$1bs_${targetVersion}__`
-    );
+    const newContent = content
+      .replace(
+        /(dynamicArtifact:\s+oci:\/\/[^:]+:)bs_[\d.]+__/g,
+        `$1bs_${targetVersion}__`
+      )
+      .replace(
+        /(supportedVersions:\s+)[\d.]+/g,
+        `$1${targetVersion}`
+      );
 
     if (newContent !== content) {
       filesToUpdate.push({ path: file.path, newContent });
