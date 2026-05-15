@@ -101,14 +101,14 @@ export function aggregatedScorecardHelpers(page: Page) {
 
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       const paragraphLines = labels
-        .map((l) => `            - paragraph: ${l}`)
+        .map((l) => `            - paragraph: "${l}"`)
         .join("\n");
 
       await expect(card).toMatchAriaSnapshot(`
           - article:
-            - text: ${metric.title}
+            - text: "${metric.title}"
             - separator
-            - paragraph: ${metric.description}
+            - paragraph: "${metric.description}"
 ${paragraphLines}
             - application
         `);
