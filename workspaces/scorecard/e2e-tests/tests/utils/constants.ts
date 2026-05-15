@@ -1,0 +1,1 @@
+export const DEFAULT_THRESHOLD_LABELS = ["Success", "Warning", "Error"];

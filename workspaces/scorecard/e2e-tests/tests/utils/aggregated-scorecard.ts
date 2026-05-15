@@ -1,12 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { DEFAULT_THRESHOLD_LABELS } from "./constants";
 
 export type AggregatedScorecardMetric = {
   readonly title: string;
   readonly description: string;
   readonly thresholdLabels?: readonly string[];
 };
-
-const DEFAULT_THRESHOLD_LABELS = ["Success", "Warning", "Error"] as const;
 
 /** URL pattern for `/scorecard/aggregations/:id/metrics/:id` (matches `metricId` from dynamic-plugins). */
 export function drilldownUrlPattern(metricId: string): RegExp {
