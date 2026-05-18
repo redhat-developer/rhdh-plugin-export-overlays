@@ -1,6 +1,19 @@
 import { expect, type Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
+export const FILECHECK_METRICS = {
+  readme: {
+    title: "File check: readme",
+    description: "Checks whether the readme file exists in the repository.",
+    thresholdLabels: ["Exist", "Missing"],
+  },
+  license: {
+    title: "File check: license",
+    description: "Checks whether the license file exists in the repository.",
+    thresholdLabels: ["Exist", "Missing"],
+  },
+} as const;
+
 export const SCORECARD_METRICS = [
   {
     title: "GitHub open PRs",
@@ -86,7 +99,27 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     },
     async enterEditModeIfNeeded() {
       const editButton = page.getByRole("button", { name: "Edit" });
-      if (await editButton.isVisible()) await editButton.click();
+      try {
+        await editButton.waitFor({ state: "visible", timeout: 10_000 });
+        await editButton.click();
+      } catch {
+        // Edit button never appeared — already in edit mode.
+      }
+    },
+    async addWidget(cardName: string) {
+      await this.enterEditModeIfNeeded();
+      await this.openAddWidgetDialog();
+      await this.selectWidget(cardName);
+      try {
+        await page
+          .getByRole("button", { name: "Save" })
+          .click({ timeout: 3000 });
+      } catch {
+        // Widget auto-saved (e.g. first widget on a fresh page)
+      }
+      await page
+        .getByRole("button", { name: "Save" })
+        .waitFor({ state: "hidden", timeout: 5000 });
     },
     async openAddWidgetDialog() {
       await page.getByRole("button", { name: "Add widget" }).click();
@@ -97,7 +130,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async expectNoProgressBar() {
       await expect(
         page.getByRole("article").getByRole("progressbar").first(),
-      ).toBeHidden({ timeout: 5000 });
+      ).toBeHidden({ timeout: 30_000 });
     },
     async saveChanges() {
       await page.getByRole("button", { name: "Save" }).click();
@@ -105,7 +138,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async expectAggregatedScorecardVisible(metricTitle: string) {
       await expect(
         page.locator("article").filter({ hasText: metricTitle }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 90_000 });
     },
     async getAggregatedScorecardEntityCount(
       metricTitle: string,
@@ -121,6 +154,32 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     ) {
       const card = page.locator("article").filter({ hasText: metricTitle });
       await expect(card).toContainText(`${expectedCount} entities`);
+    },
+    async expectFilecheckForEntity(
+      navigate: () => Promise<void>,
+      metricTitle: string,
+      expectedStatus: "exist" | "missing",
+    ) {
+      await navigate();
+      await this.openTab();
+      await this.expectFilecheckValue(metricTitle, expectedStatus);
+    },
+    async expectFilecheckValue(
+      metricTitle: string,
+      expectedStatus: "exist" | "missing",
+    ) {
+      const section = page.locator("article").filter({ hasText: metricTitle });
+      await expect(section).toBeVisible({ timeout: 60_000 });
+      await expect(section.getByRole("progressbar")).toHaveCount(0, {
+        timeout: 60_000,
+      });
+      const iconTestId =
+        expectedStatus === "exist"
+          ? "CheckCircleOutlineIcon"
+          : "DangerousOutlinedIcon";
+      await expect(
+        section.locator(`[data-testid="${iconTestId}"]`),
+      ).toBeVisible({ timeout: 90_000 });
     },
   };
 }

@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.6.3!red-hat-developer-hub-backstage-plugin-lightspeed-backend
-  version: 2.6.3
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.8.0!red-hat-developer-hub-backstage-plugin-lightspeed-backend
+  version: 2.8.0
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3
@@ -28,20 +28,14 @@ spec:
     - lightspeed
   appConfigExamples:
     - title: Default configuration
-      content: |
-        lightspeed: 
-          # REQUIRED: Configure LLM servers with OpenAI API compatibility
-          servers:
-            - id: ${LIGHTSPEED_SERVER_ID}
-              url: ${LIGHTSPEED_SERVER_URL}
-              token: ${LIGHTSPEED_SERVER_TOKEN}
-
-          # OPTIONAL: Enable/disable question validation (default: true)
-          # When enabled, restricts questions to RHDH-related topics for better security
-          questionValidation: true 
-
+      content:
+        lightspeed:
           # OPTIONAL: Port for lightspeed service (default: 8080)
-          # servicePort: ${LIGHTSPEED_SERVICE_PORT}
+          servicePort: 8080
+          # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
+          # mcpServers:
+          #  - name: <mcp server name>
+          #    token: ${MCP_TOKEN}
 
           # OPTIONAL: Override default RHDH system prompt
           # systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
