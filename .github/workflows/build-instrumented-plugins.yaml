@@ -135,6 +135,12 @@ jobs:
               continue
             fi
 
+            # Require the !plugin-path separator
+            if [[ "$ARTIFACT" != *"!"* ]]; then
+              echo "  Skipping $meta_file: dynamicArtifact missing '!' separator"
+              continue
+            fi
+
             # Parse: oci://registry/path/image:tag!plugin-path
             REF="${ARTIFACT#oci://}"
             PLUGIN_PATH="${REF##*!}"

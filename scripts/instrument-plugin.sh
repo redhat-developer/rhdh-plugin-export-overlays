@@ -30,7 +30,8 @@ COVERAGE_IMAGE="${2:?Usage: $0 <source-image> <coverage-image> <plugin-path>}"
 PLUGIN_PATH="${3:?Usage: $0 <source-image> <coverage-image> <plugin-path>}"
 
 WORK_DIR=$(mktemp -d)
-trap 'rm -rf "$WORK_DIR"' EXIT
+CID=""
+trap 'rm -rf "$WORK_DIR"; [[ -n "$CID" ]] && podman rm "$CID" 2>/dev/null || true' EXIT
 
 echo "=== Instrumenting production image for E2E coverage ==="
 echo "  Source:      $SOURCE_IMAGE"
@@ -60,7 +61,6 @@ echo ""
 echo "--- Step 4: Committing coverage image ---"
 podman cp "$WORK_DIR/dist-instrumented/." "$CID:$PLUGIN_PATH/dist/"
 podman commit "$CID" "$COVERAGE_IMAGE"
-podman rm "$CID"
 
 # Step 5: Verify instrumentation
 echo ""
