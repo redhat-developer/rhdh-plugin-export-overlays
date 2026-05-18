@@ -14,8 +14,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-translations-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations-backend:bs_1.49.4__0.3.0!red-hat-developer-hub-backstage-plugin-translations-backend
-  version: 0.3.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations-backend:bs_1.49.4__0.3.1!red-hat-developer-hub-backstage-plugin-translations-backend
+  version: 0.3.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.45.3

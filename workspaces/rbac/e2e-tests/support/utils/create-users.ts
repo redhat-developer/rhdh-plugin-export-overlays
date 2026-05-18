@@ -11,6 +11,7 @@ export async function createUsersAndGroups(): Promise<void> {
 
   // Check if users already exist due to a test failure/restart
   const realm = process.env.KEYCLOAK_REALM ?? "";
+
   if (await keycloak.getUsers(realm)) {
     // Randomly generated passwords will be recreated everytime the tests are restarted
     // We need to clean up the old users so that the new passwords can take affect
@@ -20,6 +21,7 @@ export async function createUsersAndGroups(): Promise<void> {
   }
 
   await keycloak.configureForRHDH({
+    realm: realm,
     groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
     users: Object.values(RBAC_DESCRIPTIVE_USERS),
   });

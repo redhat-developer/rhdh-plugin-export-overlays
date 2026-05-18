@@ -6,7 +6,7 @@ catalog:
     - allow: [Component, Group]
   locations:
     - type: url
-      target: https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/rbac-test-migration/workspaces/rbac/e2e-tests/tests/config/catalog-entities.yaml
+      target: https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/rbac/e2e-tests/tests/config/catalog-entities.yaml
 permission:
   enabled: true
   rbac:

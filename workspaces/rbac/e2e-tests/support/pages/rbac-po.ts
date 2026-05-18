@@ -210,7 +210,7 @@ export class RbacPO {
     groups: string[],
     owner?: string,
   ) {
-    if (!this.page.url().includes("rbac")) await this.go();
+    if (!this.page.url().includes("rbac")) await this.navigateToRBACPage();
     await this.create();
     await this.uiHelper.verifyHeading("Create role");
     await ROLE_FORM_COMPONENTS.getRoleNameInput(this.page).fill(name);
@@ -395,7 +395,7 @@ export class RbacPO {
     skipVerify?: boolean,
   ) {
     // Ensure we always navigate back to the RBAC page
-    await this.go();
+    await this.navigateToRBACPage();
 
     await this.uiHelper.searchInputAriaLabel(name);
     const button = ROLES_PAGE_COMPONENTS.getDeleteRoleButton(this.page, name);
@@ -443,7 +443,7 @@ export class RbacPO {
   }
 
   async createRBACConditionRole(name: string, users: string[], owner: string) {
-    if (!this.page.url().includes("rbac")) await this.go();
+    if (!this.page.url().includes("rbac")) await this.navigateToRBACPage();
     await this.createRoleUsers(name, users, [], owner);
 
     await this.openPluginsDropdown();

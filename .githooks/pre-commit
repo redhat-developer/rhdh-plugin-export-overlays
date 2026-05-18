@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook for E2E code quality checks.
+#
+# Detects staged e2e-tests files and delegates to
+# scripts/e2e-code-quality.sh --fix (shared with CI).
+#
+# Protects partial staging by stashing unstaged changes before
+# running fixers, then restoring them after. This mimics the
+# lint-staged approach: fixers only see staged content.
+#
+# After the repo checks pass, chains to the user's existing
+# pre-commit hook (global core.hooksPath or .git/hooks/).
+#
+# Skip with: git commit --no-verify
+#
+# Setup (one-time):
+#   git config core.hooksPath .githooks
+#
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# --- Repo e2e code quality checks ---
+
+CHANGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR -- 'workspaces/*/e2e-tests/**' || true)
+
+if [[ -n "$CHANGED_FILES" ]]; then
+  WORKSPACES=()
+  while IFS= read -r ws; do
+    [[ -n "$ws" ]] && WORKSPACES+=("$ws")
+  done < <(echo "$CHANGED_FILES" | sed -n 's|^workspaces/\([^/]*\)/e2e-tests/.*|\1|p' | sort -u)
+
+  if [[ ${#WORKSPACES[@]} -gt 0 ]]; then
+    echo "E2E Code Quality: fixing and checking staged changes"
+    echo ""
+
+    # Stash unstaged changes so fixers only see staged content.
+    # This protects partially staged files from being fully staged.
+    STASH_NEEDED=false
+    cleanup() {
+      if [[ "$STASH_NEEDED" == true ]]; then
+        echo "Restoring unstaged changes from stash..." >&2
+        git stash pop --quiet 2>/dev/null || {
+          echo "WARNING: Could not auto-restore stash. Run 'git stash pop' manually." >&2
+        }
+        STASH_NEEDED=false
+      fi
+    }
+    trap cleanup EXIT INT TERM
+
+    if ! git diff --quiet; then
+      git stash push --keep-index --quiet -m "pre-commit hook backup"
+      STASH_NEEDED=true
+    fi
+
+    # Run fixers; capture exit code
+    FIX_EXIT=0
+    "${REPO_ROOT}/scripts/e2e-code-quality.sh" --fix "${WORKSPACES[@]}" || FIX_EXIT=$?
+
+    # Re-stage files that were auto-fixed (only on success)
+    if [[ "$FIX_EXIT" -eq 0 ]]; then
+      echo "$CHANGED_FILES" | xargs git add
+    fi
+
+    # Exit with the fixer's exit code (trap restores stash on exit)
+    if [[ "$FIX_EXIT" -ne 0 ]]; then
+      exit "$FIX_EXIT"
+    fi
+  fi
+fi
+
+# --- Chain to user's existing hook if present ---
+# Check global core.hooksPath first, then fall back to .git/hooks/.
+# This preserves hooks the user had before enabling the repo hooksPath.
+
+GLOBAL_HOOKS_PATH=$(git config --global core.hooksPath 2>/dev/null || true)
+if [[ -n "$GLOBAL_HOOKS_PATH" ]]; then
+  # Resolve relative paths against the user's home directory
+  case "$GLOBAL_HOOKS_PATH" in
+    /*) ;; # absolute — use as-is
+    ~/*) GLOBAL_HOOKS_PATH="${HOME}/${GLOBAL_HOOKS_PATH#\~/}" ;;
+    *) GLOBAL_HOOKS_PATH="${HOME}/${GLOBAL_HOOKS_PATH}" ;;
+  esac
+  USER_HOOK="${GLOBAL_HOOKS_PATH}/pre-commit"
+else
+  USER_HOOK="${REPO_ROOT}/.git/hooks/pre-commit"
+fi
+
+if [[ -x "$USER_HOOK" ]]; then
+  "$USER_HOOK"
+fi

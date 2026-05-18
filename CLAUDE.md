@@ -36,8 +36,7 @@ The repo has two distinct metadata systems that serve different purposes:
 ### Support Tiers
 
 Plugins fall into three support levels, tracked in text files at the repo root:
-- `rhdh-supported-packages.txt` — GA (Generally Available), Red Hat supported
-- `rhdh-techpreview-packages.txt` — Tech Preview, heading toward GA
+- `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
 ### Plugin Scopes
@@ -78,6 +77,16 @@ gh workflow run update-plugins-repo-refs.yaml -f regexps="@backstage-community/p
 # Sync docs to wiki (dry run)
 gh workflow run sync-user-guide-to-wiki.yaml -f dry_run=true
 ```
+
+## Developer Setup
+
+After cloning, enable the pre-commit hook to run E2E code quality checks (ESLint, Prettier, TypeScript) locally before pushing:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zero overhead otherwise. It uses the same shared script (`scripts/e2e-code-quality.sh`) as the CI workflow, so checks are always in sync. See `.githooks/README.md` for details on combining with existing hooks.
 
 ## Working with Workspaces
 
