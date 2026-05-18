@@ -117,6 +117,27 @@ jobs:
           echo "RHDH did not become ready in time."
           exit 1
 
+      - name: Verify RHDH startup logs
+        run: |
+          set -euo pipefail
+          LOGS=$(docker logs rhdh 2>&1 || true)
+
+          STARTUP_SUCCESS_PATTERN="Starting Developer Hub backend|rootHttpRouter.*Listening on :7007|Plugin initialization started"
+          if ! echo "$LOGS" | grep -qiE "$STARTUP_SUCCESS_PATTERN"; then
+            echo "RHDH startup logs do not contain expected startup markers."
+            echo "Expected one of: $STARTUP_SUCCESS_PATTERN"
+            exit 1
+          fi
+
+          STARTUP_ERROR_PATTERN="InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error|threw an error during startup|Missing required config value|ConfigReader.*(error|missing)|Invalid app-config|UnhandledPromiseRejection|uncaughtException"
+          if echo "$LOGS" | grep -qiE "$STARTUP_ERROR_PATTERN"; then
+            echo "Detected startup errors in RHDH logs:"
+            echo "$LOGS" | grep -iE -B 2 -A 2 "$STARTUP_ERROR_PATTERN" | grep -v "^--$" | tail -n 120 || true
+            exit 1
+          fi
+
+          echo "RHDH startup logs look healthy."
+
       - name: List installed plugins
         run: docker exec rhdh ls -l /opt/app-root/src/dynamic-plugins-root
 
@@ -126,7 +147,7 @@ jobs:
       - name: Verify plugin loading
         id: collect-results
         run: |
-          set -e
+          set -euo pipefail
           PLUGINS=$(grep -Eo '!([^[:space:]]+)' ./artifacts/dynamic-plugins.test.yaml | sed -e 's/^!//' -e 's/"$//' | sort -u)
           if [ -z "$PLUGINS" ]; then
             echo "No plugins found in dynamic-plugins.test.yaml"
@@ -137,6 +158,7 @@ jobs:
             exit 0
           fi
           LOGS=$(docker logs rhdh || true)
+          SHARED_HARD_ERROR_PATTERN="InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error|threw an error during startup|Missing required config value|ConfigReader.*(error|missing)|Invalid app-config|UnhandledPromiseRejection|uncaughtException"
           failures=()
           echo "===== Checking logs for plugin loaded messages"
           for plugin in $PLUGINS; do
@@ -149,8 +171,8 @@ jobs:
               failures+=("$plugin")
             fi
           done
-          if echo "$LOGS" | grep -E "(InstallException|Error while adding OCI plugin|Failed to load dynamic plugin|dynamic plugin.*error)" >/dev/null; then
-            echo "Detected dynamic plugin loading errors in logs"
+          if echo "$LOGS" | grep -qiE "$SHARED_HARD_ERROR_PATTERN"; then
+            echo "Detected dynamic plugin loading/startup hard errors in logs"
             failures+=("(log-errors)")
           fi
           if [ ${#failures[@]} -eq 0 ]; then
