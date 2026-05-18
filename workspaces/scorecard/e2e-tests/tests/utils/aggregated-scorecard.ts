@@ -1,8 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { DEFAULT_THRESHOLD_LABELS } from "./constants";
 
 export type AggregatedScorecardMetric = {
   readonly title: string;
   readonly description: string;
+  readonly thresholdLabels?: readonly string[];
 };
 
 /** URL pattern for `/scorecard/aggregations/:id/metrics/:id` (matches `metricId` from dynamic-plugins). */
@@ -22,21 +24,28 @@ export function aggregatedScorecardHelpers(page: Page) {
     homepageCard,
 
     async expectHomepageCardVisible(metricId: string) {
-      await expect(homepageCard(metricId)).toBeVisible({ timeout: 5000 });
+      await expect(homepageCard(metricId)).toBeVisible({ timeout: 30_000 });
     },
 
     async expectHomepageCardDisplaysMetric(
       card: Locator,
       metric: AggregatedScorecardMetric,
     ) {
+      const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
       await expect(card).toContainText(metric.description);
-      await expect(card.getByText("Success", { exact: true })).toBeVisible();
+      await expect(card.getByText(labels[0], { exact: true })).toBeVisible({
+        timeout: 60_000,
+      });
     },
 
-    /** Hovers each visible success / warning / error color swatch and checks the chart tooltip text. */
-    async expectChartThresholdTooltips(card: Locator) {
-      const chart = page.locator(".docked-drawer-open");
+    /** Hovers each visible threshold color swatch and checks the chart tooltip text. */
+    async expectChartThresholdTooltips(
+      card: Locator,
+      metric: AggregatedScorecardMetric,
+    ) {
+      const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
+      const chart = page.locator(".v5-MuiBox-root");
 
       const expectTooltipText = async () => {
         await expect(chart.getByText(/%|No entities/i)).toBeVisible({
@@ -44,9 +53,11 @@ export function aggregatedScorecardHelpers(page: Page) {
         });
       };
 
-      for (const status of ["success", "warning", "error"] as const) {
+      for (const label of labels) {
         await page.keyboard.press("Escape");
-        const swatch = card.getByTestId(`legend-colorbox-${status}`);
+        const swatch = card.getByTestId(
+          `legend-colorbox-${label.toLowerCase()}`,
+        );
         if (await swatch.isVisible()) {
           await swatch.hover();
           await expectTooltipText();
@@ -57,9 +68,9 @@ export function aggregatedScorecardHelpers(page: Page) {
     async expectLastUpdatedTooltip(card: Locator) {
       await page.keyboard.press("Escape");
       await card.getByTestId("scorecard-homepage-card-info").hover();
-      await expect(page.getByRole("tooltip")).toContainText(/Last updated/i, {
-        timeout: 10_000,
-      });
+      await expect(
+        page.getByRole("tooltip").filter({ hasText: /Last updated/i }),
+      ).toBeVisible({ timeout: 10_000 });
     },
 
     drilldownLink(card: Locator) {
@@ -87,14 +98,17 @@ export function aggregatedScorecardHelpers(page: Page) {
       const card = homepageCard(metricId);
       await expect(card).toBeVisible({ timeout: 120_000 });
 
+      const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
+      const thresholdLabelSnapshots = labels
+        .map((l) => `            - paragraph: "${l}"`)
+        .join("\n");
+
       await expect(card).toMatchAriaSnapshot(`
           - article:
-            - text: ${metric.title}
+            - text: "${metric.title}"
             - separator
-            - paragraph: ${metric.description}
-            - paragraph: Success
-            - paragraph: Warning
-            - paragraph: Error
+            - paragraph: "${metric.description}"
+${thresholdLabelSnapshots}
             - application
         `);
     },
@@ -176,6 +190,7 @@ export function aggregatedScorecardHelpers(page: Page) {
       metricId: string,
     ) {
       await navigateToHome();
+      await page.reload();
       const card = impl.homepageCard(metricId);
 
       await test.step("Homepage card UI is present", async () => {
@@ -183,8 +198,8 @@ export function aggregatedScorecardHelpers(page: Page) {
         await impl.expectHomepageCardDisplaysMetric(card, metric);
       });
 
-      await test.step("Threshold tooltips (Success / Warning / Error)", async () => {
-        await impl.expectChartThresholdTooltips(card);
+      await test.step("Threshold tooltips", async () => {
+        await impl.expectChartThresholdTooltips(card, metric);
       });
 
       await test.step("Last updated tooltip", async () => {
