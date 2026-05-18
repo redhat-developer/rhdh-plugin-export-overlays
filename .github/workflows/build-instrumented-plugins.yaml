@@ -105,74 +105,76 @@ jobs:
         workspace: ${{ fromJson(needs.detect-workspaces.outputs.matrix) }}
       fail-fast: false
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Read source.json metadata
+      - name: Resolve production image from metadata
         id: meta
         env:
           WORKSPACE: ${{ matrix.workspace }}
-          GITHUB_REPO: ${{ github.repository }}
         run: |
-          SOURCE_JSON="workspaces/${WORKSPACE}/source.json"
-          REPO_REF=$(jq -r '.["repo-ref"]' "$SOURCE_JSON")
-          REPO_URL=$(jq -r '.repo' "$SOURCE_JSON")
-          SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
-          REF_SHORT="${REPO_REF:0:12}"
-
-          # Find the frontend plugin package name from metadata
+          SOURCE_IMAGE=""
+          PLUGIN_PATH=""
           PLUGIN_IMAGE_NAME=""
+          COVERAGE_IMAGE=""
+          IMAGE_TAG=""
+
           for meta_file in "workspaces/${WORKSPACE}/metadata"/*.yaml; do
             [ -e "$meta_file" ] || continue
             ROLE=$(yq -r '.spec.backstage.role // ""' "$meta_file")
-            if [[ "$ROLE" == "frontend-plugin" ]]; then
-              PKG=$(yq -r '.spec.packageName // ""' "$meta_file")
-              if [[ -n "$PKG" && "$PKG" != "null" ]]; then
-                PLUGIN_IMAGE_NAME=$(echo "$PKG" | sed 's|^@||; s|/|-|')
-                break
-              fi
+            if [[ "$ROLE" != "frontend-plugin" ]]; then
+              continue
             fi
+
+            ARTIFACT=$(yq -r '.spec.dynamicArtifact // ""' "$meta_file")
+            if [[ -z "$ARTIFACT" || "$ARTIFACT" == "null" || ! "$ARTIFACT" =~ ^oci:// ]]; then
+              continue
+            fi
+
+            # Parse: oci://registry/path/image:tag!plugin-path
+            REF="${ARTIFACT#oci://}"
+            PLUGIN_PATH="${REF##*!}"
+            SOURCE_IMAGE="${REF%%!*}"
+
+            IMAGE_NAME="${SOURCE_IMAGE%%:*}"
+            IMAGE_TAG="${SOURCE_IMAGE##*:}"
+            COVERAGE_IMAGE="${IMAGE_NAME}-coverage:${IMAGE_TAG}"
+            PLUGIN_IMAGE_NAME=$(basename "$IMAGE_NAME")
+
+            break
           done
 
-          if [[ -z "$PLUGIN_IMAGE_NAME" ]]; then
-            echo "No frontend plugin found in metadata for ${WORKSPACE}"
+          if [[ -z "$SOURCE_IMAGE" ]]; then
+            echo "No frontend plugin with OCI dynamicArtifact found for ${WORKSPACE}"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          IMAGE_REPO="ghcr.io/${GITHUB_REPO}/${PLUGIN_IMAGE_NAME}-coverage"
-          IMAGE_TAG="ref-${REF_SHORT}"
-          IMAGE_REF="${IMAGE_REPO}:${IMAGE_TAG}"
-
-          echo "repo-ref=$REPO_REF" >> "$GITHUB_OUTPUT"
-          echo "repo-url=$REPO_URL" >> "$GITHUB_OUTPUT"
-          echo "repo-slug=$SLUG" >> "$GITHUB_OUTPUT"
-          echo "ref-short=$REF_SHORT" >> "$GITHUB_OUTPUT"
+          echo "source-image=$SOURCE_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "coverage-image=$COVERAGE_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "plugin-path=$PLUGIN_PATH" >> "$GITHUB_OUTPUT"
           echo "plugin-image-name=$PLUGIN_IMAGE_NAME" >> "$GITHUB_OUTPUT"
-          echo "image-repo=$IMAGE_REPO" >> "$GITHUB_OUTPUT"
           echo "image-tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "image-ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-          echo "  Workspace:    ${WORKSPACE}"
-          echo "  Source ref:   $REPO_REF"
-          echo "  Plugin:       $PLUGIN_IMAGE_NAME"
-          echo "  Image:        $IMAGE_REF"
+          echo "  Workspace:       ${WORKSPACE}"
+          echo "  Source image:     $SOURCE_IMAGE"
+          echo "  Coverage image:   $COVERAGE_IMAGE"
+          echo "  Plugin path:      $PLUGIN_PATH"
 
       - name: Check if instrumented image already exists
         if: steps.meta.outputs.skip != 'true'
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPO: ${{ github.repository }}
           REPO_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.repository }}
           PLUGIN_IMAGE_NAME: ${{ steps.meta.outputs.plugin-image-name }}
           IMAGE_TAG: ${{ steps.meta.outputs.image-tag }}
-          IMAGE_REF: ${{ steps.meta.outputs.image-ref }}
           FORCE_REBUILD: ${{ inputs.force-rebuild }}
         run: |
           PACKAGE_PATH="${GITHUB_REPO}/${PLUGIN_IMAGE_NAME}-coverage"
@@ -182,74 +184,48 @@ jobs:
             --jq "[.[] | select(.metadata.container.tags[] == \"$IMAGE_TAG\")] | length" 2>/dev/null || echo "0")
 
           if [[ "$EXISTS" -gt 0 ]] && [[ "$FORCE_REBUILD" != "true" ]]; then
-            echo "Instrumented image already exists: $IMAGE_REF"
+            echo "Instrumented image already exists: ${PLUGIN_IMAGE_NAME}-coverage:${IMAGE_TAG}"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "Instrumented image not found, will build"
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Resolve Node.js version
+      - name: Log in to GitHub Container Registry
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
-        id: node-version
-        run: echo "version=$(jq -r '.node' versions.json)" >> "$GITHUB_OUTPUT"
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Setup Node.js
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: ${{ steps.node-version.outputs.version }}
+          node-version: 20
 
-      - name: Build instrumented plugin
+      - name: Instrument production image
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
         env:
-          WORKSPACE: ${{ matrix.workspace }}
-        run: ./scripts/instrument-plugin.sh "$WORKSPACE"
+          SOURCE_IMAGE: ${{ steps.meta.outputs.source-image }}
+          COVERAGE_IMAGE: ${{ steps.meta.outputs.coverage-image }}
+          PLUGIN_PATH: ${{ steps.meta.outputs.plugin-path }}
+        run: ./scripts/instrument-plugin.sh "$SOURCE_IMAGE" "$COVERAGE_IMAGE" "$PLUGIN_PATH"
 
-      - name: Setup ORAS CLI
-        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
-        uses: oras-project/setup-oras@5c0b487ce3fe0ce3ab0d034e63669e426e294e4d # v1.2.2
-        with:
-          version: 1.2.2
-
-      - name: Log in to GitHub Container Registry
-        if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish instrumented OCI image
+      - name: Push instrumented image
         if: steps.meta.outputs.skip != 'true' && steps.check.outputs.exists != 'true'
         env:
-          WORKSPACE: ${{ matrix.workspace }}
-          IMAGE_REF: ${{ steps.meta.outputs.image-ref }}
+          COVERAGE_IMAGE: ${{ steps.meta.outputs.coverage-image }}
         run: |
-          BUNDLE_DIR=".instrumented/${WORKSPACE}"
-
-          if [[ ! -d "$BUNDLE_DIR" ]]; then
-            echo "ERROR: Instrumented bundle not found at $BUNDLE_DIR"
-            exit 1
-          fi
-
-          TAR_FILE=".instrumented/${WORKSPACE}.tar.gz"
-          tar -czf "$TAR_FILE" -C "$BUNDLE_DIR" .
-
-          oras push "$IMAGE_REF" \
-            --artifact-type "application/vnd.rhdh.dynamic-plugin.coverage.v1" \
-            "$TAR_FILE:application/gzip"
-
-          echo "Published instrumented image: $IMAGE_REF"
+          podman push "$COVERAGE_IMAGE"
+          echo "Published: $COVERAGE_IMAGE"
 
       - name: Write job summary
         if: always() && steps.meta.outputs.skip != 'true'
         env:
           WORKSPACE: ${{ matrix.workspace }}
-          REPO_REF: ${{ steps.meta.outputs.repo-ref }}
-          REPO_SLUG: ${{ steps.meta.outputs.repo-slug }}
-          PLUGIN_IMAGE_NAME: ${{ steps.meta.outputs.plugin-image-name }}
-          IMAGE_REF: ${{ steps.meta.outputs.image-ref }}
+          SOURCE_IMAGE: ${{ steps.meta.outputs.source-image }}
+          COVERAGE_IMAGE: ${{ steps.meta.outputs.coverage-image }}
+          PLUGIN_PATH: ${{ steps.meta.outputs.plugin-path }}
           IMAGE_EXISTS: ${{ steps.check.outputs.exists }}
         run: |
           {
@@ -257,10 +233,9 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
-            echo "| Source ref | \`${REPO_REF}\` |"
-            echo "| Source repo | ${REPO_SLUG} |"
-            echo "| Plugin | ${PLUGIN_IMAGE_NAME} |"
-            echo "| Image | \`${IMAGE_REF}\` |"
+            echo "| Source image | \`${SOURCE_IMAGE}\` |"
+            echo "| Coverage image | \`${COVERAGE_IMAGE}\` |"
+            echo "| Plugin path | \`${PLUGIN_PATH}\` |"
             if [[ "$IMAGE_EXISTS" == "true" ]]; then
               echo "| Status | Skipped (image already exists) |"
             else

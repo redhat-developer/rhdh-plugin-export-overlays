@@ -29,9 +29,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKSPACES=("$@")
 
-COVERAGE_JSON_DIR="node_modules/.cache/e2e-test-results/coverage"
+COVERAGE_JSON_DIR="${COVERAGE_OUTPUT_DIR:-node_modules/.cache/e2e-test-results/coverage}"
 
-if ! ls "$REPO_ROOT/$COVERAGE_JSON_DIR"/*.json &>/dev/null; then
+if ! compgen -G "$REPO_ROOT/$COVERAGE_JSON_DIR/*.json" >/dev/null 2>&1; then
   echo "[INFO] No coverage data found (no instrumented plugins loaded?)"
   exit 0
 fi

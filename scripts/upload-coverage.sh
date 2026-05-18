@@ -38,6 +38,20 @@ fi
 REPO_URL=$(jq -r '.repo' "$WORKSPACE_DIR/source.json")
 REPO_REF=$(jq -r '.["repo-ref"]' "$WORKSPACE_DIR/source.json")
 
+# Codecov --sha requires a 40-char commit SHA. source.json repo-ref can be a
+# tag name (e.g., "v1.49.4") — resolve it to a commit SHA via git ls-remote.
+# For annotated tags, ls-remote returns the tag object and the dereferenced
+# commit (^{}); tail -1 picks the commit in both cases.
+if [[ ! "$REPO_REF" =~ ^[0-9a-f]{40}$ ]]; then
+  RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk '{print $1}')
+  if [[ -n "$RESOLVED" ]]; then
+    echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
+    REPO_REF="$RESOLVED"
+  else
+    echo "[WARN] Could not resolve '$REPO_REF' to a commit SHA — Codecov upload may fail"
+  fi
+fi
+
 # Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
 SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
 
@@ -48,27 +62,54 @@ echo "  Target repo: $SLUG"
 echo "  Target SHA:  $REPO_REF"
 echo "  Flag:        e2e-$WORKSPACE"
 
-# Check for codecov CLI
-CODECOV_CLI_VERSION="${CODECOV_CLI_VERSION:-11.2.6}"
-if ! command -v codecov &>/dev/null; then
-  echo ""
-  echo "Installing Codecov CLI v${CODECOV_CLI_VERSION}..."
-  pip install "codecov-cli==${CODECOV_CLI_VERSION}" 2>/dev/null || {
-    echo "ERROR: Could not install codecov-cli" >&2
-    echo "Install manually: pip install codecov-cli==${CODECOV_CLI_VERSION}" >&2
-    exit 1
-  }
-fi
-
 if [[ -z "${CODECOV_TOKEN:-}" ]]; then
   echo ""
-  echo "ERROR: CODECOV_TOKEN is not set" >&2
-  echo "Set it to an org-level Codecov token that has upload access to $SLUG" >&2
-  exit 1
+  echo "[WARN] CODECOV_TOKEN is not set — skipping Codecov upload"
+  echo "[INFO] Coverage report is still available locally at: $LCOV_FILE"
+  exit 0
+fi
+
+# Download Codecov CLI binary with SHA256 verification.
+# Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
+CODECOV_BIN="/tmp/codecov"
+if [[ ! -x "$CODECOV_BIN" ]]; then
+  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  case "$OS" in
+    linux)  CODECOV_OS="linux" ;;
+    darwin) CODECOV_OS="macos" ;;
+    *)
+      echo "ERROR: Unsupported OS: $OS" >&2
+      exit 1
+      ;;
+  esac
+
+  echo ""
+  echo "Downloading Codecov CLI for ${CODECOV_OS}..."
+  curl -sL -o "$CODECOV_BIN" "https://cli.codecov.io/latest/${CODECOV_OS}/codecov"
+  curl -sL -o "${CODECOV_BIN}.SHA256SUM" "https://cli.codecov.io/latest/${CODECOV_OS}/codecov.SHA256SUM"
+
+  EXPECTED=$(awk '{print $1}' "${CODECOV_BIN}.SHA256SUM")
+  if command -v sha256sum &>/dev/null; then
+    ACTUAL=$(sha256sum "$CODECOV_BIN" | awk '{print $1}')
+  else
+    ACTUAL=$(shasum -a 256 "$CODECOV_BIN" | awk '{print $1}')
+  fi
+  rm -f "${CODECOV_BIN}.SHA256SUM"
+
+  if [[ "$EXPECTED" != "$ACTUAL" ]]; then
+    echo "ERROR: Codecov CLI checksum verification failed" >&2
+    echo "  Expected: $EXPECTED" >&2
+    echo "  Actual:   $ACTUAL" >&2
+    rm -f "$CODECOV_BIN"
+    exit 1
+  fi
+
+  chmod +x "$CODECOV_BIN"
+  echo "  Codecov CLI downloaded and verified"
 fi
 
 echo ""
-codecov upload-process \
+"$CODECOV_BIN" upload-process \
   --file "$LCOV_FILE" \
   --flag "e2e-$WORKSPACE" \
   --sha "$REPO_REF" \
@@ -76,7 +117,11 @@ codecov upload-process \
   --token "$CODECOV_TOKEN" \
   --git-service github \
   --name "overlay-e2e-$WORKSPACE" \
-  --disable-search
+  --disable-search \
+  --fail-on-error || {
+    echo "[WARN] Codecov upload failed (non-fatal)"
+    exit 0
+  }
 
 echo ""
 echo "=== Upload complete ==="

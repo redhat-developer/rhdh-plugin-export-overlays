@@ -298,7 +298,8 @@ npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT
 
 # ── Merge and upload coverage ────────────────────────────────────────────
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}"
+    "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}" || \
+        echo "[WARN] Coverage merge/upload failed (non-fatal)"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
