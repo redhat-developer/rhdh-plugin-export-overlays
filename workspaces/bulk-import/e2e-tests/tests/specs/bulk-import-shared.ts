@@ -1,5 +1,14 @@
 import { expect, type Frame, type Locator, type Page } from "@playwright/test";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { LoginHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
+import {
+  assertOAuthCredentialsPresent,
+  ensureGitHubOAuthAppForRhdh,
+} from "../helpers/github-oauth-app-helper";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -7,6 +16,148 @@ export const WAIT_OBJECTS = {
 };
 
 export const GITHUB_ORG = "janus-qe";
+
+export type BulkImportRhdhDeployOptions = {
+  auth?: "keycloak";
+  appConfig?: string;
+  dynamicPlugins?: string;
+  valueFile?: string;
+  deployTimeoutMs?: number;
+};
+
+/**
+ * RBAC → programmatic GitHub OAuth app (per namespace) → Helm/operator deploy.
+ * Call once per Playwright project namespace in `beforeAll` (wrap in `test.runOnce`).
+ */
+export async function setupBulkImportRhdh(
+  rhdh: RHDHDeployment,
+  options: BulkImportRhdhDeployOptions = {},
+): Promise<void> {
+  const namespace = rhdh.deploymentConfig.namespace;
+  await applyBulkImportRbacConfigmap(namespace);
+  await ensureGitHubOAuthAppForRhdh(namespace);
+  assertOAuthCredentialsPresent();
+  await rhdh.configure({
+    auth: options.auth ?? "keycloak",
+    appConfig: options.appConfig ?? "tests/config/app-config-rhdh.yaml",
+    valueFile: options.valueFile ?? "tests/config/values.yaml",
+    ...(options.dynamicPlugins
+      ? { dynamicPlugins: options.dynamicPlugins }
+      : {}),
+  });
+  await rhdh.deploy({
+    timeout: options.deployTimeoutMs ?? 20 * 60 * 1000,
+  });
+}
+
+export function catalogDefaultComponentPath(componentName: string): string {
+  return `/catalog/default/component/${encodeURIComponent(componentName)}`;
+}
+
+export async function waitForBulkImportPageLoad(page: Page): Promise<void> {
+  for (const item of Object.values(WAIT_OBJECTS)) {
+    await page
+      .waitForSelector(item, { state: "hidden", timeout: 12_000 })
+      .catch(() => {});
+  }
+}
+
+export async function ensureBulkImportAccordionOpen(page: Page): Promise<void> {
+  const btn = page.getByRole("button", {
+    name: "Import to Red Hat Developer Hub",
+  });
+  if ((await btn.getAttribute("aria-expanded")) !== "true") {
+    await btn.click();
+    await expect(btn).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
+export async function expectCatalogComponentVisible(
+  page: Page,
+  componentName: string,
+): Promise<void> {
+  await expect(page).toHaveURL(
+    new RegExp(
+      `/catalog/default/component/${encodeURIComponent(componentName)}`,
+    ),
+    { timeout: 60_000 },
+  );
+  // Entity title h1 includes trailing controls (e.g. "Add to favorites").
+  await expect(
+    page.getByRole("heading", { level: 1, name: componentName }),
+  ).toBeVisible({ timeout: 60_000 });
+}
+
+/** Catalog-imported repos must not appear on Bulk import (already in catalog). */
+export async function assertRepoAbsentOnBulkImport(
+  page: Page,
+  uiHelper: { searchInputPlaceholder: (text: string) => Promise<void> },
+  repoName: string,
+): Promise<void> {
+  await waitForBulkImportPageLoad(page);
+  await ensureBulkImportAccordionOpen(page);
+  await handleGitHubAuthDialogIfPresent(page, 22_000);
+
+  await uiHelper.searchInputPlaceholder(repoName);
+  await expect(
+    page.locator(`tr:has(:text-is("${repoName}"))`),
+  ).toHaveCount(0, { timeout: 30_000 });
+
+  const addedHeading = page.getByText(/Added repositories/i).first();
+  if (await addedHeading.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await addedHeading.scrollIntoViewIfNeeded();
+    await uiHelper.searchInputPlaceholder(repoName);
+    await expect(
+      page.locator(`tr:has(:text-is("${repoName}"))`),
+    ).toHaveCount(0, { timeout: 15_000 });
+  }
+}
+
+type BulkImportUiHelper = {
+  waitForLoad: (timeout: number) => Promise<void>;
+  clickButton: (name: string) => Promise<unknown>;
+};
+
+/**
+ * Keycloak login without popup.waitForLoadState() — Keycloak SPA often never fires "load".
+ * Signs out first when switching users (e.g. test1 → test2) in the same Playwright context.
+ */
+export async function loginAsKeycloakUserBulkImport(
+  page: Page,
+  loginHelper: LoginHelper,
+  uiHelper: BulkImportUiHelper,
+  username: string,
+  password: string,
+): Promise<void> {
+  const signInVisible = await page
+    .getByRole("heading", { name: /Select a sign-in method/i })
+    .isVisible({ timeout: 5_000 })
+    .catch(() => false);
+
+  if (!signInVisible) {
+    await loginHelper.signOut().catch(async () => {
+      await page.context().clearCookies();
+      await page.goto("/");
+    });
+  }
+
+  await page.goto("/");
+  await uiHelper.waitForLoad(240_000);
+
+  const popupPromise = page.waitForEvent("popup", { timeout: 60_000 });
+  await uiHelper.clickButton("Sign In");
+  const popup = await popupPromise;
+
+  await popup.waitForSelector("#username", {
+    state: "visible",
+    timeout: 60_000,
+  });
+  await popup.locator("#username").fill(username);
+  await popup.locator("#password").fill(password);
+  await popup.locator("#kc-login").click();
+  await popup.waitForEvent("close", { timeout: 90_000 }).catch(() => {});
+  await page.waitForSelector("nav a", { timeout: 60_000 });
+}
 
 /**
  * Save in the catalog-info preview. `uiHelper.clickButton("Save")` matches globally and `.first()`
@@ -587,6 +738,32 @@ export function getGitHubLoginCredentials(): {
     process.env.VAULT_GH_USER_PASS?.trim() ||
     process.env.GITHUB_PASSWORD?.trim();
   return { user, pass };
+}
+
+/** Applies RBAC ConfigMap with `GHE2EUSER_PLACEHOLDER` replaced by the GitHub login used for e2e. */
+export async function applyBulkImportRbacConfigmap(
+  namespace: string,
+): Promise<void> {
+  const { user } = getGitHubLoginCredentials();
+  const login = user?.trim();
+  if (!login) {
+    throw new Error(
+      "[bulk-import e2e] Set VAULT_GH_USER_ID or GITHUB_USERNAME so RBAC can grant bulk-importer to user:default/<login> (GitHub sign-in).",
+    );
+  }
+  const rbacPath = path.resolve(
+    process.cwd(),
+    "tests/config/rbac-configmap.yaml",
+  );
+  const rendered = fs
+    .readFileSync(rbacPath, "utf8")
+    .replaceAll("GHE2EUSER_PLACEHOLDER", login);
+  const tmp = path.join(
+    os.tmpdir(),
+    `rbac-policy-bulk-import-${namespace}-${Date.now()}.yaml`,
+  );
+  fs.writeFileSync(tmp, rendered);
+  await $`kubectl apply -f ${tmp} -n ${namespace}`;
 }
 
 function isGitHubOAuthAccessDeniedError(e: unknown): boolean {

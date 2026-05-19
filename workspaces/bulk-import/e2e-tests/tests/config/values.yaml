@@ -1,9 +1,10 @@
+# Chart quay.io/rhdh/chart — lightspeed lives under global, not upstream.backstage (schema rejects the latter).
+global:
+  lightspeed:
+    enabled: false
+
 upstream:
   backstage:
-    image:
-      # registry: quay.io
-      # repository: rhdh-community/rhdh
-      # tag: pr-4708-f1ac2f05
     extraVolumeMounts:
       # NOTE: Lists will not be merged with the default values file. So need to append all the defaults if you want to add a new item here
       # See https://issues.redhat.com/browse/RHDHPLAN-869
