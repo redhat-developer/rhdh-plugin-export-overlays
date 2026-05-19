@@ -146,8 +146,8 @@ spec:
   test.beforeEach(async ({ loginHelper, uiHelper }) => {
     await loginHelper.loginAsGithubUser();
     await uiHelper.openSidebar("Bulk import");
-    await loginHelper.checkAndClickOnGHloginPopup();
     await uiHelper.verifyHeading("Bulk import");
+    await loginHelper.checkAndClickOnGHloginPopup();
   });
 
   test.afterAll(async () => {
