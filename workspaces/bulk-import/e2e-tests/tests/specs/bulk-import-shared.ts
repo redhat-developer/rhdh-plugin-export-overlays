@@ -18,7 +18,7 @@ export const WAIT_OBJECTS = {
 export const GITHUB_ORG = "janus-qe";
 
 export type BulkImportRhdhDeployOptions = {
-  auth?: "keycloak";
+  auth?: "keycloak" | "github";
   appConfig?: string;
   dynamicPlugins?: string;
   valueFile?: string;

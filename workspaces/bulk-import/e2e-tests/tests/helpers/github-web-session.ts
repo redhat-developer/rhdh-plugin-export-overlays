@@ -118,7 +118,9 @@ export class GitHubWebSession {
     return { response, html, url: currentUrl };
   }
 
-  async get(path: string): Promise<{ response: Response; html: string; url: string }> {
+  async get(
+    path: string,
+  ): Promise<{ response: Response; html: string; url: string }> {
     return this.request(`${GITHUB_ORIGIN}${path}`);
   }
 
@@ -157,7 +159,9 @@ export class GitHubWebSession {
     pass: string,
     totpSecret: string,
   ): Promise<void> {
-    await page.goto("https://github.com/login", { waitUntil: "domcontentloaded" });
+    await page.goto("https://github.com/login", {
+      waitUntil: "domcontentloaded",
+    });
     await page.locator("#login_field").fill(user);
     await page.locator("#password").fill(pass);
     await page.locator('[value="Sign in"]').click();
@@ -413,7 +417,11 @@ export class GitHubWebSession {
     name: string;
     homepageUrl: string;
     callbackUrl: string;
-  }): Promise<{ settingsAppId: string; clientId: string; clientSecret: string }> {
+  }): Promise<{
+    settingsAppId: string;
+    clientId: string;
+    clientSecret: string;
+  }> {
     const { user, pass, totpSecret } = this.requireGitHubLoginCredentials();
     const browser = await launchGitHubAutomationBrowser();
     const context = await browser.newContext();
@@ -468,7 +476,9 @@ export class GitHubWebSession {
         });
       }
 
-      const settingsAppId = page.url().match(/\/settings\/applications\/(\d+)/)?.[1];
+      const settingsAppId = page
+        .url()
+        .match(/\/settings\/applications\/(\d+)/)?.[1];
       if (!settingsAppId) {
         throw new Error(
           `[bulk-import e2e] Could not parse OAuth app id from ${page.url()}.`,
@@ -500,7 +510,11 @@ export class GitHubWebSession {
     name: string;
     homepageUrl: string;
     callbackUrl: string;
-  }): Promise<{ settingsAppId: string; clientId: string; clientSecret: string }> {
+  }): Promise<{
+    settingsAppId: string;
+    clientId: string;
+    clientSecret: string;
+  }> {
     return this.createOAuthApplicationViaPlaywright(params);
   }
 
@@ -509,12 +523,17 @@ export class GitHubWebSession {
     afterCreate: { html: string; url: string },
     appName: string,
   ): Promise<{ html: string; url: string }> {
-    const directId = afterCreate.url.match(/\/settings\/applications\/(\d+)/)?.[1];
+    const directId = afterCreate.url.match(
+      /\/settings\/applications\/(\d+)/,
+    )?.[1];
     if (directId) {
       return afterCreate;
     }
 
-    const listPath = findOAuthApplicationSettingsPath(afterCreate.html, appName);
+    const listPath = findOAuthApplicationSettingsPath(
+      afterCreate.html,
+      appName,
+    );
     if (listPath) {
       return this.get(listPath);
     }
@@ -713,9 +732,7 @@ function parseOtpFieldName(html: string): string | null {
 
 function parseTwoFactorCommitValue(html: string): string | null {
   return (
-    html.match(
-      /<button[^>]*type="submit"[^>]*value="([^"]+)"/i,
-    )?.[1] ??
+    html.match(/<button[^>]*type="submit"[^>]*value="([^"]+)"/i)?.[1] ??
     html.match(/<input[^>]*type="submit"[^>]*value="([^"]+)"/i)?.[1] ??
     "Verify"
   );
@@ -735,7 +752,10 @@ async function isGitHub404Page(page: Page): Promise<boolean> {
     return true;
   }
 
-  const body = await page.locator("body").innerText().catch(() => "");
+  const body = await page
+    .locator("body")
+    .innerText()
+    .catch(() => "");
   return /not the web page you are looking for|We couldn.t find that page|404 – Page not found/i.test(
     body,
   );
@@ -782,10 +802,15 @@ async function openOAuthApplicationSettingsPage(
   });
 
   if (params.appName) {
-    const byName = page.getByRole("link", { name: params.appName, exact: true });
+    const byName = page.getByRole("link", {
+      name: params.appName,
+      exact: true,
+    });
     if (await byName.isVisible({ timeout: 15_000 }).catch(() => false)) {
       await byName.click();
-      await page.waitForURL(/\/settings\/applications\/\d+/, { timeout: 60_000 });
+      await page.waitForURL(/\/settings\/applications\/\d+/, {
+        timeout: 60_000,
+      });
       if (await isOAuthAppSettingsPageLoaded(page)) {
         return true;
       }
@@ -796,7 +821,9 @@ async function openOAuthApplicationSettingsPage(
     const row = page.locator(`tr:has-text("${params.clientId}")`).first();
     if (await row.isVisible({ timeout: 10_000 }).catch(() => false)) {
       await row.getByRole("link").first().click();
-      await page.waitForURL(/\/settings\/applications\/\d+/, { timeout: 60_000 });
+      await page.waitForURL(/\/settings\/applications\/\d+/, {
+        timeout: 60_000,
+      });
       if (await isOAuthAppSettingsPageLoaded(page)) {
         return true;
       }
@@ -875,9 +902,12 @@ async function navigateToOAuthDeleteAction(page: Page): Promise<void> {
 
   const paths = ["", "/advanced"];
   for (const suffix of paths) {
-    await page.goto(`${GITHUB_ORIGIN}/settings/applications/${appId}${suffix}`, {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(
+      `${GITHUB_ORIGIN}/settings/applications/${appId}${suffix}`,
+      {
+        waitUntil: "domcontentloaded",
+      },
+    );
     await page.waitForLoadState("networkidle").catch(() => {});
 
     if (await isGitHub404Page(page)) {
@@ -990,9 +1020,10 @@ async function assertOAuthApplicationRemoved(
   }
 
   const redirectedAway = !page.url().includes(`/applications/${settingsAppId}`);
-  const notFoundCopy = /404|not found|doesn't exist|We couldn.t find|page could not be found|This application (?:was|has been) deleted/i.test(
-    body,
-  );
+  const notFoundCopy =
+    /404|not found|doesn't exist|We couldn.t find|page could not be found|This application (?:was|has been) deleted/i.test(
+      body,
+    );
 
   if (redirectedAway || notFoundCopy) {
     return;
@@ -1001,7 +1032,9 @@ async function assertOAuthApplicationRemoved(
   const clientIdInput = page.locator("#oauth_application_client_id").first();
   const hasLiveClientId =
     (await clientIdInput.isVisible({ timeout: 2_000 }).catch(() => false)) &&
-    CLIENT_ID_PATTERN.test((await clientIdInput.inputValue().catch(() => "")).trim());
+    CLIENT_ID_PATTERN.test(
+      (await clientIdInput.inputValue().catch(() => "")).trim(),
+    );
 
   if (!hasLiveClientId) {
     return;
@@ -1017,11 +1050,25 @@ async function readOAuthClientIdFromPage(page: Page): Promise<string> {
     const input = page.locator(
       '#oauth_application_client_id, input[name="oauth_application[client_id]"], input[readonly][value^="Ov"], input[readonly][value^="0v"], input[readonly][value^="Iv"]',
     );
-    if (await input.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+    if (
+      await input
+        .first()
+        .isVisible({ timeout: 2000 })
+        .catch(() => false)
+    ) {
       const value =
-        (await input.first().inputValue().catch(() => "")) ||
-        (await input.first().getAttribute("value").catch(() => "")) ||
-        (await input.first().innerText().catch(() => ""));
+        (await input
+          .first()
+          .inputValue()
+          .catch(() => "")) ||
+        (await input
+          .first()
+          .getAttribute("value")
+          .catch(() => "")) ||
+        (await input
+          .first()
+          .innerText()
+          .catch(() => ""));
       if (value.trim()) {
         return normalizeGitHubClientId(value);
       }
@@ -1057,7 +1104,10 @@ async function readOAuthClientIdFromPage(page: Page): Promise<string> {
     await page.waitForTimeout(500);
   }
 
-  const screenshot = path.join(os.tmpdir(), "oauth-create-missing-client-id.png");
+  const screenshot = path.join(
+    os.tmpdir(),
+    "oauth-create-missing-client-id.png",
+  );
   await page.screenshot({ path: screenshot, fullPage: true });
   throw new Error(
     `[bulk-import e2e] Could not read GitHub OAuth client id on ${page.url()} (screenshot: ${screenshot}).`,
@@ -1077,11 +1127,17 @@ async function readOAuthClientSecretFromPage(page: Page): Promise<string> {
     const n = await codes.count();
     for (let i = 0; i < n; i++) {
       const text = (await codes.nth(i).innerText()).trim();
-      if (text.length >= 32 && /^[a-f0-9]+$/i.test(text) && !text.startsWith("Iv")) {
+      if (
+        text.length >= 32 &&
+        /^[a-f0-9]+$/i.test(text) &&
+        !text.startsWith("Iv")
+      ) {
         return text;
       }
     }
-    const fromBody = parseClientSecretFromHtml(await page.locator("body").innerText());
+    const fromBody = parseClientSecretFromHtml(
+      await page.locator("body").innerText(),
+    );
     if (fromBody) {
       return fromBody;
     }
@@ -1142,7 +1198,11 @@ export function findOAuthApplicationSettingsPath(
 function extractGitHubFlashError(html: string): string | null {
   return (
     html.match(/class="flash-error[^"]*"[^>]*>\s*([^<]+)/i)?.[1]?.trim() ??
-    html.match(/id="js-flash-container"[^>]*>[\s\S]*?flash-error[^>]*>([^<]+)/i)?.[1]?.trim() ??
+    html
+      .match(
+        /id="js-flash-container"[^>]*>[\s\S]*?flash-error[^>]*>([^<]+)/i,
+      )?.[1]
+      ?.trim() ??
     null
   );
 }
@@ -1151,10 +1211,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function extractFormActionNear(
-  html: string,
-  label: RegExp,
-): string | null {
+function extractFormActionNear(html: string, label: RegExp): string | null {
   const idx = html.search(label);
   if (idx < 0) {
     return null;
