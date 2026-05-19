@@ -145,12 +145,12 @@ spec:
       exact: true,
     });
 
-    await expect(loginDialog.or(bulkImportReady)).toBeVisible({
-      timeout: 20_000,
-    });
+    // Do not use .or() here — with the dialog open, both the modal and page copy
+    // are visible and Playwright strict mode rejects a union locator.
+    await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
 
     if (await loginDialog.isVisible()) {
-      const authorize = loginHelper.checkAndReauthorizeGithubApp();
+      const authorize = loginHelper.checkAndClickOnGHloginPopup();
       await loginDialog.getByRole("button", { name: "Log in" }).click();
       await authorize;
       await expect(loginDialog).toBeHidden({ timeout: 60_000 });
