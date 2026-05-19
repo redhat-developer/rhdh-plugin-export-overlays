@@ -1,0 +1,8 @@
+FROM scratch
+ARG TIER=supported
+COPY catalog-index/${TIER}/ /
+
+LABEL summary="Red Hat Developer Hub plugin catalog index" \
+      description="Red Hat Developer Hub plugin catalog index" \
+      maintainer="RHDH Team <rhdh-bot@redhat.com>" \
+      vendor="Red Hat, Inc."
