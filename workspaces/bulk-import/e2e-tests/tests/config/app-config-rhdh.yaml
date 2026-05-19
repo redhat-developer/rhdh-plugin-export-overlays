@@ -25,17 +25,6 @@ integrations:
     - host: gitlab.com
       token: temp
 
-# todo remove it
-auth:
-  providers:
-    github:
-      production:
-        clientId: ${GITHUB_APP_CLIENT_ID}
-        clientSecret: ${GITHUB_APP_CLIENT_SECRET}
-        signIn:
-          resolvers:
-            - resolver: usernameMatchingUserEntityName
-
 permission:
   enabled: true
   rbac:
