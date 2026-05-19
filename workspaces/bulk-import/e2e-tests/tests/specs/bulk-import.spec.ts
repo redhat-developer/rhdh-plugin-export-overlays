@@ -3,7 +3,6 @@ import {
   APIHelper,
   type LoginHelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { teardownGitHubOAuthAppForRhdh } from "../helpers/github-oauth-app-helper";
 import {
   GITHUB_ORG,
   WAIT_OBJECTS,
@@ -151,8 +150,7 @@ spec:
     await uiHelper.verifyHeading("Bulk import");
   });
 
-  test.afterAll(async ({ rhdh }) => {
-    const namespace = rhdh.deploymentConfig.namespace;
+  test.afterAll(async () => {
     try {
       await APIHelper.deleteGitHubRepo(
         catalogRepoDetails.owner,
@@ -165,8 +163,6 @@ spec:
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[Cleanup] Final cleanup failed: ${message}`);
-    } finally {
-      await teardownGitHubOAuthAppForRhdh(namespace);
     }
   });
 

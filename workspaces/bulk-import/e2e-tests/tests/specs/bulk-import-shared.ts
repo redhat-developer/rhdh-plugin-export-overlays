@@ -5,10 +5,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-import {
-  assertOAuthCredentialsPresent,
-  ensureGitHubOAuthAppForRhdh,
-} from "../helpers/github-oauth-app-helper";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -26,7 +22,7 @@ export type BulkImportRhdhDeployOptions = {
 };
 
 /**
- * RBAC → programmatic GitHub OAuth app (per namespace) → Helm/operator deploy.
+ * RBAC ConfigMap → Helm/operator deploy (GitHub OAuth via e2e-test-utils secrets / Vault).
  * Call once per Playwright project namespace in `beforeAll` (wrap in `test.runOnce`).
  */
 export async function setupBulkImportRhdh(
@@ -35,10 +31,8 @@ export async function setupBulkImportRhdh(
 ): Promise<void> {
   const namespace = rhdh.deploymentConfig.namespace;
   await applyBulkImportRbacConfigmap(namespace);
-  await ensureGitHubOAuthAppForRhdh(namespace);
-  assertOAuthCredentialsPresent();
   await rhdh.configure({
-    auth: options.auth ?? "keycloak",
+    auth: options.auth ?? "github",
     appConfig: options.appConfig ?? "tests/config/app-config-rhdh.yaml",
     valueFile: options.valueFile ?? "tests/config/values.yaml",
     ...(options.dynamicPlugins
