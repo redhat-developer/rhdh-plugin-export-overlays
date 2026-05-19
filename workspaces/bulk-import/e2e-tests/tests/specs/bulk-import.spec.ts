@@ -1,12 +1,20 @@
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import path from "path";
+import { teardownGitHubOAuthAppForRhdh } from "../helpers/github-oauth-app-helper";
 import {
   GITHUB_ORG,
   WAIT_OBJECTS,
+  applyBulkImportRbacConfigmap,
+  assertRepoAbsentOnBulkImport,
+  setupBulkImportRhdh,
+  catalogDefaultComponentPath,
   clickBulkImportPreviewSave,
+  ensureBulkImportAccordionOpen,
+  expectCatalogComponentVisible,
   handleGitHubAuthDialogIfPresent,
+  loginAsKeycloakUserBulkImport,
+  waitForBulkImportPageLoad,
 } from "./bulk-import-shared";
 
 const DEFAULT_CATALOG_INFO_YAML = (
@@ -48,21 +56,9 @@ async function waitForLoad(page: Page) {
 }
 
 
-async function ensureBulkImportAccordionOpen(page: Page): Promise<void> {
-  const btn = page.getByRole("button", {
-    name: "Import to Red Hat Developer Hub",
-  });
-  if ((await btn.getAttribute("aria-expanded")) !== "true") {
-    await btn.click();
-    await expect(btn).toHaveAttribute("aria-expanded", "true");
-  }
-}
-
-
-
 async function reloadBulkImportPage(page: Page): Promise<void> {
   await page.reload();
-  await waitForLoad(page);
+  await waitForBulkImportPageLoad(page);
   await handleGitHubAuthDialogIfPresent(page, 22_000);
   await ensureBulkImportAccordionOpen(page);
 }
@@ -126,20 +122,8 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    const rbacConfigmapPath = path.resolve(
-      process.cwd(),
-      "tests/config/rbac-configmap.yaml",
-    );
-    const namespace = rhdh.deploymentConfig.namespace;
-    // todo: make it once...
-    await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh.yaml",
-      valueFile: "tests/config/values.yaml",
-    });
-    await rhdh.deploy({
-      timeout: 20 * 60 * 1000, // 20 min
+    await test.runOnce("bulk-import-rhdh-setup", async () => {
+      await setupBulkImportRhdh(rhdh);
     });
 
     // Create the repository with catalog-info.yaml file dynamically
@@ -364,20 +348,52 @@ spec:
     ]);
   });
 
-  test.afterAll(async () => {
+  test("Catalog-imported repo is in Catalog but absent from Bulk import", async ({
+    page,
+    uiHelper,
+  }) => {
+    const catalogImportedRepo = {
+      repoName: "janus-test-2-bulk-import-test",
+      url: "https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml",
+    };
+
+    await uiHelper.openSidebar("Catalog");
+    await uiHelper.clickButton("Self-service");
+    await uiHelper.clickButton("Import an existing Git repository");
+
+    await catalogImportRegisterFromComponentUrl(page, catalogImportedRepo.url);
+
+    await expect(async () => {
+      await page.goto(catalogDefaultComponentPath(catalogImportedRepo.repoName));
+      await handleGitHubAuthDialogIfPresent(page, 22_000);
+      await expectCatalogComponentVisible(page, catalogImportedRepo.repoName);
+    }).toPass({
+      intervals: [15_000],
+      timeout: 180_000,
+    });
+
+    await uiHelper.openSidebar("Bulk import");
+    await uiHelper.verifyHeading("Bulk import");
+    await assertRepoAbsentOnBulkImport(
+      page,
+      uiHelper,
+      catalogImportedRepo.repoName,
+    );
+  });
+
+  test.afterAll(async ({ rhdh }) => {
+    const namespace = rhdh.deploymentConfig.namespace;
     try {
       // Delete the dynamically created GitHub repository with catalog-info.yaml
       await APIHelper.deleteGitHubRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
       );
-
       // Delete the GitHub repository
       await APIHelper.deleteGitHubRepo(
         newRepoDetails.owner,
         newRepoDetails.repoName,
       );
-
       console.log(
         `[Cleanup] Deleted GitHub repositories: ${catalogRepoDetails.name}, ${newRepoDetails.repoName}`,
       );
@@ -385,111 +401,27 @@ spec:
       console.error(
         `[Cleanup] Final cleanup failed: ${(error as any).message}`,
       );
+    } finally {
+      await teardownGitHubOAuthAppForRhdh(namespace);
     }
   });
 });
 
 test.describe
-  .serial("Bulk Import - Verify existing repo are displayed in bulk import Added repositories", () => {
-  const existingRepoFromAppConfig = "janus-test-3-bulk-import";
-
-  const existingComponentDetails = {
-    name: "janus-test-2-bulk-import-test",
-    repoName: "janus-test-2-bulk-import-test",
-    url: `https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml`,
-  };
-
-  test.beforeAll(async ({ rhdh }) => {
-    const rbacConfigmapPath = path.resolve(
-      process.cwd(),
-      "tests/config/rbac-configmap.yaml",
-    );
-    const namespace = rhdh.deploymentConfig.namespace;
-    // todo: make it once...
-    await $`kubectl apply -f ${rbacConfigmapPath} -n ${namespace}`;
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh.yaml",
-      valueFile: "tests/config/values.yaml",
-    });
-    await rhdh.deploy({
-      timeout: 20 * 60 * 1000, // 20 min
-    });
-  });
-
-  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebar("Bulk import");
-    await handleGitHubAuthDialogIfPresent(page, 4000);
-  });
-
-  // test("Verify existing repo from app-config is displayed in bulk import Added repositories", async ({
-  //   page,
-  //   uiHelper,
-  // }) => {
-  //   await uiHelper.openSidebar("Bulk import");
-  //   await waitForLoad(page);
-  //   await filterAddedRepo(page, uiHelper, existingRepoFromAppConfig);
-  // await uiHelper.verifyRowInTableByUniqueText(existingRepoFromAppConfig, [
-  //   "Imported",
-  // ]);
-  // });
-
-  // test('Verify repo from "import an existing git repository" are displayed in bulk import Added repositories', async ({
-  //   page,
-  //   uiHelper,
-  // }) => {
-  //   // Import an existing Git repository
-  //   await uiHelper.openSidebar("Catalog");
-  //   await uiHelper.clickButton("Self-service");
-  //   await uiHelper.clickButton("Import an existing Git repository");
-
-  //   await catalogImportRegisterFromComponentUrl(
-  //     page,
-  //     existingComponentDetails.url,
-  //   );
-
-  //   // RepositoriesList may be absent (Router-only mount); confirm registration via Catalog entity.
-  //   await expect(async () => {
-  //     await page.goto(catalogDefaultComponentPath(existingComponentDetails.repoName));
-  //     await handleGitHubAuthDialogIfPresent(page, 22_000);
-  //     await expectCatalogComponentVisible(page, existingComponentDetails.repoName);
-  //   }).toPass({
-  //     intervals: [15_000],
-  //     timeout: 180_000,
-  //   });
-
-  //   await page.goto("/bulk-import");
-  //   await waitForLoad(page);
-  //   await handleGitHubAuthDialogIfPresent(page, 22_000);
-  //   const addedHeading = page.getByText(/Added repositories/i).first();
-  //   if (await addedHeading.isVisible({ timeout: 8000 }).catch(() => false)) {
-  //     await addedHeading.scrollIntoViewIfNeeded();
-  //     await filterAddedRepo(page, uiHelper, existingComponentDetails.repoName);
-  //     await verifyImportedOrAlreadyImportedRow(
-  //       uiHelper,
-  //       existingComponentDetails.repoName,
-  //     );
-  //   }
-  // });
-});
-
-test.describe
   .serial("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh.yaml",
-      valueFile: "tests/config/values.yaml",
-    });
-    await rhdh.deploy({
-      timeout: 20 * 60 * 1000, // 20 min
-    });
+    // Reuses RHDH + OAuth secrets from the main describe in this project/namespace.
+    await applyBulkImportRbacConfigmap(rhdh.deploymentConfig.namespace);
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    // Second default user password was not exposed with help of framework. So let's hard code it for now...
-    await loginHelper.loginAsKeycloakUser("test2", "test2@123");
+    await loginAsKeycloakUserBulkImport(
+      page,
+      loginHelper,
+      uiHelper,
+      "test2",
+      "test2@123",
+    );
     await uiHelper.openSidebar("Bulk import");
     await handleGitHubAuthDialogIfPresent(page, 22_000);
   });

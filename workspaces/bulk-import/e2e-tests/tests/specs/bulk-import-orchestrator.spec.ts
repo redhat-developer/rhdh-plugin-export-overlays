@@ -2,10 +2,12 @@ import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
+import { teardownGitHubOAuthAppForRhdh } from "../helpers/github-oauth-app-helper";
 import {
   GITHUB_ORG,
   WAIT_OBJECTS,
   handleGitHubAuthDialogIfPresent,
+  setupBulkImportRhdh,
 } from "./bulk-import-shared";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
@@ -39,13 +41,13 @@ test.describe("Bulk import tests orchestrator mode", () => {
         await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
       },
     );
-    await rhdh.configure({
-      auth: "keycloak",
-      appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
-      dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
+    await test.runOnce("bulk-import-orchestrator-rhdh-setup", async () => {
+      await setupBulkImportRhdh(rhdh, {
+        auth: "keycloak",
+        appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
+        dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
+      });
     });
-    await rhdh.deploy();
-    await rhdh.waitUntilReady();
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetailsForOrchestrator.owner,
@@ -56,9 +58,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    // Deploy uses auth: "keycloak" (signInPage: oidc) — not loginAsGithubUser().
     await loginHelper.loginAsKeycloakUser();
     await uiHelper.openSidebar("Bulk import");
-    await handleGitHubAuthDialogIfPresent(page);
+    await handleGitHubAuthDialogIfPresent(page, 22_000);
   });
 
   test("should display plugin page", async ({ page, uiHelper }) => {
@@ -147,7 +150,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test.afterAll(async () => {
+  test.afterAll(async ({ rhdh }) => {
     try {
       await APIHelper.deleteGitHubRepo(
         catalogRepoDetailsForOrchestrator.owner,
@@ -161,6 +164,8 @@ test.describe("Bulk import tests orchestrator mode", () => {
       console.error(
         `[Cleanup] Final cleanup failed: ${(error as any).message}`,
       );
+    } finally {
+      await teardownGitHubOAuthAppForRhdh(rhdh.deploymentConfig.namespace);
     }
   });
 });
