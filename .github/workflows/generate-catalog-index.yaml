@@ -302,10 +302,12 @@ jobs:
       - name: Push OCI image to quay.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
 
-          echo "${{ secrets.QUAY_TOKEN }}" | podman login quay.io -u "${{ secrets.QUAY_USERNAME }}" --password-stdin
+          echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
           for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
@@ -349,10 +351,11 @@ jobs:
       - name: Push OCI image to ghcr.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
 
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
 
           for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
