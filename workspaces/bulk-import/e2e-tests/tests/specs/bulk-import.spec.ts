@@ -90,6 +90,37 @@ async function dismissBulkImportLoginDialogIfPresent(
   await expect(loginDialog).toBeHidden({ timeout: 60_000 });
 }
 
+const GITLAB_LOGIN_REJECTED_EMPTY_STATE = "Log in to view projects";
+
+/**
+ * GitLab scope change opens Login Required; reject on that dialog (no Log in /
+ * provider popup) and assert the sign-in empty state (rhdh-plugins#3102).
+ */
+async function rejectBulkImportGitLabLoginAndExpectEmptyState(
+  page: Page,
+  waitForDialogMs = 8_000,
+): Promise<void> {
+  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
+
+  const appeared = await loginDialog
+    .waitFor({ state: "visible", timeout: waitForDialogMs })
+    .then(() => true)
+    .catch(() => false);
+
+  if (appeared) {
+    const rejectButton = loginDialog.getByRole("button", {
+      name: "Reject All",
+    });
+    await expect(rejectButton).toBeVisible({ timeout: 10_000 });
+    await rejectButton.click();
+    await expect(loginDialog).toBeHidden({ timeout: 60_000 });
+  }
+
+  const emptyState = page.getByTestId("no-repositories-found");
+  await expect(emptyState).toBeVisible({ timeout: 30_000 });
+  await expect(emptyState).toContainText(GITLAB_LOGIN_REJECTED_EMPTY_STATE);
+}
+
 /**
  * Catalog "Import an existing Git repository" flow without e2e-test-utils
  * CatalogImportPage.analyzeAndWait (it ties success to Analyze disappearing, which flakes).
@@ -228,7 +259,9 @@ spec:
     await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
     await page.getByRole("radio", { name: "GitLab" }).check();
     await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
+    await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
     await page.getByRole("radio", { name: "GitHub" }).check();
+    await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
     await expect(page.getByRole("article")).toMatchAriaSnapshot(`
       - table:
         - rowgroup:
