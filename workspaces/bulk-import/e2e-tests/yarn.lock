@@ -996,6 +996,7 @@ __metadata:
     eslint: ^9.39.2
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
+    otplib: ^12.0.1
     prettier: ^3.7.4
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
@@ -2259,7 +2260,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"otplib@npm:12.0.1":
+"otplib@npm:12.0.1, otplib@npm:^12.0.1":
   version: 12.0.1
   resolution: "otplib@npm:12.0.1"
   dependencies:
