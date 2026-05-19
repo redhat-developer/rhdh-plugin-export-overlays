@@ -1,6 +1,7 @@
 FROM scratch
 ARG TIER=supported
 COPY catalog-index/${TIER}/ /
+USER 65534
 
 LABEL summary="Red Hat Developer Hub plugin catalog index" \
       description="Red Hat Developer Hub plugin catalog index" \
