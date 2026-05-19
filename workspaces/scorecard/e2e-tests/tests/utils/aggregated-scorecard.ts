@@ -1,11 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { DEFAULT_THRESHOLD_LABELS } from "./constants";
-
-export type AggregatedScorecardMetric = {
-  readonly title: string;
-  readonly description: string;
-  readonly thresholdLabels?: readonly string[];
-};
+import { DEFAULT_THRESHOLD_LABELS, DEFAULT_THRESHOLD_RULES } from "./constants";
+import type { ScorecardMetric, ThresholdRule } from "./types";
 
 /** URL pattern for `/scorecard/aggregations/:id/metrics/:id` (matches `metricId` from dynamic-plugins). */
 export function drilldownUrlPattern(metricId: string): RegExp {
@@ -29,21 +24,22 @@ export function aggregatedScorecardHelpers(page: Page) {
 
     async expectHomepageCardDisplaysMetric(
       card: Locator,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
     ) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
       await expect(card).toContainText(metric.description);
-      await expect(card.getByText(labels[0], { exact: true })).toBeVisible({
-        timeout: 60_000,
-      });
+      for (const thresholdLabel of labels) {
+        await expect(
+          card.getByText(thresholdLabel, { exact: true }),
+        ).toBeVisible({
+          timeout: 60_000,
+        });
+      }
     },
 
     /** Hovers each visible threshold color swatch and checks the chart tooltip text. */
-    async expectChartThresholdTooltips(
-      card: Locator,
-      metric: AggregatedScorecardMetric,
-    ) {
+    async expectChartThresholdTooltips(card: Locator, metric: ScorecardMetric) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       const chart = page.locator(".v5-MuiBox-root");
 
@@ -93,7 +89,7 @@ export function aggregatedScorecardHelpers(page: Page) {
 
     async expectDrilldownCardAriaSnapshot(
       metricId: string,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
     ) {
       const card = homepageCard(metricId);
       await expect(card).toBeVisible({ timeout: 120_000 });
@@ -142,6 +138,26 @@ ${thresholdLabelSnapshots}
       await expect(page.getByText(/\d-\d+ of \d+/)).toBeVisible();
     },
 
+    async expectDrilldownThresholdLegend(
+      metricId: string,
+      rules: readonly Pick<ThresholdRule, "key" | "color">[],
+    ) {
+      const card = homepageCard(metricId);
+      await expect(card).toBeVisible({ timeout: 120_000 });
+      for (const rule of rules) {
+        await expect(card).toContainText(
+          rule.key.charAt(0).toUpperCase() + rule.key.slice(1),
+        );
+        const swatch = card.getByTestId(
+          `legend-colorbox-${rule.key.toLowerCase()}`,
+        );
+        await expect(swatch).toBeVisible({ timeout: 60_000 });
+        if (rule.color) {
+          await expect(swatch).toHaveCSS("background-color", rule.color);
+        }
+      }
+    },
+
     /**
      * Homepage card when aggregation `total === 0`: {@link EmptyStatePanel} shows
      * "No data found", helper copy, and **no** `/scorecard/aggregations/...` drill-down link.
@@ -151,7 +167,7 @@ ${thresholdLabelSnapshots}
      */
     async runAggregatedScorecardNoDataHomepageScenario(
       navigateToHome: () => Promise<void>,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
       metricId: string,
       options?: { skipIfHasDrilldown?: boolean },
     ) {
@@ -186,8 +202,11 @@ ${thresholdLabelSnapshots}
 
     async runAggregatedScorecardDrilldownScenario(
       navigateToHome: () => Promise<void>,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
       metricId: string,
+      options?: {
+        thresholdRules?: readonly Pick<ThresholdRule, "key" | "color">[];
+      },
     ) {
       await navigateToHome();
       await page.reload();
@@ -214,6 +233,13 @@ ${thresholdLabelSnapshots}
 
       await test.step("Drill-down page scorecard card snapshot", async () => {
         await impl.expectDrilldownCardAriaSnapshot(metricId, metric);
+      });
+
+      await test.step("Drill-down threshold legend", async () => {
+        await impl.expectDrilldownThresholdLegend(
+          metricId,
+          options?.thresholdRules ?? DEFAULT_THRESHOLD_RULES,
+        );
       });
 
       await test.step("Drill-down entity table columns and rows", async () => {

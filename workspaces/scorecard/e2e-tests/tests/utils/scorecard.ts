@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import type { ScorecardMetric, ThresholdRule } from "./types";
+import { DEFAULT_THRESHOLD_LABELS } from "./constants";
 
 export const FILECHECK_METRICS = {
   readme: {
@@ -19,6 +21,7 @@ export const SCORECARD_METRICS = [
     title: "GitHub open PRs",
     description:
       "Current count of open Pull Requests for a given GitHub repository.",
+    thresholdLabels: ["Ideal", "Warning", "Critical"],
   },
   {
     title: "Jira open blocking tickets",
@@ -36,7 +39,13 @@ export const OPENSSF_MAINTAINED_SCORECARD = [
 ] as const;
 
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
+  const getScorecardCard = (metric: ScorecardMetric) =>
+    page
+      .locator("article")
+      .filter({ has: page.locator(`[aria-label="${metric.title}"]`) });
+
   return {
+    getScorecardCard,
     async openTab() {
       const tab = page.getByRole("tab", { name: "Scorecard" });
       await expect(tab).toBeVisible();
@@ -51,19 +60,38 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         page.getByRole("link", { name: "View documentation" }),
       ).toBeVisible();
     },
-    async validateScorecardAriaFor(scorecard: {
-      title: string;
-      description: string;
-    }) {
-      const section = page
-        .locator("article")
-        .filter({ hasText: scorecard.title });
-      await expect(section).toBeVisible();
-      await expect(section).toContainText(scorecard.title);
-      await expect(section).toContainText(scorecard.description);
-      await expect(section).toContainText(/Success/);
-      await expect(section).toContainText(/Warning/);
-      await expect(section).toContainText(/Error/);
+    async validateScorecardAriaFor(scorecard: ScorecardMetric) {
+      const scorecardCard = getScorecardCard(scorecard);
+      await expect(scorecardCard).toBeVisible();
+      await expect(scorecardCard).toContainText(scorecard.title);
+      await expect(scorecardCard).toContainText(scorecard.description);
+      const thresholdLegendLabels =
+        scorecard.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
+      for (const label of thresholdLegendLabels) {
+        await expect(scorecardCard).toContainText(label);
+      }
+    },
+    async validateThresholdLegend(
+      metric: ScorecardMetric,
+      rules: readonly ThresholdRule[],
+    ) {
+      const scorecardCard = getScorecardCard(metric);
+      await expect(scorecardCard).toBeVisible();
+
+      for (const rule of rules) {
+        const label = rule.key.charAt(0).toUpperCase() + rule.key.slice(1);
+        const legendText = scorecardCard.getByText(
+          `${label} ${rule.expression}`,
+          { exact: true },
+        );
+        await expect(legendText).toBeVisible();
+        const swatch = scorecardCard.getByTestId(
+          `legend-colorbox-${rule.key.toLowerCase()}`,
+        );
+        if (rule.color) {
+          await expect(swatch).toHaveCSS("background-color", rule.color);
+        }
+      }
     },
     async expectScorecardVisible(title: string) {
       await expect(page.getByText(title, { exact: true })).toBeVisible();
@@ -147,23 +175,23 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     ) {
       await navigate();
       await this.openTab();
-      await this.expectFilecheckValue(metricTitle, expectedStatus);
+      const iconTestId =
+        expectedStatus === "exist"
+          ? "CheckCircleOutlineIcon"
+          : "DangerousOutlinedIcon";
+      await this.expectScorecardValue(metricTitle, iconTestId);
     },
-    async expectFilecheckValue(
+    async expectScorecardValue(
       metricTitle: string,
-      expectedStatus: "exist" | "missing",
+      expectedIconTestId: string,
     ) {
       const section = page.locator("article").filter({ hasText: metricTitle });
       await expect(section).toBeVisible({ timeout: 60_000 });
       await expect(section.getByRole("progressbar")).toHaveCount(0, {
         timeout: 60_000,
       });
-      const iconTestId =
-        expectedStatus === "exist"
-          ? "CheckCircleOutlineIcon"
-          : "DangerousOutlinedIcon";
       await expect(
-        section.locator(`[data-testid="${iconTestId}"]`),
+        section.locator(`[data-testid="${expectedIconTestId}"]`),
       ).toBeVisible({ timeout: 90_000 });
     },
   };
