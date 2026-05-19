@@ -143,11 +143,20 @@ spec:
     );
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
+  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
     await loginHelper.loginAsGithubUser();
     await uiHelper.openSidebar("Bulk import");
+
+    if (
+      await page
+        .getByRole("dialog", { name: "Login Required" })
+        .isVisible({ timeout: 15_000 })
+        .catch(() => false)
+    ) {
+      await loginHelper.checkAndClickOnGHloginPopup(true);
+    }
+
     await uiHelper.verifyHeading("Bulk import");
-    await loginHelper.checkAndClickOnGHloginPopup();
   });
 
   test.afterAll(async () => {
