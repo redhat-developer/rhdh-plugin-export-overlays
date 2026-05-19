@@ -1,8 +1,5 @@
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  APIHelper,
-  type LoginHelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   GITHUB_ORG,
   WAIT_OBJECTS,
@@ -53,13 +50,9 @@ async function waitForLoad(page: Page) {
   }
 }
 
-async function reloadBulkImportPage(
-  page: Page,
-  loginHelper: LoginHelper,
-): Promise<void> {
+async function reloadBulkImportPage(page: Page): Promise<void> {
   await page.reload();
   await waitForBulkImportPageLoad(page);
-  await loginHelper.checkAndClickOnGHloginPopup();
   await ensureBulkImportAccordionOpen(page);
 }
 
@@ -147,15 +140,23 @@ spec:
     await loginHelper.loginAsGithubUser();
     await uiHelper.openSidebar("Bulk import");
 
-    if (
-      await page
-        .getByRole("dialog", { name: "Login Required" })
-        .isVisible({ timeout: 15_000 })
-        .catch(() => false)
-    ) {
-      await loginHelper.checkAndClickOnGHloginPopup(true);
+    const loginDialog = page.getByRole("dialog", { name: "Login Required" });
+    const bulkImportReady = page.getByText("Source control tool", {
+      exact: true,
+    });
+
+    await expect(loginDialog.or(bulkImportReady)).toBeVisible({
+      timeout: 20_000,
+    });
+
+    if (await loginDialog.isVisible()) {
+      const authorize = loginHelper.checkAndReauthorizeGithubApp();
+      await loginDialog.getByRole("button", { name: "Log in" }).click();
+      await authorize;
+      await expect(loginDialog).toBeHidden({ timeout: 60_000 });
     }
 
+    await expect(bulkImportReady).toBeVisible();
     await uiHelper.verifyHeading("Bulk import");
   });
 
@@ -175,10 +176,11 @@ spec:
     }
   });
 
-  test("Bulk import plugin page", async ({ page, loginHelper }) => {
-    await expect(
-      page.getByRole("button", { name: "Import to Red Hat Developer Hub" }),
-    ).toHaveAttribute("aria-expanded", "true");
+  test("Bulk import plugin page", async ({ page }) => {
+    const accordion = page.getByRole("button", {
+      name: "Import to Red Hat Developer Hub",
+    });
+    await expect(accordion).toHaveAttribute("aria-expanded", "true");
     await page
       .getByRole("button", { name: "Import to Red Hat Developer Hub" })
       .click();
@@ -189,7 +191,6 @@ spec:
     await expect(
       page.getByText("Source control tool", { exact: true }),
     ).toBeVisible();
-    await loginHelper.checkAndClickOnGHloginPopup(true);
     await page
       .getByLabel("Importing requires approval.")
       .getByTestId("HelpOutlineIcon")
@@ -217,10 +218,9 @@ spec:
   test("Add a Repository and Confirm its Preview", async ({
     page,
     uiHelper,
-    loginHelper,
   }) => {
     await expect(async () => {
-      await reloadBulkImportPage(page, loginHelper);
+      await reloadBulkImportPage(page);
       await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
       await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
         "Ready to import",
@@ -249,10 +249,9 @@ spec:
   test("Add a Repository, generate a PR, and confirm its preview", async ({
     page,
     uiHelper,
-    loginHelper,
   }) => {
     await expect(async () => {
-      await reloadBulkImportPage(page, loginHelper);
+      await reloadBulkImportPage(page);
       await uiHelper.searchInputPlaceholder(newRepoDetails.repoName);
       await uiHelper.verifyRowInTableByUniqueText(newRepoDetails.repoName, [
         "Ready to import",
