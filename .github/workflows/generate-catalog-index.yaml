@@ -74,6 +74,22 @@ jobs:
           ref: ${{ steps.branches.outputs.source-branch }}
           fetch-depth: 0
 
+      - name: Sync to target branch
+        env:
+          TARGET_BRANCH: ${{ steps.branches.outputs.target-branch }}
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$TARGET_BRANCH"
+            git checkout "$TARGET_BRANCH"
+            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
+          else
+            git checkout -b "$TARGET_BRANCH"
+          fi
+
       - name: Setup Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
@@ -172,72 +188,35 @@ jobs:
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
           SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
         run: |
           BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
           for TIER in supported community; do
-            OK_VAR="ok"
             if [[ "$TIER" == "supported" ]]; then
-              OK="${{ steps.gen-supported.outputs.ok }}"
+              OK="${SUPPORTED_OK}"
             else
-              OK="${{ steps.gen-community.outputs.ok }}"
+              OK="${COMMUNITY_OK}"
             fi
 
             if [[ "$OK" == "true" ]]; then
               cat > "catalog-index/$TIER/build-info.json" <<BINFO
           {
-            "source-commit": "${{ github.sha }}",
-            "source-branch": "$SOURCE_BRANCH",
-            "build-date": "$BUILD_DATE",
-            "backstage-version": "$BS_VERSION",
-            "rhdh-version": "$RHDH_VERSION"
+            "source-commit": "${GITHUB_SHA}",
+            "source-branch": "${SOURCE_BRANCH}",
+            "build-date": "${BUILD_DATE}",
+            "backstage-version": "${BS_VERSION}",
+            "rhdh-version": "${RHDH_VERSION}"
           }
           BINFO
             fi
           done
 
-      - name: Sync and commit to target branch
-        env:
-          TARGET_BRANCH: ${{ steps.branches.outputs.target-branch }}
-          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+      - name: Commit generated outputs
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
-
-          git config user.name "GitHub Actions Bot"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Save generated catalog-index to temp location
-          TEMP_DIR=$(mktemp -d)
-          for TIER in supported community; do
-            if [[ -d "catalog-index/$TIER" ]]; then
-              cp -r "catalog-index/$TIER" "$TEMP_DIR/$TIER"
-            fi
-          done
-
-          # Switch to target branch
-          if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$TARGET_BRANCH"
-            git checkout "$TARGET_BRANCH"
-            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
-          else
-            git checkout -b "$TARGET_BRANCH"
-          fi
-
-          # Restore generated catalog-index for successful tiers
-          mkdir -p catalog-index
-          for TIER in supported community; do
-            if [[ -d "$TEMP_DIR/$TIER" ]]; then
-              rm -rf "catalog-index/$TIER"
-              cp -r "$TEMP_DIR/$TIER" "catalog-index/$TIER"
-            fi
-          done
-          rm -rf "$TEMP_DIR"
-
-          # Clean up build artifacts
-          rm -rf plugin_builds
-
-          # Stage and commit
-          git add catalog-index/
+          git add catalog-index/ plugin_builds/
           git commit -m "Generate catalog-index from ${SHORT_SHA}" || echo "No changes to commit"
 
       - name: Push target branch
@@ -352,10 +331,11 @@ jobs:
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
 
-          echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
           for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
