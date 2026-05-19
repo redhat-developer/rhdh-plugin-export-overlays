@@ -9,11 +9,6 @@ export default defineConfig({
   ...baseConfig,
   use: {
     ...baseConfig.use,
-    // headless: process.env.PLAYWRIGHT_HEADLESS === "0",
-    // viewport: null,
-    // launchOptions: {
-    //   args: ["--start-maximized"],
-    // },
   },
   workers: 1,
   projects: [
