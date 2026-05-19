@@ -6,6 +6,11 @@ auth:
   providers:
     guest:
       dangerouslyAllowOutsideDevelopment: true
+    github:
+      development:
+        clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+        clientId: ${GITHUB_OAUTH_APP_ID}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
 
 catalog:
   import:
@@ -36,7 +41,7 @@ permission:
   rbac:
     maxDepth: 1
     policyFileReload: true
-    policies-csv-file: "./rbac/rbac-policy.csv"
+    policies-csv-file: './rbac/rbac-policy.csv'
     pluginsWithPermission:
       - catalog
       - permission
@@ -53,15 +58,15 @@ bulkImport:
   instructionsEnabled: true
   instructionsDefaultExpanded: true
   instructionsSteps:
-    - id: "step1"
-      text: "Choose a source control tool for pull request creation"
-      icon: "approval-tool"
-    - id: "step2"
-      text: "Choose which items you want to import"
-      icon: "search"
-    - id: "step3"
-      text: "Generate a catalog-info.yaml file for each selected item"
-      icon: "build"
-    - id: "step4"
-      text: "View the pull/merge request details"
-      icon: "kind:api"
+    - id: 'step1'
+      text: 'Choose a source control tool for pull request creation'
+      icon: 'approval-tool'
+    - id: 'step2'
+      text: 'Choose which items you want to import'
+      icon: 'search'
+    - id: 'step3'
+      text: 'Generate a catalog-info.yaml file for each selected item'
+      icon: 'build'
+    - id: 'step4'
+      text: 'View the pull/merge request details'
+      icon: 'kind:api'
