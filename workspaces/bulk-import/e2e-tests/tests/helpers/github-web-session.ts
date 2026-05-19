@@ -17,7 +17,7 @@ export class OAuthApplicationNotFoundError extends Error {
 
 function launchGitHubAutomationBrowser() {
   return chromium.launch({
-    headless: process.env.PLAYWRIGHT_HEADLESS === "1",
+    headless: process.env.PLAYWRIGHT_HEADLESS !== "0",
   });
 }
 
