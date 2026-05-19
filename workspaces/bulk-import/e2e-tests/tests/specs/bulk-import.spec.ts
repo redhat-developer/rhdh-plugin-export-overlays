@@ -56,6 +56,40 @@ async function reloadBulkImportPage(page: Page): Promise<void> {
   await ensureBulkImportAccordionOpen(page);
 }
 
+type GithubLoginHelper = {
+  checkAndReauthorizeGithubApp: () => Promise<void>;
+};
+
+/**
+ * Bulk Import shows "Login Required" after the page content paints. Wait for the
+ * dialog (do not use a one-shot isVisible right after the page marker).
+ */
+async function dismissBulkImportLoginDialogIfPresent(
+  page: Page,
+  loginHelper: GithubLoginHelper,
+  waitForDialogMs = 8_000,
+): Promise<void> {
+  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
+
+  const appeared = await loginDialog
+    .waitFor({ state: "visible", timeout: waitForDialogMs })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!appeared) {
+    return;
+  }
+
+  const logInButton = loginDialog.getByRole("button", { name: "Log in" });
+  await expect(logInButton).toBeVisible({ timeout: 10_000 });
+
+  const authorize = loginHelper.checkAndReauthorizeGithubApp();
+  await logInButton.click();
+  await authorize;
+
+  await expect(loginDialog).toBeHidden({ timeout: 60_000 });
+}
+
 /**
  * Catalog "Import an existing Git repository" flow without e2e-test-utils
  * CatalogImportPage.analyzeAndWait (it ties success to Analyze disappearing, which flakes).
@@ -140,22 +174,15 @@ spec:
     await loginHelper.loginAsGithubUser();
     await uiHelper.openSidebar("Bulk import");
 
-    const loginDialog = page.getByRole("dialog", { name: "Login Required" });
     const bulkImportReady = page.getByText("Source control tool", {
       exact: true,
     });
 
-    // Do not use .or() here — with the dialog open, both the modal and page copy
-    // are visible and Playwright strict mode rejects a union locator.
     await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
-
-    if (await loginDialog.isVisible()) {
-      const authorize = loginHelper.checkAndClickOnGHloginPopup();
-      await loginDialog.getByRole("button", { name: "Log in" }).click();
-      await authorize;
-      await expect(loginDialog).toBeHidden({ timeout: 60_000 });
-    }
-
+    await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
+    await expect(
+      page.getByRole("dialog", { name: "Login Required" }),
+    ).toBeHidden({ timeout: 5_000 });
     await expect(bulkImportReady).toBeVisible();
     await uiHelper.verifyHeading("Bulk import");
   });
