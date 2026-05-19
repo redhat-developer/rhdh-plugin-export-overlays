@@ -62,6 +62,20 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 5
+              thresholds:
+                rules:
+                  - key: ideal
+                    expression: "<30"
+                    icon: star
+                    color: "rgb(180, 211, 178)"
+                  - key: warning
+                    expression: 30-70
+                    icon: scorecardWarningStatusIcon
+                    color: "#FAD5A5"
+                  - key: critical
+                    expression: ">70"
+                    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" style="color:#FAA0A0"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#FAA0A0" stroke-width="2"/><path d="M9 9l6 6M15 9l-6 6" stroke="#FAA0A0" stroke-width="2" stroke-linecap="round"/></svg>
+                    color: "#faa0a0"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
     disabled: false
     pluginConfig:

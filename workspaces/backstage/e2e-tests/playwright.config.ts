@@ -1,10 +1,14 @@
-import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { defineConfig as playwrightDefineConfig } from "@playwright/test";
 
 /**
  * Backstage workspace e2e test configuration.
  * Extends the base config from rhdh-e2e-test-utils.
  */
-export default defineConfig({
+export default playwrightDefineConfig({
+  ...baseConfig,
+  // Your complete custom configuration
+  timeout: 120000,
   projects: [
     {
       name: "backstage-github-org-discovery",
