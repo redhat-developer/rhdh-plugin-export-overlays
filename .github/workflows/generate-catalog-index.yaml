@@ -53,19 +53,16 @@ jobs:
     steps:
       - name: Determine branches
         id: branches
+        env:
+          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
-          if [[ -n "${{ inputs.source-branch }}" ]]; then
-            SOURCE_BRANCH="${{ inputs.source-branch }}"
-          else
+          if [[ -z "${SOURCE_BRANCH}" ]]; then
             SOURCE_BRANCH="${GITHUB_REF_NAME}"
           fi
-
-          if [[ -n "${{ inputs.target-branch }}" ]]; then
-            TARGET_BRANCH="${{ inputs.target-branch }}"
-          else
+          if [[ -z "${TARGET_BRANCH}" ]]; then
             TARGET_BRANCH="catalog-index-${SOURCE_BRANCH}"
           fi
-
           echo "source-branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
           echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
           echo "Source branch: $SOURCE_BRANCH"
