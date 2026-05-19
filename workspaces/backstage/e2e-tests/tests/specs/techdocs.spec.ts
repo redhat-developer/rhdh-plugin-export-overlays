@@ -1,5 +1,12 @@
 import { expect, Page, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
+/** Chart dist wrapper names (see ../metadata `spec.dynamicArtifact` basenames). */
+const TECHDOCS_WRAPPER_DIST_NAMES: string[] = [
+  "backstage-plugin-techdocs",
+  "backstage-plugin-techdocs-backend-dynamic",
+  "backstage-plugin-techdocs-module-addons-contrib",
+];
+
 async function docsTextHighlight(page: Page) {
   await page.evaluate(() => {
     const host = document.querySelector(
@@ -17,23 +24,24 @@ async function docsTextHighlight(page: Page) {
   });
 }
 
-test.describe.skip("TechDocs", () => {
-  // Temporarily skipped due to failing tests. Will be fixed in PR #2378.
+test.describe("TechDocs", () => {
   test.beforeAll(async ({ rhdh }) => {
     // Allow time for deployment + 1 min provider refresh delay + browser setup
     test.setTimeout(10 * 60 * 1000);
 
     await rhdh.configure({
-      auth: "keycloak",
+      auth: "guest",
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
+      secrets: "tests/config/techdocs/rhdh-secrets.yaml",
+      disableWrappers: TECHDOCS_WRAPPER_DIST_NAMES,
     });
 
     await rhdh.deploy();
   });
 
   test.beforeEach(async ({ loginHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
+    await loginHelper.loginAsGuest();
   });
 
   test("Verify that TechDocs is visible in sidebar", async ({ uiHelper }) => {

@@ -89,6 +89,13 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       () => scorecard.navigateToHome(),
       githubMetric,
       "github.open_prs",
+      {
+        thresholdRules: [
+          { key: "ideal", color: "rgb(180, 211, 178)" },
+          { key: "warning", color: "rgb(250, 213, 165)" },
+          { key: "critical", color: "rgb(250, 160, 160)" },
+        ],
+      },
     );
   });
 
@@ -107,6 +114,12 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       () => scorecard.navigateToHome(),
       FILECHECK_METRICS.readme,
       "filecheck.readme",
+      {
+        thresholdRules: [
+          { key: "exist", color: "rgb(46, 125, 50)" },
+          { key: "missing", color: "rgb(211, 47, 47)" },
+        ],
+      },
     );
   });
 
@@ -198,6 +211,18 @@ test.describe.serial("Scorecard Plugin Tests", () => {
           await scorecard.expectScorecardHidden(metric.title);
         }
       });
+    test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
+      await catalog.go();
+      await catalog.goToByName("github-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric] = SCORECARD_METRICS;
+      await scorecard.validateThresholdLegend(githubMetric, [
+        { key: "ideal", expression: "<30", color: "rgb(180, 211, 178)" },
+        { key: "warning", expression: "30-70", color: "rgb(250, 213, 165)" },
+        { key: "critical", expression: ">70", color: "rgb(250, 160, 160)" },
+      ]);
+      await scorecard.expectScorecardValue(githubMetric.title, "StarIcon");
     });
 
     // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
