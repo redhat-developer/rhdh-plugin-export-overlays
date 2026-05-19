@@ -11,6 +11,7 @@ import {
 } from "../utils/aggregated-scorecard";
 import {
   FILECHECK_METRICS,
+  OPENSSF_MAINTAINED_SCORECARD,
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
