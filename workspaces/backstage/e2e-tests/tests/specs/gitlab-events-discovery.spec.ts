@@ -9,7 +9,7 @@ import {
   runGitLabEventsCleanupSafely,
 } from "../../support/gitlab-events-test-setup.js";
 
-test.describe("GitLab Events - Discovery", () => {
+test.describe.serial("GitLab Events - Discovery", () => {
   let testPrefix: string;
   let parentGroupPath: string;
   let parentGroupId: number;
@@ -78,13 +78,12 @@ test.describe("GitLab Events - Discovery", () => {
     });
   });
 
-  test.describe.serial("Catalog Sync via Webhooks", () => {
-    test("Adding catalog-info.yaml creates entity", async ({
-      page,
-      uiHelper,
-    }) => {
-      const entityName = `${testPrefix}-component`;
-      const catalogContent = `apiVersion: backstage.io/v1alpha1
+  test("Adding catalog-info.yaml creates entity", async ({
+    page,
+    uiHelper,
+  }) => {
+    const entityName = `${testPrefix}-component`;
+    const catalogContent = `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${entityName}
@@ -95,41 +94,39 @@ spec:
   lifecycle: experimental
   owner: guests`;
 
-      // Create catalog-info.yaml in the test project
-      await GitLabApiHelper.createFile(
-        testProjectId,
-        "catalog-info.yaml",
-        catalogContent,
-        `Add catalog-info.yaml for ${entityName}`,
-      );
+    // Create catalog-info.yaml in the test project
+    await GitLabApiHelper.createFile(
+      testProjectId,
+      "catalog-info.yaml",
+      catalogContent,
+      `Add catalog-info.yaml for ${entityName}`,
+    );
 
-      // UI verification
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(entityName);
-            return await page
-              .getByRole("link", { name: entityName })
-              .isVisible();
-          },
-          {
-            message: `Component ${entityName} should appear in catalog UI`,
-            timeout: 30000,
-            intervals: [5000],
-          },
-        )
-        .toBe(true);
-    });
+    // UI verification
+    await expect
+      .poll(
+        async () => {
+          await page.reload();
+          await uiHelper.openSidebar("Catalog");
+          await uiHelper.selectMuiBox("Kind", "Component");
+          await uiHelper.searchInputPlaceholder(entityName);
+          return await page.getByRole("link", { name: entityName }).isVisible();
+        },
+        {
+          message: `Component ${entityName} should appear in catalog UI`,
+          timeout: 30000,
+          intervals: [5000],
+        },
+      )
+      .toBe(true);
+  });
 
-    test("Updating catalog-info.yaml updates entity", async ({
-      page,
-      uiHelper,
-    }) => {
-      const entityName = `${testPrefix}-component`;
-      const updatedCatalogContent = `apiVersion: backstage.io/v1alpha1
+  test("Updating catalog-info.yaml updates entity", async ({
+    page,
+    uiHelper,
+  }) => {
+    const entityName = `${testPrefix}-component`;
+    const updatedCatalogContent = `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${entityName}
@@ -141,79 +138,78 @@ spec:
   lifecycle: production
   owner: guests`;
 
-      // Update catalog-info.yaml in the test project
-      await GitLabApiHelper.updateFile(
-        testProjectId,
-        "catalog-info.yaml",
-        updatedCatalogContent,
-        `Update catalog-info.yaml for ${entityName}`,
-      );
+    // Update catalog-info.yaml in the test project
+    await GitLabApiHelper.updateFile(
+      testProjectId,
+      "catalog-info.yaml",
+      updatedCatalogContent,
+      `Update catalog-info.yaml for ${entityName}`,
+    );
 
-      // UI verification for updated content
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(entityName);
-            await page.getByRole("link", { name: entityName }).click();
-            await uiHelper.verifyHeading("description");
-            return await page
-              .getByText("Updated description via webhook")
-              .isVisible();
-          },
-          {
-            message: `Component ${entityName} should show updated description in UI`,
-            timeout: 30000,
-            intervals: [5000],
-          },
-        )
-        .toBe(true);
-    });
+    // UI verification for updated content
+    await expect
+      .poll(
+        async () => {
+          await page.reload();
+          await uiHelper.openSidebar("Catalog");
+          await uiHelper.selectMuiBox("Kind", "Component");
+          await uiHelper.searchInputPlaceholder(entityName);
+          await page.getByRole("link", { name: entityName }).click();
+          await uiHelper.verifyHeading("description");
+          return await page
+            .getByText("Updated description via webhook")
+            .isVisible();
+        },
+        {
+          message: `Component ${entityName} should show updated description in UI`,
+          timeout: 30000,
+          intervals: [5000],
+        },
+      )
+      .toBe(true);
+  });
 
-    test("Deleting catalog-info.yaml removes entity from catalog", async ({
-      page,
-      uiHelper,
-    }) => {
-      test.setTimeout(7 * 60 * 1000);
+  test("Deleting catalog-info.yaml removes entity from catalog", async ({
+    page,
+    uiHelper,
+  }) => {
+    test.setTimeout(7 * 60 * 1000);
 
-      const entityName = `${testPrefix}-component`;
+    const entityName = `${testPrefix}-component`;
 
-      await GitLabApiHelper.deleteFile(
-        testProjectId,
-        "catalog-info.yaml",
-        `Remove catalog-info.yaml for ${entityName}`,
-      );
+    await GitLabApiHelper.deleteFile(
+      testProjectId,
+      "catalog-info.yaml",
+      `Remove catalog-info.yaml for ${entityName}`,
+    );
 
-      await CatalogApiHelper.waitForEntityRemoval(
-        rhdhUrl,
-        catalogToken,
-        "Component",
-        entityName,
-        "default",
-        180_000,
-        5000,
-      );
+    await CatalogApiHelper.waitForEntityRemoval(
+      rhdhUrl,
+      catalogToken,
+      "Component",
+      entityName,
+      "default",
+      180_000,
+      5000,
+    );
 
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(entityName);
-            return !(await page
-              .getByRole("link", { name: entityName })
-              .isVisible());
-          },
-          {
-            message: `Component ${entityName} should not appear in catalog UI after catalog-info.yaml is removed`,
-            timeout: 180_000,
-            intervals: [5000],
-          },
-        )
-        .toBe(true);
-    });
+    await expect
+      .poll(
+        async () => {
+          await page.reload();
+          await uiHelper.openSidebar("Catalog");
+          await uiHelper.selectMuiBox("Kind", "Component");
+          await uiHelper.searchInputPlaceholder(entityName);
+          return !(await page
+            .getByRole("link", { name: entityName })
+            .isVisible());
+        },
+        {
+          message: `Component ${entityName} should not appear in catalog UI after catalog-info.yaml is removed`,
+          timeout: 180_000,
+          intervals: [5000],
+        },
+      )
+      .toBe(true);
   });
 });
