@@ -15,7 +15,7 @@ export const WAIT_OBJECTS = {
 export const GITHUB_ORG = "janus-qe";
 
 export type BulkImportRhdhDeployOptions = {
-  auth?: "keycloak" | "github";
+  auth?: "github";
   appConfig?: string;
   dynamicPlugins?: string;
   valueFile?: string;
@@ -92,6 +92,7 @@ export async function assertRepoAbsentOnBulkImport(
 ): Promise<void> {
   await waitForBulkImportPageLoad(page);
   await ensureBulkImportAccordionOpen(page);
+  await loginHelper.checkAndClickOnGHloginPopup();
   await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
 
   await uiHelper.searchInputPlaceholder(repoName);
@@ -108,52 +109,6 @@ export async function assertRepoAbsentOnBulkImport(
       { timeout: 15_000 },
     );
   }
-}
-
-type BulkImportUiHelper = {
-  waitForLoad: (timeout: number) => Promise<void>;
-  clickButton: (name: string) => Promise<unknown>;
-};
-
-/**
- * Keycloak login without popup.waitForLoadState() — Keycloak SPA often never fires "load".
- * Signs out first when switching users (e.g. test1 → test2) in the same Playwright context.
- */
-export async function loginAsKeycloakUserBulkImport(
-  page: Page,
-  loginHelper: LoginHelper,
-  uiHelper: BulkImportUiHelper,
-  username: string,
-  password: string,
-): Promise<void> {
-  const signInVisible = await page
-    .getByRole("heading", { name: /Select a sign-in method/i })
-    .isVisible({ timeout: 5_000 })
-    .catch(() => false);
-
-  if (!signInVisible) {
-    await loginHelper.signOut().catch(async () => {
-      await page.context().clearCookies();
-      await page.goto("/");
-    });
-  }
-
-  await page.goto("/");
-  await uiHelper.waitForLoad(240_000);
-
-  const popupPromise = page.waitForEvent("popup", { timeout: 60_000 });
-  await uiHelper.clickButton("Sign In");
-  const popup = await popupPromise;
-
-  await popup.waitForSelector("#username", {
-    state: "visible",
-    timeout: 60_000,
-  });
-  await popup.locator("#username").fill(username);
-  await popup.locator("#password").fill(password);
-  await popup.locator("#kc-login").click();
-  await popup.waitForEvent("close", { timeout: 90_000 }).catch(() => {});
-  await page.waitForSelector("nav a", { timeout: 60_000 });
 }
 
 /**
