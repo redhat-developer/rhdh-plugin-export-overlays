@@ -16,6 +16,4 @@ spec:
 `;
 }
 
-export function githubCatalogOwnerFromEnv(): string {
-  return process.env.VAULT_GH_USER_ID?.trim() || "test1";
-}
+export { githubCatalogOwner as githubCatalogOwnerFromEnv } from "../utils/github-credentials";

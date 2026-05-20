@@ -15,10 +15,27 @@ export async function prepareBulkImportPage(
   loginHelper: LoginHelper,
   uiHelper: UIhelper,
 ): Promise<void> {
+  await signInForBulkImportTests(page, loginHelper, uiHelper);
+}
+
+/** Default GitHub sign-in + Bulk import navigation for serial plugin tests. */
+export async function signInForBulkImportTests(
+  page: Page,
+  loginHelper: LoginHelper,
+  uiHelper: UIhelper,
+): Promise<void> {
   await loginHelper.loginAsGithubUser();
   await uiHelper.openSidebar(BULK_IMPORT_HEADING);
   await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
   await uiHelper.verifyHeading(BULK_IMPORT_HEADING);
+}
+
+export async function signInAsGuestForPermissionTest(
+  loginHelper: LoginHelper,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await loginHelper.loginAsGuest();
+  await uiHelper.openSidebar(BULK_IMPORT_HEADING);
 }
 
 type GithubLoginHelper = {

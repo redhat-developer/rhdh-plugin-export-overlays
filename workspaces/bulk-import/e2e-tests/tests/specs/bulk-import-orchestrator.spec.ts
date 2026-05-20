@@ -2,7 +2,7 @@ import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
-import { GITHUB_ORG } from "./bulk-import-shared";
+import { GITHUB_ORG } from "../../support/constants/github";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { prepareBulkImportPage } from "../../support/utils/auth";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
