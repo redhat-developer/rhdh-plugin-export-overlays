@@ -57,6 +57,18 @@ export async function dismissBulkImportLoginDialogIfPresent(
 
 const GITLAB_LOGIN_REJECTED_EMPTY_STATE = "Log in to view projects";
 
+/**
+ * Select GitLab; the Login Required dialog often opens before the radio stays
+ * checked in the a11y tree. Reject login first, then assert provider state.
+ */
+export async function selectGitLabAndRejectLogin(page: Page): Promise<void> {
+  const gitlabRadio = page.getByRole("radio", { name: "GitLab" });
+  await expect(gitlabRadio).toBeVisible({ timeout: 10_000 });
+  await gitlabRadio.check();
+  await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
+  await expect(gitlabRadio).toBeChecked({ timeout: 10_000 });
+}
+
 /** GitLab provider switch — reject Login Required and assert the empty state (rhdh-plugins#3102). */
 export async function rejectBulkImportGitLabLoginAndExpectEmptyState(
   page: Page,
