@@ -242,8 +242,8 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
     json_files = list(plugin_builds_dir.glob("*/*.json"))
 
     if not json_files:
-        log_error("No JSON files found in plugin_builds/")
-        sys.exit(1)
+        log_warn("No JSON files found in plugin_builds/")
+        return {}, [], [], {}, {}
 
     log_info(f"Found {len(json_files)} JSON file(s) to process")
 
@@ -299,8 +299,12 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
             missing_references.append((str(relative_path), "N/A", f"Error: {e}"))
 
     if not combined_index:
-        log_error("No plugins found! Cannot generate index.json")
-        sys.exit(1)
+        log_warn("No plugins with resolvable OCI images found — writing empty catalog-index/index.json")
+        catalog_index_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(catalog_index_json, 'w') as f:
+            json.dump({}, f, indent=2)
+            f.write('\n')
+        return {}, [], missing_references, plugin_workspace_paths, all_plugin_data
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
