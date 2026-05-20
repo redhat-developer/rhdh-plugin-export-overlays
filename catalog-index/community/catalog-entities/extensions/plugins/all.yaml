@@ -1,0 +1,40 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  namespace: rhdh
+  name: plugins
+spec:
+  targets:
+    - ./3scale.yaml
+    - ./ansible-plugin.yaml
+    - ./argocd-scaffolder-actions.yaml
+    - ./argocd.yaml
+    - ./azure-devops.yaml
+    - ./azure-scaffolder-actions.yaml
+    - ./backstage-community-plugin-quay.yaml
+    - ./bitbucket-cloud-catalog-integration.yaml
+    - ./bitbucket-cloud-scaffolder-actions.yaml
+    - ./bitbucket-server-catalog-integration.yaml
+    - ./bitbucket-server-scaffolder-actions.yaml
+    - ./datadog.yaml
+    - ./dynatrace-community.yaml
+    - ./gerrit-scaffolder-actions.yaml
+    - ./github-actions.yaml
+    - ./github-insights.yaml
+    - ./github-issues.yaml
+    - ./github-pull-requests.yaml
+    - ./gitlab-catalog-cards.yaml
+    - ./jenkins.yaml
+    - ./jfrog-artifactory.yaml
+    - ./jira.yaml
+    - ./lighthouse.yaml
+    - ./nexus-repository-manager.yaml
+    - ./pagerduty.yaml
+    - ./quay-scaffolder-actions.yaml
+    - ./roadie-argocd.yaml
+    - ./roadie-scaffolder-util-actions.yaml
+    - ./security-insights.yaml
+    - ./servicenow-scaffolder-actions.yaml
+    - ./sonarqube-catalog-cards.yaml
+    - ./sonarqube-scaffolder-actions.yaml
+    - ./tekton.yaml

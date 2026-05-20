@@ -1,0 +1,52 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  namespace: rhdh
+  name: plugins
+spec:
+  targets:
+    - ./adoption-insights.yaml
+    - ./analytics-provider-segment.yaml
+    - ./ansible-plugin.yaml
+    - ./argocd-scaffolder-actions.yaml
+    - ./azure-container-registry.yaml
+    - ./backstage-community-plugin-quay.yaml
+    - ./bulk-import.yaml
+    - ./contrib-techdocs-addons.yaml
+    - ./events-backend-module-github.yaml
+    - ./extensions.yaml
+    - ./github-actions.yaml
+    - ./github-catalog-integration.yaml
+    - ./github-org-catalog-integration.yaml
+    - ./github-scaffolder-actions.yaml
+    - ./gitlab-catalog-integration.yaml
+    - ./gitlab-org-catalog-integration.yaml
+    - ./gitlab-scaffolder-actions.yaml
+    - ./global-floating-action-button.yaml
+    - ./global-header.yaml
+    - ./home-page.yaml
+    - ./http-request-scaffolder-action.yaml
+    - ./keycloak-catalog-integration.yaml
+    - ./kubernetes-backend.yaml
+    - ./kubernetes-scaffolder-actions.yaml
+    - ./kubernetes.yaml
+    - ./ldap-catalog-integration.yaml
+    - ./lightspeed.yaml
+    - ./microsoft-graph-catalog-integration.yaml
+    - ./notifications-email.yaml
+    - ./notifications.yaml
+    - ./orchestrator-scaffolder-actions.yaml
+    - ./orchestrator.yaml
+    - ./pingidentity.yaml
+    - ./quay-scaffolder-actions.yaml
+    - ./quickstart.yaml
+    - ./rbac.yaml
+    - ./regex-scaffolder-actions.yaml
+    - ./roadie-argocd.yaml
+    - ./scaffolder-relation-processor-catalog-integration.yaml
+    - ./signals-backend.yaml
+    - ./signals.yaml
+    - ./tech-radar.yaml
+    - ./techdocs.yaml
+    - ./tekton.yaml
+    - ./topology.yaml

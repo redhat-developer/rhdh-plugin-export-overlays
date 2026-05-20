@@ -1,0 +1,45 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  namespace: rhdh
+  name: packages
+spec:
+  targets:
+    - ./backstage-community-plugin-3scale-backend.yaml
+    - ./backstage-community-plugin-argocd-backend.yaml
+    - ./backstage-community-plugin-argocd.yaml
+    - ./backstage-community-plugin-azure-devops-backend.yaml
+    - ./backstage-community-plugin-azure-devops.yaml
+    - ./backstage-community-plugin-dynatrace.yaml
+    - ./backstage-community-plugin-github-actions.yaml
+    - ./backstage-community-plugin-github-issues.yaml
+    - ./backstage-community-plugin-jenkins-backend.yaml
+    - ./backstage-community-plugin-jenkins.yaml
+    - ./backstage-community-plugin-jfrog-artifactory.yaml
+    - ./backstage-community-plugin-lighthouse.yaml
+    - ./backstage-community-plugin-nexus-repository-manager.yaml
+    - ./backstage-community-plugin-quay.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-quay.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-servicenow.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-sonarqube.yaml
+    - ./backstage-community-plugin-sonarqube-backend.yaml
+    - ./backstage-community-plugin-sonarqube.yaml
+    - ./backstage-community-plugin-tekton.yaml
+    - ./backstage-plugin-catalog-backend-module-bitbucket-cloud.yaml
+    - ./backstage-plugin-catalog-backend-module-bitbucket-server.yaml
+    - ./backstage-plugin-scaffolder-backend-module-azure.yaml
+    - ./backstage-plugin-scaffolder-backend-module-bitbucket-cloud.yaml
+    - ./backstage-plugin-scaffolder-backend-module-bitbucket-server.yaml
+    - ./backstage-plugin-scaffolder-backend-module-gerrit.yaml
+    - ./immobiliarelabs-backstage-plugin-gitlab-backend.yaml
+    - ./immobiliarelabs-backstage-plugin-gitlab.yaml
+    - ./pagerduty-backstage-plugin-backend.yaml
+    - ./pagerduty-backstage-plugin.yaml
+    - ./roadiehq-backstage-plugin-argo-cd-backend.yaml
+    - ./roadiehq-backstage-plugin-datadog.yaml
+    - ./roadiehq-backstage-plugin-github-insights.yaml
+    - ./roadiehq-backstage-plugin-github-pull-requests.yaml
+    - ./roadiehq-backstage-plugin-jira.yaml
+    - ./roadiehq-backstage-plugin-security-insights.yaml
+    - ./roadiehq-scaffolder-backend-argocd.yaml
+    - ./roadiehq-scaffolder-backend-module-utils.yaml

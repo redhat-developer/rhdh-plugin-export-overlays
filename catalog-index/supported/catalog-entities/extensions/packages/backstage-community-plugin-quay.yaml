@@ -1,0 +1,43 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-quay
+  namespace: rhdh
+  title: "Quay"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/quay
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/quay
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-quay"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1!backstage-community-plugin-quay
+  version: 1.32.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.45.3
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - backstage-community-plugin-quay
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-quay:
+              mountPoints:
+                - mountPoint: entity.page.image-registry/cards
+                  importName: QuayPage
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      anyOf:
+                        - isQuayAvailable

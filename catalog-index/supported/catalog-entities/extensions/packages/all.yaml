@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  namespace: rhdh
+  name: packages
+spec:
+  targets:
+    - ./backstage-community-plugin-catalog-backend-module-keycloak.yaml
+    - ./backstage-community-plugin-quay-backend.yaml
+    - ./backstage-community-plugin-quay.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-kubernetes.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-quay.yaml
+    - ./backstage-community-plugin-tekton.yaml
+    - ./rhdh-bsp-orchestrator-backend.yaml
+    - ./rhdh-bsp-scaffolder-backend-mod-orchestrator.yaml
+    - ./roadiehq-backstage-plugin-argo-cd-backend.yaml
+    - ./roadiehq-scaffolder-backend-argocd.yaml
