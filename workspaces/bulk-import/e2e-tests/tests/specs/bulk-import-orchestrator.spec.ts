@@ -1,12 +1,12 @@
-import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "../../support/constants/github";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
-import { prepareBulkImportPage } from "../../support/utils/auth";
+import { signInForBulkImportTests } from "../../support/utils/auth";
+import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
-import { GITHUB_PROVIDER_LABEL } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk import tests orchestrator mode", () => {
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
@@ -27,18 +27,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
       },
     );
     await test.runOnce("bulk-import-orchestrator-rhdh-setup", async () => {
-      const namespace = rhdh.deploymentConfig.namespace;
-      const rbacPath = WorkspacePaths.resolve(
-        "tests/config/rbac-configmap.yaml",
-      );
-      await $`kubectl apply -f ${rbacPath} -n ${namespace}`;
-
-      await rhdh.configure({
-        auth: "github",
+      await setupBulkImportRhdh(rhdh, {
         appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
         dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
       });
-      await rhdh.deploy({ timeout: 20 * 60 * 1000 });
     });
 
     await APIHelper.createGitHubRepoWithFile(
@@ -50,7 +42,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    await prepareBulkImportPage(page, loginHelper, uiHelper);
+    await signInForBulkImportTests(page, loginHelper, uiHelper);
   });
 
   test.afterAll(async () => {
@@ -84,9 +76,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await expect(
       page.getByRole("tooltip", { name: "Importing requires approval." }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("radio", { name: GITHUB_PROVIDER_LABEL }),
-    ).toBeChecked();
+    await bulkImport.expectGithubProviderChecked();
     await selectGitLabAndRejectLogin(page);
     await bulkImport.selectGithubProvider();
     await bulkImport.expectRepositoriesTableColumns();

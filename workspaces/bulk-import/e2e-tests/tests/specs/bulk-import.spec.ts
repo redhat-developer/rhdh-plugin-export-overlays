@@ -1,18 +1,22 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { GITHUB_ORG } from "../../support/constants/github";
+import {
+  GITHUB_CATALOG_OWNER,
+  GITHUB_ORG,
+} from "../../support/constants/github";
+import {
+  CATALOG_FIXTURE_REPOS,
+  catalogImportComponentUrl,
+} from "../../support/constants/catalog";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { CatalogEntityPO } from "../../support/pages/catalog-entity-po";
 import { CatalogImportPO } from "../../support/pages/catalog-import-po";
+import { defaultCatalogInfoYaml } from "../../support/test-data/catalog-info-yaml";
 import {
-  defaultCatalogInfoYaml,
-  githubCatalogOwnerFromEnv,
-} from "../../support/test-data/catalog-info-yaml";
-import {
-  prepareBulkImportPage,
   signInAsGuestForPermissionTest,
+  signInForBulkImportTests,
 } from "../../support/utils/auth";
+import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 import {
   BULK_IMPORT_HEADING,
@@ -37,7 +41,7 @@ metadata:
 spec:
   type: other
   lifecycle: unknown
-  owner: user:default/${githubCatalogOwnerFromEnv()}`;
+  owner: user:default/${GITHUB_CATALOG_OWNER}`;
 
   const newRepoName = `bulk-import-${Date.now()}`;
   const newRepoDetails = {
@@ -50,20 +54,11 @@ spec:
 
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce("bulk-import-rhdh-setup", async () => {
-      const namespace = rhdh.deploymentConfig.namespace;
-
-      const rbacPath = WorkspacePaths.resolve(
-        "tests/config/rbac-configmap.yaml",
-      );
-      await $`kubectl apply -f ${rbacPath} -n ${namespace}`;
-
-      await rhdh.configure({
-        auth: "github",
+      await setupBulkImportRhdh(rhdh, {
         appConfig: "tests/config/app-config-rhdh.yaml",
         dynamicPlugins: "tests/config/dynamic-plugins.yaml",
         valueFile: "tests/config/values.yaml",
       });
-      await rhdh.deploy({ timeout: 20 * 60 * 1000 });
     });
 
     await APIHelper.createGitHubRepoWithFile(
@@ -99,7 +94,7 @@ spec:
 
   test.describe.serial("Bulk import plugin page", () => {
     test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-      await prepareBulkImportPage(page, loginHelper, uiHelper);
+      await signInForBulkImportTests(page, loginHelper, uiHelper);
     });
 
     test("Verify the Bulk import plugin page", async ({
@@ -194,7 +189,6 @@ spec:
       const expectedCatalogInfoYaml = defaultCatalogInfoYaml(
         newRepoDetails.repoName,
         `${newRepoDetails.owner}/${newRepoDetails.repoName}`,
-        githubCatalogOwnerFromEnv(),
       );
       expect(prCatalogInfoYaml).toEqual(expectedCatalogInfoYaml);
     });
@@ -226,8 +220,10 @@ spec:
       loginHelper,
     }) => {
       const catalogImportedRepo = {
-        repoName: "janus-test-2-bulk-import-test",
-        url: "https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml",
+        repoName: CATALOG_FIXTURE_REPOS.janusTest2BulkImport,
+        url: catalogImportComponentUrl(
+          CATALOG_FIXTURE_REPOS.janusTest2BulkImport,
+        ),
       };
 
       const catalogImport = new CatalogImportPO(page);
