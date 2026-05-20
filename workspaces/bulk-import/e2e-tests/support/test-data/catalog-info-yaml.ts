@@ -1,7 +1,9 @@
+import { GITHUB_CATALOG_OWNER } from "../constants/github";
+
 export function defaultCatalogInfoYaml(
   componentName: string,
   projectSlug: string,
-  owner: string,
+  owner: string = GITHUB_CATALOG_OWNER,
 ): string {
   return `apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -15,5 +17,3 @@ spec:
   owner: user:default/${owner}
 `;
 }
-
-export { githubCatalogOwner as githubCatalogOwnerFromEnv } from "../utils/github-credentials";
