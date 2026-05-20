@@ -6,8 +6,7 @@ metadata:
     backstage.io/kubernetes-id: developer-hub
 data:
   rbac-policy.csv: |
-    g, user:default/test1, role:default/bulk-importer
-    g, user:default/GHE2EUSER_PLACEHOLDER, role:default/bulk-importer
+    g, user:default/rhdh-qe-2, role:default/bulk-importer
     p, role:default/bulk-importer, bulk-import, use, allow
     p, role:default/bulk-importer, catalog-entity, read, allow
     p, role:default/bulk-importer, catalog.entity.create, create, allow

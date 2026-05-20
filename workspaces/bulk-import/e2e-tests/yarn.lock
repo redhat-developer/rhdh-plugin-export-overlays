@@ -361,15 +361,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:1.1.32":
-  version: 1.1.32
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.32"
+"@red-hat-developer-hub/e2e-test-utils@npm:1.1.43":
+  version: 1.1.43
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:1.1.43"
   dependencies:
     "@axe-core/playwright": 4.11.1
     "@backstage-community/plugin-rbac-common": 1.26.0
     "@eslint/js": 10.0.1
     "@keycloak/keycloak-admin-client": 26.5.6
     "@kubernetes/client-node": 1.4.0
+    dotenv: 17.4.2
     eslint: 10.2.0
     eslint-plugin-check-file: 3.3.1
     eslint-plugin-playwright: 2.10.1
@@ -385,7 +386,7 @@ __metadata:
     zx: 8.8.5
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: c5b6b7398ab11eb53d0e09a0a6a78b42a1c93b43f51ba4cb1802f7106a9e494ecf4d63edb783f3a2ffae9dd2dc8d4a5766cbcfa61c692e2e960a79e3a305808c
+  checksum: 277072755dd74f42cccc547cfea0f52f13bdcc5242c6f7ef16462d600a7c6f76eea10aa91b0e14e4721946370716ef23973361d23b3c525f14b3a6508c86c940
   languageName: node
   linkType: hard
 
@@ -990,12 +991,13 @@ __metadata:
   dependencies:
     "@eslint/js": ^9.39.2
     "@playwright/test": ^1.56.1
-    "@red-hat-developer-hub/e2e-test-utils": 1.1.32
+    "@red-hat-developer-hub/e2e-test-utils": 1.1.43
     "@types/node": ^24.10.1
     dotenv: ^16.4.7
     eslint: ^9.39.2
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
+    otplib: ^12.0.1
     prettier: ^3.7.4
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
@@ -1128,6 +1130,13 @@ __metadata:
   version: 1.0.0
   resolution: "delayed-stream@npm:1.0.0"
   checksum: 46fe6e83e2cb1d85ba50bd52803c68be9bd953282fa7096f51fc29edd5d67ff84ff753c51966061e5ba7cb5e47ef6d36a91924eddb7f3f3483b1c560f77a0020
+  languageName: node
+  linkType: hard
+
+"dotenv@npm:17.4.2":
+  version: 17.4.2
+  resolution: "dotenv@npm:17.4.2"
+  checksum: 217bf2c4696ca40acc13ad063341e9c77cedfdd75e56e4919f4cf2c6333e4f7b38a4b4067e49d006125502a61060cbe85c7eecb0644e4d99ff014693eb7e62c4
   languageName: node
   linkType: hard
 
@@ -2259,7 +2268,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"otplib@npm:12.0.1":
+"otplib@npm:12.0.1, otplib@npm:^12.0.1":
   version: 12.0.1
   resolution: "otplib@npm:12.0.1"
   dependencies:

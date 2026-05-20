@@ -5,10 +5,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-import {
-  assertOAuthCredentialsPresent,
-  ensureGitHubOAuthAppForRhdh,
-} from "../helpers/github-oauth-app-helper";
 
 export const WAIT_OBJECTS = {
   muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
@@ -18,7 +14,7 @@ export const WAIT_OBJECTS = {
 export const GITHUB_ORG = "janus-qe";
 
 export type BulkImportRhdhDeployOptions = {
-  auth?: "keycloak";
+  auth?: "keycloak" | "github";
   appConfig?: string;
   dynamicPlugins?: string;
   valueFile?: string;
@@ -26,7 +22,7 @@ export type BulkImportRhdhDeployOptions = {
 };
 
 /**
- * RBAC → programmatic GitHub OAuth app (per namespace) → Helm/operator deploy.
+ * RBAC ConfigMap → Helm/operator deploy (GitHub OAuth via e2e-test-utils secrets / Vault).
  * Call once per Playwright project namespace in `beforeAll` (wrap in `test.runOnce`).
  */
 export async function setupBulkImportRhdh(
@@ -35,10 +31,8 @@ export async function setupBulkImportRhdh(
 ): Promise<void> {
   const namespace = rhdh.deploymentConfig.namespace;
   await applyBulkImportRbacConfigmap(namespace);
-  await ensureGitHubOAuthAppForRhdh(namespace);
-  assertOAuthCredentialsPresent();
   await rhdh.configure({
-    auth: options.auth ?? "keycloak",
+    auth: options.auth ?? "github",
     appConfig: options.appConfig ?? "tests/config/app-config-rhdh.yaml",
     valueFile: options.valueFile ?? "tests/config/values.yaml",
     ...(options.dynamicPlugins
@@ -99,17 +93,18 @@ export async function assertRepoAbsentOnBulkImport(
   await handleGitHubAuthDialogIfPresent(page, 22_000);
 
   await uiHelper.searchInputPlaceholder(repoName);
-  await expect(
-    page.locator(`tr:has(:text-is("${repoName}"))`),
-  ).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator(`tr:has(:text-is("${repoName}"))`)).toHaveCount(0, {
+    timeout: 30_000,
+  });
 
   const addedHeading = page.getByText(/Added repositories/i).first();
   if (await addedHeading.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await addedHeading.scrollIntoViewIfNeeded();
     await uiHelper.searchInputPlaceholder(repoName);
-    await expect(
-      page.locator(`tr:has(:text-is("${repoName}"))`),
-    ).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator(`tr:has(:text-is("${repoName}"))`)).toHaveCount(
+      0,
+      { timeout: 15_000 },
+    );
   }
 }
 
@@ -174,10 +169,12 @@ export async function clickBulkImportPreviewSave(page: Page): Promise<Locator> {
       : page.getByRole("button", { name: "Save", exact: true }).last();
 
   await expect(save).toBeVisible({ timeout: 30_000 });
-  await save.evaluate((el: { scrollIntoView: (opts?: object) => void; click: () => void }) => {
-    el.scrollIntoView({ block: "center", inline: "nearest" });
-    el.click();
-  });
+  await save.evaluate(
+    (el: { scrollIntoView: (opts?: object) => void; click: () => void }) => {
+      el.scrollIntoView({ block: "center", inline: "nearest" });
+      el.click();
+    },
+  );
   return save;
 }
 
@@ -324,7 +321,9 @@ async function ensureGitHubOAuthAuthorizePageReady(
   const checkboxGroups = [
     popup.locator("form.oauth-authorization-form input[type='checkbox']"),
     popup.locator(".oauth-org-access-details input[type='checkbox']"),
-    popup.locator(".oauth-application-summary").locator("input[type='checkbox']"),
+    popup
+      .locator(".oauth-application-summary")
+      .locator("input[type='checkbox']"),
   ];
 
   for (const group of checkboxGroups) {
@@ -369,12 +368,23 @@ async function ensureGitHubOAuthAuthorizePageReady(
   });
 
   const continueVisible =
-    (await continueBtn.first().isVisible({ timeout: 800 }).catch(() => false)) ||
-    (await continueLink.first().isVisible({ timeout: 800 }).catch(() => false));
+    (await continueBtn
+      .first()
+      .isVisible({ timeout: 800 })
+      .catch(() => false)) ||
+    (await continueLink
+      .first()
+      .isVisible({ timeout: 800 })
+      .catch(() => false));
 
   if (continueVisible && !(await hasClickableAuthorizeControl())) {
     const next = await withOptionalGitHubChildPopup(popup, async () => {
-      if (await continueBtn.first().isVisible({ timeout: 400 }).catch(() => false)) {
+      if (
+        await continueBtn
+          .first()
+          .isVisible({ timeout: 400 })
+          .catch(() => false)
+      ) {
         await continueBtn.first().click({ force: true });
       } else {
         await continueLink.first().click({ force: true });
@@ -436,7 +446,9 @@ async function pickGitHubOAuthAuthorizeClickTarget(
  * the page while navigation was still in flight, then click candidate B (e.g. Cancel / duplicate),
  * which intermittently produced `error=access_denied`.
  */
-async function approveGitHubOAuthConsent(popup: Page): Promise<[boolean, Page]> {
+async function approveGitHubOAuthConsent(
+  popup: Page,
+): Promise<[boolean, Page]> {
   if (popup.isClosed()) {
     return [false, popup];
   }
@@ -597,8 +609,7 @@ async function submitGitHubTotpIfPresent(popup: Page, user: string) {
   try {
     loginHelper.getGitHub2FAOTP(user);
   } catch (e) {
-    const msg =
-      e instanceof Error ? e.message : String(e);
+    const msg = e instanceof Error ? e.message : String(e);
     throw new Error(
       `[bulk-import e2e] GitHub 2FA page is shown but OTP cannot be generated (check VAULT_GH_USER_ID vs login user and VAULT_GH_2FA_SECRET): ${msg}`,
     );
