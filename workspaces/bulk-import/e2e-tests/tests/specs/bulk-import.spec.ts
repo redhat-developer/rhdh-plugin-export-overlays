@@ -1,7 +1,7 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { GITHUB_ORG } from "./bulk-import-shared";
+import { GITHUB_ORG } from "../../support/constants/github";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { CatalogEntityPO } from "../../support/pages/catalog-entity-po";
 import { CatalogImportPO } from "../../support/pages/catalog-import-po";
@@ -9,7 +9,10 @@ import {
   defaultCatalogInfoYaml,
   githubCatalogOwnerFromEnv,
 } from "../../support/test-data/catalog-info-yaml";
-import { prepareBulkImportPage } from "../../support/utils/auth";
+import {
+  prepareBulkImportPage,
+  signInAsGuestForPermissionTest,
+} from "../../support/utils/auth";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 import {
   BULK_IMPORT_HEADING,
@@ -255,8 +258,7 @@ spec:
 
   test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
     test.beforeEach(async ({ loginHelper, uiHelper }) => {
-      await loginHelper.loginAsGuest();
-      await uiHelper.openSidebar(BULK_IMPORT_HEADING);
+      await signInAsGuestForPermissionTest(loginHelper, uiHelper);
     });
 
     test("Bulk Import - Verify users without permission cannot access", async ({

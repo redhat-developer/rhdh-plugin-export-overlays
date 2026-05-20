@@ -136,9 +136,7 @@ export class BulkImportPO {
     await expect(article).toBeVisible();
     await expect(article.getByRole("table")).toBeVisible();
     for (const name of ["Name", "URL", "Organization", "Status"]) {
-      await expect(
-        article.getByRole("columnheader", { name }),
-      ).toBeVisible();
+      await expect(article.getByRole("columnheader", { name })).toBeVisible();
     }
     await expect(
       article.getByRole("checkbox", { name: "select all repositories" }),
