@@ -4,15 +4,32 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 
-/** Bulk Import "Login Required" — only await reauth when Log in opens a popup (utils listener has no timeout). */
-async function dismissBulkImportLoginDialogIfPresent(
+/** RHDH home sign-in screen (first navigation or new browser after a failed test). */
+async function signInAtRhdhIfNeeded(
   page: Page,
   loginHelper: LoginHelper,
-  waitForDialogMs = 8_000,
+): Promise<void> {
+  const onSignInPage = await page
+    .getByRole("heading", { name: /Select a sign-in method/i })
+    .isVisible({ timeout: 10_000 })
+    .catch(() => false);
+
+  if (onSignInPage) {
+    await loginHelper.loginAsGithubUser();
+  }
+}
+
+/**
+ * Bulk Import GitHub SCM sign-in (first visit to the page in this browser session).
+ * No-op when the dialog does not appear. Only await utils reauth if Log in opens a popup.
+ */
+async function signInAtBulkImportIfNeeded(
+  page: Page,
+  loginHelper: LoginHelper,
 ): Promise<void> {
   const loginDialog = page.getByRole("dialog", { name: "Login Required" });
   const appeared = await loginDialog
-    .waitFor({ state: "visible", timeout: waitForDialogMs })
+    .waitFor({ state: "visible", timeout: 8_000 })
     .then(() => true)
     .catch(() => false);
   if (!appeared) {
@@ -37,45 +54,22 @@ async function dismissBulkImportLoginDialogIfPresent(
   await expect(loginDialog).toBeHidden({ timeout: 60_000 });
 }
 
-/**
- * GitHub RHDH session (when needed) + navigate to Bulk import and clear SCM login dialog.
- */
+/** Navigate to Bulk import; sign in at RHDH and on the plugin page only when those screens appear. */
 export async function prepareBulkImportPage(
   page: Page,
   loginHelper: LoginHelper,
   uiHelper: UIhelper,
 ): Promise<void> {
   await page.goto("/");
-
-  if (
-    await page
-      .getByRole("button", { name: "Sign In" })
-      .isVisible({ timeout: 15_000 })
-      .catch(() => false)
-  ) {
-    await loginHelper.loginAsGithubUser();
-  }
-
+  await signInAtRhdhIfNeeded(page, loginHelper);
   await uiHelper.openSidebar("Bulk import");
-
-  const bulkImportReady = page.getByText("Source control tool", {
-    exact: true,
-  });
-  await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
-  await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-  await expect(page.getByRole("dialog", { name: "Login Required" })).toBeHidden(
-    { timeout: 5_000 },
-  );
-  await expect(bulkImportReady).toBeVisible();
+  await signInAtBulkImportIfNeeded(page, loginHelper);
   await uiHelper.verifyHeading("Bulk import");
 }
 
 const GITLAB_LOGIN_REJECTED_EMPTY_STATE = "Log in to view projects";
 
-/**
- * GitLab scope change opens Login Required; reject on that dialog (no Log in /
- * provider popup) and assert the sign-in empty state (rhdh-plugins#3102).
- */
+/** GitLab provider switch — reject Login Required and assert the empty state (rhdh-plugins#3102). */
 export async function rejectBulkImportGitLabLoginAndExpectEmptyState(
   page: Page,
   waitForDialogMs = 8_000,

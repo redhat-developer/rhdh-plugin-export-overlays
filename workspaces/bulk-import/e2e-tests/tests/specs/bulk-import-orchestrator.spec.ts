@@ -1,4 +1,4 @@
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
@@ -40,6 +40,12 @@ test.describe("Bulk import tests orchestrator mode", () => {
       },
     );
     await test.runOnce("bulk-import-orchestrator-rhdh-setup", async () => {
+      const namespace = rhdh.deploymentConfig.namespace;
+      const rbacPath = WorkspacePaths.resolve(
+        "tests/config/rbac-configmap.yaml",
+      );
+      await $`kubectl apply -f ${rbacPath} -n ${namespace}`;
+
       await rhdh.configure({
         auth: "github",
         appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
