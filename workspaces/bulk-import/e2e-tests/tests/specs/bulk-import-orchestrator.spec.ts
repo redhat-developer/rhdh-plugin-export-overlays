@@ -5,7 +5,7 @@ import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestra
 import { GITHUB_ORG } from "./bulk-import-shared";
 import {
   prepareBulkImportPage,
-  rejectBulkImportGitLabLoginAndExpectEmptyState,
+  selectGitLabAndRejectLogin,
 } from "../support/utils";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
@@ -93,9 +93,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
       page.getByRole("tooltip", { name: "Importing requires approval." }),
     ).toBeVisible();
     await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
-    await page.getByRole("radio", { name: "GitLab" }).check();
-    await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
-    await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
+    await selectGitLabAndRejectLogin(page);
     await page.getByRole("radio", { name: "GitHub" }).check();
 
     const article = page.getByRole("article");

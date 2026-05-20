@@ -13,7 +13,7 @@ import {
 } from "./bulk-import-shared";
 import {
   prepareBulkImportPage,
-  rejectBulkImportGitLabLoginAndExpectEmptyState,
+  selectGitLabAndRejectLogin,
 } from "../support/utils";
 
 const githubCatalogOwner = () =>
@@ -199,8 +199,7 @@ spec:
       ).toBeVisible();
       await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
       await page.getByRole("radio", { name: "GitLab" }).check();
-      await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
-      await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
+      await selectGitLabAndRejectLogin(page);
       await page.getByRole("radio", { name: "GitHub" }).check();
       await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
       await expect(page.getByRole("article")).toMatchAriaSnapshot(`
@@ -357,6 +356,7 @@ spec:
       await uiHelper.verifyHeading("Bulk import");
       await assertRepoAbsentOnBulkImport(
         page,
+        loginHelper,
         uiHelper,
         catalogImportedRepo.repoName,
       );
