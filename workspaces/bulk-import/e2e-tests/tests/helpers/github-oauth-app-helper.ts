@@ -69,7 +69,9 @@ export function assertOAuthCredentialsPresent(): void {
   }
 }
 
-function applyOAuthCredentialsToProcessEnv(app: ProvisionedGitHubOAuthApp): void {
+function applyOAuthCredentialsToProcessEnv(
+  app: ProvisionedGitHubOAuthApp,
+): void {
   process.env.GITHUB_OAUTH_APP_ID = app.clientId;
   process.env.GITHUB_OAUTH_APP_SECRET = app.clientSecret;
   process.env.GITHUB_APP_CLIENT_ID = app.clientId;

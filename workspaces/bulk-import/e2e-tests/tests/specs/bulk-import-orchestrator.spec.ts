@@ -1,14 +1,12 @@
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
-import { teardownGitHubOAuthAppForRhdh } from "../helpers/github-oauth-app-helper";
+import { GITHUB_ORG } from "./bulk-import-shared";
 import {
-  GITHUB_ORG,
-  WAIT_OBJECTS,
-  handleGitHubAuthDialogIfPresent,
-  setupBulkImportRhdh,
-} from "./bulk-import-shared";
+  prepareBulkImportPage,
+  rejectBulkImportGitLabLoginAndExpectEmptyState,
+} from "../support/utils";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
 async function clickLinkWithNewTab(
@@ -42,11 +40,18 @@ test.describe("Bulk import tests orchestrator mode", () => {
       },
     );
     await test.runOnce("bulk-import-orchestrator-rhdh-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
-        auth: "keycloak",
+      const namespace = rhdh.deploymentConfig.namespace;
+      const rbacPath = WorkspacePaths.resolve(
+        "tests/config/rbac-configmap.yaml",
+      );
+      await $`kubectl apply -f ${rbacPath} -n ${namespace}`;
+
+      await rhdh.configure({
+        auth: "github",
         appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
         dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
       });
+      await rhdh.deploy({ timeout: 20 * 60 * 1000 });
     });
 
     await APIHelper.createGitHubRepoWithFile(
@@ -58,16 +63,24 @@ test.describe("Bulk import tests orchestrator mode", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    // Deploy uses auth: "keycloak" (signInPage: oidc) — not loginAsGithubUser().
-    await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebar("Bulk import");
-    await handleGitHubAuthDialogIfPresent(page, 22_000);
+    await prepareBulkImportPage(page, loginHelper, uiHelper);
   });
 
-  test("should display plugin page", async ({ page, uiHelper }) => {
-    await uiHelper.openSidebar("Bulk import");
-    await uiHelper.verifyHeading("Bulk import");
+  test.afterAll(async () => {
+    try {
+      await APIHelper.deleteGitHubRepo(
+        catalogRepoDetailsForOrchestrator.owner,
+        catalogRepoDetailsForOrchestrator.name,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[Cleanup] Final cleanup failed: ${message}`);
+    }
+  });
+
+  test("should display plugin page", async ({ page, loginHelper }) => {
     await expect(page.locator("text=Selected repositories (0)")).toBeVisible();
+    await loginHelper.checkAndClickOnGHloginPopup();
 
     await expect(
       page.getByText("Source control tool", { exact: true }),
@@ -82,6 +95,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
     await page.getByRole("radio", { name: "GitLab" }).check();
     await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
+    await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
     await page.getByRole("radio", { name: "GitHub" }).check();
 
     const article = page.getByRole("article");
@@ -106,18 +120,15 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await expect(article.getByRole("link", { name: "Cancel" })).toBeVisible();
   });
 
-  test("should interact with plugin features", async ({ page, uiHelper }) => {
-    await uiHelper.openSidebar("Bulk import");
-
+  test("should interact with plugin features", async ({
+    page,
+    uiHelper,
+    loginHelper,
+  }) => {
     await expect(async () => {
       await page.reload();
-      for (const item of Object.values(WAIT_OBJECTS)) {
-        await page.waitForSelector(item, {
-          state: "hidden",
-          timeout: 12000,
-        });
-      }
-
+      await uiHelper.waitForLoad(12_000);
+      await loginHelper.checkAndClickOnGHloginPopup();
       await uiHelper.searchInputPlaceholder(
         catalogRepoDetailsForOrchestrator.name,
       );
@@ -141,31 +152,12 @@ test.describe("Bulk import tests orchestrator mode", () => {
     );
 
     await expect(await uiHelper.clickButton("Import")).toBeDisabled({
-      timeout: 10000,
+      timeout: 10_000,
     });
 
     const workflowPage = await clickLinkWithNewTab(page, "View workflow");
     await expect(
       workflowPage.getByRole("link", { name: "PR_URL" }),
-    ).toBeVisible({ timeout: 10000 });
-  });
-
-  test.afterAll(async ({ rhdh }) => {
-    try {
-      await APIHelper.deleteGitHubRepo(
-        catalogRepoDetailsForOrchestrator.owner,
-        catalogRepoDetailsForOrchestrator.name,
-      );
-
-      console.log(
-        `[Cleanup] Deleted GitHub repository: ${catalogRepoDetailsForOrchestrator.name}`,
-      );
-    } catch (error) {
-      console.error(
-        `[Cleanup] Final cleanup failed: ${(error as any).message}`,
-      );
-    } finally {
-      await teardownGitHubOAuthAppForRhdh(rhdh.deploymentConfig.namespace);
-    }
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
