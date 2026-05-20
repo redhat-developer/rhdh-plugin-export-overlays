@@ -1,0 +1,345 @@
+name: Generate Catalog Index
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release-**'
+    paths:
+      - 'workspaces/*/metadata/*.yaml'
+      - 'catalog-entities/extensions/**'
+      - 'default.packages.yaml'
+      - 'rhdh-supported-packages.txt'
+      - 'rhdh-community-packages.txt'
+      - 'scripts/**'
+      - 'versions.json'
+  workflow_dispatch:
+    inputs:
+      source-branch:
+        description: 'Source branch to generate catalog from (default: current branch)'
+        required: false
+        type: string
+        default: ''
+      target-branch:
+        description: 'Target branch to push catalog-index to (default: catalog-index-{source-branch})'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: catalog-index-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: 'quay.io/rhdh'
+  COMMUNITY_REGISTRY: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays'
+  COMMUNITY_CATALOG_INDEX: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index'
+  SUPPORTED_CATALOG_INDEX: 'quay.io/rhdh-community/plugin-catalog-index'
+  YQ_VERSION: '4.53.2'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      supported-ok: ${{ steps.gen-supported.outputs.ok }}
+      community-ok: ${{ steps.gen-community.outputs.ok }}
+      backstage-version: ${{ steps.versions.outputs.backstage-version }}
+      rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
+      source-branch: ${{ steps.branches.outputs.source-branch }}
+      target-branch: ${{ steps.branches.outputs.target-branch }}
+
+    steps:
+      - name: Determine branches
+        id: branches
+        env:
+          SOURCE_BRANCH: ${{ inputs.source-branch }}
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+        run: |
+          if [[ -z "${SOURCE_BRANCH}" ]]; then
+            SOURCE_BRANCH="${GITHUB_REF_NAME}"
+          fi
+          if [[ -z "${TARGET_BRANCH}" ]]; then
+            TARGET_BRANCH="catalog-index-${SOURCE_BRANCH}"
+          fi
+          echo "source-branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "target-branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Source branch: $SOURCE_BRANCH"
+          echo "Target branch: $TARGET_BRANCH"
+
+      - name: Checkout source branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.branches.outputs.source-branch }}
+          fetch-depth: 0
+
+      - name: Sync to target branch
+        env:
+          TARGET_BRANCH: ${{ steps.branches.outputs.target-branch }}
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code origin "refs/heads/$TARGET_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$TARGET_BRANCH"
+            git checkout "$TARGET_BRANCH"
+            git merge "origin/$SOURCE_BRANCH" --no-edit -X theirs || true
+          else
+            git checkout -b "$TARGET_BRANCH"
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pyyaml
+
+          # Install mikefarah yq (required by generateDynamicPluginsDefaultYaml.sh)
+          mkdir -p "$HOME/.local/bin"
+          curl -sSLo "$HOME/.local/bin/yq_mf" \
+            "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"
+          chmod +x "$HOME/.local/bin/yq_mf"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/yq_mf" --version
+
+      - name: Read versions
+        id: versions
+        run: |
+          BS_VERSION=$(jq -r '.backstage' versions.json)
+          CLI_VERSION=$(jq -r '.cli' versions.json)
+          # CLI version is aligned with RHDH version
+          RHDH_VERSION=$(echo "$CLI_VERSION" | grep -oP '^\d+\.\d+')
+
+          echo "backstage-version=$BS_VERSION" >> "$GITHUB_OUTPUT"
+          echo "rhdh-version=$RHDH_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Backstage version: $BS_VERSION"
+          echo "RHDH version: $RHDH_VERSION (from cli $CLI_VERSION)"
+
+      - name: Generate supported catalog
+        id: gen-supported
+        env:
+          RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
+        run: |
+          RHDH_VERSION_ARG=""
+          if [[ -n "$RHDH_VERSION" ]]; then
+            RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
+          fi
+
+          COMMUNITY_ARG="--community-registry $COMMUNITY_REGISTRY"
+
+          # shellcheck disable=SC2086
+          if scripts/update-index.sh \
+            --overlays-dir . \
+            --registry "$REGISTRY" \
+            --output-dir catalog-index/supported \
+            --plugin-builds-dir plugin_builds/supported \
+            --packages-file default.packages.yaml \
+            --packages-file rhdh-supported-packages.txt \
+            $COMMUNITY_ARG \
+            $RHDH_VERSION_ARG; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Supported catalog generation failed"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate community catalog
+        id: gen-community
+        env:
+          RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
+        run: |
+          RHDH_VERSION_ARG=""
+          if [[ -n "$RHDH_VERSION" ]]; then
+            RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
+          fi
+
+          # shellcheck disable=SC2086
+          if scripts/update-index.sh \
+            --overlays-dir . \
+            --registry "$REGISTRY" \
+            --output-dir catalog-index/community \
+            --plugin-builds-dir plugin_builds/community \
+            --packages-file rhdh-community-packages.txt \
+            $RHDH_VERSION_ARG; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Community catalog generation failed"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if any tier succeeded
+        id: check-success
+        env:
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+        run: |
+          if [[ "${SUPPORTED_OK}" != "true" && "${COMMUNITY_OK}" != "true" ]]; then
+            echo "::error::Both supported and community catalog generation failed"
+            exit 1
+          fi
+
+      - name: Write build-info.json
+        env:
+          BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
+          RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+
+          for TIER in supported community; do
+            if [[ "$TIER" == "supported" ]]; then
+              OK="${SUPPORTED_OK}"
+            else
+              OK="${COMMUNITY_OK}"
+            fi
+
+            if [[ "$OK" == "true" ]]; then
+              cat > "catalog-index/$TIER/build-info.json" <<BINFO
+          {
+            "source-repo": "${SOURCE_REPO}/tree/${SOURCE_BRANCH} @ ${SHORT_SHA}",
+            "build-date": "${BUILD_DATE}",
+            "backstage-version": "${BS_VERSION}",
+            "rhdh-version": "${RHDH_VERSION}"
+          }
+          BINFO
+            fi
+          done
+
+      - name: Commit generated outputs
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          git add catalog-index/ plugin_builds/
+          git commit -m "Generate catalog-index from ${SHORT_SHA}" || echo "No changes to commit"
+
+      - name: Push target branch
+        env:
+          TARGET_BRANCH: ${{ steps.branches.outputs.target-branch }}
+        run: |
+          MAX_RETRIES=3
+          for i in $(seq 1 $MAX_RETRIES); do
+            if git push origin "$TARGET_BRANCH"; then
+              echo "Push succeeded"
+              break
+            fi
+            if [[ $i -lt $MAX_RETRIES ]]; then
+              echo "Push failed, retrying (attempt $((i+1))/$MAX_RETRIES)..."
+              git pull --rebase origin "$TARGET_BRANCH"
+            else
+              echo "Push failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          done
+
+      - name: Upload catalog-index artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: catalog-index
+          path: catalog-index/
+          retention-days: 3
+
+  publish-supported:
+    runs-on: ubuntu-latest
+    needs: generate
+    if: needs.generate.outputs.supported-ok == 'true'
+    permissions:
+      packages: write
+
+    steps:
+      - name: Checkout (for Dockerfile)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.generate.outputs.source-branch }}
+          sparse-checkout: Dockerfile.catalog-index
+
+      - name: Download catalog-index artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: catalog-index
+          path: catalog-index/
+
+      - name: Build OCI image
+        env:
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          podman build \
+            -f Dockerfile.catalog-index \
+            --build-arg TIER=supported \
+            -t "plugin-catalog-index:bs_${BS_VERSION}-${SHORT_SHA}" \
+            -t "plugin-catalog-index:bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:latest" \
+            .
+
+      - name: Push OCI image to quay.io
+        env:
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
+
+          for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
+            podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
+            podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
+            echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
+          done
+
+  publish-community:
+    runs-on: ubuntu-latest
+    needs: generate
+    if: needs.generate.outputs.community-ok == 'true'
+    permissions:
+      packages: write
+
+    steps:
+      - name: Checkout (for Dockerfile)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.generate.outputs.source-branch }}
+          sparse-checkout: Dockerfile.catalog-index
+
+      - name: Download catalog-index artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: catalog-index
+          path: catalog-index/
+
+      - name: Build OCI image
+        env:
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          podman build \
+            -f Dockerfile.catalog-index \
+            --build-arg TIER=community \
+            -t "plugin-catalog-index:bs_${BS_VERSION}-${SHORT_SHA}" \
+            -t "plugin-catalog-index:bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:latest" \
+            .
+
+      - name: Push OCI image to ghcr.io
+        env:
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
+
+          for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
+            podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
+            podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
+            echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"
+          done
