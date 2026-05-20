@@ -12,8 +12,47 @@ export async function prepareBulkImportPage(
 ): Promise<void> {
   await loginHelper.loginAsGithubUser();
   await uiHelper.openSidebar("Bulk import");
-  await loginHelper.checkAndClickOnGHloginPopup();
+  await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
   await uiHelper.verifyHeading("Bulk import");
+}
+
+type GithubLoginHelper = {
+  checkAndReauthorizeGithubApp: () => Promise<void>;
+};
+
+/**
+ * Bulk Import shows "Login Required" after the page content paints. Wait for the
+ * dialog (do not use a one-shot isVisible right after the page marker).
+ */
+export async function dismissBulkImportLoginDialogIfPresent(
+  page: Page,
+  loginHelper: GithubLoginHelper,
+): Promise<void> {
+  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
+
+  const appeared = await loginDialog
+    .waitFor({ state: "visible", timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!appeared) {
+    return;
+  }
+
+  const logInButton = loginDialog.getByRole("button", { name: "Log in" });
+  await expect(logInButton).toBeVisible({ timeout: 10_000 });
+
+  const reauthorize = loginHelper.checkAndReauthorizeGithubApp();
+  const popup = await Promise.all([
+    page.waitForEvent("popup", { timeout: 15_000 }),
+    logInButton.click(),
+  ])
+    .then(([p]) => p)
+    .catch(() => null);
+  if (popup) {
+    await reauthorize;
+  }
+  await expect(loginDialog).toBeHidden({ timeout: 60_000 });
 }
 
 const GITLAB_LOGIN_REJECTED_EMPTY_STATE = "Log in to view projects";
