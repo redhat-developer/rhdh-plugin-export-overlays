@@ -12,8 +12,7 @@ import {
   waitForBulkImportPageLoad,
 } from "./bulk-import-shared";
 import {
-  dismissBulkImportLoginDialogIfPresent,
-  ensureGithubUserSession,
+  prepareBulkImportPage,
   rejectBulkImportGitLabLoginAndExpectEmptyState,
 } from "../support/utils";
 
@@ -169,20 +168,7 @@ spec:
 
   test.describe.serial("Bulk import plugin page", () => {
     test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-      await ensureGithubUserSession(page, loginHelper);
-      await uiHelper.openSidebar("Bulk import");
-
-      const bulkImportReady = page.getByText("Source control tool", {
-        exact: true,
-      });
-
-      await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
-      await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-      await expect(
-        page.getByRole("dialog", { name: "Login Required" }),
-      ).toBeHidden({ timeout: 5_000 });
-      await expect(bulkImportReady).toBeVisible();
-      await uiHelper.verifyHeading("Bulk import");
+      await prepareBulkImportPage(page, loginHelper, uiHelper);
     });
 
     test("Verify the Bulk import plugin page", async ({ page }) => {
