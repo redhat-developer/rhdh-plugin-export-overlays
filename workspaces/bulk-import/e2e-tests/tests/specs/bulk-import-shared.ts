@@ -1,15 +1,8 @@
-import { expect, type Locator, type Page } from "@playwright/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { LoginHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { dismissBulkImportLoginDialogIfPresent } from "../../support/utils/auth";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-import {
-  WAIT_OBJECTS,
-  BULK_IMPORT_ACCORDION_LABEL,
-} from "../../support/constants/bulk-import-selectors";
 
 export { GITHUB_ORG } from "../../support/constants/github";
 export { GITHUB_CREDENTIAL_ENV_KEYS } from "../../support/constants/github";
@@ -63,90 +56,6 @@ export async function setupBulkImportRhdh(
   await rhdh.deploy({
     timeout: options.deployTimeoutMs ?? 20 * 60 * 1000,
   });
-}
-
-export async function waitForBulkImportPageLoad(page: Page): Promise<void> {
-  for (const item of Object.values(WAIT_OBJECTS)) {
-    await page
-      .waitForSelector(item, { state: "hidden", timeout: 12_000 })
-      .catch(() => {});
-  }
-}
-
-export async function ensureBulkImportAccordionOpen(page: Page): Promise<void> {
-  const btn = page.getByRole("button", {
-    name: BULK_IMPORT_ACCORDION_LABEL,
-  });
-  if ((await btn.getAttribute("aria-expanded")) !== "true") {
-    await btn.click();
-    await expect(btn).toHaveAttribute("aria-expanded", "true");
-  }
-}
-
-export async function expectCatalogComponentVisible(
-  page: Page,
-  componentName: string,
-): Promise<void> {
-  await expect(page).toHaveURL(
-    new RegExp(
-      `/catalog/default/component/${encodeURIComponent(componentName)}`,
-    ),
-    { timeout: 60_000 },
-  );
-  await expect(
-    page.getByRole("heading", { level: 1, name: componentName }),
-  ).toBeVisible({ timeout: 60_000 });
-}
-
-/** Catalog-imported repos must not appear on Bulk import (already in catalog). */
-export async function assertRepoAbsentOnBulkImport(
-  page: Page,
-  loginHelper: LoginHelper,
-  uiHelper: { searchInputPlaceholder: (text: string) => Promise<void> },
-  repoName: string,
-): Promise<void> {
-  await waitForBulkImportPageLoad(page);
-  await ensureBulkImportAccordionOpen(page);
-  await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-
-  await uiHelper.searchInputPlaceholder(repoName);
-  await expect(page.locator(`tr:has(:text-is("${repoName}"))`)).toHaveCount(0, {
-    timeout: 30_000,
-  });
-
-  const addedHeading = page.getByText(/Added repositories/i).first();
-  if (await addedHeading.isVisible({ timeout: 5_000 }).catch(() => false)) {
-    await addedHeading.scrollIntoViewIfNeeded();
-    await uiHelper.searchInputPlaceholder(repoName);
-    await expect(page.locator(`tr:has(:text-is("${repoName}"))`)).toHaveCount(
-      0,
-      { timeout: 15_000 },
-    );
-  }
-}
-
-/**
- * Save in the catalog-info preview. `uiHelper.clickButton("Save")` matches globally and `.first()`
- * can resolve to an off-screen duplicate; Playwright then fails even with `force: true`. We scope to
- * the top dialog when present and trigger a native click (bypasses viewport actionability).
- */
-export async function clickBulkImportPreviewSave(page: Page): Promise<Locator> {
-  const save =
-    (await page.getByRole("dialog").count()) > 0
-      ? page
-          .getByRole("dialog")
-          .last()
-          .getByRole("button", { name: "Save", exact: true })
-      : page.getByRole("button", { name: "Save", exact: true }).last();
-
-  await expect(save).toBeVisible({ timeout: 30_000 });
-  await save.evaluate(
-    (el: { scrollIntoView: (opts?: object) => void; click: () => void }) => {
-      el.scrollIntoView({ block: "center", inline: "nearest" });
-      el.click();
-    },
-  );
-  return save;
 }
 
 /** GitHub browser-login credentials (Vault naming preferred in CI). */
