@@ -1,29 +1,12 @@
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "./bulk-import-shared";
+import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { prepareBulkImportPage } from "../../support/utils/auth";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
-
-/** Opens a link in a popup/new tab when GitHub does; otherwise follows navigation on the same page. */
-async function clickLinkOpensTargetPage(
-  page: Page,
-  name: string | RegExp,
-): Promise<Page> {
-  const link = page.getByRole("link", { name });
-  await expect(link).toBeVisible({ timeout: 10_000 });
-
-  const popupWait = page.waitForEvent("popup", { timeout: 8_000 });
-  await link.click();
-  const popup = await popupWait.catch(() => null);
-  if (popup) {
-    await popup.waitForLoadState();
-    return popup;
-  }
-  await page.waitForLoadState();
-  return page;
-}
+import { GITHUB_PROVIDER_LABEL } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk import tests orchestrator mode", () => {
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
@@ -82,8 +65,13 @@ test.describe("Bulk import tests orchestrator mode", () => {
     }
   });
 
-  test("should display plugin page", async ({ page, loginHelper }) => {
-    await expect(page.locator("text=Selected repositories (0)")).toBeVisible();
+  test("should display plugin page", async ({
+    page,
+    loginHelper,
+    uiHelper,
+  }) => {
+    const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
+    await bulkImport.expectOrchestratorSelectedReposEmpty();
     await loginHelper.checkAndClickOnGHloginPopup();
 
     await expect(
@@ -96,30 +84,12 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await expect(
       page.getByRole("tooltip", { name: "Importing requires approval." }),
     ).toBeVisible();
-    await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
+    await expect(
+      page.getByRole("radio", { name: GITHUB_PROVIDER_LABEL }),
+    ).toBeChecked();
     await selectGitLabAndRejectLogin(page);
-    await page.getByRole("radio", { name: "GitHub" }).check();
-
-    const article = page.getByRole("article");
-    await expect(article).toBeVisible();
-    await expect(article.getByRole("table")).toBeVisible();
-    await expect(
-      article.getByRole("columnheader", { name: "Name" }),
-    ).toBeVisible();
-    await expect(
-      article.getByRole("columnheader", { name: "URL" }),
-    ).toBeVisible();
-    await expect(
-      article.getByRole("columnheader", { name: "Organization" }),
-    ).toBeVisible();
-    await expect(
-      article.getByRole("columnheader", { name: "Status" }),
-    ).toBeVisible();
-    await expect(
-      article.getByRole("checkbox", { name: "select all repositories" }),
-    ).toBeVisible();
-    await expect(article.getByRole("button", { name: "Import" })).toBeVisible();
-    await expect(article.getByRole("link", { name: "Cancel" })).toBeVisible();
+    await bulkImport.selectGithubProvider();
+    await bulkImport.expectRepositoriesTableColumns();
   });
 
   test("should interact with plugin features", async ({
@@ -127,14 +97,13 @@ test.describe("Bulk import tests orchestrator mode", () => {
     uiHelper,
     loginHelper,
   }) => {
+    const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
+
     await expect(async () => {
       await page.reload();
       await uiHelper.waitForLoad(12_000);
       await loginHelper.checkAndClickOnGHloginPopup();
-      await uiHelper.searchInputPlaceholder(
-        catalogRepoDetailsForOrchestrator.name,
-      );
-      await uiHelper.verifyRowInTableByUniqueText(
+      await bulkImport.searchAndExpectRow(
         catalogRepoDetailsForOrchestrator.name,
         [],
       );
@@ -143,12 +112,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
       timeout: 40_000,
     });
 
-    await page
-      .locator(`tr:has(:text-is("${catalogRepoDetailsForOrchestrator.name}"))`)
-      .getByRole("checkbox")
-      .check();
-
-    await uiHelper.verifyRowInTableByUniqueText(
+    await bulkImport.checkRepoRowCheckbox(
+      catalogRepoDetailsForOrchestrator.name,
+    );
+    await bulkImport.searchAndExpectRow(
       catalogRepoDetailsForOrchestrator.name,
       [catalogRepoDetailsForOrchestrator.url],
     );
@@ -157,7 +124,8 @@ test.describe("Bulk import tests orchestrator mode", () => {
       timeout: 10_000,
     });
 
-    const workflowPage = await clickLinkOpensTargetPage(page, "View workflow");
+    const workflowPage =
+      await bulkImport.clickLinkOpensTargetPage("View workflow");
     await expect(
       workflowPage.getByRole("link", { name: "PR_URL" }),
     ).toBeVisible({ timeout: 10_000 });
