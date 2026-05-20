@@ -82,45 +82,47 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric.title,
     );
   });
+  test.describe("Aggregated scorecard drill-down", () => {
+    test.describe.configure({ retries: 1 });
+    test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
+      const [githubMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        githubMetric,
+        "github.open_prs",
+        {
+          thresholdRules: [
+            { key: "ideal", color: "rgb(180, 211, 178)" },
+            { key: "warning", color: "rgb(250, 213, 165)" },
+            { key: "critical", color: "rgb(250, 160, 160)" },
+          ],
+        },
+      );
+    });
 
-  test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
-    const [githubMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      githubMetric,
-      "github.open_prs",
-      {
-        thresholdRules: [
-          { key: "ideal", color: "rgb(180, 211, 178)" },
-          { key: "warning", color: "rgb(250, 213, 165)" },
-          { key: "critical", color: "rgb(250, 160, 160)" },
-        ],
-      },
-    );
-  });
+    test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
+      const [, jiraMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardNoDataHomepageScenario(
+        () => scorecard.navigateToHome(),
+        jiraMetric,
+        "jira.open_issues",
+        { skipIfHasDrilldown: true },
+      );
+    });
 
-  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
-    const [, jiraMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
-      () => scorecard.navigateToHome(),
-      jiraMetric,
-      "jira.open_issues",
-      { skipIfHasDrilldown: true },
-    );
-  });
-
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      FILECHECK_METRICS.readme,
-      "filecheck.readme",
-      {
-        thresholdRules: [
-          { key: "exist", color: "rgb(46, 125, 50)" },
-          { key: "missing", color: "rgb(211, 47, 47)" },
-        ],
-      },
-    );
+    test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        FILECHECK_METRICS.readme,
+        "filecheck.readme",
+        {
+          thresholdRules: [
+            { key: "exist", color: "rgb(46, 125, 50)" },
+            { key: "missing", color: "rgb(211, 47, 47)" },
+          ],
+        },
+      );
+    });
   });
 
   test.describe("Entity Scorecards", () => {
