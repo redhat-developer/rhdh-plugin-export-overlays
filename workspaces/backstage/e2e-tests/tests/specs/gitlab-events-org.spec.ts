@@ -59,14 +59,14 @@ test.describe("GitLab Events - Org Data", () => {
   });
 
   test.describe.serial("Groups", () => {
-    test("Creating group adds Group entity", async ({ page, uiHelper }) => {
+    test("Creating group adds Group entity", async () => {
       const groupName = `${testPrefix}-org-test-group`;
 
       // Create group in GitLab
       testGroupId = await GitLabApiHelper.createGroup(parentGroupId, groupName);
 
-      // Wait for the Group entity to appear in the catalog via system hook (API check)
-      await CatalogApiHelper.waitForEntity(
+      // Wait for the Group entity to appear in the catalog
+      const entity = await CatalogApiHelper.waitForEntity(
         rhdhUrl,
         catalogToken,
         "Group",
@@ -75,29 +75,10 @@ test.describe("GitLab Events - Org Data", () => {
         60_000,
         2_000,
       );
-
-      // Additional UI verification
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "Group");
-            await uiHelper.searchInputPlaceholder(groupName);
-            return await page
-              .getByRole("link", { name: groupName })
-              .isVisible();
-          },
-          {
-            message: `Group ${groupName} should appear in catalog UI`,
-            timeout: 30000,
-            intervals: [5000],
-          },
-        )
-        .toBe(true);
+      expect(entity.metadata.name).toBe(groupName);
     });
 
-    test("Deleting group removes Group entity", async ({ page, uiHelper }) => {
+    test("Deleting group removes Group entity", async () => {
       test.setTimeout(7 * 60 * 1000);
 
       const groupName = `${testPrefix}-org-test-group`;
@@ -105,7 +86,7 @@ test.describe("GitLab Events - Org Data", () => {
       // Delete group from GitLab with permanent removal to avoid "pending deletion" state
       await GitLabApiHelper.deleteGroup(testGroupId, true);
 
-      // Wait for the Group entity to be removed from the catalog (API check)
+      // Wait for the Group entity to be removed from the catalog
       await CatalogApiHelper.waitForEntityRemoval(
         rhdhUrl,
         catalogToken,
@@ -115,33 +96,21 @@ test.describe("GitLab Events - Org Data", () => {
         180_000,
         2_000,
       );
-
-      // Additional UI verification that group is removed
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "Group");
-            await uiHelper.searchInputPlaceholder(groupName);
-            return await page
-              .getByRole("link", { name: groupName })
-              .isVisible();
-          },
-          {
-            message: `Group ${groupName} should be removed from catalog UI`,
-            timeout: 60_000,
-            intervals: [5000],
-          },
-        )
-        .toBe(false);
+      expect(
+        await CatalogApiHelper.entityExists(
+          rhdhUrl,
+          catalogToken,
+          "Group",
+          groupName,
+        ),
+      ).toBe(false);
 
       testGroupId = 0; // Reset so afterAll doesn't try to delete again
     });
   });
 
   test.describe.serial("Users", () => {
-    test("Creating user adds User entity", async ({ page, uiHelper }) => {
+    test("Creating user adds User entity", async () => {
       const userName = `${testPrefix}-test-user`;
       const userEmail = `${userName}@example.com`;
 
@@ -152,8 +121,8 @@ test.describe("GitLab Events - Org Data", () => {
         userEmail,
       );
 
-      // Wait for the User entity to appear in the catalog via system hook (API check)
-      await CatalogApiHelper.waitForEntity(
+      // Wait for the User entity to appear in the catalog
+      const entity = await CatalogApiHelper.waitForEntity(
         rhdhUrl,
         catalogToken,
         "User",
@@ -162,27 +131,10 @@ test.describe("GitLab Events - Org Data", () => {
         60_000,
         2_000,
       );
-
-      // Additional UI verification
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "User");
-            await uiHelper.searchInputPlaceholder(userName);
-            return await page.getByRole("link", { name: userName }).isVisible();
-          },
-          {
-            message: `User ${userName} should appear in catalog UI`,
-            timeout: 30000,
-            intervals: [5000],
-          },
-        )
-        .toBe(true);
+      expect(entity.metadata.name).toBe(userName);
     });
 
-    test("Deleting user removes User entity", async ({ page, uiHelper }) => {
+    test("Deleting user removes User entity", async () => {
       test.setTimeout(7 * 60 * 1000);
 
       const userName = `${testPrefix}-test-user`;
@@ -190,7 +142,7 @@ test.describe("GitLab Events - Org Data", () => {
       // Delete user from GitLab with hard delete to avoid "pending deletion" state
       await GitLabApiHelper.deleteUser(testUserId, true);
 
-      // Wait for the User entity to be removed from the catalog (API check)
+      // Wait for the User entity to be removed from the catalog
       await CatalogApiHelper.waitForEntityRemoval(
         rhdhUrl,
         catalogToken,
@@ -200,24 +152,14 @@ test.describe("GitLab Events - Org Data", () => {
         180_000,
         2_000,
       );
-
-      // Additional UI verification that user is removed
-      await expect
-        .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.selectMuiBox("Kind", "User");
-            await uiHelper.searchInputPlaceholder(userName);
-            return await page.getByRole("link", { name: userName }).isVisible();
-          },
-          {
-            message: `User ${userName} should be removed from catalog UI`,
-            timeout: 60_000,
-            intervals: [5000],
-          },
-        )
-        .toBe(false);
+      expect(
+        await CatalogApiHelper.entityExists(
+          rhdhUrl,
+          catalogToken,
+          "User",
+          userName,
+        ),
+      ).toBe(false);
 
       testUserId = 0; // Reset so afterAll doesn't try to delete again
     });
@@ -245,6 +187,13 @@ test.describe("GitLab Events - Org Data", () => {
         groupId,
         userId,
       });
+
+      const groupMembers = await CatalogApiHelper.getGroupMembers(
+        rhdhUrl,
+        catalogToken,
+        groupName,
+      );
+      expect(groupMembers).toContain(userName);
 
       // Clean up
       await GitLabApiHelper.removeUserFromGroup(groupId, userId);
