@@ -11,10 +11,8 @@ import {
   expectCatalogComponentVisible,
   waitForBulkImportPageLoad,
 } from "./bulk-import-shared";
-import {
-  prepareBulkImportPage,
-  selectGitLabAndRejectLogin,
-} from "../support/utils";
+import { prepareBulkImportPage } from "../../support/utils/auth";
+import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 
 const githubCatalogOwner = () =>
   process.env.VAULT_GH_USER_ID?.trim() || "test1";

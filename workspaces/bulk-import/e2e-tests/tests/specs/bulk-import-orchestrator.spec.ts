@@ -3,10 +3,8 @@ import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "./bulk-import-shared";
-import {
-  prepareBulkImportPage,
-  selectGitLabAndRejectLogin,
-} from "../support/utils";
+import { prepareBulkImportPage } from "../../support/utils/auth";
+import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 
 /** Opens a link in a popup/new tab when GitHub does; otherwise follows navigation on the same page. */
 async function clickLinkOpensTargetPage(

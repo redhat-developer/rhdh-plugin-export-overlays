@@ -1,18 +1,38 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { LoginHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { dismissBulkImportLoginDialogIfPresent } from "../support/utils";
+import { dismissBulkImportLoginDialogIfPresent } from "../../support/utils/auth";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
+import {
+  WAIT_OBJECTS,
+  BULK_IMPORT_ACCORDION_LABEL,
+} from "../../support/constants/bulk-import-selectors";
 
-export const WAIT_OBJECTS = {
-  muiLinearProgress: 'div[class*="MuiLinearProgress-root"]',
-  muiCircularProgress: '[class*="MuiCircularProgress-root"]',
-};
-
-export const GITHUB_ORG = "janus-qe";
+export { GITHUB_ORG } from "../../support/constants/github";
+export { GITHUB_CREDENTIAL_ENV_KEYS } from "../../support/constants/github";
+export {
+  WAIT_OBJECTS,
+  BULK_IMPORT_ACCORDION_LABEL,
+  BULK_IMPORT_HEADING,
+  LOGIN_REQUIRED_DIALOG_NAME,
+  LOGIN_REQUIRED_LOG_IN_BUTTON,
+  LOGIN_REQUIRED_REJECT_ALL_BUTTON,
+  REPO_STATUS_READY_TO_IMPORT,
+  REPO_STATUS_IMPORTED,
+  REPO_STATUS_WAIT_PR_APPROVAL,
+  REPO_STATUS_ALREADY_IMPORTED,
+  GITHUB_PROVIDER_LABEL,
+  GITLAB_PROVIDER_LABEL,
+  GITLAB_LOGIN_REJECTED_EMPTY_STATE,
+  NO_REPOSITORIES_FOUND_TEST_ID,
+} from "../../support/constants/bulk-import-selectors";
+export {
+  catalogDefaultComponentPath,
+  CATALOG_FIXTURE_REPOS,
+} from "../../support/constants/catalog";
 
 export type BulkImportRhdhDeployOptions = {
   auth?: "github";
@@ -45,10 +65,6 @@ export async function setupBulkImportRhdh(
   });
 }
 
-export function catalogDefaultComponentPath(componentName: string): string {
-  return `/catalog/default/component/${encodeURIComponent(componentName)}`;
-}
-
 export async function waitForBulkImportPageLoad(page: Page): Promise<void> {
   for (const item of Object.values(WAIT_OBJECTS)) {
     await page
@@ -59,7 +75,7 @@ export async function waitForBulkImportPageLoad(page: Page): Promise<void> {
 
 export async function ensureBulkImportAccordionOpen(page: Page): Promise<void> {
   const btn = page.getByRole("button", {
-    name: "Import to Red Hat Developer Hub",
+    name: BULK_IMPORT_ACCORDION_LABEL,
   });
   if ((await btn.getAttribute("aria-expanded")) !== "true") {
     await btn.click();
@@ -77,7 +93,6 @@ export async function expectCatalogComponentVisible(
     ),
     { timeout: 60_000 },
   );
-  // Entity title h1 includes trailing controls (e.g. "Add to favorites").
   await expect(
     page.getByRole("heading", { level: 1, name: componentName }),
   ).toBeVisible({ timeout: 60_000 });
@@ -92,7 +107,6 @@ export async function assertRepoAbsentOnBulkImport(
 ): Promise<void> {
   await waitForBulkImportPageLoad(page);
   await ensureBulkImportAccordionOpen(page);
-  await loginHelper.checkAndClickOnGHloginPopup();
   await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
 
   await uiHelper.searchInputPlaceholder(repoName);
