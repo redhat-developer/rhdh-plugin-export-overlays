@@ -1,17 +1,21 @@
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   GITHUB_ORG,
   WAIT_OBJECTS,
-  applyBulkImportRbacConfigmap,
   assertRepoAbsentOnBulkImport,
-  setupBulkImportRhdh,
   catalogDefaultComponentPath,
   clickBulkImportPreviewSave,
   ensureBulkImportAccordionOpen,
   expectCatalogComponentVisible,
   waitForBulkImportPageLoad,
 } from "./bulk-import-shared";
+import {
+  dismissBulkImportLoginDialogIfPresent,
+  ensureGithubUserSession,
+  rejectBulkImportGitLabLoginAndExpectEmptyState,
+} from "../support/utils";
 
 const githubCatalogOwner = () =>
   process.env.VAULT_GH_USER_ID?.trim() || "test1";
@@ -56,71 +60,6 @@ async function reloadBulkImportPage(page: Page): Promise<void> {
   await ensureBulkImportAccordionOpen(page);
 }
 
-type GithubLoginHelper = {
-  checkAndReauthorizeGithubApp: () => Promise<void>;
-};
-
-/**
- * Bulk Import shows "Login Required" after the page content paints. Wait for the
- * dialog (do not use a one-shot isVisible right after the page marker).
- */
-async function dismissBulkImportLoginDialogIfPresent(
-  page: Page,
-  loginHelper: GithubLoginHelper,
-  waitForDialogMs = 8_000,
-): Promise<void> {
-  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
-
-  const appeared = await loginDialog
-    .waitFor({ state: "visible", timeout: waitForDialogMs })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!appeared) {
-    return;
-  }
-
-  const logInButton = loginDialog.getByRole("button", { name: "Log in" });
-  await expect(logInButton).toBeVisible({ timeout: 10_000 });
-
-  const authorize = loginHelper.checkAndReauthorizeGithubApp();
-  await logInButton.click();
-  await authorize;
-
-  await expect(loginDialog).toBeHidden({ timeout: 60_000 });
-}
-
-const GITLAB_LOGIN_REJECTED_EMPTY_STATE = "Log in to view projects";
-
-/**
- * GitLab scope change opens Login Required; reject on that dialog (no Log in /
- * provider popup) and assert the sign-in empty state (rhdh-plugins#3102).
- */
-async function rejectBulkImportGitLabLoginAndExpectEmptyState(
-  page: Page,
-  waitForDialogMs = 8_000,
-): Promise<void> {
-  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
-
-  const appeared = await loginDialog
-    .waitFor({ state: "visible", timeout: waitForDialogMs })
-    .then(() => true)
-    .catch(() => false);
-
-  if (appeared) {
-    const rejectButton = loginDialog.getByRole("button", {
-      name: "Reject All",
-    });
-    await expect(rejectButton).toBeVisible({ timeout: 10_000 });
-    await rejectButton.click();
-    await expect(loginDialog).toBeHidden({ timeout: 60_000 });
-  }
-
-  const emptyState = page.getByTestId("no-repositories-found");
-  await expect(emptyState).toBeVisible({ timeout: 30_000 });
-  await expect(emptyState).toContainText(GITLAB_LOGIN_REJECTED_EMPTY_STATE);
-}
-
 /**
  * Catalog "Import an existing Git repository" flow without e2e-test-utils
  * CatalogImportPage.analyzeAndWait (it ties success to Analyze disappearing, which flakes).
@@ -150,7 +89,7 @@ async function catalogImportRegisterFromComponentUrl(page: Page, url: string) {
   await waitForLoad(page);
 }
 
-test.describe.serial("Bulk Import plugin", () => {
+test.describe("Bulk Import plugin", () => {
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetails = {
     name: catalogRepoName,
@@ -181,9 +120,20 @@ spec:
 
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce("bulk-import-rhdh-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
+      const namespace = rhdh.deploymentConfig.namespace;
+
+      const rbacPath = WorkspacePaths.resolve(
+        "tests/config/rbac-configmap.yaml",
+      );
+      await $`kubectl apply -f ${rbacPath} -n ${namespace}`;
+
+      await rhdh.configure({
         auth: "github",
+        appConfig: "tests/config/app-config-rhdh.yaml",
+        dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+        valueFile: "tests/config/values.yaml",
       });
+      await rhdh.deploy({ timeout: 20 * 60 * 1000 });
     });
 
     await APIHelper.createGitHubRepoWithFile(
@@ -199,23 +149,6 @@ spec:
       "README.md",
       "qa test project",
     );
-  });
-
-  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
-    await loginHelper.loginAsGithubUser();
-    await uiHelper.openSidebar("Bulk import");
-
-    const bulkImportReady = page.getByText("Source control tool", {
-      exact: true,
-    });
-
-    await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
-    await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-    await expect(
-      page.getByRole("dialog", { name: "Login Required" }),
-    ).toBeHidden({ timeout: 5_000 });
-    await expect(bulkImportReady).toBeVisible();
-    await uiHelper.verifyHeading("Bulk import");
   });
 
   test.afterAll(async () => {
@@ -234,35 +167,53 @@ spec:
     }
   });
 
-  test("Bulk import plugin page", async ({ page }) => {
-    const accordion = page.getByRole("button", {
-      name: "Import to Red Hat Developer Hub",
-    });
-    await expect(accordion).toHaveAttribute("aria-expanded", "true");
-    await page
-      .getByRole("button", { name: "Import to Red Hat Developer Hub" })
-      .click();
+  test.describe.serial("Bulk import plugin page", () => {
+    test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+      await ensureGithubUserSession(page, loginHelper);
+      await uiHelper.openSidebar("Bulk import");
 
-    await expect(
-      page.getByRole("button", { name: "Import to Red Hat Developer Hub" }),
-    ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      page.getByText("Source control tool", { exact: true }),
-    ).toBeVisible();
-    await page
-      .getByLabel("Importing requires approval.")
-      .getByTestId("HelpOutlineIcon")
-      .hover();
-    await expect(
-      page.getByRole("tooltip", { name: "Importing requires approval." }),
-    ).toBeVisible();
-    await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
-    await page.getByRole("radio", { name: "GitLab" }).check();
-    await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
-    await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
-    await page.getByRole("radio", { name: "GitHub" }).check();
-    await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
-    await expect(page.getByRole("article")).toMatchAriaSnapshot(`
+      const bulkImportReady = page.getByText("Source control tool", {
+        exact: true,
+      });
+
+      await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
+      await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
+      await expect(
+        page.getByRole("dialog", { name: "Login Required" }),
+      ).toBeHidden({ timeout: 5_000 });
+      await expect(bulkImportReady).toBeVisible();
+      await uiHelper.verifyHeading("Bulk import");
+    });
+
+    test("Verify the Bulk import plugin page", async ({ page }) => {
+      const accordion = page.getByRole("button", {
+        name: "Import to Red Hat Developer Hub",
+      });
+      await expect(accordion).toHaveAttribute("aria-expanded", "true");
+      await page
+        .getByRole("button", { name: "Import to Red Hat Developer Hub" })
+        .click();
+
+      await expect(
+        page.getByRole("button", { name: "Import to Red Hat Developer Hub" }),
+      ).toHaveAttribute("aria-expanded", "false");
+      await expect(
+        page.getByText("Source control tool", { exact: true }),
+      ).toBeVisible();
+      await page
+        .getByLabel("Importing requires approval.")
+        .getByTestId("HelpOutlineIcon")
+        .hover();
+      await expect(
+        page.getByRole("tooltip", { name: "Importing requires approval." }),
+      ).toBeVisible();
+      await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
+      await page.getByRole("radio", { name: "GitLab" }).check();
+      await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
+      await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
+      await page.getByRole("radio", { name: "GitHub" }).check();
+      await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
+      await expect(page.getByRole("article")).toMatchAriaSnapshot(`
       - table:
         - rowgroup:
           - row "select all repositories Name URL Organization Status":
@@ -273,168 +224,167 @@ spec:
             - columnheader "Organization"
             - columnheader "Status"
     `);
-  });
-
-  test("Add a Repository and Confirm its Preview", async ({
-    page,
-    uiHelper,
-  }) => {
-    await expect(async () => {
-      await reloadBulkImportPage(page);
-      await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
-      await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
-        "Ready to import",
-      ]);
-    }).toPass({
-      intervals: [5_000, 10_000, 15_000],
-      timeout: 120_000,
     });
 
-    await selectRepoInTable(page, catalogRepoDetails.name);
-    await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
-      catalogRepoDetails.url,
-      "Ready to import",
-      "Preview file",
-    ]);
+    test("Add a Repository and Confirm its Preview", async ({
+      page,
+      uiHelper,
+    }) => {
+      await expect(async () => {
+        await reloadBulkImportPage(page);
+        await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
+        await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
+          "Ready to import",
+        ]);
+      }).toPass({
+        intervals: [5_000, 10_000, 15_000],
+        timeout: 120_000,
+      });
 
-    await uiHelper.clickOnLinkInTableByUniqueText(
-      catalogRepoDetails.name,
-      "Preview file",
-    );
+      await selectRepoInTable(page, catalogRepoDetails.name);
+      await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
+        catalogRepoDetails.url,
+        "Ready to import",
+        "Preview file",
+      ]);
 
-    await expect(await clickBulkImportPreviewSave(page)).toBeHidden();
-    await expect(await uiHelper.clickButton("Import")).toBeDisabled();
-  });
+      await uiHelper.clickOnLinkInTableByUniqueText(
+        catalogRepoDetails.name,
+        "Preview file",
+      );
 
-  test("Add a Repository, generate a PR, and confirm its preview", async ({
-    page,
-    uiHelper,
-  }) => {
-    await expect(async () => {
-      await reloadBulkImportPage(page);
-      await uiHelper.searchInputPlaceholder(newRepoDetails.repoName);
+      await expect(await clickBulkImportPreviewSave(page)).toBeHidden();
+      await expect(await uiHelper.clickButton("Import")).toBeDisabled();
+    });
+
+    test("Add a Repository, generate a PR, and confirm its preview", async ({
+      page,
+      uiHelper,
+    }) => {
+      await expect(async () => {
+        await reloadBulkImportPage(page);
+        await uiHelper.searchInputPlaceholder(newRepoDetails.repoName);
+        await uiHelper.verifyRowInTableByUniqueText(newRepoDetails.repoName, [
+          "Ready to import",
+        ]);
+      }).toPass({
+        intervals: [5_000],
+        timeout: 40_000,
+      });
+
+      await selectRepoInTable(page, newRepoDetails.repoName);
+      await uiHelper.clickOnLinkInTableByUniqueText(
+        newRepoDetails.repoName,
+        "Preview file",
+      );
+      await clickBulkImportPreviewSave(page);
       await uiHelper.verifyRowInTableByUniqueText(newRepoDetails.repoName, [
         "Ready to import",
       ]);
-    }).toPass({
-      intervals: [5_000],
-      timeout: 40_000,
+      await expect(await uiHelper.clickButton("Import")).toBeDisabled({
+        timeout: 10000,
+      });
     });
 
-    await selectRepoInTable(page, newRepoDetails.repoName);
-    await uiHelper.clickOnLinkInTableByUniqueText(
-      newRepoDetails.repoName,
-      "Preview file",
-    );
-    await clickBulkImportPreviewSave(page);
-    await uiHelper.verifyRowInTableByUniqueText(newRepoDetails.repoName, [
-      "Ready to import",
-    ]);
-    await expect(await uiHelper.clickButton("Import")).toBeDisabled({
-      timeout: 10000,
+    test.fixme('Verify that the two selected repositories are listed: one with the status "Already imported" and another with the status "WAIT_PR_APPROVAL."', async () => {
+      // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
     });
-  });
 
-  test.fixme('Verify that the two selected repositories are listed: one with the status "Already imported" and another with the status "WAIT_PR_APPROVAL."', async () => {
-    // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
-  });
-
-  test("Verify the Content of catalog-info.yaml in the PR is Correct", async () => {
-    const prs = await APIHelper.getGitHubPRs(
-      newRepoDetails.owner,
-      newRepoDetails.repoName,
-      "open",
-    );
-    expect(prs.length).toBeGreaterThan(0);
-
-    const prCatalogInfoYaml = await APIHelper.getfileContentFromPR(
-      newRepoDetails.owner,
-      newRepoDetails.repoName,
-      1,
-      "catalog-info.yaml",
-    );
-    const expectedCatalogInfoYaml = DEFAULT_CATALOG_INFO_YAML(
-      newRepoDetails.repoName,
-      `${newRepoDetails.owner}/${newRepoDetails.repoName}`,
-      githubCatalogOwner(),
-    );
-    expect(prCatalogInfoYaml).toEqual(expectedCatalogInfoYaml);
-  });
-
-  test.fixme("Verify Selected repositories shows catalog-info.yaml status as 'Already imported' and 'WAIT_PR_APPROVAL'", async () => {
-    // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
-  });
-
-  test.fixme("Merge the PR on GitHub and Confirm the Status Updates to 'Already imported'", async () => {
-    // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
-  });
-
-  test("Verify Added Repositories Appear in the Catalog as Expected", async ({
-    uiHelper,
-  }) => {
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.selectMuiBox("Kind", "Component");
-    await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
-
-    await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
-      "other",
-      "unknown",
-    ]);
-  });
-
-  test("Catalog-imported repo is in Catalog but absent from Bulk import", async ({
-    page,
-    uiHelper,
-    loginHelper,
-  }) => {
-    const catalogImportedRepo = {
-      repoName: "janus-test-2-bulk-import-test",
-      url: "https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml",
-    };
-
-    await uiHelper.openSidebar("Catalog");
-    await uiHelper.clickButton("Self-service");
-    await uiHelper.clickButton("Import an existing Git repository");
-
-    await catalogImportRegisterFromComponentUrl(page, catalogImportedRepo.url);
-
-    await expect(async () => {
-      await page.goto(
-        catalogDefaultComponentPath(catalogImportedRepo.repoName),
+    test("Verify the Content of catalog-info.yaml in the PR is Correct", async () => {
+      const prs = await APIHelper.getGitHubPRs(
+        newRepoDetails.owner,
+        newRepoDetails.repoName,
+        "open",
       );
-      await loginHelper.checkAndClickOnGHloginPopup();
-      await expectCatalogComponentVisible(page, catalogImportedRepo.repoName);
-    }).toPass({
-      intervals: [15_000],
-      timeout: 180_000,
+      expect(prs.length).toBeGreaterThan(0);
+
+      const prCatalogInfoYaml = await APIHelper.getfileContentFromPR(
+        newRepoDetails.owner,
+        newRepoDetails.repoName,
+        1,
+        "catalog-info.yaml",
+      );
+      const expectedCatalogInfoYaml = DEFAULT_CATALOG_INFO_YAML(
+        newRepoDetails.repoName,
+        `${newRepoDetails.owner}/${newRepoDetails.repoName}`,
+        githubCatalogOwner(),
+      );
+      expect(prCatalogInfoYaml).toEqual(expectedCatalogInfoYaml);
     });
 
-    await uiHelper.openSidebar("Bulk import");
-    await uiHelper.verifyHeading("Bulk import");
-    await assertRepoAbsentOnBulkImport(
+    test.fixme("Verify Selected repositories shows catalog-info.yaml status as 'Already imported' and 'WAIT_PR_APPROVAL'", async () => {
+      // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
+    });
+
+    test.fixme("Merge the PR on GitHub and Confirm the Status Updates to 'Already imported'", async () => {
+      // TODO: re-enable when bulk-import import/approval statuses match legacy expectations.
+    });
+
+    test("Verify Added Repositories Appear in the Catalog as Expected", async ({
+      uiHelper,
+    }) => {
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.selectMuiBox("Kind", "Component");
+      await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
+
+      await uiHelper.verifyRowInTableByUniqueText(catalogRepoDetails.name, [
+        "other",
+        "unknown",
+      ]);
+    });
+
+    test("Catalog-imported repo is in Catalog but absent from Bulk import", async ({
       page,
       uiHelper,
-      catalogImportedRepo.repoName,
-    );
-  });
-});
+      loginHelper,
+    }) => {
+      const catalogImportedRepo = {
+        repoName: "janus-test-2-bulk-import-test",
+        url: "https://github.com/janus-test/janus-test-2-bulk-import-test/blob/main/catalog-info.yaml",
+      };
 
-test.describe
-  .serial("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
-  test.beforeAll(async ({ rhdh }) => {
-    await applyBulkImportRbacConfigmap(rhdh.deploymentConfig.namespace);
+      await uiHelper.openSidebar("Catalog");
+      await uiHelper.clickButton("Self-service");
+      await uiHelper.clickButton("Import an existing Git repository");
+
+      await catalogImportRegisterFromComponentUrl(
+        page,
+        catalogImportedRepo.url,
+      );
+
+      await expect(async () => {
+        await page.goto(
+          catalogDefaultComponentPath(catalogImportedRepo.repoName),
+        );
+        await loginHelper.checkAndClickOnGHloginPopup();
+        await expectCatalogComponentVisible(page, catalogImportedRepo.repoName);
+      }).toPass({
+        intervals: [15_000],
+        timeout: 180_000,
+      });
+
+      await uiHelper.openSidebar("Bulk import");
+      await uiHelper.verifyHeading("Bulk import");
+      await assertRepoAbsentOnBulkImport(
+        page,
+        uiHelper,
+        catalogImportedRepo.repoName,
+      );
+    });
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
-    await loginHelper.signOut();
-    await loginHelper.loginAsGuest();
-    await uiHelper.openSidebar("Bulk import");
-  });
+  test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
+    test.beforeEach(async ({ loginHelper, uiHelper }) => {
+      await loginHelper.signOut();
+      await loginHelper.loginAsGuest();
+      await uiHelper.openSidebar("Bulk import");
+    });
 
-  test("Bulk Import - Verify users without permission cannot access", async ({
-    uiHelper,
-  }) => {
-    await uiHelper.verifyText("Permission required");
-    expect(await uiHelper.isBtnVisible("Import")).toBeFalsy();
+    test("Bulk Import - Verify users without permission cannot access", async ({
+      uiHelper,
+    }) => {
+      await uiHelper.verifyText("Permission required");
+      expect(await uiHelper.isBtnVisible("Import")).toBeFalsy();
+    });
   });
 });

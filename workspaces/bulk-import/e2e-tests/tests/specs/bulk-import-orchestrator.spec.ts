@@ -3,6 +3,10 @@ import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "./bulk-import-shared";
+import {
+  dismissBulkImportLoginDialogIfPresent,
+  ensureGithubUserSession,
+} from "../support/utils";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
 async function clickLinkWithNewTab(
@@ -52,10 +56,21 @@ test.describe("Bulk import tests orchestrator mode", () => {
     );
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
-    await loginHelper.loginAsGithubUser();
+  test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    await ensureGithubUserSession(page, loginHelper);
     await uiHelper.openSidebar("Bulk import");
-    await loginHelper.checkAndClickOnGHloginPopup();
+
+    const bulkImportReady = page.getByText("Source control tool", {
+      exact: true,
+    });
+
+    await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
+    await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
+    await expect(
+      page.getByRole("dialog", { name: "Login Required" }),
+    ).toBeHidden({ timeout: 5_000 });
+    await expect(bulkImportReady).toBeVisible();
+
     await uiHelper.verifyHeading("Bulk import");
   });
 
