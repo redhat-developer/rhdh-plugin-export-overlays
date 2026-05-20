@@ -78,8 +78,9 @@ test.describe("Bulk import tests orchestrator mode", () => {
     }
   });
 
-  test("should display plugin page", async ({ page }) => {
+  test("should display plugin page", async ({ page, loginHelper }) => {
     await expect(page.locator("text=Selected repositories (0)")).toBeVisible();
+    await loginHelper.checkAndClickOnGHloginPopup();
 
     await expect(
       page.getByText("Source control tool", { exact: true }),

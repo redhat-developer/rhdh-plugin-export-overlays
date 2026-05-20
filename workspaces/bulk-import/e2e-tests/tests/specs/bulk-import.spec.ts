@@ -171,7 +171,11 @@ spec:
       await prepareBulkImportPage(page, loginHelper, uiHelper);
     });
 
-    test("Verify the Bulk import plugin page", async ({ page }) => {
+    test("Verify the Bulk import plugin page", async ({
+      page,
+      loginHelper,
+    }) => {
+      await loginHelper.checkAndClickOnGHloginPopup();
       const accordion = page.getByRole("button", {
         name: "Import to Red Hat Developer Hub",
       });
@@ -361,7 +365,6 @@ spec:
 
   test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
     test.beforeEach(async ({ loginHelper, uiHelper }) => {
-      await loginHelper.signOut();
       await loginHelper.loginAsGuest();
       await uiHelper.openSidebar("Bulk import");
     });
