@@ -3,7 +3,10 @@ import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "./bulk-import-shared";
-import { prepareBulkImportPage } from "../support/utils";
+import {
+  prepareBulkImportPage,
+  rejectBulkImportGitLabLoginAndExpectEmptyState,
+} from "../support/utils";
 
 /** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
 async function clickLinkWithNewTab(
@@ -85,6 +88,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
     await page.getByRole("radio", { name: "GitLab" }).check();
     await expect(page.getByRole("radio", { name: "GitLab" })).toBeChecked();
+    await rejectBulkImportGitLabLoginAndExpectEmptyState(page);
     await page.getByRole("radio", { name: "GitHub" }).check();
 
     const article = page.getByRole("article");

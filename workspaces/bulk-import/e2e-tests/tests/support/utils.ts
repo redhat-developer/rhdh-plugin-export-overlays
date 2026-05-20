@@ -1,4 +1,7 @@
-import { LoginHelper, UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import {
+  LoginHelper,
+  UIhelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 /** Bulk Import "Login Required" — only await reauth when Log in opens a popup (utils listener has no timeout). */
@@ -60,9 +63,9 @@ export async function prepareBulkImportPage(
   });
   await expect(bulkImportReady).toBeVisible({ timeout: 20_000 });
   await dismissBulkImportLoginDialogIfPresent(page, loginHelper);
-  await expect(
-    page.getByRole("dialog", { name: "Login Required" }),
-  ).toBeHidden({ timeout: 5_000 });
+  await expect(page.getByRole("dialog", { name: "Login Required" })).toBeHidden(
+    { timeout: 5_000 },
+  );
   await expect(bulkImportReady).toBeVisible();
   await uiHelper.verifyHeading("Bulk import");
 }
