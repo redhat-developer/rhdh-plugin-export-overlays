@@ -4,66 +4,15 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 
-/** RHDH home sign-in screen (first navigation or new browser after a failed test). */
-async function signInAtRhdhIfNeeded(
-  page: Page,
-  loginHelper: LoginHelper,
-): Promise<void> {
-  const onSignInPage = await page
-    .getByRole("heading", { name: /Select a sign-in method/i })
-    .isVisible({ timeout: 10_000 })
-    .catch(() => false);
-
-  if (onSignInPage) {
-    await loginHelper.loginAsGithubUser();
-  }
-}
-
-/**
- * Bulk Import GitHub SCM sign-in (first visit to the page in this browser session).
- * No-op when the dialog does not appear. Only await utils reauth if Log in opens a popup.
- */
-async function signInAtBulkImportIfNeeded(
-  page: Page,
-  loginHelper: LoginHelper,
-): Promise<void> {
-  const loginDialog = page.getByRole("dialog", { name: "Login Required" });
-  const appeared = await loginDialog
-    .waitFor({ state: "visible", timeout: 8_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!appeared) {
-    return;
-  }
-
-  const logInButton = loginDialog.getByRole("button", { name: "Log in" });
-  await expect(logInButton).toBeVisible({ timeout: 10_000 });
-
-  const reauthorize = loginHelper.checkAndReauthorizeGithubApp();
-  const popup = await Promise.all([
-    page.waitForEvent("popup", { timeout: 15_000 }),
-    logInButton.click(),
-  ])
-    .then(([p]) => p)
-    .catch(() => null);
-
-  if (popup) {
-    await reauthorize;
-  }
-
-  await expect(loginDialog).toBeHidden({ timeout: 60_000 });
-}
-
-/** Navigate to Bulk import; sign in at RHDH and on the plugin page only when those screens appear. */
+/** RHDH + Bulk import setup using e2e-test-utils login. */
 export async function prepareBulkImportPage(
   page: Page,
   loginHelper: LoginHelper,
   uiHelper: UIhelper,
 ): Promise<void> {
-  await page.goto("/");
-  await signInAtRhdhIfNeeded(page, loginHelper);
+  await loginHelper.loginAsGithubUser();
   await uiHelper.openSidebar("Bulk import");
-  await signInAtBulkImportIfNeeded(page, loginHelper);
+  await loginHelper.checkAndClickOnGHloginPopup();
   await uiHelper.verifyHeading("Bulk import");
 }
 
