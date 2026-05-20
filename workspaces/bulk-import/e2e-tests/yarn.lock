@@ -993,11 +993,9 @@ __metadata:
     "@playwright/test": ^1.56.1
     "@red-hat-developer-hub/e2e-test-utils": 1.1.43
     "@types/node": ^24.10.1
-    dotenv: ^16.4.7
     eslint: ^9.39.2
     eslint-plugin-check-file: ^3.3.1
     eslint-plugin-playwright: ^2.4.0
-    otplib: ^12.0.1
     prettier: ^3.7.4
     typescript: ^5.9.3
     typescript-eslint: ^8.50.0
@@ -1137,13 +1135,6 @@ __metadata:
   version: 17.4.2
   resolution: "dotenv@npm:17.4.2"
   checksum: 217bf2c4696ca40acc13ad063341e9c77cedfdd75e56e4919f4cf2c6333e4f7b38a4b4067e49d006125502a61060cbe85c7eecb0644e4d99ff014693eb7e62c4
-  languageName: node
-  linkType: hard
-
-"dotenv@npm:^16.4.7":
-  version: 16.6.1
-  resolution: "dotenv@npm:16.6.1"
-  checksum: e8bd63c9a37f57934f7938a9cf35de698097fadf980cb6edb61d33b3e424ceccfe4d10f37130b904a973b9038627c2646a3365a904b4406514ea94d7f1816b69
   languageName: node
   linkType: hard
 
@@ -2268,7 +2259,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"otplib@npm:12.0.1, otplib@npm:^12.0.1":
+"otplib@npm:12.0.1":
   version: 12.0.1
   resolution: "otplib@npm:12.0.1"
   dependencies:

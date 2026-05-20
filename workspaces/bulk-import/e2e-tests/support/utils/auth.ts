@@ -9,16 +9,7 @@ import {
   LOGIN_REQUIRED_LOG_IN_BUTTON,
 } from "../constants/bulk-import-selectors";
 
-/** RHDH + Bulk import setup using e2e-test-utils login. */
-export async function prepareBulkImportPage(
-  page: Page,
-  loginHelper: LoginHelper,
-  uiHelper: UIhelper,
-): Promise<void> {
-  await signInForBulkImportTests(page, loginHelper, uiHelper);
-}
-
-/** Default GitHub sign-in + Bulk import navigation for serial plugin tests. */
+/** GitHub sign-in + Bulk import navigation for plugin tests. */
 export async function signInForBulkImportTests(
   page: Page,
   loginHelper: LoginHelper,
