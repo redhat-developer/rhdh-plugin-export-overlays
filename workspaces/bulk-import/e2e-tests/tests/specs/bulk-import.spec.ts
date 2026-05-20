@@ -198,7 +198,6 @@ spec:
         page.getByRole("tooltip", { name: "Importing requires approval." }),
       ).toBeVisible();
       await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();
-      await page.getByRole("radio", { name: "GitLab" }).check();
       await selectGitLabAndRejectLogin(page);
       await page.getByRole("radio", { name: "GitHub" }).check();
       await expect(page.getByRole("radio", { name: "GitHub" })).toBeChecked();

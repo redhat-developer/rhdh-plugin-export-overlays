@@ -8,17 +8,23 @@ import {
   selectGitLabAndRejectLogin,
 } from "../support/utils";
 
-/** Clicks a link that opens in a new tab and returns the new page (so you can assert on it). */
-async function clickLinkWithNewTab(
+/** Opens a link in a popup/new tab when GitHub does; otherwise follows navigation on the same page. */
+async function clickLinkOpensTargetPage(
   page: Page,
   name: string | RegExp,
 ): Promise<Page> {
-  const [newPage] = await Promise.all([
-    page.context().waitForEvent("page"),
-    page.getByRole("link", { name }).click(),
-  ]);
-  await newPage.waitForLoadState();
-  return newPage;
+  const link = page.getByRole("link", { name });
+  await expect(link).toBeVisible({ timeout: 10_000 });
+
+  const popupWait = page.waitForEvent("popup", { timeout: 8_000 });
+  await link.click();
+  const popup = await popupWait.catch(() => null);
+  if (popup) {
+    await popup.waitForLoadState();
+    return popup;
+  }
+  await page.waitForLoadState();
+  return page;
 }
 
 test.describe("Bulk import tests orchestrator mode", () => {
@@ -153,7 +159,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
       timeout: 10_000,
     });
 
-    const workflowPage = await clickLinkWithNewTab(page, "View workflow");
+    const workflowPage = await clickLinkOpensTargetPage(page, "View workflow");
     await expect(
       workflowPage.getByRole("link", { name: "PR_URL" }),
     ).toBeVisible({ timeout: 10_000 });
