@@ -1,31 +1,9 @@
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-
-export { GITHUB_ORG } from "../../support/constants/github";
-export { GITHUB_CREDENTIAL_ENV_KEYS } from "../../support/constants/github";
-export {
-  WAIT_OBJECTS,
-  BULK_IMPORT_ACCORDION_LABEL,
-  BULK_IMPORT_HEADING,
-  LOGIN_REQUIRED_DIALOG_NAME,
-  LOGIN_REQUIRED_LOG_IN_BUTTON,
-  LOGIN_REQUIRED_REJECT_ALL_BUTTON,
-  REPO_STATUS_READY_TO_IMPORT,
-  REPO_STATUS_IMPORTED,
-  REPO_STATUS_WAIT_PR_APPROVAL,
-  REPO_STATUS_ALREADY_IMPORTED,
-  GITHUB_PROVIDER_LABEL,
-  GITLAB_PROVIDER_LABEL,
-  GITLAB_LOGIN_REJECTED_EMPTY_STATE,
-  NO_REPOSITORIES_FOUND_TEST_ID,
-} from "../../support/constants/bulk-import-selectors";
-export {
-  catalogDefaultComponentPath,
-  CATALOG_FIXTURE_REPOS,
-} from "../../support/constants/catalog";
+import { getGitHubLoginCredentials } from "./github-credentials";
 
 export type BulkImportRhdhDeployOptions = {
   auth?: "github";
@@ -56,19 +34,6 @@ export async function setupBulkImportRhdh(
   await rhdh.deploy({
     timeout: options.deployTimeoutMs ?? 20 * 60 * 1000,
   });
-}
-
-/** GitHub browser-login credentials (Vault naming preferred in CI). */
-export function getGitHubLoginCredentials(): {
-  user: string | undefined;
-  pass: string | undefined;
-} {
-  const user =
-    process.env.VAULT_GH_USER_ID?.trim() || process.env.GITHUB_USERNAME?.trim();
-  const pass =
-    process.env.VAULT_GH_USER_PASS?.trim() ||
-    process.env.GITHUB_PASSWORD?.trim();
-  return { user, pass };
 }
 
 /** Applies RBAC ConfigMap with `GHE2EUSER_PLACEHOLDER` replaced by the GitHub login used for e2e. */
