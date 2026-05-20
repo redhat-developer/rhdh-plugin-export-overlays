@@ -211,6 +211,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
           await scorecard.expectScorecardHidden(metric.title);
         }
       });
+    });
+
     test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
       await catalog.go();
       await catalog.goToByName("github-scorecard-only");
