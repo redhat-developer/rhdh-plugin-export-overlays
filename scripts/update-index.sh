@@ -48,6 +48,7 @@ COMMUNITY_REGISTRY="ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 OUTPUT_DIR="catalog-index"
 PLUGIN_BUILDS_DIR="plugin_builds"
 PACKAGES_FILES=()
+REPORT_FILE=""
 DEBUG_FLAG=""
 DEBUG=0
 
@@ -83,6 +84,7 @@ Arguments:
                                Files are unioned. Supports default.packages.yaml (npm names)
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
                                DPDY generation uses only the first .yaml file.
+       --report-file           Path to build-report.json for tracking generation stages (optional).
        --debug                 Enable debug output
   -h,  --help                  Show this help
 USAGE
@@ -119,6 +121,10 @@ while [[ "$#" -gt 0 ]]; do
         COMMUNITY_REGISTRY="$2"
         shift 2
         ;;
+    '--report-file')
+        REPORT_FILE="$2"
+        shift 2
+        ;;
     '--debug')
         DEBUG=1
         DEBUG_FLAG="--debug"
@@ -150,7 +156,14 @@ if [[ $DEBUG -eq 1 ]]; then
     echo "OUTPUT_DIR         = $OUTPUT_DIR"
     echo "PLUGIN_BUILDS_DIR  = $PLUGIN_BUILDS_DIR"
     echo "PACKAGES_FILES     = ${PACKAGES_FILES[*]:-<none>}"
+    echo "REPORT_FILE        = ${REPORT_FILE:-<none>}"
     echo "#################################"
+fi
+
+# Build --report-file arg
+REPORT_FILE_ARG=""
+if [[ -n "$REPORT_FILE" ]]; then
+    REPORT_FILE_ARG="--report-file $REPORT_FILE"
 fi
 
 # Build --packages-file args for bootstrapPluginBuilds.py
@@ -181,6 +194,7 @@ if ! python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
     $RHDH_VERSION_ARG \
     $BOOTSTRAP_FILTER_ARGS \
     $COMMUNITY_REGISTRY_ARG \
+    $REPORT_FILE_ARG \
     $DEBUG_FLAG; then
     echo -e "${red}[ERROR] bootstrapPluginBuilds.py failed!${norm}" >&2; exit 1
 fi
@@ -216,6 +230,7 @@ if ! python3 "$SCRIPT_DIR/generatePluginBuildInfo.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
+    $REPORT_FILE_ARG \
     $DEBUG_FLAG; then
     echo -e "${red}[ERROR] generatePluginBuildInfo.py failed!${norm}" >&2; exit 1
 fi
@@ -235,16 +250,36 @@ done
 if [[ -n "$DPDY_PACKAGES_FILE" ]]; then
     echo -e "\n${green}=== Step 3: Generate dynamic-plugins.default.yaml ===${norm}"
     mkdir -p "$OUTPUT_DIR"
+    DPDY_STATUS="pass"
     # shellcheck disable=SC2086
     if ! "$SCRIPT_DIR/generateDynamicPluginsDefaultYaml.sh" \
         --packages-file "$DPDY_PACKAGES_FILE" \
         --output-file "$OUTPUT_DIR/dynamic-plugins.default.yaml" \
         --overlays-dir "$OVERLAYS_DIR" \
         $DEBUG_FLAG; then
+        DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2; exit 1
+    fi
+    if [[ -n "$REPORT_FILE" ]]; then
+        python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from plugin_utils import BuildReport
+r = BuildReport('${REPORT_FILE}')
+r.set_stage_all('dpdy', '${DPDY_STATUS}')
+r.save()
+"
     fi
 else
     echo -e "\n${blue}=== Step 3: Skipped (no .yaml packages file provided) ===${norm}"
+    if [[ -n "$REPORT_FILE" ]]; then
+        python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from plugin_utils import BuildReport
+r = BuildReport('${REPORT_FILE}')
+r.set_stage_all('dpdy', 'skip')
+r.save()
+"
+    fi
 fi
 
 ##############################################
@@ -262,6 +297,7 @@ if ! python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
     $PACKAGES_FILE_ARGS \
+    $REPORT_FILE_ARG \
     $DEBUG_FLAG; then
     echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}" >&2; exit 1
 fi
