@@ -168,6 +168,19 @@ def render_status_page(
         lines.append(f"{' | '.join(version_parts)}  ")
     if run_link:
         lines.append(f"**Workflow run:** {run_link}  ")
+
+    # Show last successful/failed commit from report metadata
+    # Use the first available report (supported takes priority)
+    meta = (supported_report or community_report or {}).get("metadata", {})
+    last_ok = meta.get("last-successful-commit", "")
+    last_fail = meta.get("last-failed-commit", "")
+    if last_ok:
+        ok_link = f"[{last_ok[:7]}]({source_repo}/commit/{last_ok})" if source_repo else last_ok[:7]
+        lines.append(f"**Last successful build:** {ok_link}  ")
+    if last_fail:
+        fail_link = f"[{last_fail[:7]}]({source_repo}/commit/{last_fail})" if source_repo else last_fail[:7]
+        lines.append(f"**Last failed build:** {fail_link}  ")
+
     lines.append("")
 
     # Summary table
