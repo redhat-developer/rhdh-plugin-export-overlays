@@ -1,6 +1,17 @@
 app:
   title: RHDH Backstage Test Instance
 
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: test-token
+          subject: gitlab-events-e2e
+
+permission:
+  enabled: false
+
 events:
   http:
     topics:

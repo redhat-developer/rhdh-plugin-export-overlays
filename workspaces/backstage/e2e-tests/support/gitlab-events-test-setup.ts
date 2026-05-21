@@ -1,10 +1,8 @@
-import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import type { Page } from "@playwright/test";
 
-import { CatalogApiHelper } from "./api/catalog-api-helper.js";
 import { GitLabApiHelper } from "./api/gitlab-api-helper.js";
+
+export const GITLAB_EVENTS_CATALOG_TOKEN = "test-token";
 
 const GITLAB_EVENTS_RHDH_CONFIG = {
   auth: "keycloak" as const,
@@ -47,10 +45,10 @@ export function bootstrapGitLabEventsApiClient(): string {
 
 export async function deployGitLabEventsHub(
   rhdh: GitLabEventsRhdhWorker,
-): Promise<string> {
+): Promise<{ rhdhUrl: string; catalogToken: string }> {
   await rhdh.configure(GITLAB_EVENTS_RHDH_CONFIG);
   await rhdh.deploy();
-  return rhdh.rhdhUrl;
+  return { rhdhUrl: rhdh.rhdhUrl, catalogToken: GITLAB_EVENTS_CATALOG_TOKEN };
 }
 
 export async function prepareGitLabEventsParentGroup(): Promise<{
@@ -67,56 +65,6 @@ export async function prepareGitLabEventsParentGroup(): Promise<{
   };
 }
 
-type UiLoadHelper = { waitForLoad: () => Promise<void> };
-
-/**
- * After Keycloak login: opens RHDH and polls until {@link AuthApiHelper#getToken}
- * returns a non-empty catalog session token. Callers should guard with `if (!token)`.
- */
-export async function fetchCatalogSessionToken(
-  page: Page,
-  uiHelper: UiLoadHelper,
-  rhdhUrl: string,
-): Promise<string> {
-  const authApiHelper = new AuthApiHelper(page);
-  await page.goto(rhdhUrl);
-  await uiHelper.waitForLoad();
-  await page.locator("nav").first().waitFor({ state: "visible" });
-  await page
-    .locator('button[data-testid="user-settings-menu"], [aria-label*="user"]')
-    .first()
-    .waitFor({ state: "visible", timeout: 10000 })
-    .catch(() => {});
-
-  let token: string | undefined;
-  await expect
-    .poll(
-      async () => {
-        try {
-          const next = await authApiHelper.getToken();
-          if (next && next.length > 0) {
-            token = next;
-            return true;
-          }
-          return false;
-        } catch {
-          return false;
-        }
-      },
-      {
-        message: "Token should be retrieved after session is established",
-        timeout: 30000,
-        intervals: [2000],
-      },
-    )
-    .toBe(true);
-
-  if (!token) {
-    throw new TypeError("Catalog session token was not captured after polling");
-  }
-  return token;
-}
-
 export async function runGitLabEventsCleanupSafely(
   cleanup: () => Promise<void>,
 ): Promise<void> {
@@ -127,70 +75,4 @@ export async function runGitLabEventsCleanupSafely(
       `Cleanup error: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-}
-
-/**
- * Creates a GitLab group and user, then waits until both appear in the RHDH catalog.
- */
-export async function createGitLabGroupAndUserVisibleInCatalog(options: {
-  parentGroupId: number;
-  rhdhUrl: string;
-  catalogToken: string;
-  groupName: string;
-  userName: string;
-}): Promise<{ groupId: number; userId: number }> {
-  const { parentGroupId, rhdhUrl, catalogToken, groupName, userName } = options;
-  const userEmail = `${userName}@example.com`;
-  const groupId = await GitLabApiHelper.createGroup(parentGroupId, groupName);
-  const userId = await GitLabApiHelper.createUser(
-    userName,
-    userName,
-    userEmail,
-  );
-  await CatalogApiHelper.waitForEntity(
-    rhdhUrl,
-    catalogToken,
-    "Group",
-    groupName,
-    "default",
-    60_000,
-    2_000,
-  );
-  await CatalogApiHelper.waitForEntity(
-    rhdhUrl,
-    catalogToken,
-    "User",
-    userName,
-    "default",
-    60_000,
-    2_000,
-  );
-  return { groupId, userId };
-}
-
-/**
- * Adds the GitLab user to the group and polls the catalog until the membership edge exists.
- */
-export async function addGitLabUserToGroupAndWaitForCatalogMember(options: {
-  rhdhUrl: string;
-  catalogToken: string;
-  groupName: string;
-  userName: string;
-  groupId: number;
-  userId: number;
-}): Promise<void> {
-  const { rhdhUrl, catalogToken, groupName, userName, groupId, userId } =
-    options;
-  await GitLabApiHelper.addUserToGroup(groupId, userId);
-  await expect(async () => {
-    const groupMembers = await CatalogApiHelper.getGroupMembers(
-      rhdhUrl,
-      catalogToken,
-      groupName,
-    );
-    expect(groupMembers).toContain(userName);
-  }).toPass({
-    timeout: 60_000,
-    intervals: [2_000],
-  });
 }

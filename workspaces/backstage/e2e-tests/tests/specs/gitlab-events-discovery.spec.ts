@@ -4,7 +4,6 @@ import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
-  fetchCatalogSessionToken,
   prepareGitLabEventsParentGroup,
   runGitLabEventsCleanupSafely,
 } from "../../support/gitlab-events-test-setup.js";
@@ -21,27 +20,24 @@ test.describe.serial("GitLab Events - Discovery", () => {
 
   test.beforeAll(async ({ rhdh }) => {
     testPrefix = bootstrapGitLabEventsApiClient();
-    rhdhUrl = await deployGitLabEventsHub(rhdh);
+    ({ rhdhUrl, catalogToken } = await deployGitLabEventsHub(rhdh));
 
     const parent = await prepareGitLabEventsParentGroup();
     parentGroupPath = parent.parentGroupPath;
     parentGroupId = parent.parentGroupId;
 
-    // Create test group for this run
     const testGroupName = `${testPrefix}-test-group`;
     testGroupId = await GitLabApiHelper.createGroup(
       parentGroupId,
       testGroupName,
     );
 
-    // Create test project in the group
     const testProjectName = `${testPrefix}-test-project`;
     testProjectId = await GitLabApiHelper.createProject(
       testGroupId,
       testProjectName,
     );
 
-    // Set up project webhook for discovery events
     const webhookUrl = `${rhdhUrl}/api/events/http/gitlab`;
     projectWebhookId = await GitLabApiHelper.createProjectWebhook(
       testProjectId,
@@ -50,17 +46,8 @@ test.describe.serial("GitLab Events - Discovery", () => {
     );
   });
 
-  test.beforeEach(async ({ loginHelper, page, uiHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
-
-    if (!catalogToken) {
-      catalogToken = await fetchCatalogSessionToken(page, uiHelper, rhdhUrl);
-    }
-  });
-
   test.afterAll(async () => {
     await runGitLabEventsCleanupSafely(async () => {
-      // Webhook must go before removing the project
       if (projectWebhookId && testProjectId) {
         await GitLabApiHelper.deleteProjectWebhook(
           testProjectId,
@@ -78,10 +65,7 @@ test.describe.serial("GitLab Events - Discovery", () => {
     });
   });
 
-  test("Adding catalog-info.yaml creates entity", async ({
-    page,
-    uiHelper,
-  }) => {
+  test("Adding catalog-info.yaml creates entity", async () => {
     const entityName = `${testPrefix}-component`;
     const catalogContent = `apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -94,7 +78,6 @@ spec:
   lifecycle: experimental
   owner: guests`;
 
-    // Create catalog-info.yaml in the test project
     await GitLabApiHelper.createFile(
       testProjectId,
       "catalog-info.yaml",
@@ -102,35 +85,40 @@ spec:
       `Add catalog-info.yaml for ${entityName}`,
     );
 
-    // UI verification
     await expect
       .poll(
-        async () => {
-          await page.reload();
-          await uiHelper.openSidebar("Catalog");
-          await uiHelper.selectMuiBox("Kind", "Component");
-          await uiHelper.searchInputPlaceholder(entityName);
-          return await page.getByRole("link", { name: entityName }).isVisible();
-        },
+        async () =>
+          await CatalogApiHelper.entityExists(
+            rhdhUrl,
+            catalogToken,
+            "Component",
+            entityName,
+          ),
         {
-          message: `Component ${entityName} should appear in catalog UI`,
-          timeout: 30000,
-          intervals: [5000],
+          message: `Component ${entityName} should appear in catalog`,
+          timeout: 60_000,
+          intervals: [2_000],
         },
       )
       .toBe(true);
+
+    const entity = await CatalogApiHelper.getEntity(
+      rhdhUrl,
+      catalogToken,
+      "Component",
+      entityName,
+    );
+    expect(entity.metadata.name).toBe(entityName);
   });
 
-  test("Updating catalog-info.yaml updates entity", async ({
-    page,
-    uiHelper,
-  }) => {
+  test("Updating catalog-info.yaml updates entity", async () => {
     const entityName = `${testPrefix}-component`;
+    const updatedDescription = "Updated description via webhook";
     const updatedCatalogContent = `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${entityName}
-  description: "Updated description via webhook"
+  description: "${updatedDescription}"
   annotations:
     gitlab.com/project-slug: ${parentGroupPath}/${testPrefix}-test-project
 spec:
@@ -138,7 +126,6 @@ spec:
   lifecycle: production
   owner: guests`;
 
-    // Update catalog-info.yaml in the test project
     await GitLabApiHelper.updateFile(
       testProjectId,
       "catalog-info.yaml",
@@ -146,33 +133,30 @@ spec:
       `Update catalog-info.yaml for ${entityName}`,
     );
 
-    // UI verification for updated content
     await expect
       .poll(
         async () => {
-          await page.reload();
-          await uiHelper.openSidebar("Catalog");
-          await uiHelper.selectMuiBox("Kind", "Component");
-          await uiHelper.searchInputPlaceholder(entityName);
-          await page.getByRole("link", { name: entityName }).click();
-          await uiHelper.verifyHeading("description");
-          return await page
-            .getByText("Updated description via webhook")
-            .isVisible();
+          const entity = await CatalogApiHelper.getEntity(
+            rhdhUrl,
+            catalogToken,
+            "Component",
+            entityName,
+          );
+          return (
+            (entity.metadata as { description?: string })?.description ===
+            updatedDescription
+          );
         },
         {
-          message: `Component ${entityName} should show updated description in UI`,
-          timeout: 30000,
-          intervals: [5000],
+          message: `Component ${entityName} description should update in catalog`,
+          timeout: 60_000,
+          intervals: [2_000],
         },
       )
       .toBe(true);
   });
 
-  test("Deleting catalog-info.yaml removes entity from catalog", async ({
-    page,
-    uiHelper,
-  }) => {
+  test("Deleting catalog-info.yaml removes entity from catalog", async () => {
     test.setTimeout(7 * 60 * 1000);
 
     const entityName = `${testPrefix}-component`;
@@ -183,31 +167,19 @@ spec:
       `Remove catalog-info.yaml for ${entityName}`,
     );
 
-    await CatalogApiHelper.waitForEntityRemoval(
-      rhdhUrl,
-      catalogToken,
-      "Component",
-      entityName,
-      "default",
-      180_000,
-      5000,
-    );
-
     await expect
       .poll(
-        async () => {
-          await page.reload();
-          await uiHelper.openSidebar("Catalog");
-          await uiHelper.selectMuiBox("Kind", "Component");
-          await uiHelper.searchInputPlaceholder(entityName);
-          return !(await page
-            .getByRole("link", { name: entityName })
-            .isVisible());
-        },
+        async () =>
+          !(await CatalogApiHelper.entityExists(
+            rhdhUrl,
+            catalogToken,
+            "Component",
+            entityName,
+          )),
         {
-          message: `Component ${entityName} should not appear in catalog UI after catalog-info.yaml is removed`,
+          message: `Component ${entityName} should be removed from catalog`,
           timeout: 180_000,
-          intervals: [5000],
+          intervals: [5_000],
         },
       )
       .toBe(true);

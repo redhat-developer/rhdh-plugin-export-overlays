@@ -2,11 +2,8 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { CatalogApiHelper } from "../../support/api/catalog-api-helper.js";
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
-  addGitLabUserToGroupAndWaitForCatalogMember,
   bootstrapGitLabEventsApiClient,
-  createGitLabGroupAndUserVisibleInCatalog,
   deployGitLabEventsHub,
-  fetchCatalogSessionToken,
   prepareGitLabEventsParentGroup,
   runGitLabEventsCleanupSafely,
 } from "../../support/gitlab-events-test-setup.js";
@@ -22,24 +19,15 @@ test.describe("GitLab Events - Org Data", () => {
 
   test.beforeAll(async ({ rhdh }) => {
     testPrefix = bootstrapGitLabEventsApiClient();
-    rhdhUrl = await deployGitLabEventsHub(rhdh);
+    ({ rhdhUrl, catalogToken } = await deployGitLabEventsHub(rhdh));
 
     parentGroupId = (await prepareGitLabEventsParentGroup()).parentGroupId;
 
-    // Set up system hook for org data events
     const webhookUrl = `${rhdhUrl}/api/events/http/gitlab`;
     systemHookId = await GitLabApiHelper.createSystemHook(
       webhookUrl,
       process.env.VAULT_GITLAB_WEBHOOK_SECRET,
     );
-  });
-
-  test.beforeEach(async ({ loginHelper, page, uiHelper }) => {
-    await loginHelper.loginAsKeycloakUser();
-
-    if (!catalogToken) {
-      catalogToken = await fetchCatalogSessionToken(page, uiHelper, rhdhUrl);
-    }
   });
 
   test.afterAll(async () => {
@@ -62,18 +50,30 @@ test.describe("GitLab Events - Org Data", () => {
     test("Creating group adds Group entity", async () => {
       const groupName = `${testPrefix}-org-test-group`;
 
-      // Create group in GitLab
       testGroupId = await GitLabApiHelper.createGroup(parentGroupId, groupName);
 
-      // Wait for the Group entity to appear in the catalog
-      const entity = await CatalogApiHelper.waitForEntity(
+      await expect
+        .poll(
+          async () =>
+            await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "Group",
+              groupName,
+            ),
+          {
+            message: `Group ${groupName} should appear in catalog`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
+
+      const entity = await CatalogApiHelper.getEntity(
         rhdhUrl,
         catalogToken,
         "Group",
         groupName,
-        "default",
-        60_000,
-        2_000,
       );
       expect(entity.metadata.name).toBe(groupName);
     });
@@ -83,29 +83,26 @@ test.describe("GitLab Events - Org Data", () => {
 
       const groupName = `${testPrefix}-org-test-group`;
 
-      // Delete group from GitLab with permanent removal to avoid "pending deletion" state
       await GitLabApiHelper.deleteGroup(testGroupId, true);
 
-      // Wait for the Group entity to be removed from the catalog
-      await CatalogApiHelper.waitForEntityRemoval(
-        rhdhUrl,
-        catalogToken,
-        "Group",
-        groupName,
-        "default",
-        180_000,
-        2_000,
-      );
-      expect(
-        await CatalogApiHelper.entityExists(
-          rhdhUrl,
-          catalogToken,
-          "Group",
-          groupName,
-        ),
-      ).toBe(false);
+      await expect
+        .poll(
+          async () =>
+            !(await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "Group",
+              groupName,
+            )),
+          {
+            message: `Group ${groupName} should be removed from catalog`,
+            timeout: 180_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
 
-      testGroupId = 0; // Reset so afterAll doesn't try to delete again
+      testGroupId = 0;
     });
   });
 
@@ -114,22 +111,34 @@ test.describe("GitLab Events - Org Data", () => {
       const userName = `${testPrefix}-test-user`;
       const userEmail = `${userName}@example.com`;
 
-      // Create user in GitLab
       testUserId = await GitLabApiHelper.createUser(
         userName,
         userName,
         userEmail,
       );
 
-      // Wait for the User entity to appear in the catalog
-      const entity = await CatalogApiHelper.waitForEntity(
+      await expect
+        .poll(
+          async () =>
+            await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "User",
+              userName,
+            ),
+          {
+            message: `User ${userName} should appear in catalog`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
+
+      const entity = await CatalogApiHelper.getEntity(
         rhdhUrl,
         catalogToken,
         "User",
         userName,
-        "default",
-        60_000,
-        2_000,
       );
       expect(entity.metadata.name).toBe(userName);
     });
@@ -139,108 +148,173 @@ test.describe("GitLab Events - Org Data", () => {
 
       const userName = `${testPrefix}-test-user`;
 
-      // Delete user from GitLab with hard delete to avoid "pending deletion" state
       await GitLabApiHelper.deleteUser(testUserId, true);
 
-      // Wait for the User entity to be removed from the catalog
-      await CatalogApiHelper.waitForEntityRemoval(
-        rhdhUrl,
-        catalogToken,
-        "User",
-        userName,
-        "default",
-        180_000,
-        2_000,
-      );
-      expect(
-        await CatalogApiHelper.entityExists(
-          rhdhUrl,
-          catalogToken,
-          "User",
-          userName,
-        ),
-      ).toBe(false);
+      await expect
+        .poll(
+          async () =>
+            !(await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "User",
+              userName,
+            )),
+          {
+            message: `User ${userName} should be removed from catalog`,
+            timeout: 180_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
 
-      testUserId = 0; // Reset so afterAll doesn't try to delete again
+      testUserId = 0;
     });
   });
 
   test.describe.serial("Membership", () => {
-    test("Adding user to group updates membership", async () => {
-      const groupName = `${testPrefix}-membership-group`;
-      const userName = `${testPrefix}-membership-user`;
+    let membershipGroupId: number;
+    let membershipUserId: number;
+    let membershipGroupName: string;
+    let membershipUserName: string;
 
-      const { groupId, userId } =
-        await createGitLabGroupAndUserVisibleInCatalog({
-          parentGroupId,
-          rhdhUrl,
-          catalogToken,
-          groupName,
-          userName,
-        });
+    test.beforeAll(async () => {
+      membershipGroupName = `${testPrefix}-membership-group`;
+      membershipUserName = `${testPrefix}-membership-user`;
+      const userEmail = `${membershipUserName}@example.com`;
 
-      await addGitLabUserToGroupAndWaitForCatalogMember({
-        rhdhUrl,
-        catalogToken,
-        groupName,
-        userName,
-        groupId,
-        userId,
-      });
-
-      const groupMembers = await CatalogApiHelper.getGroupMembers(
-        rhdhUrl,
-        catalogToken,
-        groupName,
+      membershipGroupId = await GitLabApiHelper.createGroup(
+        parentGroupId,
+        membershipGroupName,
       );
-      expect(groupMembers).toContain(userName);
+      membershipUserId = await GitLabApiHelper.createUser(
+        membershipUserName,
+        membershipUserName,
+        userEmail,
+      );
 
-      // Clean up
-      await GitLabApiHelper.removeUserFromGroup(groupId, userId);
-      await GitLabApiHelper.deleteUser(userId, true);
-      await GitLabApiHelper.deleteGroup(groupId, true);
+      await expect
+        .poll(
+          async () =>
+            await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "Group",
+              membershipGroupName,
+            ),
+          {
+            message: `Group ${membershipGroupName} should appear in catalog`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          async () =>
+            await CatalogApiHelper.entityExists(
+              rhdhUrl,
+              catalogToken,
+              "User",
+              membershipUserName,
+            ),
+          {
+            message: `User ${membershipUserName} should appear in catalog`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
+    });
+
+    test.afterAll(async () => {
+      if (membershipUserId) {
+        await GitLabApiHelper.deleteUser(membershipUserId, true);
+        membershipUserId = 0;
+      }
+
+      if (membershipGroupId) {
+        await GitLabApiHelper.deleteGroup(membershipGroupId, true);
+        membershipGroupId = 0;
+      }
+    });
+
+    test("Adding user to group updates membership", async () => {
+      await GitLabApiHelper.addUserToGroup(
+        membershipGroupId,
+        membershipUserId,
+      );
+
+      await expect
+        .poll(
+          async () => {
+            const groupMembers = await CatalogApiHelper.getGroupMembers(
+              rhdhUrl,
+              catalogToken,
+              membershipGroupName,
+            );
+            return groupMembers.includes(membershipUserName);
+          },
+          {
+            message: `User ${membershipUserName} should appear in group ${membershipGroupName} members`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
+
+      await GitLabApiHelper.removeUserFromGroup(
+        membershipGroupId,
+        membershipUserId,
+      );
     });
 
     test("Removing user from group updates membership", async () => {
-      const groupName = `${testPrefix}-removal-group`;
-      const userName = `${testPrefix}-removal-user`;
+      await GitLabApiHelper.addUserToGroup(
+        membershipGroupId,
+        membershipUserId,
+      );
 
-      const { groupId, userId } =
-        await createGitLabGroupAndUserVisibleInCatalog({
-          parentGroupId,
-          rhdhUrl,
-          catalogToken,
-          groupName,
-          userName,
-        });
+      await expect
+        .poll(
+          async () => {
+            const groupMembers = await CatalogApiHelper.getGroupMembers(
+              rhdhUrl,
+              catalogToken,
+              membershipGroupName,
+            );
+            return groupMembers.includes(membershipUserName);
+          },
+          {
+            message: `User ${membershipUserName} should appear in group ${membershipGroupName} members`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
 
-      await addGitLabUserToGroupAndWaitForCatalogMember({
-        rhdhUrl,
-        catalogToken,
-        groupName,
-        userName,
-        groupId,
-        userId,
-      });
+      await GitLabApiHelper.removeUserFromGroup(
+        membershipGroupId,
+        membershipUserId,
+      );
 
-      await GitLabApiHelper.removeUserFromGroup(groupId, userId);
-
-      // Polls the catalog until the user no longer appears in the group's member list.
-      await expect(async () => {
-        const groupMembers = await CatalogApiHelper.getGroupMembers(
-          rhdhUrl,
-          catalogToken,
-          groupName,
-        );
-        expect(groupMembers).not.toContain(userName);
-      }).toPass({
-        timeout: 60_000,
-        intervals: [2_000],
-      });
-
-      // Clean up
-      await GitLabApiHelper.deleteUser(userId, true);
-      await GitLabApiHelper.deleteGroup(groupId, true);
+      await expect
+        .poll(
+          async () => {
+            const groupMembers = await CatalogApiHelper.getGroupMembers(
+              rhdhUrl,
+              catalogToken,
+              membershipGroupName,
+            );
+            return !groupMembers.includes(membershipUserName);
+          },
+          {
+            message: `User ${membershipUserName} should be removed from group ${membershipGroupName}`,
+            timeout: 60_000,
+            intervals: [2_000],
+          },
+        )
+        .toBe(true);
     });
   });
 });
