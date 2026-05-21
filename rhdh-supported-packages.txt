@@ -89,8 +89,11 @@ orchestrator/plugins/scaffolder-backend-module-orchestrator
 # Orchestrator plugin Loki - TP in 1.9 but moving to GA in 1.10 https://issues.redhat.com/browse/RHDHPLAN-926
 orchestrator/plugins/orchestrator-backend-module-loki
 
-# Events Modules (TP in 1.9)
+# Github Events Module (TP in 1.9)
 backstage/plugins/events-backend-module-github
+
+# Gitlab Events Module (TP in 2.1)
+backstage/plugins/events-backend-module-gitlab
 
 # Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
 lightspeed/plugins/lightspeed
