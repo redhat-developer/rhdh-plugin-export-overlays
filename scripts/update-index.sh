@@ -263,25 +263,16 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
     fi
     cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
     echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
-    if [[ -n "$REPORT_FILE" ]]; then
-        python3 -c "
-import sys; sys.path.insert(0, '${SCRIPT_DIR}')
-from plugin_utils import BuildReport
-r = BuildReport('${REPORT_FILE}')
-r.set_stage_all('dpdy', '${DPDY_STATUS}')
-r.save()
-"
+    if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
+        jq --arg status "$DPDY_STATUS" \
+          '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
+          "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
     fi
 else
     echo -e "\n${blue}=== Step 3: Skipped (no default.packages.yaml provided) ===${norm}"
-    if [[ -n "$REPORT_FILE" ]]; then
-        python3 -c "
-import sys; sys.path.insert(0, '${SCRIPT_DIR}')
-from plugin_utils import BuildReport
-r = BuildReport('${REPORT_FILE}')
-r.set_stage_all('dpdy', 'skip')
-r.save()
-"
+    if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
+        jq '.plugins |= with_entries(.value.stages.dpdy = {status: "skip"})' \
+          "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
     fi
 fi
 
