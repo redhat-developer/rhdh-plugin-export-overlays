@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { APIResponse, request } from "@playwright/test";
+import { APIRequestContext, APIResponse, request } from "@playwright/test";
 
 /* eslint-disable @typescript-eslint/naming-convention --
    GitLab REST request bodies, query params, and headers follow API names (snake_case, PRIVATE-TOKEN). */
@@ -45,6 +45,7 @@ interface GitLabEntityWithId {
 export class GitLabApiHelper {
   private static baseUrl: string;
   private static token: string;
+  private static context: APIRequestContext | undefined;
 
   /**
    * Initialize the GitLab API helper with connection details
@@ -55,6 +56,22 @@ export class GitLabApiHelper {
     this.token = token;
   }
 
+  private static async getContext(): Promise<APIRequestContext> {
+    if (!this.context) {
+      this.context = await request.newContext({
+        ignoreHTTPSErrors: true,
+      });
+    }
+    return this.context;
+  }
+
+  static async dispose(): Promise<void> {
+    if (this.context) {
+      await this.context.dispose();
+      this.context = undefined;
+    }
+  }
+
   /**
    * Make a safe GitLab API request
    */
@@ -63,9 +80,7 @@ export class GitLabApiHelper {
     endpoint: string,
     body?: string | object,
   ): Promise<APIResponse> {
-    const context = await request.newContext({
-      ignoreHTTPSErrors: true,
-    });
+    const context = await this.getContext();
 
     if (!this.token) {
       throw new Error("GitLab token not provided");

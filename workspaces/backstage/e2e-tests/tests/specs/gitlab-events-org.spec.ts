@@ -44,6 +44,8 @@ test.describe("GitLab Events - Org Data", () => {
         await GitLabApiHelper.deleteSystemHook(systemHookId);
       }
     });
+    await GitLabApiHelper.dispose();
+    await CatalogApiHelper.dispose();
   });
 
   test.describe.serial("Groups", () => {

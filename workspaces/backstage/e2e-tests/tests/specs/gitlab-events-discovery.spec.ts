@@ -63,6 +63,8 @@ test.describe.serial("GitLab Events - Discovery", () => {
         await GitLabApiHelper.deleteGroup(testGroupId, true);
       }
     });
+    await GitLabApiHelper.dispose();
+    await CatalogApiHelper.dispose();
   });
 
   test("Adding catalog-info.yaml creates entity", async () => {
