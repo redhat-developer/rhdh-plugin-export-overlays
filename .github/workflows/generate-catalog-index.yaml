@@ -217,6 +217,38 @@ jobs:
             fi
           done
 
+      - name: Update build report commit metadata
+        env:
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+        run: |
+          for TIER in supported community; do
+            REPORT="catalog-index/$TIER/build-report.json"
+            if [[ ! -f "$REPORT" ]]; then
+              continue
+            fi
+
+            if [[ "$TIER" == "supported" ]]; then
+              OK="${SUPPORTED_OK}"
+            else
+              OK="${COMMUNITY_OK}"
+            fi
+
+            python3 -c "
+          import json
+          with open('${REPORT}') as f:
+              d = json.load(f)
+          m = d.setdefault('metadata', {})
+          if '${OK}' == 'true':
+              m['last-successful-commit'] = '${GITHUB_SHA}'
+          else:
+              m['last-failed-commit'] = '${GITHUB_SHA}'
+          with open('${REPORT}', 'w') as f:
+              json.dump(d, f, indent=2)
+              f.write('\n')
+          "
+          done
+
       - name: Render catalog status page
         env:
           SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
@@ -228,15 +260,15 @@ jobs:
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           ARGS=""
-          if [[ "${SUPPORTED_OK}" == "true" ]]; then
+          if [[ -f catalog-index/supported/build-report.json ]]; then
             ARGS="$ARGS --supported catalog-index/supported/build-report.json"
           fi
-          if [[ "${COMMUNITY_OK}" == "true" ]]; then
+          if [[ -f catalog-index/community/build-report.json ]]; then
             ARGS="$ARGS --community catalog-index/community/build-report.json"
           fi
 
           if [[ -z "$ARGS" ]]; then
-            echo "No successful tier reports to render"
+            echo "No build reports found to render"
             exit 0
           fi
 
