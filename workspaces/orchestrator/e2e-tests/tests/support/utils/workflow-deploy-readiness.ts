@@ -112,9 +112,78 @@ function formatOcFailure(err: unknown): string {
   return String(err);
 }
 
+/** True when the workflow Deployment exists (no stderr spam from NotFound). */
+export function workflowDeploymentExists(
+  namespace: string,
+  workflow: string,
+  deps: WorkflowOcDeps,
+): boolean {
+  const out = deps.runOc(
+    [
+      "get",
+      "deployment",
+      workflow,
+      "-n",
+      namespace,
+      "--ignore-not-found",
+      "-o",
+      "name",
+    ],
+    15_000,
+  );
+  return out.trim().length > 0;
+}
+
+type SonataFlowPlatformStatus = {
+  status?: {
+    conditions?: Array<{ type?: string; status?: string; message?: string }>;
+  };
+};
+
+/** Wait until SonataFlowPlatform reports Succeed=True (operator can reconcile workflows). */
+export async function waitForSonataFlowPlatformReady(
+  namespace: string,
+  timeoutMs: number,
+  deps: WorkflowOcDeps,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    const platform = parseOcJson<SonataFlowPlatformStatus>(
+      deps,
+      [
+        "get",
+        "sonataflowplatform",
+        "sonataflow-platform",
+        "-n",
+        namespace,
+        "-o",
+        "json",
+      ],
+      30_000,
+    );
+    const succeed = platform?.status?.conditions?.find(
+      (c) => c.type === "Succeed",
+    );
+    if (succeed?.status === "True") {
+      return;
+    }
+    if (attempt === 1 || attempt % 6 === 0) {
+      console.warn(
+        `[deploy-sonataflow] Waiting for SonataFlowPlatform Succeed=True (attempt ${attempt}, status=${succeed?.status ?? "unknown"}${succeed?.message ? `, message=${succeed.message}` : ""})`,
+      );
+    }
+    await sleep(5_000);
+  }
+  throw new Error(
+    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): SonataFlowPlatform/sonataflow-platform did not reach Succeed=True`,
+  );
+}
+
 /**
  * CI failure diagnostics — mirrors:
- *   oc get deploy,ksvc -n <namespace>
+ *   oc get deploy -n <namespace> (and ksvc when the CRD exists)
  *   oc describe sonataflow <workflow> -n <namespace>  (status/conditions in describe output)
  */
 export function logWorkflowDeployCiDiagnostics(
@@ -146,10 +215,35 @@ export function logWorkflowDeployCiDiagnostics(
     }
   };
 
-  banner(`oc get deploy,ksvc -n ${namespace}`);
+  banner(`oc describe sonataflowplatform sonataflow-platform -n ${namespace}`);
   dumpOc(
-    safeOc(["get", "deploy,ksvc", "-n", namespace], 60_000),
-    "(no Deployments or Knative Services in namespace)",
+    safeOc(
+      ["describe", "sonataflowplatform", "sonataflow-platform", "-n", namespace],
+      120_000,
+    ),
+    "(describe sonataflowplatform/sonataflow-platform — empty or not found)",
+  );
+
+  banner(`oc get deploy -n ${namespace}`);
+  dumpOc(
+    safeOc(["get", "deploy", "-n", namespace], 60_000),
+    "(no Deployments in namespace)",
+  );
+
+  banner(`oc get ksvc -n ${namespace}`);
+  const ksvcOut = safeOc(["get", "ksvc", "-n", namespace], 60_000);
+  if (ksvcOut === undefined) {
+    console.error(
+      "(Knative Serving CRD not installed — ksvc unavailable; workflows should use Deployments)",
+    );
+  } else {
+    dumpOc(ksvcOut, "(no Knative Services in namespace)");
+  }
+
+  banner(`oc get jobs,pods -n ${namespace}`);
+  dumpOc(
+    safeOc(["get", "jobs,pods", "-n", namespace], 60_000),
+    "(no Jobs or Pods beyond platform/postgres)",
   );
 
   for (const workflow of workflows) {
@@ -169,13 +263,18 @@ export async function waitForWorkflowDeployment(
   deps: WorkflowOcDeps,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
   while (Date.now() < deadline) {
-    try {
-      deps.runOc(["get", "deployment", workflow, "-n", namespace], 15_000);
+    attempt++;
+    if (workflowDeploymentExists(namespace, workflow, deps)) {
       return;
-    } catch {
-      await sleep(2_000);
     }
+    if (attempt === 1 || attempt % 30 === 0) {
+      console.warn(
+        `[deploy-sonataflow] Waiting for deployment/${workflow} in ${namespace} (attempt ${attempt})`,
+      );
+    }
+    await sleep(2_000);
   }
 
   logWorkflowDeployCiDiagnostics(namespace, [workflow], deps.runOc);
