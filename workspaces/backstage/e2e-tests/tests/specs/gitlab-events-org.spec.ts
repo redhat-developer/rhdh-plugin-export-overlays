@@ -240,10 +240,7 @@ test.describe("GitLab Events - Org Data", () => {
     });
 
     test("Adding user to group updates membership", async () => {
-      await GitLabApiHelper.addUserToGroup(
-        membershipGroupId,
-        membershipUserId,
-      );
+      await GitLabApiHelper.addUserToGroup(membershipGroupId, membershipUserId);
 
       await expect
         .poll(
@@ -270,10 +267,7 @@ test.describe("GitLab Events - Org Data", () => {
     });
 
     test("Removing user from group updates membership", async () => {
-      await GitLabApiHelper.addUserToGroup(
-        membershipGroupId,
-        membershipUserId,
-      );
+      await GitLabApiHelper.addUserToGroup(membershipGroupId, membershipUserId);
 
       await expect
         .poll(
