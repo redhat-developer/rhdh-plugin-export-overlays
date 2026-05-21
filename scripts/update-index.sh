@@ -238,28 +238,31 @@ fi
 ##############################################
 # Step 3: Generate dynamic-plugins.default.yaml
 ##############################################
-# DPDY only uses the first .yaml file (needs enabled/disabled structure)
-DPDY_PACKAGES_FILE=""
+# Find the default.packages.yaml file among the provided --packages-file args
+DEFAULT_PACKAGES_FILE=""
 for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
-    if [[ "$pf" == *.yaml ]] || [[ "$pf" == *.yml ]]; then
-        DPDY_PACKAGES_FILE="$pf"
+    if [[ "$(basename "$pf")" == "default.packages.yaml" ]]; then
+        DEFAULT_PACKAGES_FILE="$pf"
         break
     fi
 done
 
-if [[ -n "$DPDY_PACKAGES_FILE" ]]; then
+if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
     echo -e "\n${green}=== Step 3: Generate dynamic-plugins.default.yaml ===${norm}"
+    echo -e "${blue}Using default packages file: $DEFAULT_PACKAGES_FILE${norm}"
     mkdir -p "$OUTPUT_DIR"
     DPDY_STATUS="pass"
     # shellcheck disable=SC2086
     if ! "$SCRIPT_DIR/generateDynamicPluginsDefaultYaml.sh" \
-        --packages-file "$DPDY_PACKAGES_FILE" \
+        --packages-file "$DEFAULT_PACKAGES_FILE" \
         --output-file "$OUTPUT_DIR/dynamic-plugins.default.yaml" \
         --overlays-dir "$OVERLAYS_DIR" \
         $DEBUG_FLAG; then
         DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2; exit 1
     fi
+    cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
+    echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
     if [[ -n "$REPORT_FILE" ]]; then
         python3 -c "
 import sys; sys.path.insert(0, '${SCRIPT_DIR}')
@@ -270,7 +273,7 @@ r.save()
 "
     fi
 else
-    echo -e "\n${blue}=== Step 3: Skipped (no .yaml packages file provided) ===${norm}"
+    echo -e "\n${blue}=== Step 3: Skipped (no default.packages.yaml provided) ===${norm}"
     if [[ -n "$REPORT_FILE" ]]; then
         python3 -c "
 import sys; sys.path.insert(0, '${SCRIPT_DIR}')
