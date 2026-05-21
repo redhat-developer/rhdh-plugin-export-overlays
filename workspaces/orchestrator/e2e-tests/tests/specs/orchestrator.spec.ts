@@ -16,7 +16,12 @@ test.describe("Orchestrator", () => {
       async () => {
         const project = rhdh.deploymentConfig.namespace;
         await rhdh.configure({ auth: "keycloak" });
-        await deploySonataflow(project);
+        try {
+          await deploySonataflow(project);
+        } catch (err) {
+          logOrchestratorDeployFailureDiagnostics(project);
+          throw err;
+        }
         process.env.SONATAFLOW_DATA_INDEX_URL =
           "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
         try {
