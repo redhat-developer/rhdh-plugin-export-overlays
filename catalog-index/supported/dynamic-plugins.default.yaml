@@ -7,8 +7,8 @@
 # To update this file, trigger a rebuld of the index image from 
 # https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
 plugins:
-  # - package: oci://quay.io/rhdh/backstage-community-plugin-analytics-provider-segment@sha256:386b917f8ad68d39582d93041e35ee356185201b845da686c09856f01818a764
-  # Tag: 1.10--1.27.0, Build date: 2026-05-21T14:30:38Z
+  # - package: oci://quay.io/rhdh/backstage-community-plugin-analytics-provider-segment@sha256:bd02fc64392e926a9f2165f10a26b2efb3b02c8a8f904ffd2215c33ae00e9c57
+  # Tag: 1.10--1.27.0, Build date: 2026-05-21T16:40:30Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # disabled: true
