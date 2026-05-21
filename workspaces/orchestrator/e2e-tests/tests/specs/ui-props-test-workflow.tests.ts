@@ -1,22 +1,58 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { ensureBaselineRole } from "../support/utils/test-helpers.js";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
 import { loginAsKeycloakUserWithRetry } from "./orchestrator-rbac.tests.js";
+import {
+  PRIMARY_USER,
+  setupAuthenticatedPage,
+  createRoleWithPolicies,
+  deleteRoleAndPolicies,
+  globalWorkflowPolicies,
+  type PolicySpec,
+} from "../support/utils/test-helpers.js";
 
 const ensureDataIndexOrSkip = createDataIndexGuard();
 
+const UI_PROPS_RBAC_ROLE = "role:default/uiPropsWorkflowTest";
+
+function uiPropsRbacPolicies(): PolicySpec[] {
+  return [
+    ...globalWorkflowPolicies("allow", "allow"),
+    {
+      permission: "orchestrator.workflowAdminView",
+      policy: "read",
+      effect: "allow",
+    },
+  ];
+}
+
 export function registerUiPropsTestWorkflowTests(): void {
   test.describe("Test Object Type Support in ui:props (orchestrator workflow)", () => {
+    let apiToken: string;
+
     test.beforeAll(async ({ browser }, testInfo) => {
-      // await restoreBaselineRole(browser, testInfo);
-      await ensureBaselineRole(browser, testInfo);
+      ({ apiToken } = await setupAuthenticatedPage(browser, testInfo));
+      await deleteRoleAndPolicies(apiToken, UI_PROPS_RBAC_ROLE);
+      await createRoleWithPolicies(
+        apiToken,
+        UI_PROPS_RBAC_ROLE,
+        [PRIMARY_USER],
+        uiPropsRbacPolicies(),
+      );
     });
 
     test.beforeEach(async ({ page, loginHelper }, testInfo) => {
       test.setTimeout(240_000);
-      // await loginHelper.loginAsKeycloakUser();
-      await loginAsKeycloakUserWithRetry(page, loginHelper, "test1", "test1@123");
+      await loginAsKeycloakUserWithRetry(
+        page,
+        loginHelper,
+        "test1",
+        "test1@123",
+      );
       await ensureDataIndexOrSkip(testInfo.project.name, test);
+    });
+
+    test.afterAll(async () => {
+      await deleteRoleAndPolicies(apiToken, UI_PROPS_RBAC_ROLE);
     });
 
     test("ui:props test workflow", async ({ page, uiHelper }) => {
