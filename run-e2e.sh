@@ -39,7 +39,6 @@ cd "$SCRIPT_DIR"
 
 # RHDH deployment
 # export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
-export RHDH_VERSION="1.10-114-CI"                       # Pinned due to RHDHBUGS-3030
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
