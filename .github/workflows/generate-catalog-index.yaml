@@ -381,7 +381,12 @@ jobs:
         env:
           PUBLISH_SUPPORTED_RESULT: ${{ needs.publish-supported.result }}
           PUBLISH_COMMUNITY_RESULT: ${{ needs.publish-community.result }}
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
         run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TAG="${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}"
+
           for TIER in supported community; do
             REPORT="catalog-index/$TIER/build-report.json"
             if [[ ! -f "$REPORT" ]]; then
@@ -391,20 +396,22 @@ jobs:
 
             if [[ "$TIER" == "supported" ]]; then
               RESULT="${PUBLISH_SUPPORTED_RESULT}"
+              IMAGE="${SUPPORTED_CATALOG_INDEX}:${TAG}"
             else
               RESULT="${PUBLISH_COMMUNITY_RESULT}"
+              IMAGE="${COMMUNITY_CATALOG_INDEX}:${TAG}"
             fi
+
+            jq --arg image "$IMAGE" \
+              '.metadata["catalog-index-image"] = $image' \
+              "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
 
             if [[ "$RESULT" == "success" ]]; then
               jq --arg sha "$GITHUB_SHA" \
                 '.metadata["last-successful-publish"] = $sha' \
                 "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
-            else
-              jq --arg sha "$GITHUB_SHA" --arg reason "$RESULT" \
-                '.metadata["last-failed-publish"] = $sha | .metadata["last-failed-publish-reason"] = $reason' \
-                "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
             fi
-            echo "Updated $TIER report: publish=$RESULT"
+            echo "Updated $TIER report: publish=$RESULT, image=$IMAGE"
           done
 
       - name: Render catalog status page
