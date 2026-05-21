@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
-import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import {
   getOperatorMajorMinorVersions,
   logWorkflowDeployFailureDiagnostics,
@@ -12,16 +12,6 @@ import {
   WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
   type WorkflowOcDeps,
 } from "./workflow-deploy-readiness.js";
-
-/** ConfigMap required by tests/config/value_file.yaml (rbac-policy volume). */
-export async function applyOrchestratorRbacPolicy(
-  namespace: string,
-): Promise<void> {
-  const rbacConfigmapPath = WorkspacePaths.resolve(
-    "tests/config/rbac-configmap.yaml",
-  );
-  await $`oc apply -f ${rbacConfigmapPath} -n ${namespace}`;
-}
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
