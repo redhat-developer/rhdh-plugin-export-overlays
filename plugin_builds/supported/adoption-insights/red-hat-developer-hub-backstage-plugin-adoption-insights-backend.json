@@ -1,7 +1,13 @@
 {
   "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
     "workspacePath": "adoption-insights/plugins/adoption-insights-backend",
+    "registryReference": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:1.10--0.8.2",
+    "digest": "sha256:9e0a4a87de4570d0a3fd9362640756e84e4baf974e24336900a2dc929d3fd697",
+    "build-date": "2026-05-21T13:50:00Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ 15e09fe86ee7edeb2a1c55e58267eea655a9e003",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
+    "vcs-ref": "edae2db645359ac06a0b431bd6baf0b05078a3e9",
     "support": "generally-available",
-    "registryReference": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:1.10--0.8.2"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tYWRvcHRpb24taW5zaWdodHMtYmFja2VuZCI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWFkb3B0aW9uLWluc2lnaHRzLWJhY2tlbmQtZHluYW1pYyIsInZlcnNpb24iOiIwLjguMiIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6ImFkb3B0aW9uLWluc2lnaHRzIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWFkb3B0aW9uLWluc2lnaHRzIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWFkb3B0aW9uLWluc2lnaHRzLWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tYWRvcHRpb24taW5zaWdodHMtY29tbW9uIl0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNDkuMyJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMiLCJkaXJlY3RvcnkiOiJ3b3Jrc3BhY2VzL2Fkb3B0aW9uLWluc2lnaHRzL3BsdWdpbnMvYWRvcHRpb24taW5zaWdodHMtYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0="
   }
 }

@@ -2,11 +2,11 @@
   "backstage-community-plugin-catalog-backend-module-keycloak": {
     "workspacePath": "keycloak/plugins/catalog-backend-module-keycloak",
     "registryReference": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:1.10--3.19.2",
-    "digest": "sha256:20e02ab9c0bed778aeeb3572ce9dab09a6d1b09d191152c7f9e2e834412d5287",
-    "build-date": "2026-05-19T16:03:09Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ 15e09fe86ee7edeb2a1c55e58267eea655a9e003",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/update-1.10-pipelineruns",
-    "vcs-ref": "7b3348d24263283e7b0987e20bb2c845499da36d",
+    "digest": "sha256:7d43d34e0cb4dd2e5ba08a445841c941ea4538bfe15b315b84693c9c5205fc1d",
+    "build-date": "2026-05-21T11:45:54Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ b9b1c8f5b342e769792eb58938392516fa70efb7",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "2492666bb734d6483fc03031a68a54723e7091ba",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tY2F0YWxvZy1iYWNrZW5kLW1vZHVsZS1rZXljbG9hayI6eyJuYW1lIjoiQGJhY2tzdGFnZS1jb21tdW5pdHkvcGx1Z2luLWNhdGFsb2ctYmFja2VuZC1tb2R1bGUta2V5Y2xvYWstZHluYW1pYyIsInZlcnNpb24iOiIzLjE5LjIiLCJkZXNjcmlwdGlvbiI6IkEgQmFja2VuZCBiYWNrZW5kIHBsdWdpbiBmb3IgS2V5Y2xvYWsiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoiY2F0YWxvZyIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1jYXRhbG9nLWJhY2tlbmQiLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjQ5LjMifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9jb21tdW5pdHktcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMva2V5Y2xvYWsvcGx1Z2lucy9jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLWtleWNsb2FrIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQDA0a2FzaCJdLCJhdXRob3IiOiJSZWQgSGF0IiwiYnVncyI6Imh0dHBzOi8vZ2l0aHViLmNvbS9iYWNrc3RhZ2UvY29tbXVuaXR5LXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwid29ya3Mtd2l0aDpyaHNzbzpeNy42Iiwid29ya3Mtd2l0aDprZXljbG9hazp+MTgiLCJ3b3Jrcy13aXRoOmtleWNsb2FrOn4yNCIsIndvcmtzLXdpdGg6cmhiazpeMjYiLCJ3b3Jrcy13aXRoOmtleWNsb2FrOn4yNiJdfX1d"
   }

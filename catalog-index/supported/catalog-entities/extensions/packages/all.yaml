@@ -5,12 +5,24 @@ metadata:
   name: packages
 spec:
   targets:
+    - ./backstage-community-plugin-acr.yaml
+    - ./backstage-community-plugin-analytics-provider-segment.yaml
     - ./backstage-community-plugin-catalog-backend-module-keycloak.yaml
     - ./backstage-community-plugin-quay-backend.yaml
     - ./backstage-community-plugin-quay.yaml
+    - ./backstage-community-plugin-rbac.yaml
     - ./backstage-community-plugin-scaffolder-backend-module-kubernetes.yaml
     - ./backstage-community-plugin-scaffolder-backend-module-quay.yaml
+    - ./backstage-community-plugin-tech-radar-backend.yaml
+    - ./backstage-community-plugin-tech-radar.yaml
     - ./backstage-community-plugin-tekton.yaml
+    - ./red-hat-developer-hub-backstage-plugin-dynamic-home-page.yaml
+    - ./rhdh-bsp-adoption-insights-backend.yaml
+    - ./rhdh-bsp-adoption-insights.yaml
+    - ./rhdh-bsp-analytics-mod-adoption-insights.yaml
+    - ./rhdh-bsp-ctlg-backend-mod-extensions.yaml
+    - ./rhdh-bsp-extensions-backend.yaml
+    - ./rhdh-bsp-extensions.yaml
     - ./rhdh-bsp-orchestrator-backend.yaml
     - ./rhdh-bsp-scaffolder-backend-mod-orchestrator.yaml
     - ./roadiehq-backstage-plugin-argo-cd-backend.yaml
