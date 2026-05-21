@@ -1,12 +1,14 @@
-import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import installOrchestrator from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { GITHUB_ORG } from "../../support/constants/github";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { signInForBulkImportTests } from "../../support/utils/auth";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
+import {
+  deployBulkImportOrchestratorWorkflow,
+  logOrchestratorDeployFailureDiagnostics,
+} from "../utils/workflow-deployment-helpers.js";
 
 test.describe("Bulk import tests orchestrator mode", () => {
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
@@ -22,15 +24,21 @@ test.describe("Bulk import tests orchestrator mode", () => {
     await test.runOnce(
       "bulk-import-install-orchestrator-and-test-workflow",
       async () => {
-        await installOrchestrator(orchestratorNamespace);
-        await $`bash tests/scripts/install-workflow.sh ${orchestratorNamespace}`;
+        await deployBulkImportOrchestratorWorkflow(orchestratorNamespace);
       },
     );
     await test.runOnce("bulk-import-orchestrator-rhdh-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
-        appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
-        dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
-      });
+      const rhdhNamespace = rhdh.deploymentConfig.namespace;
+      try {
+        await setupBulkImportRhdh(rhdh, {
+          appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
+          dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
+        });
+      } catch (err) {
+        logOrchestratorDeployFailureDiagnostics(rhdhNamespace);
+        logOrchestratorDeployFailureDiagnostics(orchestratorNamespace);
+        throw err;
+      }
     });
 
     await APIHelper.createGitHubRepoWithFile(
