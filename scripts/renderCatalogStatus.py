@@ -136,6 +136,30 @@ def render_tier(
     return lines
 
 
+def commit_link(sha: str, source_repo: str) -> str:
+    if not sha:
+        return "—"
+    short = sha[:7]
+    if source_repo:
+        return f"[{short}]({source_repo}/commit/{sha})"
+    return short
+
+
+def render_publish_status(report: dict, source_repo: str) -> str:
+    """Render a one-line publish status for a tier."""
+    meta = report.get("metadata", {})
+    last_ok = meta.get("last-successful-publish", "")
+    last_fail = meta.get("last-failed-publish", "")
+    parts = []
+    if last_ok:
+        parts.append(f"last published: {commit_link(last_ok, source_repo)}")
+    if last_fail:
+        reason = meta.get("last-failed-publish-reason", "")
+        reason_suffix = f" ({reason})" if reason else ""
+        parts.append(f"last failed: {commit_link(last_fail, source_repo)}{reason_suffix}")
+    return " | ".join(parts) if parts else ""
+
+
 def render_status_page(
     supported_report: dict,
     community_report: dict,
@@ -169,18 +193,6 @@ def render_status_page(
     if run_link:
         lines.append(f"**Workflow run:** {run_link}  ")
 
-    # Show last successful/failed commit from report metadata
-    # Use the first available report (supported takes priority)
-    meta = (supported_report or community_report or {}).get("metadata", {})
-    last_ok = meta.get("last-successful-commit", "")
-    last_fail = meta.get("last-failed-commit", "")
-    if last_ok:
-        ok_link = f"[{last_ok[:7]}]({source_repo}/commit/{last_ok})" if source_repo else last_ok[:7]
-        lines.append(f"**Last successful build:** {ok_link}  ")
-    if last_fail:
-        fail_link = f"[{last_fail[:7]}]({source_repo}/commit/{last_fail})" if source_repo else last_fail[:7]
-        lines.append(f"**Last failed build:** {fail_link}  ")
-
     lines.append("")
 
     # Summary table
@@ -189,12 +201,14 @@ def render_status_page(
 
     lines.append("## Summary")
     lines.append("")
-    lines.append("| Tier | Total | Passed | Failed |")
-    lines.append("|------|-------|--------|--------|")
+    lines.append("| Tier | Total | Passed | Failed | Publish Status |")
+    lines.append("|------|-------|--------|--------|----------------|")
     if supported_report:
-        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_summary.get('failed', 0)} |")
+        sup_pub = render_publish_status(supported_report, source_repo)
+        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_summary.get('failed', 0)} | {sup_pub} |")
     if community_report:
-        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_summary.get('failed', 0)} |")
+        com_pub = render_publish_status(community_report, source_repo)
+        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_summary.get('failed', 0)} | {com_pub} |")
     lines.append("")
 
     # Tier details

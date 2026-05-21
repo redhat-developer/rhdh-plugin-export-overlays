@@ -217,121 +217,6 @@ jobs:
             fi
           done
 
-      - name: Update build report commit metadata
-        env:
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
-        run: |
-          for TIER in supported community; do
-            REPORT="catalog-index/$TIER/build-report.json"
-            if [[ ! -f "$REPORT" ]]; then
-              continue
-            fi
-
-            if [[ "$TIER" == "supported" ]]; then
-              OK="${SUPPORTED_OK}"
-            else
-              OK="${COMMUNITY_OK}"
-            fi
-
-            python3 -c "
-          import json
-          with open('${REPORT}') as f:
-              d = json.load(f)
-          m = d.setdefault('metadata', {})
-          if '${OK}' == 'true':
-              m['last-successful-commit'] = '${GITHUB_SHA}'
-          else:
-              m['last-failed-commit'] = '${GITHUB_SHA}'
-          with open('${REPORT}', 'w') as f:
-              json.dump(d, f, indent=2)
-              f.write('\n')
-          "
-          done
-
-      - name: Render catalog status page
-        env:
-          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-          BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
-          RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
-          SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
-          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          ARGS=""
-          if [[ -f catalog-index/supported/build-report.json ]]; then
-            ARGS="$ARGS --supported catalog-index/supported/build-report.json"
-          fi
-          if [[ -f catalog-index/community/build-report.json ]]; then
-            ARGS="$ARGS --community catalog-index/community/build-report.json"
-          fi
-
-          if [[ -z "$ARGS" ]]; then
-            echo "No build reports found to render"
-            exit 0
-          fi
-
-          # shellcheck disable=SC2086
-          python3 scripts/renderCatalogStatus.py \
-            $ARGS \
-            --source-repo "$SOURCE_REPO" \
-            --source-branch "$SOURCE_BRANCH" \
-            --source-commit "$GITHUB_SHA" \
-            --backstage-version "$BS_VERSION" \
-            --rhdh-version "$RHDH_VERSION" \
-            --workflow-run-url "$WORKFLOW_RUN_URL" \
-            --output /tmp/catalog-status.md
-
-      - name: Checkout wiki
-        id: wiki-checkout
-        continue-on-error: true
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: ${{ github.repository }}.wiki
-          path: wiki
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push status to wiki
-        if: steps.wiki-checkout.outcome == 'success'
-        env:
-          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
-        run: |
-          if [[ ! -f /tmp/catalog-status.md ]]; then
-            echo "No status page to push"
-            exit 0
-          fi
-
-          PAGE_NAME="Plugin-Catalog-Status-${SOURCE_BRANCH}"
-          cp /tmp/catalog-status.md "wiki/${PAGE_NAME}.md"
-
-          # Update the index page with links to all branch status pages
-          INDEX_FILE="wiki/Plugin-Catalog-Index-Status.md"
-          echo "# Plugin Catalog Index Status" > "$INDEX_FILE"
-          echo "" >> "$INDEX_FILE"
-          echo "Per-branch status pages for the plugin catalog index generation." >> "$INDEX_FILE"
-          echo "" >> "$INDEX_FILE"
-          echo "| Branch | Status Page |" >> "$INDEX_FILE"
-          echo "|--------|-------------|" >> "$INDEX_FILE"
-          for f in wiki/Plugin-Catalog-Status-*.md; do
-            if [[ -f "$f" ]]; then
-              BRANCH_NAME=$(basename "$f" .md | sed 's/^Plugin-Catalog-Status-//')
-              echo "| ${BRANCH_NAME} | [View]($(basename "$f" .md)) |" >> "$INDEX_FILE"
-            fi
-          done
-          echo "" >> "$INDEX_FILE"
-
-          cd wiki
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No wiki changes to commit"
-          else
-            git commit -m "Update catalog status for ${SOURCE_BRANCH} [automated]"
-            git push
-          fi
-
       - name: Commit generated outputs
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
@@ -389,19 +274,21 @@ jobs:
       - name: Build OCI image
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
           podman build \
             -f Dockerfile.catalog-index \
             --build-arg TIER=supported \
-            -t "plugin-catalog-index:bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
             -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to quay.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
           QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
         run: |
@@ -409,7 +296,7 @@ jobs:
 
           echo "${QUAY_TOKEN}" | podman login quay.io -u "${QUAY_USERNAME}" --password-stdin
 
-          for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
+          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${SUPPORTED_CATALOG_INDEX}:${tag}"
             podman push "${SUPPORTED_CATALOG_INDEX}:${tag}"
             echo "Pushed ${SUPPORTED_CATALOG_INDEX}:${tag}"
@@ -440,19 +327,21 @@ jobs:
       - name: Build OCI image
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
         run: |
           SHORT_SHA="${GITHUB_SHA:0:7}"
           podman build \
             -f Dockerfile.catalog-index \
             --build-arg TIER=community \
-            -t "plugin-catalog-index:bs_${BS_VERSION}-${SHORT_SHA}" \
-            -t "plugin-catalog-index:bs_${BS_VERSION}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" \
+            -t "plugin-catalog-index:${RHDH_VERSION}-bs_${BS_VERSION}" \
             -t "plugin-catalog-index:latest" \
             .
 
       - name: Push OCI image to ghcr.io
         env:
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
         run: |
@@ -460,8 +349,156 @@ jobs:
 
           echo "${GITHUB_TOKEN}" | podman login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
-          for tag in "bs_${BS_VERSION}-${SHORT_SHA}" "bs_${BS_VERSION}" "latest"; do
+          for tag in "${RHDH_VERSION}-bs_${BS_VERSION}-${SHORT_SHA}" "${RHDH_VERSION}-bs_${BS_VERSION}" "latest"; do
             podman tag "plugin-catalog-index:${tag}" "${COMMUNITY_CATALOG_INDEX}:${tag}"
             podman push "${COMMUNITY_CATALOG_INDEX}:${tag}"
             echo "Pushed ${COMMUNITY_CATALOG_INDEX}:${tag}"
           done
+
+  update-status:
+    runs-on: ubuntu-latest
+    needs: [generate, publish-supported, publish-community]
+    if: always() && needs.generate.result != 'cancelled'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout catalog-index branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.generate.outputs.target-branch }}
+          fetch-depth: 1
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Update build reports with publish status
+        env:
+          PUBLISH_SUPPORTED_RESULT: ${{ needs.publish-supported.result }}
+          PUBLISH_COMMUNITY_RESULT: ${{ needs.publish-community.result }}
+        run: |
+          for TIER in supported community; do
+            REPORT="catalog-index/$TIER/build-report.json"
+            if [[ ! -f "$REPORT" ]]; then
+              echo "No report for $TIER tier, skipping"
+              continue
+            fi
+
+            if [[ "$TIER" == "supported" ]]; then
+              RESULT="${PUBLISH_SUPPORTED_RESULT}"
+            else
+              RESULT="${PUBLISH_COMMUNITY_RESULT}"
+            fi
+
+            if [[ "$RESULT" == "success" ]]; then
+              jq --arg sha "$GITHUB_SHA" \
+                '.metadata["last-successful-publish"] = $sha' \
+                "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
+            else
+              jq --arg sha "$GITHUB_SHA" --arg reason "$RESULT" \
+                '.metadata["last-failed-publish"] = $sha | .metadata["last-failed-publish-reason"] = $reason' \
+                "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
+            fi
+            echo "Updated $TIER report: publish=$RESULT"
+          done
+
+      - name: Render catalog status page
+        env:
+          SOURCE_BRANCH: ${{ needs.generate.outputs.source-branch }}
+          BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
+          RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
+          SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
+          WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ARGS=""
+          if [[ -f catalog-index/supported/build-report.json ]]; then
+            ARGS="$ARGS --supported catalog-index/supported/build-report.json"
+          fi
+          if [[ -f catalog-index/community/build-report.json ]]; then
+            ARGS="$ARGS --community catalog-index/community/build-report.json"
+          fi
+
+          if [[ -z "$ARGS" ]]; then
+            echo "No build reports found to render"
+            exit 0
+          fi
+
+          # shellcheck disable=SC2086
+          python3 scripts/renderCatalogStatus.py \
+            $ARGS \
+            --source-repo "$SOURCE_REPO" \
+            --source-branch "$SOURCE_BRANCH" \
+            --source-commit "$GITHUB_SHA" \
+            --backstage-version "$BS_VERSION" \
+            --rhdh-version "$RHDH_VERSION" \
+            --workflow-run-url "$WORKFLOW_RUN_URL" \
+            --output /tmp/catalog-status.md
+
+      - name: Commit updated reports
+        env:
+          TARGET_BRANCH: ${{ needs.generate.outputs.target-branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog-index/
+          if git diff --cached --quiet; then
+            echo "No report changes to commit"
+          else
+            SHORT_SHA="${GITHUB_SHA:0:7}"
+            git commit -m "Update build reports with publish status from ${SHORT_SHA}"
+            git push origin "$TARGET_BRANCH"
+          fi
+
+      - name: Checkout wiki
+        id: wiki-checkout
+        continue-on-error: true
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push status to wiki
+        if: steps.wiki-checkout.outcome == 'success'
+        env:
+          SOURCE_BRANCH: ${{ needs.generate.outputs.source-branch }}
+        run: |
+          if [[ ! -f /tmp/catalog-status.md ]]; then
+            echo "No status page to push"
+            exit 0
+          fi
+
+          PAGE_NAME="Plugin-Catalog-Status-${SOURCE_BRANCH}"
+          cp /tmp/catalog-status.md "wiki/${PAGE_NAME}.md"
+
+          # Update the index page with links to all branch status pages
+          INDEX_FILE="wiki/Plugin-Catalog-Index-Status.md"
+          echo "# Plugin Catalog Index Status" > "$INDEX_FILE"
+          echo "" >> "$INDEX_FILE"
+          echo "Per-branch status pages for the plugin catalog index generation." >> "$INDEX_FILE"
+          echo "" >> "$INDEX_FILE"
+          echo "| Branch | Status Page |" >> "$INDEX_FILE"
+          echo "|--------|-------------|" >> "$INDEX_FILE"
+          for f in wiki/Plugin-Catalog-Status-*.md; do
+            if [[ -f "$f" ]]; then
+              BRANCH_NAME=$(basename "$f" .md | sed 's/^Plugin-Catalog-Status-//')
+              echo "| ${BRANCH_NAME} | [View]($(basename "$f" .md)) |" >> "$INDEX_FILE"
+            fi
+          done
+          echo "" >> "$INDEX_FILE"
+
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No wiki changes to commit"
+          else
+            git commit -m "Update catalog status for ${SOURCE_BRANCH} [automated]"
+            git push
+          fi
