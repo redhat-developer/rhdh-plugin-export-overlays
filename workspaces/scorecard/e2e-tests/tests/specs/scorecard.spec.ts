@@ -11,6 +11,7 @@ import {
 } from "../utils/aggregated-scorecard";
 import {
   FILECHECK_METRICS,
+  OPENSSF_LICENSE_SCORECARD,
   OPENSSF_MAINTAINED_SCORECARD,
   SCORECARD_METRICS,
   scorecardHelpers,
@@ -131,10 +132,13 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
 
-      for (const metric of [
-        ...SCORECARD_METRICS,
-        ...OPENSSF_MAINTAINED_SCORECARD,
-      ]) {
+      for (const metric of SCORECARD_METRICS) {
+        await scorecard.validateScorecardAriaFor(metric);
+      }
+
+      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
+      await scorecard.expectScorecardHidden(maintainedMetric.title);
+      for (const metric of OPENSSF_LICENSE_SCORECARD) {
         await scorecard.validateScorecardAriaFor(metric);
       }
     });
@@ -183,18 +187,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.validateScorecardAriaFor(jiraMetric);
     });
 
-    test("Validate only OpenSSF Security Scorecard is displayed", async () => {
+    test("Validate OpenSSF scorecards with disabled metrics excluded", async () => {
       await page.waitForTimeout(6000);
       await catalog.go();
       await catalog.goToByName("openssf-scorecard-only");
       await scorecard.openTab();
 
       const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
 
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardHidden(jiraMetric.title);
+      await scorecard.expectScorecardHidden(maintainedMetric.title);
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.readme.title,
+      );
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.license.title,
+      );
 
-      for (const metric of OPENSSF_MAINTAINED_SCORECARD) {
+      for (const metric of OPENSSF_LICENSE_SCORECARD) {
         await scorecard.validateScorecardAriaFor(metric);
       }
     });

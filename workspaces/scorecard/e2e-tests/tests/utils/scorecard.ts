@@ -38,6 +38,15 @@ export const OPENSSF_MAINTAINED_SCORECARD = [
   },
 ] as const;
 
+/** Used when openssf.maintained is disabled via scorecard.io/disabled-metrics */
+export const OPENSSF_LICENSE_SCORECARD = [
+  {
+    title: "OpenSSF License",
+    description:
+      "Determines if the project has defined a license according to OpenSSF Security Scorecards.",
+  },
+] as const;
+
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
