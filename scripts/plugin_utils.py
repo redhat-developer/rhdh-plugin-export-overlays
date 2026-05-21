@@ -5,6 +5,7 @@
 # Provides logging, package file loading, workspace metadata resolution,
 # and multi-format package list handling (YAML npm names + txt workspace paths).
 
+import atexit
 import json
 import sys
 from dataclasses import dataclass, field
@@ -445,6 +446,8 @@ class BuildReport:
                 self._data = json.load(f)
         elif self._path:
             self._data = {"metadata": {}, "plugins": {}}
+        if self._path:
+            atexit.register(self.save)
 
     @property
     def enabled(self) -> bool:
@@ -478,7 +481,7 @@ class BuildReport:
     def set_stage_all(self, stage: str, status: str, **details) -> None:
         if not self.enabled:
             return
-        for plugin_name in list(self._data.get("plugins", {})):
+        for plugin_name in self._data.get("plugins", {}):
             self.set_stage(plugin_name, stage, status, **details)
 
     def save(self) -> None:
