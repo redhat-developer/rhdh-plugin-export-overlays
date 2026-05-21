@@ -145,19 +145,22 @@ def commit_link(sha: str, source_repo: str) -> str:
     return short
 
 
-def render_publish_status(report: dict, source_repo: str) -> str:
-    """Render a one-line publish status for a tier."""
+def render_last_publish(report: dict, source_repo: str) -> str:
+    """Render the last successful publish commit for a tier."""
     meta = report.get("metadata", {})
     last_ok = meta.get("last-successful-publish", "")
-    last_fail = meta.get("last-failed-publish", "")
-    parts = []
     if last_ok:
-        parts.append(f"last published: {commit_link(last_ok, source_repo)}")
-    if last_fail:
-        reason = meta.get("last-failed-publish-reason", "")
-        reason_suffix = f" ({reason})" if reason else ""
-        parts.append(f"last failed: {commit_link(last_fail, source_repo)}{reason_suffix}")
-    return " | ".join(parts) if parts else ""
+        return commit_link(last_ok, source_repo)
+    return "—"
+
+
+def render_catalog_image(report: dict) -> str:
+    """Render a link to the catalog index OCI image."""
+    meta = report.get("metadata", {})
+    image = meta.get("catalog-index-image", "")
+    if image:
+        return oci_ref_to_link(image)
+    return "—"
 
 
 def render_status_page(
@@ -201,14 +204,16 @@ def render_status_page(
 
     lines.append("## Summary")
     lines.append("")
-    lines.append("| Tier | Total | Passed | Failed | Publish Status |")
-    lines.append("|------|-------|--------|--------|----------------|")
+    lines.append("| Tier | Total | Passed | Failed | Catalog Index Image | Last Successful Publish |")
+    lines.append("|------|-------|--------|--------|---------------------|-------------------------|")
     if supported_report:
-        sup_pub = render_publish_status(supported_report, source_repo)
-        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_summary.get('failed', 0)} | {sup_pub} |")
+        sup_img = render_catalog_image(supported_report)
+        sup_pub = render_last_publish(supported_report, source_repo)
+        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
     if community_report:
-        com_pub = render_publish_status(community_report, source_repo)
-        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_summary.get('failed', 0)} | {com_pub} |")
+        com_img = render_catalog_image(community_report)
+        com_pub = render_last_publish(community_report, source_repo)
+        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
     lines.append("")
 
     # Tier details
