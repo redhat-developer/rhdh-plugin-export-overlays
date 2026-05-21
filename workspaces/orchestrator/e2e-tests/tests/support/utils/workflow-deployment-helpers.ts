@@ -8,6 +8,7 @@ import {
   logWorkflowDeployFailureDiagnostics,
   POSTGRES_ALIGN_TIMEOUT_MS,
   resolveWorkflowImageMajorMinor,
+  waitForSonataFlowPlatformReady,
   waitForWorkflowDeployment,
   WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
   type WorkflowOcDeps,
@@ -38,6 +39,8 @@ const WORKFLOWS = [
 /** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
 const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
 const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
+const E2E_WORKFLOW_DATABASE = "backstage_plugin_orchestrator";
+const SONATAFLOW_PLATFORM_READY_TIMEOUT_MS = 600_000;
 
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
@@ -63,6 +66,13 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   }
 
   hardenSonataFlowPlatform(namespace);
+  await waitForSonataFlowPlatformReady(
+    namespace,
+    SONATAFLOW_PLATFORM_READY_TIMEOUT_MS,
+    workflowOcDeps,
+  );
+
+  ensureOrchestratorPostgresDatabase(namespace);
 
   const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
   try {
@@ -139,7 +149,7 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
           serviceRef: {
             name: "backstage-psql",
             namespace,
-            databaseName: "backstage_plugin_orchestrator",
+            databaseName: E2E_WORKFLOW_DATABASE,
           },
         },
       },
@@ -242,6 +252,54 @@ async function waitForCRs(namespace: string): Promise<void> {
   console.warn(
     `[deploy-sonataflow] TIMEOUT: Only found fewer than ${WORKFLOWS.length} SonataFlow CRs after ${attempt} attempts`,
   );
+}
+
+/** Migration jobs need this DB; install-orchestrator may only create the default database. */
+function ensureOrchestratorPostgresDatabase(namespace: string): void {
+  try {
+    const exists = runOc([
+      "exec",
+      "-n",
+      namespace,
+      "backstage-psql-0",
+      "-c",
+      "postgres",
+      "--",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-tAc",
+      `SELECT 1 FROM pg_database WHERE datname='${E2E_WORKFLOW_DATABASE}'`,
+    ]).trim();
+    if (exists === "1") {
+      return;
+    }
+    runOc([
+      "exec",
+      "-n",
+      namespace,
+      "backstage-psql-0",
+      "-c",
+      "postgres",
+      "--",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-c",
+      `CREATE DATABASE ${E2E_WORKFLOW_DATABASE};`,
+    ]);
+    console.warn(
+      `[deploy-sonataflow] Created PostgreSQL database ${E2E_WORKFLOW_DATABASE}`,
+    );
+  } catch (err) {
+    console.warn(
+      `[deploy-sonataflow] WARNING: could not ensure PostgreSQL database ${E2E_WORKFLOW_DATABASE}: ${formatOcFailure(err)}`,
+    );
+  }
 }
 
 function hardenSonataFlowPlatform(namespace: string): void {
