@@ -1,7 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import {
+  ADD_REPOSITORY_FOOTER_TEST_ID,
   BULK_IMPORT_ACCORDION_LABEL,
   LOGIN_REQUIRED_DIALOG_NAME,
+  VIEW_WORKFLOW_LINK_TEST_ID,
 } from "../constants/bulk-import-selectors";
 
 export function repoRow(page: Page, repoName: string): Locator {
@@ -22,6 +24,36 @@ export function loginRequiredDialog(page: Page): Locator {
 
 export function repositoriesArticle(page: Page): Locator {
   return page.getByRole("article");
+}
+
+/** Table footer Import — not the accordion summary (substring "Import" match). */
+export function addRepositoryImportButton(page: Page): Locator {
+  return page
+    .getByTestId(ADD_REPOSITORY_FOOTER_TEST_ID)
+    .getByRole("button", { name: "Import", exact: true });
+}
+
+/** Orchestrator mode: link in repo row Status after workflow is created. */
+export function viewWorkflowLinkInRepoRow(
+  page: Page,
+  repoName: string,
+): Locator {
+  return repoRow(page, repoName).getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
+}
+
+export function viewWorkflowLink(page: Page): Locator {
+  return page.getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
+}
+
+export function bulkImportImportHistoryPath(repoUrl: string): string {
+  return `/bulk-import/import-history/${encodeURIComponent(repoUrl)}`;
+}
+
+/** Repo URL forms stored on import jobs / history routes. */
+export function importHistoryRepoUrlCandidates(repoUrl: string): string[] {
+  return repoUrl.startsWith("http")
+    ? [repoUrl]
+    : [repoUrl, `https://${repoUrl}`];
 }
 
 /** Dialog-scoped Save when preview is open; otherwise last Save on page. */
