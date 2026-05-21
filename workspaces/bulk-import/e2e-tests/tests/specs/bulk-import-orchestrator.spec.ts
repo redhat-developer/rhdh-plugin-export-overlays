@@ -90,7 +90,6 @@ test.describe("Bulk import tests orchestrator mode", () => {
     const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
     await expect(async () => {
-      await page.reload();
       await uiHelper.waitForLoad(12_000);
       await loginHelper.checkAndClickOnGHloginPopup();
       await bulkImport.searchAndExpectRow(
@@ -110,14 +109,18 @@ test.describe("Bulk import tests orchestrator mode", () => {
       [catalogRepoDetailsForOrchestrator.url],
     );
 
-    await expect(await uiHelper.clickButton("Import")).toBeDisabled({
-      timeout: 10_000,
-    });
+    await bulkImport.clickAddRepositoryImportAndWaitForSubmit();
 
     const workflowPage =
-      await bulkImport.clickLinkOpensTargetPage("View workflow");
+      await bulkImport.openImportHistoryVerifyWorkflowAndOpenInstance(
+        catalogRepoDetailsForOrchestrator.url,
+      );
     await expect(
       workflowPage.getByRole("link", { name: "PR_URL" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 30_000 });
+
+    await bulkImport.expectRepoRowShowsWorkflowAfterImport(
+      catalogRepoDetailsForOrchestrator.name,
+    );
   });
 });
