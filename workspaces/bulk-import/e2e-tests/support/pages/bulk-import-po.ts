@@ -9,16 +9,23 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   BULK_IMPORT_HEADING,
+  BULK_IMPORT_ROUTE,
   GITHUB_PROVIDER_LABEL,
   REPO_STATUS_READY_TO_IMPORT,
+  WORKFLOW_STATUS_LABELS,
 } from "../constants/bulk-import-selectors";
 import { dismissBulkImportLoginDialogIfPresent } from "../utils/auth";
 import { waitForMuiProgressHidden } from "../utils/wait";
 import {
+  addRepositoryImportButton,
   importAccordionButton,
   repoRowCheckbox,
   repositoriesArticle,
   resolvePreviewSaveButton,
+  importHistoryRepoUrlCandidates,
+  repoRow,
+  viewWorkflowLink,
+  viewWorkflowLinkInRepoRow,
 } from "./bulk-import-obj";
 
 export class BulkImportPO {
@@ -141,8 +148,107 @@ export class BulkImportPO {
     await expect(
       article.getByRole("checkbox", { name: "select all repositories" }),
     ).toBeVisible();
-    await expect(article.getByRole("button", { name: "Import" })).toBeVisible();
+
+    const importButton = addRepositoryImportButton(this.page);
+    await expect(importButton).toBeVisible();
+    await expect(importButton).toBeDisabled();
+
     await expect(article.getByRole("link", { name: "Cancel" })).toBeVisible();
+  }
+
+  async clickAddRepositoryImport(): Promise<void> {
+    const importButton = addRepositoryImportButton(this.page);
+    await expect(importButton).toBeEnabled({ timeout: 10_000 });
+    await importButton.click();
+  }
+
+  /** Wait for the footer Import control to finish submitting (no full page reload). */
+  async clickAddRepositoryImportAndWaitForSubmit(): Promise<void> {
+    const importButton = addRepositoryImportButton(this.page);
+    await expect(importButton).toBeEnabled({ timeout: 10_000 });
+    await importButton.click();
+    await expect(importButton)
+      .toBeDisabled({ timeout: 5_000 })
+      .catch(() => undefined);
+    await expect(importButton).toBeEnabled({ timeout: 120_000 });
+  }
+
+  /** Navigate to add-repositories UI (fresh mount — avoids `page.reload()`). */
+  async gotoBulkImportAddPage(): Promise<void> {
+    await this.page.goto(BULK_IMPORT_ROUTE);
+    await this.uiHelper.waitForLoad(12_000);
+    await this.ensureAccordionOpen();
+    if (this.loginHelper) {
+      await dismissBulkImportLoginDialogIfPresent(this.page, this.loginHelper);
+    }
+  }
+
+  /**
+   * Import history lists orchestrator workflows; open instance and return target page.
+   * PR_URL on the instance page confirms the workflow was triggered.
+   */
+  async openImportHistoryVerifyWorkflowAndOpenInstance(
+    repoUrl: string,
+    options: { timeout?: number; intervals?: number[] } = {},
+  ): Promise<Page> {
+    const timeout = options.timeout ?? 120_000;
+    const intervals = options.intervals ?? [5_000, 10_000, 15_000];
+    const historyRepoUrls = importHistoryRepoUrlCandidates(repoUrl);
+
+    let link: Locator = viewWorkflowLink(this.page).first();
+
+    await expect(async () => {
+      let found = false;
+      for (const url of historyRepoUrls) {
+        await this.page.goto(
+          `/bulk-import/import-history/${encodeURIComponent(url)}`,
+        );
+        await this.uiHelper.waitForLoad(12_000);
+        const historyLink = viewWorkflowLink(this.page).first();
+        if (await historyLink.isVisible().catch(() => false)) {
+          link = historyLink;
+          found = true;
+          break;
+        }
+      }
+      expect(found).toBe(true);
+    }).toPass({ intervals, timeout });
+
+    const popupWait = this.page.waitForEvent("popup", { timeout: 8_000 });
+    await link.click();
+    const popup = await popupWait.catch(() => null);
+    if (popup) {
+      await popup.waitForLoadState();
+      return popup;
+    }
+    await this.page.waitForLoadState();
+    return this.page;
+  }
+
+  /**
+   * Return to bulk import, re-search repo, assert workflow UI on the row
+   * (importAction refetch — same effect as reload without `page.reload()`).
+   */
+  async expectRepoRowShowsWorkflowAfterImport(
+    repoName: string,
+    options: { timeout?: number; intervals?: number[] } = {},
+  ): Promise<void> {
+    const timeout = options.timeout ?? 120_000;
+    const intervals = options.intervals ?? [5_000, 10_000, 15_000];
+    const row = repoRow(this.page, repoName);
+
+    await expect(async () => {
+      await this.gotoBulkImportAddPage();
+      await this.searchAndExpectRow(repoName, []);
+      await expect(viewWorkflowLinkInRepoRow(this.page, repoName)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(row.getByText(REPO_STATUS_READY_TO_IMPORT)).toHaveCount(0);
+      const workflowStatus = row.getByText(
+        new RegExp(WORKFLOW_STATUS_LABELS.join("|")),
+      );
+      await expect(workflowStatus.first()).toBeVisible({ timeout: 5_000 });
+    }).toPass({ intervals, timeout });
   }
 
   /** Opens a link in a popup when present; otherwise same-tab navigation. */
