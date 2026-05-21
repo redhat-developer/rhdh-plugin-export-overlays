@@ -81,6 +81,18 @@ spec:
                   title: "GitHub open PRs"
                   props:
                     aggregationId: "github.open_prs"
+    - title: Optional GitHub Scorecard custom KPI configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-github.open_prs_weighted_kpi"
+                  title: "GitHub Open PRs (weighted health)"
+                  props:
+                    aggregationId: "openPrsWeightedKpi" # Ensure the definition is under `scorecard.aggregationKPIs.<aggregationId>`
     - title: Optional Jira Scorecard configuration for read-only Homepage
       content:
         dynamicPlugins:
@@ -110,3 +122,15 @@ spec:
                   title: "Jira open tickets"
                   props:
                     aggregationId: "jira.open_issues"
+    - title: Optional Filecheck Scorecard custom KPI configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-filecheck.license"
+                  title: "Scorecard: LICENSE file exists"
+                  props:
+                    aggregationId: "licenseFileExistsKpi" # Ensure the definition is under `scorecard.aggregationKPIs.<aggregationId>`
