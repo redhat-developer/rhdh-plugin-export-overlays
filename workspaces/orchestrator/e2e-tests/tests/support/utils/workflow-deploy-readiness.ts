@@ -104,27 +104,6 @@ export function resolveWorkflowImageMajorMinor(
     : oslMajorMinor;
 }
 
-/** Wait until the SonataFlow operator creates the workflow Deployment. */
-export async function waitForWorkflowDeployment(
-  namespace: string,
-  workflow: string,
-  timeoutMs: number,
-  deps: WorkflowOcDeps,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      deps.runOc(["get", "deployment", workflow, "-n", namespace], 15_000);
-      return;
-    } catch {
-      await sleep(2_000);
-    }
-  }
-  throw new Error(
-    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): deployment/${workflow} was not created in namespace ${namespace}`,
-  );
-}
-
 function formatOcFailure(err: unknown): string {
   if (err instanceof Error) {
     const m = err.message.trim();
@@ -133,8 +112,12 @@ function formatOcFailure(err: unknown): string {
   return String(err);
 }
 
-/** Workflow deployment dumps for deploy failure diagnostics. */
-export function logWorkflowDeployFailureDiagnostics(
+/**
+ * CI failure diagnostics — mirrors:
+ *   oc get deploy,ksvc -n <namespace>
+ *   oc describe sonataflow <workflow> -n <namespace>  (status/conditions in describe output)
+ */
+export function logWorkflowDeployCiDiagnostics(
   namespace: string,
   workflows: readonly string[],
   runOc: WorkflowOcDeps["runOc"],
@@ -163,35 +146,49 @@ export function logWorkflowDeployFailureDiagnostics(
     }
   };
 
+  banner(`oc get deploy,ksvc -n ${namespace}`);
+  dumpOc(
+    safeOc(["get", "deploy,ksvc", "-n", namespace], 60_000),
+    "(no Deployments or Knative Services in namespace)",
+  );
+
   for (const workflow of workflows) {
-    banner(`workflow deployment/${workflow}`);
+    banner(`oc describe sonataflow ${workflow} -n ${namespace}`);
     dumpOc(
-      safeOc(["describe", "deployment", workflow, "-n", namespace], 120_000),
-      `(describe deployment/${workflow} — empty or not found)`,
+      safeOc(["describe", "sonataflow", workflow, "-n", namespace], 120_000),
+      `(describe sonataflow/${workflow} — empty or not found)`,
     );
-    dumpOc(
-      safeOc(
-        ["get", "sonataflow", workflow, "-n", namespace, "-o", "yaml"],
-        60_000,
-      ),
-      `(sonataflow/${workflow} CR not available)`,
-    );
-    const workflowPod = safeOc([
-      "get",
-      "pods",
-      "-n",
-      namespace,
-      "-l",
-      `app=${workflow}`,
-      "-o",
-      "jsonpath={.items[0].metadata.name}",
-    ])?.trim();
-    if (workflowPod) {
-      banner(`workflow pod logs (${workflowPod})`);
-      dumpOc(
-        safeOc(["logs", "-n", namespace, workflowPod, "--tail=200"], 120_000),
-        "(no workflow pod logs on stdout)",
-      );
+  }
+}
+
+/** Wait until the SonataFlow operator creates the workflow Deployment. */
+export async function waitForWorkflowDeployment(
+  namespace: string,
+  workflow: string,
+  timeoutMs: number,
+  deps: WorkflowOcDeps,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      deps.runOc(["get", "deployment", workflow, "-n", namespace], 15_000);
+      return;
+    } catch {
+      await sleep(2_000);
     }
   }
+
+  logWorkflowDeployCiDiagnostics(namespace, [workflow], deps.runOc);
+  throw new Error(
+    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): deployment/${workflow} was not created in namespace ${namespace}`,
+  );
+}
+
+/** Workflow deployment dumps for deploy failure diagnostics. */
+export function logWorkflowDeployFailureDiagnostics(
+  namespace: string,
+  workflows: readonly string[],
+  runOc: WorkflowOcDeps["runOc"],
+): void {
+  logWorkflowDeployCiDiagnostics(namespace, workflows, runOc);
 }
