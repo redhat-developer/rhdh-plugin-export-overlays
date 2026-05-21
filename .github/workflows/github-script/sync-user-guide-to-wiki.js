@@ -26,6 +26,7 @@ const FILE_MAP = {
   'user-guide/04-metadata-synchronization.md': 'Metadata-Synchronization',
   'user-guide/05-version-updates.md': 'Version-Updates',
   'user-guide/06-patch-management.md': 'Patch-Management',
+  'user-guide/07-plugin-catalog-index.md': 'Plugin-Catalog-Index-Generation',
 };
 
 // Link transformations for wiki format
@@ -37,6 +38,7 @@ const LINK_TRANSFORMS = [
   { from: /\[([^\]]+)\]\(\.\/04-metadata-synchronization\.md(#[^\)]+)?\)/g, to: '[$1](Metadata-Synchronization$2)' },
   { from: /\[([^\]]+)\]\(\.\/05-version-updates\.md(#[^\)]+)?\)/g, to: '[$1](Version-Updates$2)' },
   { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md(#[^\)]+)?\)/g, to: '[$1](Patch-Management$2)' },
+  { from: /\[([^\]]+)\]\(\.\/07-plugin-catalog-index\.md(#[^\)]+)?\)/g, to: '[$1](Plugin-Catalog-Index-Generation$2)' },
 ];
 
 // Source repository metadata
@@ -228,10 +230,12 @@ function generateSidebar(workspaceStats, reportPages) {
 * [Metadata Synchronization](Metadata-Synchronization)
 * [Version Updates](Version-Updates)
 * [Patch Management](Patch-Management)
+* [Plugin Catalog Index](Plugin-Catalog-Index-Generation)
 
 ### 📊 Generated Reports
 * [Backstage Compatibility Report](Backstage-Compatibility-Report)
 * [Workspace Status Reports](Workspace-Status-Reports)
+* [Plugin Catalog Index Status](Plugin-Catalog-Index-Status)
 ${reportLinks}
 
 ### 📈 Stats
