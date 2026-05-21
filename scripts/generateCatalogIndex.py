@@ -23,6 +23,7 @@ import requests
 import yaml
 
 from plugin_utils import (
+    BuildReport,
     Colors,
     log_debug,
     log_info,
@@ -48,7 +49,7 @@ def get_image_name_from_package_yaml(yaml_path: Path) -> str | None:
     This matches the key used in plugin_builds JSON and found_plugins.
     Falls back to metadata.name, then filename stem."""
     try:
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         if not data:
             return yaml_path.stem
@@ -225,7 +226,7 @@ def check_image_exists(registry_reference: str) -> bool:
         return False
 
 
-def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict[str, dict], list[str], list[tuple[str, str, str]], dict[str, str], dict[str, dict]]:
+def generate_index_json(plugin_builds_dir: Path, output_dir: Path, report: BuildReport | None = None) -> tuple[dict[str, dict], list[str], list[tuple[str, str, str]], dict[str, str], dict[str, dict]]:
     """
     Read *.json files in plugin_builds/ and check if registryReference exists.
     Combine valid ones into index.json.
@@ -242,8 +243,8 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
     json_files = list(plugin_builds_dir.glob("*/*.json"))
 
     if not json_files:
-        log_error("No JSON files found in plugin_builds/")
-        sys.exit(1)
+        log_warn("No JSON files found in plugin_builds/")
+        return {}, [], [], {}, {}
 
     log_info(f"Found {len(json_files)} JSON file(s) to process")
 
@@ -260,7 +261,7 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
         print(f"\n{Colors.NORM}[{i}/{len(json_files)}] {relative_path}{Colors.NORM}")
 
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             for plugin_name, plugin_data in data.items():
@@ -276,6 +277,11 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
                     missing_count += 1
                     print(f"{Colors.RED}[{i}/{len(json_files)}] ! No OCI reference found{Colors.NORM} ({missing_count})")
                     missing_references.append((str(relative_path), plugin_name, "no registryReference field"))
+                    if report:
+                        report.set_stage(
+                            plugin_name, "catalog-index", "fail",
+                            reason="No registryReference field",
+                        )
                     continue
 
                 query_ref = get_query_registry_reference(registry_reference)
@@ -284,10 +290,17 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
                     print(f"[{i}/{len(json_files)}] {registry_reference} ({found_count})")
                     combined_index[plugin_name] = plugin_data
                     found_plugins.append(plugin_name)
+                    if report:
+                        report.set_stage(plugin_name, "catalog-index", "pass")
                 else:
                     missing_count += 1
                     print(f"{Colors.RED}[{i}/{len(json_files)}]{Colors.NORM} {registry_reference} {Colors.RED}could not be resolved{Colors.NORM} ({missing_count})")
                     missing_references.append((str(relative_path), plugin_name, registry_reference))
+                    if report:
+                        report.set_stage(
+                            plugin_name, "catalog-index", "fail",
+                            reason=f"Image not found in registry: {registry_reference}",
+                        )
 
         except json.JSONDecodeError as e:
             log_error(f"Error parsing JSON file {json_file}: {e}")
@@ -299,8 +312,12 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
             missing_references.append((str(relative_path), "N/A", f"Error: {e}"))
 
     if not combined_index:
-        log_error("No plugins found! Cannot generate index.json")
-        sys.exit(1)
+        log_warn("No plugins with resolvable OCI images found — writing empty catalog-index/index.json")
+        catalog_index_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(catalog_index_json, 'w', encoding='utf-8') as f:
+            json.dump({}, f, indent=2)
+            f.write('\n')
+        return {}, [], missing_references, plugin_workspace_paths, all_plugin_data
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -329,7 +346,7 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path) -> tuple[dict
                 ordered_plugin[key] = value
         ordered_index[plugin_name] = ordered_plugin
 
-    with open(catalog_index_json, 'w') as f:
+    with open(catalog_index_json, 'w', encoding='utf-8') as f:
         json.dump(ordered_index, f, indent=2)
         f.write('\n')
 
@@ -383,7 +400,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                 continue
 
             try:
-                with open(yaml_file, 'r') as f:
+                with open(yaml_file, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
 
                 new_lines = []
@@ -417,7 +434,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             if not next_line.strip():
                                 i += 1
                                 continue
-                            if next_line.startswith(' ') or next_line.startswith('\t'):
+                            if next_line.startswith((' ', '\t')):
                                 if not (next_line.strip().startswith('#') and 'Tag:' in next_line):
                                     preserved_lines.append(next_line)
                                 i += 1
@@ -477,7 +494,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                     i += 1
 
                 if modified:
-                    with open(yaml_file, 'w') as f:
+                    with open(yaml_file, 'w', encoding='utf-8') as f:
                         f.writelines(new_lines)
                     files_updated += 1
                     if yaml_file == dynamic_plugins_yaml:
@@ -542,7 +559,7 @@ def regenerate_all_yaml_files(output_dir: Path) -> None:
             continue
 
         all_yaml_path = dir_path / "all.yaml"
-        with open(all_yaml_path, 'w') as f:
+        with open(all_yaml_path, 'w', encoding='utf-8') as f:
             f.write("apiVersion: backstage.io/v1alpha1\n")
             f.write("kind: Location\n")
             f.write("metadata:\n")
@@ -575,7 +592,7 @@ def scrub_plugin_entity_file(yaml_file: Path, filtered_stems: set[str]) -> str:
     Returns: 'removed' | 'stripped' | 'kept' | 'skipped'
     """
     try:
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
 
         if not data or data.get('kind') != 'Plugin':
@@ -603,7 +620,7 @@ def scrub_plugin_entity_file(yaml_file: Path, filtered_stems: set[str]) -> str:
             return 'kept'
 
         # Mixed plugin: remove excluded package lines using line-based editing
-        with open(yaml_file, 'r') as f:
+        with open(yaml_file, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
         new_lines = []
@@ -631,7 +648,7 @@ def scrub_plugin_entity_file(yaml_file: Path, filtered_stems: set[str]) -> str:
 
             new_lines.append(line)
 
-        with open(yaml_file, 'w') as f:
+        with open(yaml_file, 'w', encoding='utf-8') as f:
             f.writelines(new_lines)
 
         return 'stripped'
@@ -678,7 +695,7 @@ def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files:
             if yaml_file.name == "all.yaml":
                 continue
             try:
-                with open(yaml_file, 'r') as f:
+                with open(yaml_file, 'r', encoding='utf-8') as f:
                     data = yaml.safe_load(f)
                 entity_name = (data or {}).get('metadata', {}).get('name', yaml_file.stem)
             except Exception:
@@ -773,6 +790,12 @@ Examples:
              'Defaults to <overlays-dir>/catalog-entities/extensions/',
     )
     parser.add_argument(
+        '--report-file',
+        type=str,
+        metavar='PATH',
+        help='Path to build-report.json for tracking generation stages (optional)',
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug output',
@@ -805,8 +828,10 @@ Examples:
         print(f"\n{Colors.GREEN}=== Scrub catalog entities to packages from {len(args.packages_file)} file(s) ==={Colors.NORM}")
         scrub_catalog_entities(output_dir, overlays_dir, args.packages_file)
 
+    report = BuildReport(args.report_file)
+
     print(f"\n{Colors.GREEN}=== Generate index.json from plugin_builds ==={Colors.NORM}")
-    index_data, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data = generate_index_json(plugin_builds_dir, output_dir)
+    index_data, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data = generate_index_json(plugin_builds_dir, output_dir, report)
 
     print(f"\n{Colors.GREEN}=== Prune packages/ to match index ==={Colors.NORM}")
     prune_packages_dir(output_dir, found_plugins)
@@ -857,6 +882,8 @@ Examples:
                 label = support if support else '?UNKNOWN?'
                 color = _support_label_color(label)
                 print(f"  - {color}[{label}]{Colors.NORM} {workspace_path}")
+
+    report.save()
 
     if missing_references:
         print("\n========")

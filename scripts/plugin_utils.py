@@ -5,6 +5,7 @@
 # Provides logging, package file loading, workspace metadata resolution,
 # and multi-format package list handling (YAML npm names + txt workspace paths).
 
+import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -53,7 +54,7 @@ def read_plugins_list(workspace_dir: Path) -> list[str]:
         return []
 
     paths = []
-    with open(plugins_list_file, 'r') as f:
+    with open(plugins_list_file, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith('#'):
@@ -99,7 +100,7 @@ def load_filtered_packages_from_yaml(packages_file: str) -> set[str]:
         log_error(f"Packages file not found: {packages_file}")
         sys.exit(1)
 
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
 
     packages = set()
@@ -121,7 +122,7 @@ def load_packages_from_txt(txt_file: str) -> list[str]:
         sys.exit(1)
 
     paths = []
-    with open(path, 'r') as f:
+    with open(path, 'r', encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith('#'):
@@ -247,7 +248,7 @@ def build_workspace_mappings(overlays_dir: Path) -> WorkspaceMappings:
 
         for yaml_file in sorted(metadata_dir.glob("*.yaml")):
             try:
-                with open(yaml_file, 'r') as f:
+                with open(yaml_file, 'r', encoding='utf-8') as f:
                     data = yaml.safe_load(f)
                 if not data or data.get('kind') != 'Package':
                     continue
@@ -424,3 +425,96 @@ def load_and_resolve_to_npm_names(
         log_debug(f"Resolved {len(all_npms)} npm names from {packages_files[0]}")
 
     return all_npms
+
+
+class BuildReport:
+    """Manages a build-report.json file for tracking plugin generation stages.
+
+    Usage:
+        report = BuildReport(args.report_file)  # None disables reporting
+        report.add_plugin("image-name", package="@scope/pkg", version="1.0")
+        report.set_stage("image-name", "bootstrap", "pass", oci_ref="quay.io/...")
+        report.save()  # computes overall/summary and writes to disk
+    """
+
+    def __init__(self, report_file: str | None):
+        self._path = Path(report_file) if report_file else None
+        self._data: dict = {}
+        if self._path and self._path.exists():
+            with open(self._path, 'r', encoding='utf-8') as f:
+                self._data = json.load(f)
+        elif self._path:
+            self._data = {"metadata": {}, "plugins": {}}
+
+    @property
+    def enabled(self) -> bool:
+        return self._path is not None
+
+    def set_metadata(self, **fields) -> None:
+        if not self.enabled:
+            return
+        self._data.setdefault("metadata", {}).update(fields)
+
+    def add_plugin(self, plugin_name: str, **info) -> None:
+        if not self.enabled:
+            return
+        plugin = self._data.setdefault("plugins", {}).setdefault(
+            plugin_name, {"stages": {}}
+        )
+        for k, v in info.items():
+            if k != "stages":
+                plugin[k] = v
+
+    def set_stage(self, plugin_name: str, stage: str, status: str, **details) -> None:
+        if not self.enabled:
+            return
+        plugin = self._data.setdefault("plugins", {}).setdefault(
+            plugin_name, {"stages": {}}
+        )
+        stage_data = {"status": status}
+        stage_data.update(details)
+        plugin.setdefault("stages", {})[stage] = stage_data
+
+    def set_stage_all(self, stage: str, status: str, **details) -> None:
+        if not self.enabled:
+            return
+        for plugin_name in list(self._data.get("plugins", {})):
+            self.set_stage(plugin_name, stage, status, **details)
+
+    def save(self) -> None:
+        if not self.enabled:
+            return
+
+        for plugin in self._data.get("plugins", {}).values():
+            stages = plugin.get("stages", {})
+            if any(s.get("status") == "fail" for s in stages.values()):
+                plugin["overall"] = "fail"
+            elif stages and all(
+                s.get("status") in ("pass", "skip") for s in stages.values()
+            ):
+                plugin["overall"] = "pass"
+            else:
+                plugin["overall"] = "pending"
+
+        plugins = self._data.get("plugins", {})
+        total = len(plugins)
+        succeeded = sum(1 for p in plugins.values() if p.get("overall") == "pass")
+        failed = sum(1 for p in plugins.values() if p.get("overall") == "fail")
+
+        self._data["summary"] = {
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+        }
+
+        if total == 0:
+            self._data["status"] = "initial"
+        elif failed == 0:
+            self._data["status"] = "success"
+        else:
+            self._data["status"] = "partial"
+
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self._path, 'w', encoding='utf-8') as f:
+            json.dump(self._data, f, indent=2)
+            f.write('\n')
