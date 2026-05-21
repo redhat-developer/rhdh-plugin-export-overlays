@@ -3,6 +3,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import {
+  getOperatorMajorMinorVersions,
+  logWorkflowDeployFailureDiagnostics,
+  POSTGRES_ALIGN_TIMEOUT_MS,
+  resolveWorkflowImageMajorMinor,
+  waitForWorkflowDeployment,
+  WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
+  type WorkflowOcDeps,
+} from "./workflow-deploy-readiness.js";
 
 /** ConfigMap required by tests/config/value_file.yaml (rbac-policy volume). */
 export async function applyOrchestratorRbacPolicy(
@@ -43,20 +52,23 @@ const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
 
-  const oslFullVersion = detectOperatorVersion(
-    "operators.coreos.com/logic-operator.openshift-operators",
-    "operators.coreos.com/logic-operator-rhel8.openshift-operators",
-  );
-  const oslMajorMinor = oslFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
-
-  const osFullVersion = detectOperatorVersion(
-    "operators.coreos.com/serverless-operator.openshift-operators",
-  );
-  const osMajorMinor = osFullVersion.replace(/^(\d+\.\d+).*/, "$1") || "";
+  const workflowOcDeps: WorkflowOcDeps = { runOc };
+  const { osMajorMinor, oslMajorMinor } =
+    getOperatorMajorMinorVersions(workflowOcDeps);
 
   if (oslMajorMinor && osMajorMinor && oslMajorMinor !== osMajorMinor) {
     console.warn(
       `[deploy-sonataflow] WARNING: OS (${osMajorMinor}) and OSL (${oslMajorMinor}) major.minor versions differ — this may cause Knative API incompatibilities`,
+    );
+  }
+
+  const imageMajorMinor = resolveWorkflowImageMajorMinor(
+    osMajorMinor,
+    oslMajorMinor,
+  );
+  if (imageMajorMinor) {
+    console.warn(
+      `[deploy-sonataflow] Workflow images will use tag osl_${imageMajorMinor.replace(".", "_")}`,
     );
   }
 
@@ -84,19 +96,24 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     patchWorkflowPostgres(namespace, workflow);
   }
 
-  alignWorkflowImages(namespace, oslMajorMinor);
+  alignWorkflowImages(namespace, imageMajorMinor);
 
   // Image patch can trigger another reconcile; re-apply persistence for safety.
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
   }
 
-  const postgresAlignTimeoutMs = 120_000;
   for (const workflow of WORKFLOWS) {
+    await waitForWorkflowDeployment(
+      namespace,
+      workflow,
+      WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
+      workflowOcDeps,
+    );
     await waitForWorkflowPostgresDeploymentAligned(
       namespace,
       workflow,
-      postgresAlignTimeoutMs,
+      POSTGRES_ALIGN_TIMEOUT_MS,
     );
     runOc(
       ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
@@ -116,9 +133,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     );
   }
 
-  await deployTokenPropagationWorkflow(namespace, postgresAlignTimeoutMs);
-
-  await applyOrchestratorRbacPolicy(namespace);
+  await deployTokenPropagationWorkflow(namespace, workflowOcDeps);
 }
 
 function patchWorkflowPostgres(namespace: string, workflow: string): string {
@@ -213,7 +228,7 @@ async function waitForWorkflowPostgresDeploymentAligned(
     patchWorkflowPostgres(namespace, workflow);
     await sleep(2_000);
   }
-  console.warn(
+  throw new Error(
     `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): workflow "${workflow}" not aligned on ${E2E_WORKFLOW_PG_SECRET} (SonataFlow CR + Deployment template; attempts=${attempt})`,
   );
 }
@@ -325,18 +340,18 @@ function hardenSonataFlowPlatform(namespace: string): void {
   }
 }
 
-function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
-  if (!oslMajorMinor || oslMajorMinor === "1.37") return;
+function alignWorkflowImages(namespace: string, imageMajorMinor: string): void {
+  if (!imageMajorMinor) return;
 
-  const oslTag = `osl_${oslMajorMinor.replace(".", "_")}`;
+  const oslTag = `osl_${imageMajorMinor.replace(".", "_")}`;
   const imageMap: Record<string, string> = {
     greeting: `quay.io/orchestrator/serverless-workflow-greeting:${oslTag}`,
     failswitch: `quay.io/orchestrator/fail-switch:${oslTag}`,
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- workflow resource name
+    "sample-retry-test": `quay.io/orchestrator/serverless-workflow-sample-retry-test:${oslTag}`,
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- workflow resource name
+    "test-object-type-uiprops": `quay.io/orchestrator/serverless-workflow-test-object-type-uiprops:${oslTag}`,
   };
-  imageMap["sample-retry-test"] =
-    `quay.io/orchestrator/serverless-workflow-sample-retry-test:${oslTag}`;
-  imageMap["test-object-type-uiprops"] =
-    `quay.io/orchestrator/serverless-workflow-test-object-type-uiprops:${oslTag}`;
   for (const wf of WORKFLOWS) {
     const image = imageMap[wf];
     if (!image) continue;
@@ -363,7 +378,7 @@ function alignWorkflowImages(namespace: string, oslMajorMinor: string): void {
 
 async function deployTokenPropagationWorkflow(
   namespace: string,
-  postgresAlignTimeoutMs: number,
+  workflowOcDeps: WorkflowOcDeps,
 ): Promise<void> {
   const kcBaseUrl = process.env.KEYCLOAK_BASE_URL;
   const kcRealm = process.env.KEYCLOAK_REALM;
@@ -479,10 +494,16 @@ EOF`;
     await $`oc apply -n ${namespace} -f ${manifestsDir}`;
 
     patchWorkflowPostgres(namespace, "token-propagation");
+    await waitForWorkflowDeployment(
+      namespace,
+      "token-propagation",
+      WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
+      workflowOcDeps,
+    );
     await waitForWorkflowPostgresDeploymentAligned(
       namespace,
       "token-propagation",
-      postgresAlignTimeoutMs,
+      POSTGRES_ALIGN_TIMEOUT_MS,
     );
     runOc(
       ["rollout", "restart", "deployment/token-propagation", "-n", namespace],
@@ -557,6 +578,8 @@ export function logOrchestratorDeployFailureDiagnostics(
     safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 60_000),
     "(get pods — empty stdout)",
   );
+
+  logWorkflowDeployFailureDiagnostics(namespace, WORKFLOWS, runOc);
 
   const hubPod = safeOc([
     "get",
@@ -671,27 +694,6 @@ export function logOrchestratorDeployFailureDiagnostics(
   } else {
     console.error("(no events or oc get events failed)");
   }
-}
-
-function detectOperatorVersion(...labels: string[]): string {
-  for (const label of labels) {
-    try {
-      const version = runOc([
-        "get",
-        "csv",
-        "-n",
-        "openshift-operators",
-        "-o",
-        "jsonpath={.items[0].spec.version}",
-        "-l",
-        label,
-      ]);
-      if (version) return version;
-    } catch {
-      /* try next candidate */
-    }
-  }
-  return "";
 }
 
 function sleep(ms: number): Promise<void> {

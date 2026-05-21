@@ -1,7 +1,6 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
-// import { ensureBaselineRole } from "../support/utils/test-helpers.js";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
 import { restoreBaselineRole } from "../support/utils/test-helpers.js";
 
@@ -21,7 +20,6 @@ export function registerRetryWorkflowTests(): void {
   test.describe("Sample Retry Test ActiveTextInput fetch retries", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
       await restoreBaselineRole(browser, testInfo);
-      // await ensureBaselineRole(browser, testInfo);
     });
 
     test.beforeEach(async ({ loginHelper }, testInfo) => {
@@ -167,5 +165,4 @@ async function openSampleRetryTestRunForm(page: Page, uiHelper: UIhelper) {
     .first();
   await expect(runButton).toBeEnabled();
   await runButton.click();
-
 }

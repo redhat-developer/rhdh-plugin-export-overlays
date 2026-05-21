@@ -16,7 +16,7 @@ import {
   Response,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 export {
-  applyOrchestratorRbacPolicy,
+  // applyOrchestratorRbacPolicy,
   deploySonataflow,
   runOc,
   logOrchestratorDeployFailureDiagnostics,
