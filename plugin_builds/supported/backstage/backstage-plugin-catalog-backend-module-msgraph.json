@@ -1,7 +1,13 @@
 {
   "backstage-plugin-catalog-backend-module-msgraph": {
     "workspacePath": "backstage/plugins/catalog-backend-module-msgraph",
+    "registryReference": "quay.io/rhdh/backstage-plugin-catalog-backend-module-msgraph:1.10--0.9.1",
+    "digest": "sha256:48aaafc0e719ab77970282bf3372398c8ef3c1156526229b1e1eb9d4bc2bc090",
+    "build-date": "2026-05-21T21:33:01Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
+    "vcs-ref": "319f1c4d2686e1a781be1af19bc1217350bbbae3",
     "support": "generally-available",
-    "registryReference": "quay.io/rhdh/backstage-plugin-catalog-backend-module-msgraph:1.10--0.9.1"
+    "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLW1zZ3JhcGgiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWNhdGFsb2ctYmFja2VuZC1tb2R1bGUtbXNncmFwaC1keW5hbWljIiwidmVyc2lvbiI6IjAuOS4xIiwiZGVzY3JpcHRpb24iOiJBIEJhY2tzdGFnZSBjYXRhbG9nIGJhY2tlbmQgbW9kdWxlIHRoYXQgaGVscHMgaW50ZWdyYXRlIHRvd2FyZHMgTWljcm9zb2Z0IEdyYXBoIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6ImNhdGFsb2ciLCJwbHVnaW5QYWNrYWdlIjoiQGJhY2tzdGFnZS9wbHVnaW4tY2F0YWxvZy1iYWNrZW5kIn0sImhvbWVwYWdlIjoiaHR0cHM6Ly9iYWNrc3RhZ2UuaW8iLCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2JhY2tzdGFnZSIsImRpcmVjdG9yeSI6InBsdWdpbnMvY2F0YWxvZy1iYWNrZW5kLW1vZHVsZS1tc2dyYXBoIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIl19fV0="
   }
 }

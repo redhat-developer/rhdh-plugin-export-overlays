@@ -1,7 +1,13 @@
 {
   "backstage-plugin-techdocs-module-addons-contrib": {
     "workspacePath": "backstage/plugins/techdocs-module-addons-contrib",
+    "registryReference": "quay.io/rhdh/backstage-plugin-techdocs-module-addons-contrib:1.10--1.1.34",
+    "digest": "sha256:c23ed0c206b4d90981d29978cb58c1f67b55dfe09f6a03f5fa2175767fa325bf",
+    "build-date": "2026-05-21T21:30:58Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
+    "vcs-ref": "145a790a9306d103b5469691132a91f312bd6918",
     "support": "generally-available",
-    "registryReference": "quay.io/rhdh/backstage-plugin-techdocs-module-addons-contrib:1.10--1.1.34"
+    "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi10ZWNoZG9jcy1tb2R1bGUtYWRkb25zLWNvbnRyaWIiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLXRlY2hkb2NzLW1vZHVsZS1hZGRvbnMtY29udHJpYi1keW5hbWljIiwidmVyc2lvbiI6IjEuMS4zNCIsImRlc2NyaXB0aW9uIjoiUGx1Z2luIG1vZHVsZSBmb3IgY29udHJpYnV0ZWQgVGVjaERvY3MgQWRkb25zIiwiYmFja3N0YWdlIjp7InJvbGUiOiJmcm9udGVuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJ0ZWNoZG9jcyIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi10ZWNoZG9jcyJ9LCJob21lcGFnZSI6Imh0dHBzOi8vYmFja3N0YWdlLmlvIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3RlY2hkb2NzLW1vZHVsZS1hZGRvbnMtY29udHJpYiJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInRlY2hkb2NzIl19fV0="
   }
 }

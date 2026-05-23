@@ -1,7 +1,13 @@
 {
   "backstage-plugin-techdocs": {
     "workspacePath": "backstage/plugins/techdocs",
+    "registryReference": "quay.io/rhdh/backstage-plugin-techdocs:1.10--1.17.2",
+    "digest": "sha256:c7573ee8ec0ea14a352672c764fc18c9bb835be90852982b5fb475804009ae78",
+    "build-date": "2026-05-21T21:39:11Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
+    "vcs-ref": "bd8126809679267bef4fa6e56a6fdfe0964c1367",
     "support": "generally-available",
-    "registryReference": "quay.io/rhdh/backstage-plugin-techdocs:1.10--1.17.2"
+    "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi10ZWNoZG9jcyI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tdGVjaGRvY3MtZHluYW1pYyIsInZlcnNpb24iOiIxLjE3LjIiLCJkZXNjcmlwdGlvbiI6IlRoZSBCYWNrc3RhZ2UgcGx1Z2luIHRoYXQgcmVuZGVycyB0ZWNobmljYWwgZG9jdW1lbnRhdGlvbiBmb3IgeW91ciBjb21wb25lbnRzIiwiYmFja3N0YWdlIjp7InJvbGUiOiJmcm9udGVuZC1wbHVnaW4iLCJwbHVnaW5JZCI6InRlY2hkb2NzIiwicGx1Z2luUGFja2FnZXMiOlsiQGJhY2tzdGFnZS9wbHVnaW4tdGVjaGRvY3MiLCJAYmFja3N0YWdlL3BsdWdpbi10ZWNoZG9jcy1iYWNrZW5kIiwiQGJhY2tzdGFnZS9wbHVnaW4tdGVjaGRvY3MtY29tbW9uIiwiQGJhY2tzdGFnZS9wbHVnaW4tdGVjaGRvY3Mtbm9kZSIsIkBiYWNrc3RhZ2UvcGx1Z2luLXRlY2hkb2NzLXJlYWN0Il19LCJob21lcGFnZSI6Imh0dHBzOi8vYmFja3N0YWdlLmlvIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3RlY2hkb2NzIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwidGVjaGRvY3MiXX19XQ=="
   }
 }
