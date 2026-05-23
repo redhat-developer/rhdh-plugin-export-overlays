@@ -116,6 +116,7 @@ spec:
           async () => {
             await page.reload();
             await uiHelper.openSidebar("Catalog");
+            await uiHelper.waitForLoad();
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
             return await page
@@ -161,6 +162,7 @@ spec:
           async () => {
             await page.reload();
             await uiHelper.openSidebar("Catalog");
+            await uiHelper.waitForLoad();
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
 
@@ -195,6 +197,7 @@ spec:
           async () => {
             await page.reload();
             await uiHelper.openSidebar("Catalog");
+            await uiHelper.waitForLoad();
             await uiHelper.selectMuiBox("Kind", "Component");
             await uiHelper.searchInputPlaceholder(catalogRepoName);
             return await page
@@ -232,6 +235,7 @@ spec:
             async () => {
               await page.reload();
               await uiHelper.openSidebar("Catalog");
+              await uiHelper.waitForLoad();
               await uiHelper.selectMuiBox("Kind", "Group");
               await uiHelper.searchInputPlaceholder(teamName);
               return await page
@@ -257,6 +261,7 @@ spec:
             async () => {
               await page.reload();
               await uiHelper.openSidebar("Catalog");
+              await uiHelper.waitForLoad();
               await uiHelper.selectMuiBox("Kind", "Group");
               await uiHelper.searchInputPlaceholder(teamName);
               return await page
