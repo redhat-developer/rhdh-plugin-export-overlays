@@ -163,6 +163,10 @@ fi
 # Build --report-file arg
 REPORT_FILE_ARG=""
 if [[ -n "$REPORT_FILE" ]]; then
+    if ! command -v jq >/dev/null 2>&1; then
+        echo -e "${red}[ERROR] jq is required when --report-file is used${norm}" >&2
+        exit 1
+    fi
     REPORT_FILE_ARG="--report-file $REPORT_FILE"
 fi
 

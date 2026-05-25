@@ -22,7 +22,12 @@ def load_tag_by_key(plugin_builds_dir: Path) -> dict[str, tuple[str, str]]:
     if not plugin_builds_dir.is_dir():
         return tag_by_key
     for jf in sorted(plugin_builds_dir.glob("*/*.json")):
-        for name, pdata in json.loads(jf.read_text()).items():
+        try:
+            data = json.loads(jf.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"Warning: Skipping invalid plugin build file: {jf} ({e})", file=sys.stderr)
+            continue
+        for name, pdata in data.items():
             ref = pdata.get("registryReference") or ""
             tag = ref.rsplit(":", 1)[-1] if ":" in ref else ""
             bd = pdata.get("build-date") or ""
@@ -76,7 +81,7 @@ def recent_has_tag(result: list[str]) -> bool:
 
 def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
     tag_by_key = load_tag_by_key(plugin_builds_dir)
-    lines = dpdy_path.read_text().splitlines(keepends=True)
+    lines = dpdy_path.read_text(encoding="utf-8").splitlines(keepends=True)
     result: list[str] = []
     changed = False
     i = 0
@@ -110,7 +115,7 @@ def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
         i += 1
 
     if changed:
-        dpdy_path.write_text("".join(result))
+        dpdy_path.write_text("".join(result), encoding="utf-8")
     return changed
 
 

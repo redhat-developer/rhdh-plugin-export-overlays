@@ -34,7 +34,7 @@ def load_report(path: str) -> dict:
     if not p.exists():
         print(f"Warning: Report file not found: {path}", file=sys.stderr)
         return {}
-    with open(p, 'r') as f:
+    with open(p, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
