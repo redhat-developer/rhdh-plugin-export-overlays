@@ -260,7 +260,13 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
         --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
         $DEBUG_FLAG; then
         DPDY_STATUS="fail"
-        echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2; exit 1
+        echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2
+        if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
+            jq --arg status "$DPDY_STATUS" \
+              '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
+              "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
+        fi
+        exit 1
     fi
     cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
     echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
