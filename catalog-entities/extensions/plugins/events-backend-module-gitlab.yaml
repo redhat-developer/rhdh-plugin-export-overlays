@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: backstage-plugin-events-backend-module-gitlab
+  namespace: rhdh
+  title: GitLab Events Backend Module
+  annotations:
+    extensions.backstage.io/pre-installed: 'false' # this plugin is not preinstalled
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Issues
+      url: https://issues.redhat.com/browse/RHDHBUGS
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-gitlab
+  tags: []
+  description: |
+    This plugin enables GitLab webhooks integration to receive real-time events for catalog entity updates and organizational data synchronization
+spec:
+  author: Backstage Community
+  support:
+    provider: Red Hat
+    level: tech-preview
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Event Modules
+  highlights:
+    - Receive real-time GitLab webhook events for catalog updates
+    - Supports GitLab Discovery push events for catalog-info.yaml changes
+    - Handles GitLab Organizational Data events (group, user, membership)
+    - Automatically syncs catalog entities when changes occur in GitLab
+
+  description: |
+    The GitLab Events Backend Module enables real-time synchronization of catalog entities by receiving webhook events from GitLab. This allows your Developer Hub instance to stay updated automatically when changes occur in your GitLab projects or organization, eliminating the need for frequent polling.
+
+    ## Key Features
+
+    - **GitLab Discovery Events**: Monitors push events to automatically update catalog entities when `catalog-info.yaml` files are modified (Requires GitLab Catalog Discovery to be set up)
+    - **Organizational Data Events**: Tracks group, user, and membership changes to keep user and team data synchronized (Requires GitLab Organizational Data to be set up)
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/rhdh-extensions-plugins_assembly-install-third-party-plugins-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    for further details regarding the configuration required.
+
+  # all packages needed for plugin to work
+  packages:
+    - backstage-plugin-events-backend-module-gitlab
+    - backstage-plugin-catalog-backend-module-gitlab
+    - backstage-plugin-catalog-backend-module-gitlab-org
