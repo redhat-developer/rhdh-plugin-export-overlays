@@ -168,9 +168,7 @@ export class BulkImportPO {
     await expect(importButton).toBeEnabled({ timeout: 10_000 });
     await importButton.click();
     await expect(importButton)
-      .toBeDisabled({ timeout: 5_000 })
-      .catch(() => undefined);
-    await expect(importButton).toBeEnabled({ timeout: 120_000 });
+      .toBeDisabled({ timeout: 5_000 });
   }
 
   /** Navigate to add-repositories UI (fresh mount — avoids `page.reload()`). */
