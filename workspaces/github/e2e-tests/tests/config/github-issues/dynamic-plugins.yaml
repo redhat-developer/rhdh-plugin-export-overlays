@@ -3,14 +3,14 @@ plugins:
     disabled: false
     pluginConfig:
       dynamicPlugins:
-          frontend:
-            backstage-community.plugin-github-issues:
-              mountPoints:
-                - mountPoint: entity.page.issues/cards
-                  importName: GithubIssuesCard
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      allOf:
-                        - hasAnnotation: github.com/project-slug
+        frontend:
+          backstage-community.plugin-github-issues:
+            mountPoints:
+              - mountPoint: entity.page.issues/cards
+                importName: GithubIssuesCard
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                  if:
+                    allOf:
+                      - hasAnnotation: github.com/project-slug
