@@ -53,7 +53,9 @@ def comment_for_package(pkg: str, tag_by_key: dict[str, tuple[str, str]]) -> str
 
 def package_name_from_oci_comment(line: str) -> str | None:
     m = re.search(r"oci://[^/]+/([^@\s!]+)", line)
-    return m.group(1) if m else None
+    if not m:
+        return None
+    return m.group(1).rsplit("/", 1)[-1]
 
 
 def package_name_from_package_value(val: str) -> str:
@@ -62,10 +64,13 @@ def package_name_from_package_value(val: str) -> str:
     return val.split("/")[-1].split("@")[0]
 
 
-def recent_has_tag(result: list[str], window: int = 10) -> bool:
-    for line in result[-window:]:
+def recent_has_tag(result: list[str]) -> bool:
+    """Check if a Tag comment exists between the current position and the previous package line."""
+    for line in reversed(result):
         if TAG_LINE_RE.match(line):
             return True
+        if PKG_LINE_RE.match(line) or COMMENTED_OCI_RE.match(line):
+            return False
     return False
 
 
