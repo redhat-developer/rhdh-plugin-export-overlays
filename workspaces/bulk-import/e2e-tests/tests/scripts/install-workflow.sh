@@ -24,6 +24,8 @@ readonly PSQL_SVC_NAME="backstage-psql"
 readonly PSQL_USER_KEY="POSTGRES_USER"
 readonly PSQL_PASSWORD_KEY="POSTGRES_PASSWORD"
 readonly SONATAFLOW_DB="backstage_plugin_orchestrator"
+readonly SONATAFLOW_DB_SCHEMA="bulk-import-git-repos"
+readonly PSQL_PORT="5432"
 
 readonly DATA_INDEX_DEPLOY="sonataflow-platform-data-index-service"
 readonly JOBS_SERVICE_DEPLOY="sonataflow-platform-jobs-service"
@@ -84,7 +86,9 @@ patch_workflow_postgres() {
         "serviceRef": {
           "name": "${PSQL_SVC_NAME}",
           "namespace": "${namespace}",
-          "databaseName": "${SONATAFLOW_DB}"
+          "port": ${PSQL_PORT},
+          "databaseName": "${SONATAFLOW_DB}",
+          "databaseSchema": "${SONATAFLOW_DB_SCHEMA}"
         }
       }
     }
@@ -362,6 +366,12 @@ apply_workflow_manifests() {
       "${sonataflow_manifest}"
     yq eval -i \
       ".spec.persistence.postgresql.serviceRef.databaseName = \"$(escape_yq "${SONATAFLOW_DB}")\"" \
+      "${sonataflow_manifest}"
+    yq eval -i \
+      ".spec.persistence.postgresql.serviceRef.port = ${PSQL_PORT}" \
+      "${sonataflow_manifest}"
+    yq eval -i \
+      ".spec.persistence.postgresql.serviceRef.databaseSchema = \"$(escape_yq "${SONATAFLOW_DB_SCHEMA}")\"" \
       "${sonataflow_manifest}"
 
     log "Applying workflow manifests from ${workflow_manifests}..."

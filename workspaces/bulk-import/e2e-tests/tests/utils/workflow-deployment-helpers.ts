@@ -27,6 +27,14 @@ const PSQL_SVC_NAME = "backstage-psql";
 const PSQL_USER_KEY = "POSTGRES_USER";
 const PSQL_PASSWORD_KEY = "POSTGRES_PASSWORD";
 const SONATAFLOW_DB = "backstage_plugin_orchestrator";
+/** Required by universal-pr SonataFlow CR (see upstream 05-sonataflow_universal-pr.yaml). */
+const SONATAFLOW_DB_SCHEMA = "bulk-import-git-repos";
+const PSQL_PORT = 5432;
+
+const WORKFLOW_WORKLOAD_TIMEOUT_MS = Number(
+  process.env.BULK_IMPORT_WORKFLOW_WORKLOAD_TIMEOUT_MS ??
+    (process.env.CI === "true" ? 600_000 : 300_000),
+);
 
 const POSTGRES_ALIGN_TIMEOUT_MS = Number(
   process.env.BULK_IMPORT_WORKFLOW_PG_ALIGN_TIMEOUT_MS ??
@@ -71,12 +79,21 @@ export async function deployBulkImportOrchestratorWorkflow(
 
   await waitForSonataflowCr(namespace, BULK_IMPORT_ORCHESTRATOR_WORKFLOW, 120_000);
 
+  // Single patch with full serviceRef (port + databaseSchema). Repeated merge-patches that
+  // omit those fields prevent the operator from creating deployment/universal-pr.
   patchWorkflowPostgres(
     namespace,
     BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
     workflowPgSecret,
   );
-  await waitForWorkflowPostgresDeploymentAligned(
+
+  await waitForWorkflowWorkloadFromOperator(
+    namespace,
+    BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    WORKFLOW_WORKLOAD_TIMEOUT_MS,
+  );
+
+  await ensureWorkflowDeploymentPostgresAligned(
     namespace,
     BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
     workflowPgSecret,
@@ -124,7 +141,9 @@ async function patchSonataflowManifestPostgres(
     `.spec.persistence.postgresql.secretRef.passwordKey = "${PSQL_PASSWORD_KEY}"`,
     `.spec.persistence.postgresql.serviceRef.name = "${PSQL_SVC_NAME}"`,
     `.spec.persistence.postgresql.serviceRef.namespace = "${namespace}"`,
+    `.spec.persistence.postgresql.serviceRef.port = ${PSQL_PORT}`,
     `.spec.persistence.postgresql.serviceRef.databaseName = "${SONATAFLOW_DB}"`,
+    `.spec.persistence.postgresql.serviceRef.databaseSchema = "${SONATAFLOW_DB_SCHEMA}"`,
   ];
   for (const expr of yqExprs) {
     await $`yq eval -i ${expr} ${manifestFile}`;
@@ -199,6 +218,26 @@ function localManifestsAvailable(): boolean {
   );
 }
 
+function buildWorkflowPostgresqlPersistence(
+  namespace: string,
+  workflowPgSecret: string,
+): Record<string, unknown> {
+  return {
+    secretRef: {
+      name: workflowPgSecret,
+      userKey: PSQL_USER_KEY,
+      passwordKey: PSQL_PASSWORD_KEY,
+    },
+    serviceRef: {
+      name: PSQL_SVC_NAME,
+      namespace,
+      port: PSQL_PORT,
+      databaseName: SONATAFLOW_DB,
+      databaseSchema: SONATAFLOW_DB_SCHEMA,
+    },
+  };
+}
+
 function patchWorkflowPostgres(
   namespace: string,
   workflow: string,
@@ -207,18 +246,7 @@ function patchWorkflowPostgres(
   const patch = JSON.stringify({
     spec: {
       persistence: {
-        postgresql: {
-          secretRef: {
-            name: workflowPgSecret,
-            userKey: PSQL_USER_KEY,
-            passwordKey: PSQL_PASSWORD_KEY,
-          },
-          serviceRef: {
-            name: PSQL_SVC_NAME,
-            namespace,
-            databaseName: SONATAFLOW_DB,
-          },
-        },
+        postgresql: buildWorkflowPostgresqlPersistence(namespace, workflowPgSecret),
       },
     },
   });
@@ -266,16 +294,304 @@ function deploymentPodTemplateReferencesUpstreamPgSecret(
   return JSON.stringify(template).includes(UPSTREAM_WORKFLOW_PG_SECRET);
 }
 
-async function waitForWorkflowPostgresDeploymentAligned(
+type WorkflowPostgresAlignState = {
+  crOk: boolean;
+  deploymentExists: boolean;
+  deploymentReferencesUpstream: boolean;
+  depOk: boolean;
+  blocker: string;
+};
+
+function evaluateWorkflowPostgresAlign(
+  cr: Record<string, unknown> | undefined,
+  deployment: Record<string, unknown> | undefined,
+  workflowPgSecret: string,
+  workflow: string,
+): WorkflowPostgresAlignState {
+  const crOk = Boolean(cr && sonataFlowUsesE2ePostgresSecret(cr, workflowPgSecret));
+  const deploymentExists = Boolean(deployment);
+  const deploymentReferencesUpstream = deploymentExists
+    ? deploymentPodTemplateReferencesUpstreamPgSecret(deployment!)
+    : false;
+
+  if (!crOk) {
+    return {
+      crOk,
+      deploymentExists,
+      deploymentReferencesUpstream,
+      depOk: false,
+      blocker: `SonataFlow CR spec.persistence.postgresql.secretRef is not "${workflowPgSecret}"`,
+    };
+  }
+  if (!deploymentExists) {
+    return {
+      crOk,
+      deploymentExists,
+      deploymentReferencesUpstream,
+      depOk: false,
+      blocker: `Deployment "${workflow}" not found — operator has not created workload yet`,
+    };
+  }
+  if (deploymentReferencesUpstream) {
+    return {
+      crOk,
+      deploymentExists,
+      deploymentReferencesUpstream,
+      depOk: false,
+      blocker: `Deployment "${workflow}" pod template still references ${UPSTREAM_WORKFLOW_PG_SECRET}`,
+    };
+  }
+  return {
+    crOk,
+    deploymentExists,
+    deploymentReferencesUpstream,
+    depOk: true,
+    blocker: "ok",
+  };
+}
+
+function summarizeSonataflowCrStatus(cr: Record<string, unknown>): string {
+  const status = cr.status as Record<string, unknown> | undefined;
+  const lines: string[] = [];
+  const phase = status?.phase;
+  if (phase !== undefined) {
+    lines.push(`status.phase=${String(phase)}`);
+  }
+  const observedGen = status?.observedGeneration;
+  if (observedGen !== undefined) {
+    lines.push(`status.observedGeneration=${String(observedGen)}`);
+  }
+  const conditions = status?.conditions as
+    | Array<Record<string, unknown>>
+    | undefined;
+  if (conditions?.length) {
+    for (const c of conditions) {
+      lines.push(
+        `condition ${String(c.type)}=${String(c.status)} reason=${String(c.reason ?? "")} message=${String(c.message ?? "").slice(0, 200)}`,
+      );
+    }
+  } else {
+    lines.push("(no status.conditions on SonataFlow CR)");
+  }
+  const spec = cr.spec as Record<string, unknown> | undefined;
+  const pg = spec?.persistence as Record<string, unknown> | undefined;
+  const postgresql = pg?.postgresql as Record<string, unknown> | undefined;
+  const secretRef = postgresql?.secretRef as Record<string, unknown> | undefined;
+  lines.push(
+    `spec.persistence.postgresql.secretRef.name=${String(secretRef?.name ?? "<unset>")}`,
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Logs SonataFlow CR status, related workloads, and events (e.g. when Deployment is missing).
+ */
+export function logSonataflowWorkflowDiagnostics(
+  namespace: string,
+  workflow: string,
+  context = "diagnostics",
+): void {
+  const banner = (title: string) => {
+    console.error(
+      `\n===== [bulk-import-orchestrator] ${context}: ${title} =====\n`,
+    );
+  };
+
+  const safeOc = (args: string[], timeoutMs = 60_000): string | undefined => {
+    try {
+      return runOc(args, timeoutMs);
+    } catch (err) {
+      console.error(
+        `[bulk-import-orchestrator] oc ${args.join(" ")} failed: ${formatOcFailure(err)}`,
+      );
+      return undefined;
+    }
+  };
+
+  const dump = (out: string | undefined, emptyHint: string) => {
+    if (out === undefined) return;
+    console.error(out.trim().length > 0 ? out : emptyHint);
+  };
+
+  banner(`sonataflow.sonataflow.org/${workflow} in ${namespace}`);
+
+  const crJson = safeOc(
+    ["get", "sonataflow", workflow, "-n", namespace, "-o", "json"],
+    30_000,
+  );
+  if (crJson) {
+    try {
+      const cr = JSON.parse(crJson) as Record<string, unknown>;
+      console.error("[SonataFlow CR status summary]\n", summarizeSonataflowCrStatus(cr));
+    } catch {
+      console.error("(could not parse SonataFlow CR JSON)");
+    }
+  }
+
+  dump(
+    safeOc(["describe", "sonataflow", workflow, "-n", namespace], 90_000),
+    "(describe sonataflow — empty)",
+  );
+
+  banner(`workloads matching "${workflow}"`);
+  const allWorkloads = safeOc(
+    ["get", "deploy,statefulset,pod,job", "-n", namespace, "-o", "wide"],
+    60_000,
+  );
+  if (allWorkloads) {
+    const matching = allWorkloads
+      .split("\n")
+      .filter((line) => line.includes(workflow));
+    console.error(
+      matching.length > 0
+        ? matching.join("\n")
+        : `(no deploy/sts/pod/job name contains "${workflow}")\n${allWorkloads}`,
+    );
+  }
+
+  try {
+    runOc(["get", "crd", "services.serving.knative.dev"], 10_000);
+    dump(
+      safeOc(["get", "ksvc", "-n", namespace, "-o", "wide"], 30_000)
+        ?.split("\n")
+        .filter((line) => line.includes(workflow))
+        .join("\n"),
+      "(no Knative Service matching workflow name)",
+    );
+  } catch {
+    console.error("(Knative Service CRD not available — skipping ksvc)");
+  }
+
+  dump(
+    safeOc(["get", "deployment", workflow, "-n", namespace, "-o", "wide"], 15_000),
+    `(deployment/${workflow} — NotFound)`,
+  );
+
+  banner(`events involving "${workflow}" (last 30)`);
+  const events = safeOc(
+    ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
+    60_000,
+  );
+  if (events?.trim()) {
+    const filtered = events
+      .trim()
+      .split("\n")
+      .filter((line) => line.toLowerCase().includes(workflow.toLowerCase()));
+    const tail = (filtered.length > 0 ? filtered : events.trim().split("\n")).slice(
+      -30,
+    );
+    console.error(tail.join("\n"));
+  }
+}
+
+function sonataflowCrHasFailedCondition(cr: Record<string, unknown>): string | undefined {
+  const status = cr.status as Record<string, unknown> | undefined;
+  const conditions = status?.conditions as Array<Record<string, unknown>> | undefined;
+  const failed = conditions?.find(
+    (c) =>
+      String(c.type).toLowerCase() === "failed" &&
+      String(c.status).toLowerCase() === "true",
+  );
+  if (failed) {
+    return `${String(failed.reason ?? "Failed")}: ${String(failed.message ?? "")}`;
+  }
+  return undefined;
+}
+
+function workflowPodIsRunning(namespace: string, workflow: string): boolean {
+  try {
+    const pods = runOc(
+      [
+        "get",
+        "pods",
+        "-n",
+        namespace,
+        "-l",
+        `app=${workflow}`,
+        "--no-headers",
+      ],
+      30_000,
+    );
+    return pods
+      .split("\n")
+      .some((row) => row.trim().length > 0 && row.includes("Running"));
+  } catch {
+    return false;
+  }
+}
+
+/** Waits until the SonataFlow operator creates deployment/universal-pr or a Running workflow pod. */
+async function waitForWorkflowWorkloadFromOperator(
+  namespace: string,
+  workflow: string,
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+
+  while (Date.now() < deadline) {
+    attempt++;
+    const cr = parseOcJson<Record<string, unknown>>(
+      ["get", "sonataflow", workflow, "-n", namespace, "-o", "json"],
+      15_000,
+    );
+    const failed = cr ? sonataflowCrHasFailedCondition(cr) : undefined;
+    if (failed) {
+      logSonataflowWorkflowDiagnostics(namespace, workflow, "SonataFlow CR Failed");
+      throw new Error(
+        `[bulk-import-orchestrator] SonataFlow ${workflow} reports Failed: ${failed}`,
+      );
+    }
+
+    if (deploymentExists(namespace, workflow) || workflowPodIsRunning(namespace, workflow)) {
+      console.log(
+        `[bulk-import-orchestrator] Workflow workload ready (attempt ${attempt})`,
+      );
+      return;
+    }
+
+    if (attempt === 1 || attempt % 6 === 0) {
+      console.warn(
+        `[bulk-import-orchestrator] Waiting for operator to create deployment/${workflow} or pod (attempt ${attempt})`,
+      );
+      if (cr) {
+        console.warn(summarizeSonataflowCrStatus(cr));
+      }
+    }
+
+    await sleep(5_000);
+  }
+
+  logSonataflowWorkflowDiagnostics(namespace, workflow, "Workload timeout");
+  throw new Error(
+    `[bulk-import-orchestrator] Operator did not create deployment/${workflow} or Running pod within ${timeoutMs}ms (attempts=${attempt})`,
+  );
+}
+
+/** After workload exists, ensure Deployment pod template no longer references operator postgres. */
+async function ensureWorkflowDeploymentPostgresAligned(
   namespace: string,
   workflow: string,
   workflowPgSecret: string,
   timeoutMs: number,
 ): Promise<void> {
+  if (!deploymentExists(namespace, workflow)) {
+    console.warn(
+      `[bulk-import-orchestrator] No deployment/${workflow}; skipping deployment postgres template check (pod-only workload)`,
+    );
+    return;
+  }
+
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
-  let lastCrOk = false;
-  let lastDepOk = false;
+  let lastState: WorkflowPostgresAlignState = {
+    crOk: false,
+    deploymentExists: true,
+    deploymentReferencesUpstream: true,
+    depOk: false,
+    blocker: "initial",
+  };
+
   while (Date.now() < deadline) {
     attempt++;
     const cr = parseOcJson<Record<string, unknown>>(
@@ -286,29 +602,39 @@ async function waitForWorkflowPostgresDeploymentAligned(
       ["get", "deployment", workflow, "-n", namespace, "-o", "json"],
       15_000,
     );
-    lastCrOk = Boolean(cr && sonataFlowUsesE2ePostgresSecret(cr, workflowPgSecret));
-    lastDepOk = Boolean(
-      deployment &&
-        !deploymentPodTemplateReferencesUpstreamPgSecret(deployment),
+    lastState = evaluateWorkflowPostgresAlign(
+      cr,
+      deployment,
+      workflowPgSecret,
+      workflow,
     );
-    if (lastCrOk && lastDepOk) {
+
+    if (lastState.depOk) {
       return;
     }
-    patchWorkflowPostgres(namespace, workflow, workflowPgSecret);
-    if (lastCrOk && !lastDepOk && deployment && attempt >= 10) {
+
+    if (lastState.deploymentReferencesUpstream) {
+      patchWorkflowPostgres(namespace, workflow, workflowPgSecret);
       try {
         runOc(
           ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
           60_000,
         );
-      } catch {
-        /* deployment may not exist yet */
+      } catch (err) {
+        console.warn(
+          `[bulk-import-orchestrator] rollout restart failed: ${formatOcFailure(err)}`,
+        );
       }
     }
-    await sleep(2_000);
+
+    await sleep(3_000);
   }
+
+  logSonataflowWorkflowDiagnostics(namespace, workflow, "Deployment postgres align timeout");
+
   throw new Error(
-    `[bulk-import-orchestrator] Workflow "${workflow}" Postgres not aligned on ${workflowPgSecret} within ${timeoutMs}ms (attempts=${attempt}, crOk=${lastCrOk}, depOk=${lastDepOk}, upstreamSecret=${UPSTREAM_WORKFLOW_PG_SECRET})`,
+    `[bulk-import-orchestrator] Deployment/${workflow} still not aligned on ${workflowPgSecret} within ${timeoutMs}ms ` +
+      `(attempts=${attempt}, blocker=${lastState.blocker})`,
   );
 }
 
@@ -336,6 +662,14 @@ async function restartWorkflowDeployment(
   workflow: string,
 ): Promise<void> {
   if (!deploymentExists(namespace, workflow)) {
+    console.warn(
+      `[bulk-import-orchestrator] deployment/${workflow} not found before restart; waiting for Running pod`,
+    );
+    logSonataflowWorkflowDiagnostics(
+      namespace,
+      workflow,
+      "deployment missing before restart",
+    );
     await waitForPodMatchingWorkflow(namespace, workflow, 600_000);
     return;
   }
@@ -641,6 +975,12 @@ export function logOrchestratorDeployFailureDiagnostics(
       60_000,
     ),
     "(get sonataflow — empty)",
+  );
+
+  logSonataflowWorkflowDiagnostics(
+    namespace,
+    BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    "deploy failure snapshot",
   );
 
   const hubPod = safeOc([
