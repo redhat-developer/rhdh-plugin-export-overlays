@@ -99,7 +99,7 @@ def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
     return name_with_tag, "", digest if sep else ""
 
 
-TAG_COMMENT_RE = re.compile(r'^\s*# Tag: (.+), Build date: (.+)\s*$')
+TAG_COMMENT_RE = re.compile(r'^\s*# Tag: ([^,]+), Build date: (\S+)\s*$')
 OCI_PACKAGE_DIGEST_RE = re.compile(
     r'^\s*(#\s*)?-\s+package:\s+oci://[^\s]+@(sha256:[a-f0-9]+)\s*$'
 )
@@ -166,10 +166,9 @@ def peek_digest_after(lines: list[str], idx: int) -> str | None:
     return None
 
 
-def inject_dpdy_tag_comments(root_path: Path) -> None:
+def inject_dpdy_tag_comments(output_dir: Path, plugin_builds_dir: Path) -> None:
     """Ensure Tag/Build date comments on commented oci:// lines and wrapper package lines."""
-    dpdy = root_path / "catalog-index" / "dynamic-plugins.default.yaml"
-    plugin_builds = root_path / "plugin_builds"
+    dpdy = output_dir / "dynamic-plugins.default.yaml"
     script = Path(__file__).resolve().parent / "injectDpdyTagComments.py"
     if not dpdy.is_file() or not script.is_file():
         return
@@ -178,7 +177,7 @@ def inject_dpdy_tag_comments(root_path: Path) -> None:
         return
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    if mod.inject(dpdy, plugin_builds):
+    if mod.inject(dpdy, plugin_builds_dir):
         log_debug(f"Injected Tag/Build date comments into {dpdy.name}")
 
 
