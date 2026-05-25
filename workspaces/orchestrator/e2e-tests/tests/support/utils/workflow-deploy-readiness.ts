@@ -6,6 +6,9 @@
 export const WORKFLOW_DEPLOYMENT_TIMEOUT_MS = 600_000;
 export const POSTGRES_ALIGN_TIMEOUT_MS = 300_000;
 
+const KNATIVE_SERVING_NS = "knative-serving";
+const KNATIVE_SERVING_NAME = "knative-serving";
+
 export const SERVERLESS_OPERATOR_PACKAGE = "serverless-operator";
 export const LOGIC_OPERATOR_PACKAGE = "logic-operator";
 
@@ -183,7 +186,7 @@ export async function waitForSonataFlowPlatformReady(
 
 /**
  * CI failure diagnostics — mirrors:
- *   oc get deploy -n <namespace> (and ksvc when the CRD exists)
+ *   oc get deploy -n <namespace>
  *   oc describe sonataflow <workflow> -n <namespace>  (status/conditions in describe output)
  */
 export function logWorkflowDeployCiDiagnostics(
@@ -218,7 +221,13 @@ export function logWorkflowDeployCiDiagnostics(
   banner(`oc describe sonataflowplatform sonataflow-platform -n ${namespace}`);
   dumpOc(
     safeOc(
-      ["describe", "sonataflowplatform", "sonataflow-platform", "-n", namespace],
+      [
+        "describe",
+        "sonataflowplatform",
+        "sonataflow-platform",
+        "-n",
+        namespace,
+      ],
       120_000,
     ),
     "(describe sonataflowplatform/sonataflow-platform — empty or not found)",
@@ -230,20 +239,36 @@ export function logWorkflowDeployCiDiagnostics(
     "(no Deployments in namespace)",
   );
 
-  banner(`oc get ksvc -n ${namespace}`);
-  const ksvcOut = safeOc(["get", "ksvc", "-n", namespace], 60_000);
-  if (ksvcOut === undefined) {
-    console.error(
-      "(Knative Serving CRD not installed — ksvc unavailable; workflows should use Deployments)",
-    );
-  } else {
-    dumpOc(ksvcOut, "(no Knative Services in namespace)");
-  }
-
   banner(`oc get jobs,pods -n ${namespace}`);
   dumpOc(
     safeOc(["get", "jobs,pods", "-n", namespace], 60_000),
     "(no Jobs or Pods beyond platform/postgres)",
+  );
+
+  for (const operatorNs of [
+    "openshift-operators",
+    "openshift-serverless-logic",
+  ]) {
+    banner(`operator pods/deployments in ${operatorNs}`);
+    dumpOc(
+      safeOc(["get", "deploy,pods", "-n", operatorNs], 60_000),
+      `(no deployments/pods in ${operatorNs})`,
+    );
+  }
+
+  banner(`KnativeServing in ${KNATIVE_SERVING_NS}`);
+  dumpOc(
+    safeOc(
+      [
+        "describe",
+        "knativeserving",
+        KNATIVE_SERVING_NAME,
+        "-n",
+        KNATIVE_SERVING_NS,
+      ],
+      120_000,
+    ),
+    "(KnativeServing not installed)",
   );
 
   for (const workflow of workflows) {
@@ -251,6 +276,21 @@ export function logWorkflowDeployCiDiagnostics(
     dumpOc(
       safeOc(["describe", "sonataflow", workflow, "-n", namespace], 120_000),
       `(describe sonataflow/${workflow} — empty or not found)`,
+    );
+    dumpOc(
+      safeOc(
+        [
+          "get",
+          "sonataflow",
+          workflow,
+          "-n",
+          namespace,
+          "-o",
+          "jsonpath={.status.conditions}",
+        ],
+        60_000,
+      ),
+      "(no status.conditions on SonataFlow CR)",
     );
   }
 }
