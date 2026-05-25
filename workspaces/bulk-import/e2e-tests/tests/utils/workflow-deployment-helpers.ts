@@ -23,8 +23,15 @@ const DATA_INDEX_DEPLOY = "sonataflow-platform-data-index-service";
 /** Default SonataFlow operator Postgres secret; e2e uses `backstage-psql-secret` instead. */
 const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
 const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
+const PSQL_SVC_NAME = "backstage-psql";
+const PSQL_USER_KEY = "POSTGRES_USER";
+const PSQL_PASSWORD_KEY = "POSTGRES_PASSWORD";
+const SONATAFLOW_DB = "backstage_plugin_orchestrator";
 
-const POSTGRES_ALIGN_TIMEOUT_MS = 120_000;
+const POSTGRES_ALIGN_TIMEOUT_MS = Number(
+  process.env.BULK_IMPORT_WORKFLOW_PG_ALIGN_TIMEOUT_MS ??
+    (process.env.CI === "true" ? 300_000 : 120_000),
+);
 
 /**
  * Installs the SonataFlow platform (via e2e-test-utils) and deploys the
@@ -58,14 +65,21 @@ export async function deployBulkImportOrchestratorWorkflow(
     );
   });
 
-  await applyUniversalPrManifests(namespace);
+  const workflowPgSecret = resolveWorkflowPostgresSecretName(namespace);
+
+  await applyUniversalPrManifests(namespace, workflowPgSecret);
 
   await waitForSonataflowCr(namespace, BULK_IMPORT_ORCHESTRATOR_WORKFLOW, 120_000);
 
-  patchWorkflowPostgres(namespace, BULK_IMPORT_ORCHESTRATOR_WORKFLOW);
+  patchWorkflowPostgres(
+    namespace,
+    BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    workflowPgSecret,
+  );
   await waitForWorkflowPostgresDeploymentAligned(
     namespace,
     BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    workflowPgSecret,
     POSTGRES_ALIGN_TIMEOUT_MS,
   );
 
@@ -76,8 +90,83 @@ export async function deployBulkImportOrchestratorWorkflow(
 
 }
 
-async function applyUniversalPrManifests(namespace: string): Promise<void> {
+function resolveWorkflowPostgresSecretName(namespace: string): string {
+  try {
+    runOc(["get", "secret", E2E_WORKFLOW_PG_SECRET, "-n", namespace], 10_000);
+    return E2E_WORKFLOW_PG_SECRET;
+  } catch {
+    /* discover from installOrchestrator naming */
+  }
+  const secrets = runOc(["get", "secrets", "-n", namespace, "-o", "name"], 15_000);
+  const discovered = secrets
+    .split("\n")
+    .map((line) => line.replace(/^secret\//, "").trim())
+    .find((name) => name.includes("backstage-psql"));
+  if (discovered) {
+    console.log(
+      `[bulk-import-orchestrator] Using discovered Postgres secret: ${discovered}`,
+    );
+    return discovered;
+  }
+  throw new Error(
+    `[bulk-import-orchestrator] No Postgres secret in namespace '${namespace}' (expected ${E2E_WORKFLOW_PG_SECRET})`,
+  );
+}
+
+async function patchSonataflowManifestPostgres(
+  manifestFile: string,
+  namespace: string,
+  secretName: string,
+): Promise<void> {
+  const yqExprs = [
+    `.spec.persistence.postgresql.secretRef.name = "${secretName}"`,
+    `.spec.persistence.postgresql.secretRef.userKey = "${PSQL_USER_KEY}"`,
+    `.spec.persistence.postgresql.secretRef.passwordKey = "${PSQL_PASSWORD_KEY}"`,
+    `.spec.persistence.postgresql.serviceRef.name = "${PSQL_SVC_NAME}"`,
+    `.spec.persistence.postgresql.serviceRef.namespace = "${namespace}"`,
+    `.spec.persistence.postgresql.serviceRef.databaseName = "${SONATAFLOW_DB}"`,
+  ];
+  for (const expr of yqExprs) {
+    await $`yq eval -i ${expr} ${manifestFile}`;
+  }
+}
+
+function findSonataflowManifest(manifestsDir: string, workflow: string): string {
+  const expected = join(
+    manifestsDir,
+    `05-sonataflow_${workflow}.yaml`,
+  );
+  if (existsSync(expected)) {
+    return expected;
+  }
+  const match = readdirSync(manifestsDir).find(
+    (name) =>
+      /sonataflow/i.test(name) &&
+      name.includes(workflow) &&
+      /\.ya?ml$/i.test(name),
+  );
+  if (match) {
+    return join(manifestsDir, match);
+  }
+  throw new Error(
+    `[bulk-import-orchestrator] SonataFlow manifest not found under ${manifestsDir}`,
+  );
+}
+
+async function applyUniversalPrManifests(
+  namespace: string,
+  workflowPgSecret: string,
+): Promise<void> {
   if (localManifestsAvailable()) {
+    const sonataflowManifest = findSonataflowManifest(
+      LOCAL_MANIFESTS_DIR,
+      BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    );
+    await patchSonataflowManifestPostgres(
+      sonataflowManifest,
+      namespace,
+      workflowPgSecret,
+    );
     await $`oc apply -n ${namespace} -f ${LOCAL_MANIFESTS_DIR}`;
     return;
   }
@@ -86,6 +175,15 @@ async function applyUniversalPrManifests(namespace: string): Promise<void> {
   try {
     await $`git clone --single-branch --branch ${BULK_IMPORT_WORKFLOW_REPO_REF} ${BULK_IMPORT_WORKFLOW_REPO} ${workflowDir}`;
     const manifestsPath = join(workflowDir, BULK_IMPORT_MANIFESTS_REL);
+    const sonataflowManifest = findSonataflowManifest(
+      manifestsPath,
+      BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+    );
+    await patchSonataflowManifestPostgres(
+      sonataflowManifest,
+      namespace,
+      workflowPgSecret,
+    );
     await $`oc apply -n ${namespace} -f ${manifestsPath}`;
   } finally {
     await $`rm -rf ${workflowDir}`.catch(() => {});
@@ -101,20 +199,24 @@ function localManifestsAvailable(): boolean {
   );
 }
 
-function patchWorkflowPostgres(namespace: string, workflow: string): string {
+function patchWorkflowPostgres(
+  namespace: string,
+  workflow: string,
+  workflowPgSecret: string,
+): string {
   const patch = JSON.stringify({
     spec: {
       persistence: {
         postgresql: {
           secretRef: {
-            name: E2E_WORKFLOW_PG_SECRET,
-            userKey: "POSTGRES_USER",
-            passwordKey: "POSTGRES_PASSWORD",
+            name: workflowPgSecret,
+            userKey: PSQL_USER_KEY,
+            passwordKey: PSQL_PASSWORD_KEY,
           },
           serviceRef: {
-            name: "backstage-psql",
+            name: PSQL_SVC_NAME,
             namespace,
-            databaseName: "backstage_plugin_orchestrator",
+            databaseName: SONATAFLOW_DB,
           },
         },
       },
@@ -144,12 +246,15 @@ function parseOcJson<T = unknown>(
   }
 }
 
-function sonataFlowUsesE2ePostgresSecret(cr: Record<string, unknown>): boolean {
+function sonataFlowUsesE2ePostgresSecret(
+  cr: Record<string, unknown>,
+  workflowPgSecret: string,
+): boolean {
   const spec = cr.spec as Record<string, unknown> | undefined;
   const persistence = spec?.persistence as Record<string, unknown> | undefined;
   const pg = persistence?.postgresql as Record<string, unknown> | undefined;
   const secretRef = pg?.secretRef as Record<string, unknown> | undefined;
-  return secretRef?.name === E2E_WORKFLOW_PG_SECRET;
+  return secretRef?.name === workflowPgSecret;
 }
 
 function deploymentPodTemplateReferencesUpstreamPgSecret(
@@ -164,10 +269,13 @@ function deploymentPodTemplateReferencesUpstreamPgSecret(
 async function waitForWorkflowPostgresDeploymentAligned(
   namespace: string,
   workflow: string,
+  workflowPgSecret: string,
   timeoutMs: number,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let attempt = 0;
+  let lastCrOk = false;
+  let lastDepOk = false;
   while (Date.now() < deadline) {
     attempt++;
     const cr = parseOcJson<Record<string, unknown>>(
@@ -178,18 +286,29 @@ async function waitForWorkflowPostgresDeploymentAligned(
       ["get", "deployment", workflow, "-n", namespace, "-o", "json"],
       15_000,
     );
-    const crOk = cr && sonataFlowUsesE2ePostgresSecret(cr);
-    const depOk =
+    lastCrOk = Boolean(cr && sonataFlowUsesE2ePostgresSecret(cr, workflowPgSecret));
+    lastDepOk = Boolean(
       deployment &&
-      !deploymentPodTemplateReferencesUpstreamPgSecret(deployment);
-    if (crOk && depOk) {
+        !deploymentPodTemplateReferencesUpstreamPgSecret(deployment),
+    );
+    if (lastCrOk && lastDepOk) {
       return;
     }
-    patchWorkflowPostgres(namespace, workflow);
+    patchWorkflowPostgres(namespace, workflow, workflowPgSecret);
+    if (lastCrOk && !lastDepOk && deployment && attempt >= 10) {
+      try {
+        runOc(
+          ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
+          60_000,
+        );
+      } catch {
+        /* deployment may not exist yet */
+      }
+    }
     await sleep(2_000);
   }
   throw new Error(
-    `[bulk-import-orchestrator] Workflow "${workflow}" Postgres not aligned on ${E2E_WORKFLOW_PG_SECRET} within ${timeoutMs}ms (attempts=${attempt})`,
+    `[bulk-import-orchestrator] Workflow "${workflow}" Postgres not aligned on ${workflowPgSecret} within ${timeoutMs}ms (attempts=${attempt}, crOk=${lastCrOk}, depOk=${lastDepOk}, upstreamSecret=${UPSTREAM_WORKFLOW_PG_SECRET})`,
   );
 }
 
