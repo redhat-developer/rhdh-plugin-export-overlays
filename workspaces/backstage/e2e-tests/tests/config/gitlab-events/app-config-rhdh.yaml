@@ -1,0 +1,57 @@
+app:
+  title: RHDH Backstage Test Instance
+
+permission:
+  enabled: false
+
+events:
+  http:
+    topics:
+      - gitlab
+  modules:
+    gitlab:
+      webhookSecret: ${VAULT_GITLAB_WEBHOOK_SECRET}
+
+catalog:
+  rules:
+    - allow:
+        [
+          Component,
+          API,
+          Resource,
+          System,
+          Domain,
+          Location,
+          Template,
+          User,
+          Group,
+        ]
+  providers:
+    gitlab:
+      default:
+        host: ${VAULT_EVENTS_GITLAB_HOST}
+        group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+        schedule:
+          initialDelay:
+            seconds: 15
+          frequency:
+            hours: 24
+          timeout:
+            minutes: 3
+    gitlabOrg:
+      default:
+        host: ${VAULT_EVENTS_GITLAB_HOST}
+        group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+        schedule:
+          initialDelay:
+            seconds: 15
+          frequency:
+            hours: 24
+          timeout:
+            minutes: 3
+
+integrations:
+  gitlab:
+    - host: ${VAULT_EVENTS_GITLAB_HOST}
+      token: ${VAULT_EVENTS_GITLAB_TOKEN}
+      apiBaseUrl: https://${VAULT_EVENTS_GITLAB_HOST}/api/v4

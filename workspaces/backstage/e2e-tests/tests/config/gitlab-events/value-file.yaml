@@ -1,0 +1,11 @@
+# Static external-access token for catalog API calls (Helm-injected appConfig).
+upstream:
+  backstage:
+    appConfig:
+      backend:
+        auth:
+          externalAccess:
+            - type: static
+              options:
+                token: test-token
+                subject: gitlab-events-e2e
