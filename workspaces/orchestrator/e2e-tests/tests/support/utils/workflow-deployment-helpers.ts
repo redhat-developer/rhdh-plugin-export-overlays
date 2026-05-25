@@ -73,6 +73,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   );
 
   ensureOrchestratorPostgresDatabase(namespace);
+  deleteExistingWorkflowCRs(namespace);
 
   const workflowDir = `/tmp/serverless-workflows-${process.pid}`;
   try {
@@ -136,10 +137,32 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   await deployTokenPropagationWorkflow(namespace, workflowOcDeps);
 }
 
+function deleteExistingWorkflowCRs(namespace: string): void {
+  for (const workflow of WORKFLOWS) {
+    try {
+      runOc(
+        [
+          "delete",
+          "sonataflow",
+          workflow,
+          "-n",
+          namespace,
+          "--wait=true",
+          "--ignore-not-found",
+        ],
+        180_000,
+      );
+    } catch {
+      /* best effort — stale CRs block reconcile on reused namespaces */
+    }
+  }
+}
+
 function patchWorkflowPostgres(namespace: string, workflow: string): string {
   const patch = JSON.stringify({
     spec: {
       persistence: {
+        dbMigrationStrategy: "job",
         postgresql: {
           secretRef: {
             name: "backstage-psql-secret",
@@ -150,6 +173,7 @@ function patchWorkflowPostgres(namespace: string, workflow: string): string {
             name: "backstage-psql",
             namespace,
             databaseName: E2E_WORKFLOW_DATABASE,
+            databaseSchema: workflow,
           },
         },
       },
@@ -261,9 +285,7 @@ function ensureOrchestratorPostgresDatabase(namespace: string): void {
       "exec",
       "-n",
       namespace,
-      "backstage-psql-0",
-      "-c",
-      "postgres",
+      "statefulset/backstage-psql",
       "--",
       "psql",
       "-U",
@@ -280,9 +302,7 @@ function ensureOrchestratorPostgresDatabase(namespace: string): void {
       "exec",
       "-n",
       namespace,
-      "backstage-psql-0",
-      "-c",
-      "postgres",
+      "statefulset/backstage-psql",
       "--",
       "psql",
       "-U",
