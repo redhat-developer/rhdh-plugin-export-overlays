@@ -83,7 +83,7 @@ Arguments:
   -p,  --packages-file         Package list file (YAML or txt). Can be specified multiple times.
                                Files are unioned. Supports default.packages.yaml (npm names)
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
-                               DPDY generation uses only the first .yaml file.
+                               DPDY generation runs only when a file named default.packages.yaml is provided.
        --report-file           Path to build-report.json for tracking generation stages (optional).
        --debug                 Enable debug output
   -h,  --help                  Show this help

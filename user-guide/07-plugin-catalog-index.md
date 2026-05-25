@@ -69,9 +69,11 @@ flowchart TB
 
     subgraph "Step 3: DPDY Generation"
         S3_IN["default.packages.yaml<br/>metadata appConfigExamples"]
-        S3["generateDynamicPluginsDefaultYaml.sh"]
+        S3["generateDynamicPluginsDefaultYaml.sh<br/>+ injectDpdyTagComments.py"]
         S3_OUT["dynamic-plugins.default.yaml"]
-        S3_IN --> S3 --> S3_OUT
+        S3_IN --> S3
+        S2_OUT --> S3
+        S3 --> S3_OUT
     end
 
     subgraph "Step 4: Catalog Index"
@@ -108,15 +110,19 @@ Images that don't exist in the registry are logged as warnings.
 
 Generates `dynamic-plugins.default.yaml` — the default plugin configuration shipped with RHDH. This step only runs for the **supported** tier (requires a YAML-format packages file with enabled/disabled structure).
 
+After generating the DPDY, the script calls `injectDpdyTagComments.py` to insert `# Tag: <tag>, Build date: <date>` comments from `plugin_builds/*.json`. These comments provide traceability from each plugin entry back to the specific OCI image tag and build date, without requiring live registry API calls.
+
 Inputs:
 
 - `default.packages.yaml` — lists which plugins are enabled vs disabled by default
 - `workspaces/*/metadata/*.yaml` — `spec.appConfigExamples[0].content` provides the `pluginConfig` for each plugin
+- `plugin_builds/*.json` — provides tag and build-date metadata for comment injection
 
 Output structure (truncated):
 
 ```yaml
 plugins:
+  # Tag: 1.10--0.8.2, Build date: 2026-05-20T13:45:25Z
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights:1.10--0.8.2
     disabled: false
     pluginConfig:
@@ -124,6 +130,7 @@ plugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-adoption-insights:
             # ... frontend wiring config
+  # Tag: 1.10--1.2.0, Build date: 2026-05-19T09:12:00Z
   - package: oci://quay.io/rhdh/backstage-community-plugin-acr:1.10--1.2.0
     disabled: true
 ```
@@ -137,7 +144,7 @@ The final step that produces the catalog index:
 3. Scrubs entities to only include packages matching the package list filter
 4. Verifies each plugin's OCI image exists in the registry
 5. Generates `index.json` with digest-based references
-6. Updates Package entity files with OCI references
+6. Updates Package entity files and DPDY with OCI references and Tag/Build date comments
 7. Regenerates `all.yaml` location files
 
 ---
@@ -211,7 +218,7 @@ The raw `build-report.json` files are also available on the `catalog-index-{bran
 Pushes to `main` or `release-*` branches that modify any of these paths trigger the workflow:
 
 - `workspaces/*/metadata/*.yaml`
-- `catalog-entities/extensions/`**
+- `catalog-entities/extensions/**`
 - `default.packages.yaml`, `rhdh-supported-packages.txt`, `rhdh-community-packages.txt`
 - `scripts/**`
 - `versions.json`

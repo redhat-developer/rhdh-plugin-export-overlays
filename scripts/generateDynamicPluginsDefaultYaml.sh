@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Generate dynamic-plugins.default.yaml (DPDY) from default.packages.yaml and overlay-repo/workspaces/*/metadata/*.yaml
-# See also build/ci/update-index.sh
+# See also scripts/update-index.sh
 #
 
 usage() {
@@ -20,16 +20,19 @@ Arguments (required):
                        is checked out, or to the overlay-repo folder in the rhdh-plugin-catalog repo
   -p, --packages-file  Path to default.packages.yaml
   -o, --output-file    Path to output dynamic-plugins.default.yaml file
-  -b, --plugin-builds-dir  plugin_builds/ tree (default: <repo>/plugin_builds)
+
+Arguments (optional):
+  -b, --plugin-builds-dir  plugin_builds/ tree (default: derived from --output-file)
+      --debug              Enable debug output
 
 The script will:
 1. Read all packages from default.packages.yaml
 2. Find corresponding metadata files in the overlay-repo directory
 3. Extract the appConfigExamples content from each metadata file
 4. Generate dynamic-plugins.default.yaml
+5. Inject Tag/Build date comments from plugin_builds/*.json (via injectDpdyTagComments.py)
 
 Once complete, run generateCatalogIndex.py to refresh the catalog index and OCI refs.
-Tag/Build date comments are sourced from plugin_builds/*.json (see build/ci/update-index.sh).
 
 Requires: yq (kislyuk/pypi-yq or mikefarah/yq). Prefer to use ~/.local/bin/yq_mf
 

@@ -111,8 +111,8 @@ def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inject Tag/Build date comments into DPDY from plugin_builds")
-    parser.add_argument("dpdy_file", type=Path)
-    parser.add_argument("plugin_builds_dir", type=Path)
+    parser.add_argument("dpdy_file", type=Path, help="Path to dynamic-plugins.default.yaml")
+    parser.add_argument("plugin_builds_dir", type=Path, help="Path to plugin_builds/ directory containing workspace JSON files")
     args = parser.parse_args()
     if not args.dpdy_file.is_file():
         print(f"Error: DPDY file not found: {args.dpdy_file}", file=sys.stderr)
