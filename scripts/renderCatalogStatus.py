@@ -155,8 +155,11 @@ def render_last_publish(report: dict, source_repo: str) -> str:
 
 
 def render_catalog_image(report: dict) -> str:
-    """Render a link to the catalog index OCI image."""
+    """Render a link to the catalog index OCI image.
+    Only shows the image if the catalog has been successfully published."""
     meta = report.get("metadata", {})
+    if not meta.get("last-successful-publish"):
+        return "—"
     image = meta.get("catalog-index-image", "")
     if image:
         return oci_ref_to_link(image)
@@ -204,8 +207,8 @@ def render_status_page(
 
     lines.append("## Summary")
     lines.append("")
-    lines.append("| Tier | Total | Passed | Failed | Catalog Index Image | Last Successful Publish |")
-    lines.append("|------|-------|--------|--------|---------------------|-------------------------|")
+    lines.append("| Tier | Total | Passed | Failed | Latest Catalog Index Image | Last Successful Publish |")
+    lines.append("|------|-------|--------|--------|----------------------------|-------------------------|")
     if supported_report:
         sup_img = render_catalog_image(supported_report)
         sup_pub = render_last_publish(supported_report, source_repo)
