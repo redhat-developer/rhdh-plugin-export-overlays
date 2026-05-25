@@ -1074,6 +1074,21 @@ plugins:
     pluginConfig:
       bulkImport:
         importAPI: open-pull-requests
+  # Tag: 1.10--0.1.1, Build date: 2026-05-22T19:50:42Z
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:25fa6f09850bad2d2b3b7a2323710a8793b697ab49cd0daa4385bd98dcfa4d07
+    disabled: true
+    pluginConfig:
+      homepage:
+        defaultWidgets:
+          - id: rhdh-onboarding-section
+            props:
+              title: Onboarding section
+          - id: rhdh-entity-section
+            props:
+              title: Entity section
+          - id: rhdh-template-section
+            props:
+              title: Template section
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:be70d661c2e2f698b721ede839f4e52b75872c71419c501e7957c7680a031717
     disabled: true
     pluginConfig:
