@@ -610,7 +610,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                                 if expected_comment:
                                     new_lines.append(tag_comment_line_text(expected_comment))
                                 new_lines.append(
-                                    "  # new approach using oci images: to switch to the new approach, uncommment\n"
+                                    "  # new approach using oci images: to switch to the new approach, uncomment\n"
                                 )
                                 new_lines.append(
                                     "  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n"

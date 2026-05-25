@@ -442,8 +442,11 @@ class BuildReport:
         self._path = Path(report_file) if report_file else None
         self._data: dict = {}
         if self._path and self._path.exists():
-            with open(self._path, 'r', encoding='utf-8') as f:
-                self._data = json.load(f)
+            try:
+                with open(self._path, 'r', encoding='utf-8') as f:
+                    self._data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                self._data = {"metadata": {}, "plugins": {}}
         elif self._path:
             self._data = {"metadata": {}, "plugins": {}}
         if self._path:

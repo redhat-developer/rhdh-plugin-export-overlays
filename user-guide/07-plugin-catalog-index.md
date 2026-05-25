@@ -1,6 +1,6 @@
 # Plugin Catalog Index
 
-The **plugin catalog index** is the collection of community and supported  of this repository. It contains all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog index is built, what it contains, and where it is published.
+The **plugin catalog index** is the collection of community and supported plugins of this repository. It contains all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog index is built, what it contains, and where it is published.
 
 ---
 
@@ -190,7 +190,7 @@ Community-supported plugins.
 
 After each build, a status page is automatically pushed to the GitHub Wiki:
 
-- **Index page**: [Plugin Catalog Index Status](Plugin-Catalog-Index-Status) — links to all branch status pages
+- **Index page**: [Plugin Catalog Index Status](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Plugin-Catalog-Index-Status) — links to all branch status pages
 - **Per-branch pages**: `Plugin-Catalog-Status-{branch}` — shows which plugins passed/failed and why
 
 The status page includes:
