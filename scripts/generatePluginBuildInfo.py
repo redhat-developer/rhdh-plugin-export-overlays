@@ -290,7 +290,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                         if report:
                             report.set_stage(
                                 plugin_name, "registry-enrich", "fail",
-                                reason="Image not found in registry",
+                                reason=f"Image not found in registry: {registry_reference}",
                             )
                 else:
                     fields_removed = []
