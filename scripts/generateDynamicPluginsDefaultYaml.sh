@@ -20,6 +20,7 @@ Arguments (required):
                        is checked out, or to the overlay-repo folder in the rhdh-plugin-catalog repo
   -p, --packages-file  Path to default.packages.yaml
   -o, --output-file    Path to output dynamic-plugins.default.yaml file
+  -b, --plugin-builds-dir  plugin_builds/ tree (default: <repo>/plugin_builds)
 
 The script will:
 1. Read all packages from default.packages.yaml
@@ -27,9 +28,8 @@ The script will:
 3. Extract the appConfigExamples content from each metadata file
 4. Generate dynamic-plugins.default.yaml
 
-Once complete, you should:
-5. Run generateCatalogIndex.py to generate the catalog index, and to
-6. Add oci ref comments into the DPDY file (see build/ci/update-index.sh)
+Once complete, run generateCatalogIndex.py to refresh the catalog index and OCI refs.
+Tag/Build date comments are sourced from plugin_builds/*.json (see build/ci/update-index.sh).
 
 Requires: yq (kislyuk/pypi-yq or mikefarah/yq). Prefer to use ~/.local/bin/yq_mf
 
@@ -41,6 +41,7 @@ USAGE
 PACKAGES_FILE=
 OVERLAYS_DIR=
 OUTPUT_FILE=
+PLUGIN_BUILDS_DIR=
 DEBUG=0
 
 while [[ $# -gt 0 ]]; do
@@ -55,6 +56,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -o|--output-file)
       OUTPUT_FILE="$2"
+      shift 2
+      ;;
+    -b|--plugin-builds-dir)
+      PLUGIN_BUILDS_DIR="$2"
       shift 2
       ;;
     --debug)
@@ -87,6 +92,10 @@ fi
 if [[ ! -d "$OVERLAYS_DIR" ]]; then
   echo "Error: Overlays directory not found: $OVERLAYS_DIR" >&2
   exit 1
+fi
+
+if [[ -z "${PLUGIN_BUILDS_DIR:-}" ]]; then
+  PLUGIN_BUILDS_DIR="$(cd "$(dirname "$OUTPUT_FILE")/.." && pwd)/plugin_builds"
 fi
 
 # Prefer mikefarah installed as yq_mf (e.g. builder image), else yq on PATH.
@@ -174,6 +183,7 @@ fi
 if [[ $DEBUG -eq 1 ]]; then
   echo "Using yq binary: $YQ_BIN (mikefarah=$YQ_IS_MIKE_FARAH)"
   echo "Loading packages from: $PACKAGES_FILE"
+  echo "Plugin builds dir: $PLUGIN_BUILDS_DIR"
   echo "Scanning metadata files in: $OVERLAYS_DIR"
   echo "Found ${#METADATA_MAP[@]} metadata files"
 fi
@@ -237,6 +247,14 @@ build_plugin_entry() {
   # shellcheck disable=SC2001
   entry=$(printf '%s\n' "$entry" | sed 's/^/  /')
   echo "$entry"
+}
+
+inject_tag_comments_in_dpdy() {
+  local out_file=$1
+  local script_dir
+  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  [[ -f "$out_file" ]] || return 0
+  python3 "${script_dir}/injectDpdyTagComments.py" "$out_file" "$PLUGIN_BUILDS_DIR"
 }
 
 # -----------------------------------------------------------------------------
@@ -332,6 +350,8 @@ EOL
 cat "$OUTPUT_FILE".head "$OUTPUT_FILE" > "$OUTPUT_FILE"_
 mv "$OUTPUT_FILE"_ "$OUTPUT_FILE"
 rm -f "$OUTPUT_FILE".head
+
+inject_tag_comments_in_dpdy "$OUTPUT_FILE"
 
 # -----------------------------------------------------------------------------
 # Stats (from final YAML)

@@ -12,6 +12,7 @@
 # - Use that file to update all file refs to oci:// refs
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -97,6 +98,100 @@ def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
 
     return name_with_tag, "", digest if sep else ""
 
+
+TAG_COMMENT_RE = re.compile(r'^\s*# Tag: (.+), Build date: (.+)\s*$')
+OCI_PACKAGE_DIGEST_RE = re.compile(
+    r'^\s*(#\s*)?-\s+package:\s+oci://[^\s]+@(sha256:[a-f0-9]+)\s*$'
+)
+COMMENTED_OCI_PACKAGE_RE = re.compile(r'^\s*#\s*-\s+package:\s+oci://')
+MIGRATION_HINT_RE = re.compile(
+    r'^\s*#\s*(new approach using oci images|the \'package\' line above|disabled: true)\b'
+)
+
+
+def tag_comment_for_plugin(plugin_data: dict) -> str | None:
+    build_date = plugin_data.get('build-date') or ''
+    tag = plugin_data.get('imageTag') or ''
+    _, fallback_tag, digest = parse_image_reference(plugin_data.get('registryReference', ''))
+    tag = tag or fallback_tag
+    if tag and build_date and digest:
+        return f"# Tag: {tag}, Build date: {build_date}"
+    return None
+
+
+def is_tag_comment_line(line: str) -> bool:
+    return bool(TAG_COMMENT_RE.match(line))
+
+
+def tag_comment_line_text(comment: str) -> str:
+    return f"  {comment}\n"
+
+
+def pop_trailing_tag_comments(new_lines: list[str]) -> None:
+    while new_lines and is_tag_comment_line(new_lines[-1]):
+        new_lines.pop()
+
+
+def trailing_tag_comment_matches(new_lines: list[str], expected_comment: str | None) -> bool:
+    if not expected_comment:
+        return False
+    for line in reversed(new_lines):
+        if not line.strip():
+            continue
+        if is_tag_comment_line(line):
+            return line.strip() == expected_comment
+        return False
+    return False
+
+
+def digest_from_oci_package_line(line: str) -> str | None:
+    m = OCI_PACKAGE_DIGEST_RE.match(line)
+    return m.group(2) if m else None
+
+
+def peek_digest_after(lines: list[str], idx: int) -> str | None:
+    j = idx + 1
+    while j < len(lines):
+        nl = lines[j]
+        if not nl.strip():
+            j += 1
+            continue
+        if is_tag_comment_line(nl):
+            j += 1
+            continue
+        digest = digest_from_oci_package_line(nl)
+        if digest:
+            return digest
+        return None
+    return None
+
+
+def inject_dpdy_tag_comments(root_path: Path) -> None:
+    """Ensure Tag/Build date comments on commented oci:// lines and wrapper package lines."""
+    dpdy = root_path / "catalog-index" / "dynamic-plugins.default.yaml"
+    plugin_builds = root_path / "plugin_builds"
+    script = Path(__file__).resolve().parent / "injectDpdyTagComments.py"
+    if not dpdy.is_file() or not script.is_file():
+        return
+    spec = importlib.util.spec_from_file_location("injectDpdyTagComments", script)
+    if spec is None or spec.loader is None:
+        return
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if mod.inject(dpdy, plugin_builds):
+        log_debug(f"Injected Tag/Build date comments into {dpdy.name}")
+
+
+def build_digest_comment_map(index_data: dict[str, dict]) -> dict[str, str]:
+    digest_comment_map: dict[str, str] = {}
+    for pdata in index_data.values():
+        comment = tag_comment_for_plugin(pdata)
+        if not comment:
+            continue
+        _, _, digest = parse_image_reference(pdata.get('registryReference', ''))
+        if digest:
+            digest_comment_map[digest] = comment
+    return digest_comment_map
 
 def copy_catalog_entities_extensions(source_dir: Path, output_dir: Path) -> None:
     """Copy content from catalog-entities/extensions source to output catalog-entities/extensions."""
@@ -359,7 +454,7 @@ def generate_index_json(plugin_builds_dir: Path, output_dir: Path, report: Build
     return combined_index, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data
 
 
-def update_package_files(output_dir: Path, index_data: dict[str, dict], found_plugins: list[str]) -> None:
+def update_package_files(output_dir: Path, index_data: dict[str, dict], found_plugins: list[str], plugin_builds_dir: Path) -> None:
     """Add OCI reference entries alongside existing file path entries"""
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     dynamic_plugins_yaml = output_dir / "dynamic-plugins.default.yaml"
@@ -370,17 +465,16 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
     files_updated = 0
     plugins_matched_in_dynamic_yaml = 0
+    digest_comment_map = build_digest_comment_map(index_data)
 
     for plugin_name in found_plugins:
         plugin_data = index_data[plugin_name]
         registry_reference = plugin_data.get('registryReference', '')
-        build_date = plugin_data.get('build-date', '')
 
         name_no_tag, _, parsed_digest = parse_image_reference(registry_reference)
-        tag = plugin_data.get('imageTag')
         registry_reference_for_oci = f"{name_no_tag}@{parsed_digest}" if parsed_digest else registry_reference
-
-        comment = f"# Tag: {tag}, Build date: {build_date}"
+        expected_comment = tag_comment_for_plugin(plugin_data)
+        expected_oci_line = f"  - package: oci://{registry_reference_for_oci}\n"
 
         plugin_name_alternative = plugin_name.replace("red-hat-developer-hub-", "rhdh-")
 
@@ -409,6 +503,30 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
                 while i < len(lines):
                     line = lines[i]
+
+                    if COMMENTED_OCI_PACKAGE_RE.match(line) or MIGRATION_HINT_RE.match(line):
+                        new_lines.append(line)
+                        i += 1
+                        continue
+
+                    if is_tag_comment_line(line):
+                        j = i + 1
+                        while j < len(lines) and not lines[j].strip():
+                            j += 1
+                        if j < len(lines) and COMMENTED_OCI_PACKAGE_RE.match(lines[j]):
+                            new_lines.append(line)
+                            i += 1
+                            continue
+                        digest = peek_digest_after(lines, i)
+                        if digest:
+                            expected = digest_comment_map.get(digest)
+                            if expected and line.strip() == expected:
+                                new_lines.append(line)
+                        else:
+                            new_lines.append(line)
+                        i += 1
+                        continue
+
                     matched_oci = False
 
                     for pname in [plugin_name, plugin_name_alternative,
@@ -423,10 +541,29 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             matched_oci = True
 
                     if matched_oci:
-                        modified = True
-                        while new_lines and ('Tag:' in new_lines[-1] or 'Build date:' in new_lines[-1]):
-                            new_lines.pop()
+                        pop_trailing_tag_comments(new_lines)
+                        oci_unchanged = line.rstrip() == expected_oci_line.rstrip()
+                        if oci_unchanged and trailing_tag_comment_matches(new_lines, expected_comment):
+                            new_lines.append(line)
+                            i += 1
+                            while i < len(lines):
+                                next_line = lines[i]
+                                if not next_line.strip():
+                                    new_lines.append(next_line)
+                                    i += 1
+                                    continue
+                                if next_line.startswith((' ', '\t')):
+                                    if not is_tag_comment_line(next_line):
+                                        new_lines.append(next_line)
+                                    i += 1
+                                    continue
+                                if is_tag_comment_line(next_line):
+                                    i += 1
+                                    continue
+                                break
+                            continue
 
+                        modified = True
                         preserved_lines = []
                         i += 1
                         while i < len(lines):
@@ -435,17 +572,18 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                                 i += 1
                                 continue
                             if next_line.startswith((' ', '\t')):
-                                if not (next_line.strip().startswith('#') and 'Tag:' in next_line):
+                                if not is_tag_comment_line(next_line):
                                     preserved_lines.append(next_line)
                                 i += 1
                                 continue
-                            if next_line.strip().startswith('#') and ('Tag:' in next_line or 'Build date:' in next_line):
+                            if is_tag_comment_line(next_line):
                                 i += 1
                                 continue
                             break
 
-                        new_lines.append(f"  {comment}\n")
-                        new_lines.append(f"  - package: oci://{registry_reference_for_oci}\n")
+                        if expected_comment:
+                            new_lines.append(tag_comment_line_text(expected_comment))
+                        new_lines.append(expected_oci_line)
                         for pl in preserved_lines:
                             new_lines.append(pl)
                         continue
@@ -455,11 +593,30 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                                   plugin_name_with_dynamic, plugin_name_alternative_with_dynamic]:
                         pattern = rf'^  - package: \.\/dynamic-plugins\/dist\/{re.escape(pname)}\s*$'
                         if re.match(pattern, line):
-                            new_lines.append(f"  # - package: oci://{registry_reference_for_oci}\n")
-                            new_lines.append(f"  {comment}\n")
-                            new_lines.append("  # new approach using oci images: to switch to the new approach, uncomment\n")
-                            new_lines.append("  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n")
-                            new_lines.append("  # disabled: true\n")
+                            commented_oci = f"  # - package: oci://{registry_reference_for_oci}\n"
+                            block_exists = commented_oci.rstrip() in {
+                                l.rstrip() for l in new_lines[-15:]
+                            }
+                            if block_exists:
+                                if expected_comment and not trailing_tag_comment_matches(
+                                    new_lines, expected_comment
+                                ):
+                                    pop_trailing_tag_comments(new_lines)
+                                    modified = True
+                                    new_lines.append(tag_comment_line_text(expected_comment))
+                            else:
+                                pop_trailing_tag_comments(new_lines)
+                                modified = True
+                                new_lines.append(commented_oci)
+                                if expected_comment:
+                                    new_lines.append(tag_comment_line_text(expected_comment))
+                                new_lines.append(
+                                    "  # new approach using oci images: to switch to the new approach, uncommment\n"
+                                )
+                                new_lines.append(
+                                    "  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n"
+                                )
+                                new_lines.append("  # disabled: true\n")
 
                             new_lines.append(line)
 
@@ -468,17 +625,16 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                                 next_line = lines[i]
                                 if next_line.strip() and not next_line.startswith(' ') and not next_line.startswith('\t'):
                                     break
-                                new_lines.append(next_line)
+                                if not is_tag_comment_line(next_line):
+                                    new_lines.append(next_line)
                                 i += 1
 
-                            modified = True
                             log_debug(f"Added OCI reference for {pname} in {yaml_file.name}")
                             i -= 1
                             matched = True
                             break
 
                     if not matched:
-                        # Pattern matches: dynamicArtifact: '', dynamicArtifact: "", dynamicArtifact: ~, dynamicArtifact: null, or just dynamicArtifact:
                         empty_artifact_pattern = r"^(\s*)dynamicArtifact:(\s+(?:''|\"\"|\~|null))?\s*$"
                         empty_match = re.match(empty_artifact_pattern, line)
                         if empty_match:
@@ -502,6 +658,8 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
             except Exception as e:
                 log_error(f"Error updating {yaml_file}: {e}")
+
+    inject_dpdy_tag_comments(output_dir, plugin_builds_dir)
 
     if files_updated > 0:
         log_info(f"Updated {files_updated} file(s) with OCI references")
@@ -838,7 +996,7 @@ Examples:
 
     print(f"\n{Colors.GREEN}=== Update package files with OCI references ==={Colors.NORM}")
     log_debug(f"Found {len(found_plugins)} plugins with valid OCI images")
-    update_package_files(output_dir, index_data, found_plugins)
+    update_package_files(output_dir, index_data, found_plugins, plugin_builds_dir)
 
     print(f"\n{Colors.GREEN}=== Regenerate all.yaml files ==={Colors.NORM}")
     regenerate_all_yaml_files(output_dir)

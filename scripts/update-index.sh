@@ -257,6 +257,7 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
         --packages-file "$DEFAULT_PACKAGES_FILE" \
         --output-file "$OUTPUT_DIR/dynamic-plugins.default.yaml" \
         --overlays-dir "$OVERLAYS_DIR" \
+        --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
         $DEBUG_FLAG; then
         DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2; exit 1
