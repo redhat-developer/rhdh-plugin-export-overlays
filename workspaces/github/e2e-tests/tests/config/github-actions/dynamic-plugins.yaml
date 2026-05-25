@@ -1,16 +1,3 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions
     disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-github-actions:
-            mountPoints:
-              - mountPoint: entity.page.ci/cards
-                importName: EntityGithubActionsContent
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    allOf:
-                      - isGithubActionsAvailable
