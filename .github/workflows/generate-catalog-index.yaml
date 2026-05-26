@@ -112,14 +112,22 @@ jobs:
         id: versions
         run: |
           BS_VERSION=$(jq -r '.backstage' versions.json)
-          CLI_VERSION=$(jq -r '.cli' versions.json)
-          # CLI version is aligned with RHDH version
-          RHDH_VERSION=$(echo "$CLI_VERSION" | grep -oP '^\d+\.\d+')
+
+          # Fetch RHDH version from upstream package.json (matches downstream approach)
+          RHDH_FULL_VERSION=$(curl -sSLf \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/${GITHUB_REF_NAME}/package.json" \
+            | jq -r '.version') || true
+          if [[ -n "$RHDH_FULL_VERSION" && "$RHDH_FULL_VERSION" != "null" ]]; then
+            RHDH_VERSION="${RHDH_FULL_VERSION%.*}"
+          else
+            echo "::warning::Failed to fetch RHDH version from upstream for branch ${GITHUB_REF_NAME}"
+            RHDH_VERSION=""
+          fi
 
           echo "backstage-version=$BS_VERSION" >> "$GITHUB_OUTPUT"
           echo "rhdh-version=$RHDH_VERSION" >> "$GITHUB_OUTPUT"
           echo "Backstage version: $BS_VERSION"
-          echo "RHDH version: $RHDH_VERSION (from cli $CLI_VERSION)"
+          echo "RHDH version: $RHDH_VERSION (from upstream RHDH $RHDH_BRANCH package.json: $RHDH_FULL_VERSION)"
 
       - name: Generate supported catalog
         id: gen-supported
