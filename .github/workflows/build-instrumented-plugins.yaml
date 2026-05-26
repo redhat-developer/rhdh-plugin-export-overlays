@@ -1,10 +1,10 @@
 name: Build Instrumented Plugin Images for E2E Coverage
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Publish RHDH Release Dynamic Plugin Images"]
+    types: [completed]
     branches: [main]
-    paths:
-      - 'workspaces/*/source.json'
 
   workflow_dispatch:
     inputs:
@@ -19,11 +19,14 @@ on:
         default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   detect-workspaces:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.detect.outputs.matrix }}
@@ -37,41 +40,33 @@ jobs:
         env:
           INPUT_WORKSPACE: ${{ inputs.workspace }}
           EVENT_NAME: ${{ github.event_name }}
-          PUSH_BEFORE: ${{ github.event.before }}
+          PUBLISH_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           WORKSPACES=()
 
           if [[ -n "$INPUT_WORKSPACE" ]]; then
-            # Validate: only allow alphanumeric, hyphens, underscores
             if [[ ! "$INPUT_WORKSPACE" =~ ^[a-zA-Z0-9_-]+$ ]]; then
               echo "ERROR: Invalid workspace name: $INPUT_WORKSPACE" >&2
               exit 1
             fi
             WORKSPACES=("$INPUT_WORKSPACE")
-          elif [[ "$EVENT_NAME" == "push" ]]; then
-            # On first push (new branch or initial commit), PUSH_BEFORE is the zero SHA.
-            # git diff with zero SHA fails, so fall back to instrumenting all workspaces.
-            if [[ "$PUSH_BEFORE" == "0000000000000000000000000000000000000000" ]]; then
-              echo "Initial push detected (zero SHA), instrumenting all workspaces with e2e-tests"
+          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            # Find source.json changes in the commit that triggered the publish workflow.
+            # Compare the publish commit against its parent to detect which workspaces changed.
+            CHANGED=$(git diff --name-only "${PUBLISH_HEAD_SHA}^..${PUBLISH_HEAD_SHA}" -- 'workspaces/*/source.json' 2>/dev/null || true)
+            if [[ -z "$CHANGED" ]]; then
+              echo "No source.json changes in publish commit ${PUBLISH_HEAD_SHA}, instrumenting all"
               for dir in workspaces/*/e2e-tests; do
                 WS=$(echo "$dir" | cut -d'/' -f2)
                 WORKSPACES+=("$WS")
               done
             else
-              # Detect all source.json changes across the entire push (handles multi-commit merges).
-              # On force-push, PUSH_BEFORE may reference a commit that no longer exists —
-              # git diff will fail (caught by || true), producing an empty CHANGED list.
-              CHANGED=$(git diff --name-only "${PUSH_BEFORE}..HEAD" -- 'workspaces/*/source.json' 2>/dev/null || true)
-              if [[ -z "$CHANGED" ]]; then
-                echo "No source.json changes detected (push may be a force-push or no-op)"
-              fi
               for file in $CHANGED; do
                 WS=$(echo "$file" | cut -d'/' -f2)
                 WORKSPACES+=("$WS")
               done
             fi
           else
-            # Manual dispatch without specific workspace: instrument all with e2e-tests
             for dir in workspaces/*/e2e-tests; do
               WS=$(echo "$dir" | cut -d'/' -f2)
               WORKSPACES+=("$WS")

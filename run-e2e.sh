@@ -296,10 +296,14 @@ echo ""
 TEST_EXIT_CODE=0
 npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
 
-# ── Merge and upload coverage ────────────────────────────────────────────
+# ── Merge coverage data ──────────────────────────────────────────────────
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "1" ]]; then
-    "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}" || \
-        echo "[WARN] Coverage merge/upload failed (non-fatal)"
+    if [[ -d "node_modules/.cache/e2e-test-results/coverage" ]]; then
+        "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}"
+    else
+        echo "[INFO] Coverage collection enabled but no coverage data found."
+        echo "[INFO] Ensure plugins are loaded from instrumented (-coverage) images."
+    fi
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────

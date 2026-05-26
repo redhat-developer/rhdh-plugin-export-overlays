@@ -1,0 +1,171 @@
+name: E2E Coverage Nightly
+
+# Runs E2E tests with Istanbul-instrumented plugins and uploads coverage to Codecov.
+# Requires instrumented images to already exist (built by build-instrumented-plugins.yaml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: 'Single workspace to test (leave empty for all with E2E tests + coverage images)'
+        type: string
+        required: false
+  schedule:
+    - cron: '17 3 * * 1-5'  # Weekdays 3:17 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  E2E_NIGHTLY_MODE: "true"
+  E2E_COLLECT_COVERAGE: "1"
+  INSTALLATION_METHOD: helm
+
+jobs:
+  detect-workspaces:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Detect workspaces with coverage images
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.repository }}
+          INPUT_WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          CANDIDATES=()
+
+          if [[ -n "$INPUT_WORKSPACE" ]]; then
+            if [[ ! "$INPUT_WORKSPACE" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+              echo "ERROR: Invalid workspace name: $INPUT_WORKSPACE" >&2
+              exit 1
+            fi
+            CANDIDATES=("$INPUT_WORKSPACE")
+          else
+            for dir in workspaces/*/e2e-tests; do
+              WS=$(echo "$dir" | cut -d'/' -f2)
+              CANDIDATES+=("$WS")
+            done
+          fi
+
+          # Filter: workspace must have metadata with a frontend plugin AND
+          # a corresponding -coverage image in GHCR
+          VALID=()
+          for ws in "${CANDIDATES[@]}"; do
+            [[ -d "workspaces/$ws/e2e-tests" ]] || continue
+            [[ -d "workspaces/$ws/metadata" ]] || continue
+
+            # Find the frontend plugin OCI reference
+            IMAGE_NAME=""
+            IMAGE_TAG=""
+            for meta_file in "workspaces/${ws}/metadata"/*.yaml; do
+              [ -e "$meta_file" ] || continue
+              ROLE=$(yq -r '.spec.backstage.role // ""' "$meta_file")
+              [[ "$ROLE" == "frontend-plugin" ]] || continue
+
+              ARTIFACT=$(yq -r '.spec.dynamicArtifact // ""' "$meta_file")
+              [[ -n "$ARTIFACT" && "$ARTIFACT" != "null" && "$ARTIFACT" =~ ^oci:// ]] || continue
+
+              REF="${ARTIFACT#oci://}"
+              REF="${REF%%!*}"
+              IMAGE_NAME=$(basename "${REF%%:*}")
+              IMAGE_TAG="${REF##*:}"
+              break
+            done
+
+            [[ -n "$IMAGE_NAME" ]] || continue
+
+            # Check if -coverage image exists
+            PACKAGE_PATH="${GITHUB_REPO}/${IMAGE_NAME}-coverage"
+            PACKAGE_PATH_ENCODED=$(echo "$PACKAGE_PATH" | sed 's|/|%2F|g')
+
+            EXISTS=$(gh api "/orgs/${REPO_OWNER}/packages/container/${PACKAGE_PATH_ENCODED}/versions" \
+              --jq "[.[] | select(.metadata.container.tags[] == \"$IMAGE_TAG\")] | length" 2>/dev/null || echo "0")
+
+            if [[ "$EXISTS" -gt 0 ]]; then
+              VALID+=("$ws")
+              echo "  $ws — coverage image exists ($IMAGE_NAME-coverage:$IMAGE_TAG)"
+            else
+              echo "  $ws — no coverage image, skipping"
+            fi
+          done
+
+          if [[ ${#VALID[@]} -eq 0 ]]; then
+            echo "No workspaces with coverage images found"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+          else
+            JSON=$(printf '%s\n' "${VALID[@]}" | jq -R . | jq -sc .)
+            echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+            echo "Workspaces with coverage: ${VALID[*]}"
+          fi
+
+  e2e-coverage:
+    needs: detect-workspaces
+    if: needs.detect-workspaces.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        workspace: ${{ fromJson(needs.detect-workspaces.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Run E2E tests with coverage
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: ./run-e2e.sh -w "$WORKSPACE"
+
+      - name: Upload coverage to Codecov
+        if: always()
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [[ -f "coverage/istanbul/lcov.info" ]]; then
+            ./scripts/upload-coverage.sh "$WORKSPACE"
+          else
+            echo "No coverage data generated for $WORKSPACE"
+          fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: e2e-report-${{ matrix.workspace }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Write job summary
+        if: always()
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+        run: |
+          {
+            echo "### E2E Coverage: ${WORKSPACE}"
+            echo ""
+            if [[ -f "coverage/istanbul/lcov.info" ]]; then
+              LINES=$(grep -c 'end_of_record' coverage/istanbul/lcov.info 2>/dev/null || echo "0")
+              echo "Coverage data: ${LINES} source files"
+            else
+              echo "No coverage data collected"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
