@@ -109,6 +109,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  // Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3197 and https://redhat.atlassian.net/browse/RHDHBUGS-3191 are fixed
+  // eslint-disable-next-line playwright/no-skipped-test
   test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
     test.skip(
       process.env.E2E_NIGHTLY_MODE === "true",
