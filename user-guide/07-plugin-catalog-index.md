@@ -72,7 +72,7 @@ flowchart TB
         S3["generateDynamicPluginsDefaultYaml.sh<br/>+ injectDpdyTagComments.py"]
         S3_OUT["dynamic-plugins.default.yaml"]
         S3_IN --> S3
-        S2_OUT --> S3
+        S2_OUT -- "tag & build-date<br/>for comments" --> S3
         S3 --> S3_OUT
     end
 
@@ -80,6 +80,7 @@ flowchart TB
         S4["generateCatalogIndex.py"]
         S4_OUT["index.json<br/>catalog-entities/<br/>build-report.json"]
         S2_OUT --> S4
+        S3_OUT -- "OCI ref updates &<br/>tag comments" --> S4
         CATS2["catalog-entities/extensions/"] --> S4
         S4 --> S4_OUT
     end
@@ -110,7 +111,7 @@ Images that don't exist in the registry are logged as warnings.
 
 Generates `dynamic-plugins.default.yaml` — the default plugin configuration shipped with RHDH. This step only runs for the **supported** tier (requires a YAML-format packages file with enabled/disabled structure).
 
-After generating the DPDY, the script calls `injectDpdyTagComments.py` to insert `# Tag: <tag>, Build date: <date>` comments from `plugin_builds/*.json`. These comments provide traceability from each plugin entry back to the specific OCI image tag and build date, without requiring live registry API calls.
+After generating the DPDY, the script calls `injectDpdyTagComments.py` to insert `# Tag: <tag>, Build date: <date>` comments from `plugin_builds/*.json` (produced by Steps 1-2). Each plugin's `registryReference` tag and `build-date` label are extracted from the enriched JSON files and placed as comments above the corresponding `- package:` lines. This provides traceability from each plugin entry back to the specific OCI image tag and build date, without requiring live registry API calls (which previously caused Quay API timeouts).
 
 Inputs:
 
