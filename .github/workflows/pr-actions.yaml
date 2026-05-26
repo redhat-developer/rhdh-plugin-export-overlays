@@ -9,7 +9,7 @@ on:
         type: string
         required: true
       command-name:
-        description: Command to execute (publish, update-versions, update-commit, smoketest, test)
+        description: Command to execute (publish, update-versions, update-commit, smoketest, coverage-test)
         type: string
         required: true
 
@@ -26,7 +26,7 @@ jobs:
       contains(github.event.comment.body, '/update-versions') ||
       contains(github.event.comment.body, '/update-commit') ||
       contains(github.event.comment.body, '/smoketest') ||
-      contains(github.event.comment.body, '/test')))
+      contains(github.event.comment.body, '/coverage-test')))
     
     outputs:
       command-name: ${{ steps.extract.outputs.command-name }}
@@ -40,7 +40,7 @@ jobs:
           script: |
             if (context.eventName === 'workflow_dispatch') {
               const commandName = '${{ inputs.command-name }}';
-              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest', 'test']);
+              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest', 'coverage-test']);
               if (!allowed.has(commandName)) {
                 const errorMsg = `Invalid command: ${commandName}`;
                 core.setOutput('error-message', errorMsg);
@@ -59,8 +59,8 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest', '/test']);
-            const matchingCommands = lines.filter(l => allowed.has(l) || l.startsWith('/test '));
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest', '/coverage-test']);
+            const matchingCommands = lines.filter(l => allowed.has(l) || l.startsWith('/coverage-test '));
             
             if (matchingCommands.length > 1) {
               const errorMsg = `Multiple commands found in comment: ${matchingCommands.join(', ')}. Please use only one command per comment.`;
@@ -106,7 +106,7 @@ jobs:
           script: |
             const errorMessage = core.getInput('error_message');
             const prNumber = Number(core.getInput('pr_number'));
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests\n- \`/test e2e-ocp-helm\` - Run E2E tests with coverage`;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests\n- \`/coverage-test e2e-ocp-helm\` - Run E2E tests with coverage`;
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -263,7 +263,7 @@ jobs:
     needs:
       - parse
       - prepare
-    if: needs.parse.outputs.command-name == 'test'
+    if: needs.parse.outputs.command-name == 'coverage-test'
     runs-on: ubuntu-latest
     permissions:
       actions: write
