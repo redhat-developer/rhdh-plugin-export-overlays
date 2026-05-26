@@ -22,9 +22,7 @@ import {
   repoRowCheckbox,
   repositoriesArticle,
   resolvePreviewSaveButton,
-  importHistoryRepoUrlCandidates,
   repoRow,
-  viewWorkflowLink,
   viewWorkflowLinkInRepoRow,
 } from "./bulk-import-obj";
 
@@ -182,43 +180,31 @@ export class BulkImportPO {
   }
 
   /**
-   * Import history lists orchestrator workflows; open instance and return target page.
-   * PR_URL on the instance page confirms the workflow was triggered.
+   * Clicks "View workflow" in the repo row (call on `/bulk-import` right after Import).
    */
-  async openImportHistoryVerifyWorkflowAndOpenInstance(
-    repoUrl: string,
+  async openWorkflowInstanceFromRepoRow(
+    repoName: string,
     options: { timeout?: number; intervals?: number[] } = {},
   ): Promise<Page> {
-    const timeout = options.timeout ?? 120_000;
+    const timeout =
+      options.timeout ?? (process.env.CI === "true" ? 180_000 : 120_000);
     const intervals = options.intervals ?? [5_000, 10_000, 15_000];
-    const historyRepoUrls = importHistoryRepoUrlCandidates(repoUrl);
-
-    let link: Locator = viewWorkflowLink(this.page).first();
+    const rowLink = viewWorkflowLinkInRepoRow(this.page, repoName);
 
     await expect(async () => {
-      let found = false;
-      for (const url of historyRepoUrls) {
-        await this.page.goto(
-          `/bulk-import/import-history/${encodeURIComponent(url)}`,
-        );
-        await this.uiHelper.waitForLoad(12_000);
-        const historyLink = viewWorkflowLink(this.page).first();
-        if (await historyLink.isVisible().catch(() => false)) {
-          link = historyLink;
-          found = true;
-          break;
-        }
-      }
-      expect(found).toBe(true);
+      await expect(rowLink).toBeVisible();
     }).toPass({ intervals, timeout });
 
     const popupWait = this.page.waitForEvent("popup", { timeout: 8_000 });
-    await link.click();
+    await rowLink.click();
     const popup = await popupWait.catch(() => null);
     if (popup) {
       await popup.waitForLoadState();
       return popup;
     }
+    await this.page.waitForURL(/\/orchestrator\/instances\//, {
+      timeout: 30_000,
+    });
     await this.page.waitForLoadState();
     return this.page;
   }

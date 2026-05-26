@@ -33,27 +33,15 @@ export function addRepositoryImportButton(page: Page): Locator {
     .getByRole("button", { name: "Import", exact: true });
 }
 
-/** Orchestrator mode: link in repo row Status after workflow is created. */
+/** "View workflow" in repo row Status after orchestrator import. */
 export function viewWorkflowLinkInRepoRow(
   page: Page,
   repoName: string,
 ): Locator {
-  return repoRow(page, repoName).getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
-}
-
-export function viewWorkflowLink(page: Page): Locator {
-  return page.getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
-}
-
-export function bulkImportImportHistoryPath(repoUrl: string): string {
-  return `/bulk-import/import-history/${encodeURIComponent(repoUrl)}`;
-}
-
-/** Repo URL forms stored on import jobs / history routes. */
-export function importHistoryRepoUrlCandidates(repoUrl: string): string[] {
-  return repoUrl.startsWith("http")
-    ? [repoUrl]
-    : [repoUrl, `https://${repoUrl}`];
+  const row = repoRow(page, repoName);
+  return row
+    .getByTestId(VIEW_WORKFLOW_LINK_TEST_ID)
+    .or(row.locator('a[href*="/orchestrator/instances/"]'));
 }
 
 /** Dialog-scoped Save when preview is open; otherwise last Save on page. */

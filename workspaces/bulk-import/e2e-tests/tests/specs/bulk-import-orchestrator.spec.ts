@@ -119,10 +119,9 @@ test.describe("Bulk import tests orchestrator mode", () => {
 
     await bulkImport.clickAddRepositoryImportAndWaitForSubmit();
 
-    const workflowPage =
-      await bulkImport.openImportHistoryVerifyWorkflowAndOpenInstance(
-        catalogRepoDetailsForOrchestrator.url,
-      );
+    const workflowPage = await bulkImport.openWorkflowInstanceFromRepoRow(
+      catalogRepoDetailsForOrchestrator.name,
+    );
     await expect(
       workflowPage.getByRole("link", { name: "PR_URL" }),
     ).toBeVisible({ timeout: 30_000 });
