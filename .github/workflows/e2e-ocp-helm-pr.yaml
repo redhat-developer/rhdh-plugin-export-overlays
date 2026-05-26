@@ -152,8 +152,14 @@ jobs:
 
               # Query Codecov for flag e2e-{workspace}
               # Use Codecov API v2: GET /api/v2/github/:owner/:repo/commits/:sha/flags
-              CODECOV_RESPONSE=$(curl -s --max-time 10 "https://codecov.io/api/v2/github/${UPSTREAM_REPO}/commits/${UPSTREAM_SHA}/flags" \
-                -H "Authorization: bearer ${CODECOV_TOKEN}" 2>/dev/null || echo "{}")
+              # If API fails (network, auth, rate limit), treat as "no coverage" and run the test
+              if ! CODECOV_RESPONSE=$(curl -s --fail --max-time 10 \
+                  "https://codecov.io/api/v2/github/${UPSTREAM_REPO}/commits/${UPSTREAM_SHA}/flags" \
+                  -H "Authorization: bearer ${CODECOV_TOKEN}" 2>&1); then
+                echo "  $ws — Codecov API unavailable, will run coverage (error: ${CODECOV_RESPONSE:0:100})"
+                VALID+=("$ws")
+                continue
+              fi
 
               # Check if flag "e2e-{workspace}" exists with coverage > 0
               FLAG_NAME="e2e-${ws}"
@@ -276,8 +282,9 @@ jobs:
             ./scripts/report-coverage.sh "$WORKSPACE"
           else
             echo "⚠️  No coverage data generated for $WORKSPACE"
-            echo "This may happen if e2e-test-utils PR #95 hasn't landed yet."
-            echo "Tests ran successfully but coverage collection requires the image swap feature."
+            echo "This may happen if the instrumented image swap feature is not available."
+            echo "Tests ran successfully but coverage collection requires instrumented (-coverage) images."
+            echo "See: https://github.com/redhat-developer/rhdh-e2e-test-utils#coverage"
           fi
 
       - name: Upload test report
@@ -308,7 +315,7 @@ jobs:
               body += `Coverage uploaded to Codecov with flag \`e2e-${workspace}\`\n\n`;
             } else {
               body += `✅ Tests completed\n\n`;
-              body += `⚠️  No coverage data collected (waiting for [e2e-test-utils PR #95](https://github.com/redhat-developer/rhdh-e2e-test-utils/pull/95))\n\n`;
+              body += `⚠️  No coverage data collected (instrumented image swap feature not available)\n\n`;
             }
 
             body += `[View test report](${runUrl})`;

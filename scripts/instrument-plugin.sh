@@ -54,7 +54,7 @@ echo "  Extracted dist/ from $PLUGIN_PATH/dist"
 # Step 3: Instrument with nyc
 echo ""
 echo "--- Step 3: Instrumenting with nyc ---"
-npx --yes nyc instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map 2>&1 | tail -5
+npx --yes nyc instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map
 
 # Step 4: Verify instrumentation
 echo ""

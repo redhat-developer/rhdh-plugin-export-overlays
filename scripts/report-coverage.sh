@@ -43,8 +43,11 @@ npx nyc merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
 (cd "$REPO_ROOT" && npx nyc report --reporter=lcov --reporter=text-summary --report-dir coverage)
 
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
-  echo "[WARN] Coverage data is merged across all ${#WORKSPACES[@]} workspaces."
-  echo "[WARN] For clean per-workspace coverage, run with a single -w flag."
+  echo "ERROR: Multi-workspace coverage upload is not supported." >&2
+  echo "Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
+  echo "This produces misleading coverage percentages in Codecov." >&2
+  echo "Run report-coverage.sh once per workspace instead." >&2
+  exit 1
 fi
 
 echo "[INFO] Uploading E2E coverage to Codecov..."

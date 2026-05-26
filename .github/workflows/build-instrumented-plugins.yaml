@@ -83,16 +83,15 @@ jobs:
             IMAGE_NAME="${SOURCE_IMAGE_BASE%%:*}"
             IMAGE_TAG="${SOURCE_IMAGE_BASE##*:}"
 
-            # Adjust tag for PR mode: replace bs_X.Y.Z__V.E.R with pr_NUMBER__V.E.R
+            # Adjust tag for PR mode: replace *__V.E.R with pr_NUMBER__V.E.R
+            # Accepts any prefix before __ (bs_X.Y.Z, main, etc) and extracts the plugin version
             if [[ -n "$PR_NUMBER" ]]; then
-              if [[ "$IMAGE_TAG" =~ ^bs_[0-9]+\.[0-9]+\.[0-9]+__(.+)$ ]]; then
+              if [[ "$IMAGE_TAG" =~ __(.+)$ ]]; then
                 PLUGIN_VERSION="${BASH_REMATCH[1]}"
                 IMAGE_TAG="pr_${PR_NUMBER}__${PLUGIN_VERSION}"
               else
-                echo "ERROR: Cannot parse plugin version from tag: $IMAGE_TAG" >&2
-                echo "Expected format: bs_X.Y.Z__V.E.R" >&2
-                echo "In PR mode, all tags must follow the standard format" >&2
-                exit 1
+                echo "WARN: Tag doesn't contain __ separator, using full tag as version: $IMAGE_TAG"
+                IMAGE_TAG="pr_${PR_NUMBER}__${IMAGE_TAG}"
               fi
             fi
 

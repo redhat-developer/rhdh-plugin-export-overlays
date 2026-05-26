@@ -31,6 +31,11 @@ jobs:
     # immediately filtered out.
     if: ${{ !github.event.pull_request.draft }}
     steps:
+      # SAFETY: This step only passes PR metadata to the dispatch API. It does NOT
+      # checkout PR code, run PR scripts, or inject PR content into shell commands.
+      # The pull_request_target pwn-request risk applies when PR code executes with
+      # GITHUB_TOKEN write access. Here we only read event payload fields and call
+      # the GitHub API — no code execution from the PR.
       - name: Dispatch e2e-ocp-helm-pr.yaml
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
