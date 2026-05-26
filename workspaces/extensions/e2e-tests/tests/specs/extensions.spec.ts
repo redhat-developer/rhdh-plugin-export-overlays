@@ -222,10 +222,10 @@ test.describe("Admin > Extensions", () => {
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
     test("Verify dev preview badge in extensions", async () => {
       await extensions.selectSupportTypeFilter("Dev preview (DP)");
-      await uiHelper.verifyHeading("Developer Lightspeed");
+      await uiHelper.verifyHeading("Konflux");
 
       await extensions.verifyPluginDetails({
-        pluginName: "Red Hat Developer Lightspeed for Red Hat Developer Hub",
+        pluginName: "Konflux",
         badgeLabel: "An early-stage, experimental plugin",
         badgeText: "Dev preview (DP)",
         headings: commonHeadings,
