@@ -172,7 +172,7 @@ jobs:
 
               # Query Codecov for flag e2e-{workspace}
               # Use Codecov API v2: GET /api/v2/github/:owner/:repo/commits/:sha/flags
-              CODECOV_RESPONSE=$(curl -s "https://codecov.io/api/v2/github/${UPSTREAM_REPO}/commits/${UPSTREAM_SHA}/flags" \
+              CODECOV_RESPONSE=$(curl -s --max-time 10 "https://codecov.io/api/v2/github/${UPSTREAM_REPO}/commits/${UPSTREAM_SHA}/flags" \
                 -H "Authorization: bearer ${CODECOV_TOKEN}" 2>/dev/null || echo "{}")
 
               # Check if flag "e2e-{workspace}" exists with coverage > 0

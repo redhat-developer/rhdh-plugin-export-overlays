@@ -18,6 +18,7 @@
 set -euo pipefail
 
 readonly AWK_FIRST_FIELD='{print $1}'
+readonly DETECT_OS="uname -s | tr '[:upper:]' '[:lower:]'"
 
 WORKSPACE="${1:?Usage: $0 <workspace-name>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -77,7 +78,7 @@ fi
 # Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
 CODECOV_BIN="/tmp/codecov"
 if [[ ! -x "$CODECOV_BIN" ]]; then
-  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+  OS=$(eval "$DETECT_OS")
   case "$OS" in
     linux)  CODECOV_OS="linux" ;;
     darwin) CODECOV_OS="macos" ;;
