@@ -1,0 +1,13 @@
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+extensions:
+  installation:
+    enabled: true
+    saveToSingleFile:
+      file: ${RHDH_EXTENSIONS_INSTALL_EXPORT_PATH}

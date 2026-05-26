@@ -4,18 +4,23 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import type { BrowserContext, Page } from "@playwright/test";
+import { type BrowserContext, type Page } from "@playwright/test";
 import {
   aggregatedScorecardHelpers,
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
+  FILECHECK_METRICS,
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
+  // Override the 90 s base timeout for all tests and hooks in this group.
+  // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
+  test.describe.configure({ timeout: 12 * 60 * 1000 });
+
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;
@@ -26,9 +31,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialJiraCount: number;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    // Allow time for deployment + 2 min stabilization delay + browser setup
-    test.setTimeout(10 * 60 * 1000);
-
     await rhdh.configure({
       auth: "keycloak",
       version: process.env.RHDH_VERSION ?? "1.10",
@@ -57,20 +59,20 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.enterEditModeIfNeeded();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("GitHub open PRs");
+    await scorecard.addWidget("GitHub open PRs");
     await scorecard.expectNoProgressBar();
-    await scorecard.enterEditMode();
+    await scorecard.addWidget("Jira open blocking tickets");
     await scorecard.expectNoProgressBar();
-    await scorecard.openAddWidgetDialog();
-    await scorecard.selectWidget("Jira open blocking tickets");
-    await scorecard.saveChanges();
+    await scorecard.addWidget("README file exists");
+    await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
+    await scorecard.expectAggregatedScorecardVisible(
+      FILECHECK_METRICS.readme.title,
+    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -86,6 +88,13 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       () => scorecard.navigateToHome(),
       githubMetric,
       "github.open_prs",
+      {
+        thresholdRules: [
+          { key: "ideal", color: "rgb(180, 211, 178)" },
+          { key: "warning", color: "rgb(250, 213, 165)" },
+          { key: "critical", color: "rgb(250, 160, 160)" },
+        ],
+      },
     );
   });
 
@@ -99,9 +108,26 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
+  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+    test.skip(
+      process.env.E2E_NIGHTLY_MODE === "true",
+      "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
+    );
+    await aggregated.runAggregatedScorecardDrilldownScenario(
+      () => scorecard.navigateToHome(),
+      FILECHECK_METRICS.readme,
+      "filecheck.readme",
+      {
+        thresholdRules: [
+          { key: "exist", color: "rgb(46, 125, 50)" },
+          { key: "missing", color: "rgb(211, 47, 47)" },
+        ],
+      },
+    );
+  });
+
   test.describe("Entity Scorecards", () => {
     test("Validate scorecard tabs for GitHub PRs and Jira tickets", async () => {
-      await page.waitForTimeout(6000);
       await catalog.go();
       await catalog.goToByName("all-scorecards");
       await scorecard.openTab();
@@ -168,6 +194,20 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.validateScorecardAriaFor(jiraMetric);
     });
 
+    test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
+      await catalog.go();
+      await catalog.goToByName("github-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric] = SCORECARD_METRICS;
+      await scorecard.validateThresholdLegend(githubMetric, [
+        { key: "ideal", expression: "<30", color: "rgb(180, 211, 178)" },
+        { key: "warning", expression: "30-70", color: "rgb(250, 213, 165)" },
+        { key: "critical", expression: ">70", color: "rgb(250, 160, 160)" },
+      ]);
+      await scorecard.expectScorecardValue(githubMetric.title, "StarIcon");
+    });
+
     // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
     // eslint-disable-next-line playwright/no-skipped-test
     test.skip("Validate scorecards on imported addon-test entity", async () => {
@@ -180,6 +220,47 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(githubMetric.title);
       await scorecard.expectScorecardVisible(jiraMetric.title);
     });
+
+    const filecheckCases = [
+      {
+        entity: "filecheck-scorecard-github",
+        key: "readme",
+        expected: "exist",
+      },
+      {
+        entity: "filecheck-scorecard-github",
+        key: "license",
+        expected: "missing",
+      },
+      {
+        entity: "filecheck-scorecard-gitlab",
+        key: "readme",
+        expected: "exist",
+      },
+      {
+        entity: "filecheck-scorecard-gitlab",
+        key: "license",
+        expected: "missing",
+      },
+    ] as const;
+
+    for (const { entity, key, expected } of filecheckCases) {
+      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+        test.skip(
+          process.env.E2E_NIGHTLY_MODE === "true" &&
+            entity.startsWith("filecheck"),
+          "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
+        );
+        await scorecard.expectFilecheckForEntity(
+          async () => {
+            await catalog.go();
+            await catalog.goToByName(entity);
+          },
+          FILECHECK_METRICS[key].title,
+          expected,
+        );
+      });
+    }
   });
 
   // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed

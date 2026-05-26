@@ -10,7 +10,15 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    // This skip can be removed once the tech-radar wrapper is removed
+    test.skip(
+      project === "tech-radar-app-next" &&
+        process.env.E2E_NIGHTLY_MODE === "true",
+      "app-next not ready for nightly",
+    );
+    await rhdh.configure({
+      auth: "keycloak",
+    });
     await $`bash ${setupScript} ${project}`;
     process.env.TECH_RADAR_DATA_URL = (
       await rhdh.k8sClient.getRouteLocation(
