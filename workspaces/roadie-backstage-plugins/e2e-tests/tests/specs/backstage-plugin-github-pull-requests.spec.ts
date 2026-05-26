@@ -75,7 +75,10 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
       const prPage = new PullRequestsPage(page, uiHelper);
       const openPRs = await searchGitHubPRs("open");
 
-      const openButton = page.getByRole("button", { name: "OPEN" });
+      const openButton = page.getByRole("button", {
+        name: "OPEN",
+        exact: true,
+      });
       await expect(openButton).toBeVisible();
       await expect(openButton).toBeEnabled();
       await uiHelper.waitForLoad();
