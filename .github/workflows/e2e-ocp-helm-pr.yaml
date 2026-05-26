@@ -46,6 +46,32 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.overlay-commit }}
+          fetch-depth: 0
+
+      - name: Detect modified workspaces
+        id: modified
+        env:
+          TARGET_BRANCH: ${{ inputs.target-branch }}
+          OVERLAY_COMMIT: ${{ inputs.overlay-commit }}
+        run: |
+          # Fetch target branch to compare
+          git fetch origin "$TARGET_BRANCH"
+
+          # Get list of modified workspaces in this PR
+          MODIFIED=$(git diff --name-only "origin/$TARGET_BRANCH" "$OVERLAY_COMMIT" | \
+            grep '^workspaces/' | cut -d'/' -f2 | sort -u || true)
+
+          echo "Modified workspaces in this PR:"
+          if [[ -n "$MODIFIED" ]]; then
+            echo "$MODIFIED"
+          else
+            echo "  (none)"
+          fi
+
+          # Export as multiline output
+          echo "workspaces<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$MODIFIED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Detect workspaces with E2E tests and published PR images
         id: detect
@@ -55,6 +81,8 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           INPUT_WORKSPACE: ${{ inputs.workspace }}
           PR_NUMBER: ${{ inputs.pr-number }}
+          MODIFIED_WORKSPACES: ${{ steps.modified.outputs.workspaces }}
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           CANDIDATES=()
 
@@ -117,11 +145,46 @@ jobs:
             EXISTS=$(gh api "/orgs/${REPO_OWNER}/packages/container/${PACKAGE_PATH_ENCODED}/versions" \
               --jq "[.[] | select(.metadata.container.tags[] == \"$IMAGE_TAG\")] | length" 2>/dev/null || echo "0")
 
-            if [[ "$EXISTS" -gt 0 ]]; then
-              VALID+=("$ws")
-              echo "  $ws — PR image exists ($IMAGE_NAME:$IMAGE_TAG)"
-            else
+            if [[ "$EXISTS" -le 0 ]]; then
               echo "  $ws — PR image not found, skipping (run /publish first)"
+              continue
+            fi
+
+            # PR image exists — now check if workspace needs coverage
+            IS_MODIFIED=false
+            if echo "$MODIFIED_WORKSPACES" | grep -qx "$ws"; then
+              IS_MODIFIED=true
+            fi
+
+            if [[ "$IS_MODIFIED" == "true" ]]; then
+              VALID+=("$ws")
+              echo "  $ws — modified, will run coverage (image: $IMAGE_NAME:$IMAGE_TAG)"
+            else
+              # Not modified — check if coverage exists in Codecov
+              # Read upstream repo from source.json
+              UPSTREAM_REPO=$(jq -r '.repo // ""' "workspaces/$ws/source.json" 2>/dev/null | sed 's|https://github.com/||; s|\.git$||')
+              UPSTREAM_SHA=$(jq -r '."repo-ref" // ""' "workspaces/$ws/source.json" 2>/dev/null)
+
+              if [[ -z "$UPSTREAM_REPO" || -z "$UPSTREAM_SHA" || "$UPSTREAM_REPO" == "null" || "$UPSTREAM_SHA" == "null" ]]; then
+                echo "  $ws — cannot read source.json, skipping coverage check"
+                continue
+              fi
+
+              # Query Codecov for flag e2e-{workspace}
+              # Use Codecov API v2: GET /api/v2/github/:owner/:repo/commits/:sha/flags
+              CODECOV_RESPONSE=$(curl -s "https://codecov.io/api/v2/github/${UPSTREAM_REPO}/commits/${UPSTREAM_SHA}/flags" \
+                -H "Authorization: bearer ${CODECOV_TOKEN}" 2>/dev/null || echo "{}")
+
+              # Check if flag "e2e-{workspace}" exists with coverage > 0
+              FLAG_NAME="e2e-${ws}"
+              HAS_COVERAGE=$(echo "$CODECOV_RESPONSE" | jq -r ".results[] | select(.flag_name == \"$FLAG_NAME\") | .coverage" 2>/dev/null || echo "null")
+
+              if [[ "$HAS_COVERAGE" == "null" || "$HAS_COVERAGE" == "0" || "$HAS_COVERAGE" == "" ]]; then
+                VALID+=("$ws")
+                echo "  $ws — no existing coverage (flag: $FLAG_NAME not found), will run"
+              else
+                echo "  $ws — has coverage ($HAS_COVERAGE%) and not modified, skipping"
+              fi
             fi
           done
 
@@ -147,20 +210,27 @@ jobs:
           script: |
             const body = `### ⚠️  E2E Coverage Tests Skipped
 
-            No workspaces found with both:
-            - E2E test suite (\`workspaces/*/e2e-tests/\`)
-            - PR-built plugin images in GHCR (\`pr_${{ inputs.pr-number }}__*\`)
+            No workspaces found needing coverage collection.
 
-            **Possible reasons:**
-            1. You haven't run \`/publish\` yet → Images don't exist
+            **Coverage runs for workspaces that:**
+            - Have an E2E test suite (\`workspaces/*/e2e-tests/\`)
+            - Have PR-built plugin images in GHCR (\`pr_${{ inputs.pr-number }}__*\`)
+            - AND either:
+              - Were modified in this PR, OR
+              - Have no existing coverage in Codecov
+
+            **Possible reasons for skipping:**
+            1. You haven't run \`/publish\` yet → PR images don't exist
             2. This PR doesn't modify any workspace with E2E tests
-            3. PR images exist but workspace has no \`e2e-tests/\` directory
+            3. All workspaces with E2E tests already have coverage in Codecov
+            4. Workspace has no \`e2e-tests/\` directory
 
             **If you need coverage:**
-            1. Make sure your PR modifies a workspace that has \`e2e-tests/\`
-            2. Comment \`/publish\` to build the plugin images
-            3. Wait for publish to complete successfully
-            4. Then comment \`/test e2e-ocp-helm\``;
+            1. Make sure your PR modifies a workspace that has \`e2e-tests/\`, OR
+            2. Ensure there are workspaces without existing coverage
+            3. Comment \`/publish\` to build the plugin images
+            4. Wait for publish to complete successfully
+            5. Coverage tests will run automatically (triggered by /publish success)`;
 
             await github.rest.issues.createComment({
               ...context.repo,
