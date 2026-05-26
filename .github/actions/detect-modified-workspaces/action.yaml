@@ -41,16 +41,28 @@ runs:
 
           core.info(`Fetching files changed in PR #${prNumber}...`);
 
-          const prFiles = await github.rest.pulls.listFiles({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            per_page: 100
-          });
+          // Paginate through all changed files (handles PRs with >100 files)
+          let allFiles = [];
+          let page = 1;
+          let hasMore = true;
+
+          while (hasMore) {
+            const response = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
+              page
+            });
+
+            allFiles = allFiles.concat(response.data);
+            hasMore = response.data.length === 100;
+            page++;
+          }
 
           // Extract unique workspace names from file paths
           // Pattern: workspaces/<workspace-name>/...
-          const workspaces = [ ... new Set(prFiles.data
+          const workspaces = [ ... new Set(allFiles
             .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
             .filter(match => match)
             .map(match => match[1])

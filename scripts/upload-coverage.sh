@@ -18,7 +18,6 @@
 set -euo pipefail
 
 readonly AWK_FIRST_FIELD='{print $1}'
-readonly DETECT_OS="uname -s | tr '[:upper:]' '[:lower:]'"
 
 WORKSPACE="${1:?Usage: $0 <workspace-name>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -38,8 +37,18 @@ if [[ ! -f "$WORKSPACE_DIR/source.json" ]]; then
   exit 1
 fi
 
-REPO_URL=$(jq -r '.repo' "$WORKSPACE_DIR/source.json")
-REPO_REF=$(jq -r '.["repo-ref"]' "$WORKSPACE_DIR/source.json")
+REPO_URL=$(jq -r '.repo // empty' "$WORKSPACE_DIR/source.json")
+REPO_REF=$(jq -r '.["repo-ref"] // empty' "$WORKSPACE_DIR/source.json")
+
+if [[ -z "$REPO_URL" || "$REPO_URL" == "null" ]]; then
+  echo "ERROR: Invalid or missing 'repo' field in source.json" >&2
+  exit 1
+fi
+
+if [[ -z "$REPO_REF" || "$REPO_REF" == "null" ]]; then
+  echo "ERROR: Invalid or missing 'repo-ref' field in source.json" >&2
+  exit 1
+fi
 
 # Codecov --sha requires a 40-char commit SHA. source.json repo-ref can be a
 # tag name (e.g., "v1.49.4") — resolve it to a commit SHA via git ls-remote.
@@ -78,7 +87,7 @@ fi
 # Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
 CODECOV_BIN="/tmp/codecov"
 if [[ ! -x "$CODECOV_BIN" ]]; then
-  OS=$(eval "$DETECT_OS")
+  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
   case "$OS" in
     linux)  CODECOV_OS="linux" ;;
     darwin) CODECOV_OS="macos" ;;

@@ -48,19 +48,26 @@ jobs:
   detect:
     runs-on: ubuntu-latest
     outputs:
-      workspaces: ${{ steps.detect.outputs.workspaces }}
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
       - id: detect
         uses: ./.github/actions/detect-modified-workspaces
         with:
           pr-number: ${{ inputs.pr-number }}
+      
+      - id: build-matrix
+        run: |
+          # Convert newline-separated to JSON array
+          MATRIX=$(echo "${{ steps.detect.outputs.workspaces }}" | jq -R -s 'split("\n") | map(select(length > 0))')
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
   process:
     needs: detect
+    if: needs.detect.outputs.matrix != '[]'
     strategy:
       matrix:
-        workspace: ${{ fromJson(format('["{0}"]', needs.detect.outputs.workspaces)) }}
+        workspace: ${{ fromJson(needs.detect.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
       - run: echo "Processing ${{ matrix.workspace }}"
