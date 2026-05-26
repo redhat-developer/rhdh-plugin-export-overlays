@@ -17,7 +17,6 @@ spec:
     - ./aws-ecs.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
-    - ./azure-repositories.yaml
     - ./azure-scaffolder-actions.yaml
     - ./backstage-community-plugin-quay.yaml
     - ./bitbucket-cloud-catalog-integration.yaml
@@ -62,7 +61,6 @@ spec:
     - ./nexus-repository-manager.yaml
     - ./notifications-email.yaml
     - ./notifications.yaml
-    - ./openshift-cluster-manager.yaml
     - ./orchestrator-scaffolder-actions.yaml
     - ./orchestrator.yaml
     - ./pagerduty.yaml
