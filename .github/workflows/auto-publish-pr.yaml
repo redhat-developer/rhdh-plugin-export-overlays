@@ -508,7 +508,7 @@ jobs:
                   path: `${core.getInput('workspace')}/e2e-tests/package.json`,
                   ref: core.getInput('overlay_branch'),
                 });
-                body += '\n\nRunning e2e tests\n/test e2e-ocp-helm';
+                body += '\n\nRunning e2e tests\n/test';
               } catch {
                 body += '\n\nNo E2E tests available for this workspace.';
               }
