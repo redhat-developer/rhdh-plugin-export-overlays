@@ -217,22 +217,18 @@ export class BulkImportPO {
     repoName: string,
     options: { timeout?: number; intervals?: number[] } = {},
   ): Promise<void> {
-    const timeout = options.timeout ?? 120_000;
-    const intervals = options.intervals ?? [5_000, 10_000, 15_000];
     const row = repoRow(this.page, repoName);
 
-    await expect(async () => {
-      await this.gotoBulkImportAddPage();
-      await this.searchAndExpectRow(repoName, []);
-      await expect(viewWorkflowLinkInRepoRow(this.page, repoName)).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect(row.getByText(REPO_STATUS_READY_TO_IMPORT)).toHaveCount(0);
-      const workflowStatus = row.getByText(
-        new RegExp(WORKFLOW_STATUS_LABELS.join("|")),
-      );
-      await expect(workflowStatus.first()).toBeVisible({ timeout: 5_000 });
-    }).toPass({ intervals, timeout });
+    await this.gotoBulkImportAddPage();
+    await this.searchAndExpectRow(repoName, []);
+    await expect(viewWorkflowLinkInRepoRow(this.page, repoName)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(row.getByText(REPO_STATUS_READY_TO_IMPORT)).toHaveCount(0);
+    const workflowStatus = row.getByText(
+      new RegExp(WORKFLOW_STATUS_LABELS.join("|")),
+    );
+    await expect(workflowStatus.first()).toBeVisible({ timeout: 5_000 });
   }
 
   /** Opens a link in a popup when present; otherwise same-tab navigation. */
