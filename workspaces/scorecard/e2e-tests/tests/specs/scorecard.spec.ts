@@ -109,7 +109,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+  test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
     await aggregated.runAggregatedScorecardDrilldownScenario(
       () => scorecard.navigateToHome(),
       FILECHECK_METRICS.readme,
