@@ -1,15 +1,28 @@
 name: Build Instrumented Plugin Images for E2E Coverage
 
 on:
-  workflow_run:
-    workflows: ["Publish RHDH Release Dynamic Plugin Images"]
-    types: [completed]
-    branches: [main]
+  workflow_call:
+    inputs:
+      workspace:
+        description: 'Workspace to instrument'
+        type: string
+        required: true
+      pr-number:
+        description: 'PR number for tagging instrumented images with pr_{number}__{version}'
+        type: string
+        required: true
+    secrets:
+      GITHUB_TOKEN:
+        required: true
 
   workflow_dispatch:
     inputs:
       workspace:
-        description: 'Single workspace to instrument (leave empty for all with E2E tests)'
+        description: 'Single workspace to instrument'
+        type: string
+        required: true
+      pr-number:
+        description: 'PR number (leave empty for manual testing)'
         type: string
         required: false
       force-rebuild:
@@ -23,82 +36,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  detect-workspaces:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.detect.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-
-      - name: Detect workspaces to instrument
-        id: detect
-        env:
-          INPUT_WORKSPACE: ${{ inputs.workspace }}
-          EVENT_NAME: ${{ github.event_name }}
-          PUBLISH_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          WORKSPACES=()
-
-          if [[ -n "$INPUT_WORKSPACE" ]]; then
-            if [[ ! "$INPUT_WORKSPACE" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-              echo "ERROR: Invalid workspace name: $INPUT_WORKSPACE" >&2
-              exit 1
-            fi
-            WORKSPACES=("$INPUT_WORKSPACE")
-          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
-            # Find source.json changes in the commit that triggered the publish workflow.
-            # Compare the publish commit against its parent to detect which workspaces changed.
-            CHANGED=$(git diff --name-only "${PUBLISH_HEAD_SHA}^..${PUBLISH_HEAD_SHA}" -- 'workspaces/*/source.json' 2>/dev/null || true)
-            if [[ -z "$CHANGED" ]]; then
-              echo "No source.json changes in publish commit ${PUBLISH_HEAD_SHA}, instrumenting all"
-              for dir in workspaces/*/e2e-tests; do
-                WS=$(echo "$dir" | cut -d'/' -f2)
-                WORKSPACES+=("$WS")
-              done
-            else
-              for file in $CHANGED; do
-                WS=$(echo "$file" | cut -d'/' -f2)
-                WORKSPACES+=("$WS")
-              done
-            fi
-          else
-            for dir in workspaces/*/e2e-tests; do
-              WS=$(echo "$dir" | cut -d'/' -f2)
-              WORKSPACES+=("$WS")
-            done
-          fi
-
-          # Filter: only workspaces that have e2e-tests AND source.json
-          VALID=()
-          for ws in "${WORKSPACES[@]}"; do
-            if [[ -d "workspaces/$ws/e2e-tests" ]] && [[ -f "workspaces/$ws/source.json" ]]; then
-              VALID+=("$ws")
-            else
-              echo "Skipping $ws (no e2e-tests/ or source.json)"
-            fi
-          done
-
-          if [[ ${#VALID[@]} -eq 0 ]]; then
-            echo "No workspaces to instrument"
-            echo "matrix=[]" >> "$GITHUB_OUTPUT"
-          else
-            JSON=$(printf '%s\n' "${VALID[@]}" | jq -R . | jq -sc .)
-            echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
-            echo "Workspaces to instrument: ${VALID[*]}"
-          fi
-
   instrument:
-    needs: detect-workspaces
-    if: needs.detect-workspaces.outputs.matrix != '[]'
-    strategy:
-      matrix:
-        workspace: ${{ fromJson(needs.detect-workspaces.outputs.matrix) }}
-      fail-fast: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -110,7 +48,8 @@ jobs:
       - name: Resolve production image from metadata
         id: meta
         env:
-          WORKSPACE: ${{ matrix.workspace }}
+          WORKSPACE: ${{ inputs.workspace }}
+          PR_NUMBER: ${{ inputs.pr-number }}
         run: |
           SOURCE_IMAGE=""
           PLUGIN_PATH=""
@@ -139,10 +78,25 @@ jobs:
             # Parse: oci://registry/path/image:tag!plugin-path
             REF="${ARTIFACT#oci://}"
             PLUGIN_PATH="${REF##*!}"
-            SOURCE_IMAGE="${REF%%!*}"
+            SOURCE_IMAGE_BASE="${REF%%!*}"
 
-            IMAGE_NAME="${SOURCE_IMAGE%%:*}"
-            IMAGE_TAG="${SOURCE_IMAGE##*:}"
+            IMAGE_NAME="${SOURCE_IMAGE_BASE%%:*}"
+            IMAGE_TAG="${SOURCE_IMAGE_BASE##*:}"
+
+            # Adjust tag for PR mode: replace bs_X.Y.Z__V.E.R with pr_NUMBER__V.E.R
+            if [[ -n "$PR_NUMBER" ]]; then
+              if [[ "$IMAGE_TAG" =~ ^bs_[0-9]+\.[0-9]+\.[0-9]+__(.+)$ ]]; then
+                PLUGIN_VERSION="${BASH_REMATCH[1]}"
+                IMAGE_TAG="pr_${PR_NUMBER}__${PLUGIN_VERSION}"
+              else
+                echo "  WARNING: Cannot parse plugin version from tag: $IMAGE_TAG"
+                echo "  Expected format: bs_X.Y.Z__V.E.R"
+                echo "  Using original tag"
+              fi
+            fi
+
+            # Update SOURCE_IMAGE to use PR-tagged production image
+            SOURCE_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
             COVERAGE_IMAGE="${IMAGE_NAME}-coverage:${IMAGE_TAG}"
             PLUGIN_IMAGE_NAME=$(basename "$IMAGE_NAME")
 
@@ -166,6 +120,9 @@ jobs:
           echo "  Source image:     $SOURCE_IMAGE"
           echo "  Coverage image:   $COVERAGE_IMAGE"
           echo "  Plugin path:      $PLUGIN_PATH"
+          if [[ -n "$PR_NUMBER" ]]; then
+            echo "  PR mode:          pr_${PR_NUMBER}__*"
+          fi
 
       - name: Check if instrumented image already exists
         if: steps.meta.outputs.skip != 'true'
@@ -223,7 +180,7 @@ jobs:
       - name: Write job summary
         if: always() && steps.meta.outputs.skip != 'true'
         env:
-          WORKSPACE: ${{ matrix.workspace }}
+          WORKSPACE: ${{ inputs.workspace }}
           SOURCE_IMAGE: ${{ steps.meta.outputs.source-image }}
           COVERAGE_IMAGE: ${{ steps.meta.outputs.coverage-image }}
           PLUGIN_PATH: ${{ steps.meta.outputs.plugin-path }}
