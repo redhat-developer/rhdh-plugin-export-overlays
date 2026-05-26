@@ -249,7 +249,8 @@ jobs:
     with:
       workspace: ${{ matrix.workspace }}
       pr-number: ${{ inputs.pr-number }}
-    secrets: inherit
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   e2e-test-with-coverage:
     needs: [detect-workspaces, build-instrumented]
