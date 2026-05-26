@@ -134,6 +134,40 @@ jobs:
             echo "Workspaces with PR images: ${VALID[*]}"
           fi
 
+  add_no_images_comment:
+    needs: detect-workspaces
+    if: needs.detect-workspaces.outputs.matrix == '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Comment that no workspaces were found
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const body = `### ⚠️  E2E Coverage Tests Skipped
+
+            No workspaces found with both:
+            - E2E test suite (\`workspaces/*/e2e-tests/\`)
+            - PR-built plugin images in GHCR (\`pr_${{ inputs.pr-number }}__*\`)
+
+            **Possible reasons:**
+            1. You haven't run \`/publish\` yet → Images don't exist
+            2. This PR doesn't modify any workspace with E2E tests
+            3. PR images exist but workspace has no \`e2e-tests/\` directory
+
+            **If you need coverage:**
+            1. Make sure your PR modifies a workspace that has \`e2e-tests/\`
+            2. Comment \`/publish\` to build the plugin images
+            3. Wait for publish to complete successfully
+            4. Then comment \`/test e2e-ocp-helm\``;
+
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: ${{ inputs.pr-number }},
+              body
+            });
+
   build-instrumented:
     needs: detect-workspaces
     if: needs.detect-workspaces.outputs.matrix != '[]'

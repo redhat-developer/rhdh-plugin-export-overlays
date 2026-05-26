@@ -263,11 +263,7 @@ jobs:
     needs:
       - parse
       - prepare
-      - publish
-    if: >
-      always() &&
-      needs.parse.outputs.command-name == 'test' &&
-      needs.publish.result == 'success'
+    if: needs.parse.outputs.command-name == 'test'
     runs-on: ubuntu-latest
     permissions:
       actions: write
