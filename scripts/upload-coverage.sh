@@ -50,7 +50,9 @@ if [[ ! "$REPO_REF" =~ ^[0-9a-f]{40}$ ]]; then
     echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
     REPO_REF="$RESOLVED"
   else
-    echo "[WARN] Could not resolve '$REPO_REF' to a commit SHA — Codecov upload may fail"
+    echo "ERROR: Could not resolve '$REPO_REF' to a commit SHA" >&2
+    echo "Codecov requires a valid 40-char commit SHA" >&2
+    exit 1
   fi
 fi
 

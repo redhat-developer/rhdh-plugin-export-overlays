@@ -89,9 +89,10 @@ jobs:
                 PLUGIN_VERSION="${BASH_REMATCH[1]}"
                 IMAGE_TAG="pr_${PR_NUMBER}__${PLUGIN_VERSION}"
               else
-                echo "  WARNING: Cannot parse plugin version from tag: $IMAGE_TAG"
-                echo "  Expected format: bs_X.Y.Z__V.E.R"
-                echo "  Using original tag"
+                echo "ERROR: Cannot parse plugin version from tag: $IMAGE_TAG" >&2
+                echo "Expected format: bs_X.Y.Z__V.E.R" >&2
+                echo "In PR mode, all tags must follow the standard format" >&2
+                exit 1
               fi
             fi
 

@@ -56,20 +56,14 @@ echo ""
 echo "--- Step 3: Instrumenting with nyc ---"
 npx --yes nyc instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map 2>&1 | tail -5
 
-# Step 4: Copy instrumented files back and commit
+# Step 4: Verify instrumentation
 echo ""
-echo "--- Step 4: Committing coverage image ---"
-podman cp "$WORK_DIR/dist-instrumented/." "$CID:$PLUGIN_PATH/dist/"
-podman commit "$CID" "$COVERAGE_IMAGE"
-
-# Step 5: Verify instrumentation
-echo ""
-echo "--- Verification ---"
+echo "--- Step 4: Verifying instrumentation ---"
 INSTRUMENTED_FILES=$(grep -r "__coverage__" "$WORK_DIR/dist-instrumented/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$INSTRUMENTED_FILES" -gt 0 ]]; then
   echo "  Istanbul instrumentation: $INSTRUMENTED_FILES JS files contain __coverage__"
 
-  WEBPACK_SRCS=$(grep -roh 'webpack://[^"]*\./src/[^"]*' "$WORK_DIR/dist-instrumented/" --include="*.map" 2>/dev/null | sort -u)
+  WEBPACK_SRCS=$(grep -roh 'webpack://[^"]*\./src/[^"]*' "$WORK_DIR/dist-instrumented/" --include="*.map" 2>/dev/null | sort -u || true)
   SRC_COUNT=$(echo "$WEBPACK_SRCS" | grep -c . 2>/dev/null || echo "0")
   echo "  Source map references: $SRC_COUNT original source files"
   if [[ "$SRC_COUNT" -gt 0 ]]; then
@@ -78,9 +72,15 @@ if [[ "$INSTRUMENTED_FILES" -gt 0 ]]; then
     echo "$WEBPACK_SRCS" | sed 's|webpack://[^/]*/||' | head -20
   fi
 else
-  echo "  WARNING: No __coverage__ found — nyc instrument may have failed" >&2
+  echo "  ERROR: No __coverage__ found — nyc instrument failed" >&2
   exit 1
 fi
+
+# Step 5: Copy instrumented files back and commit
+echo ""
+echo "--- Step 5: Committing coverage image ---"
+podman cp "$WORK_DIR/dist-instrumented/." "$CID:$PLUGIN_PATH/dist/"
+podman commit "$CID" "$COVERAGE_IMAGE"
 
 echo ""
 echo "=== Done ==="
