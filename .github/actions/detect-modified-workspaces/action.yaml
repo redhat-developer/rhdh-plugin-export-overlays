@@ -1,0 +1,77 @@
+name: Detect Modified Workspaces
+description: Detects which workspaces were modified in a pull request using GitHub API
+
+inputs:
+  pr-number:
+    description: Pull request number
+    required: true
+  token:
+    description: GitHub token for API access
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  workspaces:
+    description: Newline-separated list of modified workspace names (e.g., "tech-radar\ntopology")
+    value: ${{ steps.detect.outputs.workspaces }}
+  workspace-count:
+    description: Number of modified workspaces
+    value: ${{ steps.detect.outputs.workspace-count }}
+  single-workspace:
+    description: The single modified workspace name if count=1, empty otherwise
+    value: ${{ steps.detect.outputs.single-workspace }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect modified workspaces from PR files
+      id: detect
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const prNumber = Number(process.env.INPUT_PR_NUMBER);
+
+          if (!prNumber || isNaN(prNumber)) {
+            core.setFailed(`Invalid PR number: ${process.env.INPUT_PR_NUMBER}`);
+            return;
+          }
+
+          core.info(`Fetching files changed in PR #${prNumber}...`);
+
+          const prFiles = await github.rest.pulls.listFiles({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: prNumber,
+            per_page: 100
+          });
+
+          // Extract unique workspace names from file paths
+          // Pattern: workspaces/<workspace-name>/...
+          const workspaces = [ ... new Set(prFiles.data
+            .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+            .filter(match => match)
+            .map(match => match[1])
+          )];
+
+          core.info(`Found ${workspaces.length} modified workspace(s): ${workspaces.join(', ') || '(none)'}`);
+
+          // Output: newline-separated list
+          const workspaceList = workspaces.join('\n');
+          core.setOutput('workspaces', workspaceList);
+          core.setOutput('workspace-count', String(workspaces.length));
+
+          // Single workspace helper (common case for auto-publish)
+          const singleWorkspace = workspaces.length === 1 ? workspaces[0] : '';
+          core.setOutput('single-workspace', singleWorkspace);
+
+          // Summary
+          core.summary.addHeading('Modified Workspaces', 3);
+          if (workspaces.length === 0) {
+            core.summary.addRaw('No workspaces were modified in this PR.');
+          } else {
+            core.summary.addList(workspaces);
+          }
+          await core.summary.write();

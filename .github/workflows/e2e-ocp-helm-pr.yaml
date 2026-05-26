@@ -46,32 +46,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.overlay-commit }}
-          fetch-depth: 0
 
       - name: Detect modified workspaces
         id: modified
-        env:
-          TARGET_BRANCH: ${{ inputs.target-branch }}
-          OVERLAY_COMMIT: ${{ inputs.overlay-commit }}
-        run: |
-          # Fetch target branch to compare
-          git fetch origin "$TARGET_BRANCH"
-
-          # Get list of modified workspaces in this PR
-          MODIFIED=$(git diff --name-only "origin/$TARGET_BRANCH" "$OVERLAY_COMMIT" | \
-            grep '^workspaces/' | cut -d'/' -f2 | sort -u || true)
-
-          echo "Modified workspaces in this PR:"
-          if [[ -n "$MODIFIED" ]]; then
-            echo "$MODIFIED"
-          else
-            echo "  (none)"
-          fi
-
-          # Export as multiline output
-          echo "workspaces<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$MODIFIED" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/detect-modified-workspaces
+        with:
+          pr-number: ${{ inputs.pr-number }}
 
       - name: Detect workspaces with E2E tests and published PR images
         id: detect

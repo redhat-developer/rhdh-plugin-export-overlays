@@ -23,11 +23,20 @@ jobs:
       statuses: write
 
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Detect modified workspaces
+        id: detect
+        uses: ./.github/actions/detect-modified-workspaces
+        with:
+          pr-number: ${{ inputs.pr-number }}
+
       - name: Get PR branch data
         id: get-branch
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+          DETECTED_WORKSPACE: ${{ steps.detect.outputs.single-workspace }}
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
@@ -47,22 +56,15 @@ jobs:
             core.setOutput('overlay-commit', prCommit);
             let workspace = '';
 
+            // Try to extract workspace from branch name (e.g., workspaces/release-1.3__tech-radar)
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
-              const prFiles = await github.rest.pulls.listFiles({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber
-              });
-              const workspaces = [ ... new Set(prFiles.data
-                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
-                .filter(match => match)
-                .map(match => match[1])
-              )];
-              if (workspaces.length === 1) {
-                workspace = `workspaces/${workspaces[0]}`;
+              // Use detected workspace from action (empty if != 1 workspace)
+              const detectedWorkspace = process.env.DETECTED_WORKSPACE;
+              if (detectedWorkspace) {
+                workspace = `workspaces/${detectedWorkspace}`;
               }
             }
             core.setOutput('workspace', workspace);
