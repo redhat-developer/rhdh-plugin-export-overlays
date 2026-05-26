@@ -266,9 +266,13 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
         DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2
         if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
-            jq --arg status "$DPDY_STATUS" \
-              '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
-              "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
+            python3 -c "
+import sys; sys.path.insert(0, '$SCRIPT_DIR')
+from plugin_utils import BuildReport
+r = BuildReport('$REPORT_FILE')
+r.set_stage_all('dpdy', 'fail')
+r.save()
+"
         fi
         exit 1
     fi
