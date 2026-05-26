@@ -6,6 +6,16 @@ test.describe("Test Quay.io plugin", () => {
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {
+    // Community plugins publish to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
+    // Remove when these community packages are no longer in default.packages.yaml in the rhdh repo.
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: [
+        "@backstage-community/plugin-quay",
+        "@backstage-community/plugin-quay-backend",
+        "@backstage-community/plugin-scaffolder-backend-module-quay",
+      ],
+    });
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();
   });

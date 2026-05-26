@@ -34,8 +34,8 @@ concurrency:
 env:
   REGISTRY: 'quay.io/rhdh'
   COMMUNITY_REGISTRY: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays'
-  COMMUNITY_CATALOG_INDEX: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index'
-  SUPPORTED_CATALOG_INDEX: 'quay.io/rhdh-community/plugin-catalog-index'
+  COMMUNITY_CATALOG_INDEX: 'ghcr.io/zaperex/rhdh-plugin-export-overlays/plugin-catalog-index'
+  SUPPORTED_CATALOG_INDEX: 'quay.io/my-test-organization/plugin-catalog-index'
   YQ_VERSION: '4.53.2'
 
 jobs:

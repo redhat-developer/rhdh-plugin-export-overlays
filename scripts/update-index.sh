@@ -283,6 +283,13 @@ r.save()
           '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
           "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
     fi
+    cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
+    echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
+    if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
+        jq --arg status "$DPDY_STATUS" \
+          '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
+          "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
+    fi
 else
     echo -e "\n${blue}=== Step 3: Skipped (no default.packages.yaml provided) ===${norm}"
     if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then

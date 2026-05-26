@@ -24,6 +24,7 @@ plugins:
             orgProvider:
               host: ${VAULT_EVENTS_GITLAB_HOST}
               group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+              orgEnabled: true
               schedule:
                 initialDelay:
                   seconds: 15
