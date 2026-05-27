@@ -726,7 +726,7 @@ plugins:
               rbac:
                 parent: default.admin
                 icon: rbacIcon
-  # - package: oci://quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:2f5ea9a9d0dd45e1672477f6a8284ade4cd4f2353411cacf785894fe021e46ab
+  # - package: oci://quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:2fbf5af736a106e27fa99ec40a85fafdda54db838bb91f38b9c1fbe6d7148dc0
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # disabled: true
@@ -1143,13 +1143,13 @@ plugins:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:8b288b55a3b151f3614eee4eb7cb373547ea4ae1439d7621d218cf39f0f0dbf1
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:db15bcf46825b8adf4516d708586cd81c420930891ecc3505463c18126673f88
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  - package: oci://quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:e072c7c7dc25599f09e87585a89d9c938208956235b8d0a697e5e910883440e1
+  - package: oci://quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:4868bcc51d9f6356cf76fdfa0e1ad9f151c7a0518fb840ab7c909972d84d015d
     disabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1
     disabled: true
