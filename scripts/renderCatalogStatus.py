@@ -44,9 +44,8 @@ def oci_ref_to_link(oci_ref: str) -> str:
         return ""
     ref = oci_ref.replace("oci://", "")
     if ref.startswith("quay.io/"):
-        parts = ref.split(":", 1)[0].split("@", 1)[0]
-        repo_path = parts.replace("quay.io/", "", 1)
-        return f"[{ref}](https://quay.io/repository/{repo_path})"
+        tag_ref = ref.split("@", 1)[0]
+        return f"[{ref}](https://{tag_ref})"
     if ref.startswith("ghcr.io/"):
         parts = ref.split(":", 1)[0].split("@", 1)[0]
         return f"[{ref}](https://{parts})"
