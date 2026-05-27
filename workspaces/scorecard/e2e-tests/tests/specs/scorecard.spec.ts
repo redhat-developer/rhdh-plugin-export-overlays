@@ -111,11 +111,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       );
     });
 
-    test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-      test.skip(
-        process.env.E2E_NIGHTLY_MODE === "true",
-        "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
-      );
+    // re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3197 is fixed
+    // eslint-disable-next-line playwright/no-skipped-test
+    test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),
         FILECHECK_METRICS.readme,
