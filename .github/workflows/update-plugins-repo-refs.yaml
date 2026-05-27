@@ -191,7 +191,6 @@ jobs:
       verbose: ${{ inputs.verbose != '' && inputs.verbose }}
       debug: ${{ inputs.debug != '' && inputs.debug }}
       allow-workspace-addition: ${{ inputs.allow-workspace-addition != '' && inputs.allow-workspace-addition }}
-      force: ${{ inputs.force != '' && inputs.force }}
     permissions:
       contents: write
       pull-requests: write
