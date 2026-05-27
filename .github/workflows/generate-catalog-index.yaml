@@ -464,6 +464,11 @@ jobs:
             --workflow-run-url "$WORKFLOW_RUN_URL" \
             --output /tmp/catalog-status.md
 
+          # Write the same status page to the GitHub Job Summary
+          if [[ -f /tmp/catalog-status.md ]]; then
+            cat /tmp/catalog-status.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Commit updated reports
         env:
           TARGET_BRANCH: ${{ needs.generate.outputs.target-branch }}

@@ -52,7 +52,7 @@ def oci_ref_to_link(oci_ref: str) -> str:
         if ":" in ref:
             tag = ref.split(":", 1)[1].split("@", 1)[0]
         url = f"https://{base}" + (f"?tag={tag}" if tag else "")
-        return f"[{ref}](https://{url})"
+        return f"[{ref}]({url})"
     return f"`{ref}`"
 
 
