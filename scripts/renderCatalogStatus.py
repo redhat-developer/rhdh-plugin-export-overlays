@@ -47,8 +47,12 @@ def oci_ref_to_link(oci_ref: str) -> str:
         tag_ref = ref.split("@", 1)[0]
         return f"[{ref}](https://{tag_ref})"
     if ref.startswith("ghcr.io/"):
-        parts = ref.split(":", 1)[0].split("@", 1)[0]
-        return f"[{ref}](https://{parts})"
+        base = ref.split(":", 1)[0].split("@", 1)[0]
+        tag = ""
+        if ":" in ref:
+            tag = ref.split(":", 1)[1].split("@", 1)[0]
+        url = f"https://{base}" + (f"?tag={tag}" if tag else "")
+        return f"[{ref}](https://{url})"
     return f"`{ref}`"
 
 
