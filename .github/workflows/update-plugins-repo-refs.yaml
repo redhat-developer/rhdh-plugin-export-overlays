@@ -179,7 +179,7 @@ jobs:
     name: Update Branches
     needs: prepare
     if: github.event_name != 'schedule'
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}
@@ -201,7 +201,7 @@ jobs:
     needs: prepare
     if: >-
       (github.event_name == 'schedule')
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
+    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/update-plugins-repo-refs.yaml@main
     with:
       regexps: ${{ needs.prepare.outputs.regexps }}
       exclude-workspaces: ${{ needs.prepare.outputs.exclude-workspaces }}

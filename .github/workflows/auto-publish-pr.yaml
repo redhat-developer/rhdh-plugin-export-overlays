@@ -206,6 +206,8 @@ jobs:
       metadata-validation-passed: ${{ steps.validate-metadata.outputs.validation-passed }}
       metadata-validation-errors: ${{ steps.validate-metadata.outputs.validation-errors }}
       metadata-validation-error-count: ${{ steps.validate-metadata.outputs.validation-error-count }}
+      metadata-warning-packages: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-packages }}
+      metadata-warning-count: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-count }}
 
     steps:
       - name: Checkout overlay repository
@@ -265,12 +267,36 @@ jobs:
 
       - name: Validate Catalog Metadata
         id: validate-metadata
-        uses: redhat-developer/rhdh-plugin-export-utils/validate-metadata@main
+        uses: rostalan/rhdh-plugin-export-utils/validate-metadata@main
         with:
           overlay-root: ${{ github.workspace }}/overlay-repo/${{ needs.prepare.outputs.workspace }}
           plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
           target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
           image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
+
+      - name: Extract metadata warnings from step summary
+        id: extract-metadata-warnings
+        shell: bash
+        run: |
+          WARNING_PACKAGES=$(
+            awk '
+              /## ⚠️ Metadata Coverage Warnings/ { in_section=1; next }
+              in_section && /^## / { in_section=0 }
+              in_section && /^- `.*`$/ { gsub(/^- `|`$/, ""); print }
+            ' "$GITHUB_STEP_SUMMARY" | sort -u
+          )
+
+          WARNING_COUNT=0
+          if [ -n "$WARNING_PACKAGES" ]; then
+            WARNING_COUNT=$(printf "%s\n" "$WARNING_PACKAGES" | sed '/^$/d' | wc -l | tr -d ' ')
+          fi
+
+          {
+            echo "metadata-warning-count=$WARNING_COUNT"
+            echo "metadata-warning-packages<<EOF"
+            printf "%s\n" "$WARNING_PACKAGES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
   export:
     name: Publish PR Dynamic Plugin Images
@@ -285,7 +311,7 @@ jobs:
       (needs.check-up-to-date.result == 'success' || needs.check-up-to-date.result == 'skipped') &&
       needs.detect-changes.outputs.only-metadata-changed != 'true'
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
@@ -313,7 +339,7 @@ jobs:
       needs.prepare.outputs.workspace != '' &&
       needs.detect-changes.outputs.only-metadata-changed != 'true'
 
-    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
@@ -357,6 +383,8 @@ jobs:
           INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed || needs.validate-metadata-only.outputs.metadata-validation-passed }}
           INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validate-metadata-only.outputs.metadata-validation-errors }}
           INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count || needs.validate-metadata-only.outputs.metadata-validation-error-count }}
+          INPUT_METADATA_WARNING_PACKAGES: ${{ needs.validate-metadata-only.outputs.metadata-warning-packages }}
+          INPUT_METADATA_WARNING_COUNT: ${{ needs.validate-metadata-only.outputs.metadata-warning-count }}
           INPUT_CHECK_UP_TO_DATE_RESULT: ${{ needs.check-up-to-date.result }}
           INPUT_EXPORT_RESULT: ${{ needs.export.result }}
           INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
@@ -459,6 +487,16 @@ jobs:
               }
 
               body += metadataSection;
+            }
+
+            const metadataWarningCount = Number(core.getInput('metadata_warning_count') || '0');
+            const metadataWarningPackages = core.getMultilineInput('metadata_warning_packages');
+            if (metadataWarningCount > 0 && metadataWarningPackages.length > 0) {
+              body += '\n\n#### Metadata Coverage Warnings\n';
+              body += `⚠️ Missing metadata file(s) for **${metadataWarningCount}** package(s):`;
+              metadataWarningPackages.forEach(pkg => {
+                body += `\n  - \`${pkg}\``;
+              });
             }
 
             if (publishSuccess) {
