@@ -37,18 +37,18 @@ export class BulkImportPO {
     await this.uiHelper.verifyHeading(BULK_IMPORT_HEADING);
   }
 
-  async ensureAccordionOpen(): Promise<void> {
-    const btn = importAccordionButton(this.page);
-    if ((await btn.getAttribute("aria-expanded")) !== "true") {
-      await btn.click();
-      await expect(btn).toHaveAttribute("aria-expanded", "true");
-    }
-  }
+  // async ensureAccordionOpen(): Promise<void> {
+  //   const btn = importAccordionButton(this.page);
+  //   if ((await btn.getAttribute("aria-expanded")) !== "true") {
+  //     await btn.click();
+  //     await expect(btn).toHaveAttribute("aria-expanded", "true");
+  //   }
+  // }
 
   async reloadAndWait(): Promise<void> {
     await this.page.reload();
     await waitForMuiProgressHidden(this.page);
-    await this.ensureAccordionOpen();
+    // await this.ensureAccordionOpen();
   }
 
   async toggleAccordionClosed(): Promise<void> {
@@ -101,7 +101,7 @@ export class BulkImportPO {
       );
     }
     await waitForMuiProgressHidden(this.page);
-    await this.ensureAccordionOpen();
+    // await this.ensureAccordionOpen();
     await dismissBulkImportLoginDialogIfPresent(this.page, this.loginHelper);
 
     await this.uiHelper.searchInputPlaceholder(repoName);
@@ -173,7 +173,7 @@ export class BulkImportPO {
   async gotoBulkImportAddPage(): Promise<void> {
     await this.page.goto(BULK_IMPORT_ROUTE);
     await this.uiHelper.waitForLoad(12_000);
-    await this.ensureAccordionOpen();
+    // await this.ensureAccordionOpen();
     if (this.loginHelper) {
       await dismissBulkImportLoginDialogIfPresent(this.page, this.loginHelper);
     }
