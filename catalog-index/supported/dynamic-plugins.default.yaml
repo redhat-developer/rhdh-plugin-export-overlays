@@ -527,7 +527,6 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  # Tag: 1.10--2.8.5, Build date: 2026-05-22T19:45:21Z
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:21ff43f570357b96d40f84326bc801c4b23c91a670eb9437ffe9a2bee57c4b4a
     disabled: false
     pluginConfig:
@@ -1089,6 +1088,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
+  # Tag: 1.10--5.7.12, Build date: 2026-05-22T19:45:48Z
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:be70d661c2e2f698b721ede839f4e52b75872c71419c501e7957c7680a031717
     disabled: true
     pluginConfig:
@@ -1129,6 +1129,7 @@ plugins:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
+  # Tag: 1.10--1.2.6, Build date: 2026-05-22T19:50:24Z
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:32e963d60e5aaf434beead62d143b28e7c58306b12e98aaf386714af2e6859ea
     disabled: true
     pluginConfig:
