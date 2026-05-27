@@ -4,7 +4,7 @@ export const WAIT_OBJECTS = {
 } as const;
 
 export const BULK_IMPORT_ACCORDION_LABEL =
-  "Import to Red Hat Developer Hub" as const;
+  "Select a repository to import." as const;
 
 export const BULK_IMPORT_HEADING = "Bulk import" as const;
 
