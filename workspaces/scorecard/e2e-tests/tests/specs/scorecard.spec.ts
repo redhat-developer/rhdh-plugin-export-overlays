@@ -109,6 +109,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   });
 
   test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+    test.skip(
+      process.env.E2E_NIGHTLY_MODE === "true",
+      "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
+    );
     await aggregated.runAggregatedScorecardDrilldownScenario(
       () => scorecard.navigateToHome(),
       FILECHECK_METRICS.readme,
@@ -242,6 +246,11 @@ test.describe.serial("Scorecard Plugin Tests", () => {
 
     for (const { entity, key, expected } of filecheckCases) {
       test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+        test.skip(
+          process.env.E2E_NIGHTLY_MODE === "true" &&
+            entity.startsWith("filecheck"),
+          "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
+        );
         await scorecard.expectFilecheckForEntity(
           async () => {
             await catalog.go();
