@@ -1,12 +1,12 @@
 {
   "backstage-plugin-catalog-backend-module-gitlab-org": {
     "workspacePath": "backstage/plugins/catalog-backend-module-gitlab-org",
-    "registryReference": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab-org:1.10--0.2.19",
-    "digest": "sha256:84d9f9b364a4526a11389a8869482f488d15d2c9f713c9f7b2e55e6676a2a9ca",
-    "build-date": "2026-05-21T21:05:32Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "7837503c7e858d85844a8d58158d635f2849413b",
+    "registryReference": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab-org:1.11--0.2.19",
+    "digest": "sha256:d074cbac598faf5313419f2d7ebba89f7f27fe1e8b39cd9b51dd65a74c955f34",
+    "build-date": "2026-05-21T21:07:19Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "d77899bbdaf8d7ac29a3d6904aa029521369d420",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1jYXRhbG9nLWJhY2tlbmQtbW9kdWxlLWdpdGxhYi1vcmciOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWNhdGFsb2ctYmFja2VuZC1tb2R1bGUtZ2l0bGFiLW9yZy1keW5hbWljIiwidmVyc2lvbiI6IjAuMi4xOSIsImRlc2NyaXB0aW9uIjoiVGhlIGdpdGxhYi1vcmcgYmFja2VuZCBtb2R1bGUgZm9yIHRoZSBjYXRhbG9nIHBsdWdpbi4iLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoiY2F0YWxvZyIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1jYXRhbG9nLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL2NhdGFsb2ctYmFja2VuZC1tb2R1bGUtZ2l0bGFiLW9yZyJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0="
   }

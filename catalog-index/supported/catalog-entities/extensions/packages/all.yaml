@@ -8,11 +8,13 @@ spec:
     - ./backstage-community-plugin-acr.yaml
     - ./backstage-community-plugin-analytics-provider-segment.yaml
     - ./backstage-community-plugin-catalog-backend-module-keycloak.yaml
+    - ./backstage-community-plugin-catalog-backend-module-pingidentity.yaml
     - ./backstage-community-plugin-quay-backend.yaml
     - ./backstage-community-plugin-quay.yaml
     - ./backstage-community-plugin-rbac.yaml
     - ./backstage-community-plugin-scaffolder-backend-module-kubernetes.yaml
     - ./backstage-community-plugin-scaffolder-backend-module-quay.yaml
+    - ./backstage-community-plugin-scaffolder-backend-module-regex.yaml
     - ./backstage-community-plugin-tech-radar-backend.yaml
     - ./backstage-community-plugin-tech-radar.yaml
     - ./backstage-community-plugin-tekton.yaml
@@ -36,6 +38,7 @@ spec:
     - ./backstage-plugin-techdocs-backend.yaml
     - ./backstage-plugin-techdocs-module-addons-contrib.yaml
     - ./backstage-plugin-techdocs.yaml
+    - ./bcp-ctlg-backend-mod-scaffolder-relation-processor.yaml
     - ./red-hat-developer-hub-backstage-plugin-bulk-import-backend.yaml
     - ./red-hat-developer-hub-backstage-plugin-bulk-import.yaml
     - ./red-hat-developer-hub-backstage-plugin-dynamic-home-page.yaml

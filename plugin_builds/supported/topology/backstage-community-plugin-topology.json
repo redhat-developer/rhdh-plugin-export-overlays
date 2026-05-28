@@ -1,12 +1,12 @@
 {
   "backstage-community-plugin-topology": {
     "workspacePath": "topology/plugins/topology",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-topology:1.10--2.12.3",
-    "digest": "sha256:0b1631ec70ee51639813eb3b443dff1f76d15980e4cba22521094d0c1d3f231a",
-    "build-date": "2026-05-22T19:37:37Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "70ff6cf52d89bf01b44060ef8364169e44899ac6",
+    "registryReference": "quay.io/rhdh/backstage-community-plugin-topology:1.11--2.12.3",
+    "digest": "sha256:a3fa5c72e4db6e9303b3be4e0a2fb62b8c818bc510184bde7d2f03512b5f054a",
+    "build-date": "2026-05-22T15:03:54Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tdG9wb2xvZ3kiOnsibmFtZSI6IkBiYWNrc3RhZ2UtY29tbXVuaXR5L3BsdWdpbi10b3BvbG9neS1keW5hbWljIiwidmVyc2lvbiI6IjIuMTIuMyIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJ0b3BvbG9neSIsInBsdWdpblBhY2thZ2VzIjpbIkBiYWNrc3RhZ2UtY29tbXVuaXR5L3BsdWdpbi10b3BvbG9neSJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjQ5LjIifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9jb21tdW5pdHktcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvdG9wb2xvZ3kvcGx1Z2lucy90b3BvbG9neSJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsIm1haW50YWluZXJzIjpbIkBpbnZpbmNpYmxlSmFpIiwiQGRpdnlhbnNoaUd1cHRhIiwiQGRlYnNtaXRhMSJdLCJhdXRob3IiOiJSZWQgSGF0IiwiYnVncyI6Imh0dHBzOi8vZ2l0aHViLmNvbS9iYWNrc3RhZ2UvY29tbXVuaXR5LXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIl19fV0="
   }

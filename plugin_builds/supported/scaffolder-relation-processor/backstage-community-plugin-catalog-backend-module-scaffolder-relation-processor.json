@@ -1,7 +1,13 @@
 {
   "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
     "workspacePath": "scaffolder-relation-processor/bcp-ctlg-backend-mod-scaffolder-relation-processor",
+    "registryReference": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:1.11--2.14.2",
+    "digest": "sha256:1d1441674d2631fb13b23c8738349c3f6ff56ce01ec61ac3910cf1fc8ee0190e",
+    "build-date": "2026-05-26T12:36:48Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "support": "tech-preview",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:1.10--2.14.2"
+    "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tY2F0YWxvZy1iYWNrZW5kLW1vZHVsZS1zY2FmZm9sZGVyLXJlbGF0aW9uLXByb2Nlc3NvciI6eyJuYW1lIjoiQGJhY2tzdGFnZS1jb21tdW5pdHkvcGx1Z2luLWNhdGFsb2ctYmFja2VuZC1tb2R1bGUtc2NhZmZvbGRlci1yZWxhdGlvbi1wcm9jZXNzb3ItZHluYW1pYyIsInZlcnNpb24iOiIyLjE0LjIiLCJkZXNjcmlwdGlvbiI6IlRoZSBzY2FmZm9sZGVyLXJlbGF0aW9uLXByb2Nlc3NvciBiYWNrZW5kIG1vZHVsZSBmb3IgdGhlIGNhdGFsb2cgcGx1Z2luLiIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJzY2FmZm9sZGVyLXJlbGF0aW9uLXByb2Nlc3NvciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tY2F0YWxvZy1iYWNrZW5kLW1vZHVsZS1zY2FmZm9sZGVyLXJlbGF0aW9uLXByb2Nlc3NvciIsInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNDkuMyJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2NvbW11bml0eS1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9zY2FmZm9sZGVyLXJlbGF0aW9uLXByb2Nlc3Nvci9wbHVnaW5zL2NhdGFsb2ctYmFja2VuZC1tb2R1bGUtc2NhZmZvbGRlci1yZWxhdGlvbi1wcm9jZXNzb3IifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d"
   }
 }

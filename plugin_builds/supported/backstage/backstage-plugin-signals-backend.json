@@ -1,12 +1,12 @@
 {
   "backstage-plugin-signals-backend": {
     "workspacePath": "backstage/plugins/signals-backend",
-    "registryReference": "quay.io/rhdh/backstage-plugin-signals-backend:1.10--0.3.13",
-    "digest": "sha256:9e88fffdb5b0b8b5ecd08795893a22c00c945a40e8063832d656822c78e388c5",
-    "build-date": "2026-05-21T21:01:06Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "2dddf3007002e73253c2a91e7b713279e4eb52ff",
+    "registryReference": "quay.io/rhdh/backstage-plugin-signals-backend:1.11--0.3.13",
+    "digest": "sha256:94d18cc600020390b32ce86fbbff5b1626a4580aaf6be5a0efe5ecf8f8040cc8",
+    "build-date": "2026-05-21T21:25:10Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "c8a6542eb211840a501c82d35f6b30e5b0a32586",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zaWduYWxzLWJhY2tlbmQiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLXNpZ25hbHMtYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjAuMy4xMyIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6InNpZ25hbHMiLCJwbHVnaW5QYWNrYWdlcyI6WyJAYmFja3N0YWdlL3BsdWdpbi1zaWduYWxzIiwiQGJhY2tzdGFnZS9wbHVnaW4tc2lnbmFscy1iYWNrZW5kIiwiQGJhY2tzdGFnZS9wbHVnaW4tc2lnbmFscy1ub2RlIiwiQGJhY2tzdGFnZS9wbHVnaW4tc2lnbmFscy1yZWFjdCJdfSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NpZ25hbHMtYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0="
   }

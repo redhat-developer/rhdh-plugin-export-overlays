@@ -1,0 +1,1288 @@
+{
+  "metadata": {},
+  "plugins": {
+    "backstage-community-plugin-acr": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-acr:1.11--1.24.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:9197a835c4b298db6c8dd75a88c18003ef0058362743f5c78fb62875ad5ff4b7"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-acr",
+      "version": "1.24.1",
+      "workspace": "acr",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:1.11--0.8.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:6e044bd6bfca95a4cfe7d20b774b0a4c2493ad502f0080ed2c6e05e71868ad51"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
+      "version": "0.8.2",
+      "workspace": "adoption-insights",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-adoption-insights": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights:1.11--0.8.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:13f4e4189d65e700c4375562cecd68c2b4b02aa4e66f6e434d3d53a3db4adb19"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
+      "version": "0.8.2",
+      "workspace": "adoption-insights",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:1.11--0.8.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:b284b4c1cbce159b88d74ddcca9de9542d8d650096c1aba76c88872459a50672"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
+      "version": "0.8.2",
+      "workspace": "adoption-insights",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-analytics-provider-segment": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-analytics-provider-segment:1.11--1.27.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:3e1ca2c8a542ecc0dbfa4abce62b50a2055e4ab5e8926299202aeac176f13b54"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-analytics-provider-segment",
+      "version": "1.27.0",
+      "workspace": "analytics",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-github-org": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-github-org:1.11--0.3.20"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:30f95d98f18d279ca1d2191474598e2f10f144839b04065cc539eeb12c54c6e8"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-github-org",
+      "version": "0.3.20",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-github": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-github:1.11--0.13.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:1ef8cdfc9fb925323b2fd55dc50ddece452adcaf3eaf8f38a4021b215eb475be"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-github",
+      "version": "0.13.0",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-gitlab-org": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab-org:1.11--0.2.19"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:d074cbac598faf5313419f2d7ebba89f7f27fe1e8b39cd9b51dd65a74c955f34"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-gitlab-org",
+      "version": "0.2.19",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-gitlab": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab:1.11--0.8.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:76c0034d8d0c4f1aa79066243dbeea1f7a912404c20a891d18038d9021500d9f"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-gitlab",
+      "version": "0.8.1",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-ldap": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-ldap:1.11--0.12.3"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:e719c6513040ce1d15ce570e80d8733938bbc878213c506a7040cbd6ac00c7c5"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-ldap",
+      "version": "0.12.3",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-catalog-backend-module-msgraph": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-msgraph:1.11--0.9.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:77ca5627b16fc59d61b28f450ebfea1037eab49ec3efaa343bd180fc269882b3"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-catalog-backend-module-msgraph",
+      "version": "0.9.1",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-events-backend-module-github": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-events-backend-module-github:1.11--0.4.10"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:1f8e8788a7531018482666db0719b81219758b9ea62b96ced4cda4b2de2e3958"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-events-backend-module-github",
+      "version": "0.4.10",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-events-backend-module-gitlab": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+        },
+        "registry-enrich": {
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+        }
+      },
+      "package": "@backstage/plugin-events-backend-module-gitlab",
+      "version": "0.3.10",
+      "workspace": "backstage",
+      "overall": "fail"
+    },
+    "backstage-plugin-kubernetes-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-kubernetes-backend:1.11--0.21.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:f5509d7478eb5a6f8ee97f9c52ad36ec0c3c73dade12eff0ffb5a2b6815e0e9d"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-kubernetes-backend",
+      "version": "0.21.2",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-kubernetes": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-kubernetes:1.11--0.12.17"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:7d9f6c2333e4875dc51a1113b4a0e20202fbd1b0bc66d94c09181a4a0f158fdb"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-kubernetes",
+      "version": "0.12.17",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-notifications-backend-module-email": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications-backend-module-email:1.11--0.3.19"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:a51572906efd70401e28a589b02b8f678d88d542113c0111e4c0d88a65c0e0db"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-notifications-backend-module-email",
+      "version": "0.3.19",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-notifications-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications-backend:1.11--0.6.3"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:71a380194c316022b8cca9575da8bd1629b1d2db78ff3e26e59c06132103d05a"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-notifications-backend",
+      "version": "0.6.3",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-notifications": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications:1.11--0.5.15"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:8ca3f2d37123f6bcf38bec0a875876af7dfeb9a99c8e081b4f962fdddc26cd8c"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-notifications",
+      "version": "0.5.15",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-scaffolder-backend-module-github": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-github:1.11--0.9.7"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:4cdd9dc09e8136a44e0aada184167ee7b6118965dd1f66ddcdfb6efbb71e5621"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-scaffolder-backend-module-github",
+      "version": "0.9.7",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-scaffolder-backend-module-gitlab": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-gitlab:1.11--0.11.4"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:28f175ca7e2100a0a66dd1a2eb0423c1e36fbac1804a0cb3059b763ec7787397"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-scaffolder-backend-module-gitlab",
+      "version": "0.11.4",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-signals-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-signals-backend:1.11--0.3.13"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:94d18cc600020390b32ce86fbbff5b1626a4580aaf6be5a0efe5ecf8f8040cc8"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-signals-backend",
+      "version": "0.3.13",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-signals": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-signals:1.11--0.0.29"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:5372dda7e1a8794751003c8ef34b2af0cc0a362a2a6ef0c8d1e4e74a8c7a2e2e"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-signals",
+      "version": "0.0.29",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-techdocs-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs-backend:1.11--2.1.6"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:daa2118de54cb15f680d4c39945363a8ec865fde9a2f73e5c3cd7ff878b26bc0"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-techdocs-backend",
+      "version": "2.1.6",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-techdocs-module-addons-contrib": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs-module-addons-contrib:1.11--1.1.34"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:853327e77c10610ec581b150d6a65d854f6086940ed65f9a4722172722066af2"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-techdocs-module-addons-contrib",
+      "version": "1.1.34",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "backstage-plugin-techdocs": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs:1.11--1.17.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:eb558c88ba749e8265f939c8b13345e4823e896b3bc69f8901f0d4433e0da525"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage/plugin-techdocs",
+      "version": "1.17.2",
+      "workspace": "backstage",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-bulk-import-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bulk-import-backend:1.11--7.3.5"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:bf81d41a3b077ae4a2dc3462c6da9ce201a27ee7fdfcd4aafb9d80f114a16437"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-bulk-import-backend",
+      "version": "7.3.5",
+      "workspace": "bulk-import",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-bulk-import": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bulk-import:1.11--7.3.5"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:ac71e295420b2800085ff77184b53ca222e320998968c43e48b6ca2f45cc9b3b"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-bulk-import",
+      "version": "7.3.5",
+      "workspace": "bulk-import",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions:1.11--0.17.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:c1011ad5f613254de253d5936cc4091dd2232546236f06066f53b22a9e557959"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions",
+      "version": "0.17.1",
+      "workspace": "extensions",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-extensions-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-extensions-backend:1.11--0.17.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:e7113305882b5753a0de051067cc4eadfc3c073b9a9231dea8c56c7586959346"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-extensions-backend",
+      "version": "0.17.1",
+      "workspace": "extensions",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-extensions": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-extensions:1.11--0.17.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:f8b3d2acb969efe72fb2cb9c47f8b546dab706a83cdb9aeef017f7071ad3c9be"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-extensions",
+      "version": "0.17.1",
+      "workspace": "extensions",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-global-floating-action-button": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-floating-action-button:1.11--1.9.3"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:c0375bce1cebfb9820cacf79256340198567effc4d2829318f21614d50f297ed"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-global-floating-action-button",
+      "version": "1.9.3",
+      "workspace": "global-floating-action-button",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-global-header": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:1.11--1.21.5"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:39165140dbf52d1088186fd5496b40c9d1f61eed2d071fad1801a7992bbdb2bd"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-global-header",
+      "version": "1.21.5",
+      "workspace": "global-header",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-dynamic-home-page": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-dynamic-home-page:1.11--1.13.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:f86534c04ed3d271c1949b2414e553b84d02a8a2d6effe100efb7303fa5c83ae"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-dynamic-home-page",
+      "version": "1.13.1",
+      "workspace": "homepage",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-homepage-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage-backend:1.11--0.1.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:517fcea03d5a173345fa6a4e9e94864d4064ba950b67d3bd14c977af13686573"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
+      "version": "0.1.1",
+      "workspace": "homepage",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-catalog-backend-module-keycloak": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:1.11--3.19.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:bd7d1ae67cf53aaa52676a71f27ddfdbf9021dccde43575db203f9a1c4272fb0"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-catalog-backend-module-keycloak",
+      "version": "3.19.2",
+      "workspace": "keycloak",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-lightspeed-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.8.5"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:3147f09ad990fbcd22a9f613d6982b4534b235a2c2d27684fc1834e196cd83ff"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-lightspeed-backend",
+      "version": "2.8.5",
+      "workspace": "lightspeed",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-lightspeed": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.8.5"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:adc64235cfa255070347d76af725952e5363559fe5bebe69e6356d2f30c6c82f"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-lightspeed",
+      "version": "2.8.5",
+      "workspace": "lightspeed",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:1.11--1.2.6"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:77c459e27fd68f6b7ae7f89c24182c9d840bcdc1d85bd29ddc1cca8afcd30560"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
+      "version": "1.2.6",
+      "workspace": "orchestrator",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-orchestrator-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend:1.11--8.9.4"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:5e2e95950c3112a10c23c0fddae86b257d0cc16f9cde3dd2fc945b6a7be5f7c5"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
+      "version": "8.9.4",
+      "workspace": "orchestrator",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:1.11--1.10.7"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:d99af76aeb55debb79f78cafbd73bf76fc3019af7215549cdb906de8c1174f51"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
+      "version": "1.10.7",
+      "workspace": "orchestrator",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-orchestrator": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:1.11--5.7.12"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:1862a46dd91d4110bad6cbd3c3dd98490cc1aee741f413fa7911bcc3fde38327"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
+      "version": "5.7.12",
+      "workspace": "orchestrator",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:e8cb33e40f6f846adaf5e0446049d5a2a5e93a2a12cf8b610e3e0e346f98005c"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
+      "version": "1.5.4",
+      "workspace": "orchestrator",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-catalog-backend-module-pingidentity": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-pingidentity:1.11--0.11.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:d8547ddfc756d05441b7345861be5d8f5d4a2aec1690f2a61a0b99fa39c308a8"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-catalog-backend-module-pingidentity",
+      "version": "0.11.1",
+      "workspace": "pingidentity",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-quay-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.49.4__1.14.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:8f875e3a32afdd125ea994ade4b721eeb6f941f2c67879136329360cbb0e6f1e"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-quay-backend",
+      "version": "1.14.0",
+      "workspace": "quay",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-quay": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:1eca89334710449b9e8c23a8888dd2c20d2f7bd1e6e5039c3dd5d0ec95c00aaa"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-quay",
+      "version": "1.32.1",
+      "workspace": "quay",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-scaffolder-backend-module-quay": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:4429d82f553640a539d37f5893229519b310c165cd1adbf7127eec8f72191cc0"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
+      "version": "2.18.0",
+      "workspace": "quay",
+      "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-quickstart": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:1.11--1.9.6"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:8e476df1f5db9cd06d2b251ecac3e0775f7c4180fdfc9cc681ee632397ae1e20"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-quickstart",
+      "version": "1.9.6",
+      "workspace": "quickstart",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-rbac": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-rbac:1.11--1.52.4"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:62d203dce1b513359719f2656e34deab780d8c6ae279bd93d5c59d30e2efc878"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-rbac",
+      "version": "1.52.4",
+      "workspace": "rbac",
+      "overall": "pass"
+    },
+    "roadiehq-backstage-plugin-argo-cd-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend:bs_1.49.4__4.8.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:6ffb3ee40671a387b56a70c3e18b9f03be5dca36dcccce7ecef2491685c6e228"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@roadiehq/backstage-plugin-argo-cd-backend",
+      "version": "4.8.0",
+      "workspace": "roadie-backstage-plugins",
+      "overall": "pass"
+    },
+    "roadiehq-scaffolder-backend-argocd": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.49.4__1.8.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:21d2b5307011fcc2bceb4aff8ac011201991da8117a7c6a0a9e89c4019a77f7a"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@roadiehq/scaffolder-backend-argocd",
+      "version": "1.8.1",
+      "workspace": "roadie-backstage-plugins",
+      "overall": "pass"
+    },
+    "roadiehq-scaffolder-backend-module-http-request": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request:1.11--5.6.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:dac6c6cbf5caee56df0e9637ca1ff054d773f0baa5fea7a3aa7d2f626115db6f"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@roadiehq/scaffolder-backend-module-http-request",
+      "version": "5.6.0",
+      "workspace": "roadie-backstage-plugins",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-scaffolder-backend-module-kubernetes": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes:1.11--2.17.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:92fd28e3c92e4140fc0c037af31ef35385da68c04cc7a6e07a286a24c7de73dc"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-scaffolder-backend-module-kubernetes",
+      "version": "2.17.1",
+      "workspace": "scaffolder-backend-module-kubernetes",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-scaffolder-backend-module-regex": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-regex:1.11--2.15.1"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:7d686046e8451d48045e6e3ce3caa92ea0ac118bd85c87adf89e776c0e56f837"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-scaffolder-backend-module-regex",
+      "version": "2.15.1",
+      "workspace": "scaffolder-backend-module-regex",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:1.11--2.14.2"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:1d1441674d2631fb13b23c8738349c3f6ff56ce01ec61ac3910cf1fc8ee0190e"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor",
+      "version": "2.14.2",
+      "workspace": "scaffolder-relation-processor",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-tech-radar-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-tech-radar-backend:1.11--1.16.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:b6b10b78b3df5437930b5683174420cae79f339919a315c4a16cf2f62a66ffe9"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-tech-radar-backend",
+      "version": "1.16.0",
+      "workspace": "tech-radar",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-tech-radar": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-tech-radar:1.11--1.17.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:ea08d237be4b2a998ead00e382f676b1b958b34575ab568c8fafa34e5682529d"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-tech-radar",
+      "version": "1.17.0",
+      "workspace": "tech-radar",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-tekton": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.37.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:18b0d1362c7d808d4e1bbc4ca8324b3d319cc2a2189faf89ced3c6427b547a4c"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-tekton",
+      "version": "3.37.0",
+      "workspace": "tekton",
+      "overall": "pass"
+    },
+    "backstage-community-plugin-topology": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "quay.io/rhdh/backstage-community-plugin-topology:1.11--2.12.3"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:a3fa5c72e4db6e9303b3be4e0a2fb62b8c818bc510184bde7d2f03512b5f054a"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-topology",
+      "version": "2.12.3",
+      "workspace": "topology",
+      "overall": "pass"
+    }
+  },
+  "summary": {
+    "total": 58,
+    "succeeded": 57,
+    "failed": 1
+  },
+  "status": "partial"
+}

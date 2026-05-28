@@ -17,8 +17,8 @@ metadata:
     - software-templates
 spec:
   packageName: "@roadiehq/scaffolder-backend-module-http-request"
-  # Tag: 1.10--5.6.0, Build date: 2026-05-26T12:36:42Z
-  dynamicArtifact: "oci://quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:4868bcc51d9f6356cf76fdfa0e1ad9f151c7a0518fb840ab7c909972d84d015d"
+  # Tag: 1.11--5.6.0, Build date: 2026-05-26T12:41:25Z
+  dynamicArtifact: "oci://quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:dac6c6cbf5caee56df0e9637ca1ff054d773f0baa5fea7a3aa7d2f626115db6f"
   version: 5.6.0
   backstage:
     role: backend-plugin-module

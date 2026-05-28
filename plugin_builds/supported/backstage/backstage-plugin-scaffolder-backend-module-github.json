@@ -1,12 +1,12 @@
 {
   "backstage-plugin-scaffolder-backend-module-github": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-github",
-    "registryReference": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-github:1.10--0.9.7",
-    "digest": "sha256:53e243272ddb6eb8a7ec0df242a3ba7280f844b325f4c197b5685524b905a399",
-    "build-date": "2026-05-21T21:37:20Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "210bcb653d864522ef4cbbe08c1bd6bbde151649",
+    "registryReference": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-github:1.11--0.9.7",
+    "digest": "sha256:4cdd9dc09e8136a44e0aada184167ee7b6118965dd1f66ddcdfb6efbb71e5621",
+    "build-date": "2026-05-21T21:24:29Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "51edeaa135cffcb3535e7477241310ceadcb35d3",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWdpdGh1YiI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1naXRodWItZHluYW1pYyIsInZlcnNpb24iOiIwLjkuNyIsImRlc2NyaXB0aW9uIjoiVGhlIGdpdGh1YiBtb2R1bGUgZm9yIEBiYWNrc3RhZ2UvcGx1Z2luLXNjYWZmb2xkZXItYmFja2VuZCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJzY2FmZm9sZGVyIiwicGx1Z2luUGFja2FnZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLXNjYWZmb2xkZXItYmFja2VuZCJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2JhY2tzdGFnZSIsImRpcmVjdG9yeSI6InBsdWdpbnMvc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1naXRodWIifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d"
   }

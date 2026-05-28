@@ -1,12 +1,12 @@
 {
   "backstage-community-plugin-tech-radar-backend": {
     "workspacePath": "tech-radar/plugins/tech-radar-backend",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-tech-radar-backend:1.10--1.16.0",
-    "digest": "sha256:4304dd390f4f2cfdeeea9d8edbfa4b9a187b47cbc6da9b664993fcd44a8bc7b6",
-    "build-date": "2026-05-22T19:35:41Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "70ff6cf52d89bf01b44060ef8364169e44899ac6",
+    "registryReference": "quay.io/rhdh/backstage-community-plugin-tech-radar-backend:1.11--1.16.0",
+    "digest": "sha256:b6b10b78b3df5437930b5683174420cae79f339919a315c4a16cf2f62a66ffe9",
+    "build-date": "2026-05-22T15:09:03Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tdGVjaC1yYWRhci1iYWNrZW5kIjp7Im5hbWUiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tdGVjaC1yYWRhci1iYWNrZW5kLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMS4xNi4wIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbiIsInBsdWdpbklkIjoidGVjaC1yYWRhciIsInBsdWdpblBhY2thZ2VzIjpbIkBiYWNrc3RhZ2UtY29tbXVuaXR5L3BsdWdpbi10ZWNoLXJhZGFyIiwiQGJhY2tzdGFnZS1jb21tdW5pdHkvcGx1Z2luLXRlY2gtcmFkYXItYmFja2VuZCIsIkBiYWNrc3RhZ2UtY29tbXVuaXR5L3BsdWdpbi10ZWNoLXJhZGFyLWNvbW1vbiJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjQ5LjIifSwiaG9tZXBhZ2UiOiJodHRwczovL2JhY2tzdGFnZS5pbyIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9iYWNrc3RhZ2UvY29tbXVuaXR5LXBsdWdpbnMiLCJkaXJlY3RvcnkiOiJ3b3Jrc3BhY2VzL3RlY2gtcmFkYXIvcGx1Z2lucy90ZWNoLXJhZGFyLWJhY2tlbmQifSwibGljZW5zZSI6IkFwYWNoZS0yLjAifX1d"
   }

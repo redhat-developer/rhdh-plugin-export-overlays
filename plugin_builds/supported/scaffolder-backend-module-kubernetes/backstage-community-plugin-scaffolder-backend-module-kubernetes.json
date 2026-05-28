@@ -1,12 +1,12 @@
 {
   "backstage-community-plugin-scaffolder-backend-module-kubernetes": {
     "workspacePath": "scaffolder-backend-module-kubernetes/backstage-community-plugin-scaffolder-backend-module-kubernetes",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes:1.10--2.17.1",
-    "digest": "sha256:2fbf5af736a106e27fa99ec40a85fafdda54db838bb91f38b9c1fbe6d7148dc0",
-    "build-date": "2026-05-26T12:37:19Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ 39754016dea4337776438a8483744729059b596e",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "68b967204957d907c6055ac02713e7a94a516b43",
+    "registryReference": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes:1.11--2.17.1",
+    "digest": "sha256:92fd28e3c92e4140fc0c037af31ef35385da68c04cc7a6e07a286a24c7de73dc",
+    "build-date": "2026-05-26T12:41:25Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1rdWJlcm5ldGVzIjp7Im5hbWUiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1rdWJlcm5ldGVzLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMi4xNy4xIiwiZGVzY3JpcHRpb24iOiJUaGUga3ViZXJuZXRlcyBtb2R1bGUgZm9yIEBiYWNrc3RhZ2UvcGx1Z2luLXNjYWZmb2xkZXItYmFja2VuZCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4tbW9kdWxlIiwicGx1Z2luSWQiOiJzY2FmZm9sZGVyIiwicGx1Z2luUGFja2FnZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLXNjYWZmb2xkZXItYmFja2VuZCIsInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNDkuMyJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2NvbW11bml0eS1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWt1YmVybmV0ZXMvcGx1Z2lucy9rdWJlcm5ldGVzLWFjdGlvbnMifSwibGljZW5zZSI6IkFwYWNoZS0yLjAiLCJhdXRob3IiOiJUaGUgQmFja3N0YWdlIENvbW11bml0eSIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2NvbW11bml0eS1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsImJhY2tlbmQtcGx1Z2luLW1vZHVsZSJdfX1d"
   }

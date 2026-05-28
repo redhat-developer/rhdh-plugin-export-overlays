@@ -1,12 +1,12 @@
 {
   "backstage-plugin-kubernetes-backend": {
     "workspacePath": "backstage/plugins/kubernetes-backend",
-    "registryReference": "quay.io/rhdh/backstage-plugin-kubernetes-backend:1.10--0.21.2",
-    "digest": "sha256:57a94c3f1b61665a8c35fe841dec2f5ebcdf72c72cb3d88cfdc3c747b89341c0",
-    "build-date": "2026-05-21T21:36:46Z",
-    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.10 @ a7bb86b75564741f484bfddd5bd2af3bcabfa7b9",
-    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1.10-rhel-9",
-    "vcs-ref": "fb2340c34adaff7fe0cf77bede68898e6a9b9240",
+    "registryReference": "quay.io/rhdh/backstage-plugin-kubernetes-backend:1.11--0.21.2",
+    "digest": "sha256:f5509d7478eb5a6f8ee97f9c52ad36ec0c3c73dade12eff0ffb5a2b6815e0e9d",
+    "build-date": "2026-05-21T21:07:46Z",
+    "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
+    "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
+    "vcs-ref": "a06f3ba4038a735aca90eac44b7fcc2a9450de2b",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1rdWJlcm5ldGVzLWJhY2tlbmQiOnsibmFtZSI6IkBiYWNrc3RhZ2UvcGx1Z2luLWt1YmVybmV0ZXMtYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjAuMjEuMiIsImRlc2NyaXB0aW9uIjoiQSBCYWNrc3RhZ2UgYmFja2VuZCBwbHVnaW4gdGhhdCBpbnRlZ3JhdGVzIHRvd2FyZHMgS3ViZXJuZXRlcyIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6Imt1YmVybmV0ZXMiLCJwbHVnaW5QYWNrYWdlcyI6WyJAYmFja3N0YWdlL3BsdWdpbi1rdWJlcm5ldGVzIiwiQGJhY2tzdGFnZS9wbHVnaW4ta3ViZXJuZXRlcy1iYWNrZW5kIiwiQGJhY2tzdGFnZS9wbHVnaW4ta3ViZXJuZXRlcy1jb21tb24iLCJAYmFja3N0YWdlL3BsdWdpbi1rdWJlcm5ldGVzLW5vZGUiLCJAYmFja3N0YWdlL3BsdWdpbi1rdWJlcm5ldGVzLXJlYWN0Il19LCJob21lcGFnZSI6Imh0dHBzOi8vYmFja3N0YWdlLmlvIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL2t1YmVybmV0ZXMtYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsImt1YmVybmV0ZXMiXX19XQ=="
   }
