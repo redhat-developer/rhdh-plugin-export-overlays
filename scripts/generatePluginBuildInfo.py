@@ -22,8 +22,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import requests
 import yaml
+import hashlib
 
 from plugin_utils import (
+    BuildReport,
     Colors,
     log_debug,
     log_info,
@@ -161,7 +163,6 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
         # Get digest from Docker-Content-Digest header
         digest = manifest_response.headers.get('Docker-Content-Digest')
         if not digest:
-            import hashlib
             digest = 'sha256:' + hashlib.sha256(manifest_response.content).hexdigest()
 
         manifest = manifest_response.json()
@@ -213,7 +214,7 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
         return None
 
 
-def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tuple[int, int, List[str], int]:
+def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> Tuple[int, int, List[str], int]:
     """
     Update all plugin_builds/*.json files with image metadata
     Returns: (updated_count, error_count, missing_refs, overlays_metadata_changes)
@@ -238,7 +239,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
         print(f"[{i}/{len(json_files)}] {relative_path}", end="")
 
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
             modified = False
@@ -286,6 +287,11 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                         missing_refs.append(registry_reference)
                         log_warn(f"[{Colors.YELLOW}{len(missing_refs)}{Colors.NORM}] Could not find metadata for https://{Colors.YELLOW}{registry_reference}{Colors.NORM} !")
                         print(" ")
+                        if report:
+                            report.set_stage(
+                                plugin_name, "registry-enrich", "fail",
+                                reason=f"Image not found in registry: {registry_reference}",
+                            )
                 else:
                     fields_removed = []
                     for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', DYNAMIC_PACKAGES_ANNOTATION]:
@@ -308,7 +314,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             ordered_plugin[key] = value
                     ordered_data[plugin_name] = ordered_plugin
 
-                with open(json_file, 'w') as f:
+                with open(json_file, 'w', encoding='utf-8') as f:
                     json.dump(ordered_data, f, indent=2)
                     f.write('\n')
                 updated_count += 1
@@ -317,6 +323,15 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                     f"{get_query_registry_reference(registry_reference)}"
                     f"{Colors.NORM}"
                 )
+
+                if report:
+                    for pname, pdata in data.items():
+                        digest = pdata.get('digest', '')
+                        if digest:
+                            report.set_stage(
+                                pname, "registry-enrich", "pass",
+                                digest=digest,
+                            )
 
                 # Update the equivalent metadata.yaml file in the overlays directory
                 # Skip metadata write-back for ghcr.io — those images use tagged dynamicArtifacts
@@ -340,7 +355,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                             metadata_file = None
                             for f in metadata_dir.glob("*.yaml"):
                                 try:
-                                    with open(f, "r") as fp:
+                                    with open(f, "r", encoding='utf-8') as fp:
                                         meta = yaml.safe_load(fp)
                                     spec = (meta or {}).get("spec") or {}
                                     pkg = spec.get("packageName") or ""
@@ -354,7 +369,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                                 except Exception:
                                     continue
                             if metadata_file is not None:
-                                with open(metadata_file, "r") as f:
+                                with open(metadata_file, "r", encoding='utf-8') as f:
                                     content = f.read()
                                 try:
                                     meta = yaml.safe_load(content)
@@ -381,7 +396,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path) -> Tu
                                             out.append(f'{indent}dynamicArtifact: "{new_oci}"')
                                         else:
                                             out.append(line)
-                                    with open(metadata_file, "w") as f:
+                                    with open(metadata_file, "w", encoding='utf-8') as f:
                                         f.write("\n".join(out))
                                         f.write("\n")
                                     overlays_metadata_changes += 1
@@ -452,6 +467,12 @@ Examples:
         help='Registry base (e.g., ghcr.io/redhat-developer/rhdh-plugin-export-overlays, quay.io/rhdh)',
     )
     parser.add_argument(
+        '--report-file',
+        type=str,
+        metavar='PATH',
+        help='Path to build-report.json for tracking generation stages (optional)',
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug output',
@@ -463,13 +484,14 @@ Examples:
 
     overlays_dir = Path(args.overlays_dir)
     plugin_builds_dir = Path(args.plugin_builds_dir)
+    report = BuildReport(args.report_file)
 
     if not overlays_dir.exists():
         print(f"Error: Overlays directory not found: {overlays_dir}")
         sys.exit(1)
 
     log_info("\n=== Update plugin_builds/*.json files with container metadata ===")
-    updated_count, error_count, missing_refs, overlays_metadata_changes = update_plugin_build_files(plugin_builds_dir, overlays_dir)
+    updated_count, error_count, missing_refs, overlays_metadata_changes = update_plugin_build_files(plugin_builds_dir, overlays_dir, report)
     total = updated_count + error_count + len(missing_refs)
 
     log_info("\n=== Results ===")
@@ -485,6 +507,8 @@ Examples:
         log_info(f"Changes to overlay repo metadata: {Colors.GREEN}{overlays_metadata_changes}{Colors.NORM}")
         log_info(f"To review changes and create a pull request:\n\tcd {overlays_dir}; git diff")
         print(" ")
+
+    report.save()
 
 if __name__ == "__main__":
     main()
