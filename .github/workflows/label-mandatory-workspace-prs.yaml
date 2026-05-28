@@ -142,40 +142,26 @@ jobs:
             for (const pr of prs) {
               try {
                 console.log(`\n--- Processing PR #${pr.number}: ${pr.title} ---`);
-
+                
                 // Get current labels on the PR
                 const currentLabels = pr.labels.map(label => label.name);
-                const currentWorkspaceLabels = currentLabels.filter(label =>
+                const currentWorkspaceLabels = currentLabels.filter(label => 
                   Object.values(LABELS).includes(label)
                 );
-
-                // Detect modified workspaces using GitHub API (with pagination)
-                // This duplicates logic from detect-modified-workspaces composite action
-                // but we can't use the action here since we're in a github-script loop
-                let allFiles = [];
-                let page = 1;
-                let hasMore = true;
-
-                while (hasMore) {
-                  const response = await github.rest.pulls.listFiles({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    pull_number: pr.number,
-                    per_page: 100,
-                    page
-                  });
-
-                  allFiles = allFiles.concat(response.data);
-                  hasMore = response.data.length === 100;
-                  page++;
-                }
-
+                
+                // Analyze PR files to know what changes this PR contains
+                const prFiles = await github.rest.pulls.listFiles({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number
+                });
+                
                 // Categorize files
                 const workspaceFiles = [];
                 const nonWorkspaceFiles = [];
                 const allAffectedWorkspaces = new Set();
-
-                for (const file of allFiles) {
+                
+                for (const file of prFiles.data) {
                   const workspaceMatch = file.filename.match(/^workspaces\/([^\/]+)\/.*/);
                   if (workspaceMatch) {
                     const workspace = workspaceMatch[1];

@@ -9,7 +9,7 @@ on:
         type: string
         required: true
       command-name:
-        description: Command to execute (publish, update-versions, update-commit, smoketest, coverage-test)
+        description: Command to execute (publish, update-versions, update-commit, smoketest)
         type: string
         required: true
 
@@ -25,8 +25,7 @@ jobs:
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
       contains(github.event.comment.body, '/update-commit') ||
-      contains(github.event.comment.body, '/smoketest') ||
-      contains(github.event.comment.body, '/coverage-test')))
+      contains(github.event.comment.body, '/smoketest')))
     
     outputs:
       command-name: ${{ steps.extract.outputs.command-name }}
@@ -40,7 +39,7 @@ jobs:
           script: |
             if (context.eventName === 'workflow_dispatch') {
               const commandName = '${{ inputs.command-name }}';
-              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest', 'coverage-test']);
+              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest']);
               if (!allowed.has(commandName)) {
                 const errorMsg = `Invalid command: ${commandName}`;
                 core.setOutput('error-message', errorMsg);
@@ -59,8 +58,8 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest', '/coverage-test']);
-            const matchingCommands = lines.filter(l => allowed.has(l) || l.startsWith('/coverage-test '));
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest']);
+            const matchingCommands = lines.filter(l => allowed.has(l));
             
             if (matchingCommands.length > 1) {
               const errorMsg = `Multiple commands found in comment: ${matchingCommands.join(', ')}. Please use only one command per comment.`;
@@ -106,7 +105,7 @@ jobs:
           script: |
             const errorMessage = core.getInput('error_message');
             const prNumber = Number(core.getInput('pr_number'));
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests\n- \`/coverage-test e2e-ocp-helm\` - Run E2E tests with coverage`;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests`;
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -123,7 +122,7 @@ jobs:
     concurrency:
       group: prepare-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
       cancel-in-progress: false
-
+      
     if: needs.parse.outputs.command-name != ''
     outputs:
       target-branch: ${{ steps.get-branch.outputs.target-branch }}
@@ -137,22 +136,12 @@ jobs:
       statuses: write
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Detect modified workspaces
-        id: detect
-        uses: ./.github/actions/detect-modified-workspaces
-        with:
-          pr-number: ${{ needs.parse.outputs.pr-number }}
-
       - name: Get PR branch data
         id: get-branch
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
           INPUT_PR_NUMBER: ${{ needs.parse.outputs.pr-number }}
-          DETECTED_WORKSPACE: ${{ steps.detect.outputs.single-workspace }}
-          WORKSPACE_COUNT: ${{ steps.detect.outputs.workspace-count }}
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
@@ -172,19 +161,22 @@ jobs:
             core.setOutput('overlay-commit', prCommit);
             let workspace = '';
 
-            // Log workspace detection result for diagnostics
-            const workspaceCount = process.env.WORKSPACE_COUNT;
-            core.info(`Detected ${workspaceCount} modified workspace(s)`);
-
-            // Try to extract workspace from branch name (e.g., workspaces/release-1.3__tech-radar)
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
-              // Use detected workspace from action (empty if != 1 workspace)
-              const detectedWorkspace = process.env.DETECTED_WORKSPACE;
-              if (detectedWorkspace) {
-                workspace = `workspaces/${detectedWorkspace}`;
+              const prFiles = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              const workspaces = [ ... new Set(prFiles.data
+                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+                .filter(match => match)
+                .map(match => match[1])
+              )];
+              if (workspaces.length === 1) {
+                workspace =`workspaces/${workspaces[0]}`;
               }
             }
             core.setOutput('workspace', workspace);
@@ -262,35 +254,6 @@ jobs:
                 'overlay-commit': '${{ needs.prepare.outputs.overlay-commit }}',
                 'pr-number': String(${{ needs.prepare.outputs.pr-number }}),
                 'target-branch': '${{ needs.prepare.outputs.target-branch }}',
-              },
-            });
-
-  triggerE2ECoverageTests:
-    name: Trigger E2E Tests with Coverage
-    needs:
-      - parse
-      - prepare
-    if: needs.parse.outputs.command-name == 'coverage-test'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Dispatch E2E coverage tests
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'e2e-ocp-helm-pr.yaml',
-              ref: '${{ github.ref_name }}',
-              inputs: {
-                'pr-number': String(${{ needs.prepare.outputs.pr-number }}),
-                'overlay-commit': '${{ needs.prepare.outputs.overlay-commit }}',
-                'overlay-repo': '${{ needs.prepare.outputs.overlay-repo }}',
-                'overlay-branch': '${{ needs.prepare.outputs.overlay-branch }}',
-                'target-branch': '${{ needs.prepare.outputs.target-branch }}',
-                'workspace': '${{ needs.prepare.outputs.workspace }}',
               },
             });
 
