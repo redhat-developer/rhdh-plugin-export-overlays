@@ -105,21 +105,29 @@ def resolve_ghcr_version_ids(oci_refs: list[str]) -> dict[str, int]:
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
-    for (org, pkg), tags in package_tags.items():
+    for (owner, pkg), tags in package_tags.items():
         encoded_pkg = pkg.replace("/", "%2F")
-        url = f"https://api.github.com/orgs/{org}/packages/container/{encoded_pkg}/versions?per_page=100"
-        try:
-            resp = requests.get(url, headers=headers, timeout=15)
-            resp.raise_for_status()
-            for version in resp.json():
+        base_url = f"https://api.github.com/{{owner_type}}/{owner}/packages/container/{encoded_pkg}/versions?per_page=100"
+        versions = None
+        for owner_type in ("orgs", "users"):
+            url = base_url.format(owner_type=owner_type)
+            try:
+                resp = requests.get(url, headers=headers, timeout=15)
+                if resp.status_code == 404 and owner_type == "orgs":
+                    continue
+                resp.raise_for_status()
+                versions = resp.json()
+                break
+            except Exception as e:
+                print(f"Warning: Failed to resolve GHCR versions for {owner}/{pkg}: {e}", file=sys.stderr)
+        if versions:
+            for version in versions:
                 v_tags = version.get("metadata", {}).get("container", {}).get("tags", [])
                 v_id = version.get("id")
                 if v_id:
                     for t in v_tags:
                         if t in tags:
-                            tag_to_vid[(org, pkg, t)] = v_id
-        except Exception as e:
-            print(f"Warning: Failed to resolve GHCR versions for {org}/{pkg}: {e}", file=sys.stderr)
+                            tag_to_vid[(owner, pkg, t)] = v_id
 
     result = {}
     for ref, (org, pkg, tag) in ref_parsed.items():
@@ -139,18 +147,16 @@ def oci_ref_to_link(oci_ref: str, ghcr_version_ids: dict[str, int] | None = None
         return f"[{ref}](https://{tag_ref})"
     if ref.startswith("ghcr.io/"):
         parsed = parse_ghcr_ref(oci_ref)
+        if not parsed:
+            return f"`{ref}`"
+        org, pkg, tag = parsed
+        repo = pkg.split("/")[0]
+        encoded_pkg = pkg.replace("/", "%2F")
         version_id = (ghcr_version_ids or {}).get(oci_ref)
-        if parsed and version_id:
-            org, pkg, tag = parsed
-            repo = pkg.split("/")[0]
-            encoded_pkg = pkg.replace("/", "%2F")
+        if version_id:
             url = f"https://github.com/{org}/{repo}/pkgs/container/{encoded_pkg}/{version_id}?tag={tag}"
-            return f"[{ref}]({url})"
-        base = ref.split(":", 1)[0].split("@", 1)[0]
-        tag = ""
-        if ":" in ref:
-            tag = ref.split(":", 1)[1].split("@", 1)[0]
-        url = f"https://{base}" + (f"?tag={tag}" if tag else "")
+        else:
+            url = f"https://github.com/{org}/{repo}/pkgs/container/{encoded_pkg}"
         return f"[{ref}]({url})"
     return f"`{ref}`"
 
