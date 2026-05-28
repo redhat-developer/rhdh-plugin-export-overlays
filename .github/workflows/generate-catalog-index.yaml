@@ -425,6 +425,7 @@ jobs:
       - name: Render catalog status page
         env:
           SOURCE_BRANCH: ${{ needs.generate.outputs.source-branch }}
+          TARGET_BRANCH: ${{ needs.generate.outputs.target-branch }}
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
@@ -449,6 +450,7 @@ jobs:
             $ARGS \
             --source-repo "$SOURCE_REPO" \
             --source-branch "$SOURCE_BRANCH" \
+            --target-branch "$TARGET_BRANCH" \
             --source-commit "$GITHUB_SHA" \
             --backstage-version "$BS_VERSION" \
             --rhdh-version "$RHDH_VERSION" \

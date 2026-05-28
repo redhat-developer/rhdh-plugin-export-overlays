@@ -284,6 +284,7 @@ def render_status_page(
     backstage_version: str,
     rhdh_version: str,
     workflow_run_url: str,
+    target_branch: str = "",
 ) -> str:
     """Render the complete status page markdown."""
     ghcr_refs = collect_ghcr_refs(supported_report, community_report)
@@ -308,6 +309,9 @@ def render_status_page(
         if rhdh_version:
             version_parts.append(f"**RHDH:** {rhdh_version}")
         lines.append(f"{' | '.join(version_parts)}  ")
+    if target_branch and source_repo:
+        target_link = f"[{target_branch}]({source_repo}/tree/{target_branch})"
+        lines.append(f"**Catalog index branch:** {target_link}  ")
     if run_link:
         lines.append(f"**Workflow run:** {run_link}  ")
 
@@ -391,6 +395,12 @@ def main():
         help='RHDH version',
     )
     parser.add_argument(
+        '--target-branch',
+        type=str,
+        default='',
+        help='Target branch where catalog index artifacts are stored',
+    )
+    parser.add_argument(
         '--workflow-run-url',
         type=str,
         default='',
@@ -421,6 +431,7 @@ def main():
         backstage_version=args.backstage_version,
         rhdh_version=args.rhdh_version,
         workflow_run_url=args.workflow_run_url,
+        target_branch=args.target_branch,
     )
 
     if args.output:
