@@ -379,6 +379,7 @@ jobs:
     if: always() && needs.generate.result != 'cancelled'
     permissions:
       contents: write
+      packages: read
 
     steps:
       - name: Checkout catalog-index branch
@@ -393,7 +394,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pyyaml
+        run: pip install pyyaml requests
 
       - name: Update build reports with publish status
         env:
@@ -439,6 +440,7 @@ jobs:
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
           SOURCE_REPO: ${{ github.server_url }}/${{ github.repository }}
           WORKFLOW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           ARGS=""
           if [[ -f catalog-index/supported/build-report.json ]]; then

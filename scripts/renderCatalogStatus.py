@@ -16,8 +16,11 @@
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
+
+import requests
 from pathlib import Path
 
 
@@ -38,7 +41,95 @@ def load_report(path: str) -> dict:
         return json.load(f)
 
 
-def oci_ref_to_link(oci_ref: str) -> str:
+def parse_ghcr_ref(oci_ref: str) -> tuple[str, str, str] | None:
+    """Parse a GHCR OCI ref into (org, package_path, tag).
+    Returns None if not a valid GHCR ref with a tag."""
+    ref = oci_ref.replace("oci://", "")
+    if not ref.startswith("ghcr.io/"):
+        return None
+    rest = ref[len("ghcr.io/"):]
+    if ":" not in rest:
+        return None
+    path_part, tag = rest.split(":", 1)
+    tag = tag.split("@", 1)[0]
+    if not tag:
+        return None
+    segments = path_part.split("/", 1)
+    if len(segments) < 2:
+        return None
+    return segments[0], segments[1], tag
+
+
+def collect_ghcr_refs(*reports: dict) -> list[str]:
+    """Collect all unique GHCR OCI references from reports."""
+    refs = set()
+    for report in reports:
+        if not report:
+            continue
+        meta = report.get("metadata", {})
+        image = meta.get("catalog-index-image", "")
+        if image and "ghcr.io" in image:
+            refs.add(image)
+        for plugin in report.get("plugins", {}).values():
+            if plugin.get("overall") == "pass":
+                oci_ref = plugin.get("stages", {}).get("bootstrap", {}).get("oci_ref", "")
+                if oci_ref and "ghcr.io" in oci_ref:
+                    refs.add(oci_ref)
+    return list(refs)
+
+
+def resolve_ghcr_version_ids(oci_refs: list[str]) -> dict[str, int]:
+    """Resolve GHCR OCI refs to GitHub Package version IDs via the API.
+    Returns a map of original OCI ref string -> version ID.
+    Falls back to empty dict if requests is unavailable or GITHUB_TOKEN is not set."""
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        print("Note: GITHUB_TOKEN not set, GHCR links will use fallback format", file=sys.stderr)
+        return {}
+
+    package_tags: dict[tuple[str, str], set[str]] = {}
+    ref_parsed: dict[str, tuple[str, str, str]] = {}
+
+    for ref in oci_refs:
+        parsed = parse_ghcr_ref(ref)
+        if not parsed:
+            continue
+        org, pkg, tag = parsed
+        package_tags.setdefault((org, pkg), set()).add(tag)
+        ref_parsed[ref] = parsed
+
+    tag_to_vid: dict[tuple[str, str, str], int] = {}
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    for (org, pkg), tags in package_tags.items():
+        encoded_pkg = pkg.replace("/", "%2F")
+        url = f"https://api.github.com/orgs/{org}/packages/container/{encoded_pkg}/versions?per_page=100"
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
+            for version in resp.json():
+                v_tags = version.get("metadata", {}).get("container", {}).get("tags", [])
+                v_id = version.get("id")
+                if v_id:
+                    for t in v_tags:
+                        if t in tags:
+                            tag_to_vid[(org, pkg, t)] = v_id
+        except Exception as e:
+            print(f"Warning: Failed to resolve GHCR versions for {org}/{pkg}: {e}", file=sys.stderr)
+
+    result = {}
+    for ref, (org, pkg, tag) in ref_parsed.items():
+        vid = tag_to_vid.get((org, pkg, tag))
+        if vid:
+            result[ref] = vid
+    return result
+
+
+def oci_ref_to_link(oci_ref: str, ghcr_version_ids: dict[str, int] | None = None) -> str:
     """Convert an OCI reference to a clickable registry link."""
     if not oci_ref:
         return ""
@@ -47,6 +138,14 @@ def oci_ref_to_link(oci_ref: str) -> str:
         tag_ref = ref.split("@", 1)[0]
         return f"[{ref}](https://{tag_ref})"
     if ref.startswith("ghcr.io/"):
+        parsed = parse_ghcr_ref(oci_ref)
+        version_id = (ghcr_version_ids or {}).get(oci_ref)
+        if parsed and version_id:
+            org, pkg, tag = parsed
+            repo = pkg.split("/")[0]
+            encoded_pkg = pkg.replace("/", "%2F")
+            url = f"https://github.com/{org}/{repo}/pkgs/container/{encoded_pkg}/{version_id}?tag={tag}"
+            return f"[{ref}]({url})"
         base = ref.split(":", 1)[0].split("@", 1)[0]
         tag = ""
         if ":" in ref:
@@ -83,6 +182,7 @@ def render_tier(
     source_repo: str,
     branch: str,
     workflow_run_url: str,
+    ghcr_version_ids: dict[str, int] | None = None,
 ) -> list[str]:
     """Render a single tier section."""
     lines = []
@@ -132,7 +232,7 @@ def render_tier(
             stages = p.get("stages", {})
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
-            oci_link = oci_ref_to_link(oci_ref)
+            oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {oci_link} |")
         lines.append("")
 
@@ -157,7 +257,7 @@ def render_last_publish(report: dict, source_repo: str) -> str:
     return "—"
 
 
-def render_catalog_image(report: dict) -> str:
+def render_catalog_image(report: dict, ghcr_version_ids: dict[str, int] | None = None) -> str:
     """Render a link to the catalog index OCI image.
     Only shows the image if the catalog has been successfully published."""
     meta = report.get("metadata", {})
@@ -165,7 +265,7 @@ def render_catalog_image(report: dict) -> str:
         return "—"
     image = meta.get("catalog-index-image", "")
     if image:
-        return oci_ref_to_link(image)
+        return oci_ref_to_link(image, ghcr_version_ids)
     return "—"
 
 
@@ -180,6 +280,9 @@ def render_status_page(
     workflow_run_url: str,
 ) -> str:
     """Render the complete status page markdown."""
+    ghcr_refs = collect_ghcr_refs(supported_report, community_report)
+    ghcr_version_ids = resolve_ghcr_version_ids(ghcr_refs) if ghcr_refs else {}
+
     lines = []
 
     lines.append(f"# Plugin Catalog Index Status — {source_branch}")
@@ -213,20 +316,20 @@ def render_status_page(
     lines.append("| Tier | Total | Passed | Failed | Latest Catalog Index Image | Last Successful Publish |")
     lines.append("|------|-------|--------|--------|----------------------------|-------------------------|")
     if supported_report:
-        sup_img = render_catalog_image(supported_report)
+        sup_img = render_catalog_image(supported_report, ghcr_version_ids)
         sup_pub = render_last_publish(supported_report, source_repo)
         lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
     if community_report:
-        com_img = render_catalog_image(community_report)
+        com_img = render_catalog_image(community_report, ghcr_version_ids)
         com_pub = render_last_publish(community_report, source_repo)
         lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
     lines.append("")
 
     # Tier details
     if supported_report:
-        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, workflow_run_url))
+        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, workflow_run_url, ghcr_version_ids))
     if community_report:
-        lines.extend(render_tier("Community", community_report, source_repo, source_branch, workflow_run_url))
+        lines.extend(render_tier("Community", community_report, source_repo, source_branch, workflow_run_url, ghcr_version_ids))
 
     lines.append("---")
     lines.append(f"*Auto-generated by [generate-catalog-index]({source_repo}/blob/{source_branch}/.github/workflows/generate-catalog-index.yaml) workflow*")
