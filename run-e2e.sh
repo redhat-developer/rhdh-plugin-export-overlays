@@ -29,6 +29,10 @@ set -euo pipefail
 #
 #   # Use an unpublished git branch of e2e-test-utils (clones and builds locally)
 #   E2E_TEST_UTILS_GIT_REF=owner/rhdh-e2e-test-utils#my-branch ./run-e2e.sh -w tech-radar
+#
+#   # Coverage collection is ENABLED BY DEFAULT (uses -coverage images if available)
+#   # To disable for faster local development:
+#   E2E_COLLECT_COVERAGE=0 ./run-e2e.sh -w tech-radar
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,8 +62,9 @@ export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
-# Coverage collection (Istanbul) — set "1" to enable E2E coverage pipeline
-export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-}"
+# Coverage collection (Istanbul) — enabled by default for all E2E runs
+# Set E2E_COLLECT_COVERAGE=0 to disable if needed (e.g., for faster local dev)
+export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-1}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
