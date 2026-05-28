@@ -183,17 +183,6 @@ jobs:
             echo "ok=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check if any tier succeeded
-        id: check-success
-        env:
-          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
-          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
-        run: |
-          if [[ "${SUPPORTED_OK}" != "true" && "${COMMUNITY_OK}" != "true" ]]; then
-            echo "::error::Both supported and community catalog generation failed"
-            exit 1
-          fi
-
       - name: Write build-info.json
         env:
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
@@ -257,19 +246,24 @@ jobs:
           path: catalog-index/
           retention-days: 3
 
+      - name: Check generation results
+        env:
+          SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
+          COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+        run: |
+          if [[ "${SUPPORTED_OK}" != "true" || "${COMMUNITY_OK}" != "true" ]]; then
+            echo "::error::Catalog generation failed (supported=$SUPPORTED_OK, community=$COMMUNITY_OK)"
+            exit 1
+          fi
+
   publish-supported:
     runs-on: ubuntu-latest
     needs: generate
+    if: always() && needs.generate.outputs.supported-ok == 'true'
     permissions:
       packages: write
 
     steps:
-      - name: Check generation status
-        if: needs.generate.outputs.supported-ok != 'true'
-        run: |
-          echo "::error::Supported catalog generation failed"
-          exit 1
-
       - name: Checkout (for Dockerfile)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -318,16 +312,11 @@ jobs:
   publish-community:
     runs-on: ubuntu-latest
     needs: generate
+    if: always() && needs.generate.outputs.community-ok == 'true'
     permissions:
       packages: write
 
     steps:
-      - name: Check generation status
-        if: needs.generate.outputs.community-ok != 'true'
-        run: |
-          echo "::error::Community catalog generation failed"
-          exit 1
-
       - name: Checkout (for Dockerfile)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
