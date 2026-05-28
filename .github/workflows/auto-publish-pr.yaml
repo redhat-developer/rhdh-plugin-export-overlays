@@ -267,7 +267,7 @@ jobs:
 
       - name: Validate Catalog Metadata
         id: validate-metadata
-        uses: rostalan/rhdh-plugin-export-utils/validate-metadata@main
+        uses: redhat-developer/rhdh-plugin-export-utils/validate-metadata@main
         with:
           overlay-root: ${{ github.workspace }}/overlay-repo/${{ needs.prepare.outputs.workspace }}
           plugins-root: ${{ github.workspace }}/source-repo/${{ steps.source-config.outputs.plugins-root }}
@@ -311,7 +311,7 @@ jobs:
       (needs.check-up-to-date.result == 'success' || needs.check-up-to-date.result == 'skipped') &&
       needs.detect-changes.outputs.only-metadata-changed != 'true'
 
-    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/export-workspaces-as-dynamic.yaml@main
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
@@ -339,7 +339,7 @@ jobs:
       needs.prepare.outputs.workspace != '' &&
       needs.detect-changes.outputs.only-metadata-changed != 'true'
 
-    uses: rostalan/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
+    uses: redhat-developer/rhdh-plugin-export-utils/.github/workflows/check-backstage-compatibility.yaml@main
     with:
       overlay-branch: ${{ needs.prepare.outputs.overlay-branch }}
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
