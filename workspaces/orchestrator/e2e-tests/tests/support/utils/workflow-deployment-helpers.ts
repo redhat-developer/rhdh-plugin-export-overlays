@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import {
+  ensureKnativeServing,
   getOperatorMajorMinorVersions,
   logWorkflowDeployFailureDiagnostics,
   POSTGRES_ALIGN_TIMEOUT_MS,
@@ -46,6 +47,7 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
 
   const workflowOcDeps: WorkflowOcDeps = { runOc };
+  await ensureKnativeServing(workflowOcDeps);
   const { osMajorMinor, oslMajorMinor } =
     getOperatorMajorMinorVersions(workflowOcDeps);
 

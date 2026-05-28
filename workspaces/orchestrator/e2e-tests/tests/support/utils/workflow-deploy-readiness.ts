@@ -3,8 +3,12 @@
  * Operator version detection, image tag resolution, deployment wait, and failure diagnostics.
  */
 
+import { unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 export const WORKFLOW_DEPLOYMENT_TIMEOUT_MS = 600_000;
 export const POSTGRES_ALIGN_TIMEOUT_MS = 300_000;
+export const KNATIVE_SERVING_READY_TIMEOUT_MS = 900_000;
 
 const KNATIVE_SERVING_NS = "knative-serving";
 const KNATIVE_SERVING_NAME = "knative-serving";
@@ -142,6 +146,127 @@ type SonataFlowPlatformStatus = {
     conditions?: Array<{ type?: string; status?: string; message?: string }>;
   };
 };
+
+type KnativeServingStatus = {
+  status?: {
+    conditions?: Array<{ type?: string; status?: string; message?: string }>;
+  };
+};
+
+function knativeServingCrdPresent(deps: WorkflowOcDeps): boolean {
+  try {
+    deps.runOc(
+      ["get", "crd", "services.serving.knative.dev", "-o", "name"],
+      30_000,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function applyKnativeServingManifest(deps: WorkflowOcDeps): void {
+  const manifestPath = join("/tmp", `knative-serving-${process.pid}.yaml`);
+  writeFileSync(
+    manifestPath,
+    `apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: ${KNATIVE_SERVING_NAME}
+  namespace: ${KNATIVE_SERVING_NS}
+`,
+    "utf-8",
+  );
+  try {
+    deps.runOc(["apply", "-f", manifestPath], 60_000);
+  } finally {
+    try {
+      unlinkSync(manifestPath);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function knativeServingReady(deps: WorkflowOcDeps): boolean {
+  const ks = parseOcJson<KnativeServingStatus>(
+    deps,
+    [
+      "get",
+      "knativeserving",
+      KNATIVE_SERVING_NAME,
+      "-n",
+      KNATIVE_SERVING_NS,
+      "-o",
+      "json",
+    ],
+    30_000,
+  );
+  if (!ks?.status?.conditions?.length) {
+    return false;
+  }
+  const ready = ks.status.conditions.find((c) => c.type === "Ready");
+  const install = ks.status.conditions.find(
+    (c) => c.type === "InstallSucceeded",
+  );
+  return ready?.status === "True" && install?.status === "True";
+}
+
+/** Ensure Knative Serving exists and reaches Ready before workflow reconciliation. */
+export async function ensureKnativeServing(
+  deps: WorkflowOcDeps,
+  timeoutMs = KNATIVE_SERVING_READY_TIMEOUT_MS,
+): Promise<void> {
+  if (!knativeServingCrdPresent(deps)) {
+    console.warn(
+      "[deploy-sonataflow] Knative Serving CRD not present yet; waiting for serverless operator reconciliation",
+    );
+  }
+
+  if (!knativeServingReady(deps)) {
+    console.warn(
+      "[deploy-sonataflow] Ensuring KnativeServing instance exists in knative-serving namespace",
+    );
+    applyKnativeServingManifest(deps);
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt++;
+    if (knativeServingReady(deps)) {
+      console.warn("[deploy-sonataflow] KnativeServing is Ready");
+      return;
+    }
+    if (attempt === 1 || attempt % 6 === 0) {
+      const ks = parseOcJson<KnativeServingStatus>(
+        deps,
+        [
+          "get",
+          "knativeserving",
+          KNATIVE_SERVING_NAME,
+          "-n",
+          KNATIVE_SERVING_NS,
+          "-o",
+          "json",
+        ],
+        30_000,
+      );
+      const ready = ks?.status?.conditions?.find((c) => c.type === "Ready");
+      const install = ks?.status?.conditions?.find(
+        (c) => c.type === "InstallSucceeded",
+      );
+      console.warn(
+        `[deploy-sonataflow] Waiting for KnativeServing Ready (attempt ${attempt}, ready=${ready?.status ?? "unknown"}, install=${install?.status ?? "unknown"}${ready?.message ? `, message=${ready.message}` : ""})`,
+      );
+    }
+    await sleep(10_000);
+  }
+
+  throw new Error(
+    `[deploy-sonataflow] TIMEOUT (${timeoutMs}ms): KnativeServing/${KNATIVE_SERVING_NAME} did not become Ready`,
+  );
+}
 
 /** Wait until SonataFlowPlatform reports Succeed=True (operator can reconcile workflows). */
 export async function waitForSonataFlowPlatformReady(
