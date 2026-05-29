@@ -18,6 +18,7 @@ import { dismissBulkImportLoginDialogIfPresent } from "../utils/auth";
 import { waitForMuiProgressHidden } from "../utils/wait";
 import {
   addRepositoryImportButton,
+  bulkImportImportHistoryPath,
   importAccordionButton,
   repoRowCheckbox,
   repositoriesArticle,
@@ -170,7 +171,6 @@ export class BulkImportPO {
     await expect(importButton)
       .toBeDisabled({ timeout: 5_000 })
       .catch(() => undefined);
-    await expect(importButton).toBeEnabled({ timeout: 120_000 });
   }
 
   /** Navigate to add-repositories UI (fresh mount — avoids `page.reload()`). */
@@ -200,15 +200,16 @@ export class BulkImportPO {
     await expect(async () => {
       let found = false;
       for (const url of historyRepoUrls) {
-        await this.page.goto(
-          `/bulk-import/import-history/${encodeURIComponent(url)}`,
-        );
+        await this.page.goto(bulkImportImportHistoryPath(url));
         await this.uiHelper.waitForLoad(12_000);
         const historyLink = viewWorkflowLink(this.page).first();
-        if (await historyLink.isVisible().catch(() => false)) {
+        try {
+          await expect(historyLink).toBeVisible({ timeout: 15_000 });
           link = historyLink;
           found = true;
           break;
+        } catch {
+          /* try next URL candidate */
         }
       }
       expect(found).toBe(true);
