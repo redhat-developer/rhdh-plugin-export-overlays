@@ -239,3 +239,35 @@ gh workflow run generate-catalog-index.yaml \
   -f target-branch=catalog-index-custom
 ```
 
+## Extracting Content From a Catalog Index Image
+
+To extract the contents from a catalog index image, run this script:
+
+```
+unpack () {
+  if [[ ! $1 ]]; then
+    echo "Usage: unpack reg/org/container:tagorsha"
+  else  
+    local IMAGE="$1"
+    DIR="${IMAGE//:/_}"
+    DIR="/tmp/${DIR//\//-}"
+    rm -fr "$DIR"; mkdir -p "$DIR"; container_id=$(podman create "${IMAGE}")
+    podman export $container_id -o /tmp/image.tar && tar xf /tmp/image.tar -C "${DIR}/"; podman rm $container_id; rm -f /tmp/image.tar
+    echo "Unpacked $IMAGE into $DIR"
+    cd $DIR; tree -d -L 3 -I "usr|root|buildinfo"
+  fi
+}
+
+unpack ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index:1.11-bs_1.49.4 
+unpack quay.io/rhdh-community/plugin-catalog-index:<some tag>
+```
+Once unpacked, you should see a tree of metadata files to browse, as well as `index.json` and `build-info.json`.
+
+```
+.
+└── catalog-entities
+    └── extensions
+        ├── collections
+        ├── packages
+        └── plugins
+```
