@@ -1,6 +1,8 @@
 export {
   BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+  DATA_INDEX_DEPLOY,
   deployBulkImportOrchestratorWorkflow,
+  isDataIndexHealthy,
   logOrchestratorDeployFailureDiagnostics,
   runOc,
 } from "./workflow-deployment-helpers.js";

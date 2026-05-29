@@ -1,4 +1,8 @@
-import { runOc } from "./workflow-deployment-helpers.js";
+import {
+  DATA_INDEX_DEPLOY,
+  isDataIndexHealthy,
+  runOc,
+} from "./workflow-deployment-helpers.js";
 
 const DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS = 15_000;
 const DATA_INDEX_ROLLOUT_STATUS_TIMEOUT_MS = 130_000;
@@ -22,47 +26,17 @@ export function requireEnvVar(name: string): string {
   return value;
 }
 
-function isDataIndexHealthy(ns: string): boolean {
-  try {
-    const health = runOc(
-      [
-        "exec",
-        "-n",
-        ns,
-        "deploy/sonataflow-platform-data-index-service",
-        "--",
-        "curl",
-        "-s",
-        "--max-time",
-        "5",
-        "http://localhost:8080/q/health/ready",
-      ],
-      DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS,
-    );
-    const parsed = JSON.parse(health);
-    return parsed.status === "UP";
-  } catch {
-    return false;
-  }
-}
-
 async function recoverDataIndex(ns: string): Promise<boolean> {
   try {
-    runOc(
-      [
-        "rollout",
-        "restart",
-        "deploy/sonataflow-platform-data-index-service",
-        "-n",
-        ns,
-      ],
+    await runOc(
+      ["rollout", "restart", `deploy/${DATA_INDEX_DEPLOY}`, "-n", ns],
       DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS,
     );
-    runOc(
+    await runOc(
       [
         "rollout",
         "status",
-        "deploy/sonataflow-platform-data-index-service",
+        `deploy/${DATA_INDEX_DEPLOY}`,
         "-n",
         ns,
         "--timeout=120s",
@@ -73,7 +47,7 @@ async function recoverDataIndex(ns: string): Promise<boolean> {
       await new Promise((resolve) =>
         setTimeout(resolve, DATA_INDEX_RECOVERY_POLL_INTERVAL_MS),
       );
-      if (isDataIndexHealthy(ns)) {
+      if (await isDataIndexHealthy(ns)) {
         return true;
       }
     }
@@ -94,7 +68,7 @@ export function createDataIndexGuard(): EnsureDataIndexOrSkip {
       );
       return;
     }
-    if (isDataIndexHealthy(ns)) {
+    if (await isDataIndexHealthy(ns)) {
       return;
     }
     const recovered = await recoverDataIndex(ns);
