@@ -3,6 +3,7 @@ import {
   ADD_REPOSITORY_FOOTER_TEST_ID,
   BULK_IMPORT_ACCORDION_LABEL,
   LOGIN_REQUIRED_DIALOG_NAME,
+  VIEW_WORKFLOW_LINK_LABEL,
   VIEW_WORKFLOW_LINK_TEST_ID,
 } from "../constants/bulk-import-selectors";
 
@@ -33,16 +34,23 @@ export function addRepositoryImportButton(page: Page): Locator {
     .getByRole("button", { name: "Import", exact: true });
 }
 
+function viewWorkflowLinkCandidates(scope: Page | Locator): Locator {
+  return scope
+    .getByTestId(VIEW_WORKFLOW_LINK_TEST_ID)
+    .or(scope.getByRole("link", { name: VIEW_WORKFLOW_LINK_LABEL }));
+}
+
 /** Orchestrator mode: link in repo row Status after workflow is created. */
 export function viewWorkflowLinkInRepoRow(
   page: Page,
   repoName: string,
 ): Locator {
-  return repoRow(page, repoName).getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
+  return viewWorkflowLinkCandidates(repoRow(page, repoName));
 }
 
+/** Import history table or repo row — test id when present, else link label. */
 export function viewWorkflowLink(page: Page): Locator {
-  return page.getByTestId(VIEW_WORKFLOW_LINK_TEST_ID);
+  return viewWorkflowLinkCandidates(page);
 }
 
 export function bulkImportImportHistoryPath(repoUrl: string): string {
@@ -53,7 +61,7 @@ export function bulkImportImportHistoryPath(repoUrl: string): string {
 export function importHistoryRepoUrlCandidates(repoUrl: string): string[] {
   return repoUrl.startsWith("http")
     ? [repoUrl]
-    : [repoUrl, `https://${repoUrl}`];
+    : [`https://${repoUrl}`, repoUrl];
 }
 
 /** Dialog-scoped Save when preview is open; otherwise last Save on page. */
