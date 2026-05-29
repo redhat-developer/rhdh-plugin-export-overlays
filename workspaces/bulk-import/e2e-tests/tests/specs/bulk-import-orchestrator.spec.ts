@@ -35,8 +35,8 @@ test.describe("Bulk import tests orchestrator mode", () => {
           dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
         });
       } catch (err) {
-        logOrchestratorDeployFailureDiagnostics(rhdhNamespace);
-        logOrchestratorDeployFailureDiagnostics(orchestratorNamespace);
+        await logOrchestratorDeployFailureDiagnostics(rhdhNamespace);
+        await logOrchestratorDeployFailureDiagnostics(orchestratorNamespace);
         throw err;
       }
     });

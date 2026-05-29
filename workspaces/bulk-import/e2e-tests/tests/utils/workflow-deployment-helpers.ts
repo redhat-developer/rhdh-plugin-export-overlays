@@ -1,12 +1,10 @@
-import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
-const BULK_IMPORT_MANIFESTS_PATH =
-  "workflows/bulk-import-git-repos/manifests";
+const BULK_IMPORT_MANIFESTS_PATH = "workflows/bulk-import-git-repos/manifests";
 /** Merged in serverless-workflows #785 — RHDH persistence, org Quay image, no GHTOKEN secret. */
 const WORKFLOW_REPO_REF =
   process.env.SERVERLESS_WORKFLOWS_REF ||
@@ -15,7 +13,8 @@ const WORKFLOW_REPO_REF =
 /** Bulk-import orchestrator e2e workflow (see app-config orchestratorWorkflow). */
 export const BULK_IMPORT_ORCHESTRATOR_WORKFLOW = "universal-pr";
 
-const DATA_INDEX_DEPLOY = "sonataflow-platform-data-index-service";
+export const DATA_INDEX_DEPLOY = "sonataflow-platform-data-index-service";
+const DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS = 15_000;
 const WORKFLOW_ROLLOUT_TIMEOUT_MS = 600_000;
 
 /**
@@ -27,7 +26,7 @@ export async function deployBulkImportOrchestratorWorkflow(
   namespace: string,
 ): Promise<void> {
   await installOrchestrator(namespace);
-  hardenSonataFlowPlatform(namespace);
+  await hardenSonataFlowPlatform(namespace);
 
   await applyUpstreamUniversalPrManifests(namespace);
 
@@ -48,7 +47,8 @@ export async function deployBulkImportOrchestratorWorkflow(
 async function applyUpstreamUniversalPrManifests(
   namespace: string,
 ): Promise<void> {
-  const localManifestsDir = process.env.BULK_IMPORT_WORKFLOWS_MANIFESTS_DIR?.trim();
+  const localManifestsDir =
+    process.env.BULK_IMPORT_WORKFLOWS_MANIFESTS_DIR?.trim();
   if (localManifestsDir) {
     console.warn(
       `[bulk-import-orchestrator] Applying manifests from BULK_IMPORT_WORKFLOWS_MANIFESTS_DIR=${localManifestsDir}`,
@@ -79,8 +79,8 @@ async function waitForWorkflowDeploymentRollout(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (deploymentExists(namespace, workflow)) {
-      runOc(
+    if (await deploymentExists(namespace, workflow)) {
+      await runOc(
         [
           "rollout",
           "status",
@@ -105,9 +105,12 @@ async function waitForWorkflowDeploymentRollout(
   );
 }
 
-function deploymentExists(namespace: string, workflow: string): boolean {
+async function deploymentExists(
+  namespace: string,
+  workflow: string,
+): Promise<boolean> {
   try {
-    runOc(["get", "deployment", workflow, "-n", namespace], 15_000);
+    await runOc(["get", "deployment", workflow, "-n", namespace], 15_000);
     return true;
   } catch {
     return false;
@@ -122,7 +125,7 @@ async function waitForPodMatchingWorkflow(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const pods = runOc(
+      const pods = await runOc(
         ["get", "pods", "-n", namespace, "--no-headers"],
         30_000,
       );
@@ -148,7 +151,7 @@ async function waitForDataIndexHealthy(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (isDataIndexHealthy(namespace)) {
+    if (await isDataIndexHealthy(namespace)) {
       return;
     }
     await sleep(5_000);
@@ -158,9 +161,9 @@ async function waitForDataIndexHealthy(
   );
 }
 
-function isDataIndexHealthy(namespace: string): boolean {
+export async function isDataIndexHealthy(namespace: string): Promise<boolean> {
   try {
-    const health = runOc(
+    const health = await runOc(
       [
         "exec",
         "-n",
@@ -173,7 +176,7 @@ function isDataIndexHealthy(namespace: string): boolean {
         "5",
         "http://localhost:8080/q/health/ready",
       ],
-      15_000,
+      DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS,
     );
     const parsed = JSON.parse(health) as { status?: string };
     return parsed.status === "UP";
@@ -194,7 +197,7 @@ async function waitForWorkflowInDataIndex(
 
   while (Date.now() < deadline) {
     try {
-      const response = runOc(
+      const response = await runOc(
         [
           "exec",
           "-n",
@@ -232,9 +235,9 @@ async function waitForWorkflowInDataIndex(
   );
 }
 
-function hardenSonataFlowPlatform(namespace: string): void {
+async function hardenSonataFlowPlatform(namespace: string): Promise<void> {
   try {
-    runOc(
+    await runOc(
       ["get", "sonataflowplatform", "sonataflow-platform", "-n", namespace],
       15_000,
     );
@@ -290,7 +293,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
   });
 
   try {
-    runOc([
+    await runOc([
       "-n",
       namespace,
       "patch",
@@ -301,7 +304,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
       "-p",
       sfpPatch,
     ]);
-    runOc(
+    await runOc(
       [
         "rollout",
         "status",
@@ -312,7 +315,7 @@ function hardenSonataFlowPlatform(namespace: string): void {
       ],
       310_000,
     );
-    runOc(
+    await runOc(
       [
         "rollout",
         "status",
@@ -330,12 +333,15 @@ function hardenSonataFlowPlatform(namespace: string): void {
   }
 }
 
-export function runOc(args: string[], timeoutMs = 30_000): string {
-  return execFileSync("oc", args, {
-    encoding: "utf-8",
+export async function runOc(
+  args: string[],
+  timeoutMs = 30_000,
+): Promise<string> {
+  const result = await $({
+    stdio: ["pipe", "pipe", "pipe"],
     timeout: timeoutMs,
-    maxBuffer: 32 * 1024 * 1024,
-  }).trim();
+  })`oc ${args}`;
+  return result.stdout.trim();
 }
 
 function formatOcFailure(err: unknown): string {
@@ -349,18 +355,21 @@ function formatOcFailure(err: unknown): string {
 /**
  * Best-effort snapshot when RHDH or workflow deploy fails.
  */
-export function logOrchestratorDeployFailureDiagnostics(
+export async function logOrchestratorDeployFailureDiagnostics(
   namespace: string,
-): void {
+): Promise<void> {
   const banner = (title: string) => {
     console.error(
       `\n===== [bulk-import-orchestrator deploy failure] ${title} =====\n`,
     );
   };
 
-  const safeOc = (args: string[], timeoutMs = 120_000): string | undefined => {
+  const safeOc = async (
+    args: string[],
+    timeoutMs = 120_000,
+  ): Promise<string | undefined> => {
     try {
-      return runOc(args, timeoutMs);
+      return await runOc(args, timeoutMs);
     } catch (err) {
       console.error(
         `[bulk-import-orchestrator] oc ${args.join(" ")} failed: ${formatOcFailure(err)}`,
@@ -381,35 +390,37 @@ export function logOrchestratorDeployFailureDiagnostics(
   banner(`namespace=${namespace}`);
 
   dumpOc(
-    safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 60_000),
+    await safeOc(["get", "pods", "-n", namespace, "-o", "wide"], 60_000),
     "(get pods — empty stdout)",
   );
 
   dumpOc(
-    safeOc(["get", "sonataflow", "-n", namespace, "-o", "wide"], 60_000),
+    await safeOc(["get", "sonataflow", "-n", namespace, "-o", "wide"], 60_000),
     "(get sonataflow — empty)",
   );
 
-  const hubPod = safeOc([
-    "get",
-    "pods",
-    "-n",
-    namespace,
-    "-l",
-    "app.kubernetes.io/instance=redhat-developer-hub",
-    "-o",
-    "jsonpath={.items[0].metadata.name}",
-  ])?.trim();
+  const hubPod = (
+    await safeOc([
+      "get",
+      "pods",
+      "-n",
+      namespace,
+      "-l",
+      "app.kubernetes.io/instance=redhat-developer-hub",
+      "-o",
+      "jsonpath={.items[0].metadata.name}",
+    ])
+  )?.trim();
 
   if (hubPod) {
     banner(`redhat-developer-hub pod describe (${hubPod})`);
     dumpOc(
-      safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000),
+      await safeOc(["describe", "pod", "-n", namespace, hubPod], 120_000),
       "(describe produced no stdout)",
     );
     banner(`redhat-developer-hub pod logs (${hubPod}) --all-containers`);
     dumpOc(
-      safeOc(
+      await safeOc(
         ["logs", "-n", namespace, hubPod, "--all-containers", "--tail=300"],
         120_000,
       ),
@@ -418,7 +429,7 @@ export function logOrchestratorDeployFailureDiagnostics(
   }
 
   banner("recent namespace events (last 40 lines)");
-  const events = safeOc(
+  const events = await safeOc(
     ["get", "events", "-n", namespace, "--sort-by=.lastTimestamp"],
     60_000,
   );
