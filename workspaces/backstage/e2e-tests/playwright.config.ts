@@ -46,5 +46,9 @@ export default playwrightDefineConfig({
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
     },
+    {
+      name: "backstage-auth",
+      testMatch: /tests\/specs\/auth\.spec\.ts/,
+    },
   ],
 });
