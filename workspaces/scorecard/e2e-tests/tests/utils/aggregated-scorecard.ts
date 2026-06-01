@@ -38,6 +38,48 @@ export function aggregatedScorecardHelpers(page: Page) {
       }
     },
 
+    /**
+     * Like {@link expectHomepageCardDisplaysMetric} but tolerates slow GitHub
+     * data fetches. Structural assertions (title, description) stay on a tight 
+     * timeout; data-dependent threshold labels use `expect.poll` with increasing 
+     * back-off and a full page reload between attempts.
+     */
+    async expectHomepageCardDisplaysMetricWithRetry(
+      card: Locator,
+      metric: ScorecardMetric,
+      reload: () => Promise<void>,
+    ) {
+      const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
+
+      await expect(card.getByText(metric.title, { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(card).toContainText(metric.description, { timeout: 10_000 });
+
+      for (const thresholdLabel of labels) {
+        await expect
+          .poll(
+            async () => {
+              const visible = await card
+                .getByText(thresholdLabel, { exact: true })
+                .isVisible();
+              if (!visible) {
+                await reload();
+                await page.reload();
+                await expect(card).toBeVisible({ timeout: 30_000 });
+              }
+              return visible;
+            },
+            {
+              message: `Threshold label "${thresholdLabel}" never appeared on card "${metric.title}"`,
+              intervals: [10_000, 20_000, 30_000, 45_000, 60_000],
+              timeout: 5 * 60 * 1000,
+            },
+          )
+          .toBe(true);
+      }
+    },
+
     /** Hovers each visible threshold color swatch and checks the chart tooltip text. */
     async expectChartThresholdTooltips(card: Locator, metric: ScorecardMetric) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
@@ -214,7 +256,9 @@ ${thresholdLabelSnapshots}
 
       await test.step("Homepage card UI is present", async () => {
         await impl.expectHomepageCardVisible(metricId);
-        await impl.expectHomepageCardDisplaysMetric(card, metric);
+        await impl.expectHomepageCardDisplaysMetricWithRetry(card, metric, async () => {
+          await navigateToHome();
+        });
       });
 
       await test.step("Threshold tooltips", async () => {

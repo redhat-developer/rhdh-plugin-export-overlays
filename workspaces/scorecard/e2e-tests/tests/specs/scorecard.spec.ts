@@ -18,8 +18,8 @@ import {
 
 test.describe.serial("Scorecard Plugin Tests", () => {
   // Override the 90 s base timeout for all tests and hooks in this group.
-  // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
-  test.describe.configure({ timeout: 12 * 60 * 1000 });
+  // Filecheck thresholds can retry for up to 5 min via expect.poll - budget 15 min total.
+  test.describe.configure({ timeout: 15 * 60 * 1000 });
 
   let context: BrowserContext | undefined;
   let page: Page;
