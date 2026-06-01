@@ -274,21 +274,20 @@
           "oci_ref": "quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+          "status": "pass",
+          "digest": "sha256:aa49a7192020bd0cd575cf170028e6f5cc4350666817dcbe4a6ad22eecf8cea4"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+          "status": "pass"
         }
       },
       "package": "@backstage/plugin-events-backend-module-gitlab",
       "version": "0.3.10",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-kubernetes-backend": {
       "stages": {
@@ -1283,8 +1282,8 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 57,
-    "failed": 1
+    "succeeded": 58,
+    "failed": 0
   },
-  "status": "partial"
+  "status": "success"
 }
