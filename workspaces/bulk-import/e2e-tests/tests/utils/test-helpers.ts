@@ -1,13 +1,11 @@
 export {
   BULK_IMPORT_ORCHESTRATOR_WORKFLOW,
+  createDataIndexGuard,
   DATA_INDEX_DEPLOY,
   deployBulkImportOrchestratorWorkflow,
   isDataIndexHealthy,
   logOrchestratorDeployFailureDiagnostics,
+  requireEnvVar,
   runOc,
-} from "./workflow-deployment-helpers.js";
-
-export {
-  createDataIndexGuard,
   type EnsureDataIndexOrSkip,
-} from "./orchestrator-workflow-helpers.js";
+} from "./workflow-deployment-helpers.js";
