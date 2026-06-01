@@ -30,7 +30,8 @@ set -euo pipefail
 #   # Use an unpublished git branch of e2e-test-utils (clones and builds locally)
 #   E2E_TEST_UTILS_GIT_REF=owner/rhdh-e2e-test-utils#my-branch ./run-e2e.sh -w tech-radar
 #
-#   # Coverage collection is ENABLED BY DEFAULT (uses -coverage images if available)
+#   # Coverage collection is ENABLED BY DEFAULT
+#   # Requires e2e-test-utils >= 1.x.x for automatic -coverage image swap
 #   # To disable for faster local development:
 #   E2E_COLLECT_COVERAGE=0 ./run-e2e.sh -w tech-radar
 # =============================================================================
@@ -62,8 +63,16 @@ export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
-# Coverage collection (Istanbul) — enabled by default for all E2E runs
-# Set E2E_COLLECT_COVERAGE=0 to disable if needed (e.g., for faster local dev)
+# Coverage collection (Istanbul) — enabled by default
+#
+# For PR checks: Works now. The auto-publish-pr.yaml workflow builds -coverage
+# images (plugin:tag__coverage) that e2e-test-utils will load when available.
+#
+# For nightly/local: Depends on e2e-test-utils automatic image swap logic
+# (PR #95, not yet released). Until that lands, coverage collection will be
+# skipped silently (no -coverage images exist).
+#
+# To disable (faster local dev): E2E_COLLECT_COVERAGE=0
 export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-1}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm

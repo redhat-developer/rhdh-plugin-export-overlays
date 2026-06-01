@@ -389,35 +389,30 @@ jobs:
           echo "=== Instrumenting published plugin images for E2E coverage ==="
           echo "Published exports:"
           echo "$PUBLISHED_EXPORTS"
+          echo ""
 
-          # Process each published image
-          while IFS= read -r export_line; do
-            [[ -z "$export_line" ]] && continue
+          # Process each published image (format: plain image refs, one per line)
+          while IFS= read -r PROD_IMAGE; do
+            [[ -z "$PROD_IMAGE" ]] && continue
 
-            # Parse export line format: "plugin-name (role) → image-ref"
-            # Example: "backstage-community-plugin-tech-radar (frontend-plugin) → ghcr.io/.../plugin:pr_123__1.2.3"
-            if [[ "$export_line" =~ →[[:space:]]*(.+)$ ]]; then
-              PROD_IMAGE="${BASH_REMATCH[1]}"
-            else
-              echo "⚠️  Could not parse image ref from: $export_line"
-              continue
-            fi
+            echo "--- Processing: $PROD_IMAGE ---"
 
-            # Only instrument frontend plugins (they run in browser, need window.__coverage__)
-            if [[ ! "$export_line" =~ \(frontend-plugin\) ]]; then
-              echo "  Skipping non-frontend plugin: $export_line"
-              continue
-            fi
-
-            echo ""
-            echo "--- Instrumenting: $PROD_IMAGE ---"
-
-            # Read metadata to find plugin path inside the image
+            # Extract plugin name from image ref
             PLUGIN_NAME=$(basename "${PROD_IMAGE%%:*}")
-            METADATA_FILE=$(find "${WORKSPACE}/metadata" -name "*.yaml" -exec grep -l "name: ${PLUGIN_NAME}" {} \; | head -1 || true)
+            echo "  Plugin: $PLUGIN_NAME"
+
+            # Find metadata file for this plugin
+            METADATA_FILE=$(find "${WORKSPACE}/metadata" -name "*.yaml" -exec grep -l "packageName: ${PLUGIN_NAME}" {} \; | head -1 || true)
 
             if [[ -z "$METADATA_FILE" ]]; then
-              echo "⚠️  Could not find metadata file for $PLUGIN_NAME - skipping"
+              echo "  ⚠️  No metadata file found - skipping"
+              continue
+            fi
+
+            # Check if this is a frontend plugin (only frontend plugins need instrumentation)
+            PLUGIN_ROLE=$(yq -r '.spec.backstage.role // ""' "$METADATA_FILE")
+            if [[ "$PLUGIN_ROLE" != "frontend-plugin" ]]; then
+              echo "  Skipping $PLUGIN_ROLE (only frontend plugins need browser coverage)"
               continue
             fi
 
@@ -426,7 +421,7 @@ jobs:
             if [[ "$DYNAMIC_ARTIFACT" =~ !(.+)$ ]]; then
               PLUGIN_PATH="${BASH_REMATCH[1]}"
             else
-              echo "⚠️  No plugin path found in dynamicArtifact - skipping"
+              echo "  ⚠️  No plugin path found in dynamicArtifact - skipping"
               continue
             fi
 
@@ -441,14 +436,14 @@ jobs:
             podman cp "$CID:$PLUGIN_PATH/dist" "$WORK_DIR/dist-original"
             podman rm "$CID"
 
-            # Instrument with nyc
+            # Instrument with nyc (pinned version for reproducibility)
             echo "  Instrumenting with Istanbul/nyc..."
-            npx --yes nyc instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map
+            npx --yes nyc@15.1.0 instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map
 
             # Verify instrumentation
             INSTRUMENTED_COUNT=$(grep -r "__coverage__" "$WORK_DIR/dist-instrumented/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
             if [[ "$INSTRUMENTED_COUNT" -eq 0 ]]; then
-              echo "❌ ERROR: No __coverage__ found in instrumented files"
+              echo "  ❌ No __coverage__ found in instrumented files - skipping"
               rm -rf "$WORK_DIR"
               continue
             fi
@@ -460,10 +455,11 @@ jobs:
           COPY dist-instrumented/ $PLUGIN_PATH/dist/
           EOF
 
-            # Generate coverage image name: append -coverage before the tag
+            # Generate coverage image tag: append __coverage suffix to tag
+            # Example: plugin:pr_123__1.2.3 → plugin:pr_123__1.2.3__coverage
             IMAGE_BASE="${PROD_IMAGE%:*}"
             IMAGE_TAG="${PROD_IMAGE##*:}"
-            COVERAGE_IMAGE="${IMAGE_BASE}-coverage:${IMAGE_TAG}"
+            COVERAGE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}__coverage"
 
             podman build -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"
 
@@ -473,10 +469,10 @@ jobs:
 
             # Cleanup
             rm -rf "$WORK_DIR"
+            echo ""
 
           done <<< "$PUBLISHED_EXPORTS"
 
-          echo ""
           echo "=== Instrumentation complete ==="
 
   check-backstage-compatibility:

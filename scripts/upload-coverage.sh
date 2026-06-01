@@ -52,16 +52,27 @@ fi
 # tag name (e.g., "v1.49.4") — resolve it to a commit SHA via git ls-remote.
 # For annotated tags, ls-remote returns the tag object and the dereferenced
 # commit (^{}); tail -1 picks the commit in both cases.
+#
+# OPTIMIZATION OPPORTUNITY: This network call could be eliminated by storing
+# full 40-char SHAs in source.json (updated by update-plugins-repo-refs.yaml).
+# For now, we resolve at upload time and cache the result in /tmp.
 if [[ ! "$REPO_REF" =~ ^[0-9a-f]{40}$ ]]; then
-  RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk '{print $1}')
-  if [[ -n "$RESOLVED" ]]; then
-    echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
-    REPO_REF="$RESOLVED"
+  CACHE_FILE="/tmp/codecov-sha-${WORKSPACE}.cache"
+  if [[ -f "$CACHE_FILE" ]]; then
+    RESOLVED=$(cat "$CACHE_FILE")
+    echo "  Using cached SHA for '$REPO_REF': $RESOLVED"
   else
-    echo "ERROR: Could not resolve '$REPO_REF' to a commit SHA" >&2
-    echo "Codecov requires a valid 40-char commit SHA" >&2
-    exit 1
+    RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk '{print $1}')
+    if [[ -n "$RESOLVED" ]]; then
+      echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
+      echo "$RESOLVED" > "$CACHE_FILE"
+    else
+      echo "ERROR: Could not resolve '$REPO_REF' to a commit SHA" >&2
+      echo "Codecov requires a valid 40-char commit SHA" >&2
+      exit 1
+    fi
   fi
+  REPO_REF="$RESOLVED"
 fi
 
 # Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
@@ -83,6 +94,7 @@ fi
 
 # Download Codecov CLI binary with SHA256 verification.
 # Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
+CODECOV_VERSION="v0.7.5"
 CODECOV_BIN="/tmp/codecov"
 if [[ ! -x "$CODECOV_BIN" ]]; then
   OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -96,9 +108,9 @@ if [[ ! -x "$CODECOV_BIN" ]]; then
   esac
 
   echo ""
-  echo "Downloading Codecov CLI for ${CODECOV_OS}..."
-  curl -sL -o "$CODECOV_BIN" "https://cli.codecov.io/latest/${CODECOV_OS}/codecov"
-  curl -sL -o "${CODECOV_BIN}.SHA256SUM" "https://cli.codecov.io/latest/${CODECOV_OS}/codecov.SHA256SUM"
+  echo "Downloading Codecov CLI $CODECOV_VERSION for ${CODECOV_OS}..."
+  curl -sL -o "$CODECOV_BIN" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov"
+  curl -sL -o "${CODECOV_BIN}.SHA256SUM" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov.SHA256SUM"
 
   EXPECTED=$(awk '{print $1}' "${CODECOV_BIN}.SHA256SUM")
   if command -v sha256sum &>/dev/null; then

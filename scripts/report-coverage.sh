@@ -39,21 +39,20 @@ fi
 echo ""
 echo "[INFO] Merging coverage data with nyc..."
 mkdir -p "$REPO_ROOT/.nyc_output"
-npx nyc merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
-(cd "$REPO_ROOT" && npx nyc report --reporter=lcov --reporter=text-summary --report-dir coverage)
+npx nyc@15.1.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
+(cd "$REPO_ROOT" && npx nyc@15.1.0 report --reporter=lcov --reporter=text-summary --report-dir coverage)
 
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
-  echo "ERROR: Multi-workspace coverage upload is not supported." >&2
-  echo "Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
-  echo "This produces misleading coverage percentages in Codecov." >&2
-  echo "Run report-coverage.sh once per workspace instead." >&2
-  exit 1
+  echo "[WARN] Multi-workspace coverage upload is not supported." >&2
+  echo "[WARN] Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
+  echo "[WARN] This produces misleading coverage percentages in Codecov." >&2
+  echo "[WARN] Skipping upload. Run report-coverage.sh once per workspace to upload." >&2
+else
+  echo "[INFO] Uploading E2E coverage to Codecov..."
+  for ws in "${WORKSPACES[@]}"; do
+    if [[ -f "$REPO_ROOT/workspaces/$ws/source.json" ]]; then
+      "$SCRIPT_DIR/upload-coverage.sh" "$ws" || \
+        echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+    fi
+  done
 fi
-
-echo "[INFO] Uploading E2E coverage to Codecov..."
-for ws in "${WORKSPACES[@]}"; do
-  if [[ -f "$REPO_ROOT/workspaces/$ws/source.json" ]]; then
-    "$SCRIPT_DIR/upload-coverage.sh" "$ws" || \
-      echo "[WARN] Coverage upload failed for $ws (non-fatal)"
-  fi
-done
