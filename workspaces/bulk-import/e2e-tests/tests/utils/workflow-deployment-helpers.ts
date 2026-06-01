@@ -297,12 +297,7 @@ async function hardenSonataFlowPlatform(namespace: string): Promise<void> {
       "-p",
       sfpPatch,
     ]);
-    await waitForDeploymentRollout(
-      namespace,
-      DATA_INDEX_DEPLOY,
-      300,
-      310_000,
-    );
+    await waitForDeploymentRollout(namespace, DATA_INDEX_DEPLOY, 300, 310_000);
     await waitForDeploymentRollout(
       namespace,
       "sonataflow-platform-jobs-service",
