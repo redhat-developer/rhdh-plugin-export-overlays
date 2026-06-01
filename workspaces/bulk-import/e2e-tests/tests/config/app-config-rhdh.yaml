@@ -22,12 +22,6 @@ catalog:
     - type: url
       target: https://github.com/janus-test/janus-test-3-bulk-import/blob/main/catalog-info.yaml
 
-    # todo remove it
-    - type: url
-      target: https://github.com/AndrienkoAleksandr/catalog-model/blob/rbac/examples/acme-corp.yaml
-      rules:
-        - allow: [User, Group]
-
 integrations:
   github:
     - host: github.com
@@ -47,10 +41,6 @@ permission:
       - permission
       - scaffolder
       - bulk-import
-    # admin:
-    #   users:
-    # todo remove it.
-    # - name: user:default/test1
     policyDecisionPrecedence: conditional # default behavior
 includeTransitiveGroupOwnership: true
 
