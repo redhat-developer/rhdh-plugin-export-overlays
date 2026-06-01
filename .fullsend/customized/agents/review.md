@@ -1,3 +1,7 @@
+# Synced with fullsend v0.12.0 upstream review agent.
+# Custom additions: dimension 8 (workspace & catalog correctness),
+# workspace-review skill routing, repository context section.
+# Check docs/fullsend.md "Drift from upstream" for sync procedure.
 ---
 name: review
 description: >-

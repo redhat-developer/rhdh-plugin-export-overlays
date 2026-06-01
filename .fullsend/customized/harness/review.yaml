@@ -1,6 +1,7 @@
-# Override of upstream review harness.
+# Override of upstream review harness (synced with fullsend v0.12.0).
 # Adds workspace-review skill for workspace/catalog validation.
 # Full file replacement — must include all upstream fields.
+# Check docs/fullsend.md "Drift from upstream" for sync procedure.
 agent: agents/review.md
 doc: docs/agents/review.md
 model: opus
