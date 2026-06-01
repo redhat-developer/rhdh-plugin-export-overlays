@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 from plugin_utils import (
+    BuildReport,
     Colors,
     log_debug,
     log_info,
@@ -159,6 +160,12 @@ Examples:
              'Community plugins use this registry instead of --registry.',
     )
     parser.add_argument(
+        '--report-file',
+        type=str,
+        metavar='PATH',
+        help='Path to build-report.json for tracking generation stages (optional)',
+    )
+    parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable debug output',
@@ -193,7 +200,7 @@ Examples:
     versions_file = overlays_dir / "versions.json"
     backstage_version = ""
     if versions_file.exists():
-        with open(versions_file, 'r') as f:
+        with open(versions_file, 'r', encoding='utf-8') as f:
             versions = json.load(f)
             backstage_version = versions.get("backstage", "")
     if not backstage_version:
@@ -204,6 +211,8 @@ Examples:
     if args.packages_file:
         packages_set = load_and_resolve_to_npm_names(args.packages_file, overlays_dir)
         log_info(f"Filtering to {len(packages_set)} packages from {len(args.packages_file)} file(s)")
+
+    report = BuildReport(args.report_file)
 
     print(f"\n{Colors.GREEN}=== Bootstrap plugin_builds from workspace metadata ==={Colors.NORM}\n")
 
@@ -277,7 +286,7 @@ Examples:
                 existing_data = {}
                 if json_file.exists():
                     try:
-                        with open(json_file, 'r') as f:
+                        with open(json_file, 'r', encoding='utf-8') as f:
                             existing_data = json.load(f)
                     except (json.JSONDecodeError, OSError):
                         existing_data = {}
@@ -301,14 +310,26 @@ Examples:
                     created_count += 1
                     action = "Created"
 
-                with open(json_file, 'w') as f:
+                with open(json_file, 'w', encoding='utf-8') as f:
                     json.dump(new_data, f, indent=2)
                     f.write('\n')
 
                 log_debug(f"{action} {json_file.relative_to(plugin_builds_dir)}")
 
+                report.add_plugin(
+                    image_name,
+                    package=package_name,
+                    version=version,
+                    workspace=workspace_name,
+                )
+                stage_details = {}
+                if registry_reference:
+                    stage_details["oci_ref"] = registry_reference
+                report.set_stage(image_name, "bootstrap", "pass", **stage_details)
+
             except Exception as e:
                 log_error(f"Error processing {yaml_file}: {e}")
+                report.set_stage(yaml_file.stem, "bootstrap", "fail", reason=str(e))
 
     # Summary
     total = created_count + updated_count
@@ -321,6 +342,8 @@ Examples:
     if no_ref_count > 0:
         log_warn(f"No OCI reference (local path): {Colors.YELLOW}{no_ref_count}{Colors.NORM}")
     log_info(f"Total: {total}")
+
+    report.save()
 
 
 if __name__ == "__main__":
