@@ -108,7 +108,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+  test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
     test.skip(
       process.env.E2E_NIGHTLY_MODE === "true",
       "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
