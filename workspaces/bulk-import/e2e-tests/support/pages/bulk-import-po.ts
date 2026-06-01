@@ -42,6 +42,10 @@ export class BulkImportPO {
 
   async ensureAccordionOpen(): Promise<void> {
     const btn = importAccordionButton(this.page);
+    // Orchestrator mode uses a flat "Selected repositories" layout — no accordion.
+    if (!(await btn.isVisible().catch(() => false))) {
+      return;
+    }
     if ((await btn.getAttribute("aria-expanded")) !== "true") {
       await btn.click();
       await expect(btn).toHaveAttribute("aria-expanded", "true");
@@ -180,6 +184,13 @@ export class BulkImportPO {
     await this.ensureAccordionOpen();
     if (this.loginHelper) {
       await dismissBulkImportLoginDialogIfPresent(this.page, this.loginHelper);
+    }
+  }
+
+  /** Close a secondary tab (e.g. orchestrator popup); no-op for same-tab navigation. */
+  async closePageIfNotPrimary(targetPage: Page): Promise<void> {
+    if (targetPage !== this.page) {
+      await targetPage.close();
     }
   }
 

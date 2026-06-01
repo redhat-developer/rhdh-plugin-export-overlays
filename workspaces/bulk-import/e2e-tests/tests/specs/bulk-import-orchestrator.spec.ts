@@ -127,6 +127,8 @@ test.describe("Bulk import tests orchestrator mode", () => {
       workflowPage.getByRole("link", { name: "PR_URL" }),
     ).toBeVisible({ timeout: 30_000 });
 
+    await bulkImport.closePageIfNotPrimary(workflowPage);
+
     await bulkImport.expectRepoRowShowsWorkflowAfterImport(
       catalogRepoDetailsForOrchestrator.name,
     );
