@@ -1,0 +1,7 @@
+dynamicPlugins:
+  frontend:
+    backstage.plugin-auth:
+      dynamicRoutes:
+        - path: /oauth2
+          importName: Router
+          module: PluginRoot
