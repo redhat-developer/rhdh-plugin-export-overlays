@@ -4,7 +4,7 @@ import {
   UIhelper,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { type BrowserContext, type Page } from "@playwright/test";
+import { type BrowserContext, expect, type Page } from "@playwright/test";
 import {
   aggregatedScorecardHelpers,
   type AggregatedScorecardHelpers,
@@ -135,6 +135,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       for (const metric of SCORECARD_METRICS) {
         await scorecard.validateScorecardAriaFor(metric);
       }
+
+      expect(false).toBe(true);
     });
 
     test("Validate empty scorecard state", async () => {
