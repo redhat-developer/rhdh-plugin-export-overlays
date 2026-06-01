@@ -18,8 +18,9 @@ spec:
   version: 0.15.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.49.2
   author: Backstage Community
   support: community
   lifecycle: active
+  appConfigNotRequired: true
   appConfigExamples: []
