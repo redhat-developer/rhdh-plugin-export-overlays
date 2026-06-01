@@ -22,27 +22,11 @@ export function aggregatedScorecardHelpers(page: Page) {
       await expect(homepageCard(metricId)).toBeVisible({ timeout: 30_000 });
     },
 
-    async expectHomepageCardDisplaysMetric(
-      card: Locator,
-      metric: ScorecardMetric,
-    ) {
-      const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
-      await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
-      await expect(card).toContainText(metric.description);
-      for (const thresholdLabel of labels) {
-        await expect(
-          card.getByText(thresholdLabel, { exact: true }),
-        ).toBeVisible({
-          timeout: 60_000,
-        });
-      }
-    },
-
     /**
-     * Like {@link expectHomepageCardDisplaysMetric} but tolerates slow GitHub
-     * data fetches. Structural assertions (title, description) stay on a tight 
-     * timeout; data-dependent threshold labels use `expect.poll` with increasing 
-     * back-off and a full page reload between attempts.
+     * Tolerates slow GitHub data fetches on overloaded CI clusters. Structural
+     * assertions (title, description) stay on a tight timeout; data-dependent
+     * threshold labels use `expect.poll` with increasing back-off and a full
+     * page reload between attempts to trigger a fresh data fetch.
      */
     async expectHomepageCardDisplaysMetricWithRetry(
       card: Locator,
@@ -256,9 +240,13 @@ ${thresholdLabelSnapshots}
 
       await test.step("Homepage card UI is present", async () => {
         await impl.expectHomepageCardVisible(metricId);
-        await impl.expectHomepageCardDisplaysMetricWithRetry(card, metric, async () => {
-          await navigateToHome();
-        });
+        await impl.expectHomepageCardDisplaysMetricWithRetry(
+          card,
+          metric,
+          async () => {
+            await navigateToHome();
+          },
+        );
       });
 
       await test.step("Threshold tooltips", async () => {
