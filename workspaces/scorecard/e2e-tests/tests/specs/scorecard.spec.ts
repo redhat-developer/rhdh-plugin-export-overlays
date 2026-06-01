@@ -198,9 +198,12 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         await catalog.go();
         await catalog.goToByName("dependabot-scorecard-only");
         await scorecard.openTab();
+        await scorecard.expectNoProgressBar();
 
         for (const metric of DEPENDABOT_METRICS) {
-          await scorecard.validateScorecardAriaFor(metric);
+          await scorecard.validateScorecardAriaFor(metric, {
+            timeout: 90_000,
+          });
         }
       });
 

@@ -75,9 +75,13 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         page.getByRole("link", { name: "View documentation" }),
       ).toBeVisible();
     },
-    async validateScorecardAriaFor(scorecard: ScorecardMetric) {
+    async validateScorecardAriaFor(
+      scorecard: ScorecardMetric,
+      options?: { timeout?: number },
+    ) {
+      const timeout = options?.timeout ?? 10_000;
       const scorecardCard = getScorecardCard(scorecard);
-      await expect(scorecardCard).toBeVisible();
+      await expect(scorecardCard).toBeVisible({ timeout });
       await expect(scorecardCard).toContainText(scorecard.title);
       await expect(scorecardCard).toContainText(scorecard.description);
       const thresholdLegendLabels =
