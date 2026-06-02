@@ -70,7 +70,60 @@ To enable review for ALL workspaces, remove the `paths` filter entirely.
 
 This install uses **standard upstream agents** — no custom agent prompts or harness overrides. The `.fullsend/customized/` scaffold directories are present for future use.
 
-To add a custom review dimension (e.g., workspace metadata validation), the least invasive option is adding a sub-agent file to `customized/skills/pr-review/sub-agents/`. See the [rhdh-agentic fullsend docs](https://github.com/redhat-developer/rhdh-agentic/blob/main/docs/fullsend-agents.md) for examples of full agent customization.
+### Review agent architecture (v0.13.0+)
+
+The review agent is an **orchestrator** that dispatches specialized sub-agents in parallel:
+
+| Sub-agent | Model | What it evaluates |
+|-----------|-------|------------------|
+| `correctness` | opus | Logic errors, edge cases, test adequacy |
+| `security` | opus | Auth, data exposure, injection defense |
+| `intent-coherence` | sonnet | Scope, authorization, architectural fit |
+| `style-conventions` | sonnet | Naming, idioms, code organization |
+| `docs-currency` | sonnet | Documentation staleness |
+| `cross-repo-contracts` | sonnet | API/schema backward compatibility (conditional) |
+
+Sub-agent definitions live in `skills/pr-review/sub-agents/` as markdown files with frontmatter. The orchestrator reads and dispatches all of them in parallel.
+
+### Customization layers (least to most invasive)
+
+| Layer | Path | Drift risk |
+|-------|------|-----------|
+| **Add sub-agent** | `.fullsend/customized/skills/pr-review/sub-agents/{name}.md` | None — additive, no upstream to drift from |
+| **Add skill** | `.fullsend/customized/skills/{name}/SKILL.md` | None — additive |
+| **Override agent prompt** | `.fullsend/customized/agents/review.md` | High — full replacement, must sync on upstream releases |
+| **Override harness** | `.fullsend/customized/harness/review.yaml` | High — full replacement |
+
+### Adding a custom review dimension
+
+To add a repo-specific review dimension (e.g., workspace metadata validation), create a sub-agent file:
+
+```bash
+mkdir -p .fullsend/customized/skills/pr-review/sub-agents
+cat > .fullsend/customized/skills/pr-review/sub-agents/workspace-catalog.md << 'EOF'
+---
+name: review-workspace-catalog
+description: Validates workspace structure, metadata consistency, and catalog entity correctness.
+model: sonnet
+---
+
+# Workspace & Catalog
+
+You are a metadata integrity reviewer for the rhdh-plugin-export-overlays repository.
+
+**Own:** source.json structure (pinned refs, required fields), plugins-list.yaml
+consistency with metadata, Package entity completeness, catalog entity references
+(all.yaml index), support tier alignment, branch policy (new workspaces only on main).
+
+**Do not own:** Code logic, security, naming style, documentation staleness.
+EOF
+```
+
+This is dispatched alongside the standard sub-agents — no agent prompt override needed. Changes take effect on the next review run after merge.
+
+### Reference
+
+For examples of full agent customization (custom prompt + harness override + domain skills), see [rhdh-agentic](https://github.com/redhat-developer/rhdh-agentic/tree/main/.fullsend/customized). Note: full overrides require manual sync on upstream fullsend releases.
 
 ## Post-merge setup
 
