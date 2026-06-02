@@ -39,8 +39,8 @@ fi
 echo ""
 echo "[INFO] Merging coverage data with nyc..."
 mkdir -p "$REPO_ROOT/.nyc_output"
-npx nyc@15.1.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
-(cd "$REPO_ROOT" && npx nyc@15.1.0 report --reporter=lcov --reporter=text-summary --report-dir coverage)
+npx nyc@18.0.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
+(cd "$REPO_ROOT" && npx nyc@18.0.0 report --reporter=lcov --reporter=text-summary --report-dir coverage)
 
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
   echo "[WARN] Multi-workspace coverage upload is not supported." >&2

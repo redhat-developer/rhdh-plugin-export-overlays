@@ -130,7 +130,7 @@ while IFS= read -r PROD_IMAGE; do
   # Instrument with nyc (pinned version for reproducibility)
   # Must run from work directory to avoid "outside project root" errors
   echo "  Instrumenting with Istanbul/nyc..."
-  if ! (cd "$WORK_DIR" && npx --yes nyc@15.1.0 instrument dist-original dist-instrumented --source-map); then
+  if ! (cd "$WORK_DIR" && npx --yes nyc@18.0.0 instrument dist-original dist-instrumented --source-map); then
     echo "  ❌ Instrumentation failed - skipping"
     rm -rf "$WORK_DIR"
     ((SKIPPED_COUNT++))
