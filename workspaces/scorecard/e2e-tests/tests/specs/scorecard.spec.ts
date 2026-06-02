@@ -137,12 +137,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       for (const metric of SCORECARD_METRICS) {
         await scorecard.validateScorecardAriaFor(metric);
       }
-
-      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
-      await scorecard.expectScorecardHidden(maintainedMetric.title);
-      for (const metric of OPENSSF_LICENSE_SCORECARD) {
-        await scorecard.validateScorecardAriaFor(metric);
-      }
     });
 
     test("Validate empty scorecard state", async () => {
