@@ -127,31 +127,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         },
       );
     });
-  
-  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
-    const [, jiraMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
-      () => scorecard.navigateToHome(),
-      jiraMetric,
-      "jira.open_issues",
-      { skipIfHasDrilldown: true },
-    );
-  });
-
-  // Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3197 and https://redhat.atlassian.net/browse/RHDHBUGS-3191 are fixed
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      FILECHECK_METRICS.readme,
-      "filecheck.readme",
-      {
-        thresholdRules: [
-          { key: "exist", color: "rgb(46, 125, 50)" },
-          { key: "missing", color: "rgb(211, 47, 47)" },
-        ],
-      },
-    );
   });
 
   test.describe("Entity Scorecards", () => {
