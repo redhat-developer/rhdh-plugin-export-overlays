@@ -96,7 +96,7 @@ fi
 
 # Download Codecov CLI binary with SHA256 verification.
 # Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
-CODECOV_VERSION="v0.7.5"
+CODECOV_VERSION="v11.2.8"
 CODECOV_BIN="/tmp/codecov"
 if [[ ! -x "$CODECOV_BIN" ]]; then
   OS=$(uname -s | tr '[:upper:]' '[:lower:]')

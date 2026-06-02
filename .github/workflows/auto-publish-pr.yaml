@@ -416,22 +416,31 @@ jobs:
               continue
             fi
 
-            # Extract plugin path from dynamicArtifact
-            # Format: "oci://image:tag!path" or "oci://image:tag" (! is optional)
-            # When ! is present, use the explicit path; otherwise use plugin name
-            DYNAMIC_ARTIFACT=$(yq -r '.spec.dynamicArtifact // ""' "$METADATA_FILE")
-            if [[ "$DYNAMIC_ARTIFACT" =~ !(.+)$ ]]; then
-              PLUGIN_PATH="${BASH_REMATCH[1]}"
-            else
-              # No explicit path — use plugin name as path (common for release images)
-              PLUGIN_PATH="$PLUGIN_NAME"
-              echo "  No ! separator in dynamicArtifact — using plugin name as path"
+            # Pull production image first (needed to inspect labels)
+            podman pull "$PROD_IMAGE"
+
+            # Extract plugin path from OCI image labels
+            # The io.backstage.dynamic-packages label contains base64-encoded JSON
+            # with plugin metadata including the directory path inside the container
+            PACKAGES_LABEL=$(podman inspect "$PROD_IMAGE" --format '{{index .Labels "io.backstage.dynamic-packages"}}' 2>/dev/null || echo "")
+
+            if [[ -z "$PACKAGES_LABEL" || "$PACKAGES_LABEL" == "<no value>" ]]; then
+              echo "  ⚠️  No io.backstage.dynamic-packages label found - skipping"
+              continue
             fi
 
-            echo "  Plugin path: $PLUGIN_PATH"
+            # Decode base64 and extract first plugin name
+            # Expected JSON: [{"name":"backstage-community-plugin-acs","version":"0.2.0",...}]
+            # The "name" field is the directory path inside the container
+            PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
 
-            # Pull production image
-            podman pull "$PROD_IMAGE"
+            if [[ -z "$PLUGIN_PATH" ]]; then
+              echo "  ⚠️  Could not parse plugin path from io.backstage.dynamic-packages"
+              echo "  Decoded label: $(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null || echo 'decode failed')"
+              continue
+            fi
+
+            echo "  Plugin path (from OCI label): $PLUGIN_PATH"
 
             # Create temp container and extract plugin bundle
             WORK_DIR=$(mktemp -d)
