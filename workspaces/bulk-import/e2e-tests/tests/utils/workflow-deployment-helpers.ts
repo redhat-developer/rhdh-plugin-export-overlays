@@ -11,13 +11,10 @@ const WORKFLOW_REPO_REF =
   "8126876dc118aa1ada813ef42d5e65dc11925a0a";
 
 /** Bulk-import orchestrator e2e workflow (see app-config orchestratorWorkflow). */
-export const BULK_IMPORT_ORCHESTRATOR_WORKFLOW = "universal-pr";
+const BULK_IMPORT_ORCHESTRATOR_WORKFLOW = "universal-pr";
 
-export const DATA_INDEX_DEPLOY = "sonataflow-platform-data-index-service";
+const DATA_INDEX_DEPLOY = "sonataflow-platform-data-index-service";
 const DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS = 15_000;
-const DATA_INDEX_ROLLOUT_STATUS_TIMEOUT_MS = 130_000;
-const DATA_INDEX_RECOVERY_POLL_INTERVAL_MS = 5_000;
-const DATA_INDEX_RECOVERY_MAX_POLLS = 6;
 const WORKFLOW_ROLLOUT_TIMEOUT_MS = 600_000;
 
 /**
@@ -154,7 +151,7 @@ async function waitForDataIndexHealthy(
   );
 }
 
-export async function isDataIndexHealthy(namespace: string): Promise<boolean> {
+async function isDataIndexHealthy(namespace: string): Promise<boolean> {
   try {
     const health = await runOc(
       [
@@ -311,10 +308,7 @@ async function hardenSonataFlowPlatform(namespace: string): Promise<void> {
   }
 }
 
-export async function runOc(
-  args: string[],
-  timeoutMs = 30_000,
-): Promise<string> {
+async function runOc(args: string[], timeoutMs = 30_000): Promise<string> {
   const result = await $({
     stdio: ["pipe", "pipe", "pipe"],
     timeout: timeoutMs,
@@ -339,72 +333,6 @@ async function waitForDeploymentRollout(
     ],
     timeoutMs,
   );
-}
-
-type TestSkipLike = {
-  skip: (condition: boolean, reason: string) => void;
-};
-
-export type EnsureDataIndexOrSkip = (
-  ns: string,
-  testObj: TestSkipLike,
-) => Promise<void>;
-
-export function requireEnvVar(name: string): string {
-  const value = process.env[name];
-  if (!value?.trim()) {
-    throw new Error(`Environment variable ${name} is not set`);
-  }
-  return value;
-}
-
-async function recoverDataIndex(ns: string): Promise<boolean> {
-  try {
-    await runOc(
-      ["rollout", "restart", `deploy/${DATA_INDEX_DEPLOY}`, "-n", ns],
-      DATA_INDEX_HEALTH_CHECK_TIMEOUT_MS,
-    );
-    await waitForDeploymentRollout(
-      ns,
-      DATA_INDEX_DEPLOY,
-      120,
-      DATA_INDEX_ROLLOUT_STATUS_TIMEOUT_MS,
-    );
-    for (let attempt = 0; attempt < DATA_INDEX_RECOVERY_MAX_POLLS; attempt++) {
-      await sleep(DATA_INDEX_RECOVERY_POLL_INTERVAL_MS);
-      if (await isDataIndexHealthy(ns)) {
-        return true;
-      }
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-export function createDataIndexGuard(): EnsureDataIndexOrSkip {
-  let dataIndexRecoveryFailed = false;
-
-  return async (ns, testObj) => {
-    if (dataIndexRecoveryFailed) {
-      testObj.skip(
-        true,
-        "Data-index recovery already failed earlier - skipping",
-      );
-      return;
-    }
-    if (await isDataIndexHealthy(ns)) {
-      return;
-    }
-    const recovered = await recoverDataIndex(ns);
-    if (!recovered) {
-      dataIndexRecoveryFailed = true;
-    }
-    testObj.skip(
-      !recovered,
-      "Data-index is unhealthy and could not be recovered - skipping workflow execution test",
-    );
-  };
 }
 
 function formatOcFailure(err: unknown): string {
