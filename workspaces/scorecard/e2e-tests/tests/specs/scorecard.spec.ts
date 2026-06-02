@@ -20,7 +20,7 @@ import {
 test.describe.serial("Scorecard Plugin Tests", () => {
   // Override the 90 s base timeout for all tests and hooks in this group.
   // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
-  test.describe.configure({ timeout: 15 * 60 * 1000 });
+  test.describe.configure({ timeout: 12 * 60 * 1000 });
 
   let context: BrowserContext | undefined;
   let page: Page;
@@ -201,9 +201,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         await scorecard.expectNoProgressBar();
 
         for (const metric of DEPENDABOT_METRICS) {
-          await scorecard.validateScorecardAriaFor(metric, {
-            timeout: 90_000,
-          });
+          await scorecard.expectScorecardCardVisible(metric);
+          await scorecard.validateScorecardAriaFor(metric);
         }
       });
 
