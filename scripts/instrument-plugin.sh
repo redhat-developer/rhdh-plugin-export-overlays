@@ -56,7 +56,7 @@ while IFS= read -r PROD_IMAGE; do
 
   if [[ ! -f "$METADATA_FILE" ]]; then
     echo "  ⚠️  No metadata file found at $METADATA_FILE - skipping"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -64,14 +64,14 @@ while IFS= read -r PROD_IMAGE; do
   PLUGIN_ROLE=$(yq -r '.spec.backstage.role // ""' "$METADATA_FILE")
   if [[ "$PLUGIN_ROLE" != "frontend-plugin" ]]; then
     echo "  Skipping $PLUGIN_ROLE (only frontend plugins need browser coverage)"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
   # Pull production image first (needed to inspect labels)
   if ! podman pull "$PROD_IMAGE" 2>&1 | grep -v "WARNING: image platform"; then
     echo "  ❌ Failed to pull image - skipping"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -109,7 +109,7 @@ while IFS= read -r PROD_IMAGE; do
 
   if [[ -z "$PLUGIN_PATH" ]]; then
     echo "  ⚠️  Could not determine plugin path - skipping"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -121,7 +121,7 @@ while IFS= read -r PROD_IMAGE; do
     echo "  ❌ Failed to extract plugin bundle from container - skipping"
     podman rm "$CID" || true
     rm -rf "$WORK_DIR"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -133,7 +133,7 @@ while IFS= read -r PROD_IMAGE; do
   if ! (cd "$WORK_DIR" && npx --yes nyc@18.0.0 instrument dist-original dist-instrumented --source-map); then
     echo "  ❌ Instrumentation failed - skipping"
     rm -rf "$WORK_DIR"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -142,7 +142,7 @@ while IFS= read -r PROD_IMAGE; do
   if [[ "$JS_COUNT" -eq 0 ]]; then
     echo "  ❌ No __coverage__ found in instrumented files - skipping"
     rm -rf "$WORK_DIR"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
   echo "  ✓ Instrumented $JS_COUNT JS files"
@@ -162,7 +162,7 @@ EOF
   if ! podman build -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
     echo "  ❌ Failed to build coverage image - skipping"
     rm -rf "$WORK_DIR"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -170,7 +170,7 @@ EOF
   if ! podman push "$COVERAGE_IMAGE"; then
     echo "  ❌ Failed to push coverage image"
     rm -rf "$WORK_DIR"
-    ((SKIPPED_COUNT++))
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
 
@@ -180,7 +180,7 @@ EOF
   rm -rf "$WORK_DIR"
   echo ""
 
-  ((INSTRUMENTED_COUNT++))
+  INSTRUMENTED_COUNT=$((INSTRUMENTED_COUNT + 1))
 
 done
 
