@@ -47,6 +47,29 @@ export const OPENSSF_LICENSE_SCORECARD = [
   },
 ] as const;
 
+export const DEPENDABOT_METRICS = [
+  {
+    title: "Dependabot Critical Alerts",
+    description:
+      "Current count of open critical Dependabot alerts for a given repository.",
+  },
+  {
+    title: "Dependabot High Alerts",
+    description:
+      "Current count of open high-severity Dependabot alerts for a given repository.",
+  },
+  {
+    title: "Dependabot Medium Alerts",
+    description:
+      "Current count of open medium-severity Dependabot alerts for a given repository.",
+  },
+  {
+    title: "Dependabot Low Alerts",
+    description:
+      "Current count of open low-severity Dependabot alerts for a given repository.",
+  },
+] as const;
+
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
@@ -68,6 +91,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await expect(
         page.getByRole("link", { name: "View documentation" }),
       ).toBeVisible();
+    },
+    async expectScorecardCardVisible(metric: ScorecardMetric) {
+      await expect(getScorecardCard(metric)).toBeVisible();
     },
     async validateScorecardAriaFor(scorecard: ScorecardMetric) {
       const scorecardCard = getScorecardCard(scorecard);

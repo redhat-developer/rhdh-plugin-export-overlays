@@ -10,6 +10,7 @@ import {
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
+  DEPENDABOT_METRICS,
   FILECHECK_METRICS,
   OPENSSF_LICENSE_SCORECARD,
   OPENSSF_MAINTAINED_SCORECARD,
@@ -126,6 +127,31 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         },
       );
     });
+  
+  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
+    const [, jiraMetric] = SCORECARD_METRICS;
+    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
+      () => scorecard.navigateToHome(),
+      jiraMetric,
+      "jira.open_issues",
+      { skipIfHasDrilldown: true },
+    );
+  });
+
+  // Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3197 and https://redhat.atlassian.net/browse/RHDHBUGS-3191 are fixed
+  // eslint-disable-next-line playwright/no-skipped-test
+  test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+    await aggregated.runAggregatedScorecardDrilldownScenario(
+      () => scorecard.navigateToHome(),
+      FILECHECK_METRICS.readme,
+      "filecheck.readme",
+      {
+        thresholdRules: [
+          { key: "exist", color: "rgb(46, 125, 50)" },
+          { key: "missing", color: "rgb(211, 47, 47)" },
+        ],
+      },
+    );
   });
 
   test.describe("Entity Scorecards", () => {
@@ -220,6 +246,30 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.validateScorecardAriaFor(jiraMetric);
     });
 
+    test.describe("Dependabot scorecards", () => {
+      test("Dependabot metrics appear when entity opts in", async () => {
+        await catalog.go();
+        await catalog.goToByName("dependabot-scorecard-only");
+        await scorecard.openTab();
+        await scorecard.expectNoProgressBar();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardCardVisible(metric);
+          await scorecard.validateScorecardAriaFor(metric);
+        }
+      });
+
+      test("Dependabot metrics absent without github.com/dependabot opt-in", async () => {
+        await catalog.go();
+        await catalog.goToByName("no-scorecards");
+        await scorecard.openTab();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardHidden(metric.title);
+        }
+      });
+    });
+
     test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
       await catalog.go();
       await catalog.goToByName("github-scorecard-only");
@@ -271,7 +321,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     ] as const;
 
     for (const { entity, key, expected } of filecheckCases) {
-      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+      // eslint-disable-next-line playwright/no-skipped-test
+      // TODO: Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3294 is fixed
+      test.skip(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
         test.skip(
           process.env.E2E_NIGHTLY_MODE === "true" &&
             entity.startsWith("filecheck"),
