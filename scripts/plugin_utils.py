@@ -65,26 +65,6 @@ def read_plugins_list(workspace_dir: Path) -> list[str]:
                 paths.append(path)
     return paths
 
-
-def match_metadata_to_plugin_path(metadata_name: str, plugin_paths: list[str]) -> str | None:
-    """
-    Match a metadata file stem to a plugins-list.yaml entry.
-    metadata_name: e.g., 'backstage-community-plugin-acr'
-    plugin_paths:  e.g., ['plugins/acr']
-    Returns the matching path or None.
-    """
-    sorted_paths = sorted(plugin_paths, key=lambda p: -len(p.split('/')[-1]))
-    for path in sorted_paths:
-        last_segment = path.split('/')[-1]
-        if metadata_name == last_segment:
-            return path
-        if metadata_name.endswith('-' + last_segment):
-            return path
-        if metadata_name.endswith(last_segment):
-            return path
-    return None
-
-
 def detect_file_format(file_path: str) -> str:
     """Returns 'yaml' or 'txt' based on file extension."""
     p = Path(file_path)
