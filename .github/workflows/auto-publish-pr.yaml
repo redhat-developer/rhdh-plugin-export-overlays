@@ -23,20 +23,11 @@ jobs:
       statuses: write
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Detect modified workspaces
-        id: detect
-        uses: ./.github/actions/detect-modified-workspaces
-        with:
-          pr-number: ${{ inputs.pr-number }}
-
       - name: Get PR branch data
         id: get-branch
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           INPUT_PR_NUMBER: ${{ inputs.pr-number }}
-          DETECTED_WORKSPACE: ${{ steps.detect.outputs.single-workspace }}
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
@@ -61,10 +52,19 @@ jobs:
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
-              // Use detected workspace from action (empty if != 1 workspace)
-              const detectedWorkspace = process.env.DETECTED_WORKSPACE;
-              if (detectedWorkspace) {
-                workspace = `workspaces/${detectedWorkspace}`;
+              // Detect modified workspaces from PR files
+              const prFiles = await github.rest.pulls.listFiles({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber
+              });
+              const workspaces = [ ... new Set(prFiles.data
+                .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
+                .filter(match => match)
+                .map(match => match[1])
+              )];
+              if (workspaces.length === 1) {
+                workspace = `workspaces/${workspaces[0]}`;
               }
             }
             core.setOutput('workspace', workspace);
@@ -416,13 +416,16 @@ jobs:
               continue
             fi
 
-            # Extract plugin path from dynamicArtifact (after the ! separator)
+            # Extract plugin path from dynamicArtifact
+            # Format: "oci://image:tag!path" or "oci://image:tag" (! is optional)
+            # When ! is present, use the explicit path; otherwise use plugin name
             DYNAMIC_ARTIFACT=$(yq -r '.spec.dynamicArtifact // ""' "$METADATA_FILE")
             if [[ "$DYNAMIC_ARTIFACT" =~ !(.+)$ ]]; then
               PLUGIN_PATH="${BASH_REMATCH[1]}"
             else
-              echo "  ⚠️  No plugin path found in dynamicArtifact - skipping"
-              continue
+              # No explicit path — use plugin name as path (common for release images)
+              PLUGIN_PATH="$PLUGIN_NAME"
+              echo "  No ! separator in dynamicArtifact — using plugin name as path"
             fi
 
             echo "  Plugin path: $PLUGIN_PATH"

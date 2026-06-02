@@ -135,7 +135,12 @@ if [[ ! -x "$CODECOV_BIN" ]]; then
 fi
 
 echo ""
-"$CODECOV_BIN" upload-process \
+# Codecov upload failures are intentionally non-blocking (exit 0).
+# Coverage is informational — CI jobs should not fail if Codecov is down or
+# has transient errors. The lcov report is still available locally for review.
+# This approach prioritizes CI stability while ensuring coverage visibility when
+# Codecov is available.
+if "$CODECOV_BIN" upload-process \
   --file "$LCOV_FILE" \
   --flag "e2e-$WORKSPACE" \
   --sha "$REPO_REF" \
@@ -144,12 +149,21 @@ echo ""
   --git-service github \
   --name "overlay-e2e-$WORKSPACE" \
   --disable-search \
-  --fail-on-error || {
-    echo "[WARN] Codecov upload failed (non-fatal)"
-    exit 0
-  }
-
-echo ""
-echo "=== Upload complete ==="
-echo "  View coverage at: https://app.codecov.io/gh/$SLUG/commit/$REPO_REF"
-echo "  Filter by flag: e2e-$WORKSPACE"
+  --fail-on-error; then
+  echo ""
+  echo "=== Upload complete ==="
+  echo "  View coverage at: https://app.codecov.io/gh/$SLUG/commit/$REPO_REF"
+  echo "  Filter by flag: e2e-$WORKSPACE"
+else
+  echo ""
+  echo "=================================================="
+  echo "  ⚠️  Codecov upload failed"
+  echo "=================================================="
+  echo "  This is non-fatal — coverage data is still available locally"
+  echo "  LCOV report: $LCOV_FILE"
+  echo "  Target repo: $SLUG"
+  echo "  Target SHA:  $REPO_REF"
+  echo "=================================================="
+  # Exit 0 (success) — upload failure should not fail the CI job
+  exit 0
+fi
