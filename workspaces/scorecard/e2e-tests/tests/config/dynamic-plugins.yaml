@@ -138,10 +138,147 @@ plugins:
       scorecard:
         plugins:
           openssf:
-            schedule:
-              frequency:
-                minutes: 1
-              timeout:
-                minutes: 15
-              initialDelay:
-                seconds: 5
+            binary_artifacts:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            branch_protection:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            cii_best_practices:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            ci_tests:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            code_review:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            contributors:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            dangerous_workflow:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            dependency_update_tool:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            fuzzing:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            license:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            maintained:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            packaging:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            pinned_dependencies:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            sast:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            security_policy:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            signed_releases:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            token_permissions:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            vulnerabilities:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
