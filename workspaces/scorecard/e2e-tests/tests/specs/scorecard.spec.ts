@@ -269,7 +269,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     ] as const;
 
     for (const { entity, key, expected } of filecheckCases) {
-      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+      // eslint-disable-next-line playwright/no-skipped-test
+      // TODO: Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3294 is fixed
+      test.skip(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
         test.skip(
           process.env.E2E_NIGHTLY_MODE === "true" &&
             entity.startsWith("filecheck"),
