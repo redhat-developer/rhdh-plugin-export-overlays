@@ -17,6 +17,8 @@
 
 set -euo pipefail
 
+readonly AWK_FIRST_FIELD='{print $1}'
+
 WORKSPACE="${1:?Usage: $0 <workspace-name>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -62,7 +64,7 @@ if [[ ! "$REPO_REF" =~ ^[0-9a-f]{40}$ ]]; then
     RESOLVED=$(cat "$CACHE_FILE")
     echo "  Using cached SHA for '$REPO_REF': $RESOLVED"
   else
-    RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk '{print $1}')
+    RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk "$AWK_FIRST_FIELD")
     if [[ -n "$RESOLVED" ]]; then
       echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
       echo "$RESOLVED" > "$CACHE_FILE"
@@ -112,11 +114,11 @@ if [[ ! -x "$CODECOV_BIN" ]]; then
   curl -sL -o "$CODECOV_BIN" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov"
   curl -sL -o "${CODECOV_BIN}.SHA256SUM" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov.SHA256SUM"
 
-  EXPECTED=$(awk '{print $1}' "${CODECOV_BIN}.SHA256SUM")
+  EXPECTED=$(awk "$AWK_FIRST_FIELD" "${CODECOV_BIN}.SHA256SUM")
   if command -v sha256sum &>/dev/null; then
-    ACTUAL=$(sha256sum "$CODECOV_BIN" | awk '{print $1}')
+    ACTUAL=$(sha256sum "$CODECOV_BIN" | awk "$AWK_FIRST_FIELD")
   else
-    ACTUAL=$(shasum -a 256 "$CODECOV_BIN" | awk '{print $1}')
+    ACTUAL=$(shasum -a 256 "$CODECOV_BIN" | awk "$AWK_FIRST_FIELD")
   fi
   rm -f "${CODECOV_BIN}.SHA256SUM"
 
