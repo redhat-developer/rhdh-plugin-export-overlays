@@ -226,7 +226,7 @@ restore_metadata() {
 trap restore_metadata EXIT
 
 ##############################################
-# Step 2: Enrich plugin_builds/ with registry metadata
+# Step 2: Enrich plugin_builds/ with registry metadata (includes fallback tag resolution)
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
 # shellcheck disable=SC2086

@@ -1044,11 +1044,10 @@ Examples:
 
     if missing_references:
         print("\n========")
-        log_warn(f"Could not find {Colors.RED}{len(missing_references)}{Colors.NORM} plugins listed in plugin_builds/ folder! Remember to export and publish them, then re-run this script.")
+        log_warn(f"Could not find {Colors.YELLOW}{len(missing_references)}{Colors.NORM} plugins listed in plugin_builds/ folder! Remember to export and publish them, then re-run this script.")
         for json_file, _plugin_name, reference in missing_references:
-            print(f"  - {json_file} > {Colors.RED}https://{reference}{Colors.NORM}")
-        log_error(f"{len(missing_references)} plugin(s) missing from registry — catalog is incomplete")
-        sys.exit(1)
+            print(f"  - {json_file} > {Colors.YELLOW}https://{reference}{Colors.NORM}")
+        log_warn(f"{len(missing_references)} plugin(s) missing from registry — catalog published without them")
 
 
 if __name__ == "__main__":

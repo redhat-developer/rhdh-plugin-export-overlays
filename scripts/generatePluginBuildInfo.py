@@ -19,7 +19,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 import requests
 import yaml
 import hashlib
@@ -60,7 +59,7 @@ def _is_quay_rhdh_ref(registry_reference: str) -> bool:
     return registry_reference.startswith(QUAY_RHDH_PREFIX)
 
 
-def get_ghcr_token(repository: str) -> Optional[str]:
+def get_ghcr_token(repository: str) -> str | None:
     """Get anonymous bearer token for ghcr.io"""
     try:
         url = f"https://ghcr.io/token?scope=repository:{repository}:pull&service=ghcr.io"
@@ -116,12 +115,104 @@ def get_output_registry_reference(registry_reference: str) -> str:
     return registry_reference
 
 
-def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
+def parse_registry_reference(registry_reference: str) -> tuple[str, str, str] | None:
+    """Parse 'registry/repository:tag' into (registry, repository, tag). Returns None on failure."""
+    query_ref = get_query_registry_reference(registry_reference)
+    parts = query_ref.split('/', 1)
+    if len(parts) < 2:
+        return None
+    registry = parts[0]
+    image_and_tag = parts[1]
+    if '@' in image_and_tag:
+        name_part = image_and_tag.split('@', 1)[0]
+        repository = name_part.rsplit(':', 1)[0] if ':' in name_part else name_part
+        tag = image_and_tag.split('@', 1)[1]
+    elif ':' in image_and_tag:
+        repository, tag = image_and_tag.rsplit(':', 1)
+    else:
+        return None
+    return registry, repository, tag
+
+
+def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, headers: dict) -> list[str]:
+    """List all tags matching a prefix from the registry (paginated), sorted by version."""
+    matched = []
+    n = 500
+    last = ""
+    while True:
+        url = f"https://{registry}/v2/{repository}/tags/list?n={n}"
+        if last:
+            url += f"&last={requests.utils.quote(last)}"
+        try:
+            resp = requests.get(url, headers=headers, auth=auth, timeout=60)
+            if resp.status_code != 200:
+                break
+            data = resp.json()
+            tags = data.get("tags") or []
+            matched.extend(t for t in tags if t.startswith(prefix))
+            if len(tags) < n:
+                break
+            last = tags[-1] if tags else ""
+            if not last:
+                break
+        except Exception as e:
+            log_debug(f"Error listing tags for {registry}/{repository}: {e}")
+            break
+
+    def version_key(tag: str):
+        suffix = tag[len(prefix):]
+        parts = []
+        for p in suffix.split('.'):
+            try:
+                parts.append((0, int(p)))
+            except ValueError:
+                parts.append((1, p))
+        return parts
+
+    return sorted(matched, key=version_key)
+
+
+def resolve_fallback_tag(registry_reference: str) -> str | None:
     """
-    Get container image metadata from Docker Registry HTTP API v2
-    Returns: dict with 'digest', 'build-date', 'vcs-ref', 'upstream', 'midstream' or None if failed
+    When the exact tag doesn't exist, find the latest published tag with the same prefix.
+    Returns the full resolved registryReference, or None if no fallback found.
+    """
+    parsed = parse_registry_reference(registry_reference)
+    if not parsed:
+        return None
+
+    registry, repository, tag = parsed
+
+    # Detect prefix: ghcr.io uses "__", others use "--"
+    separator = "__" if registry == "ghcr.io" else "--"
+    if separator not in tag:
+        return None
+    prefix = tag.rsplit(separator, 1)[0] + separator
+
+    auth, extra_headers = get_registry_auth(registry, repository)
+    headers = {'Accept': 'application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json'}
+    headers.update(extra_headers)
+
+    tags = list_tags_with_prefix(registry, repository, prefix, auth, headers)
+    if not tags:
+        return None
+
+    best_tag = tags[-1]
+    if best_tag == tag:
+        return None
+
+    # Reconstruct the reference with the fallback tag (using original registry, not query registry)
+    original_ref_base = registry_reference.rsplit(':', 1)[0]
+    return f"{original_ref_base}:{best_tag}"
+
+
+def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
+    """
+    Fetch container image metadata from Docker Registry HTTP API v2.
+    Returns: dict with 'digest', 'build-date', 'vcs-ref', 'upstream', 'midstream' or None if failed.
     """
     try:
+        # Swap r.a.r.c → quay.io for queries as r.a.r.c is not always accessible without authentication
         query_ref = get_query_registry_reference(registry_reference)
 
         # Parse the registry reference: registry.io/repo/image:tag
@@ -214,10 +305,50 @@ def get_image_metadata(registry_reference: str) -> Optional[Dict[str, str]]:
         return None
 
 
-def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> Tuple[int, int, List[str], int]:
+def get_image_metadata(registry_reference: str) -> dict | None:
+    """
+    Get container image metadata, with automatic fallback to the latest published
+    tag when the exact tag doesn't exist.
+
+    Returns dict with 'digest', 'build-date', etc. and optionally:
+    - 'registryReference': resolved reference (only set when fallback changed it)
+    - 'fallback': True (only when fallback was used)
+    - 'requestedTag': original tag string (only when fallback was used)
+
+    Returns None if metadata could not be fetched even after fallback.
+    """
+    metadata = _fetch_image_metadata(registry_reference)
+    if metadata is not None:
+        return metadata
+    
+    original_tag = registry_reference.rsplit(':', 1)[-1] if ':' in registry_reference else ""
+
+    fallback_ref = resolve_fallback_tag(registry_reference)
+    if fallback_ref is None:
+        log_warn(f"Requested tag {Colors.YELLOW}{original_tag}{Colors.NORM} not found, no fallback available")
+        return None
+
+    fallback_tag = fallback_ref.rsplit(':', 1)[-1] if ':' in fallback_ref else ""
+    
+    log_warn(
+        f"[FALLBACK] requested tag {Colors.YELLOW}{original_tag}{Colors.NORM} but tag not found,"
+        f" using latest published tag {Colors.GREEN}{fallback_tag}{Colors.NORM} instead"
+    )
+
+    metadata = _fetch_image_metadata(fallback_ref)
+    if metadata is None:
+        return None
+
+    metadata['registryReference'] = fallback_ref
+    metadata['fallback'] = True
+    metadata['requestedTag'] = original_tag
+    return metadata
+
+
+def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> tuple[int, int, list[str], int, int]:
     """
     Update all plugin_builds/*.json files with image metadata
-    Returns: (updated_count, error_count, missing_refs, overlays_metadata_changes)
+    Returns: (updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count)
     """
     if not plugin_builds_dir.exists():
         log_error(f"Plugin builds directory {plugin_builds_dir} does not exist")
@@ -233,6 +364,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
     error_count = 0
     missing_refs = []
     overlays_metadata_changes = 0
+    fallback_count = 0
 
     for i, json_file in enumerate(json_files, 1):
         relative_path = json_file.relative_to(plugin_builds_dir)
@@ -253,30 +385,25 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                     metadata = get_image_metadata(registry_reference)
 
                     if metadata:
-                        if 'digest' in metadata:
-                            plugin_data['digest'] = metadata['digest']
-                            modified = True
+                        if 'registryReference' in metadata:
+                            registry_reference = metadata['registryReference']
 
-                        if 'build-date' in metadata:
-                            plugin_data['build-date'] = metadata['build-date']
-                            modified = True
+                        if metadata.get('fallback'):
+                            fallback_count += 1
 
-                        if 'vcs-ref' in metadata:
-                            plugin_data['vcs-ref'] = metadata['vcs-ref']
-                            modified = True
+                        for key, value in metadata.items():
+                            if plugin_data.get(key) != value:
+                                plugin_data[key] = value
+                                modified = True
 
-                        if 'upstream' in metadata:
-                            plugin_data['upstream'] = metadata['upstream']
-                            modified = True
+                        # Clean up stale fallback fields from a previous run
+                        if 'fallback' not in metadata:
+                            for stale_key in ('fallback', 'requestedTag'):
+                                if stale_key in plugin_data:
+                                    del plugin_data[stale_key]
+                                    modified = True
 
-                        if 'midstream' in metadata:
-                            plugin_data['midstream'] = metadata['midstream']
-                            modified = True
-
-                        if DYNAMIC_PACKAGES_ANNOTATION in metadata:
-                            plugin_data[DYNAMIC_PACKAGES_ANNOTATION] = metadata[DYNAMIC_PACKAGES_ANNOTATION]
-                            modified = True
-
+                        # Output ref swap back from quay.io to registry.access.redhat.com if registry is set as r.a.r.c
                         output_ref = get_output_registry_reference(registry_reference)
                         if output_ref != registry_reference:
                             log_debug(f"registry_reference switched to: {output_ref}")
@@ -294,7 +421,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                             )
                 else:
                     fields_removed = []
-                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', DYNAMIC_PACKAGES_ANNOTATION]:
+                    for field in ['digest', 'build-date', 'vcs-ref', 'upstream', 'midstream', DYNAMIC_PACKAGES_ANNOTATION, 'fallback', 'requestedTag']:
                         if field in plugin_data:
                             del plugin_data[field]
                             fields_removed.append(field)
@@ -302,7 +429,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
 
             if modified:
                 ordered_data = {}
-                key_order = ['workspacePath', 'registryReference', 'digest', 'build-date', 'upstream', 'midstream', 'vcs-ref']
+                key_order = ['workspacePath', 'registryReference', 'fallback', 'requestedTag', 'digest', 'build-date', 'upstream', 'midstream', 'vcs-ref']
 
                 for plugin_name, plugin_data in data.items():
                     ordered_plugin = {}
@@ -328,85 +455,86 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                     for pname, pdata in data.items():
                         digest = pdata.get('digest', '')
                         if digest:
+                            stage_kwargs = {"digest": digest}
+                            if pdata.get('fallback'):
+                                ref_tag = pdata.get('registryReference', '').rsplit(':', 1)[-1]
+                                stage_kwargs["fallback"] = True
+                                stage_kwargs["requestedTag"] = pdata.get('requestedTag', '')
+                                stage_kwargs["resolvedTag"] = ref_tag
                             report.set_stage(
                                 pname, "registry-enrich", "pass",
-                                digest=digest,
+                                **stage_kwargs,
                             )
 
                 # Update the equivalent metadata.yaml file in the overlays directory
-                # Skip metadata write-back for ghcr.io — those images use tagged dynamicArtifacts
-                # and don't include build-date labels (per-reference check)
-                if registry_reference.startswith("ghcr.io/"):
-                    log_debug(f"Skipping metadata write-back for ghcr.io plugin: {relative_path}")
-                else:
-                    metadata_dir = overlays_dir / "workspaces" / relative_path.parent / "metadata"
-                    if metadata_dir.exists():
-                        for plugin_name, plugin_data in data.items():
-                            registry_reference_tag = plugin_data.get('registryReference', '')
-                            if not registry_reference_tag:
+                metadata_dir = overlays_dir / "workspaces" / relative_path.parent / "metadata"
+                if metadata_dir.exists():
+                    for plugin_name, plugin_data in data.items():
+                        registry_reference_tag = plugin_data.get('registryReference', '')
+                        if not registry_reference_tag:
+                            continue
+                        digest = plugin_data.get("digest")
+                        registry_reference_digest = registry_reference_tag
+                        if digest:
+                            ref_base = (registry_reference_tag.split("@")[0] if "@" in registry_reference_tag
+                                        else registry_reference_tag.rsplit(":", 1)[0])
+                            registry_reference_digest = f"{ref_base}@{digest}"
+                        registry_reference_digest = get_output_registry_reference(registry_reference_digest)
+                        metadata_file = None
+                        for f in metadata_dir.glob("*.yaml"):
+                            try:
+                                with open(f, "r", encoding='utf-8') as fp:
+                                    meta = yaml.safe_load(fp)
+                                spec = (meta or {}).get("spec") or {}
+                                pkg = spec.get("packageName") or ""
+                                da = spec.get("dynamicArtifact") or ""
+                                log_debug(f"pkg: {pkg}; f.stem: {f.stem}; plugin_name: {plugin_name}")
+                                image_in_artifact = ("/" + plugin_name + ":" in da or "/" + plugin_name + "@" in da)
+                                stem_matches = f.stem.replace("redhat-backstage-plugin-", "red-hat-developer-hub-backstage-plugin-") == plugin_name
+                                if image_in_artifact or stem_matches or f.stem == plugin_name:
+                                    metadata_file = f
+                                    break
+                            except Exception:
                                 continue
-                            digest = plugin_data.get("digest")
-                            registry_reference_digest = registry_reference_tag
-                            if digest:
-                                ref_base = (registry_reference_tag.split("@")[0] if "@" in registry_reference_tag
-                                            else registry_reference_tag.rsplit(":", 1)[0])
-                                registry_reference_digest = f"{ref_base}@{digest}"
-                            registry_reference_digest = get_output_registry_reference(registry_reference_digest)
-                            metadata_file = None
-                            for f in metadata_dir.glob("*.yaml"):
-                                try:
-                                    with open(f, "r", encoding='utf-8') as fp:
-                                        meta = yaml.safe_load(fp)
-                                    spec = (meta or {}).get("spec") or {}
-                                    pkg = spec.get("packageName") or ""
-                                    da = spec.get("dynamicArtifact") or ""
-                                    log_debug(f"pkg: {pkg}; f.stem: {f.stem}; plugin_name: {plugin_name}")
-                                    image_in_artifact = ("/" + plugin_name + ":" in da or "/" + plugin_name + "@" in da)
-                                    stem_matches = f.stem.replace("redhat-backstage-plugin-", "red-hat-developer-hub-backstage-plugin-") == plugin_name
-                                    if image_in_artifact or stem_matches or f.stem == plugin_name:
-                                        metadata_file = f
-                                        break
-                                except Exception:
-                                    continue
-                            if metadata_file is not None:
-                                with open(metadata_file, "r", encoding='utf-8') as f:
-                                    content = f.read()
-                                try:
-                                    meta = yaml.safe_load(content)
-                                    da = ((meta or {}).get("spec") or {}).get("dynamicArtifact") or ""
-                                except Exception:
-                                    da = ""
-                                if da.startswith("oci://"):
-                                    new_oci = f"oci://{registry_reference_digest}"
-                                    lines = content.splitlines()
-                                    out = []
-                                    for line in lines:
-                                        stripped = line.lstrip()
-                                        if stripped.startswith("dynamicArtifact:") and ("oci://" in line or "quay.io" in line or "registry.access" in line):
-                                            indent = line[: len(line) - len(stripped)]
-                                            tag_parts = registry_reference_tag.split(":")
-                                            tag = tag_parts[1] if len(tag_parts) > 1 else ""
-                                            build_date = plugin_data.get("build-date")
-                                            while out and out[-1].lstrip().startswith("# Tag:"):
-                                                out.pop()
-                                            if build_date:
-                                                out.append(f'{indent}# Tag: {tag}, Build date: {build_date}')
-                                            else:
-                                                out.append(f'{indent}# Tag: {tag}')
-                                            out.append(f'{indent}dynamicArtifact: "{new_oci}"')
+                        if metadata_file is not None:
+                            with open(metadata_file, "r", encoding='utf-8') as f:
+                                content = f.read()
+                            try:
+                                meta = yaml.safe_load(content)
+                                da = ((meta or {}).get("spec") or {}).get("dynamicArtifact") or ""
+                            except Exception:
+                                da = ""
+                            if da.startswith("oci://"):
+                                new_oci = f"oci://{registry_reference_digest}"
+                                lines = content.splitlines()
+                                out = []
+                                for line in lines:
+                                    stripped = line.lstrip()
+                                    if stripped.startswith("dynamicArtifact:") and ("oci://" in line or "quay.io" in line or "registry.access" in line or "ghcr.io" in line):
+                                        indent = line[: len(line) - len(stripped)]
+                                        tag_parts = registry_reference_tag.split(":")
+                                        tag = tag_parts[1] if len(tag_parts) > 1 else ""
+                                        build_date = plugin_data.get("build-date")
+                                        while out and out[-1].lstrip().startswith("# Tag:"):
+                                            out.pop()
+                                        if build_date:
+                                            out.append(f'{indent}# Tag: {tag}, Build date: {build_date}')
                                         else:
-                                            out.append(line)
-                                    with open(metadata_file, "w", encoding='utf-8') as f:
-                                        f.write("\n".join(out))
-                                        f.write("\n")
-                                    overlays_metadata_changes += 1
-                                    log_debug(f"Set 'dynamicArtifact: oci://{registry_reference_digest}'")
-                                    log_debug(f" in {metadata_file}")
-                                    print(
-                                        f"[{i}/{len(json_files)}]   >> https://{Colors.GREEN}"
-                                        f"{registry_reference_digest.replace('@', ' @')}"
-                                        f"{Colors.NORM}\n"
-                                    )
+                                            out.append(f'{indent}# Tag: {tag}')
+                                        out.append(f'{indent}dynamicArtifact: "{new_oci}"')
+                                    else:
+                                        out.append(line)
+                                with open(metadata_file, "w", encoding='utf-8') as f:
+                                    f.write("\n".join(out))
+                                    f.write("\n")
+                                overlays_metadata_changes += 1
+                                log_debug(f"Set 'dynamicArtifact: oci://{registry_reference_digest}'")
+                                log_debug(f" in {metadata_file}")
+                                print(
+                                    f"[{i}/{len(json_files)}]   >> https://{Colors.GREEN}"
+                                    f"{registry_reference_digest.replace('@', ' @')}"
+                                    f"{Colors.NORM}\n"
+                                )
 
         except json.JSONDecodeError as e:
             log_error(f"Error parsing JSON file {json_file}: {e}")
@@ -415,7 +543,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
             log_error(f"Error processing {json_file}: {e}")
             error_count += 1
 
-    return updated_count, error_count, missing_refs, overlays_metadata_changes
+    return updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count
 
 
 def main():
@@ -491,11 +619,13 @@ Examples:
         sys.exit(1)
 
     log_info("\n=== Update plugin_builds/*.json files with container metadata ===")
-    updated_count, error_count, missing_refs, overlays_metadata_changes = update_plugin_build_files(plugin_builds_dir, overlays_dir, report)
+    updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count = update_plugin_build_files(plugin_builds_dir, overlays_dir, report)
     total = updated_count + error_count + len(missing_refs)
 
     log_info("\n=== Results ===")
     log_info(f"Updated: {Colors.GREEN}{updated_count}{Colors.NORM} of {total}")
+    if fallback_count > 0:
+        log_warn(f"Fallback Tags: {Colors.YELLOW}{fallback_count}{Colors.NORM} plugin(s) using older published tags")
     if len(missing_refs) > 0:
         log_warn(f"Missing Tags: {Colors.YELLOW}{len(missing_refs)}{Colors.NORM}")
         for ref in missing_refs:
