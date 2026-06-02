@@ -97,7 +97,6 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.49.4__0.2.11!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
     disabled: false
     pluginConfig:
-      pluginConfig:
       scorecard:
         plugins:
           dependabot:
