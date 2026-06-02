@@ -51,10 +51,11 @@ while IFS= read -r PROD_IMAGE; do
   echo "  Plugin: $PLUGIN_NAME"
 
   # Find metadata file for this plugin
-  METADATA_FILE=$(find "${WORKSPACE}/metadata" -name "*.yaml" -exec grep -l "packageName: ${PLUGIN_NAME}" {} \; | head -1 || true)
+  # The metadata filename matches the OCI image name (e.g., backstage-community-plugin-acs.yaml)
+  METADATA_FILE="${WORKSPACE}/metadata/${PLUGIN_NAME}.yaml"
 
-  if [[ -z "$METADATA_FILE" ]]; then
-    echo "  ⚠️  No metadata file found - skipping"
+  if [[ ! -f "$METADATA_FILE" ]]; then
+    echo "  ⚠️  No metadata file found at $METADATA_FILE - skipping"
     ((SKIPPED_COUNT++))
     continue
   fi
@@ -68,36 +69,49 @@ while IFS= read -r PROD_IMAGE; do
   fi
 
   # Pull production image first (needed to inspect labels)
-  if ! podman pull "$PROD_IMAGE"; then
+  if ! podman pull "$PROD_IMAGE" 2>&1 | grep -v "WARNING: image platform"; then
     echo "  ❌ Failed to pull image - skipping"
     ((SKIPPED_COUNT++))
     continue
   fi
 
-  # Extract plugin path from OCI image labels
+  # Extract plugin path from OCI image labels (preferred method)
   # The io.backstage.dynamic-packages label contains base64-encoded JSON
   # with plugin metadata including the directory path inside the container
   PACKAGES_LABEL=$(podman inspect "$PROD_IMAGE" --format '{{index .Labels "io.backstage.dynamic-packages"}}' 2>/dev/null || echo "")
 
-  if [[ -z "$PACKAGES_LABEL" || "$PACKAGES_LABEL" == "<no value>" ]]; then
-    echo "  ⚠️  No io.backstage.dynamic-packages label found - skipping"
-    ((SKIPPED_COUNT++))
-    continue
+  PLUGIN_PATH=""
+  if [[ -n "$PACKAGES_LABEL" && "$PACKAGES_LABEL" != "<no value>" ]]; then
+    # Decode base64 and extract first plugin name
+    # Expected JSON: [{"name":"backstage-community-plugin-acs","version":"0.2.0",...}]
+    # The "name" field is the directory path inside the container
+    PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
+    if [[ -n "$PLUGIN_PATH" ]]; then
+      echo "  Plugin path (from OCI label): $PLUGIN_PATH"
+    fi
   fi
 
-  # Decode base64 and extract first plugin name
-  # Expected JSON: [{"name":"backstage-community-plugin-acs","version":"0.2.0",...}]
-  # The "name" field is the directory path inside the container
-  PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
+  # Fallback: Extract from dynamicArtifact in metadata if label doesn't exist
+  if [[ -z "$PLUGIN_PATH" ]]; then
+    echo "  No io.backstage.dynamic-packages label - using metadata fallback"
+    DYNAMIC_ARTIFACT=$(yq -r '.spec.dynamicArtifact // ""' "$METADATA_FILE")
+
+    # Format: "oci://image:tag!path" or "oci://image:tag"
+    if [[ "$DYNAMIC_ARTIFACT" =~ !(.+)$ ]]; then
+      PLUGIN_PATH="${BASH_REMATCH[1]}"
+      echo "  Plugin path (from metadata): $PLUGIN_PATH"
+    else
+      # No explicit path — use plugin name as path
+      PLUGIN_PATH="$PLUGIN_NAME"
+      echo "  Plugin path (default): $PLUGIN_PATH"
+    fi
+  fi
 
   if [[ -z "$PLUGIN_PATH" ]]; then
-    echo "  ⚠️  Could not parse plugin path from io.backstage.dynamic-packages"
-    echo "  Decoded label: $(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null || echo 'decode failed')"
+    echo "  ⚠️  Could not determine plugin path - skipping"
     ((SKIPPED_COUNT++))
     continue
   fi
-
-  echo "  Plugin path (from OCI label): $PLUGIN_PATH"
 
   # Create temp container and extract plugin bundle
   WORK_DIR=$(mktemp -d)
@@ -114,8 +128,9 @@ while IFS= read -r PROD_IMAGE; do
   podman rm "$CID"
 
   # Instrument with nyc (pinned version for reproducibility)
+  # Must run from work directory to avoid "outside project root" errors
   echo "  Instrumenting with Istanbul/nyc..."
-  if ! npx --yes nyc@15.1.0 instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map; then
+  if ! (cd "$WORK_DIR" && npx --yes nyc@15.1.0 instrument dist-original dist-instrumented --source-map); then
     echo "  ❌ Instrumentation failed - skipping"
     rm -rf "$WORK_DIR"
     ((SKIPPED_COUNT++))
