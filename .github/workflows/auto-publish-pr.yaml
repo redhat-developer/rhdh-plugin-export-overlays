@@ -384,108 +384,10 @@ jobs:
           PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
           WORKSPACE: ${{ needs.prepare.outputs.workspace }}
         run: |
-          set -euo pipefail
-
-          echo "=== Instrumenting published plugin images for E2E coverage ==="
           echo "Published exports:"
           echo "$PUBLISHED_EXPORTS"
           echo ""
-
-          # Process each published image (format: plain image refs, one per line)
-          while IFS= read -r PROD_IMAGE; do
-            [[ -z "$PROD_IMAGE" ]] && continue
-
-            echo "--- Processing: $PROD_IMAGE ---"
-
-            # Extract plugin name from image ref
-            PLUGIN_NAME=$(basename "${PROD_IMAGE%%:*}")
-            echo "  Plugin: $PLUGIN_NAME"
-
-            # Find metadata file for this plugin
-            METADATA_FILE=$(find "${WORKSPACE}/metadata" -name "*.yaml" -exec grep -l "packageName: ${PLUGIN_NAME}" {} \; | head -1 || true)
-
-            if [[ -z "$METADATA_FILE" ]]; then
-              echo "  ⚠️  No metadata file found - skipping"
-              continue
-            fi
-
-            # Check if this is a frontend plugin (only frontend plugins need instrumentation)
-            PLUGIN_ROLE=$(yq -r '.spec.backstage.role // ""' "$METADATA_FILE")
-            if [[ "$PLUGIN_ROLE" != "frontend-plugin" ]]; then
-              echo "  Skipping $PLUGIN_ROLE (only frontend plugins need browser coverage)"
-              continue
-            fi
-
-            # Pull production image first (needed to inspect labels)
-            podman pull "$PROD_IMAGE"
-
-            # Extract plugin path from OCI image labels
-            # The io.backstage.dynamic-packages label contains base64-encoded JSON
-            # with plugin metadata including the directory path inside the container
-            PACKAGES_LABEL=$(podman inspect "$PROD_IMAGE" --format '{{index .Labels "io.backstage.dynamic-packages"}}' 2>/dev/null || echo "")
-
-            if [[ -z "$PACKAGES_LABEL" || "$PACKAGES_LABEL" == "<no value>" ]]; then
-              echo "  ⚠️  No io.backstage.dynamic-packages label found - skipping"
-              continue
-            fi
-
-            # Decode base64 and extract first plugin name
-            # Expected JSON: [{"name":"backstage-community-plugin-acs","version":"0.2.0",...}]
-            # The "name" field is the directory path inside the container
-            PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
-
-            if [[ -z "$PLUGIN_PATH" ]]; then
-              echo "  ⚠️  Could not parse plugin path from io.backstage.dynamic-packages"
-              echo "  Decoded label: $(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null || echo 'decode failed')"
-              continue
-            fi
-
-            echo "  Plugin path (from OCI label): $PLUGIN_PATH"
-
-            # Create temp container and extract plugin bundle
-            WORK_DIR=$(mktemp -d)
-            CID=$(podman create "$PROD_IMAGE")
-            podman cp "$CID:$PLUGIN_PATH/dist" "$WORK_DIR/dist-original"
-            podman rm "$CID"
-
-            # Instrument with nyc (pinned version for reproducibility)
-            echo "  Instrumenting with Istanbul/nyc..."
-            npx --yes nyc@15.1.0 instrument "$WORK_DIR/dist-original" "$WORK_DIR/dist-instrumented" --source-map
-
-            # Verify instrumentation
-            INSTRUMENTED_COUNT=$(grep -r "__coverage__" "$WORK_DIR/dist-instrumented/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
-            if [[ "$INSTRUMENTED_COUNT" -eq 0 ]]; then
-              echo "  ❌ No __coverage__ found in instrumented files - skipping"
-              rm -rf "$WORK_DIR"
-              continue
-            fi
-            echo "  ✓ Instrumented $INSTRUMENTED_COUNT JS files"
-
-            # Build coverage image (copy instrumented files over production image)
-            cat > "$WORK_DIR/Containerfile" <<EOF
-          FROM $PROD_IMAGE
-          COPY dist-instrumented/ $PLUGIN_PATH/dist/
-          EOF
-
-            # Generate coverage image tag: append __coverage suffix to tag
-            # Example: plugin:pr_123__1.2.3 → plugin:pr_123__1.2.3__coverage
-            IMAGE_BASE="${PROD_IMAGE%:*}"
-            IMAGE_TAG="${PROD_IMAGE##*:}"
-            COVERAGE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}__coverage"
-
-            podman build -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"
-
-            # Push coverage image
-            podman push "$COVERAGE_IMAGE"
-            echo "  ✓ Published: $COVERAGE_IMAGE"
-
-            # Cleanup
-            rm -rf "$WORK_DIR"
-            echo ""
-
-          done <<< "$PUBLISHED_EXPORTS"
-
-          echo "=== Instrumentation complete ==="
+          echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
 
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
