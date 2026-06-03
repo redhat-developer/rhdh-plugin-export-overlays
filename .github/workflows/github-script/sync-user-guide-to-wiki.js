@@ -26,6 +26,7 @@ const FILE_MAP = {
   'user-guide/04-metadata-synchronization.md': 'Metadata-Synchronization',
   'user-guide/05-version-updates.md': 'Version-Updates',
   'user-guide/06-patch-management.md': 'Patch-Management',
+  'user-guide/07-plugin-catalog-index.md': 'Plugin-Catalog-Index-Generation',
 };
 
 // Link transformations for wiki format
@@ -37,6 +38,7 @@ const LINK_TRANSFORMS = [
   { from: /\[([^\]]+)\]\(\.\/04-metadata-synchronization\.md(#[^\)]+)?\)/g, to: '[$1](Metadata-Synchronization$2)' },
   { from: /\[([^\]]+)\]\(\.\/05-version-updates\.md(#[^\)]+)?\)/g, to: '[$1](Version-Updates$2)' },
   { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md(#[^\)]+)?\)/g, to: '[$1](Patch-Management$2)' },
+  { from: /\[([^\]]+)\]\(\.\/07-plugin-catalog-index\.md(#[^\)]+)?\)/g, to: '[$1](Plugin-Catalog-Index-Generation$2)' },
 ];
 
 // Source repository metadata
@@ -213,10 +215,13 @@ function transformForWiki(content, dynamicContent) {
 /**
  * Generate the wiki sidebar navigation
  */
-function generateSidebar(workspaceStats, reportPages) {
+function generateSidebar(workspaceStats, reportPages, catalogStatusPages) {
   const reportLinks = reportPages.length > 0
     ? reportPages.map(({ branchName, pageName }) => `  * [${branchName}](${pageName})`).join('\n')
     : '  * [main](main)';
+  const catalogLinks = catalogStatusPages.length > 0
+    ? '\n' + catalogStatusPages.map(({ branchName, pageName }) => `  * [${branchName}](${pageName})`).join('\n')
+    : '';
 
   return `### 📚 User Guide
 * [Home](Home)
@@ -228,11 +233,13 @@ function generateSidebar(workspaceStats, reportPages) {
 * [Metadata Synchronization](Metadata-Synchronization)
 * [Version Updates](Version-Updates)
 * [Patch Management](Patch-Management)
+* [Plugin Catalog Index](Plugin-Catalog-Index-Generation)
 
 ### 📊 Generated Reports
 * [Backstage Compatibility Report](Backstage-Compatibility-Report)
 * [Workspace Status Reports](Workspace-Status-Reports)
 ${reportLinks}
+* [Plugin Catalog Index Status](Plugin-Catalog-Index-Status)${catalogLinks}
 
 ### 📈 Stats
 * **${workspaceStats.total}** workspaces
@@ -267,6 +274,27 @@ async function detectWorkspaceStatusReportPages(wikiDir) {
   }
 
   return pages;
+}
+
+/**
+ * Detect branch-specific catalog status pages in the wiki.
+ * Expected page names are `Plugin-Catalog-Status-*`.
+ */
+async function detectCatalogStatusPages(wikiDir) {
+  const prefix = 'Plugin-Catalog-Status-';
+  const files = await fs.readdir(wikiDir, { withFileTypes: true });
+  return files
+    .filter(file => file.isFile() && file.name.startsWith(prefix) && file.name.endsWith('.md'))
+    .map(file => {
+      const pageName = file.name.replace(/\.md$/, '');
+      const branchName = pageName.slice(prefix.length);
+      return { pageName, branchName };
+    })
+    .sort((a, b) => {
+      if (a.branchName === 'main') return -1;
+      if (b.branchName === 'main') return 1;
+      return b.branchName.localeCompare(a.branchName, undefined, { numeric: true });
+    });
 }
 
 /**
@@ -444,6 +472,8 @@ async function syncUserGuideToWiki({ github, context, core }) {
     // Detect existing workspace status report pages before writing new content
     const reportPages = await detectWorkspaceStatusReportPages(wikiDir);
     core.info(`Detected ${reportPages.length} workspace status report pages`);
+    const catalogStatusPages = await detectCatalogStatusPages(wikiDir);
+    core.info(`Detected ${catalogStatusPages.length} catalog status pages`);
     
     // Process each user guide file
     core.info('\nProcessing user guide files...');
@@ -470,7 +500,7 @@ async function syncUserGuideToWiki({ github, context, core }) {
     
     // Generate sidebar with stats
     core.info('Generating _Sidebar.md...');
-    await fs.writeFile(join(wikiDir, '_Sidebar.md'), generateSidebar(workspaceStats, reportPages), 'utf-8');
+    await fs.writeFile(join(wikiDir, '_Sidebar.md'), generateSidebar(workspaceStats, reportPages, catalogStatusPages), 'utf-8');
 
     // Generate workspace status reports index page
     core.info('Generating Workspace-Status-Reports.md...');
@@ -495,7 +525,9 @@ async function syncUserGuideToWiki({ github, context, core }) {
     }
     
     // Push changes
-    if (!dryRun) {
+    if (dryRun) {
+      core.info('\n🔍 Dry run complete - no changes pushed');
+    } else {
       const commitMessage = `docs: sync user guide from main repository
 
 Synced from commit: ${context.sha?.substring(0, 7) || 'unknown'}
@@ -509,8 +541,6 @@ Triggered by: ${context.eventName}`;
         core.info('\n✅ Wiki updated successfully');
         core.info(`View at: https://github.com/${owner}/${repo}/wiki`);
       }
-    } else {
-      core.info('\n🔍 Dry run complete - no changes pushed');
     }
     
     return { success: true, filesProcessed, versions, workspaceStats };
