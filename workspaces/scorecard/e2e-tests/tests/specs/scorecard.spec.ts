@@ -84,8 +84,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric.title,
     );
   });
+
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
+
     test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
       const [githubMetric] = SCORECARD_METRICS;
       await aggregated.runAggregatedScorecardDrilldownScenario(
@@ -124,6 +126,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         ],
       },
     );
+  });
   });
 
   test.describe("Entity Scorecards", () => {
