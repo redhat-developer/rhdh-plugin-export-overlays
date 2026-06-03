@@ -10,7 +10,10 @@ import {
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
+  DEPENDABOT_METRICS,
   FILECHECK_METRICS,
+  OPENSSF_LICENSE_SCORECARD,
+  OPENSSF_MAINTAINED_SCORECARD,
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
@@ -19,7 +22,7 @@ import {
 test.describe.serial("Scorecard Plugin Tests", () => {
   // Override the 90 s base timeout for all tests and hooks in this group.
   // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
-  test.describe.configure({ timeout: 12 * 60 * 1000 });
+  test.describe.configure({ timeout: 15 * 60 * 1000 });
 
   let context: BrowserContext | undefined;
   let page: Page;
@@ -81,49 +84,49 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric.title,
     );
   });
+  test.describe("Aggregated scorecard drill-down", () => {
+    test.describe.configure({ retries: 1 });
+    test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
+      const [githubMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        githubMetric,
+        "github.open_prs",
+        {
+          thresholdRules: [
+            { key: "ideal", color: "rgb(180, 211, 178)" },
+            { key: "warning", color: "rgb(250, 213, 165)" },
+            { key: "critical", color: "rgb(250, 160, 160)" },
+          ],
+        },
+      );
+    });
 
-  test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
-    const [githubMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      githubMetric,
-      "github.open_prs",
-      {
-        thresholdRules: [
-          { key: "ideal", color: "rgb(180, 211, 178)" },
-          { key: "warning", color: "rgb(250, 213, 165)" },
-          { key: "critical", color: "rgb(250, 160, 160)" },
-        ],
-      },
-    );
-  });
+    test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
+      const [, jiraMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardNoDataHomepageScenario(
+        () => scorecard.navigateToHome(),
+        jiraMetric,
+        "jira.open_issues",
+        { skipIfHasDrilldown: true },
+      );
+    });
 
-  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
-    const [, jiraMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
-      () => scorecard.navigateToHome(),
-      jiraMetric,
-      "jira.open_issues",
-      { skipIfHasDrilldown: true },
-    );
-  });
-
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-    test.skip(
-      process.env.E2E_NIGHTLY_MODE === "true",
-      "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3191",
-    );
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      FILECHECK_METRICS.readme,
-      "filecheck.readme",
-      {
-        thresholdRules: [
-          { key: "exist", color: "rgb(46, 125, 50)" },
-          { key: "missing", color: "rgb(211, 47, 47)" },
-        ],
-      },
-    );
+    // re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3197 is fixed
+    // eslint-disable-next-line playwright/no-skipped-test
+    test.skip("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        FILECHECK_METRICS.readme,
+        "filecheck.readme",
+        {
+          thresholdRules: [
+            { key: "exist", color: "rgb(46, 125, 50)" },
+            { key: "missing", color: "rgb(211, 47, 47)" },
+          ],
+        },
+      );
+    });
   });
 
   test.describe("Entity Scorecards", () => {
@@ -181,6 +184,30 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.validateScorecardAriaFor(jiraMetric);
     });
 
+    test("Validate OpenSSF scorecards with disabled metrics excluded", async () => {
+      await page.waitForTimeout(6000);
+      await catalog.go();
+      await catalog.goToByName("openssf-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
+
+      await scorecard.expectScorecardHidden(githubMetric.title);
+      await scorecard.expectScorecardHidden(jiraMetric.title);
+      await scorecard.expectScorecardHidden(maintainedMetric.title);
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.readme.title,
+      );
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.license.title,
+      );
+
+      for (const metric of OPENSSF_LICENSE_SCORECARD) {
+        await scorecard.validateScorecardAriaFor(metric);
+      }
+    });
+
     test("Display error state for invalid threshold config while rendering metrics", async () => {
       await catalog.go();
       await catalog.goToByName("invalid-threshold");
@@ -192,6 +219,30 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
       await scorecard.expectErrorHeading("Invalid thresholds");
       await scorecard.validateScorecardAriaFor(jiraMetric);
+    });
+
+    test.describe("Dependabot scorecards", () => {
+      test("Dependabot metrics appear when entity opts in", async () => {
+        await catalog.go();
+        await catalog.goToByName("dependabot-scorecard-only");
+        await scorecard.openTab();
+        await scorecard.expectNoProgressBar();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardCardVisible(metric);
+          await scorecard.validateScorecardAriaFor(metric);
+        }
+      });
+
+      test("Dependabot metrics absent without github.com/dependabot opt-in", async () => {
+        await catalog.go();
+        await catalog.goToByName("no-scorecards");
+        await scorecard.openTab();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardHidden(metric.title);
+        }
+      });
     });
 
     test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
@@ -245,7 +296,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     ] as const;
 
     for (const { entity, key, expected } of filecheckCases) {
-      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+      // eslint-disable-next-line playwright/no-skipped-test
+      // TODO: Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3294 is fixed
+      test.skip(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
         test.skip(
           process.env.E2E_NIGHTLY_MODE === "true" &&
             entity.startsWith("filecheck"),

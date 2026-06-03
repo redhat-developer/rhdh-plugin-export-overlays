@@ -130,7 +130,8 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Prerequisites:**
 - PR must touch exactly one workspace
-- Each plugin must have its own metadata file in `workspaces/<modified_workspace>/metadata/`
+- At least one published plugin in the workspace must have runnable metadata in `workspaces/<modified_workspace>/metadata/`
+- Published plugins without runnable metadata are skipped individually
 
 **Triggering smoke tests:**
 - After `/publish`: Smoke tests run automatically upon successful publish completion
@@ -139,8 +140,8 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). The optional `app-config.test.yaml` is for test-only or shared workspace settings that should not appear in the user-facing `appConfigExamples` in metadata.
-3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from any runnable plugin metadata it finds (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). Published plugins without runnable metadata are skipped; if none are runnable, smoke tests are skipped.
+3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin included in the generated config loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
 **Environment Variables in Smoke Tests:**

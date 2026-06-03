@@ -47,10 +47,12 @@ jobs:
             core.setOutput('overlay-commit', prCommit);
             let workspace = '';
 
+            // Try to extract workspace from branch name (e.g., workspaces/release-1.3__tech-radar)
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
+              // Detect modified workspaces from PR files
               const prFiles = await github.rest.pulls.listFiles({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -206,6 +208,8 @@ jobs:
       metadata-validation-passed: ${{ steps.validate-metadata.outputs.validation-passed }}
       metadata-validation-errors: ${{ steps.validate-metadata.outputs.validation-errors }}
       metadata-validation-error-count: ${{ steps.validate-metadata.outputs.validation-error-count }}
+      metadata-warning-packages: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-packages }}
+      metadata-warning-count: ${{ steps.extract-metadata-warnings.outputs.metadata-warning-count }}
 
     steps:
       - name: Checkout overlay repository
@@ -272,6 +276,30 @@ jobs:
           target-backstage-version: ${{ steps.source-config.outputs.backstage-version }}
           image-repository-prefix: ${{ needs.prepare.outputs.image-repository-prefix }}
 
+      - name: Extract metadata warnings from step summary
+        id: extract-metadata-warnings
+        shell: bash
+        run: |
+          WARNING_PACKAGES=$(
+            awk '
+              /## ⚠️ Metadata Coverage Warnings/ { in_section=1; next }
+              in_section && /^## / { in_section=0 }
+              in_section && /^- `.*`$/ { gsub(/^- `|`$/, ""); print }
+            ' "$GITHUB_STEP_SUMMARY" | sort -u
+          )
+
+          WARNING_COUNT=0
+          if [ -n "$WARNING_PACKAGES" ]; then
+            WARNING_COUNT=$(printf "%s\n" "$WARNING_PACKAGES" | sed '/^$/d' | wc -l | tr -d ' ')
+          fi
+
+          {
+            echo "metadata-warning-count=$WARNING_COUNT"
+            echo "metadata-warning-packages<<EOF"
+            printf "%s\n" "$WARNING_PACKAGES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
   export:
     name: Publish PR Dynamic Plugin Images
     needs:
@@ -303,6 +331,63 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  instrument:
+    name: Instrument plugin images for E2E coverage
+    needs:
+      - prepare
+      - export
+    # Only run if workspace has e2e-tests/ directory
+    if: |
+      always() &&
+      needs.export.result == 'success' &&
+      needs.export.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+
+      - name: Check if workspace has E2E tests
+        id: check-e2e
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          if [[ -d "${WORKSPACE}/e2e-tests" ]]; then
+            echo "has-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Workspace has E2E tests directory"
+          else
+            echo "has-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "Workspace does not have E2E tests directory - skipping instrumentation"
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Setup Node.js
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+
+      - name: Instrument and publish coverage images
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          echo "Published exports:"
+          echo "$PUBLISHED_EXPORTS"
+          echo ""
+          echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
 
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
@@ -357,6 +442,8 @@ jobs:
           INPUT_METADATA_VALIDATION_PASSED: ${{ needs.export.outputs.metadata-validation-passed || needs.validate-metadata-only.outputs.metadata-validation-passed }}
           INPUT_METADATA_VALIDATION_ERRORS: ${{ needs.export.outputs.metadata-validation-errors || needs.validate-metadata-only.outputs.metadata-validation-errors }}
           INPUT_METADATA_VALIDATION_ERROR_COUNT: ${{ needs.export.outputs.metadata-validation-error-count || needs.validate-metadata-only.outputs.metadata-validation-error-count }}
+          INPUT_METADATA_WARNING_PACKAGES: ${{ needs.validate-metadata-only.outputs.metadata-warning-packages }}
+          INPUT_METADATA_WARNING_COUNT: ${{ needs.validate-metadata-only.outputs.metadata-warning-count }}
           INPUT_CHECK_UP_TO_DATE_RESULT: ${{ needs.check-up-to-date.result }}
           INPUT_EXPORT_RESULT: ${{ needs.export.result }}
           INPUT_CHECK_BACKSTAGE_COMPATIBILITY_RESULT: ${{ needs.check-backstage-compatibility.result }}
@@ -459,6 +546,16 @@ jobs:
               }
 
               body += metadataSection;
+            }
+
+            const metadataWarningCount = Number(core.getInput('metadata_warning_count') || '0');
+            const metadataWarningPackages = core.getMultilineInput('metadata_warning_packages');
+            if (metadataWarningCount > 0 && metadataWarningPackages.length > 0) {
+              body += '\n\n#### Metadata Coverage Warnings\n';
+              body += `⚠️ Missing metadata file(s) for **${metadataWarningCount}** package(s):`;
+              metadataWarningPackages.forEach(pkg => {
+                body += `\n  - \`${pkg}\``;
+              });
             }
 
             if (publishSuccess) {
