@@ -94,6 +94,44 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.49.4__0.2.11!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
+    disabled: false
+    pluginConfig:
+      scorecard:
+        plugins:
+          dependabot:
+            alerts_critical:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_high:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_medium:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_low:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
     disabled: false
     pluginConfig:

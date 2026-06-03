@@ -10,6 +10,7 @@ import {
   type AggregatedScorecardHelpers,
 } from "../utils/aggregated-scorecard";
 import {
+  DEPENDABOT_METRICS,
   FILECHECK_METRICS,
   SCORECARD_METRICS,
   scorecardHelpers,
@@ -188,6 +189,30 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
       await scorecard.expectErrorHeading("Invalid thresholds");
       await scorecard.validateScorecardAriaFor(jiraMetric);
+    });
+
+    test.describe("Dependabot scorecards", () => {
+      test("Dependabot metrics appear when entity opts in", async () => {
+        await catalog.go();
+        await catalog.goToByName("dependabot-scorecard-only");
+        await scorecard.openTab();
+        await scorecard.expectNoProgressBar();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardCardVisible(metric);
+          await scorecard.validateScorecardAriaFor(metric);
+        }
+      });
+
+      test("Dependabot metrics absent without github.com/dependabot opt-in", async () => {
+        await catalog.go();
+        await catalog.goToByName("no-scorecards");
+        await scorecard.openTab();
+
+        for (const metric of DEPENDABOT_METRICS) {
+          await scorecard.expectScorecardHidden(metric.title);
+        }
+      });
     });
 
     test("Display custom severity keys with custom threshold expressions, colors and icon", async () => {
