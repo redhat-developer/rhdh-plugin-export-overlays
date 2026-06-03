@@ -1,0 +1,13 @@
+# E2E Coverage Infrastructure Validation
+
+This file is used to trigger E2E coverage collection for the tech-radar workspace.
+
+**Purpose**: Validate that PR #2383 coverage infrastructure works end-to-end:
+1. `/publish` command builds plugin images
+2. `instrument` job creates `__coverage` tagged images
+3. E2E tests collect coverage during execution
+4. Coverage is uploaded to Codecov with upstream repo attribution
+
+**Timeline**: This PR will be closed without merge after validation completes.
+
+**Test Date**: 2026-06-03
