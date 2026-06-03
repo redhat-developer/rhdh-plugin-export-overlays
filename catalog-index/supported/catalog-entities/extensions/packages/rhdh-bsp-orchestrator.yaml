@@ -18,8 +18,8 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-orchestrator'
 
-  # Tag: 1.11--5.7.12, Build date: 2026-05-22T15:01:49Z
-  dynamicArtifact: "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:1862a46dd91d4110bad6cbd3c3dd98490cc1aee741f413fa7911bcc3fde38327"
+  # Tag: 1.11--5.7.12, Build date: 2026-06-02T17:21:47Z
+  dynamicArtifact: "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:9758b897666023a570c8f2e732fe70ae44485df9f65ba44eea89a95fc430b30f"
   version: 5.7.12
   backstage:
     role: frontend-plugin
