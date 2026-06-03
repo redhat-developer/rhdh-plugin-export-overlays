@@ -114,19 +114,19 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       );
     });
 
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      FILECHECK_METRICS.readme,
-      "filecheck.readme",
-      {
-        thresholdRules: [
-          { key: "exist", color: "rgb(46, 125, 50)" },
-          { key: "missing", color: "rgb(211, 47, 47)" },
-        ],
-      },
-    );
-  });
+    test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        FILECHECK_METRICS.readme,
+        "filecheck.readme",
+        {
+          thresholdRules: [
+            { key: "exist", color: "rgb(46, 125, 50)" },
+            { key: "missing", color: "rgb(211, 47, 47)" },
+          ],
+        },
+      );
+    });
   });
 
   test.describe("Entity Scorecards", () => {
@@ -196,12 +196,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardHidden(jiraMetric.title);
       await scorecard.expectScorecardHidden(maintainedMetric.title);
-      await scorecard.expectScorecardHidden(
-        FILECHECK_METRICS.readme.title,
-      );
-      await scorecard.expectScorecardHidden(
-        FILECHECK_METRICS.license.title,
-      );
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.readme.title);
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.license.title);
 
       for (const metric of OPENSSF_LICENSE_SCORECARD) {
         await scorecard.validateScorecardAriaFor(metric);
