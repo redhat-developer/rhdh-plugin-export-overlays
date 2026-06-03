@@ -30,6 +30,23 @@ export const SCORECARD_METRICS = [
   },
 ] as const;
 
+export const OPENSSF_MAINTAINED_SCORECARD = [
+  {
+    title: "OpenSSF Maintained",
+    description:
+      'Determines if the project is "actively maintained" according to OpenSSF Security Scorecards.',
+  },
+] as const;
+
+/** Used when openssf.maintained is disabled via scorecard.io/disabled-metrics */
+export const OPENSSF_LICENSE_SCORECARD = [
+  {
+    title: "OpenSSF License",
+    description:
+      "Determines if the project has defined a license according to OpenSSF Security Scorecards.",
+  },
+] as const;
+
 export const DEPENDABOT_METRICS = [
   {
     title: "Dependabot Critical Alerts",

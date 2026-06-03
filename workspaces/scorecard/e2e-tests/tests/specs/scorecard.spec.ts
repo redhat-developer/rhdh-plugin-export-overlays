@@ -12,6 +12,8 @@ import {
 import {
   DEPENDABOT_METRICS,
   FILECHECK_METRICS,
+  OPENSSF_LICENSE_SCORECARD,
+  OPENSSF_MAINTAINED_SCORECARD,
   SCORECARD_METRICS,
   scorecardHelpers,
   type ScorecardHelpers,
@@ -82,32 +84,33 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric.title,
     );
   });
+  test.describe("Aggregated scorecard drill-down", () => {
+    test.describe.configure({ retries: 1 });
+    test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
+      const [githubMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardDrilldownScenario(
+        () => scorecard.navigateToHome(),
+        githubMetric,
+        "github.open_prs",
+        {
+          thresholdRules: [
+            { key: "ideal", color: "rgb(180, 211, 178)" },
+            { key: "warning", color: "rgb(250, 213, 165)" },
+            { key: "critical", color: "rgb(250, 160, 160)" },
+          ],
+        },
+      );
+    });
 
-  test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
-    const [githubMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      githubMetric,
-      "github.open_prs",
-      {
-        thresholdRules: [
-          { key: "ideal", color: "rgb(180, 211, 178)" },
-          { key: "warning", color: "rgb(250, 213, 165)" },
-          { key: "critical", color: "rgb(250, 160, 160)" },
-        ],
-      },
-    );
-  });
-
-  test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
-    const [, jiraMetric] = SCORECARD_METRICS;
-    await aggregated.runAggregatedScorecardNoDataHomepageScenario(
-      () => scorecard.navigateToHome(),
-      jiraMetric,
-      "jira.open_issues",
-      { skipIfHasDrilldown: true },
-    );
-  });
+    test("Aggregated scorecard (Jira): no data found blocks drill-down", async () => {
+      const [, jiraMetric] = SCORECARD_METRICS;
+      await aggregated.runAggregatedScorecardNoDataHomepageScenario(
+        () => scorecard.navigateToHome(),
+        jiraMetric,
+        "jira.open_issues",
+        { skipIfHasDrilldown: true },
+      );
+    });
 
   test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
     await aggregated.runAggregatedScorecardDrilldownScenario(
@@ -176,6 +179,30 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardVisible(jiraMetric.title);
       await scorecard.validateScorecardAriaFor(jiraMetric);
+    });
+
+    test("Validate OpenSSF scorecards with disabled metrics excluded", async () => {
+      await page.waitForTimeout(6000);
+      await catalog.go();
+      await catalog.goToByName("openssf-scorecard-only");
+      await scorecard.openTab();
+
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+      const [maintainedMetric] = OPENSSF_MAINTAINED_SCORECARD;
+
+      await scorecard.expectScorecardHidden(githubMetric.title);
+      await scorecard.expectScorecardHidden(jiraMetric.title);
+      await scorecard.expectScorecardHidden(maintainedMetric.title);
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.readme.title,
+      );
+      await scorecard.expectScorecardHidden(
+        FILECHECK_METRICS.license.title,
+      );
+
+      for (const metric of OPENSSF_LICENSE_SCORECARD) {
+        await scorecard.validateScorecardAriaFor(metric);
+      }
     });
 
     test("Display error state for invalid threshold config while rendering metrics", async () => {
