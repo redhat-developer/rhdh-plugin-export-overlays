@@ -60,7 +60,7 @@ export async function closeChatHistoryDrawer(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Close drawer panel" }).click();
 }
 
-export async function expectRhdhShellVisible(
+export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
@@ -77,7 +77,7 @@ export async function expectRhdhShellVisible(
 
 /** Opens Lightspeed chatbot in fullscreen from the RHDH shell (avoids /lightspeed route). */
 export async function openChatbotFullscreen(page: Page): Promise<void> {
-  await expectRhdhShellVisible(page);
+  await expectRhdhContentVisible(page);
   await openChatbot(page);
   await selectDisplayMode(page, "Fullscreen");
 }
@@ -111,23 +111,17 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
   await expect(
     settingsMenu.getByRole("menuitem", { name: "Display mode" }),
   ).toBeDisabled();
-  await expect(
-    settingsMenu.getByRole("menuitem", { name: "Overlay" }),
-  ).toBeVisible();
-  await expect(
-    settingsMenu.getByRole("menuitem", { name: "Dock to window" }),
-  ).toBeVisible();
-  await expect(
-    settingsMenu.getByRole("menuitem", { name: "Fullscreen" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", {
-      name: "Disable pinned chats Pinned chats are currently enabled",
-    }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: "MCP settings" }),
-  ).toBeVisible();
+
+  for (const name of ["Overlay", "Dock to window", "Fullscreen"]) {
+    await expect(settingsMenu.getByRole("menuitem", { name })).toBeVisible();
+  }
+
+  for (const name of [
+    "Disable pinned chats Pinned chats are currently enabled",
+    "MCP settings",
+  ]) {
+    await expect(page.getByRole("menuitem", { name })).toBeVisible();
+  }
 }
 
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
@@ -137,18 +131,18 @@ export async function expectChatInputAreaVisible(page: Page): Promise<void> {
 }
 
 export async function expectEmptyChatHistory(page: Page): Promise<void> {
-  await expect(
-    page.getByRole("heading", { name: "Pinned chats" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: "No pinned chats" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Chats", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("menuitem", { name: "No recent chats" }),
-  ).toBeVisible();
+  for (const { name, exact } of [
+    { name: "Pinned chats" },
+    { name: "Chats", exact: true },
+  ]) {
+    await expect(
+      page.getByRole("heading", exact ? { name, exact: true } : { name }),
+    ).toBeVisible();
+  }
+
+  for (const name of ["No pinned chats", "No recent chats"]) {
+    await expect(page.getByRole("menuitem", { name })).toBeVisible();
+  }
 }
 
 export async function expectConversationArea(

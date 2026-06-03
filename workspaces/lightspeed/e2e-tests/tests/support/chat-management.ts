@@ -70,7 +70,7 @@ export async function submitChatRename(page: Page, newName: string) {
   await page.getByRole("button", { name: "Rename" }).click();
 }
 
-export async function verifyChatRenamed(page: Page, chatName: string) {
+export async function verifyChatExists(page: Page, chatName: string) {
   await expect(
     recentChatItems(page).filter({ hasText: chatName }),
   ).toBeVisible();
@@ -85,7 +85,7 @@ export async function verifyEmptyPinnedChatsMessage(page: Page) {
 export async function verifyPinnedChatsNotEmpty(page: Page) {
   await expect(
     page.getByRole("menuitem", { name: "No pinned chats" }),
-  ).not.toBeVisible();
+  ).toBeHidden();
 }
 
 export async function selectPinAction(page: Page) {

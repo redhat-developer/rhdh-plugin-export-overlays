@@ -23,7 +23,7 @@ import {
   verifyChatContextMenuOptions,
   verifyChatDeleted,
   verifyChatPinned,
-  verifyChatRenamed,
+  verifyChatExists,
   verifyChatbotSettingsVisible,
   verifyConversationsSortedAlphabetically,
   verifyDeleteConfirmation,
@@ -62,7 +62,7 @@ import {
   expectChatInputAreaVisible,
   expectConversationArea,
   expectEmptyChatHistory,
-  expectRhdhShellVisible,
+  expectRhdhContentVisible,
   openChatbot,
   openChatbotFullscreenWithModel,
   openChatHistoryDrawer,
@@ -121,13 +121,13 @@ test.describe("Lightspeed UI", () => {
     });
 
     test("overlay mode keeps RHDH visible with chat controls", async () => {
-      await expectRhdhShellVisible(page);
+      await expectRhdhContentVisible(page);
       await openChatbot(page);
       await selectDisplayMode(page, "Overlay");
 
       await expectConversationArea(page, "Overlay");
       await expectChatInputAreaVisible(page);
-      await expectRhdhShellVisible(page);
+      await expectRhdhContentVisible(page);
       await expectChatbotControlsVisible(page);
 
       await openChatHistoryDrawer(page);
@@ -141,7 +141,7 @@ test.describe("Lightspeed UI", () => {
       await selectDisplayMode(page, "Dock to window");
 
       await expectConversationArea(page, "Dock to window");
-      await expectRhdhShellVisible(page);
+      await expectRhdhContentVisible(page);
       await expectChatInputAreaVisible(page);
       await expectChatbotControlsVisible(page);
 
@@ -156,7 +156,7 @@ test.describe("Lightspeed UI", () => {
 
       await expectConversationArea(page, "Fullscreen");
       await expectEmptyChatHistory(page);
-      await expectRhdhShellVisible(page, false);
+      await expectRhdhContentVisible(page, false);
     });
   });
 
@@ -343,7 +343,7 @@ test.describe("Lightspeed UI", () => {
       await selectRenameAction(page);
       await verifyRenameChatForm(page);
       await submitChatRename(page, firstChatName);
-      await verifyChatRenamed(page, firstChatName);
+      await verifyChatExists(page, firstChatName);
 
       await startNewChatWithModel(page);
       await sendMessage(secondPrompt, page);
@@ -351,7 +351,7 @@ test.describe("Lightspeed UI", () => {
       await selectRenameAction(page);
       await verifyRenameChatForm(page);
       await submitChatRename(page, secondChatName);
-      await verifyChatRenamed(page, secondChatName);
+      await verifyChatExists(page, secondChatName);
 
       const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
       const chats = sidePanel.locator("li.pf-chatbot__menu-item");
@@ -400,7 +400,7 @@ test.describe("Lightspeed UI", () => {
         await selectRenameAction(page);
         await verifyRenameChatForm(page);
         await submitChatRename(page, testChatName);
-        await verifyChatRenamed(page, testChatName);
+        await verifyChatExists(page, testChatName);
       });
 
       test("pin chat and its actions with persistence", async () => {
@@ -425,16 +425,16 @@ test.describe("Lightspeed UI", () => {
         await expect(
           page.getByRole("menu").filter({ hasText: "No pinned chats" }),
         ).toBeVisible();
-        await verifyChatRenamed(page, testChatName);
+        await verifyChatExists(page, testChatName);
       });
 
       test("delete chat and its actions", async () => {
-        await verifyChatRenamed(page, testChatName);
+        await verifyChatExists(page, testChatName);
         await openChatContextMenuByName(page, testChatName);
         await selectDeleteAction(page);
         await verifyDeleteConfirmation(page);
         await cancelChatDeletion(page);
-        await verifyChatRenamed(page, testChatName);
+        await verifyChatExists(page, testChatName);
 
         await openChatContextMenuByName(page, testChatName);
         await selectDeleteAction(page);
