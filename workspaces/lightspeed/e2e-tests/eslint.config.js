@@ -16,7 +16,7 @@ export default [
             "expectChatbotControlsVisible",
             "expectConversationArea",
             "expectEmptyChatHistory",
-            "expectRhdhShellVisible",
+            "expectRhdhContentVisible",
             "uploadAndAssertDuplicate",
             "validateFailedUpload",
             "verifyDisplayModeMenuOptions",

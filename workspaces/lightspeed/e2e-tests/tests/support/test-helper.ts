@@ -2,7 +2,6 @@ import { expect, type Page } from "@playwright/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { $ as zxCapture } from "zx";
 import fs from "fs";
 import yaml from "js-yaml";
 import os from "os";
@@ -13,7 +12,7 @@ export const lightspeedNamespace = process.env.RHDH_NAMESPACE ?? "lightspeed";
 
 export const lightspeedDeployConfig = {
   auth: "keycloak" as const,
-  version: process.env.RHDH_VERSION ?? "1.10",
+  version: process.env.RHDH_VERSION ?? "1.11",
   namespace: lightspeedNamespace,
   appConfig: "tests/config/app-config-rhdh.yaml",
   secrets: "tests/config/rhdh-secrets.yaml",
@@ -28,7 +27,7 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   ) as Record<string, string[]>;
   const allowedModels = models.allowed_models;
 
-  const result = await zxCapture({
+  const result = await $({
     stdio: ["pipe", "pipe", "pipe"],
   })`oc get configmap ${cm} -n ${ns} -o json`;
   const configYaml = (
