@@ -115,7 +115,8 @@ while IFS= read -r PROD_IMAGE; do
 
   # Create temp container and extract plugin bundle
   WORK_DIR=$(mktemp -d)
-  CID=$(podman create "$PROD_IMAGE")
+  # Plugin images are static bundles with no CMD/ENTRYPOINT, so we provide a dummy command
+  CID=$(podman create "$PROD_IMAGE" /bin/true)
 
   if ! podman cp "$CID:$PLUGIN_PATH/dist" "$WORK_DIR/dist-original"; then
     echo "  ❌ Failed to extract plugin bundle from container - skipping"
