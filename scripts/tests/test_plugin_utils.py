@@ -347,3 +347,56 @@ class TestBuildReport:
 
         data = json.loads(report_path.read_text())
         assert data["status"] == "partial"
+
+    def test_overall_outdated(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("p1")
+        report.set_stage("p1", "bootstrap", "outdated",
+                         expected_version="1.49.4", found_version="1.45.3")
+        report.save()
+
+        data = json.loads(report_path.read_text())
+        assert data["plugins"]["p1"]["overall"] == "outdated"
+
+    def test_summary_includes_outdated_count(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("p1")
+        report.set_stage("p1", "bootstrap", "pass")
+        report.add_plugin("p2")
+        report.set_stage("p2", "bootstrap", "outdated")
+        report.add_plugin("p3")
+        report.set_stage("p3", "bootstrap", "fail")
+        report.save()
+
+        data = json.loads(report_path.read_text())
+        assert data["summary"]["total"] == 3
+        assert data["summary"]["succeeded"] == 1
+        assert data["summary"]["failed"] == 1
+        assert data["summary"]["outdated"] == 1
+
+    def test_outdated_does_not_count_as_failed(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("p1")
+        report.set_stage("p1", "bootstrap", "pass")
+        report.add_plugin("p2")
+        report.set_stage("p2", "bootstrap", "outdated")
+        report.save()
+
+        data = json.loads(report_path.read_text())
+        assert data["summary"]["failed"] == 0
+        assert data["summary"]["outdated"] == 1
+
+    def test_status_partial_when_outdated(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("p1")
+        report.set_stage("p1", "bootstrap", "pass")
+        report.add_plugin("p2")
+        report.set_stage("p2", "bootstrap", "outdated")
+        report.save()
+
+        data = json.loads(report_path.read_text())
+        assert data["status"] == "partial"
