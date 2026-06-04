@@ -18,6 +18,9 @@ metadata:
       url: https://docs.redhat.com/en/documentation/red_hat_developer_hub
     - title: Source Code
       url: https://github.com/<source-org>/<source-repo>/tree/main/workspaces/<workspace-name>
+    # Uncomment when spec.support.level is generally-available for RHDH supported plugins only.  3rd party plugins should add their own lifecycle policy
+    # - title: Red Hat Developer Hub Life Cycle Support Policy
+    #   url: https://access.redhat.com/support/policy/updates/developerhub
   tags:
     - apis # Used for filtering
   description: |
