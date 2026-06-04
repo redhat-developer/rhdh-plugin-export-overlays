@@ -498,8 +498,7 @@ plugins:
           enabled: false
           saveToSingleFile:
             file: ${RHDH_EXTENSIONS_INSTALL_EXPORT_PATH}
-  # Tag: 1.11--2.8.5, Build date: 2026-06-03T21:21:04Z
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:9ff9c1275bfc866cef38d9ffa54608a48789415699c5822b7f2648b05da3831e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.9.0
     disabled: false
     pluginConfig:
       lightspeed:
@@ -532,8 +531,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  # Tag: 1.11--2.8.5, Build date: 2026-05-22T15:08:30Z
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:3147f09ad990fbcd22a9f613d6982b4534b235a2c2d27684fc1834e196cd83ff
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0
     disabled: false
     pluginConfig:
       lightspeed:

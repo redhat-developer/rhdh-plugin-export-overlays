@@ -778,45 +778,47 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.8.5"
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
         },
         "registry-enrich": {
-          "status": "pass",
-          "digest": "sha256:3147f09ad990fbcd22a9f613d6982b4534b235a2c2d27684fc1834e196cd83ff"
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed-backend",
-      "version": "2.8.5",
+      "version": "2.9.0",
       "workspace": "lightspeed",
-      "overall": "pass"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-lightspeed": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.8.5"
+          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
         },
         "registry-enrich": {
-          "status": "pass",
-          "digest": "sha256:9ff9c1275bfc866cef38d9ffa54608a48789415699c5822b7f2648b05da3831e"
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed",
-      "version": "2.8.5",
+      "version": "2.9.0",
       "workspace": "lightspeed",
-      "overall": "pass"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki": {
       "stages": {
@@ -1286,8 +1288,8 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 55,
-    "failed": 3
+    "succeeded": 53,
+    "failed": 5
   },
   "status": "partial"
 }
