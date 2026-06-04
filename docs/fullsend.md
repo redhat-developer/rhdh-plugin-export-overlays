@@ -10,7 +10,7 @@
 
 | Agent | Trigger | How to use |
 |-------|---------|------------|
-| Triage | `/fs-triage` slash command | Post on any issue |
+| Triage | `/fs-triage` slash command, or `ready-to-code` label | Post on any issue |
 | Coder | `/fs-code` slash command, or `ready-to-code` label | Post on a triaged issue |
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
@@ -19,7 +19,7 @@
 
 | Agent | What actually happens | How to trigger manually |
 |-------|----------------------|------------------------|
-| Triage | Auto-triggers on `issues/opened` (fixed in v0.13.0). | `/fs-triage` on an issue |
+| Triage | **Does not auto-trigger on issue open.** The workflow only listens for `issues/labeled` to prevent external users from burning inference tokens on a public repo. | `/fs-triage` on an issue (auth-gated) |
 | Coder | Does not auto-trigger from triage. Triage labels `triaged`, not `ready-to-code`. | `/fs-code` on a triaged issue, or manually add `ready-to-code` label |
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
@@ -28,7 +28,7 @@
 
 The `paths` filter (`workspaces/backstage-plugins-for-aws/**`) only applies to the `pull_request_target` event. Other triggers are repo-wide:
 
-- **`issues`** — fires for all issues (slash commands are auth-gated)
+- **`issues`** — fires only on `labeled` events (not `opened/edited`, to prevent external token burning)
 - **`issue_comment`** — fires for all comments (auth-gated to OWNER/MEMBER/COLLABORATOR)
 - **`pull_request_review`** — fires for all PR reviews. Fix is transitively scoped: it only auto-fires from bot reviews, and the review bot only auto-reviews backstage-plugins-for-aws PRs.
 
