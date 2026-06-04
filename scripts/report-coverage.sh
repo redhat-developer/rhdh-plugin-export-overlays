@@ -6,7 +6,7 @@
 #   ./scripts/report-coverage.sh <workspace> [workspace...]
 #
 # Example:
-#   E2E_COLLECT_COVERAGE=1 ./run-e2e.sh -w tech-radar
+#   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
 #   ./scripts/report-coverage.sh tech-radar
 #
 # The script:

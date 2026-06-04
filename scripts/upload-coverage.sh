@@ -6,7 +6,7 @@
 #   ./scripts/upload-coverage.sh <workspace-name>
 #
 # Example:
-#   E2E_COLLECT_COVERAGE=1 ./run-e2e.sh -w tech-radar
+#   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
 #   ./scripts/upload-coverage.sh tech-radar
 #
 # The script reads source.json to determine the upstream repo and SHA,
@@ -28,7 +28,7 @@ LCOV_FILE="$COVERAGE_DIR/lcov.info"
 
 if [[ ! -f "$LCOV_FILE" ]]; then
   echo "ERROR: No lcov file found at $LCOV_FILE" >&2
-  echo "Run tests with E2E_COLLECT_COVERAGE=1 first" >&2
+  echo "Run tests with E2E_COLLECT_COVERAGE=true first" >&2
   exit 1
 fi
 
