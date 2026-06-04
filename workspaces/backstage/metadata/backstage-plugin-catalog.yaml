@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-catalog
+  namespace: rhdh
+  title: 'Catalog Frontend'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/catalog
+  tags: []
+spec:
+  packageName: '@backstage/plugin-catalog'
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog
+  version: 2.0.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - catalog
+  appConfigNotRequired: true
+  appConfigExamples: []
