@@ -21,7 +21,10 @@ export async function selectChatModel(
     return;
   }
 
-  const menuitem = page.getByRole("menuitem", { name: modelName });
+  const menuitem = page.getByRole("menuitem", {
+    name: modelName,
+    exact: true,
+  });
   if (!(await menuitem.isVisible())) {
     await dropdown.click();
   }
