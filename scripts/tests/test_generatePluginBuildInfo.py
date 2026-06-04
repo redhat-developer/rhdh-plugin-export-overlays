@@ -380,8 +380,8 @@ class TestGetImageMetadata:
         metadata = generatePluginBuildInfo.get_image_metadata(nonexistent_ref)
         assert metadata is None
 
-    def test_fallback_quay_with_absurd_version(self):
-        """Quay.io fallback with an absurd plugin version resolves to the latest real tag."""
+    def test_fallback_quay_with_nonexistent_version(self):
+        """Quay.io fallback with an nonexistent plugin version resolves to the latest real tag."""
         nonexistent_ref = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--9999.99.9"
         metadata = generatePluginBuildInfo.get_image_metadata(nonexistent_ref)
         assert metadata is not None
@@ -398,15 +398,15 @@ class TestGetImageMetadata:
 class TestResolveFallbackTag:
     """Tests for resolve_fallback_tag against real registries."""
 
-    def test_ghcr_absurd_version_resolves_to_latest(self):
-        """An absurd plugin version with a valid prefix resolves to the latest real tag."""
+    def test_ghcr_nonexistent_version_resolves_to_latest(self):
+        """An nonexistent plugin version with a valid prefix resolves to the latest real tag."""
         nonexistent_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__9999.99.9"
         result = generatePluginBuildInfo.resolve_fallback_tag(nonexistent_ref)
         assert result is not None
         assert "bs_1.49.4__" in result
         assert "9999" not in result
 
-    def test_quay_absurd_version_resolves_to_latest(self):
+    def test_quay_nonexistent_version_resolves_to_latest(self):
         nonexistent_ref = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--9999.99.9"
         result = generatePluginBuildInfo.resolve_fallback_tag(nonexistent_ref)
         assert result is not None
