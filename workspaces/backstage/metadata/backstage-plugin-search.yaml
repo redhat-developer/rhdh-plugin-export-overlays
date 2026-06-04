@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-search
+  namespace: rhdh
+  title: 'Search Frontend'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/search
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/search
+  tags: []
+spec:
+  packageName: '@backstage/plugin-search'
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-search
+  version: 1.7.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - search
+  appConfigNotRequired: true
+  appConfigExamples: []

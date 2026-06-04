@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-search-backend-module-catalog
+  namespace: rhdh
+  title: 'Search Backend Module Catalog'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/search-backend-module-catalog
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/search-backend-module-catalog
+  tags: []
+spec:
+  packageName: '@backstage/plugin-search-backend-module-catalog'
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-search-backend-module-catalog-dynamic
+  version: 0.3.13
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - search
+  appConfigNotRequired: true
+  appConfigExamples: []
