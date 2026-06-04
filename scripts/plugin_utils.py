@@ -74,8 +74,30 @@ def detect_file_format(file_path: str) -> str:
 
 
 def load_filtered_packages_from_yaml(packages_file: str) -> set[str]:
-    """Load filtered package names from default.packages.yaml.
-    Returns set of npm package names from both enabled and disabled sections."""
+    """Load npm package names from a packages YAML file.
+
+    Reads a YAML file in the ``default.packages.yaml`` format and returns
+    the union of npm package names from both the ``enabled`` and ``disabled``
+    sections under the top-level ``packages`` key.
+
+    Args:
+        packages_file: Path to the packages YAML file.
+
+    Returns:
+        Set of npm package name strings.
+
+    Example:
+        Given a YAML file with::
+
+            packages:
+              enabled:
+                - package: "@backstage-community/plugin-techdocs"
+              disabled:
+                - package: "@backstage-community/plugin-foo"
+
+        >>> load_filtered_packages_from_yaml("default.packages.yaml")
+        {"@backstage-community/plugin-techdocs", "@backstage-community/plugin-foo"}
+    """
     path = Path(packages_file)
     if not path.exists():
         log_error(f"Packages file not found: {packages_file}")
@@ -95,8 +117,22 @@ def load_filtered_packages_from_yaml(packages_file: str) -> set[str]:
 
 
 def load_packages_from_txt(txt_file: str) -> list[str]:
-    """Load workspace paths from a txt file (e.g., rhdh-supported-packages.txt).
-    Returns list of workspace paths like 'backstage/plugins/techdocs'."""
+    """Load workspace paths from a plain-text package list file.
+
+    Reads a text file with one workspace path per line. Blank lines and
+    lines starting with ``#`` are ignored.
+
+    Args:
+        txt_file: Path to the text file (e.g.,
+            ``rhdh-supported-packages.txt``).
+
+    Returns:
+        List of workspace path strings, in file order.
+
+    Example:
+        >>> load_packages_from_txt("rhdh-supported-packages.txt")
+        ["backstage/plugins/techdocs", "backstage/plugins/catalog"]
+    """
     path = Path(txt_file)
     if not path.exists():
         log_error(f"Packages txt file not found: {txt_file}")
@@ -113,6 +149,31 @@ def load_packages_from_txt(txt_file: str) -> list[str]:
 
 @dataclass
 class WorkspaceMappings:
+    """Bidirectional lookup maps connecting workspace paths, npm names, and stems.
+
+    These four dictionaries allow resolution between the three identifier formats
+    used across the repo:
+
+    - **Workspace paths** (``ws_path``): slash-separated paths like
+      ``"backstage/plugins/techdocs"`` drawn from ``plugins-list.yaml``.
+    - **npm names**: scoped package names like
+      ``"@backstage-community/plugin-techdocs"`` from ``spec.packageName``
+      in Package entity YAMLs.
+    - **Stems**: the ``metadata.name`` field from Package entity YAMLs, e.g.
+      ``"backstage-community-plugin-techdocs"``. These are the canonical
+      identifiers used for filtering throughout catalog index generation.
+
+    Attributes:
+        ws_path_to_npm: Maps workspace path to npm package name.
+            Example: ``{"backstage/plugins/techdocs": "@backstage-community/plugin-techdocs"}``
+        ws_path_to_stem: Maps workspace path to metadata entity stem.
+            Example: ``{"backstage/plugins/techdocs": "backstage-community-plugin-techdocs"}``
+        npm_to_stem: Maps npm package name to metadata entity stem.
+            Example: ``{"@backstage-community/plugin-techdocs": "backstage-community-plugin-techdocs"}``
+        stem_to_npm: Maps metadata entity stem to npm package name.
+            Example: ``{"backstage-community-plugin-techdocs": "@backstage-community/plugin-techdocs"}``
+    """
+
     ws_path_to_npm: dict[str, str] = field(default_factory=dict)
     ws_path_to_stem: dict[str, str] = field(default_factory=dict)
     npm_to_stem: dict[str, str] = field(default_factory=dict)
@@ -126,12 +187,47 @@ def _match_workspace_metadata(
 ) -> dict[str, str]:
     """Match metadata entries to plugin paths within a single workspace.
 
-    Uses scored matching to avoid greedy collisions (e.g., two stems matching
-    the same path), then process-of-elimination for remaining unmatched pairs.
+    Resolves which ``plugins-list.yaml`` path corresponds to each Package
+    entity stem, using a two-pass heuristic:
 
-    metadata_entries: list of (stem, npm_name) pairs
-    plugin_paths: list of plugin paths from plugins-list.yaml
-    Returns: dict mapping stem -> workspace_path
+    **Pass 1 -- Scored matching:**
+    Every (stem, path) pair is scored based on how the path's last segment
+    relates to the stem:
+
+    - Exact match (``stem == last_segment``): highest score
+    - Suffix with dash (``stem.endswith("-" + last_segment)``): medium
+    - Plain suffix (``stem.endswith(last_segment)``): lowest
+
+    Scores are weighted by segment length to prefer longer (more specific)
+    matches. Pairs are then assigned greedily in descending score order,
+    ensuring no stem or path is used twice.
+
+    **Pass 2 -- Process of elimination:**
+    Remaining unmatched stems are resolved against remaining paths via:
+
+    1. Substring matching (``last_segment in stem``)
+    2. 1:1 pairing if the count of unmatched stems equals remaining paths
+
+    Any stems still unmatched fall back to ``"{ws_name}/{stem}"``.
+
+    Args:
+        ws_name: Workspace directory name (e.g., ``"backstage"``).
+        metadata_entries: List of ``(stem, npm_name)`` pairs from Package
+            entity YAMLs in ``workspaces/{ws_name}/metadata/``.
+        plugin_paths: Plugin paths from ``plugins-list.yaml`` (e.g.,
+            ``["plugins/techdocs", "plugins/catalog"]``).
+
+    Returns:
+        Dict mapping each stem to its full workspace path
+        (``"{ws_name}/{plugin_path}"``).
+
+    Example:
+        >>> _match_workspace_metadata(
+        ...     "backstage",
+        ...     [("backstage-community-plugin-techdocs", "@backstage-community/plugin-techdocs")],
+        ...     ["plugins/techdocs"],
+        ... )
+        {"backstage-community-plugin-techdocs": "backstage/plugins/techdocs"}
     """
     result: dict[str, str] = {}
 
@@ -204,8 +300,50 @@ def _match_workspace_metadata(
 
 
 def build_workspace_mappings(overlays_dir: Path) -> WorkspaceMappings:
-    """Scan workspaces/*/metadata/*.yaml and plugins-list.yaml to build
-    bidirectional maps between workspace paths, npm names, and stems."""
+    """Scan all workspaces to build bidirectional maps between workspace paths,
+    npm names, and metadata entity stems.
+
+    Iterates over every workspace in ``{overlays_dir}/workspaces/`` and reads:
+
+    - ``workspaces/{ws}/metadata/*.yaml`` -- Package entity YAMLs providing
+      ``metadata.name`` (stem) and ``spec.packageName`` (npm name)
+    - ``workspaces/{ws}/plugins-list.yaml`` -- plugin paths within the
+      upstream source repo
+
+    These are matched via ``_match_workspace_metadata`` to produce the four
+    maps in ``WorkspaceMappings``.
+
+    The directory structure consumed::
+
+        workspaces/
+          backstage/
+            metadata/
+              backstage-community-plugin-techdocs.yaml
+            plugins-list.yaml
+          rhdh/
+            metadata/
+              ...
+            plugins-list.yaml
+
+    Note:
+        This scans ALL workspaces in the repo, not just the ones being
+        filtered for a particular catalog index tier. The full mapping is
+        needed so that any package file (YAML or txt) can be resolved.
+
+    Args:
+        overlays_dir: Root of the overlays repository (the directory
+            containing the ``workspaces/`` subdirectory).
+
+    Returns:
+        A ``WorkspaceMappings`` instance with all four maps populated.
+
+    Example:
+        >>> mappings = build_workspace_mappings(Path("/path/to/rhdh-plugin-export-overlays"))
+        >>> mappings.npm_to_stem["@backstage-community/plugin-techdocs"]
+        'backstage-community-plugin-techdocs'
+        >>> mappings.ws_path_to_npm["backstage/plugins/techdocs"]
+        '@backstage-community/plugin-techdocs'
+    """
     mappings = WorkspaceMappings()
     workspaces_dir = overlays_dir / "workspaces"
     if not workspaces_dir.exists():
@@ -277,9 +415,45 @@ def load_and_resolve_to_stems(
     packages_files: list[str],
     overlays_dir: Path,
 ) -> set[str]:
-    """Takes a list of file paths (YAML or txt), auto-detects format,
-    resolves all to metadata entity stems.
-    Returns union of all resolved stems."""
+    """Load package lists from multiple files and resolve all entries to
+    metadata entity stems.
+
+    Each file is auto-detected as YAML or txt based on extension. YAML files
+    contain npm package names (resolved via ``npm_to_stem``); txt files
+    contain workspace paths (resolved via ``ws_path_to_stem``). The union
+    of all resolved stems across all files is returned.
+
+    Logs warnings for entries that cannot be resolved and debug-level
+    messages for cross-file overlaps.
+
+    Args:
+        packages_files: Paths to package list files. Supports mixed formats
+            (some YAML, some txt) in the same call.
+        overlays_dir: Root of the overlays repository (passed through to
+            ``build_workspace_mappings``).
+
+    Returns:
+        Union of resolved stems from all input files.
+
+    Example:
+        >>> # YAML file containing "@backstage-community/plugin-techdocs"
+        >>> # resolves to stem "backstage-community-plugin-techdocs"
+        >>> stems = load_and_resolve_to_stems(
+        ...     ["default.packages.yaml"],
+        ...     Path("/path/to/overlays"),
+        ... )
+        >>> "backstage-community-plugin-techdocs" in stems
+        True
+
+        >>> # txt file containing "backstage/plugins/techdocs"
+        >>> # resolves to the same stem via workspace mapping
+        >>> stems = load_and_resolve_to_stems(
+        ...     ["rhdh-supported-packages.txt"],
+        ...     Path("/path/to/overlays"),
+        ... )
+        >>> "backstage-community-plugin-techdocs" in stems
+        True
+    """
     if not packages_files:
         return set()
 
@@ -345,9 +519,44 @@ def load_and_resolve_to_npm_names(
     packages_files: list[str],
     overlays_dir: Path,
 ) -> set[str]:
-    """Takes a list of file paths (YAML or txt), auto-detects format,
-    resolves all to npm package names.
-    Returns union of all resolved npm names."""
+    """Load package lists from multiple files and resolve all entries to npm
+    package names.
+
+    Each file is auto-detected as YAML or txt based on extension. YAML files
+    already contain npm names (validated against workspace metadata); txt files
+    contain workspace paths (resolved via ``ws_path_to_npm``). The union of
+    all resolved npm names across all files is returned.
+
+    Logs warnings for entries that cannot be resolved and debug-level
+    messages for cross-file overlaps.
+
+    Args:
+        packages_files: Paths to package list files. Supports mixed formats
+            (some YAML, some txt) in the same call.
+        overlays_dir: Root of the overlays repository (passed through to
+            ``build_workspace_mappings``).
+
+    Returns:
+        Union of resolved npm package names from all input files.
+
+    Example:
+        >>> # txt file containing "backstage/plugins/techdocs"
+        >>> # resolves to npm name "@backstage-community/plugin-techdocs"
+        >>> npms = load_and_resolve_to_npm_names(
+        ...     ["rhdh-supported-packages.txt"],
+        ...     Path("/path/to/overlays"),
+        ... )
+        >>> "@backstage-community/plugin-techdocs" in npms
+        True
+
+        >>> # YAML file entries are validated and passed through directly
+        >>> npms = load_and_resolve_to_npm_names(
+        ...     ["default.packages.yaml"],
+        ...     Path("/path/to/overlays"),
+        ... )
+        >>> "@backstage-community/plugin-techdocs" in npms
+        True
+    """
     if not packages_files:
         return set()
 
@@ -411,11 +620,24 @@ def load_and_resolve_to_npm_names(
 class BuildReport:
     """Manages a build-report.json file for tracking plugin generation stages.
 
-    Usage:
-        report = BuildReport(args.report_file)  # None disables reporting
-        report.add_plugin("image-name", package="@scope/pkg", version="1.0")
-        report.set_stage("image-name", "bootstrap", "pass", oci_ref="quay.io/...")
-        report.save()  # computes overall/summary and writes to disk
+    Tracks per-plugin build progress through named stages (e.g., bootstrap,
+    export, publish), each with a pass/fail/skip status. On ``save()``,
+    computes per-plugin overall status and an aggregate summary.
+
+    Passing ``None`` as the report file disables all operations (methods
+    become no-ops). An ``atexit`` handler is registered to auto-save on
+    process exit when reporting is enabled.
+
+    Args:
+        report_file: Path to the JSON report file, or ``None`` to disable.
+
+    Example:
+        >>> report = BuildReport("build-report.json")
+        >>> report.set_metadata(backstage_version="1.45.1")
+        >>> report.add_plugin("plugin-techdocs", package="@backstage-community/plugin-techdocs")
+        >>> report.set_stage("plugin-techdocs", "bootstrap", "pass", oci_ref="quay.io/...")
+        >>> report.set_stage("plugin-techdocs", "export", "pass")
+        >>> report.save()  # writes JSON with overall="pass", summary counts
     """
 
     def __init__(self, report_file: str | None):
@@ -437,11 +659,13 @@ class BuildReport:
         return self._path is not None
 
     def set_metadata(self, **fields) -> None:
+        """Update top-level metadata fields (e.g., backstage_version, node_version)."""
         if not self.enabled:
             return
         self._data.setdefault("metadata", {}).update(fields)
 
     def add_plugin(self, plugin_name: str, **info) -> None:
+        """Register a plugin in the report with optional info fields (e.g., package, version)."""
         if not self.enabled:
             return
         plugin = self._data.setdefault("plugins", {}).setdefault(
@@ -452,6 +676,7 @@ class BuildReport:
                 plugin[k] = v
 
     def set_stage(self, plugin_name: str, stage: str, status: str, **details) -> None:
+        """Record the outcome of a build stage for a specific plugin."""
         if not self.enabled:
             return
         plugin = self._data.setdefault("plugins", {}).setdefault(
@@ -462,12 +687,14 @@ class BuildReport:
         plugin.setdefault("stages", {})[stage] = stage_data
 
     def set_stage_all(self, stage: str, status: str, **details) -> None:
+        """Apply the same stage outcome to every plugin currently in the report."""
         if not self.enabled:
             return
         for plugin_name in self._data.get("plugins", {}):
             self.set_stage(plugin_name, stage, status, **details)
 
     def save(self) -> None:
+        """Compute per-plugin overall status and summary counts, then write to disk."""
         if not self.enabled:
             return
 

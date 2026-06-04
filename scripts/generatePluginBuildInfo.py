@@ -15,13 +15,14 @@
 # - midstream: from container env MIDSTREAM_REPO
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 import requests
 import yaml
-import hashlib
 
 from plugin_utils import (
     BuildReport,
@@ -43,24 +44,27 @@ RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 
 DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
+# Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
+VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
+
 
 def is_downstream_quay_rhdh() -> bool:
-    """Check if we're in downstream mode (quay.io/rhdh — NOT quay.io/rhdh-community)"""
+    """Check if REGISTRY_BASE is quay.io/rhdh (downstream supported, NOT quay.io/rhdh-community)."""
     return REGISTRY_BASE + "/" == QUAY_RHDH_PREFIX
 
 
 def is_downstream_rarc() -> bool:
-    """Check if the user requested registry.access.redhat.com output via -r"""
+    """Check if the user explicitly requested registry.access.redhat.com output via the ``-r`` flag."""
     return REGISTRY_BASE.startswith(RARC_DOMAIN)
 
 
 def _is_quay_rhdh_ref(registry_reference: str) -> bool:
-    """Check if a registry reference targets quay.io/rhdh/ (not quay.io/rhdh-community/)."""
+    """Per-reference check if a specific ref targets quay.io/rhdh/ (not quay.io/rhdh-community/)."""
     return registry_reference.startswith(QUAY_RHDH_PREFIX)
 
 
 def get_ghcr_token(repository: str) -> str | None:
-    """Get anonymous bearer token for ghcr.io"""
+    """Get an anonymous bearer token for ghcr.io"""
     try:
         url = f"https://ghcr.io/token?scope=repository:{repository}:pull&service=ghcr.io"
         response = requests.get(url, timeout=10)
@@ -72,10 +76,10 @@ def get_ghcr_token(repository: str) -> str | None:
 
 
 def get_registry_auth(registry: str, repository: str):
-    """
-    Get authentication for a registry.
-    Returns (auth_tuple, headers_dict) where auth_tuple is for basic auth
-    and headers_dict contains bearer token if applicable.
+    """Return auth tuple and headers for a given registry.
+
+    ghcr.io uses an anonymous bearer token; all other registries fall back to
+    basic auth via ``REGISTRY_USERNAME`` / ``REGISTRY_PASSWORD`` env vars.
     """
     auth = None
     extra_headers = {}
@@ -94,10 +98,9 @@ def get_registry_auth(registry: str, repository: str):
 
 
 def get_query_registry_reference(registry_reference: str) -> str:
-    """
-    Get the registry reference to use for querying.
-    For registry.access.redhat.com refs, swap to quay.io for unauthenticated verification.
-    Per-reference check — works with mixed-registry plugin_builds.
+    """Swap r.a.r.c refs to quay.io/rhdh for unauthenticated querying; leave other refs unchanged.
+
+    Per-reference check, so it works correctly with mixed-registry plugin_builds.
     """
     if registry_reference.startswith(RARC_RHDH_PREFIX):
         return registry_reference.replace(RARC_RHDH_PREFIX, QUAY_RHDH_PREFIX)
@@ -105,10 +108,9 @@ def get_query_registry_reference(registry_reference: str) -> str:
 
 
 def get_output_registry_reference(registry_reference: str) -> str:
-    """
-    Get the registry reference to use for output/storage.
-    Only swap quay.io/rhdh/ → registry.access.redhat.com/rhdh/ when the user
-    explicitly requested r.a.r.c output via -r registry.access.redhat.com/rhdh.
+    """Reverse swap: quay.io/rhdh → r.a.r.c, but ONLY when the user requested r.a.r.c output via ``-r``.
+
+    Leaves non-quay.io/rhdh refs (e.g., ghcr.io, quay.io/rhdh-community) unchanged.
     """
     if is_downstream_rarc() and _is_quay_rhdh_ref(registry_reference):
         return registry_reference.replace(QUAY_RHDH_PREFIX, RARC_RHDH_PREFIX)
@@ -116,7 +118,36 @@ def get_output_registry_reference(registry_reference: str) -> str:
 
 
 def parse_registry_reference(registry_reference: str) -> tuple[str, str, str] | None:
-    """Parse 'registry/repository:tag' into (registry, repository, tag). Returns None on failure."""
+    """Parse a container image reference into its (registry, repository, tag_or_digest) parts.
+
+    Accepts ``registry/repository:tag`` or ``registry/repository@sha256:...``
+    formats. References targeting registry.access.redhat.com are transparently
+    swapped to quay.io/rhdh before parsing via ``get_query_registry_reference``.
+
+    Args:
+        registry_reference: Full image reference string, e.g.
+            ``"ghcr.io/org/repo/plugin:bs_1.45.3__1.2.0"`` or
+            ``"quay.io/rhdh/plugin:1.11--1.5.4"`` or
+            ``"registry.access.redhat.com/rhdh/plugin@sha256:abc123"``.
+
+    Returns:
+        A tuple ``(registry, repository, tag_or_digest)`` on success, or
+        ``None`` if the reference cannot be parsed (e.g. missing ``/``,
+        missing both ``:`` and ``@``).
+
+    Example:
+        >>> parse_registry_reference("ghcr.io/org/repo/plugin:bs_1.45.3__1.2.0")
+        ('ghcr.io', 'org/repo/plugin', 'bs_1.45.3__1.2.0')
+
+        >>> parse_registry_reference("quay.io/rhdh/plugin:1.11--1.5.4")
+        ('quay.io', 'rhdh/plugin', '1.11--1.5.4')
+
+        >>> parse_registry_reference("registry.access.redhat.com/rhdh/plugin@sha256:abc123")
+        ('quay.io', 'rhdh/plugin', 'sha256:abc123')
+
+        >>> parse_registry_reference("invalid-no-slash")
+        None
+    """
     query_ref = get_query_registry_reference(registry_reference)
     parts = query_ref.split('/', 1)
     if len(parts) < 2:
@@ -135,7 +166,47 @@ def parse_registry_reference(registry_reference: str) -> tuple[str, str, str] | 
 
 
 def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, headers: dict) -> list[str]:
-    """List all tags matching a prefix from the registry (paginated), sorted by version."""
+    """List all tags matching a prefix from the registry, filtered to clean versions, sorted ascending.
+
+    Queries the Docker Registry HTTP API v2 with pagination to collect all tags,
+    then filters to only those starting with ``prefix`` whose suffix is a clean
+    version number (e.g. ``2.18.0``, ``1.5``).  This rejects Konflux/Tekton
+    build artifacts such as ``.att``, ``.sbom``, ``.sig``, ``.prefetch``, ``.git``,
+    ``.src``, ``.dockerfile``, bare SHA tags, ``on-pr-*``, ``rhdh-bsp-*``, etc.
+
+    Args:
+        registry: Registry hostname, e.g. ``"ghcr.io"`` or ``"quay.io"``.
+        repository: Image repository path, e.g. ``"rhdh/plugin-foo"``.
+        prefix: Tag prefix to match, e.g. ``"bs_1.49.4__"`` or ``"1.11--"``.
+        auth: Basic-auth tuple ``(username, password)`` or ``None``.
+        headers: Request headers dict (must include Accept and any Bearer token).
+
+    Returns:
+        Tags sorted in ascending version order.  The last element is the
+        latest version.  Empty list if no matching tags are found.
+
+    Example:
+        Given these tags in the registry for ``quay.io/rhdh/plugin-foo``::
+
+            "1.11--1.5.4"           # valid
+            "1.11--1.3.0"           # valid
+            "sha256-abc123.att"     # rejected (doesn't match prefix)
+            "on-pr-abc123.prefetch" # rejected (doesn't match prefix)
+
+        With ``prefix="1.11--"``, returns::
+
+            ["1.11--1.3.0", "1.11--1.5.4"]
+
+        Given these tags for ``ghcr.io/org/repo/plugin``::
+
+            "bs_1.49.4__2.14.0"    # valid
+            "bs_1.49.4__2.18.0"    # valid
+            "sha256:d054dbee..."    # rejected (doesn't match prefix)
+
+        With ``prefix="bs_1.49.4__"``, returns::
+
+            ["bs_1.49.4__2.14.0", "bs_1.49.4__2.18.0"]
+    """
     matched = []
     n = 500
     last = ""
@@ -149,7 +220,9 @@ def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, hea
                 break
             data = resp.json()
             tags = data.get("tags") or []
-            matched.extend(t for t in tags if t.startswith(prefix))
+            for t in tags:
+                if t.startswith(prefix) and VERSION_SUFFIX_RE.match(t[len(prefix):]):
+                    matched.append(t)
             if len(tags) < n:
                 break
             last = tags[-1] if tags else ""
@@ -173,9 +246,43 @@ def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, hea
 
 
 def resolve_fallback_tag(registry_reference: str) -> str | None:
-    """
-    When the exact tag doesn't exist, find the latest published tag with the same prefix.
-    Returns the full resolved registryReference, or None if no fallback found.
+    """Find the latest published tag sharing the same version prefix when the exact tag doesn't exist.
+
+    Constructs a prefix by splitting the tag on the registry-appropriate
+    separator (``"__"`` for ghcr.io, ``"--"`` for quay.io/rhdh) and keeping
+    everything up to and including the separator. Then queries the registry
+    for all tags with that prefix and returns the highest version.
+
+    Args:
+        registry_reference: Full image reference with the requested tag, e.g.
+            ``"quay.io/rhdh/plugin:1.11--1.6.0"`` or
+            ``"ghcr.io/org/repo/plugin:bs_1.45.3__2.18.0"``.
+
+    Returns:
+        The full registry reference with the fallback tag substituted, e.g.
+        ``"quay.io/rhdh/plugin:1.11--1.5.4"``. Returns ``None`` if no tags
+        match the prefix, if the reference cannot be parsed, or if the best
+        matching tag equals the originally requested tag (no fallback needed).
+
+    Example:
+        If ``quay.io/rhdh/plugin:1.11--1.6.0`` does not exist but
+        ``1.11--1.5.4`` and ``1.11--1.3.0`` do::
+
+            >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.11--1.6.0")
+            'quay.io/rhdh/plugin:1.11--1.5.4'
+
+        For ghcr.io with prefix ``bs_1.45.3__``::
+
+            >>> resolve_fallback_tag("ghcr.io/org/repo/plugin:bs_1.45.3__2.18.0")
+            'ghcr.io/org/repo/plugin:bs_1.45.3__2.14.0'
+
+        When the requested prefix has no tags at all — even if older prefixes
+        exist in the registry — the fallback returns ``None``.  For example,
+        if the registry has ``1.11--1.5.4`` and ``1.10--1.5.4`` but nothing
+        with prefix ``1.12--``::
+
+            >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.12--1.5.4")
+            None  # no tags match prefix "1.12--", older prefixes are ignored
     """
     parsed = parse_registry_reference(registry_reference)
     if not parsed:
@@ -207,9 +314,41 @@ def resolve_fallback_tag(registry_reference: str) -> str | None:
 
 
 def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
-    """
-    Fetch container image metadata from Docker Registry HTTP API v2.
-    Returns: dict with 'digest', 'build-date', 'vcs-ref', 'upstream', 'midstream' or None if failed.
+    """Fetch container image metadata via Docker Registry HTTP API v2.
+
+    Retrieves the image manifest to obtain the digest, then fetches the config
+    blob to extract build labels and environment variables. References targeting
+    registry.access.redhat.com are transparently swapped to quay.io/rhdh for
+    querying, since r.a.r.c requires authentication that may not be available.
+
+    Args:
+        registry_reference: Full image reference, e.g.
+            ``"ghcr.io/org/repo/plugin:bs_1.45.3__1.2.0"`` or
+            ``"quay.io/rhdh/plugin:1.11--1.5.4"``.
+
+    Returns:
+        A dict of metadata fields on success, or ``None`` on any failure
+        (timeout, HTTP error, invalid reference). The returned dict looks like::
+
+            {
+                'digest': 'sha256:a1b2c3d4...',
+                'build-date': '2025-05-01',
+                'vcs-ref': 'abc123def456',
+                'upstream': 'https://github.com/org/upstream-repo',
+                'midstream': 'https://github.com/org/midstream-repo',
+            }
+
+        Not all fields are guaranteed to be present; only ``'digest'`` is
+        always included on success. Labels (``build-date``, ``vcs-ref``) and
+        env vars (``upstream``, ``midstream``) depend on how the image was
+        built.
+
+    Example:
+        >>> _fetch_image_metadata("ghcr.io/org/repo/plugin:bs_1.45.3__1.2.0")
+        {'digest': 'sha256:a1b2c3...', 'build-date': '2025-05-01', 'vcs-ref': 'abc123'}
+
+        >>> _fetch_image_metadata("quay.io/rhdh/plugin:nonexistent-tag")
+        None
     """
     try:
         # Swap r.a.r.c → quay.io for queries as r.a.r.c is not always accessible without authentication
@@ -306,16 +445,47 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
 
 
 def get_image_metadata(registry_reference: str) -> dict | None:
-    """
-    Get container image metadata, with automatic fallback to the latest published
-    tag when the exact tag doesn't exist.
+    """Fetch container image metadata, with automatic fallback to the latest published tag.
 
-    Returns dict with 'digest', 'build-date', etc. and optionally:
-    - 'registryReference': resolved reference (only set when fallback changed it)
-    - 'fallback': True (only when fallback was used)
-    - 'requestedTag': original tag string (only when fallback was used)
+    Wraps ``_fetch_image_metadata`` with a two-step strategy: first tries the
+    exact tag, and if that fails, calls ``resolve_fallback_tag`` to find the
+    latest published tag with the same version prefix.
 
-    Returns None if metadata could not be fetched even after fallback.
+    Args:
+        registry_reference: Full image reference, e.g.
+            ``"quay.io/rhdh/plugin:1.11--1.6.0"``.
+
+    Returns:
+        A metadata dict on success, or ``None`` if metadata could not be
+        fetched even after fallback.
+
+        On a **direct hit** (exact tag exists), the dict contains only the
+        fields from ``_fetch_image_metadata``::
+
+            {'digest': 'sha256:...', 'build-date': '2025-05-01', ...}
+
+        On a **fallback hit** (exact tag missing, older tag used), the dict
+        includes three extra fields::
+
+            {
+                'digest': 'sha256:...',
+                'build-date': '2025-05-01',
+                'registryReference': 'quay.io/rhdh/plugin:1.11--1.5.4',
+                'fallback': True,
+                'requestedTag': '1.11--1.6.0',
+            }
+
+    Example:
+        Direct hit (tag ``1.11--1.5.4`` exists)::
+
+            >>> get_image_metadata("quay.io/rhdh/plugin:1.11--1.5.4")
+            {'digest': 'sha256:a1b2c3...', 'build-date': '2025-05-01'}
+
+        Fallback hit (tag ``1.11--1.6.0`` missing, ``1.11--1.5.4`` used)::
+
+            >>> get_image_metadata("quay.io/rhdh/plugin:1.11--1.6.0")
+            {'digest': 'sha256:a1b2c3...', 'registryReference': 'quay.io/rhdh/plugin:1.11--1.5.4',
+             'fallback': True, 'requestedTag': '1.11--1.6.0'}
     """
     metadata = _fetch_image_metadata(registry_reference)
     if metadata is not None:
@@ -346,9 +516,32 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
 
 def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> tuple[int, int, list[str], int, int]:
-    """
-    Update all plugin_builds/*.json files with image metadata
-    Returns: (updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count)
+    """Enrich plugin_builds JSON files with container image metadata from the registry.
+
+    The main enrichment pipeline. For each ``plugin_builds/*/*.json`` file,
+    fetches image metadata (digest, build-date, vcs-ref, upstream, midstream)
+    from the Docker Registry HTTP API v2 and writes the results back into the
+    JSON. Also updates the corresponding ``workspaces/*/metadata/*.yaml``
+    overlay files with the resolved ``dynamicArtifact`` OCI reference
+    (including digest).
+
+    Args:
+        plugin_builds_dir: Path to the ``plugin_builds/`` directory containing
+            per-workspace subdirectories with JSON files.
+        overlays_dir: Path to the overlays repository root (containing
+            ``workspaces/``). Used to locate and update metadata YAML files.
+        report: Optional ``BuildReport`` instance for tracking per-plugin
+            stage results (pass/fail with digest and fallback info).
+
+    Returns:
+        A 5-tuple of ``(updated_count, error_count, missing_refs,
+        overlays_metadata_changes, fallback_count)`` where:
+
+        - ``updated_count``: Number of JSON files successfully enriched.
+        - ``error_count``: Number of JSON files that failed to parse or process.
+        - ``missing_refs``: List of registry references where no image was found.
+        - ``overlays_metadata_changes``: Number of metadata YAML files updated.
+        - ``fallback_count``: Number of plugins that used a fallback tag.
     """
     if not plugin_builds_dir.exists():
         log_error(f"Plugin builds directory {plugin_builds_dir} does not exist")
