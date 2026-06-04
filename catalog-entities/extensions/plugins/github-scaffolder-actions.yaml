@@ -8,6 +8,9 @@ metadata:
   description: 'This plugin contains a collection of actions for working with GitHub'
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+  links:
+    - title: Red Hat Developer Hub Life Cycle Support Policy
+      url: https://access.redhat.com/support/policy/updates/developerhub
   tags:
     - software-templates
 spec:
