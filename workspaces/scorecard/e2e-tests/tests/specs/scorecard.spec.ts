@@ -84,8 +84,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric.title,
     );
   });
+
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
+
     test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
       const [githubMetric] = SCORECARD_METRICS;
       await aggregated.runAggregatedScorecardDrilldownScenario(
@@ -196,12 +198,8 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardHidden(githubMetric.title);
       await scorecard.expectScorecardHidden(jiraMetric.title);
       await scorecard.expectScorecardHidden(maintainedMetric.title);
-      await scorecard.expectScorecardHidden(
-        FILECHECK_METRICS.readme.title,
-      );
-      await scorecard.expectScorecardHidden(
-        FILECHECK_METRICS.license.title,
-      );
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.readme.title);
+      await scorecard.expectScorecardHidden(FILECHECK_METRICS.license.title);
 
       for (const metric of OPENSSF_LICENSE_SCORECARD) {
         await scorecard.validateScorecardAriaFor(metric);
@@ -296,7 +294,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     ] as const;
 
     for (const { entity, key, expected } of filecheckCases) {
-      // eslint-disable-next-line playwright/no-skipped-test
       // TODO: Re-enable once https://redhat.atlassian.net/browse/RHDHBUGS-3294 is fixed
       test.skip(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
         test.skip(
