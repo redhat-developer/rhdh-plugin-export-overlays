@@ -280,3 +280,155 @@ class TestGetOutputRegistryReference:
         generatePluginBuildInfo.REGISTRY_BASE = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
         ref = "ghcr.io/org/repo/plugin:bs_1.45.3__1.2.0"
         assert generatePluginBuildInfo.get_output_registry_reference(ref) == ref
+
+
+# ---------------------------------------------------------------------------
+# _fetch_image_metadata — real HTTP calls against fixed known images
+#
+# These tests use published images with stable digests that won't change.
+# ---------------------------------------------------------------------------
+
+# Fixed known images for testing
+GHCR_KNOWN_REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0"
+GHCR_KNOWN_DIGEST = "sha256:15128f76a6edca410f0aa83f48b63fbdbfc5c319404ee9cb577969a2140f2a56"
+
+QUAY_KNOWN_REF = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
+QUAY_KNOWN_DIGEST = "sha256:e8cb33e40f6f846adaf5e0446049d5a2a5e93a2a12cf8b610e3e0e346f98005c"
+
+
+class TestFetchImageMetadata:
+    """Tests for _fetch_image_metadata against real registries."""
+
+    def test_ghcr_returns_digest(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
+        assert metadata is not None
+        assert metadata["digest"] == GHCR_KNOWN_DIGEST
+
+    def test_ghcr_returns_dynamic_packages_annotation(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
+        assert metadata is not None
+        assert "io.backstage.dynamic-packages" in metadata
+
+    def test_ghcr_community_has_no_build_date(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
+        assert metadata is not None
+        assert "build-date" not in metadata
+
+    def test_quay_returns_digest(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+        assert metadata is not None
+        assert metadata["digest"] == QUAY_KNOWN_DIGEST
+
+    def test_quay_downstream_has_build_date(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+        assert metadata is not None
+        assert "build-date" in metadata
+        assert metadata["build-date"]  # non-empty
+
+    def test_quay_downstream_has_vcs_ref(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+        assert metadata is not None
+        assert "vcs-ref" in metadata
+
+    def test_quay_downstream_has_upstream_and_midstream(self):
+        metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
+        assert metadata is not None
+        assert "upstream" in metadata
+        assert "midstream" in metadata
+
+    def test_nonexistent_tag_returns_none(self):
+        bad_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__9999.99.9"
+        metadata = generatePluginBuildInfo._fetch_image_metadata(bad_ref)
+        assert metadata is None
+
+    def test_nonexistent_repo_returns_none(self):
+        bad_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/this-plugin-does-not-exist:bs_1.0.0__1.0.0"
+        metadata = generatePluginBuildInfo._fetch_image_metadata(bad_ref)
+        assert metadata is None
+
+
+# ---------------------------------------------------------------------------
+# get_image_metadata — fallback chain
+# ---------------------------------------------------------------------------
+
+class TestGetImageMetadata:
+    """Tests for get_image_metadata including the fallback path."""
+
+    def test_direct_hit_returns_metadata_without_fallback_fields(self):
+        """When the exact tag exists, no fallback fields are added."""
+        metadata = generatePluginBuildInfo.get_image_metadata(GHCR_KNOWN_REF)
+        assert metadata is not None
+        assert metadata["digest"] == GHCR_KNOWN_DIGEST
+        assert "fallback" not in metadata
+        assert "requestedTag" not in metadata
+
+    def test_fallback_to_older_tag(self):
+        """When the exact tag doesn't exist, falls back to latest available tag with same prefix."""
+        nonexistent_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__9999.99.9"
+        metadata = generatePluginBuildInfo.get_image_metadata(nonexistent_ref)
+        assert metadata is not None
+        assert metadata.get("fallback") is True
+        assert metadata["requestedTag"] == "bs_1.49.4__9999.99.9"
+        assert "registryReference" in metadata
+        assert "bs_1.49.4__" in metadata["registryReference"]
+        assert "9999" not in metadata["registryReference"]
+        assert metadata["digest"].startswith("sha256:")
+
+    def test_fallback_no_tags_for_prefix_returns_none(self):
+        """When the prefix has zero published tags, fallback returns None."""
+        nonexistent_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_9999.99.9__1.0.0"
+        metadata = generatePluginBuildInfo.get_image_metadata(nonexistent_ref)
+        assert metadata is None
+
+    def test_fallback_quay_with_absurd_version(self):
+        """Quay.io fallback with an absurd plugin version resolves to the latest real tag."""
+        nonexistent_ref = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--9999.99.9"
+        metadata = generatePluginBuildInfo.get_image_metadata(nonexistent_ref)
+        assert metadata is not None
+        assert metadata.get("fallback") is True
+        assert metadata["requestedTag"] == "1.11--9999.99.9"
+        assert "1.11--" in metadata["registryReference"]
+        assert "9999" not in metadata["registryReference"]
+
+
+# ---------------------------------------------------------------------------
+# resolve_fallback_tag
+# ---------------------------------------------------------------------------
+
+class TestResolveFallbackTag:
+    """Tests for resolve_fallback_tag against real registries."""
+
+    def test_ghcr_absurd_version_resolves_to_latest(self):
+        """An absurd plugin version with a valid prefix resolves to the latest real tag."""
+        nonexistent_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__9999.99.9"
+        result = generatePluginBuildInfo.resolve_fallback_tag(nonexistent_ref)
+        assert result is not None
+        assert "bs_1.49.4__" in result
+        assert "9999" not in result
+
+    def test_quay_absurd_version_resolves_to_latest(self):
+        nonexistent_ref = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--9999.99.9"
+        result = generatePluginBuildInfo.resolve_fallback_tag(nonexistent_ref)
+        assert result is not None
+        assert "1.11--" in result
+        assert "9999" not in result
+
+    def test_nonexistent_prefix_returns_none(self):
+        """When the prefix itself has no tags, returns None."""
+        nonexistent_ref = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_9999.99.9__1.0.0"
+        result = generatePluginBuildInfo.resolve_fallback_tag(nonexistent_ref)
+        assert result is None
+
+    def test_exact_tag_exists_returns_none(self):
+        """When the requested tag already exists, no fallback needed — returns None."""
+        result = generatePluginBuildInfo.resolve_fallback_tag(GHCR_KNOWN_REF)
+        assert result is None
+
+    def test_no_separator_in_tag_returns_none(self):
+        """Tags without a separator can't be split into prefix — returns None."""
+        result = generatePluginBuildInfo.resolve_fallback_tag("ghcr.io/org/repo:latest")
+        assert result is None
+
+    def test_unparseable_ref_returns_none(self):
+        result = generatePluginBuildInfo.resolve_fallback_tag("invalid")
+        assert result is None
