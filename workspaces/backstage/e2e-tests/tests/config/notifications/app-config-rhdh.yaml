@@ -1,0 +1,7 @@
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: test-token
+          subject: test-subject

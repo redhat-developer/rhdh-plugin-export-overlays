@@ -5,7 +5,6 @@ metadata:
 spec:
   application:
     extraFiles:
+      mountPath: /opt/app-root/src/rbac
       configMaps:
         - name: rbac-policy
-          key: rbac-policy.csv
-          mountPath: /opt/app-root/src/rbac/rbac-policy.csv
