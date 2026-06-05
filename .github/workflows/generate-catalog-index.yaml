@@ -250,7 +250,7 @@ jobs:
             fi
             if [[ $i -lt $MAX_RETRIES ]]; then
               echo "Push failed, retrying (attempt $((i+1))/$MAX_RETRIES)..."
-              git pull --rebase origin "$TARGET_BRANCH"
+              git pull -X theirs origin "$TARGET_BRANCH"
             else
               echo "Push failed after $MAX_RETRIES attempts"
               exit 1
