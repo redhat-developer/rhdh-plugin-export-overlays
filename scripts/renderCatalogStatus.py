@@ -2,7 +2,7 @@
 #
 # Copyright (c) Red Hat, Inc.
 #
-# Render build-report.json files into a GitHub Wiki markdown status page.
+# Render build-report.json files into a markdown status page.
 #
 # Usage:
 #   python3 renderCatalogStatus.py \
@@ -25,11 +25,27 @@ from pathlib import Path
 
 
 STAGE_LABELS = {
-    "bootstrap": "Bootstrap",
-    "registry-enrich": "Registry Enrich",
-    "dpdy": "DPDY",
-    "catalog-index": "Catalog Index",
+    "bootstrap": "Plugin Builds Bootstrap",
+    "image-metadata-fetch": "Image Metadata Fetch",
+    "dpdy": "DPDY Generation",
+    "catalog-index": "Catalog Index Generation",
 }
+
+REASON_ANCHORS = {
+    "Backstage version mismatch": "backstage-version-mismatch",
+    "Image not found in registry": "image-not-found-in-registry",
+}
+
+
+def reason_to_link(reason: str, troubleshooting_content: str) -> str:
+    """Convert a failure reason to an in-page troubleshooting anchor link if it matches a known prefix.
+    Only links if troubleshooting content is embedded in the page."""
+    if not troubleshooting_content:
+        return reason
+    for prefix, anchor in REASON_ANCHORS.items():
+        if reason.startswith(prefix):
+            return f"[{reason}](#{anchor})"
+    return reason
 
 
 def load_report(path: str) -> dict:
@@ -173,7 +189,7 @@ def workspace_link(source_repo: str, branch: str, workspace: str) -> str:
 
 def first_failed_stage(stages: dict) -> tuple[str, str]:
     """Return (stage_label, reason) for the first failed stage."""
-    for stage_key in ["bootstrap", "registry-enrich", "dpdy", "catalog-index"]:
+    for stage_key in ["bootstrap", "image-metadata-fetch", "dpdy", "catalog-index"]:
         stage = stages.get(stage_key, {})
         if stage.get("status") == "fail":
             label = STAGE_LABELS.get(stage_key, stage_key)
@@ -187,7 +203,7 @@ def render_tier(
     report: dict,
     source_repo: str,
     branch: str,
-    workflow_run_url: str,
+    troubleshooting_content: str = "",
     ghcr_version_ids: dict[str, int] | None = None,
 ) -> list[str]:
     """Render a single tier section."""
@@ -207,7 +223,7 @@ def render_tier(
     outdated = {k: v for k, v in plugins.items() if v.get("overall") == "outdated"}
     all_passed = {k: v for k, v in plugins.items() if v.get("overall") == "pass"}
     fallback = {k: v for k, v in all_passed.items()
-                if v.get("stages", {}).get("registry-enrich", {}).get("fallback")}
+                if v.get("stages", {}).get("image-metadata-fetch", {}).get("fallback")}
     passed = {k: v for k, v in all_passed.items() if k not in fallback}
 
     lines.append(f"## {tier_name} Catalog")
@@ -225,7 +241,7 @@ def render_tier(
             ver = p.get("version", "")
             stage_label, reason = first_failed_stage(p.get("stages", {}))
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
-            reason_link = f"[{reason}]({workflow_run_url})" if workflow_run_url else reason
+            reason_link = reason_to_link(reason, troubleshooting_content)
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {stage_label} | {reason_link} |")
         lines.append("")
 
@@ -261,7 +277,7 @@ def render_tier(
             ws = p.get("workspace", "")
             pkg = p.get("package", "")
             stages = p.get("stages", {})
-            enrich = stages.get("registry-enrich", {})
+            enrich = stages.get("image-metadata-fetch", {})
             requested = enrich.get("requestedTag", "")
             resolved = enrich.get("resolvedTag", "")
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
@@ -304,7 +320,7 @@ def count_fallbacks(report: dict) -> int:
     return sum(
         1 for p in report.get("plugins", {}).values()
         if p.get("overall") == "pass"
-        and p.get("stages", {}).get("registry-enrich", {}).get("fallback")
+        and p.get("stages", {}).get("image-metadata-fetch", {}).get("fallback")
     )
 
 
@@ -347,6 +363,7 @@ def render_status_page(
     rhdh_version: str,
     workflow_run_url: str,
     target_branch: str = "",
+    troubleshooting_content: str = "",
 ) -> str:
     """Render the complete status page markdown."""
     ghcr_refs = collect_ghcr_refs(supported_report, community_report)
@@ -403,12 +420,20 @@ def render_status_page(
 
     # Tier details
     if supported_report:
-        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, workflow_run_url, ghcr_version_ids))
+        lines.extend(render_tier("Supported", supported_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
     if community_report:
-        lines.extend(render_tier("Community", community_report, source_repo, source_branch, workflow_run_url, ghcr_version_ids))
+        lines.extend(render_tier("Community", community_report, source_repo, source_branch, troubleshooting_content, ghcr_version_ids))
+
+    if troubleshooting_content:
+        lines.append("")
+        lines.append(troubleshooting_content.rstrip())
+        lines.append("")
 
     lines.append("---")
-    lines.append(f"*Auto-generated by [generate-catalog-index]({source_repo}/blob/{source_branch}/.github/workflows/generate-catalog-index.yaml) workflow*")
+    if workflow_run_url:
+        lines.append(f"*Auto-generated by the [catalog index generation pipeline]({workflow_run_url})*")
+    else:
+        lines.append("*Auto-generated by the catalog index generation pipeline*")
     lines.append("")
 
     return "\n".join(lines)
@@ -416,7 +441,7 @@ def render_status_page(
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Render build-report.json files into a GitHub Wiki markdown status page.',
+        description='Render build-report.json files into a markdown status page.',
     )
     parser.add_argument(
         '--supported',
@@ -473,6 +498,12 @@ def main():
         help='URL of the workflow run',
     )
     parser.add_argument(
+        '--troubleshooting-content',
+        type=str,
+        metavar='PATH',
+        help='Path to troubleshooting markdown file to embed in the status page',
+    )
+    parser.add_argument(
         '--output',
         type=str,
         metavar='PATH',
@@ -488,6 +519,14 @@ def main():
         print("Error: At least one report file must be provided", file=sys.stderr)
         sys.exit(1)
 
+    troubleshooting_content = ""
+    if args.troubleshooting_content:
+        ts_path = Path(args.troubleshooting_content)
+        if ts_path.exists():
+            troubleshooting_content = ts_path.read_text(encoding='utf-8')
+        else:
+            print(f"Warning: Troubleshooting file not found: {args.troubleshooting_content}", file=sys.stderr)
+
     markdown = render_status_page(
         supported_report=supported_report,
         community_report=community_report,
@@ -498,6 +537,7 @@ def main():
         rhdh_version=args.rhdh_version,
         workflow_run_url=args.workflow_run_url,
         target_branch=args.target_branch,
+        troubleshooting_content=troubleshooting_content,
     )
 
     if args.output:

@@ -161,7 +161,7 @@ jobs:
           REPORT="catalog-index/supported/build-report.json"
           if [[ -f "$REPORT" ]]; then
             FAILED=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
-            FALLBACKS=$(jq '[.plugins[] | select(.stages["registry-enrich"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACKS=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
             if [[ "$FAILED" -eq 0 && "$FALLBACKS" -eq 0 ]]; then
               echo "clean=true" >> "$GITHUB_OUTPUT"
             else
@@ -192,7 +192,7 @@ jobs:
           REPORT="catalog-index/community/build-report.json"
           if [[ -f "$REPORT" ]]; then
             FAILED=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
-            FALLBACKS=$(jq '[.plugins[] | select(.stages["registry-enrich"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACKS=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
             if [[ "$FAILED" -eq 0 && "$FALLBACKS" -eq 0 ]]; then
               echo "clean=true" >> "$GITHUB_OUTPUT"
             else
@@ -282,7 +282,7 @@ jobs:
             if [[ ! -f "$REPORT" ]]; then continue; fi
 
             FAILED_COUNT=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
-            FALLBACK_COUNT=$(jq '[.plugins[] | select(.stages["registry-enrich"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACK_COUNT=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
 
             if [[ "$FAILED_COUNT" -gt 0 ]]; then
               FAILED_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.overall == "fail") | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
@@ -290,7 +290,7 @@ jobs:
               HAS_ISSUES=true
             fi
             if [[ "$FALLBACK_COUNT" -gt 0 ]]; then
-              FALLBACK_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages["registry-enrich"].fallback == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
+              FALLBACK_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages["image-metadata-fetch"].fallback == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
               echo "::warning::$TIER catalog: $FALLBACK_COUNT plugin(s) using fallback tags: $FALLBACK_PLUGINS"
               HAS_ISSUES=true
             fi
@@ -507,6 +507,7 @@ jobs:
             --backstage-version "$BS_VERSION" \
             --rhdh-version "$RHDH_VERSION" \
             --workflow-run-url "$WORKFLOW_RUN_URL" \
+            --troubleshooting-content user-guide/troubleshooting-catalog-index.md \
             --output /tmp/catalog-status.md
 
           # Write the same status page to the GitHub Job Summary
