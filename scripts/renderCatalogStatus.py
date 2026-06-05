@@ -246,7 +246,10 @@ def render_tier(
         lines.append("")
 
     if outdated:
-        lines.append(f"### ⚠️ Backstage Version Mismatch ({len(outdated)})")
+        if troubleshooting_content:
+            lines.append(f"### ⚠️ [Backstage Version Mismatch](#backstage-version-mismatch) ({len(outdated)})")
+        else:
+            lines.append(f"### ⚠️ Backstage Version Mismatch ({len(outdated)})")
         lines.append("")
         lines.append("> These plugins were excluded because their workspace targets an older Backstage minor version.")
         lines.append("> To resolve, try running `/update-commit` on their workspace PR (if it exists) or add a `backstage.json` override if no commit exists that updates the version.")
@@ -266,7 +269,10 @@ def render_tier(
         lines.append("")
 
     if fallback:
-        lines.append(f"### ⚠️ Outdated ({len(fallback)})")
+        if troubleshooting_content:
+            lines.append(f"### ⚠️ [Outdated](#plugin-marked-as-outdated) ({len(fallback)})")
+        else:
+            lines.append(f"### ⚠️ Outdated ({len(fallback)})")
         lines.append("")
         lines.append("> These plugins are using an older published tag because the requested version was not found in the registry.")
         lines.append("")
