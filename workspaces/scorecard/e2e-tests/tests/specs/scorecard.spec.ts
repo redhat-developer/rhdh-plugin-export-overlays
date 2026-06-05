@@ -85,7 +85,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     );
   });
 
-
   test.describe("Aggregated scorecard drill-down", () => {
     test.describe.configure({ retries: 1 });
 
