@@ -839,11 +839,33 @@
       "version": "3.37.0",
       "workspace": "tekton",
       "overall": "pass"
+    },
+    "backstage-community-plugin-quay-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.49.4__1.14.0"
+        },
+        "registry-enrich": {
+          "status": "pass",
+          "digest": "sha256:bca2b4635e67acb5c588e674d05f380d6d5cf113e2ff7e055b3e6839156d6fed"
+        },
+        "dpdy": {
+          "status": "skip"
+        },
+        "catalog-index": {
+          "status": "pass"
+        }
+      },
+      "package": "@backstage-community/plugin-quay-backend",
+      "version": "1.14.0",
+      "workspace": "quay",
+      "overall": "pass"
     }
   },
   "summary": {
-    "total": 38,
-    "succeeded": 38,
+    "total": 39,
+    "succeeded": 39,
     "failed": 0
   },
   "status": "success"

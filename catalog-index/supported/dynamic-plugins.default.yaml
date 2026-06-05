@@ -498,8 +498,7 @@ plugins:
           enabled: false
           saveToSingleFile:
             file: ${RHDH_EXTENSIONS_INSTALL_EXPORT_PATH}
-  # Tag: bs_1.49.4__2.9.0, Build date: 2026-06-03T21:21:04Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:56dfb171eb8a9b0244fdfdd5aaf9ed6b3d54ca613362c37bfa7495d2d778e839
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.9.0
     disabled: false
     pluginConfig:
       lightspeed:
@@ -532,8 +531,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  # Tag: bs_1.49.4__2.9.0, Build date: 2026-05-22T15:08:30Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:f6b492ac808fe7e3fd70e0c8f1816b4d5c401ae3c7023cacc179fab26db2601b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0
     disabled: false
     pluginConfig:
       lightspeed:
@@ -947,8 +945,7 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 15
-  # Tag: bs_1.49.4__0.4.10, Build date: 2026-05-21T20:54:16Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:70b0a1084483e2d45e9991eee6252078f59d52833e10ae9956019f1ef355e82e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.49.4__0.4.10
     disabled: true
     pluginConfig:
       events:
@@ -1115,8 +1112,7 @@ plugins:
     pluginConfig:
       bulkImport:
         importAPI: open-pull-requests
-  # Tag: bs_1.49.4__0.1.1, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:328d24f5381859ebc309567e5667fc623a0cdb2822c0154b665f04d477cd8de6
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1
     disabled: true
     pluginConfig:
       homepage:
@@ -1130,8 +1126,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  # Tag: bs_1.49.4__5.7.13, Build date: 2026-06-02T17:21:47Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:1036930e2b52c2903d1e9cc289f20f2e4916e47a1bf8c7a98f3638ce756e96da
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.13
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1165,15 +1160,13 @@ plugins:
                     if:
                       anyOf:
                         - IsOrchestratorCatalogTabAvailable
-  # Tag: bs_1.49.4__8.9.5, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:dfece9e77903dc25d383cf9cd75d7cb91c23379189d59af01b55a231e430a337
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.5
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.49.4__1.2.6, Build date: 2026-05-22T15:15:55Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:420d0f6413e2d3eeefc8fa7d920f7ca96a5d2de424a19aedc4f7a9ffbd9af4d8
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.49.4__1.2.6
     disabled: true
     pluginConfig:
       orchestrator:
@@ -1181,22 +1174,19 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  # Tag: bs_1.49.4__1.10.8, Build date: 2026-06-02T17:28:54Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:17dd8af2ac15df73968f904ed5a66e65fdbdfea9fc5572a9a8345bfe1176c46d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.8
     disabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  # Tag: bs_1.49.4__1.5.4, Build date: 2026-05-26T12:41:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:e5020a231d0c9bc3bfb598703174a808b13ce783aa2df665a69a187c79c6e5b7
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.49.4__1.5.4
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.49.4__5.6.0, Build date: 2026-05-26T12:41:25Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:a779095ed0b74f5cd4df96a80b4974a5a10bac516ad17000b72ee10bf15dda4c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0
     disabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1
     disabled: true
