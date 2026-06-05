@@ -47,8 +47,6 @@ jobs:
       community-ok: ${{ steps.gen-community.outputs.ok }}
       supported-clean: ${{ steps.gen-supported.outputs.clean }}
       community-clean: ${{ steps.gen-community.outputs.clean }}
-      supported-clean: ${{ steps.gen-supported.outputs.clean }}
-      community-clean: ${{ steps.gen-community.outputs.clean }}
       backstage-version: ${{ steps.versions.outputs.backstage-version }}
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
@@ -146,7 +144,6 @@ jobs:
           if scripts/update-index.sh \
             --overlays-dir . \
             --registry "$COMMUNITY_REGISTRY" \
-            --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/supported \
             --plugin-builds-dir plugin_builds/supported \
             --packages-file default.packages.yaml \
@@ -181,11 +178,9 @@ jobs:
           if scripts/update-index.sh \
             --overlays-dir . \
             --registry "$COMMUNITY_REGISTRY" \
-            --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/community \
             --plugin-builds-dir plugin_builds/community \
             --packages-file rhdh-community-packages.txt \
-            --report-file catalog-index/community/build-report.json; then
             --report-file catalog-index/community/build-report.json; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
@@ -273,8 +268,6 @@ jobs:
         env:
           SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
           COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
-          SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
-          COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
           SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
           COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
         run: |
@@ -443,8 +436,6 @@ jobs:
           PUBLISH_COMMUNITY_RESULT: ${{ needs.publish-community.result }}
           SUPPORTED_CLEAN: ${{ needs.generate.outputs.supported-clean }}
           COMMUNITY_CLEAN: ${{ needs.generate.outputs.community-clean }}
-          SUPPORTED_CLEAN: ${{ needs.generate.outputs.supported-clean }}
-          COMMUNITY_CLEAN: ${{ needs.generate.outputs.community-clean }}
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
         run: |
@@ -461,11 +452,9 @@ jobs:
             if [[ "$TIER" == "supported" ]]; then
               RESULT="${PUBLISH_SUPPORTED_RESULT}"
               CLEAN="${SUPPORTED_CLEAN}"
-              CLEAN="${SUPPORTED_CLEAN}"
               IMAGE="${SUPPORTED_CATALOG_INDEX}:${TAG}"
             else
               RESULT="${PUBLISH_COMMUNITY_RESULT}"
-              CLEAN="${COMMUNITY_CLEAN}"
               CLEAN="${COMMUNITY_CLEAN}"
               IMAGE="${COMMUNITY_CATALOG_INDEX}:${TAG}"
             fi
@@ -474,9 +463,6 @@ jobs:
               '.metadata["catalog-index-image"] = $image' \
               "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
 
-            # Only mark as last-successful-publish when publish succeeded AND catalog is clean
-            # (no fallback tags, no missing plugins)
-            if [[ "$RESULT" == "success" && "$CLEAN" == "true" ]]; then
             # Only mark as last-successful-publish when publish succeeded AND catalog is clean
             # (no fallback tags, no missing plugins)
             if [[ "$RESULT" == "success" && "$CLEAN" == "true" ]]; then
