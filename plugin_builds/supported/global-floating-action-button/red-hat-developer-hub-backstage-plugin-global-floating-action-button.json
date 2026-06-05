@@ -1,8 +1,8 @@
 {
   "red-hat-developer-hub-backstage-plugin-global-floating-action-button": {
     "workspacePath": "global-floating-action-button/plugins/global-floating-action-button",
-    "registryReference": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-floating-action-button:1.11--1.9.3",
-    "digest": "sha256:2a1c86efc997cac5a34b813cc5e0b9d05c0b99cf1faf6de77bcf4c2e0aa95aa2",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-floating-action-button:bs_1.49.4__1.9.3",
+    "digest": "sha256:1d7ad1004395dd53dbf5f340ad30e91ca564bd14f89f8cc6dfa8db0cb5bf789b",
     "build-date": "2026-06-03T21:08:50Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

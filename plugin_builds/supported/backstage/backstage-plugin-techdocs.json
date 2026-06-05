@@ -1,8 +1,8 @@
 {
   "backstage-plugin-techdocs": {
     "workspacePath": "backstage/plugins/techdocs",
-    "registryReference": "quay.io/rhdh/backstage-plugin-techdocs:1.11--1.17.2",
-    "digest": "sha256:b429fb7dca4ab7b118b3ad951960a1503a32750dd17bb705368267105401162e",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs:bs_1.49.4__1.17.2",
+    "digest": "sha256:74c711368590a2d68c53de89c3e065386de48d70b5bb3d258a05dd971d946083",
     "build-date": "2026-06-03T21:12:19Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

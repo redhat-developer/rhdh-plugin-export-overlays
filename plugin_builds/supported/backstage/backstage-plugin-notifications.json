@@ -1,8 +1,8 @@
 {
   "backstage-plugin-notifications": {
     "workspacePath": "backstage/plugins/notifications",
-    "registryReference": "quay.io/rhdh/backstage-plugin-notifications:1.11--0.5.15",
-    "digest": "sha256:5a07642fbf1a910864fca3e4ed273f12f790cf9cb8ccbfd1e428e1145d738560",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.49.4__0.5.15",
+    "digest": "sha256:f0774cac4b4a16269cc1a412ae356f33d55cfcd31ad0c4f2c93d8137bca94c8a",
     "build-date": "2026-06-03T21:14:02Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

@@ -1,8 +1,8 @@
 {
   "backstage-community-plugin-topology": {
     "workspacePath": "topology/plugins/topology",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-topology:1.11--2.12.3",
-    "digest": "sha256:7610543ccb2b94c4dce54ee17f5bc1e9e76899a714600cf1276da031068ec42d",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.49.4__2.12.3",
+    "digest": "sha256:9e244fe9ef16b2b9ee6887d6045694cafce1319bd213acb9b5063b724d5422fe",
     "build-date": "2026-06-03T21:11:38Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

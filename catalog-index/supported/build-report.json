@@ -8,11 +8,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-acr:1.11--1.24.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.49.4__1.24.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:6a2e3a29ab37b4615e36ad2f4c3e3769aa5593c8bc2c9a028b66c2d20c2a0760"
+          "digest": "sha256:d43bfc064a574ba786647eb479c97193c9c2c2e3bd9f528ec942f715540b3fec"
         },
         "dpdy": {
           "status": "pass"
@@ -30,11 +30,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:1.11--0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.49.4__0.8.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:6e044bd6bfca95a4cfe7d20b774b0a4c2493ad502f0080ed2c6e05e71868ad51"
+          "digest": "sha256:2fbc7699cca43f30bb660a3a9cb1b8c109894823be6d6d065d915d3327a82a1c"
         },
         "dpdy": {
           "status": "pass"
@@ -52,11 +52,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights:1.11--0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights:bs_1.49.4__0.8.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:18a72849538e844780759691b5761f0511a06a0dd2dfac05cfdc17b38d95c6c4"
+          "digest": "sha256:ff25eb151a5d228c48f6e28a05e65aee37d3840f42f74a8fe1ae46fbd52c30b8"
         },
         "dpdy": {
           "status": "pass"
@@ -74,11 +74,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:1.11--0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:bs_1.49.4__0.8.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:677a42f9cac32950b0197293802e57f7f61f0e7b1cc5e36ebb84780837a5bbe3"
+          "digest": "sha256:1f268cb927505a8f3980be7a911cecd8f54b7e82dc2659dfa1476043865cee2b"
         },
         "dpdy": {
           "status": "pass"
@@ -96,11 +96,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-analytics-provider-segment:1.11--1.27.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.49.4__1.27.0"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:8029ffb06543585db0bffca84bd6588840c1d0f6abd372eb7cdfba11c4631eef"
+          "digest": "sha256:429cd3c0613615e641a37f9d52aa0f05c65253f5dbce287e43c99b6850396c15"
         },
         "dpdy": {
           "status": "pass"
@@ -118,11 +118,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-github-org:1.11--0.3.20"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org:bs_1.49.4__0.3.20"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:30f95d98f18d279ca1d2191474598e2f10f144839b04065cc539eeb12c54c6e8"
+          "digest": "sha256:7dfe90a976a13749e4c7c2c3d3ab862e9a63e686f56817baeaadffd9f6726694"
         },
         "dpdy": {
           "status": "pass"
@@ -140,11 +140,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-github:1.11--0.13.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.49.4__0.13.0"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:1ef8cdfc9fb925323b2fd55dc50ddece452adcaf3eaf8f38a4021b215eb475be"
+          "digest": "sha256:8a6db6498660177c207a503382d988d8c326dfb440410177f0b0873345178089"
         },
         "dpdy": {
           "status": "pass"
@@ -162,11 +162,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab-org:1.11--0.2.19"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.49.4__0.2.19"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:d074cbac598faf5313419f2d7ebba89f7f27fe1e8b39cd9b51dd65a74c955f34"
+          "digest": "sha256:aa779180aae2e263c9f124051716c97d800671f1deb4f0404515790db535b24d"
         },
         "dpdy": {
           "status": "pass"
@@ -184,11 +184,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab:1.11--0.8.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab:bs_1.49.4__0.8.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:76c0034d8d0c4f1aa79066243dbeea1f7a912404c20a891d18038d9021500d9f"
+          "digest": "sha256:47e50ba1c1305edfaac1c5334e45d17f6556b98c1a0b465afce5a8080cf482c4"
         },
         "dpdy": {
           "status": "pass"
@@ -206,11 +206,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-ldap:1.11--0.12.3"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap:bs_1.49.4__0.12.3"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:e719c6513040ce1d15ce570e80d8733938bbc878213c506a7040cbd6ac00c7c5"
+          "digest": "sha256:bb9a29e0c51e056b829dad3f9ff05d87bcaed602372a640f9c3e425620422c6d"
         },
         "dpdy": {
           "status": "pass"
@@ -228,11 +228,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-catalog-backend-module-msgraph:1.11--0.9.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph:bs_1.49.4__0.9.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:77ca5627b16fc59d61b28f450ebfea1037eab49ec3efaa343bd180fc269882b3"
+          "digest": "sha256:fc38fe113e8add4338a2679d300e330deb750e61e82ec0462c9d95b862644e01"
         },
         "dpdy": {
           "status": "pass"
@@ -250,11 +250,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-events-backend-module-github:1.11--0.4.10"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.49.4__0.4.10"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:1f8e8788a7531018482666db0719b81219758b9ea62b96ced4cda4b2de2e3958"
+          "digest": "sha256:70b0a1084483e2d45e9991eee6252078f59d52833e10ae9956019f1ef355e82e"
         },
         "dpdy": {
           "status": "pass"
@@ -272,11 +272,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-events-backend-module-gitlab:1.11--0.3.10"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-gitlab:bs_1.49.4__0.3.10"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:aa49a7192020bd0cd575cf170028e6f5cc4350666817dcbe4a6ad22eecf8cea4"
+          "digest": "sha256:438ccfb6266030f8bf17b671409669bd122668347c3d3071d4ced17064103f07"
         },
         "dpdy": {
           "status": "pass"
@@ -294,11 +294,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-kubernetes-backend:1.11--0.21.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend:bs_1.49.4__0.21.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:f5509d7478eb5a6f8ee97f9c52ad36ec0c3c73dade12eff0ffb5a2b6815e0e9d"
+          "digest": "sha256:41bf921714825f4d71de94c83ceab9fc393c0bf95eab84f3b0175bce98c2fbbd"
         },
         "dpdy": {
           "status": "pass"
@@ -316,11 +316,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-kubernetes:1.11--0.12.17"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.49.4__0.12.17"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:612c8c491f41f7ff0617f27c9702a18a2810a287924b3e830f405ab69eb321ef"
+          "digest": "sha256:2137555f279fb09db38092fce9e1780c8638f69c6f77490a73dd5a05535b254b"
         },
         "dpdy": {
           "status": "pass"
@@ -338,11 +338,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications-backend-module-email:1.11--0.3.19"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email:bs_1.49.4__0.3.19"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:a51572906efd70401e28a589b02b8f678d88d542113c0111e4c0d88a65c0e0db"
+          "digest": "sha256:c92785f1cdf2bdf4620e84d9308a492a946d9e572d258d424ae85b036a3c9b7a"
         },
         "dpdy": {
           "status": "pass"
@@ -360,11 +360,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications-backend:1.11--0.6.3"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend:bs_1.49.4__0.6.3"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:71a380194c316022b8cca9575da8bd1629b1d2db78ff3e26e59c06132103d05a"
+          "digest": "sha256:a47e779675daf9303b528f71f05f433119d75e6a521e2e464ac08265ab9f7e55"
         },
         "dpdy": {
           "status": "pass"
@@ -382,11 +382,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-notifications:1.11--0.5.15"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.49.4__0.5.15"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:5a07642fbf1a910864fca3e4ed273f12f790cf9cb8ccbfd1e428e1145d738560"
+          "digest": "sha256:f0774cac4b4a16269cc1a412ae356f33d55cfcd31ad0c4f2c93d8137bca94c8a"
         },
         "dpdy": {
           "status": "pass"
@@ -404,11 +404,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-github:1.11--0.9.7"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github:bs_1.49.4__0.9.7"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:4cdd9dc09e8136a44e0aada184167ee7b6118965dd1f66ddcdfb6efbb71e5621"
+          "digest": "sha256:624e7839395c043e5c19044b0a582d744bc458145276216d59f8ed78afa65389"
         },
         "dpdy": {
           "status": "pass"
@@ -426,11 +426,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-gitlab:1.11--0.11.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab:bs_1.49.4__0.11.4"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:28f175ca7e2100a0a66dd1a2eb0423c1e36fbac1804a0cb3059b763ec7787397"
+          "digest": "sha256:7c6cb63f90acb7d4425a4ad658037bb22ddcebd1446e6d9b72795d0ead6e2448"
         },
         "dpdy": {
           "status": "pass"
@@ -448,11 +448,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-signals-backend:1.11--0.3.13"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend:bs_1.49.4__0.3.13"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:94d18cc600020390b32ce86fbbff5b1626a4580aaf6be5a0efe5ecf8f8040cc8"
+          "digest": "sha256:268ad7690b66ea8f5b30bce5043efcf2cd52caae274774bae8cf862e64238a5d"
         },
         "dpdy": {
           "status": "pass"
@@ -470,11 +470,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-signals:1.11--0.0.29"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.49.4__0.0.29"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:fc597a76eb4f93c1c720263739843b3a95dc999a7bc015d368e7e8ba2fb78728"
+          "digest": "sha256:4233192dc9ff4cce02e203126a5a93360546803e91e898c2652ef442fbc33d9d"
         },
         "dpdy": {
           "status": "pass"
@@ -492,11 +492,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs-backend:1.11--2.1.6"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend:bs_1.49.4__2.1.6"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:daa2118de54cb15f680d4c39945363a8ec865fde9a2f73e5c3cd7ff878b26bc0"
+          "digest": "sha256:0a4db4b18a40f1c14671ec7f6225ac3da92b64462a077aaeb08aa416b6521a9d"
         },
         "dpdy": {
           "status": "pass"
@@ -514,11 +514,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs-module-addons-contrib:1.11--1.1.34"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib:bs_1.49.4__1.1.34"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:8e7cb9e35dfcb1bbae0358005e7ad114bf69877ac243992569b74e2055fa2f50"
+          "digest": "sha256:5ebec06270319c5aebd3a4e284920b65a47586a1a4f2559a4a89e238af1cd9c5"
         },
         "dpdy": {
           "status": "pass"
@@ -536,11 +536,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-plugin-techdocs:1.11--1.17.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs:bs_1.49.4__1.17.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:b429fb7dca4ab7b118b3ad951960a1503a32750dd17bb705368267105401162e"
+          "digest": "sha256:74c711368590a2d68c53de89c3e065386de48d70b5bb3d258a05dd971d946083"
         },
         "dpdy": {
           "status": "pass"
@@ -558,11 +558,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bulk-import-backend:1.11--7.3.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend:bs_1.49.4__7.3.5"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:bf81d41a3b077ae4a2dc3462c6da9ce201a27ee7fdfcd4aafb9d80f114a16437"
+          "digest": "sha256:9a2a2fca0a9c369f6946572414eced679725c11bda288e79a644a53e6eb4a06a"
         },
         "dpdy": {
           "status": "pass"
@@ -580,11 +580,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-bulk-import:1.11--7.3.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import:bs_1.49.4__7.3.5"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:21bf50f78ae5e72a70c10721f89ea2bbff45817ef442bba745f318cd54f75e52"
+          "digest": "sha256:44cf95cec2f05eeae48a0b39022ea9cb5b4927a46bab48b66b46a7e26f567048"
         },
         "dpdy": {
           "status": "pass"
@@ -602,11 +602,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions:1.11--0.17.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions:bs_1.49.4__0.17.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:c1011ad5f613254de253d5936cc4091dd2232546236f06066f53b22a9e557959"
+          "digest": "sha256:15b8d688d4dc77d0951a8f53674b2277b92ace5c8bc367185e1c88d9ddf8b655"
         },
         "dpdy": {
           "status": "pass"
@@ -624,11 +624,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-extensions-backend:1.11--0.17.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend:bs_1.49.4__0.17.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:e7113305882b5753a0de051067cc4eadfc3c073b9a9231dea8c56c7586959346"
+          "digest": "sha256:f56fd8343f7db1bce0b1e0b9c70475315fa75d5f039f983dd949c28ae354f8ba"
         },
         "dpdy": {
           "status": "pass"
@@ -646,11 +646,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-extensions:1.11--0.17.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions:bs_1.49.4__0.17.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:62aff650080aa9572d9111d205b2a2b04ae2c7ac6decbceb04581c78518c5ae0"
+          "digest": "sha256:303c81701909b92a98848c695fc6cf33dd13b817fd4ee3e6742cbd6fe031a41e"
         },
         "dpdy": {
           "status": "pass"
@@ -668,11 +668,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-floating-action-button:1.11--1.9.3"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-floating-action-button:bs_1.49.4__1.9.3"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:2a1c86efc997cac5a34b813cc5e0b9d05c0b99cf1faf6de77bcf4c2e0aa95aa2"
+          "digest": "sha256:1d7ad1004395dd53dbf5f340ad30e91ca564bd14f89f8cc6dfa8db0cb5bf789b"
         },
         "dpdy": {
           "status": "pass"
@@ -690,11 +690,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:1.11--1.21.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.49.4__1.21.5"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:e4afe422519871e377b0b7d0f9f72bed1be6b08000fee65d9c87b27e44e85325"
+          "digest": "sha256:b5972daba184e3ed3404c28812990d2072cfe6c549738306aaf5036624d64abf"
         },
         "dpdy": {
           "status": "pass"
@@ -712,11 +712,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-dynamic-home-page:1.11--1.13.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:5bb10e756bf8b8e3c5dfb3d11c90e81b685e462966e0f10f24139ca847fa9718"
+          "digest": "sha256:69499193ec15559666a09e25c00cea3d54efbd898f2f5418a24578ea705cf44f"
         },
         "dpdy": {
           "status": "pass"
@@ -734,11 +734,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage-backend:1.11--0.1.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:517fcea03d5a173345fa6a4e9e94864d4064ba950b67d3bd14c977af13686573"
+          "digest": "sha256:328d24f5381859ebc309567e5667fc623a0cdb2822c0154b665f04d477cd8de6"
         },
         "dpdy": {
           "status": "pass"
@@ -756,11 +756,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:1.11--3.19.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak:bs_1.49.4__3.19.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:bd7d1ae67cf53aaa52676a71f27ddfdbf9021dccde43575db203f9a1c4272fb0"
+          "digest": "sha256:837e21133285d2b8462b54f15402f103314a66a56869e6ce1da09dce0bfb6cf2"
         },
         "dpdy": {
           "status": "pass"
@@ -778,57 +778,55 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
+          "status": "pass",
+          "digest": "sha256:f6b492ac808fe7e3fd70e0c8f1816b4d5c401ae3c7023cacc179fab26db2601b"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed-backend:1.11--2.9.0"
+          "status": "pass"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed-backend",
       "version": "2.9.0",
       "workspace": "lightspeed",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-lightspeed": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.9.0"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
+          "status": "pass",
+          "digest": "sha256:56dfb171eb8a9b0244fdfdd5aaf9ed6b3d54ca613362c37bfa7495d2d778e839"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-lightspeed:1.11--2.9.0"
+          "status": "pass"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed",
       "version": "2.9.0",
       "workspace": "lightspeed",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:1.11--1.2.6"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.49.4__1.2.6"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:77c459e27fd68f6b7ae7f89c24182c9d840bcdc1d85bd29ddc1cca8afcd30560"
+          "digest": "sha256:420d0f6413e2d3eeefc8fa7d920f7ca96a5d2de424a19aedc4f7a9ffbd9af4d8"
         },
         "dpdy": {
           "status": "pass"
@@ -846,80 +844,77 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend:1.11--8.9.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.5"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend:1.11--8.9.5"
+          "status": "pass",
+          "digest": "sha256:dfece9e77903dc25d383cf9cd75d7cb91c23379189d59af01b55a231e430a337"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend:1.11--8.9.5"
+          "status": "pass"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
       "version": "8.9.5",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:1.11--1.10.8"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.8"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:1.11--1.10.8"
+          "status": "pass",
+          "digest": "sha256:17dd8af2ac15df73968f904ed5a66e65fdbdfea9fc5572a9a8345bfe1176c46d"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:1.11--1.10.8"
+          "status": "pass"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
       "version": "1.10.8",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:1.11--5.7.13"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.13"
         },
         "registry-enrich": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:1.11--5.7.13"
+          "status": "pass",
+          "digest": "sha256:1036930e2b52c2903d1e9cc289f20f2e4916e47a1bf8c7a98f3638ce756e96da"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: quay.io/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:1.11--5.7.13"
+          "status": "pass"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
       "version": "5.7.13",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.49.4__1.5.4"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:e8cb33e40f6f846adaf5e0446049d5a2a5e93a2a12cf8b610e3e0e346f98005c"
+          "digest": "sha256:e5020a231d0c9bc3bfb598703174a808b13ce783aa2df665a69a187c79c6e5b7"
         },
         "dpdy": {
           "status": "pass"
@@ -937,11 +932,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-pingidentity:1.11--0.11.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.49.4__0.11.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:d8547ddfc756d05441b7345861be5d8f5d4a2aec1690f2a61a0b99fa39c308a8"
+          "digest": "sha256:ba2b72891504ea4c3dcf8282f527fa0ec6eb221523dab8fe8147a460acc12996"
         },
         "dpdy": {
           "status": "pass"
@@ -1025,11 +1020,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:1.11--1.9.6"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.49.4__1.9.6"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:8323ee28e2bad942d272d6714a704efe57872e445aeb09b5dc165bf68162bcdb"
+          "digest": "sha256:9f40ecaf216bbc054c3405f76b751fe62a15d7a27ad723637bd2383500b706b3"
         },
         "dpdy": {
           "status": "pass"
@@ -1047,11 +1042,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-rbac:1.11--1.52.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.49.4__1.52.4"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:857485ec763288d645a38954ab5ad0074e47751aad054358b89f309590de6dba"
+          "digest": "sha256:acf0f63ce06edbfc2e49b90b18d7625dc92f6970efae4e337a9887df4cf4a2c6"
         },
         "dpdy": {
           "status": "pass"
@@ -1113,11 +1108,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/roadiehq-scaffolder-backend-module-http-request:1.11--5.6.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:dac6c6cbf5caee56df0e9637ca1ff054d773f0baa5fea7a3aa7d2f626115db6f"
+          "digest": "sha256:a779095ed0b74f5cd4df96a80b4974a5a10bac516ad17000b72ee10bf15dda4c"
         },
         "dpdy": {
           "status": "pass"
@@ -1135,11 +1130,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes:1.11--2.17.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.49.4__2.17.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:92fd28e3c92e4140fc0c037af31ef35385da68c04cc7a6e07a286a24c7de73dc"
+          "digest": "sha256:a9a28f74a8f5526338e30c5da78441ca779458832c11428efb4bc0d79f6b7e04"
         },
         "dpdy": {
           "status": "pass"
@@ -1157,11 +1152,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-regex:1.11--2.15.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.49.4__2.15.1"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:7d686046e8451d48045e6e3ce3caa92ea0ac118bd85c87adf89e776c0e56f837"
+          "digest": "sha256:febed9a5a0066359decfbb47a26c1d2b0d87ba16029bd8590ed8ed6ea5b33592"
         },
         "dpdy": {
           "status": "pass"
@@ -1179,11 +1174,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:1.11--2.14.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.49.4__2.14.2"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:1d1441674d2631fb13b23c8738349c3f6ff56ce01ec61ac3910cf1fc8ee0190e"
+          "digest": "sha256:3baa36ae3decff931c24eeebe826cf8acaea886924e288c70813efce6450c894"
         },
         "dpdy": {
           "status": "pass"
@@ -1201,11 +1196,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-tech-radar-backend:1.11--1.16.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend:bs_1.49.4__1.16.0"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:b6b10b78b3df5437930b5683174420cae79f339919a315c4a16cf2f62a66ffe9"
+          "digest": "sha256:66f8ebd2737acd76af72ed243002e7796980c9a17c8f65e6087a293198bf40c2"
         },
         "dpdy": {
           "status": "pass"
@@ -1223,11 +1218,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-tech-radar:1.11--1.17.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:bs_1.49.4__1.17.0"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:caf2952b7f0eabe6613a55a3a4c99b4fe42ee50a81babd2c49bd47de14ae0250"
+          "digest": "sha256:7476084746d75d034a3994c2bf109448f408010e8ee21df68812a32f1433b38e"
         },
         "dpdy": {
           "status": "pass"
@@ -1267,11 +1262,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "quay.io/rhdh/backstage-community-plugin-topology:1.11--2.12.3"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.49.4__2.12.3"
         },
         "registry-enrich": {
           "status": "pass",
-          "digest": "sha256:7610543ccb2b94c4dce54ee17f5bc1e9e76899a714600cf1276da031068ec42d"
+          "digest": "sha256:9e244fe9ef16b2b9ee6887d6045694cafce1319bd213acb9b5063b724d5422fe"
         },
         "dpdy": {
           "status": "pass"
@@ -1288,8 +1283,8 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 53,
-    "failed": 5
+    "succeeded": 58,
+    "failed": 0
   },
-  "status": "partial"
+  "status": "success"
 }

@@ -1,8 +1,8 @@
 {
   "backstage-community-plugin-scaffolder-backend-module-kubernetes": {
-    "workspacePath": "scaffolder-backend-module-kubernetes/backstage-community-plugin-scaffolder-backend-module-kubernetes",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes:1.11--2.17.1",
-    "digest": "sha256:92fd28e3c92e4140fc0c037af31ef35385da68c04cc7a6e07a286a24c7de73dc",
+    "workspacePath": "scaffolder-backend-module-kubernetes/plugins/kubernetes-actions",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.49.4__2.17.1",
+    "digest": "sha256:a9a28f74a8f5526338e30c5da78441ca779458832c11428efb4bc0d79f6b7e04",
     "build-date": "2026-05-26T12:41:25Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

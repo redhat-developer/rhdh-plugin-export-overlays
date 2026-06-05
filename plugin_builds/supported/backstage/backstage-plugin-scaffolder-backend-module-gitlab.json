@@ -1,8 +1,8 @@
 {
   "backstage-plugin-scaffolder-backend-module-gitlab": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-gitlab",
-    "registryReference": "quay.io/rhdh/backstage-plugin-scaffolder-backend-module-gitlab:1.11--0.11.4",
-    "digest": "sha256:28f175ca7e2100a0a66dd1a2eb0423c1e36fbac1804a0cb3059b763ec7787397",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab:bs_1.49.4__0.11.4",
+    "digest": "sha256:7c6cb63f90acb7d4425a4ad658037bb22ddcebd1446e6d9b72795d0ead6e2448",
     "build-date": "2026-05-21T21:20:59Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

@@ -1,8 +1,8 @@
 {
   "backstage-community-plugin-rbac": {
     "workspacePath": "rbac/plugins/rbac",
-    "registryReference": "quay.io/rhdh/backstage-community-plugin-rbac:1.11--1.52.4",
-    "digest": "sha256:857485ec763288d645a38954ab5ad0074e47751aad054358b89f309590de6dba",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.49.4__1.52.4",
+    "digest": "sha256:acf0f63ce06edbfc2e49b90b18d7625dc92f6970efae4e337a9887df4cf4a2c6",
     "build-date": "2026-06-03T21:19:15Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

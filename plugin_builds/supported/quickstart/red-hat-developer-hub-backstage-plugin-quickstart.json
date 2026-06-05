@@ -1,8 +1,8 @@
 {
   "red-hat-developer-hub-backstage-plugin-quickstart": {
     "workspacePath": "quickstart/plugins/quickstart",
-    "registryReference": "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:1.11--1.9.6",
-    "digest": "sha256:8323ee28e2bad942d272d6714a704efe57872e445aeb09b5dc165bf68162bcdb",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.49.4__1.9.6",
+    "digest": "sha256:9f40ecaf216bbc054c3405f76b751fe62a15d7a27ad723637bd2383500b706b3",
     "build-date": "2026-06-03T21:14:06Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",

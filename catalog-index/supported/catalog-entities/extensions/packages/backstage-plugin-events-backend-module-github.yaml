@@ -17,8 +17,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-events-backend-module-github"
-  # Tag: 1.11--0.4.10, Build date: 2026-05-21T20:54:16Z
-  dynamicArtifact: "oci://quay.io/rhdh/backstage-plugin-events-backend-module-github@sha256:1f8e8788a7531018482666db0719b81219758b9ea62b96ced4cda4b2de2e3958"
+  # Tag: bs_1.49.4__0.4.10, Build date: 2026-05-21T20:54:16Z
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:70b0a1084483e2d45e9991eee6252078f59d52833e10ae9956019f1ef355e82e"
   version: 0.4.10
   backstage:
     role: backend-plugin-module
