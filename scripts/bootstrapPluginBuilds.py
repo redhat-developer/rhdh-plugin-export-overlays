@@ -24,8 +24,7 @@ from plugin_utils import (
     log_warn,
     log_error,
     set_debug,
-    read_plugins_list,
-    match_metadata_to_plugin_path,
+    build_workspace_mappings,
     load_and_resolve_to_npm_names,
 )
 
@@ -216,6 +215,9 @@ Examples:
 
     print(f"\n{Colors.GREEN}=== Bootstrap plugin_builds from workspace metadata ==={Colors.NORM}\n")
 
+    # Build workspace mappings upfront for stem → workspace path resolution
+    ws_mappings = build_workspace_mappings(overlays_dir)
+
     # Find all workspace directories with metadata
     workspace_dirs = sorted([
         d for d in workspaces_dir.iterdir()
@@ -230,7 +232,6 @@ Examples:
     for workspace_dir in workspace_dirs:
         workspace_name = workspace_dir.name
         metadata_dir = workspace_dir / "metadata"
-        plugin_paths = read_plugins_list(workspace_dir)
 
         yaml_files = sorted(metadata_dir.glob("*.yaml"))
         if not yaml_files:
@@ -252,14 +253,6 @@ Examples:
                 package_name = spec.get('packageName', '')
                 support_level = spec.get('support', '')
 
-                # Derive workspacePath
-                matched_path = match_metadata_to_plugin_path(stem, plugin_paths)
-                if matched_path:
-                    workspace_path = f"{workspace_name}/{matched_path}"
-                else:
-                    workspace_path = f"{workspace_name}/{stem}"
-                    log_debug(f"No plugins-list match for {stem}, using fallback: {workspace_path}")
-
                 # Check packages filter (by npm package name)
                 if packages_set is not None and package_name not in packages_set:
                     skipped_count += 1
@@ -267,6 +260,15 @@ Examples:
 
                 # Construct registryReference
                 image_name = package_name_to_image_name(package_name) if package_name else stem
+
+                # Look up workspacePath from pre-built mappings (uses scored matching
+                # + process-of-elimination to handle divergent folder/package names)
+                workspace_path = ws_mappings.ws_path_to_npm and next(
+                    (wp for wp, npm in ws_mappings.ws_path_to_npm.items() if npm == package_name), None
+                )
+                if not workspace_path:
+                    workspace_path = f"{workspace_name}/{stem}"
+                    log_debug(f"No workspace mapping for {package_name}, using fallback: {workspace_path}")
                 effective_registry = registry_base
                 if support_level == 'community' and community_registry != registry_base:
                     effective_registry = community_registry

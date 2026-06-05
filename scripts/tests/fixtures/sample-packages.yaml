@@ -1,0 +1,7 @@
+# Trimmed from default.packages.yaml for testing
+packages:
+  enabled:
+  - package: '@backstage/plugin-catalog-backend-module-github'
+  - package: '@backstage-community/plugin-analytics-provider-segment'
+  disabled:
+  - package: '@backstage-community/plugin-acr'
