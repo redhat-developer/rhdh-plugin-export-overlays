@@ -47,10 +47,12 @@ jobs:
             core.setOutput('overlay-commit', prCommit);
             let workspace = '';
 
+            // Try to extract workspace from branch name (e.g., workspaces/release-1.3__tech-radar)
             const matches = prBranch.match(/^workspaces\/release-.+__(.+)$/);
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
+              // Detect modified workspaces from PR files
               const prFiles = await github.rest.pulls.listFiles({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -329,6 +331,63 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  instrument:
+    name: Instrument plugin images for E2E coverage
+    needs:
+      - prepare
+      - export
+    # Only run if workspace has e2e-tests/ directory
+    if: |
+      always() &&
+      needs.export.result == 'success' &&
+      needs.export.outputs.published-exports != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ needs.prepare.outputs.overlay-repo }}
+          ref: ${{ needs.prepare.outputs.overlay-branch }}
+
+      - name: Check if workspace has E2E tests
+        id: check-e2e
+        env:
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          if [[ -d "${WORKSPACE}/e2e-tests" ]]; then
+            echo "has-e2e=true" >> "$GITHUB_OUTPUT"
+            echo "Workspace has E2E tests directory"
+          else
+            echo "has-e2e=false" >> "$GITHUB_OUTPUT"
+            echo "Workspace does not have E2E tests directory - skipping instrumentation"
+          fi
+
+      - name: Log in to GitHub Container Registry
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Setup Node.js
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+
+      - name: Instrument and publish coverage images
+        if: steps.check-e2e.outputs.has-e2e == 'true'
+        env:
+          PUBLISHED_EXPORTS: ${{ needs.export.outputs.published-exports }}
+          WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+        run: |
+          echo "Published exports:"
+          echo "$PUBLISHED_EXPORTS"
+          echo ""
+          echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$WORKSPACE"
 
   check-backstage-compatibility:
     name: Check workspace backstage compatibility
