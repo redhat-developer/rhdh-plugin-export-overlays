@@ -52,14 +52,14 @@ The core orchestrator script is `[scripts/update-index.sh](../scripts/update-ind
 
 ```mermaid
 flowchart TB
-    subgraph "Step 1: Bootstrap"
+    subgraph "Step 1: Plugin Builds Bootstrap"
         S1_IN["workspaces/{name}/metadata/{plugin}.yaml<br/>plugins-list.yaml<br/>versions.json<br/>Package list files"]
         S1["bootstrapPluginBuilds.py"]
         S1_OUT["plugin_builds/{ws}/{plugin}.json<br/>(workspace path, OCI ref, support level)"]
         S1_IN --> S1 --> S1_OUT
     end
 
-    subgraph "Step 2: Registry Enrichment"
+    subgraph "Step 2: Image Metadata Fetch"
         S2["generatePluginBuildInfo.py"]
         S2_OUT["plugin_builds/{ws}/{plugin}.json<br/>(+ digest, build-date, vcs-ref)"]
         S1_OUT --> S2
@@ -76,7 +76,7 @@ flowchart TB
         S3 --> S3_OUT
     end
 
-    subgraph "Step 4: Catalog Index"
+    subgraph "Step 4: Catalog Index Generation"
         S4["generateCatalogIndex.py"]
         S4_OUT["index.json<br/>catalog-entities/<br/>build-report.json"]
         S2_OUT --> S4
@@ -88,7 +88,7 @@ flowchart TB
 
 
 
-### Step 1: Bootstrap (`bootstrapPluginBuilds.py`)
+### Step 1: Plugin Builds Bootstrap (`bootstrapPluginBuilds.py`)
 
 Reads each `workspaces/*/metadata/*.yaml` file and constructs initial `plugin_builds/<workspace>/<image-name>.json` entries. Each entry includes the workspace path, support level, and a constructed OCI tag reference based on the registry type:
 
@@ -97,7 +97,7 @@ Reads each `workspaces/*/metadata/*.yaml` file and constructs initial `plugin_bu
 
 Plugins are filtered to only those matching the provided `--packages-file` list(s).
 
-### Step 2: Registry Enrichment (`generatePluginBuildInfo.py`)
+### Step 2: Image Metadata Fetch (`generatePluginBuildInfo.py`)
 
 Queries the container registry for each plugin's OCI image to retrieve:
 
@@ -105,6 +105,7 @@ Queries the container registry for each plugin's OCI image to retrieve:
 - **Build date** and **VCS ref** from container labels
 - **Upstream/midstream** repo refs from container env vars
 
+Then updates `plugin_builds` with the relevant metadata.
 Images that don't exist in the registry are logged as warnings.
 
 ### Step 3: DPDY Generation (`generateDynamicPluginsDefaultYaml.sh`)
@@ -136,7 +137,7 @@ plugins:
     disabled: true
 ```
 
-### Step 4: Catalog Index (`generateCatalogIndex.py`)
+### Step 4: Catalog Index Generation (`generateCatalogIndex.py`)
 
 The final step that produces the catalog index:
 

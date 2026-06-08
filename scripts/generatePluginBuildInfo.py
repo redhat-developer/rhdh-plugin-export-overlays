@@ -609,7 +609,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                         print(" ")
                         if report:
                             report.set_stage(
-                                plugin_name, "registry-enrich", "fail",
+                                plugin_name, "image-metadata-fetch", "fail",
                                 reason=f"Image not found in registry: {registry_reference}",
                             )
                 else:
@@ -655,7 +655,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                                 stage_kwargs["requestedTag"] = pdata.get('requestedTag', '')
                                 stage_kwargs["resolvedTag"] = ref_tag
                             report.set_stage(
-                                pname, "registry-enrich", "pass",
+                                pname, "image-metadata-fetch", "pass",
                                 **stage_kwargs,
                             )
 
