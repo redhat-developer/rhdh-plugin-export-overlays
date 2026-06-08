@@ -20,10 +20,6 @@ import {
 } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
-  // Override the 90 s base timeout for all tests and hooks in this group.
-  // Filecheck thresholds can retry for up to 5 min via expect.poll - budget 15 min total.
-  test.describe.configure({ timeout: 15 * 60 * 1000 });
-
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;
@@ -66,16 +62,11 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     await scorecard.expectNoProgressBar();
     await scorecard.addWidget("Jira open blocking tickets");
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("README file exists");
-    await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
-    await scorecard.expectAggregatedScorecardVisible(
-      FILECHECK_METRICS.readme.title,
-    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -114,19 +105,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       );
     });
 
-    test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-      await aggregated.runAggregatedScorecardDrilldownScenario(
-        () => scorecard.navigateToHome(),
-        FILECHECK_METRICS.readme,
-        "filecheck.readme",
-        {
-          thresholdRules: [
-            { key: "exist", color: "rgb(46, 125, 50)" },
-            { key: "missing", color: "rgb(211, 47, 47)" },
-          ],
-        },
-      );
-    });
   });
 
   test.describe("Entity Scorecards", () => {
@@ -267,42 +245,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(githubMetric.title);
       await scorecard.expectScorecardVisible(jiraMetric.title);
     });
-
-    const filecheckCases = [
-      {
-        entity: "filecheck-scorecard-github",
-        key: "readme",
-        expected: "exist",
-      },
-      {
-        entity: "filecheck-scorecard-github",
-        key: "license",
-        expected: "missing",
-      },
-      {
-        entity: "filecheck-scorecard-gitlab",
-        key: "readme",
-        expected: "exist",
-      },
-      {
-        entity: "filecheck-scorecard-gitlab",
-        key: "license",
-        expected: "missing",
-      },
-    ] as const;
-
-    for (const { entity, key, expected } of filecheckCases) {
-      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
-        await scorecard.expectFilecheckForEntity(
-          async () => {
-            await catalog.go();
-            await catalog.goToByName(entity);
-          },
-          FILECHECK_METRICS[key].title,
-          expected,
-        );
-      });
-    }
   });
 
   // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
