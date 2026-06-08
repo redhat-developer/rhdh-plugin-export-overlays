@@ -1,7 +1,9 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
+  configureOrchestratorLoki,
   deploySonataflow,
   logOrchestratorDeployFailureDiagnostics,
+  prepareRhdhHelmRedeploy,
 } from "../support/utils/test-helpers.js";
 import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
 import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
@@ -10,7 +12,8 @@ import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests
 
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
-    test.setTimeout(40 * 60 * 1000);
+    // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
+    test.setTimeout(60 * 60 * 1000);
     await test.runOnce(
       `orchestrator-setup-${testInfo.project.name}`,
       async () => {
@@ -24,8 +27,10 @@ test.describe("Orchestrator", () => {
         }
         process.env.SONATAFLOW_DATA_INDEX_URL =
           "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+        await configureOrchestratorLoki();
         try {
-          await rhdh.deploy({ timeout: 900_000 });
+          await prepareRhdhHelmRedeploy(project);
+          await rhdh.deploy({ timeout: 1_800_000 });
         } catch (err) {
           logOrchestratorDeployFailureDiagnostics(project);
           throw err;
