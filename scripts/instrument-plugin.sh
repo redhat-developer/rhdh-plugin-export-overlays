@@ -142,7 +142,7 @@ while IFS= read -r PROD_IMAGE; do
   # NYC uses `new Function("return this")()` which returns undefined in strict mode/ES modules.
   # Replace it with `globalThis` which works correctly in all modern contexts.
   echo "  Fixing global scope access for modern browsers..."
-  find "$WORK_DIR/dist-instrumented" -name "*.js" -type f -exec sed -i '' \
+  find "$WORK_DIR/dist-instrumented" -name "*.js" -type f -exec sed -i \
     's/var global=new Function("return this")();/var global=globalThis;/g' {} \;
 
   # Verify instrumentation
