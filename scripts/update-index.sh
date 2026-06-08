@@ -226,7 +226,7 @@ restore_metadata() {
 trap restore_metadata EXIT
 
 ##############################################
-# Step 2: Enrich plugin_builds/ with registry metadata
+# Step 2: Enrich plugin_builds/ with registry metadata (includes fallback tag resolution)
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
 # shellcheck disable=SC2086
@@ -275,13 +275,6 @@ r.save()
 "
         fi
         exit 1
-    fi
-    cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
-    echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
-    if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
-        jq --arg status "$DPDY_STATUS" \
-          '.plugins |= with_entries(.value.stages.dpdy = {status: $status})' \
-          "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
     fi
     cp "$DEFAULT_PACKAGES_FILE" "$OUTPUT_DIR/default.packages.yaml"
     echo -e "${blue}Copied $DEFAULT_PACKAGES_FILE to $OUTPUT_DIR/default.packages.yaml${norm}"
