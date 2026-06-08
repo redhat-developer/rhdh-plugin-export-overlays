@@ -561,7 +561,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
 
     for i, json_file in enumerate(json_files, 1):
         relative_path = json_file.relative_to(plugin_builds_dir)
-        print(f"[{i}/{len(json_files)}] {relative_path}", end="")
+        print(f"[{i}/{len(json_files)}] {relative_path}\n")
 
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
