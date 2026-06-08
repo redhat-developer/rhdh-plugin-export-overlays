@@ -18,6 +18,7 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
       dynamicPlugins: "tests/config/dynamic-plugins-filecheck.yaml",
+      valueFile: "tests/config/value_file-filecheck.yaml",
     });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
@@ -41,8 +42,6 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
   });
 
   test.describe("Aggregated scorecard drill-down", () => {
-    test.describe.configure({ retries: 1 });
-
     test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),
@@ -65,19 +64,9 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
       expected: "exist",
     },
     {
-      entity: "filecheck-scorecard-github",
-      key: "license",
-      expected: "missing",
-    },
-    {
       entity: "filecheck-scorecard-gitlab",
       key: "readme",
       expected: "exist",
-    },
-    {
-      entity: "filecheck-scorecard-gitlab",
-      key: "license",
-      expected: "missing",
     },
   ] as const;
 

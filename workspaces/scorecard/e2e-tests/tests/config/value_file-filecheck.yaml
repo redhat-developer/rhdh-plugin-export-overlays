@@ -1,0 +1,4 @@
+# Scorecard filecheck e2e — chart quay.io/rhdh/chart; lightspeed lives under global, not upstream.backstage.
+global:
+  lightspeed:
+    enabled: false

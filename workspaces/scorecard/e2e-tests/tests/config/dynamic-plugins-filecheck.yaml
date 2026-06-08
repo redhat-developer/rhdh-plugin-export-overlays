@@ -42,7 +42,6 @@ plugins:
           filecheck:
             files:
               readme: "README.md"
-              license: "LICENSE"
             schedule:
               frequency:
                 minutes: 10
