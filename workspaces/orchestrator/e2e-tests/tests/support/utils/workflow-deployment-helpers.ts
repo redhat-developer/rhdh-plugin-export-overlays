@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { installOrchestrator } from "@red-hat-developer-hub/e2e-test-utils/orchestrator";
@@ -14,6 +13,10 @@ import {
   WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
   type WorkflowOcDeps,
 } from "./workflow-deploy-readiness.js";
+import { patchWorkflowPropsForLokiLogging } from "./orchestrator-loki-helpers.js";
+import { runOc } from "./oc-helpers.js";
+
+export { runOc } from "./oc-helpers.js";
 
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
@@ -42,6 +45,12 @@ const UPSTREAM_WORKFLOW_PG_SECRET = "sonataflow-psql-postgresql";
 const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
 const E2E_WORKFLOW_DATABASE = "backstage_plugin_orchestrator";
 const SONATAFLOW_PLATFORM_READY_TIMEOUT_MS = 600_000;
+
+export async function prepareRhdhHelmRedeploy(
+  namespace: string,
+): Promise<void> {
+  await $`oc delete deployment redhat-developer-hub -n ${namespace} --ignore-not-found --wait=true`;
+}
 
 export async function deploySonataflow(namespace: string): Promise<void> {
   await installOrchestrator(namespace);
@@ -105,6 +114,8 @@ export async function deploySonataflow(namespace: string): Promise<void> {
   for (const workflow of WORKFLOWS) {
     patchWorkflowPostgres(namespace, workflow);
   }
+
+  await patchWorkflowPropsForLokiLogging(namespace, WORKFLOWS);
 
   for (const workflow of WORKFLOWS) {
     await waitForWorkflowDeployment(
@@ -594,14 +605,6 @@ EOF`;
   } finally {
     await $`rm -rf ${demoDir}`.catch(() => {});
   }
-}
-
-export function runOc(args: string[], timeoutMs = 30_000): string {
-  return execFileSync("oc", args, {
-    encoding: "utf-8",
-    timeout: timeoutMs,
-    maxBuffer: 32 * 1024 * 1024,
-  }).trim();
 }
 
 function formatOcFailure(err: unknown): string {

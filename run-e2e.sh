@@ -20,7 +20,7 @@ set -euo pipefail
 #
 #   # Auto-fetch secrets from HashiCorp Vault during global setup
 #   VAULT=1 ./run-e2e.sh -w tech-radar
-#
+##
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 #
