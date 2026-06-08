@@ -172,9 +172,6 @@ jobs:
       - name: Generate community catalog
         id: gen-community
         run: |
-
-
-
           if scripts/update-index.sh \
             --overlays-dir . \
             --registry "$COMMUNITY_REGISTRY" \
@@ -469,9 +466,6 @@ jobs:
               jq --arg sha "$GITHUB_SHA" \
                 '.metadata["last-successful-publish"] = $sha' \
                 "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
-              echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish updated)"
-            else
-              echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish NOT updated)"
               echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish updated)"
             else
               echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish NOT updated)"
