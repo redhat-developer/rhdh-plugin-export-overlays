@@ -138,6 +138,13 @@ while IFS= read -r PROD_IMAGE; do
     continue
   fi
 
+  # Fix NYC's global access pattern for modern browsers
+  # NYC uses `new Function("return this")()` which returns undefined in strict mode/ES modules.
+  # Replace it with `globalThis` which works correctly in all modern contexts.
+  echo "  Fixing global scope access for modern browsers..."
+  find "$WORK_DIR/dist-instrumented" -name "*.js" -type f -exec sed -i '' \
+    's/var global=new Function("return this")();/var global=globalThis;/g' {} \;
+
   # Verify instrumentation
   JS_COUNT=$(grep -r "__coverage__" "$WORK_DIR/dist-instrumented/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$JS_COUNT" -eq 0 ]]; then
