@@ -95,7 +95,7 @@ plugins:
             alerts_critical:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -103,7 +103,7 @@ plugins:
             alerts_high:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -111,7 +111,7 @@ plugins:
             alerts_medium:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -119,7 +119,7 @@ plugins:
             alerts_low:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -155,7 +155,7 @@ plugins:
             binary_artifacts:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -163,7 +163,7 @@ plugins:
             branch_protection:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -171,7 +171,7 @@ plugins:
             cii_best_practices:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -179,7 +179,7 @@ plugins:
             ci_tests:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -187,7 +187,7 @@ plugins:
             code_review:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -195,7 +195,7 @@ plugins:
             contributors:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -203,7 +203,7 @@ plugins:
             dangerous_workflow:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -211,7 +211,7 @@ plugins:
             dependency_update_tool:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -219,7 +219,7 @@ plugins:
             fuzzing:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -227,7 +227,7 @@ plugins:
             license:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -235,7 +235,7 @@ plugins:
             maintained:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -243,7 +243,7 @@ plugins:
             packaging:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -251,7 +251,7 @@ plugins:
             pinned_dependencies:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -259,7 +259,7 @@ plugins:
             sast:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -267,7 +267,7 @@ plugins:
             security_policy:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -275,7 +275,7 @@ plugins:
             signed_releases:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -283,7 +283,7 @@ plugins:
             token_permissions:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
@@ -291,7 +291,7 @@ plugins:
             vulnerabilities:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
