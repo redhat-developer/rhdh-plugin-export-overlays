@@ -174,6 +174,15 @@ def oci_ref_to_link(oci_ref: str, ghcr_version_ids: dict[str, int] | None = None
         else:
             url = f"https://github.com/{org}/{repo}/pkgs/container/{encoded_pkg}"
         return f"[{ref}]({url})"
+    if ref.startswith("registry.access.redhat.com/"):
+        rest = ref[len("registry.access.redhat.com/"):]
+        if ":" in rest:
+            path_part, tag = rest.split(":", 1)
+            tag = tag.split("@", 1)[0]
+            url = f"https://quay.io/repository/{path_part}?tab=tags&tag={tag}"
+        else:
+            url = f"https://quay.io/repository/{rest}"
+        return f"[{ref}]({url})"
     return f"`{ref}`"
 
 
