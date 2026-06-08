@@ -1,4 +1,4 @@
-import { runOc } from "./workflow-deployment-helpers.js";
+import { runOc } from "./oc-helpers.js";
 
 type EnvEntry = { name: string; value: string };
 
