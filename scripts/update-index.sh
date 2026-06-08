@@ -284,7 +284,7 @@ r.save()
           "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
     fi
 else
-    echo -e "\n${blue}=== Step 3: Skipped (no default.packages.yaml provided) ===${norm}"
+    echo -e "\n${blue}=== Step 3: DPDY Generation — Skipped (no default.packages.yaml provided) ===${norm}"
     if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
         jq '.plugins |= with_entries(.value.stages.dpdy = {status: "skip"})' \
           "$REPORT_FILE" > "${REPORT_FILE}.tmp" && mv "${REPORT_FILE}.tmp" "$REPORT_FILE"
