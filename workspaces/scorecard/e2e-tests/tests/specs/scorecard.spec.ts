@@ -22,10 +22,11 @@ import {
 test.describe.serial("Scorecard Plugin Tests", () => {
   // Override the 90 s base timeout for all tests and hooks in this group.
   // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
-  test.describe.configure({ timeout: 15 * 60 * 1000 });
+  test.describe.configure({ timeout: 15 * 60 * 1000, retries: 2 });
 
   let context: BrowserContext | undefined;
   let page: Page;
+  let uiHelper: UIhelper;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
   let aggregated: AggregatedScorecardHelpers;
@@ -47,10 +48,14 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       baseURL: rhdh.rhdhUrl,
     });
     page = await context.newPage();
-    const uiHelper = new UIhelper(page);
+    uiHelper = new UIhelper(page);
     catalog = new CatalogPage(page);
     scorecard = scorecardHelpers(page, uiHelper);
     aggregated = aggregatedScorecardHelpers(page);
+  });
+
+  test.beforeEach(async () => {
+    await page.goto("/");
     await new LoginHelper(page).loginAsKeycloakUser();
     await uiHelper.goToPageUrl("/", "Welcome back!");
   });
@@ -86,8 +91,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   });
 
   test.describe("Aggregated scorecard drill-down", () => {
-    test.describe.configure({ retries: 1 });
-
     test("Aggregated scorecard (GitHub): info tooltips, drill-down, table UI", async () => {
       const [githubMetric] = SCORECARD_METRICS;
       await aggregated.runAggregatedScorecardDrilldownScenario(
