@@ -1,22 +1,18 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  LoginHelper,
-  UIhelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { type BrowserContext, type Page } from "@playwright/test";
 import {
-  aggregatedScorecardHelpers,
+  createScorecardContext,
+  deployRhdh,
   type AggregatedScorecardHelpers,
-} from "../utils/aggregated-scorecard";
+  type ScorecardHelpers,
+} from "../utils/setup";
 import {
   DEPENDABOT_METRICS,
   FILECHECK_METRICS,
   OPENSSF_LICENSE_SCORECARD,
   OPENSSF_MAINTAINED_SCORECARD,
   SCORECARD_METRICS,
-  scorecardHelpers,
-  type ScorecardHelpers,
 } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
@@ -30,25 +26,11 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialJiraCount: number;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    await rhdh.configure({
-      auth: "keycloak",
-      version: process.env.RHDH_VERSION ?? "1.10",
-    });
-    await rhdh.deploy();
-
+    await deployRhdh(rhdh);
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-
-    context = await browser.newContext({
-      baseURL: rhdh.rhdhUrl,
-    });
-    page = await context.newPage();
-    const uiHelper = new UIhelper(page);
-    catalog = new CatalogPage(page);
-    scorecard = scorecardHelpers(page, uiHelper);
-    aggregated = aggregatedScorecardHelpers(page);
-    await new LoginHelper(page).loginAsKeycloakUser();
-    await uiHelper.goToPageUrl("/", "Welcome back!");
+    ({ context, page, catalog, scorecard, aggregated } =
+      await createScorecardContext(browser, rhdh.rhdhUrl));
   });
 
   test.afterAll(async () => {
