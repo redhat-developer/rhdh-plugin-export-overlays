@@ -26,7 +26,9 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialJiraCount: number;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    await deployRhdh(rhdh);
+    await deployRhdh(rhdh, {
+      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+    });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
     ({ context, page, catalog, scorecard, aggregated } =

@@ -16,7 +16,9 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
   let aggregated: AggregatedScorecardHelpers;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    await deployRhdh(rhdh);
+    await deployRhdh(rhdh, {
+      dynamicPlugins: "tests/config/dynamic-plugins-filecheck.yaml",
+    });
     ({ context, catalog, scorecard, aggregated } = await createScorecardContext(
       browser,
       rhdh.rhdhUrl,
