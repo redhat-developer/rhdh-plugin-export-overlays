@@ -104,7 +104,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
         { skipIfHasDrilldown: true },
       );
     });
-
   });
 
   test.describe("Entity Scorecards", () => {
