@@ -168,7 +168,9 @@ while IFS= read -r PROD_IMAGE; do
     COPY_LINES+="COPY inst-$BUNDLE/ $PLUGIN_PATH/$BUNDLE/"$'\n'
   done
 
-  podman rm "$CID"
+  # `|| true` so a podman hiccup removing the throwaway container never aborts
+  # the whole job (set -e) and loses instrumentation for the remaining plugins.
+  podman rm "$CID" || true
 
   if [[ "$TOTAL_JS_COUNT" -eq 0 ]]; then
     echo "  ❌ No bundles could be instrumented - skipping"
@@ -205,14 +207,18 @@ while IFS= read -r PROD_IMAGE; do
     continue
   fi
 
-  # Verify the image is single-layer so RHDH's layers[0]-only extraction sees
-  # the instrumented filesystem. Warn loudly if squashing did not collapse it.
+  # Verify the image is single-layer so RHDH's layers[0]-only extraction sees the
+  # instrumented filesystem. Refuse to push a multi-layer image: it would deploy
+  # and run fine but silently serve the ORIGINAL (uninstrumented) base layer —
+  # exactly the failure mode this script exists to avoid — so fail loudly instead.
   LAYER_COUNT=$(podman inspect "$COVERAGE_IMAGE" --format '{{len .RootFS.Layers}}' 2>/dev/null || echo "?")
   if [[ "$LAYER_COUNT" != "1" ]]; then
-    echo "  ⚠️  Coverage image has $LAYER_COUNT layers (expected 1) — RHDH only reads layers[0], coverage may not load"
-  else
-    echo "  ✓ Coverage image squashed to a single layer"
+    echo "  ❌ Coverage image has $LAYER_COUNT layers (expected 1); RHDH only reads layers[0] so coverage would not load - refusing to push"
+    rm -rf "$WORK_DIR"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    continue
   fi
+  echo "  ✓ Coverage image squashed to a single layer"
 
   # Push coverage image
   if ! podman push "$COVERAGE_IMAGE"; then
