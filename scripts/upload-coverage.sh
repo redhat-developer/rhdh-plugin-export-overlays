@@ -13,9 +13,16 @@
 # then uploads the lcov coverage to Codecov attributed to that repo.
 #
 # Required environment:
-#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads)
+#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads).
+#                    Falls back to VAULT_CODECOV_TOKEN (see below).
 
 set -euo pipefail
+
+# OpenShift CI auto-exports Vault secret keys prefixed with VAULT_ (the
+# rhdh-plugin-export-overlays ocp-helm step mounts the test-credentials secret
+# and exports every VAULT_* key). Accept VAULT_CODECOV_TOKEN as a fallback so the
+# token only has to be added to that Vault secret — no openshift/release change.
+: "${CODECOV_TOKEN:=${VAULT_CODECOV_TOKEN:-}}"
 
 readonly AWK_FIRST_FIELD='{print $1}'
 
