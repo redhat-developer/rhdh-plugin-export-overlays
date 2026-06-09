@@ -21,6 +21,9 @@ on:
       target-branch:
         type: string
         required: true
+      rhdh-tag:
+        type: string
+        required: false
 
 jobs:
   resolve:
@@ -37,6 +40,7 @@ jobs:
       pr-number: ${{ inputs.pr-number }}
       published-exports: ${{ steps.meta.outputs.published-exports }}
       target-branch: ${{ inputs.target-branch }}
+      rhdh-tag: ${{ inputs.rhdh-tag }}
     steps:
       - name: Download published-exports artifact for this PR
         if: inputs.workspace != '' && inputs.pr-number != ''
@@ -306,6 +310,7 @@ jobs:
     uses: ./.github/workflows/run-workspace-smoke-tests.yaml
     with:
       target-branch: ${{ needs.resolve.outputs.target-branch }}
+      rhdh-tag: ${{ needs.resolve.outputs.rhdh-tag }}
 
   add-skipped-test-comment:
     if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.has-runnable-plugins != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}

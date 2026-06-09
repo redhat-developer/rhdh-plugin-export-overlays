@@ -12,6 +12,10 @@ on:
         description: Command to execute (publish, update-versions, update-commit, smoketest)
         type: string
         required: true
+      smoketest-tag:
+        description: Optional RHDH tag override for `/smoketest <tag>`
+        type: string
+        required: false
 
 jobs:  
   parse:
@@ -31,12 +35,16 @@ jobs:
       command-name: ${{ steps.extract.outputs.command-name }}
       error-message: ${{ steps.extract.outputs.error-message }}
       pr-number: ${{ steps.extract.outputs.pr-number }}
+      smoketest-tag: ${{ steps.extract.outputs.smoketest-tag }}
     steps:
       - name: Extract command from comment
         id: extract
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            const SMOKETEST_TAG_RE = /^(?:pr-[0-9]+(?:-[0-9a-f]{7,40})?|next(?:-[0-9]+\.[0-9]+-[0-9a-f]{7,40}|-[0-9a-f]{7,40})?)$/;
+            const SMOKETEST_HELP = 'Use /smoketest or /smoketest <tag>. Allowed tags: pr-<digits>, pr-<digits>-<hash>, next, next-<major>.<minor>-<hash>, next-<hash>.';
+            core.setOutput('smoketest-tag', '');
             if (context.eventName === 'workflow_dispatch') {
               const commandName = '${{ inputs.command-name }}';
               const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest']);
@@ -50,6 +58,24 @@ jobs:
               core.setOutput('command-name', commandName);
               core.setOutput('error-message', '');
               core.setOutput('pr-number', '${{ inputs.pr-number }}');
+              const smoketestTag = String('${{ inputs.smoketest-tag }}').trim();
+              if (smoketestTag !== '' && commandName !== 'smoketest') {
+                const errorMsg = 'Input smoketest-tag is only valid with command-name=smoketest.';
+                core.setOutput('error-message', errorMsg);
+                core.setOutput('command-name', '');
+                core.setFailed(errorMsg);
+                return;
+              }
+              if (commandName === 'smoketest') {
+                if (smoketestTag !== '' && !SMOKETEST_TAG_RE.test(smoketestTag)) {
+                  const errorMsg = `Invalid smoketest tag: ${smoketestTag}. ${SMOKETEST_HELP}`;
+                  core.setOutput('error-message', errorMsg);
+                  core.setOutput('command-name', '');
+                  core.setFailed(errorMsg);
+                  return;
+                }
+                core.setOutput('smoketest-tag', smoketestTag);
+              }
               return;
             }
             core.setOutput('pr-number', String(context.issue.number));
@@ -58,8 +84,37 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/smoketest']);
-            const matchingCommands = lines.filter(l => allowed.has(l));
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit']);
+            const matchingCommands = [];
+            let smoketestTag = '';
+            let malformedSmoketestCommand = '';
+            for (const line of lines) {
+              if (allowed.has(line)) {
+                matchingCommands.push(line);
+                continue;
+              }
+              if (line.startsWith('/smoketest')) {
+                const smoketestMatch = line.match(/^\/smoketest(?:\s+(\S+))?$/);
+                if (!smoketestMatch) {
+                  malformedSmoketestCommand = line;
+                  break;
+                }
+                const parsedTag = smoketestMatch[1] ?? '';
+                if (parsedTag !== '' && !SMOKETEST_TAG_RE.test(parsedTag)) {
+                  malformedSmoketestCommand = line;
+                  break;
+                }
+                matchingCommands.push('/smoketest');
+                smoketestTag = parsedTag;
+              }
+            }
+            if (malformedSmoketestCommand) {
+              const errorMsg = `Invalid smoketest command: "${malformedSmoketestCommand}". ${SMOKETEST_HELP}`;
+              core.setOutput('error-message', errorMsg);
+              core.setOutput('command-name', '');
+              core.setFailed(errorMsg);
+              return;
+            }
             
             if (matchingCommands.length > 1) {
               const errorMsg = `Multiple commands found in comment: ${matchingCommands.join(', ')}. Please use only one command per comment.`;
@@ -80,6 +135,7 @@ jobs:
             
             const firstMatching = matchingCommands[0] || '';
             core.setOutput('command-name', firstMatching.startsWith('/') ? firstMatching.slice(1) : firstMatching);
+            core.setOutput('smoketest-tag', firstMatching === '/smoketest' ? smoketestTag : '');
             core.setOutput('error-message', '');
 
   add_error_comment:
@@ -105,7 +161,7 @@ jobs:
           script: |
             const errorMessage = core.getInput('error_message');
             const prNumber = Number(core.getInput('pr_number'));
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests`;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests with default image\n- \`/smoketest <tag>\` - Run smoke tests with \`quay.io/rhdh-community/rhdh:<tag>\`\n  - Allowed tags: \`pr-4907\`, \`pr-4929-90eff067\`, \`next\`, \`next-1.10-244a2755\`, \`next-8a0d43e7\``;
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -131,6 +187,7 @@ jobs:
       overlay-commit: ${{ steps.get-branch.outputs.overlay-commit }}
       workspace: ${{ steps.get-branch.outputs.workspace }}
       pr-number: ${{ steps.get-branch.outputs.pr-number }}
+      rhdh-tag: ${{ needs.parse.outputs.smoketest-tag }}
 
     permissions:
       statuses: write
@@ -254,6 +311,7 @@ jobs:
                 'overlay-commit': '${{ needs.prepare.outputs.overlay-commit }}',
                 'pr-number': String(${{ needs.prepare.outputs.pr-number }}),
                 'target-branch': '${{ needs.prepare.outputs.target-branch }}',
+                'rhdh-tag': '${{ needs.prepare.outputs.rhdh-tag }}',
               },
             });
 
