@@ -40,6 +40,19 @@ echo ""
 INSTRUMENTED_COUNT=0
 SKIPPED_COUNT=0
 
+# Count *.js files under $2 whose contents match grep pattern $1. The `|| true`
+# keeps a no-match grep (exit 1) from tripping set -e / pipefail.
+count_files_matching() {
+  { grep -rl "$1" "$2" --include="*.js" 2>/dev/null || true; } | wc -l | tr -d ' '
+}
+
+# Drop the current plugin's work dir and count it as skipped. Only call this
+# after WORK_DIR has been created for the current iteration.
+cleanup_and_skip() {
+  rm -rf "$WORK_DIR"
+  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+}
+
 # Process each published image (format: plain image refs, one per line)
 while IFS= read -r PROD_IMAGE; do
   [[ -z "$PROD_IMAGE" ]] && continue
@@ -148,17 +161,19 @@ while IFS= read -r PROD_IMAGE; do
     # Fix NYC's global access pattern for modern browsers.
     # NYC emits `new Function("return this")()`, which RHDH's CSP (no unsafe-eval)
     # blocks — leaving coverage uncollected. Replace it with `globalThis`.
+    # `|| true` so a single sed failure doesn't abort the whole job (set -e); the
+    # UNFIXED_COUNT check below still catches any file the fix missed.
     find "$WORK_DIR/inst-$BUNDLE" -name "*.js" -type f -exec sed -i \
-      's/var global=new Function("return this")();/var global=globalThis;/g' {} \;
+      's/var global=new Function("return this")();/var global=globalThis;/g' {} \; || true
 
     # Loudly flag any file where the global-scope fix did not apply: a silent miss
     # means coverage runs but never reaches window.__coverage__.
-    UNFIXED_COUNT=$({ grep -rl 'new Function("return this")' "$WORK_DIR/inst-$BUNDLE/" --include="*.js" 2>/dev/null || true; } | wc -l | tr -d ' ')
+    UNFIXED_COUNT=$(count_files_matching 'new Function("return this")' "$WORK_DIR/inst-$BUNDLE")
     if [[ "$UNFIXED_COUNT" -ne 0 ]]; then
       echo "  ⚠️  $UNFIXED_COUNT file(s) in $BUNDLE/ still use new Function(\"return this\") after the fix"
     fi
 
-    BUNDLE_JS_COUNT=$({ grep -rl "__coverage__" "$WORK_DIR/inst-$BUNDLE/" --include="*.js" 2>/dev/null || true; } | wc -l | tr -d ' ')
+    BUNDLE_JS_COUNT=$(count_files_matching "__coverage__" "$WORK_DIR/inst-$BUNDLE")
     if [[ "$BUNDLE_JS_COUNT" -eq 0 ]]; then
       echo "  ❌ No __coverage__ found in instrumented $BUNDLE/ - skipping that bundle"
       continue
@@ -174,8 +189,7 @@ while IFS= read -r PROD_IMAGE; do
 
   if [[ "$TOTAL_JS_COUNT" -eq 0 ]]; then
     echo "  ❌ No bundles could be instrumented - skipping"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
   echo "  ✓ Instrumented $TOTAL_JS_COUNT JS files total"
@@ -202,8 +216,7 @@ while IFS= read -r PROD_IMAGE; do
   # the instrumentation that actually reaches the browser.
   if ! podman build --squash-all -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
     echo "  ❌ Failed to build coverage image - skipping"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
 
@@ -214,8 +227,7 @@ while IFS= read -r PROD_IMAGE; do
   LAYER_COUNT=$(podman inspect "$COVERAGE_IMAGE" --format '{{len .RootFS.Layers}}' 2>/dev/null || echo "?")
   if [[ "$LAYER_COUNT" != "1" ]]; then
     echo "  ❌ Coverage image has $LAYER_COUNT layers (expected 1); RHDH only reads layers[0] so coverage would not load - refusing to push"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
   echo "  ✓ Coverage image squashed to a single layer"
@@ -223,8 +235,7 @@ while IFS= read -r PROD_IMAGE; do
   # Push coverage image
   if ! podman push "$COVERAGE_IMAGE"; then
     echo "  ❌ Failed to push coverage image"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
 

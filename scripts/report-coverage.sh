@@ -50,18 +50,17 @@ npx nyc@18.0.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out
 # (`--source-map`) to map coverage onto the original source files and write lcov.
 #
 # The istanbul libraries are installed into a throwaway prefix so they never land
-# in the repo or a workspace's node_modules.
+# in the repo or a workspace's node_modules. Keep these pins in sync with the
+# istanbul API that remap-coverage.cjs relies on.
 echo "[INFO] Remapping bundle coverage to source and generating lcov..."
 REMAP_DEPS_DIR=$(mktemp -d)
-if npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --loglevel=error \
+if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --loglevel=error \
     istanbul-lib-coverage@3.2.2 \
     istanbul-lib-source-maps@5.0.6 \
     istanbul-lib-report@3.0.1 \
     istanbul-reports@3.2.0 \
   && (cd "$REPO_ROOT" && NODE_PATH="$REMAP_DEPS_DIR/node_modules" \
-      node "$SCRIPT_DIR/remap-coverage.cjs" "$REPO_ROOT/.nyc_output/out.json" coverage); then
-  :
-else
+      node "$SCRIPT_DIR/remap-coverage.cjs" "$REPO_ROOT/.nyc_output/out.json" coverage); }; then
   echo "[WARN] Coverage remap/report failed (non-fatal); skipping upload" >&2
   rm -rf "$REMAP_DEPS_DIR"
   exit 0

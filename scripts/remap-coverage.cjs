@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 //
 // Remap browser E2E coverage from instrumented plugin BUNDLES back to the
 // original plugin SOURCE, then emit lcov + a text summary.
@@ -61,17 +60,29 @@ function normalizeSourcePath(file) {
   const transformed = await store.transformCoverage(
     libCoverage.createCoverageMap(raw),
   );
-  const sourceMap = transformed.map || transformed;
+  const remappedCoverage = transformed.map || transformed;
 
   // Re-key onto normalized source paths. addFileCoverage merges by location, so
   // the same source covered by both the MF and Scalprum builds combines safely.
   const normalized = libCoverage.createCoverageMap({});
-  for (const file of sourceMap.files()) {
+  for (const file of remappedCoverage.files()) {
     const path = normalizeSourcePath(file);
     if (!path) continue;
-    const data = structuredClone(sourceMap.fileCoverageFor(file).data);
+    const data = structuredClone(remappedCoverage.fileCoverageFor(file).data);
     data.path = path;
     normalized.addFileCoverage(data);
+  }
+
+  // Fail loudly (and let report-coverage.sh skip the upload) rather than write an
+  // empty lcov: zero source files means the source maps or path normalization
+  // broke, and silently uploading nothing is the failure mode this whole pipeline
+  // exists to avoid.
+  if (normalized.files().length === 0) {
+    console.error(
+      "[remap] no source files after remap — coverage is empty. " +
+        "Check that the bundles were instrumented with --source-map.",
+    );
+    process.exit(1);
   }
 
   fs.mkdirSync(reportDir, { recursive: true });
@@ -90,12 +101,6 @@ function normalizeSourcePath(file) {
   console.log(
     `[remap] ${normalized.files().length} source file(s), lines ${lines.covered}/${lines.total} (${lines.pct}%)`,
   );
-  if (normalized.files().length === 0) {
-    console.log(
-      "[remap] WARNING: no source files after remap — coverage will be empty. " +
-        "Check that bundles were instrumented with --source-map.",
-    );
-  }
 })().catch((err) => {
   console.error("[remap] failed:", err && err.stack ? err.stack : err);
   process.exit(1);
