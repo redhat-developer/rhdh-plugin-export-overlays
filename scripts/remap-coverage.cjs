@@ -22,7 +22,7 @@
 // Requires istanbul-lib-coverage, istanbul-lib-source-maps, istanbul-lib-report,
 // istanbul-reports to be resolvable (installed by report-coverage.sh).
 
-const fs = require("fs");
+const fs = require("node:fs");
 const libCoverage = require("istanbul-lib-coverage");
 const libSourceMaps = require("istanbul-lib-source-maps");
 const libReport = require("istanbul-lib-report");
@@ -69,7 +69,7 @@ function normalizeSourcePath(file) {
   for (const file of sourceMap.files()) {
     const path = normalizeSourcePath(file);
     if (!path) continue;
-    const data = JSON.parse(JSON.stringify(sourceMap.fileCoverageFor(file).data));
+    const data = structuredClone(sourceMap.fileCoverageFor(file).data);
     data.path = path;
     normalized.addFileCoverage(data);
   }
