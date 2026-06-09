@@ -1,0 +1,37 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-scaffolder-backend-module-servicenow
+  namespace: rhdh
+  title: "Scaffolder Backend Module ServiceNow"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-servicenow
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-servicenow
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage-community/plugin-scaffolder-backend-module-servicenow"
+  # Tag: bs_1.49.4__2.15.1
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-servicenow@sha256:cfe02f275eb096a67bc5a89435aa0452abbfdfad3271bcdb1f7fbde8ffe67ab5"
+  version: 2.15.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - servicenow-scaffolder-actions
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        servicenow:
+          baseUrl: ${SERVICENOW_BASE_URL}
+          username: ${SERVICENOW_USERNAME}
+          password: ${SERVICENOW_PASSWORD}

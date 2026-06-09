@@ -1,0 +1,35 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: immobiliarelabs-backstage-plugin-gitlab-backend
+  namespace: rhdh
+  title: "GitLab Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/immobiliare/backstage-plugin-gitlab/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/immobiliare/backstage-plugin-gitlab/tree/main/packages/gitlab-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/immobiliare/backstage-plugin-gitlab/tree/main/packages/gitlab-backend
+  tags: []
+spec:
+  packageName: "@immobiliarelabs/backstage-plugin-gitlab-backend"
+  # Tag: bs_1.49.4__7.0.1
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab-backend@sha256:3d31c16b31c491c42620e9e2172ef26d7f9bfcc4056152f82a5658907bc8ce6a"
+  version: 7.0.1
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - backstage-catalog-cards
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        gitlab:
+          host: ${GITLAB_HOST}
+          token: ${GITLAB_TOKEN}

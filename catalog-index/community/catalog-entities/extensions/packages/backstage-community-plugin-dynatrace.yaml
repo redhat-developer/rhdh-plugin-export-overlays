@@ -1,0 +1,44 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-dynatrace
+  namespace: rhdh
+  title: "Dynatrace"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/dynatrace
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/dynatrace
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-dynatrace"
+  # Tag: bs_1.49.4__10.17.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:93e9ee9d03fd3281c89cedf8125104c02f0688bd71eb1738bc9c78e8cef7a10b"
+  version: 10.17.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Dynatrace
+  support: community
+  lifecycle: active
+  partOf:
+    - dynatrace-community
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-dynatrace:
+              mountPoints:
+                - mountPoint: entity.page.monitoring/cards
+                  importName: DynatraceTab
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isDynatraceAvailable

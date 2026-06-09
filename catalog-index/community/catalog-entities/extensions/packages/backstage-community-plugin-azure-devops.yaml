@@ -1,0 +1,52 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-azure-devops
+  namespace: rhdh
+  title: "Azure DevOps Frontend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-azure-devops"
+  # Tag: bs_1.49.4__0.29.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops@sha256:989fa67bed88c71e1af40f40a6f25949932b842d928937270b5a27bea9f19f93"
+  version: 0.29.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - azure-devops
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-azure-devops:
+              mountPoints:
+                - mountPoint: entity.page.ci/cards
+                  importName: EntityAzurePipelinesContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isAzureDevOpsAvailable
+                - mountPoint: entity.page.pull-requests/cards
+                  importName: EntityAzurePullRequestsContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isAzureDevOpsAvailable

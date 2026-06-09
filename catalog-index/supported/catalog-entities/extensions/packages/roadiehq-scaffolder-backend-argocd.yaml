@@ -1,0 +1,42 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: roadiehq-scaffolder-backend-argocd
+  namespace: rhdh
+  title: "Scaffolder Backend ArgoCD"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-argocd
+  annotations:
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/scaffolder-actions/scaffolder-backend-argocd
+  tags:
+    - software-templates
+spec:
+  packageName: "@roadiehq/scaffolder-backend-argocd"
+  # Tag: bs_1.49.4__1.8.1
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:22e156a3add628ae198680377ad6a8d0dcba2cbf4ce1b7a6ab85ed24680d3aed"
+  version: 1.8.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Roadie
+  support: community
+  lifecycle: active
+  partOf:
+    - roadiehq-scaffolder-backend-argocd
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        argocd:
+          username: ${ARGOCD_USERNAME}
+          password: ${ARGOCD_PASSWORD}
+          appLocatorMethods:
+            - type: config
+              instances:
+                - name: argoInstance1
+                  url: ${ARGOCD_INSTANCE1_URL}
+                  token: ${ARGOCD_AUTH_TOKEN}

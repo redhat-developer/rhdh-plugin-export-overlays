@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: redhat-backstage-plugin-orchestrator-backend-module-loki
+  namespace: rhdh
+  title: "Orchestrator Backend Module Loki"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHIDP
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-backend-module-loki
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-backend-module-loki
+  tags:
+    - automation
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki"
+  # Tag: bs_1.49.4__1.2.6
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:420d0f6413e2d3eeefc8fa7d920f7ca96a5d2de424a19aedc4f7a9ffbd9af4d8"
+  version: 1.2.6
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - orchestrator
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        orchestrator:
+          workflowLogProvider:
+            loki:
+              baseUrl: ${LOKI_BASE_URL}
+              token: ${AUTH_TOKEN}

@@ -1,0 +1,32 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-scaffolder-backend-module-gerrit
+  namespace: rhdh
+  title: "Scaffolder Backend Module Gerrit"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-gerrit
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-gerrit
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage/plugin-scaffolder-backend-module-gerrit"
+  # Tag: bs_1.49.4__0.2.19
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit@sha256:5ad42c215b61e61499a856b76bccb8be2f310be842309dd65d0f4a6176885071"
+  version: 0.2.19
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - gerrit-scaffolder-actions
+  appConfigNotRequired: true
+  appConfigExamples: []

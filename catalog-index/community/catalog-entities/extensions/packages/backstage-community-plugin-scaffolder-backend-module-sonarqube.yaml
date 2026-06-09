@@ -1,0 +1,32 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-scaffolder-backend-module-sonarqube
+  namespace: rhdh
+  title: "Scaffolder Backend Module SonarQube"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-sonarqube
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-sonarqube
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage-community/plugin-scaffolder-backend-module-sonarqube"
+  # Tag: bs_1.49.4__2.15.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube@sha256:a01fb0ae8d467a8b9ce6e9f4be958a7cc50d1f1404a7c32d26d450620d674d21"
+  version: 2.15.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - sonarqube-scaffolder-actions
+  appConfigNotRequired: true
+  appConfigExamples: []

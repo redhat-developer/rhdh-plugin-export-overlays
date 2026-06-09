@@ -1,0 +1,56 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-lighthouse
+  namespace: rhdh
+  title: Lighthouse
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/lighthouse
+  tags: []
+spec:
+  packageName: '@backstage-community/plugin-lighthouse'
+  # Tag: bs_1.49.4__0.20.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:099573168a57403ca0099c9869b3e9e815378ab49e756b8f990398fd7693b425"
+  version: 0.20.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - lighthouse
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-lighthouse:
+              appIcons:
+                - name: lighthouse
+                  importName: LighthouseIcon
+              dynamicRoutes:
+                - path: /lighthouse
+                  importName: LighthousePage
+                  menuItem:
+                    icon: lighthouse
+                    text: menuItem.lighthouse
+                    textKey: menuItem.lighthouse
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityLastLighthouseAuditCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        md: span 6
+                        xs: span 12
+                    if:
+                      allOf:
+                        - isLighthouseAvailable

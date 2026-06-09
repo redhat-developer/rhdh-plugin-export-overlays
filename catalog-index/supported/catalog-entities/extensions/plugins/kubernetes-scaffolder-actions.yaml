@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: kubernetes-scaffolder-actions
+  namespace: rhdh
+  title: Kubernetes Software Template Actions
+  description: |
+    Adds Kubernetes specific actions to the Software Template Scaffolder providing the ability 
+    to scaffold Kubernetes resources in your Software Templates.
+  annotations:
+    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+    extensions.backstage.io/verified-by: Red Hat
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/configuring_dynamic_plugins/con-kubernetes-custom-actions_assembly-managing-labels-annotations-topology
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-backend-module-kubernetes
+    - title: Red Hat Developer Hub Life Cycle Support Policy
+      url: https://access.redhat.com/support/policy/updates/developerhub
+  tags: 
+    - scaffolder
+
+spec:
+
+  author: Backstage Community
+  support:
+    provider: Red Hat
+    level: generally-available
+  lifecycle: active
+  publisher: Red Hat
+
+  description: |
+    Adds Kubernetes specific actions to the Software Template Scaffolder. This plugin 
+    provides the ability to scaffold Kubernetes resources for your Backstage Software Template.
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/extensions-in-rhdh_plugins-in-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other 
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+
+  categories:
+    - Scaffolder
+
+  highlights:
+    - Adds Kubernetes actions to the Software Template Scaffolder
+
+  packages:
+    - backstage-community-plugin-scaffolder-backend-module-kubernetes

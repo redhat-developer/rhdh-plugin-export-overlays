@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: backstage-plugin-catalog-backend-module-github-org
+  namespace: rhdh
+  title: GitHub Organizational Data Provider
+  description: |
+    This is an extension module to the plugin-catalog-backend plugin, that can be used to ingest organization data like users and groups from Github. 
+  annotations:
+    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+    extensions.backstage.io/verified-by: Red Hat
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Issues
+      url: https://github.com/backstage/backstage/issues
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/integrating_red_hat_developer_hub_with_github/enabling-github-repository-discovery
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/catalog-backend-module-github-org
+    - title: Backstage docs
+      url: https://backstage.io/docs/reference/plugin-catalog-backend-module-github-org/
+    - title: Red Hat Developer Hub Life Cycle Support Policy
+      url: https://access.redhat.com/support/policy/updates/developerhub
+  tags:
+    - software-catalog
+spec:
+
+  author: Backstage Community
+  support:
+    provider: Red Hat
+    level: generally-available
+  lifecycle: active
+  publisher: Red Hat
+
+  highlights:
+    - Ingests data (users and groups) from your GitHub Organization.
+
+  categories:
+    - Software Catalog
+
+  description: |
+    Ingest data (users and groups) from your [GitHub](https://github.com) Organization to establish identities required for Github Authentication
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/import-users-and-groups-from-your-identity-provider_authentication-in-rhdh#import-users-and-groups-from-github_import-users-and-groups-from-your-identity-provider)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/authentication_in_red_hat_developer_hub/import-users-and-groups-from-your-identity-provider_authentication-in-rhdh#import-users-and-groups-from-github_import-users-and-groups-from-your-identity-provider)
+    for further details regarding the configuration required.
+
+  packages:
+    - backstage-plugin-catalog-backend-module-github-org

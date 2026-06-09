@@ -1,0 +1,44 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: roadiehq-backstage-plugin-jira
+  namespace: rhdh
+  title: "Jira"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-jira
+  annotations:
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-jira
+  tags: []
+spec:
+  packageName: "@roadiehq/backstage-plugin-jira"
+  # Tag: bs_1.49.4__2.14.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira@sha256:4d28b9c56e88504bb0c9ed49071a080c0681f80677939ce868bbaf5dd8fdb620"
+  version: 2.14.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Roadie
+  support: community
+  lifecycle: active
+  partOf:
+    - jira
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            roadiehq.backstage-plugin-jira:
+              mountPoints:
+                - mountPoint: entity.page.issues/cards
+                  importName: EntityJiraOverviewCard
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isJiraAvailable

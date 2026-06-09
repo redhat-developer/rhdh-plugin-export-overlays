@@ -1,0 +1,32 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-scaffolder-backend-module-azure
+  namespace: rhdh
+  title: 'Scaffolder Backend Module Azure'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-azure
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/scaffolder-backend-module-azure
+  tags:
+    - software-templates
+spec:
+  packageName: '@backstage/plugin-scaffolder-backend-module-azure'
+  # Tag: bs_1.49.4__0.2.19
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:2becad77ee5a04b36a885cc4e381fc7c6239b6d8ec47c955aa6c89aa5314fc4f"
+  version: 0.2.19
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - azure-scaffolder-actions
+  appConfigNotRequired: true
+  appConfigExamples: []

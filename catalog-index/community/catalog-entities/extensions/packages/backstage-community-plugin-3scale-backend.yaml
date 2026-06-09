@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-3scale-backend
+  namespace: rhdh
+  title: "3Scale"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/3scale
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-3scale-backend"
+  # Tag: bs_1.49.4__3.13.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend@sha256:e5ee0f7b9c70fbc53989325d90f8b9aa5e02d63c7ee4138a30717bf78ac4abf7"
+  version: 3.13.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - 3scale
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        catalog:
+          providers:
+            threeScaleApiEntity:
+              default:
+                baseUrl: ${THREESCALE_BASE_URL}
+                accessToken: ${THREESCALE_ACCESS_TOKEN}
