@@ -650,10 +650,15 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                         if digest:
                             stage_kwargs = {"digest": digest}
                             if pdata.get('fallback'):
-                                ref_tag = pdata.get('registryReference', '').rsplit(':', 1)[-1]
+                                resolved_ref = pdata.get('registryReference', '')
+                                ref_tag = resolved_ref.rsplit(':', 1)[-1]
                                 stage_kwargs["fallback"] = True
                                 stage_kwargs["requestedTag"] = pdata.get('requestedTag', '')
                                 stage_kwargs["resolvedTag"] = ref_tag
+                                separator = "__" if "ghcr.io" in resolved_ref else "--"
+                                if separator in ref_tag:
+                                    resolved_version = ref_tag.rsplit(separator, 1)[-1]
+                                    report.add_plugin(pname, version=resolved_version)
                             report.set_stage(
                                 pname, "image-metadata-fetch", "pass",
                                 **stage_kwargs,
@@ -699,6 +704,12 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                                 da = ""
                             if da.startswith("oci://"):
                                 new_oci = f"oci://{registry_reference_digest}"
+                                fallback_version = None
+                                if plugin_data.get('fallback'):
+                                    tag_str = registry_reference_tag.rsplit(':', 1)[-1] if ':' in registry_reference_tag else ""
+                                    sep = "__" if "ghcr.io" in registry_reference_tag else "--"
+                                    if sep in tag_str:
+                                        fallback_version = tag_str.rsplit(sep, 1)[-1]
                                 lines = content.splitlines()
                                 out = []
                                 for line in lines:
@@ -715,6 +726,9 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                                         else:
                                             out.append(f'{indent}# Tag: {tag}')
                                         out.append(f'{indent}dynamicArtifact: "{new_oci}"')
+                                    elif fallback_version and stripped.startswith("version:"):
+                                        indent = line[: len(line) - len(stripped)]
+                                        out.append(f'{indent}version: {fallback_version}')
                                     else:
                                         out.append(line)
                                 with open(metadata_file, "w", encoding='utf-8') as f:
