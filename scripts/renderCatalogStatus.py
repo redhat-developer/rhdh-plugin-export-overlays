@@ -296,6 +296,9 @@ def render_tier(
             requested = enrich.get("requestedTag", "")
             resolved = enrich.get("resolvedTag", "")
             oci_ref = stages.get("bootstrap", {}).get("oci_ref", "")
+            if resolved and ":" in oci_ref:
+                # Use fallback tag instead of requested tag
+                oci_ref = oci_ref.rsplit(":", 1)[0] + ":" + resolved
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | `{requested}` | `{resolved}` | {oci_link} |")
