@@ -7,6 +7,10 @@ on:
         description: PR target branch (main or release-X.Y)
         type: string
         default: main
+      rhdh-tag:
+        description: Optional RHDH image tag override for quay.io/rhdh-community/rhdh:<tag>
+        type: string
+        required: false
     outputs:
       success:
         description: Overall smoke test result
@@ -17,6 +21,9 @@ on:
       error-logs:
         description: Extracted error messages from container logs
         value: ${{ jobs.run.outputs.error-logs }}
+      image-ref:
+        description: Resolved RHDH container image used for smoke tests
+        value: ${{ jobs.run.outputs.image-ref }}
 
 jobs:
   run:
@@ -29,6 +36,7 @@ jobs:
       success: ${{ steps.collect-results.outputs.success }}
       failed-plugins: ${{ steps.collect-results.outputs.failed-plugins }}
       error-logs: ${{ steps.capture-errors.outputs.error-logs }}
+      image-ref: ${{ steps.start-rhdh.outputs.image-ref }}
     steps:
       - name: Download smoke test artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -44,6 +52,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start RHDH with test plugins config
+        id: start-rhdh
+        env:
+          INPUT_RHDH_TAG: ${{ inputs.rhdh-tag }}
+          INPUT_TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true
@@ -72,17 +84,30 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -v $HOME/.docker/config.json:/root/.docker/config.json:ro"
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
-          # Derive image tag from target branch
-          TARGET_BRANCH="${{ inputs.target-branch }}"
-          if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
-            IMAGE_TAG="next-${BASH_REMATCH[1]}"
+          # Resolve image from explicit /smoketest <tag> override or target branch default
+          RHDH_TAG="${INPUT_RHDH_TAG:-}"
+          if [[ -n "$RHDH_TAG" ]]; then
+            if [[ ! "$RHDH_TAG" =~ ^(pr-[0-9]+(-[0-9a-f]{7,40})?|next(-[0-9]+\.[0-9]+-[0-9a-f]{7,40}|-[0-9a-f]{7,40})?)$ ]]; then
+              echo "Invalid rhdh-tag input: $RHDH_TAG."
+              echo "Allowed tags: pr-<digits>, pr-<digits>-<hash>, next, next-<major>.<minor>-<hash>, next-<hash>."
+              exit 1
+            fi
+            IMAGE_REF="quay.io/rhdh-community/rhdh:${RHDH_TAG}"
+            echo "Using explicit RHDH image override from smoketest tag: $IMAGE_REF"
           else
-            IMAGE_TAG="next"
+            TARGET_BRANCH="${INPUT_TARGET_BRANCH:-main}"
+            if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
+              IMAGE_TAG="next-${BASH_REMATCH[1]}"
+            else
+              IMAGE_TAG="next"
+            fi
+            IMAGE_REF="quay.io/rhdh-community/rhdh:${IMAGE_TAG}"
+            echo "Using default RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
           fi
-          echo "Using RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
+          echo "image-ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
           
           # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:${IMAGE_TAG} -c '"
+          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash ${IMAGE_REF} -c '"
           DOCKER_CMD="$DOCKER_CMD set -ex; "
           DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
           DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "
