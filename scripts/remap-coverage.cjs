@@ -102,6 +102,6 @@ function normalizeSourcePath(file) {
     `[remap] ${normalized.files().length} source file(s), lines ${lines.covered}/${lines.total} (${lines.pct}%)`,
   );
 })().catch((err) => {
-  console.error("[remap] failed:", err && err.stack ? err.stack : err);
+  console.error("[remap] failed:", err?.stack ? err.stack : err);
   process.exit(1);
 });
