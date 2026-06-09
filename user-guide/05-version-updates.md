@@ -147,7 +147,11 @@ git push origin update-your-plugin-version
 # Open PR, then comment:
 # /publish
 # /smoketest
+# or: /smoketest pr-4929-90eff067
 ```
+
+`/smoketest <tag>` resolves to `quay.io/rhdh-community/rhdh:<tag>` for the smoke-test run.
+Allowed tags include `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, and `next-8a0d43e7`.
 
 ---
 
