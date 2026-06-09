@@ -53,6 +53,9 @@ jobs:
 
       - name: Start RHDH with test plugins config
         id: start-rhdh
+        env:
+          INPUT_RHDH_TAG: ${{ inputs.rhdh-tag }}
+          INPUT_TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true
@@ -82,7 +85,7 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
           # Resolve image from explicit /smoketest <tag> override or target branch default
-          RHDH_TAG="${{ inputs.rhdh-tag }}"
+          RHDH_TAG="${INPUT_RHDH_TAG:-}"
           if [[ -n "$RHDH_TAG" ]]; then
             if [[ ! "$RHDH_TAG" =~ ^(pr-[0-9]+(-[0-9a-f]{7,40})?|next(-[0-9]+\.[0-9]+-[0-9a-f]{7,40}|-[0-9a-f]{7,40})?)$ ]]; then
               echo "Invalid rhdh-tag input: $RHDH_TAG."
@@ -92,7 +95,7 @@ jobs:
             IMAGE_REF="quay.io/rhdh-community/rhdh:${RHDH_TAG}"
             echo "Using explicit RHDH image override from smoketest tag: $IMAGE_REF"
           else
-            TARGET_BRANCH="${{ inputs.target-branch }}"
+            TARGET_BRANCH="${INPUT_TARGET_BRANCH:-main}"
             if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
               IMAGE_TAG="next-${BASH_REMATCH[1]}"
             else
