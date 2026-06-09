@@ -40,7 +40,32 @@ echo ""
 echo "[INFO] Merging coverage data with nyc..."
 mkdir -p "$REPO_ROOT/.nyc_output"
 npx nyc@18.0.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
-(cd "$REPO_ROOT" && npx nyc@18.0.0 report --reporter=lcov --reporter=text-summary --report-dir coverage)
+
+# Remap bundle coverage back to source and emit lcov.
+#
+# Plugins are instrumented post-build (on the `dist/` and `dist-scalprum/`
+# bundles), so the collected coverage is keyed by bundle paths that only existed
+# in the publish job's temp dir. `nyc report` cannot resolve those paths here and
+# would report 0/0. remap-coverage.cjs applies the source maps nyc embedded
+# (`--source-map`) to map coverage onto the original source files and write lcov.
+#
+# The istanbul libraries are installed into a throwaway prefix so they never land
+# in the repo or a workspace's node_modules. Keep these pins in sync with the
+# istanbul API that remap-coverage.cjs relies on.
+echo "[INFO] Remapping bundle coverage to source and generating lcov..."
+REMAP_DEPS_DIR=$(mktemp -d)
+if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --loglevel=error \
+    istanbul-lib-coverage@3.2.2 \
+    istanbul-lib-source-maps@5.0.6 \
+    istanbul-lib-report@3.0.1 \
+    istanbul-reports@3.2.0 \
+  && (cd "$REPO_ROOT" && NODE_PATH="$REMAP_DEPS_DIR/node_modules" \
+      node "$SCRIPT_DIR/remap-coverage.cjs" "$REPO_ROOT/.nyc_output/out.json" coverage); }; then
+  echo "[WARN] Coverage remap/report failed (non-fatal); skipping upload" >&2
+  rm -rf "$REMAP_DEPS_DIR"
+  exit 0
+fi
+rm -rf "$REMAP_DEPS_DIR"
 
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
   echo "[WARN] Multi-workspace coverage upload is not supported." >&2
