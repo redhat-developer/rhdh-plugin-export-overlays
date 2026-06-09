@@ -190,11 +190,28 @@ while IFS= read -r PROD_IMAGE; do
   IMAGE_TAG="${PROD_IMAGE##*:}"
   COVERAGE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}__coverage"
 
-  if ! podman build -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
+  # CRITICAL: --squash-all flattens the result into a SINGLE layer.
+  # RHDH's install-dynamic-plugins (image-cache.ts: downloadAndLocateTarball)
+  # only ever extracts manifest.layers[0] — it assumes dynamic-plugin images are
+  # single-layer. A plain `FROM prod + COPY` produces a multi-layer image whose
+  # FIRST layer is the original (uninstrumented) base, so RHDH would serve the
+  # original code and ignore our instrumented overlay layers. Squashing merges
+  # the overlays into one layer (instrumented files win), so layers[0] carries
+  # the instrumentation that actually reaches the browser.
+  if ! podman build --squash-all -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
     echo "  ❌ Failed to build coverage image - skipping"
     rm -rf "$WORK_DIR"
     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
+  fi
+
+  # Verify the image is single-layer so RHDH's layers[0]-only extraction sees
+  # the instrumented filesystem. Warn loudly if squashing did not collapse it.
+  LAYER_COUNT=$(podman inspect "$COVERAGE_IMAGE" --format '{{len .RootFS.Layers}}' 2>/dev/null || echo "?")
+  if [[ "$LAYER_COUNT" != "1" ]]; then
+    echo "  ⚠️  Coverage image has $LAYER_COUNT layers (expected 1) — RHDH only reads layers[0], coverage may not load"
+  else
+    echo "  ✓ Coverage image squashed to a single layer"
   fi
 
   # Push coverage image
