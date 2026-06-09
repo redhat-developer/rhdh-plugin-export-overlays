@@ -38,7 +38,7 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="1.10-131-CI"             # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
