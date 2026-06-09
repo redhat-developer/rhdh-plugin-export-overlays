@@ -17,6 +17,7 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
 
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
+      appConfig: "tests/config/app-config-rhdh-filecheck.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins-filecheck.yaml",
       valueFile: "tests/config/value_file-filecheck.yaml",
     });

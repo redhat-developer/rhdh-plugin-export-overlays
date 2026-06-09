@@ -22,6 +22,7 @@ export interface ScorecardTestContext {
 }
 
 export type ScorecardDeployOptions = {
+  appConfig?: string;
   dynamicPlugins: string;
   valueFile?: string;
 };
@@ -34,6 +35,7 @@ export async function deployRhdh(
   await rhdh.configure({
     auth: "keycloak",
     version: process.env.RHDH_VERSION ?? "1.10",
+    ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     dynamicPlugins: options.dynamicPlugins,
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
   });
