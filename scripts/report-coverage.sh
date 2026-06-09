@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
 # Merge per-test Istanbul coverage JSONs, generate lcov, and upload to Codecov.
+# Coverage is attributed to this overlay repo's commit, flagged per workspace
+# (see upload-coverage.sh for the attribution model).
 #
 # Usage:
 #   ./scripts/report-coverage.sh <workspace> [workspace...]
@@ -13,10 +15,10 @@
 #   1. Merges per-test coverage JSONs (written by the _coverageCollector fixture)
 #      into a single coverage-final.json using nyc merge
 #   2. Generates lcov and text-summary reports via nyc report
-#   3. Uploads lcov to Codecov for each workspace with cross-repo attribution
+#   3. Uploads lcov to Codecov flagged per workspace (e2e-<workspace>)
 #
 # Required environment:
-#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads)
+#   CODECOV_TOKEN  - Codecov upload token for this repo's project
 
 set -euo pipefail
 
@@ -75,7 +77,7 @@ if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
 else
   echo "[INFO] Uploading E2E coverage to Codecov..."
   for ws in "${WORKSPACES[@]}"; do
-    if [[ -f "$REPO_ROOT/workspaces/$ws/source.json" ]]; then
+    if [[ -d "$REPO_ROOT/workspaces/$ws" ]]; then
       "$SCRIPT_DIR/upload-coverage.sh" "$ws" || \
         echo "[WARN] Coverage upload failed for $ws (non-fatal)"
     fi
