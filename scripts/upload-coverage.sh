@@ -9,12 +9,17 @@
 #   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
 #   ./scripts/upload-coverage.sh tech-radar
 #
-# The script reads source.json to determine the upstream repo and SHA,
-# then uploads the lcov coverage to Codecov attributed to that repo.
+# The script reads source.json to determine the upstream repo and SHA, and only
+# uploads when that repo is the Codecov project we own (CODECOV_UPLOAD_SLUG,
+# default redhat-developer/rhdh-plugins). Plugins sourced from other orgs are
+# skipped — see the gate below for why.
 #
 # Required environment:
-#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads).
-#                    Falls back to VAULT_CODECOV_TOKEN (see below).
+#   CODECOV_TOKEN       - Codecov upload token for the owned project.
+#                         Falls back to VAULT_CODECOV_TOKEN (see below).
+# Optional environment:
+#   CODECOV_UPLOAD_SLUG - GitHub slug of the owned Codecov project to upload to.
+#                         Default: redhat-developer/rhdh-plugins.
 
 set -euo pipefail
 
@@ -86,6 +91,20 @@ fi
 
 # Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
 SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
+
+# Only upload coverage for plugins whose source repo we can attribute it to.
+# Codecov anchors every report to a repo + commit + file tree, so the metric is
+# only accurate when uploaded to the repo where those source files and commits
+# actually live. We own the Codecov project for redhat-developer/rhdh-plugins;
+# plugins sourced from other orgs (e.g. backstage/community-plugins) can't be
+# reported accurately without that org's token, so skip them for now. Override
+# the owned slug with CODECOV_UPLOAD_SLUG if the target project ever changes.
+UPLOAD_SLUG="${CODECOV_UPLOAD_SLUG:-redhat-developer/rhdh-plugins}"
+if [[ "$SLUG" != "$UPLOAD_SLUG" ]]; then
+  echo "[INFO] Skipping Codecov upload for '$WORKSPACE': source repo '$SLUG' is not the owned project '$UPLOAD_SLUG'."
+  echo "[INFO] Cross-org coverage attribution isn't supported; lcov is available locally at $LCOV_FILE."
+  exit 0
+fi
 
 echo "=== Uploading E2E coverage to Codecov ==="
 echo "  Workspace:  $WORKSPACE"
