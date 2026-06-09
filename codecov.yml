@@ -5,6 +5,12 @@
 # scripts/upload-coverage.sh for the attribution model. The lcov paths point at
 # upstream plugin sources that do not exist in this repo, so only the per-flag
 # percentage and trend are meaningful; line-level annotation is not available.
+#
+# Known gap: uploads currently happen only from PR presubmits (the nightly job
+# runs all workspaces in one invocation and report-coverage.sh skips the
+# upload for multi-workspace runs), so main-branch commits receive no data
+# until the per-workspace coverage split lands — see the TODO in
+# scripts/report-coverage.sh.
 
 codecov:
   require_ci_to_pass: false

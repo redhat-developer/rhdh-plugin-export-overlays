@@ -31,6 +31,8 @@
 #                         Default: redhat-developer/rhdh-plugin-export-overlays.
 #   PULL_PULL_SHA       - PR head SHA (set by Prow presubmits).
 #   PULL_NUMBER         - PR number (set by Prow presubmits).
+#   PULL_BASE_REF       - Base branch (set by Prow postsubmits) — used as the
+#                         upload branch when there is no PR number.
 #   GITHUB_SHA          - Commit SHA (set by GitHub Actions).
 #   GIT_PR_NUMBER       - PR number fallback (exported by the E2E CI step).
 
@@ -50,6 +52,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COVERAGE_DIR="$REPO_ROOT/coverage"
 LCOV_FILE="$COVERAGE_DIR/lcov.info"
 
+# The workspace name becomes the Codecov flag verbatim — validate it so a typo
+# doesn't create a ghost e2e-<typo> flag that carryforward then keeps alive.
+if [[ ! -d "$REPO_ROOT/workspaces/$WORKSPACE" ]]; then
+  echo "ERROR: Unknown workspace '$WORKSPACE' (no workspaces/$WORKSPACE directory)" >&2
+  exit 1
+fi
+
 if [[ ! -f "$LCOV_FILE" ]]; then
   echo "ERROR: No lcov file found at $LCOV_FILE" >&2
   echo "Run tests with E2E_COLLECT_COVERAGE=true first" >&2
@@ -62,8 +71,15 @@ UPLOAD_SLUG="${CODECOV_UPLOAD_SLUG:-redhat-developer/rhdh-plugin-export-overlays
 # SHA that exists on GitHub:
 #   - Prow presubmits check out a synthetic merge of the PR onto the base
 #     branch, so `git rev-parse HEAD` would yield a commit GitHub doesn't know.
-#     Use PULL_PULL_SHA (the PR head) instead.
-#   - GitHub Actions exposes GITHUB_SHA.
+#     Use PULL_PULL_SHA (the PR head) instead. (Prow *batch* jobs don't set
+#     PULL_PULL_SHA and would fall through to the synthetic batch-merge HEAD —
+#     this optional job isn't batched today, but if that changes the fallback
+#     needs a JOB_TYPE=batch guard.)
+#   - GITHUB_SHA covers GitHub Actions push/schedule events only. On
+#     pull_request events it is the synthetic refs/pull/N/merge commit, NOT the
+#     PR head — an Actions PR job would need the head SHA from the event
+#     payload instead. Coverage currently only flows through Prow, so this
+#     path is for completeness.
 #   - Periodics / local runs sit on a real pushed commit; HEAD is fine.
 if [[ -n "${PULL_PULL_SHA:-}" ]]; then
   UPLOAD_SHA="$PULL_PULL_SHA"
@@ -78,7 +94,24 @@ if [[ ! "$UPLOAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
+# PR number gets the same strictness as the SHA above: a malformed value would
+# produce another accepted-but-misattributed upload.
 PR_NUMBER="${PULL_NUMBER:-${GIT_PR_NUMBER:-}}"
+if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "[WARN] Ignoring non-numeric PR number '$PR_NUMBER'" >&2
+  PR_NUMBER=""
+fi
+
+# Without a PR, Codecov needs an explicit branch or the upload won't attach to
+# the default-branch trend (CI checkouts are detached HEAD, so the CLI's own
+# git detection finds nothing useful). PULL_BASE_REF covers Prow postsubmits;
+# otherwise use the real local branch, mapping detached HEAD (periodics) to
+# the default branch.
+UPLOAD_BRANCH=""
+if [[ -z "$PR_NUMBER" ]]; then
+  UPLOAD_BRANCH="${PULL_BASE_REF:-$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)}"
+  [[ "$UPLOAD_BRANCH" == "HEAD" ]] && UPLOAD_BRANCH="main"
+fi
 
 echo "=== Uploading E2E coverage to Codecov ==="
 echo "  Workspace:  $WORKSPACE"
@@ -86,6 +119,7 @@ echo "  LCOV file:  $LCOV_FILE"
 echo "  Target repo: $UPLOAD_SLUG"
 echo "  Target SHA:  $UPLOAD_SHA"
 [[ -n "$PR_NUMBER" ]] && echo "  PR:          #$PR_NUMBER"
+[[ -n "$UPLOAD_BRANCH" ]] && echo "  Branch:      $UPLOAD_BRANCH"
 echo "  Flag:        e2e-$WORKSPACE"
 
 if [[ -z "${CODECOV_TOKEN:-}" ]]; then
@@ -147,6 +181,7 @@ CODECOV_ARGS=(
   --fail-on-error
 )
 [[ -n "$PR_NUMBER" ]] && CODECOV_ARGS+=(--pr "$PR_NUMBER")
+[[ -n "$UPLOAD_BRANCH" ]] && CODECOV_ARGS+=(--branch "$UPLOAD_BRANCH")
 
 echo ""
 # Codecov upload failures are intentionally non-blocking (exit 0).
