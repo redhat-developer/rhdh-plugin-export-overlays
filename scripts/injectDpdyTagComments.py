@@ -18,6 +18,29 @@ TAG_LINE_RE = re.compile(r"^\s*# Tag:")
 
 
 def load_tag_by_key(plugin_builds_dir: Path) -> dict[str, tuple[str, str]]:
+    """Read all plugin_builds/*/*.json and build a lookup dict from image name to (tag, build_date).
+
+    Each JSON file maps plugin image names to their registry references and
+    build dates. For every entry, an alias is also added so that both the
+    ``red-hat-developer-hub-`` and ``rhdh-`` prefixed forms resolve to the
+    same tag info.
+
+    Args:
+        plugin_builds_dir: Path to the plugin_builds/ directory. Each
+            subdirectory contains JSON files with plugin build metadata.
+
+    Returns:
+        A dict mapping image name (str) to a (tag, build_date) tuple.
+        Returns an empty dict if the directory does not exist.
+
+    Example::
+
+        >>> load_tag_by_key(Path("plugin_builds"))
+        {
+            "red-hat-developer-hub-backstage-plugin-foo": ("1.11--1.5.4", "2025-05-01"),
+            "rhdh-backstage-plugin-foo": ("1.11--1.5.4", "2025-05-01"),
+        }
+    """
     tag_by_key: dict[str, tuple[str, str]] = {}
     if not plugin_builds_dir.is_dir():
         return tag_by_key
@@ -40,6 +63,26 @@ def load_tag_by_key(plugin_builds_dir: Path) -> dict[str, tuple[str, str]]:
 
 
 def keys_for_package(pkg: str) -> list[str]:
+    """Generate all lookup keys for a package name to try against tag_by_key.
+
+    Produces the original name, a variant with the ``-dynamic`` suffix
+    stripped, and a variant with the ``rhdh-`` prefix expanded to
+    ``red-hat-developer-hub-``.
+
+    Args:
+        pkg: The package name to generate keys for (e.g.
+            ``"rhdh-backstage-plugin-foo-dynamic"``).
+
+    Returns:
+        A list of candidate keys, ordered from most specific to least.
+
+    Example::
+
+        >>> keys_for_package("rhdh-backstage-plugin-foo-dynamic")
+        ["rhdh-backstage-plugin-foo-dynamic",
+         "rhdh-backstage-plugin-foo",
+         "red-hat-developer-hub-backstage-plugin-foo-dynamic"]
+    """
     keys = [pkg]
     if pkg.endswith("-dynamic"):
         keys.append(pkg[: -len("-dynamic")])
@@ -49,6 +92,25 @@ def keys_for_package(pkg: str) -> list[str]:
 
 
 def comment_for_package(pkg: str, tag_by_key: dict[str, tuple[str, str]]) -> str | None:
+    """Look up the tag comment string for a package name.
+
+    Tries each key from ``keys_for_package`` against ``tag_by_key`` and
+    returns the formatted YAML comment for the first match.
+
+    Args:
+        pkg: The package name to look up.
+        tag_by_key: The lookup dict built by ``load_tag_by_key``.
+
+    Returns:
+        A formatted comment string (e.g.
+        ``"  # Tag: 1.11--1.5.4, Build date: 2025-05-01\\n"``), or None
+        if no matching tag info was found.
+
+    Example::
+
+        >>> comment_for_package("rhdh-backstage-plugin-foo", tag_by_key)
+        "  # Tag: 1.11--1.5.4, Build date: 2025-05-01\\n"
+    """
     for key in keys_for_package(pkg):
         if key in tag_by_key:
             tag, bd = tag_by_key[key]
@@ -57,6 +119,11 @@ def comment_for_package(pkg: str, tag_by_key: dict[str, tuple[str, str]]) -> str
 
 
 def package_name_from_oci_comment(line: str) -> str | None:
+    """Extract the image name from a commented OCI package line.
+
+    Parses lines like ``# - package: oci://registry/image-name@sha256:...``
+    and returns the image name portion.
+    """
     m = re.search(r"oci://[^/]+/([^@\s!]+)", line)
     if not m:
         return None
@@ -64,13 +131,18 @@ def package_name_from_oci_comment(line: str) -> str | None:
 
 
 def package_name_from_package_value(val: str) -> str:
+    """Extract the package name from a package value string.
+
+    Handles both local paths (``./dynamic-plugins/dist/foo`` returns
+    ``foo``) and OCI references (returns the image name before ``@``).
+    """
     if val.startswith("./"):
         return val.rsplit("/", 1)[-1]
     return val.split("/")[-1].split("@")[0]
 
 
 def recent_has_tag(result: list[str]) -> bool:
-    """Check if a Tag comment exists between the current position and the previous package line."""
+    """Check if a Tag comment already exists between the current position and the previous package line."""
     for line in reversed(result):
         if TAG_LINE_RE.match(line):
             return True
@@ -80,6 +152,36 @@ def recent_has_tag(result: list[str]) -> bool:
 
 
 def inject(dpdy_path: Path, plugin_builds_dir: Path) -> bool:
+    """Insert ``# Tag: ..., Build date: ...`` comments into dynamic-plugins.default.yaml.
+
+    Reads the DPDY file and plugin build metadata, then inserts tag/build-date
+    comments in two positions:
+
+    - After ``# - package: oci://...`` lines (commented-out migration blocks)
+    - Before ``- package: ./dynamic-plugins/dist/...`` lines (wrapper package
+      entries), only when no Tag comment already exists nearby
+
+    Args:
+        dpdy_path: Path to the dynamic-plugins.default.yaml file.
+        plugin_builds_dir: Path to the plugin_builds/ directory containing
+            workspace subdirectories with JSON build metadata files.
+
+    Returns:
+        True if the file was modified and written back, False otherwise.
+
+    Example:
+
+        Before::
+
+            # - package: oci://quay.io/rhdh/plugin-foo@sha256:abc123
+            - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic
+
+        After::
+
+            # - package: oci://quay.io/rhdh/plugin-foo@sha256:abc123
+            # Tag: 1.11--1.5.4, Build date: 2025-05-01
+            - package: ./dynamic-plugins/dist/rhdh-backstage-plugin-foo-dynamic
+    """
     tag_by_key = load_tag_by_key(plugin_builds_dir)
     lines = dpdy_path.read_text(encoding="utf-8").splitlines(keepends=True)
     result: list[str] = []
