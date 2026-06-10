@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
 # Merge per-test Istanbul coverage JSONs, generate lcov, and upload to Codecov.
+# Coverage is attributed to this overlay repo's commit, flagged per workspace
+# (see upload-coverage.sh for the attribution model).
 #
 # Usage:
 #   ./scripts/report-coverage.sh <workspace> [workspace...]
@@ -13,10 +15,10 @@
 #   1. Merges per-test coverage JSONs (written by the _coverageCollector fixture)
 #      into a single coverage-final.json using nyc merge
 #   2. Generates lcov and text-summary reports via nyc report
-#   3. Uploads lcov to Codecov for each workspace with cross-repo attribution
+#   3. Uploads lcov to Codecov flagged per workspace (e2e-<workspace>)
 #
 # Required environment:
-#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads)
+#   CODECOV_TOKEN  - Codecov upload token for this repo's project
 
 set -euo pipefail
 
@@ -67,6 +69,13 @@ if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --l
 fi
 rm -rf "$REMAP_DEPS_DIR"
 
+# Known gap: this guard means the nightly job (which runs ALL workspaces in
+# one invocation) never uploads — so no commit on main ever receives coverage
+# and the per-flag trend on the Codecov dashboard can't form; only PR-head
+# commits get data. Lifting it requires splitting the merged coverage per
+# workspace before remapping (the remapped lcov paths are plain `src/...`
+# with no workspace identity), so the split has to happen at collection/remap
+# time — planned as a follow-up to the overlay attribution model (PR #2580).
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
   echo "[WARN] Multi-workspace coverage upload is not supported." >&2
   echo "[WARN] Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
@@ -75,9 +84,11 @@ if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
 else
   echo "[INFO] Uploading E2E coverage to Codecov..."
   for ws in "${WORKSPACES[@]}"; do
-    if [[ -f "$REPO_ROOT/workspaces/$ws/source.json" ]]; then
+    if [[ -d "$REPO_ROOT/workspaces/$ws" ]]; then
       "$SCRIPT_DIR/upload-coverage.sh" "$ws" || \
         echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+    else
+      echo "[WARN] Workspace '$ws' not found under workspaces/ — skipping upload" >&2
     fi
   done
 fi
