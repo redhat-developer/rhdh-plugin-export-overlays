@@ -12,10 +12,6 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Check default RBAC permissions", () => {
-  test.skip(
-    process.env.E2E_NIGHTLY_MODE === "true",
-    "fails in nightly runs https://redhat.atlassian.net/browse/RHDHBUGS-3193",
-  );
   let rbacPO: RbacPO;
   let apiToken: string;
 

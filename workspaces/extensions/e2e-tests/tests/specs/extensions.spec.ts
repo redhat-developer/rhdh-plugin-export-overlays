@@ -17,7 +17,6 @@ test.describe("Admin > Extensions", () => {
   ];
   const supportTypeOptions = [
     "Generally available (GA)",
-    "Certified",
     "Tech preview (TP)",
     "Dev preview (DP)",
     "Community plugin",
@@ -123,48 +122,6 @@ test.describe("Admin > Extensions", () => {
       await expect(
         page.getByLabel("Category").getByRole("combobox"),
       ).toBeEmpty();
-    });
-
-    test("Verify certified badge in extensions", async ({ page, uiHelper }) => {
-      await extensions.selectDropdown("Support type");
-      await extensions.toggleOption("Certified");
-      await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("DynaTrace");
-      await expect(
-        page.getByLabel(`Certified by ${provider}`).first(),
-      ).toBeVisible();
-      await expect(extensions.badge.first()).toBeVisible();
-      await extensions.badge.first().hover();
-      await uiHelper.verifyTextInTooltip(`Certified by ${provider}`);
-      await uiHelper.verifyHeading("DynaTrace");
-      await page.getByRole("heading", { name: "DynaTrace" }).first().click();
-      await page
-        .getByRole("button", {
-          name: "close",
-        })
-        .click();
-      await uiHelper.clickLink("Read more");
-      await expect(
-        page
-          .getByLabel(`Stable and secured by ${provider}`)
-          .getByText("Certified"),
-      ).toBeVisible();
-      await uiHelper.verifyText("About");
-      await uiHelper.verifyHeading("Versions");
-      await uiHelper.verifyTableHeadingAndRows([
-        "Package name",
-        "Version",
-        "Role",
-        "Backstage compatibility version",
-        "Status",
-      ]);
-      await page
-        .getByRole("button", {
-          name: "close",
-        })
-        .click();
-      await extensions.selectDropdown("Support type");
-      await extensions.toggleOption("Certified");
     });
 
     test("Verify Generally available badge in extensions", async ({

@@ -1,0 +1,33 @@
+# Codecov configuration for E2E plugin coverage.
+#
+# E2E coverage collected from instrumented dynamic plugins is uploaded to this
+# repo's Codecov project, one flag per workspace (e2e-<workspace>) — see
+# scripts/upload-coverage.sh for the attribution model. The lcov paths point at
+# upstream plugin sources that do not exist in this repo, so only the per-flag
+# percentage and trend are meaningful; line-level annotation is not available.
+#
+# Known gap: uploads currently happen only from PR presubmits (the nightly job
+# runs all workspaces in one invocation and report-coverage.sh skips the
+# upload for multi-workspace runs), so main-branch commits receive no data
+# until the per-workspace coverage split lands — see the known-gap note in
+# scripts/report-coverage.sh.
+
+codecov:
+  require_ci_to_pass: false
+
+coverage:
+  status:
+    # Coverage is informational only — never gate or fail PRs on it.
+    project: off
+    patch: off
+
+# A PR / nightly run only exercises one workspace's E2E suite. Carry every
+# other workspace's flag forward from the last commit that measured it, so the
+# overall picture doesn't drop to a single flag on each upload.
+flag_management:
+  default_rules:
+    carryforward: true
+
+comment:
+  layout: "flags"
+  require_changes: false
