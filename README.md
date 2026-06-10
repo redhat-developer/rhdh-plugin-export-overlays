@@ -154,6 +154,16 @@ If your plugin configuration (in `metadata/*.yaml`) uses environment variables (
 
 - **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `smoke-tests/run` step.
 
+#### Overriding Backstage Compatibility
+
+When a workspace's upstream Backstage version (in `source.json`) differs from the RHDH target version (in `versions.json`), you need to override the compatibility before publishing. Comment on your PR:
+
+```
+/override-backstage
+```
+
+This creates `backstage.json` with the target version and updates all metadata OCI tags to match. After the override completes, run `/publish` to build the images.
+
 #### Manual Testing
 
 - To trigger a build of the OCI image for the plugins in a PR, comment: `/publish`.
