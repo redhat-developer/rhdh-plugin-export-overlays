@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Generate the Codecov placeholder source tree for a workspace.
+# Generate the Codecov anchor files for a workspace.
 #
 # Usage:
 #   ./scripts/generate-coverage-sources.sh <workspace-name>
@@ -10,22 +10,20 @@
 #   upload-coverage.sh), but Codecov only keeps report entries whose paths
 #   exist in the repo's git tree at the uploaded commit — anything else is
 #   dropped at processing time (errorCode REPORT_EMPTY when nothing matches).
-#   The plugins' real sources live in the upstream repo, so this script
-#   mirrors each deployed plugin's `src/` file tree as EMPTY placeholder
-#   files under:
+#   The plugins' real sources live in the upstream repo, so remap-coverage.cjs
+#   concatenates each plugin's coverage onto a single committed ANCHOR file:
 #
-#     workspaces/<workspace>/coverage-sources/<scalprum-name>/src/...
+#     workspaces/<workspace>/coverage-sources/<scalprum-name>
 #
-#   remap-coverage.cjs emits lcov paths pointing at this tree (keyed by the
-#   webpack remote, which is the plugin's scalprum name), so Codecov can
-#   resolve every file and compute the per-flag percentage. File CONTENT is
-#   irrelevant to the percentage — only the path needs to exist — hence
-#   empty files.
+#   Codecov validates the path's existence but not its content or length, so
+#   the anchors are empty and STATIC: they never need regenerating when the
+#   workspace's repo-ref is bumped. Re-run this script only when a NEW plugin
+#   gains a metadata Package entity (the remap warns when a covered plugin has
+#   no anchor). Idempotent — regenerates the anchor set from scratch.
 #
-#   Run this whenever a workspace's repo-ref changes (the file tree must
-#   match the built plugin version). Intended to be wired into the
-#   version-bump automation; safe to run manually at any time (idempotent:
-#   regenerates the tree from scratch).
+#   The anchor name is the plugin's scalprum name (explicit `scalprum.name`
+#   from the plugin's package.json, or the default `<scope>.<name>`), which is
+#   exactly the webpack remote that keys the coverage source maps.
 #
 # Requires: gh (authenticated), jq
 
@@ -62,7 +60,7 @@ else
 fi
 
 # Only deployed plugins (those with a metadata Package entity) produce
-# coverage — skip the rest to keep the placeholder tree minimal.
+# coverage — skip the rest to keep the anchor set minimal.
 DEPLOYED_PACKAGES=$(grep -rh "packageName:" "$WORKSPACE_DIR/metadata/" 2>/dev/null \
   | sed 's/.*packageName:[[:space:]]*//; s/"//g; s/'"'"'//g' | sort -u)
 if [[ -z "$DEPLOYED_PACKAGES" ]]; then
@@ -74,13 +72,12 @@ OUT_ROOT="$WORKSPACE_DIR/coverage-sources"
 rm -rf "$OUT_ROOT"
 mkdir -p "$OUT_ROOT"
 
-echo "=== Generating coverage placeholder tree ==="
+echo "=== Generating coverage anchor files ==="
 echo "  Workspace: $WORKSPACE"
 echo "  Source:    $SLUG @ $REPO_REF"
 echo "  Output:    $OUT_ROOT"
 
-TOTAL_FILES=0
-GENERATED_PLUGINS=0
+GENERATED=0
 
 # plugins-list.yaml keys are plugin paths relative to the source workspace
 # (e.g. `plugins/theme:`), optionally with export args as values.
@@ -105,47 +102,32 @@ while IFS= read -r plugin_path; do
     SCALPRUM_NAME=$(echo "$PKG_NAME" | sed 's|^@||; s|/|.|')
   fi
 
-  # Mirror the plugin's src/ tree (code files only) as empty files.
-  FILES=$(gh api "repos/$SLUG/git/trees/$REPO_REF:${SRC_PREFIX}${plugin_path}/src?recursive=1" \
-    --jq '.tree[] | select(.type=="blob") | .path' 2>/dev/null \
-    | grep -E '\.[cm]?[jt]sx?$' || true)
-  if [[ -z "$FILES" ]]; then
-    echo "  [WARN] $plugin_path ($PKG_NAME): no src/ code files found — skipping" >&2
-    continue
-  fi
-
-  COUNT=0
-  while IFS= read -r rel; do
-    DEST="$OUT_ROOT/$SCALPRUM_NAME/src/$rel"
-    mkdir -p "$(dirname "$DEST")"
-    : > "$DEST"
-    COUNT=$((COUNT + 1))
-  done <<<"$FILES"
-
-  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-sources/$SCALPRUM_NAME ($COUNT files)"
-  TOTAL_FILES=$((TOTAL_FILES + COUNT))
-  GENERATED_PLUGINS=$((GENERATED_PLUGINS + 1))
+  : > "$OUT_ROOT/$SCALPRUM_NAME"
+  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-sources/$SCALPRUM_NAME"
+  GENERATED=$((GENERATED + 1))
 done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed 's/:.*//')
 
 cat > "$OUT_ROOT/README.md" <<EOF
-# Coverage placeholder tree (auto-generated — do not edit)
+# Codecov coverage anchors (auto-generated — do not edit)
 
-Empty files mirroring each deployed plugin's \`src/\` tree in the upstream
-source repo ($SLUG @ $REPO_REF). Codecov only keeps coverage for paths that
-exist in this repo's git tree, and the E2E lcov produced by
-\`scripts/remap-coverage.cjs\` points here. Content is intentionally empty —
-only the paths matter for the per-flag coverage percentage.
+One empty, static file per deployed plugin, named after its scalprum name.
+Codecov only keeps coverage for paths that exist in this repo's git tree, and
+the plugins' real sources live in the upstream repo — so
+\`scripts/remap-coverage.cjs\` concatenates each plugin's E2E coverage onto its
+anchor (line ranges shifted; the aggregated percentage is preserved exactly).
+Only the path's existence matters; content and length are never validated.
 
-Regenerate after a repo-ref bump:
+These files never change with plugin versions. Re-run the generator only when
+a new plugin gains a metadata Package entity:
 
 \`\`\`bash
 ./scripts/generate-coverage-sources.sh $WORKSPACE
 \`\`\`
 EOF
 
-if [[ $GENERATED_PLUGINS -eq 0 ]]; then
-  echo "ERROR: no plugin produced a placeholder tree" >&2
+if [[ $GENERATED -eq 0 ]]; then
+  echo "ERROR: no anchor file generated" >&2
   exit 1
 fi
 
-echo "=== Done: $GENERATED_PLUGINS plugin(s), $TOTAL_FILES placeholder file(s) ==="
+echo "=== Done: $GENERATED anchor file(s) ==="

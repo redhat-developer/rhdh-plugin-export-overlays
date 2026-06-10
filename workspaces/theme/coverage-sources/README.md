@@ -1,12 +1,14 @@
-# Coverage placeholder tree (auto-generated — do not edit)
+# Codecov coverage anchors (auto-generated — do not edit)
 
-Empty files mirroring each deployed plugin's `src/` tree in the upstream
-source repo (redhat-developer/rhdh-plugins @ be783085175d570a9f36a983ce8891c12bf45dfe). Codecov only keeps coverage for paths that
-exist in this repo's git tree, and the E2E lcov produced by
-`scripts/remap-coverage.cjs` points here. Content is intentionally empty —
-only the paths matter for the per-flag coverage percentage.
+One empty, static file per deployed plugin, named after its scalprum name.
+Codecov only keeps coverage for paths that exist in this repo's git tree, and
+the plugins' real sources live in the upstream repo — so
+`scripts/remap-coverage.cjs` concatenates each plugin's E2E coverage onto its
+anchor (line ranges shifted; the aggregated percentage is preserved exactly).
+Only the path's existence matters; content and length are never validated.
 
-Regenerate after a repo-ref bump:
+These files never change with plugin versions. Re-run the generator only when
+a new plugin gains a metadata Package entity:
 
 ```bash
 ./scripts/generate-coverage-sources.sh theme
