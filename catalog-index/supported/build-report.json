@@ -802,7 +802,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.49.4__1.21.5"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.49.4__1.21.6"
         },
         "registry-enrich": {
           "status": "pass",
@@ -816,7 +816,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e6d280842a8f797e84bf830a6bab02946f394d814b5c6c4b674c06a04498f6a7"
+          "digest": "sha256:e6d280842a8f797e84bf830a6bab02946f394d814b5c6c4b674c06a04498f6a7",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__1.21.6",
+          "resolvedTag": "bs_1.49.4__1.21.5"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-global-header",
