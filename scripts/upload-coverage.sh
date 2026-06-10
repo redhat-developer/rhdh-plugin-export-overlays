@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Upload Istanbul/lcov coverage to Codecov with cross-repo attribution.
+# Upload Istanbul/lcov coverage to Codecov, attributed to THIS repo's commit.
 #
 # Usage:
 #   ./scripts/upload-coverage.sh <workspace-name>
@@ -9,17 +9,32 @@
 #   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
 #   ./scripts/upload-coverage.sh tech-radar
 #
-# The script reads source.json to determine the upstream repo and SHA, and only
-# uploads when that repo is the Codecov project we own (CODECOV_UPLOAD_SLUG,
-# default redhat-developer/rhdh-plugins). Plugins sourced from other orgs are
-# skipped — see the gate below for why.
+# Coverage is uploaded to the Codecov project of this overlay repo
+# (redhat-developer/rhdh-plugin-export-overlays), flagged `e2e-<workspace>`,
+# against the overlay commit currently being tested. Earlier versions attributed
+# coverage to the upstream source repo + the historical `repo-ref` commit from
+# source.json, but Codecov finalizes a commit's report shortly after that
+# commit's own CI completes — uploads to an already-finalized historical commit
+# are accepted by the API and never displayed. Uploading to the fresh overlay
+# commit keeps the data live, avoids needing other orgs' tokens, and keeps
+# RHDH-specific E2E numbers off upstream community dashboards.
+#
+# Trade-off: this repo does not contain the plugin source files, so Codecov
+# cannot render line-level annotations — only the per-flag coverage percentage
+# and its trend, which is the metric we want from E2E runs.
 #
 # Required environment:
-#   CODECOV_TOKEN       - Codecov upload token for the owned project.
+#   CODECOV_TOKEN       - Codecov upload token for this repo's project.
 #                         Falls back to VAULT_CODECOV_TOKEN (see below).
 # Optional environment:
-#   CODECOV_UPLOAD_SLUG - GitHub slug of the owned Codecov project to upload to.
-#                         Default: redhat-developer/rhdh-plugins.
+#   CODECOV_UPLOAD_SLUG - GitHub slug of the Codecov project to upload to.
+#                         Default: redhat-developer/rhdh-plugin-export-overlays.
+#   PULL_PULL_SHA       - PR head SHA (set by Prow presubmits).
+#   PULL_NUMBER         - PR number (set by Prow presubmits).
+#   PULL_BASE_REF       - Base branch (set by Prow postsubmits) — used as the
+#                         upload branch when there is no PR number.
+#   GITHUB_SHA          - Commit SHA (set by GitHub Actions).
+#   GIT_PR_NUMBER       - PR number fallback (exported by the E2E CI step).
 
 set -euo pipefail
 
@@ -34,9 +49,15 @@ readonly AWK_FIRST_FIELD='{print $1}'
 WORKSPACE="${1:?Usage: $0 <workspace-name>}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-WORKSPACE_DIR="$REPO_ROOT/workspaces/$WORKSPACE"
 COVERAGE_DIR="$REPO_ROOT/coverage"
 LCOV_FILE="$COVERAGE_DIR/lcov.info"
+
+# The workspace name becomes the Codecov flag verbatim — validate it so a typo
+# doesn't create a ghost e2e-<typo> flag that carryforward then keeps alive.
+if [[ ! -d "$REPO_ROOT/workspaces/$WORKSPACE" ]]; then
+  echo "ERROR: Unknown workspace '$WORKSPACE' (no workspaces/$WORKSPACE directory)" >&2
+  exit 1
+fi
 
 if [[ ! -f "$LCOV_FILE" ]]; then
   echo "ERROR: No lcov file found at $LCOV_FILE" >&2
@@ -44,73 +65,61 @@ if [[ ! -f "$LCOV_FILE" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$WORKSPACE_DIR/source.json" ]]; then
-  echo "ERROR: source.json not found at $WORKSPACE_DIR/source.json" >&2
+UPLOAD_SLUG="${CODECOV_UPLOAD_SLUG:-redhat-developer/rhdh-plugin-export-overlays}"
+
+# Resolve the overlay commit to attribute the coverage to. Codecov requires a
+# SHA that exists on GitHub:
+#   - Prow presubmits check out a synthetic merge of the PR onto the base
+#     branch, so `git rev-parse HEAD` would yield a commit GitHub doesn't know.
+#     Use PULL_PULL_SHA (the PR head) instead. (Prow *batch* jobs don't set
+#     PULL_PULL_SHA and would fall through to the synthetic batch-merge HEAD —
+#     this optional job isn't batched today, but if that changes the fallback
+#     needs a JOB_TYPE=batch guard.)
+#   - GITHUB_SHA covers GitHub Actions push/schedule events only. On
+#     pull_request events it is the synthetic refs/pull/N/merge commit, NOT the
+#     PR head — an Actions PR job would need the head SHA from the event
+#     payload instead. Coverage currently only flows through Prow, so this
+#     path is for completeness.
+#   - Periodics / local runs sit on a real pushed commit; HEAD is fine.
+if [[ -n "${PULL_PULL_SHA:-}" ]]; then
+  UPLOAD_SHA="$PULL_PULL_SHA"
+elif [[ -n "${GITHUB_SHA:-}" ]]; then
+  UPLOAD_SHA="$GITHUB_SHA"
+else
+  UPLOAD_SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
+fi
+
+if [[ ! "$UPLOAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ERROR: Could not resolve a 40-char overlay commit SHA (got '$UPLOAD_SHA')" >&2
   exit 1
 fi
 
-REPO_URL=$(jq -r '.repo // empty' "$WORKSPACE_DIR/source.json")
-REPO_REF=$(jq -r '.["repo-ref"] // empty' "$WORKSPACE_DIR/source.json")
-
-if [[ -z "$REPO_URL" || "$REPO_URL" == "null" ]]; then
-  echo "ERROR: Invalid or missing 'repo' field in source.json" >&2
-  exit 1
+# PR number gets the same strictness as the SHA above: a malformed value would
+# produce another accepted-but-misattributed upload.
+PR_NUMBER="${PULL_NUMBER:-${GIT_PR_NUMBER:-}}"
+if [[ -n "$PR_NUMBER" && ! "$PR_NUMBER" =~ ^[0-9]+$ ]]; then
+  echo "[WARN] Ignoring non-numeric PR number '$PR_NUMBER'" >&2
+  PR_NUMBER=""
 fi
 
-if [[ -z "$REPO_REF" || "$REPO_REF" == "null" ]]; then
-  echo "ERROR: Invalid or missing 'repo-ref' field in source.json" >&2
-  exit 1
-fi
-
-# Codecov --sha requires a 40-char commit SHA. source.json repo-ref can be a
-# tag name (e.g., "v1.49.4") — resolve it to a commit SHA via git ls-remote.
-# For annotated tags, ls-remote returns the tag object and the dereferenced
-# commit (^{}); tail -1 picks the commit in both cases.
-#
-# OPTIMIZATION OPPORTUNITY: This network call could be eliminated by storing
-# full 40-char SHAs in source.json (updated by update-plugins-repo-refs.yaml).
-# For now, we resolve at upload time and cache the result in /tmp.
-if [[ ! "$REPO_REF" =~ ^[0-9a-f]{40}$ ]]; then
-  CACHE_FILE="/tmp/codecov-sha-${WORKSPACE}.cache"
-  if [[ -f "$CACHE_FILE" ]]; then
-    RESOLVED=$(cat "$CACHE_FILE")
-    echo "  Using cached SHA for '$REPO_REF': $RESOLVED"
-  else
-    RESOLVED=$(git ls-remote "$REPO_URL" "$REPO_REF" "${REPO_REF}^{}" 2>/dev/null | tail -1 | awk "$AWK_FIRST_FIELD")
-    if [[ -n "$RESOLVED" ]]; then
-      echo "  Resolved ref '$REPO_REF' -> $RESOLVED"
-      echo "$RESOLVED" > "$CACHE_FILE"
-    else
-      echo "ERROR: Could not resolve '$REPO_REF' to a commit SHA" >&2
-      echo "Codecov requires a valid 40-char commit SHA" >&2
-      exit 1
-    fi
-  fi
-  REPO_REF="$RESOLVED"
-fi
-
-# Extract GitHub slug from repo URL (e.g., "redhat-developer/rhdh-plugins")
-SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
-
-# Only upload coverage for plugins whose source repo we can attribute it to.
-# Codecov anchors every report to a repo + commit + file tree, so the metric is
-# only accurate when uploaded to the repo where those source files and commits
-# actually live. We own the Codecov project for redhat-developer/rhdh-plugins;
-# plugins sourced from other orgs (e.g. backstage/community-plugins) can't be
-# reported accurately without that org's token, so skip them for now. Override
-# the owned slug with CODECOV_UPLOAD_SLUG if the target project ever changes.
-UPLOAD_SLUG="${CODECOV_UPLOAD_SLUG:-redhat-developer/rhdh-plugins}"
-if [[ "$SLUG" != "$UPLOAD_SLUG" ]]; then
-  echo "[INFO] Skipping Codecov upload for '$WORKSPACE': source repo '$SLUG' is not the owned project '$UPLOAD_SLUG'."
-  echo "[INFO] Cross-org coverage attribution isn't supported; lcov is available locally at $LCOV_FILE."
-  exit 0
+# Without a PR, Codecov needs an explicit branch or the upload won't attach to
+# the default-branch trend (CI checkouts are detached HEAD, so the CLI's own
+# git detection finds nothing useful). PULL_BASE_REF covers Prow postsubmits;
+# otherwise use the real local branch, mapping detached HEAD (periodics) to
+# the default branch.
+UPLOAD_BRANCH=""
+if [[ -z "$PR_NUMBER" ]]; then
+  UPLOAD_BRANCH="${PULL_BASE_REF:-$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)}"
+  [[ "$UPLOAD_BRANCH" == "HEAD" ]] && UPLOAD_BRANCH="main"
 fi
 
 echo "=== Uploading E2E coverage to Codecov ==="
 echo "  Workspace:  $WORKSPACE"
 echo "  LCOV file:  $LCOV_FILE"
-echo "  Target repo: $SLUG"
-echo "  Target SHA:  $REPO_REF"
+echo "  Target repo: $UPLOAD_SLUG"
+echo "  Target SHA:  $UPLOAD_SHA"
+[[ -n "$PR_NUMBER" ]] && echo "  PR:          #$PR_NUMBER"
+[[ -n "$UPLOAD_BRANCH" ]] && echo "  Branch:      $UPLOAD_BRANCH"
 echo "  Flag:        e2e-$WORKSPACE"
 
 if [[ -z "${CODECOV_TOKEN:-}" ]]; then
@@ -160,25 +169,30 @@ if [[ ! -x "$CODECOV_BIN" ]]; then
   echo "  Codecov CLI downloaded and verified"
 fi
 
+CODECOV_ARGS=(
+  --file "$LCOV_FILE"
+  --flag "e2e-$WORKSPACE"
+  --sha "$UPLOAD_SHA"
+  --slug "$UPLOAD_SLUG"
+  --token "$CODECOV_TOKEN"
+  --git-service github
+  --name "overlay-e2e-$WORKSPACE"
+  --disable-search
+  --fail-on-error
+)
+[[ -n "$PR_NUMBER" ]] && CODECOV_ARGS+=(--pr "$PR_NUMBER")
+[[ -n "$UPLOAD_BRANCH" ]] && CODECOV_ARGS+=(--branch "$UPLOAD_BRANCH")
+
 echo ""
 # Codecov upload failures are intentionally non-blocking (exit 0).
 # Coverage is informational — CI jobs should not fail if Codecov is down or
 # has transient errors. The lcov report is still available locally for review.
 # This approach prioritizes CI stability while ensuring coverage visibility when
 # Codecov is available.
-if "$CODECOV_BIN" upload-process \
-  --file "$LCOV_FILE" \
-  --flag "e2e-$WORKSPACE" \
-  --sha "$REPO_REF" \
-  --slug "$SLUG" \
-  --token "$CODECOV_TOKEN" \
-  --git-service github \
-  --name "overlay-e2e-$WORKSPACE" \
-  --disable-search \
-  --fail-on-error; then
+if "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"; then
   echo ""
   echo "=== Upload complete ==="
-  echo "  View coverage at: https://app.codecov.io/gh/$SLUG/commit/$REPO_REF"
+  echo "  View coverage at: https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
   echo "  Filter by flag: e2e-$WORKSPACE"
 else
   echo ""
@@ -187,8 +201,8 @@ else
   echo "=================================================="
   echo "  This is non-fatal — coverage data is still available locally"
   echo "  LCOV report: $LCOV_FILE"
-  echo "  Target repo: $SLUG"
-  echo "  Target SHA:  $REPO_REF"
+  echo "  Target repo: $UPLOAD_SLUG"
+  echo "  Target SHA:  $UPLOAD_SHA"
   echo "=================================================="
   # Exit 0 (success) — upload failure should not fail the CI job
   exit 0
