@@ -313,23 +313,6 @@ plugins:
               - importName: homepageTranslations
                 ref: homepageTranslationRef
                 module: Alpha
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-floating-action-button@sha256:1d7ad1004395dd53dbf5f340ad30e91ca564bd14f89f8cc6dfa8db0cb5bf789b
-  # Tag: bs_1.49.4__1.9.3, Build date: 2026-06-03T21:08:50Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # disabled: true
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-floating-action-button
-    disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-global-floating-action-button:
-            translationResources:
-              - importName: globalFloatingActionButtonTranslations
-                ref: globalFloatingActionButtonTranslationRef
-            mountPoints:
-              - mountPoint: application/listener
-                importName: DynamicGlobalFloatingActionButton
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:e6d280842a8f797e84bf830a6bab02946f394d814b5c6c4b674c06a04498f6a7
   # Tag: bs_1.49.4__1.21.5, Build date: 2026-06-03T21:16:21Z
   # new approach using oci images: to switch to the new approach, uncomment
@@ -945,8 +928,7 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 15
-  # Tag: bs_1.49.4__0.4.10, Build date: 2026-05-21T20:54:16Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:8e16d643e555c5252bba5c5f18dbea2449bff7215d4de398aeb825df8274410d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.49.4__0.4.10
     disabled: true
     pluginConfig:
       events:
@@ -1113,8 +1095,7 @@ plugins:
     pluginConfig:
       bulkImport:
         importAPI: open-pull-requests
-  # Tag: bs_1.49.4__0.1.1, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:21c8ac8ee21b61170fcf60013ae7b47dbad9b7ebea92364a553bc0674484998c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1
     disabled: true
     pluginConfig:
       homepage:
@@ -1168,8 +1149,7 @@ plugins:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.49.4__1.2.6, Build date: 2026-05-22T15:15:55Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:3fd9b174d2fcd6fec5ddf1079f9eac35baa4da3e1a47a02127f1860f1bd76979
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.49.4__1.2.6
     disabled: true
     pluginConfig:
       orchestrator:
@@ -1183,17 +1163,15 @@ plugins:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  # Tag: bs_1.49.4__1.5.4, Build date: 2026-05-26T12:41:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:452d3e0a78d5756dafd8b22a7b170a9a929e5415f96485cea3bf6aa0391128c1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.49.4__1.5.4
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.49.4__5.6.0, Build date: 2026-05-26T12:41:25Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:48d0dc8af52f8fdea6e6d7d55193a4e8eb81c93e0b337e4b103b90f50a970eb1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0
     disabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay@sha256:0e6b34b09ec7b01816b386729ab55fa4eb2ddb385d5e13aa34d29349f5cc691a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1208,14 +1186,14 @@ plugins:
                   if:
                     anyOf:
                       - isQuayAvailable
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:4f5ba6b4d5b8f528fb1e86d22a4cc0cac7ee72af10305539ff218177497a36be
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.49.4__1.14.0
     disabled: true
     pluginConfig:
       quay:
         apiUrl: "https://quay.io"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:f11d99ea56fd3a2babb62c72afe018bb2a1849a1cf1e3eb25489e5578e40b2f1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0
     disabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:1890c37b5966095087e31d1a75073b1e26279575f6dab2fe3956e0bf7baadf45
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.37.0
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1233,7 +1211,7 @@ plugins:
                   if:
                     allOf:
                       - isTektonCIAvailable
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend@sha256:cc8335e356bfad5a9c86a8cd985945d4d06a17fd8df0e5da7777cf61fbe884d1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend:bs_1.49.4__4.8.0
     disabled: true
     pluginConfig:
       argocd:
@@ -1245,7 +1223,7 @@ plugins:
               - name: argoInstance1
                 url: ${ARGOCD_INSTANCE1_URL}
                 token: ${ARGOCD_AUTH_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd@sha256:ad8df316659ca528dc2f6487a5a3c188d1d8c2d4780d9af34e045a7ba165b542
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.49.4__1.8.1
     disabled: true
     pluginConfig:
       argocd:
