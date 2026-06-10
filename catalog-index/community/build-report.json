@@ -41,6 +41,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:3a0f83a0c306069397b927d5d9b58fca12bf8f5526b5cd15b6319c3e2573875b"
         }
       },
       "package": "@backstage-community/plugin-argocd-backend",
@@ -63,6 +67,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:1baf1855b51ed815e6970708159e49e9ae2b0de34c29bf5ace73ac4d31f42922"
         }
       },
       "package": "@backstage-community/plugin-argocd",
@@ -129,6 +137,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:e42410b510357c95b0f2692118ce1987eb28054256f379bd03d102924c4375f4"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-cloud",
@@ -151,6 +163,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:05d235ce40078f0c9bbdbdc1598d8dbb5a4d1ffe2428dc96a640ebff8596fa04"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-server",
@@ -173,6 +189,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:95d407b1372d3ae055511d3671afd36d2d736f2b3bc0a3653e35fed4b2ef79a1"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-azure",
@@ -195,6 +215,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:f84e3cf4048363edd3178af0660b3e25420d2bb247e61f8fe1ac681f67dbebe6"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud",
@@ -217,6 +241,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:d961de677ff52af6148d22f6e9a9db1d1252c7537b376d1c00c803e1e2b3b30d"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
@@ -239,6 +267,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:b0c56c9ff62f65059fcb2cba209a8286b0053c5b8cf54f6aa6b842272e51fbe1"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-gerrit",
@@ -283,6 +315,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:77309d14238a6a05b6d0c229b9e08b96104a9d2a19443e105c84371fe6d78d9d"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
@@ -305,6 +341,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:5203992ffc4bb91eed6c6e551579569b62195ab0079695abd05ddd561d29818c"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
@@ -525,6 +565,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:0e6b34b09ec7b01816b386729ab55fa4eb2ddb385d5e13aa34d29349f5cc691a"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -547,6 +591,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:f11d99ea56fd3a2babb62c72afe018bb2a1849a1cf1e3eb25489e5578e40b2f1"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -569,6 +617,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:cc8335e356bfad5a9c86a8cd985945d4d06a17fd8df0e5da7777cf61fbe884d1"
         }
       },
       "package": "@roadiehq/backstage-plugin-argo-cd-backend",
@@ -591,6 +643,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:967059494477d0e9c838bdd9ed895ee1cc0c92be4daf8d5f352a84e18b73f1a5"
         }
       },
       "package": "@roadiehq/backstage-plugin-datadog",
@@ -613,6 +669,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:c2fae2a59ee31b8211af6ad84b86523b29b4ba10465bf4a33d4c85894c2a3e16"
         }
       },
       "package": "@roadiehq/backstage-plugin-github-insights",
@@ -635,6 +695,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:61e8a5acaa2a24bcee5506b360ea6702be7beebd64e0fb7c8b1720add205d67e"
         }
       },
       "package": "@roadiehq/backstage-plugin-github-pull-requests",
@@ -657,6 +721,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:989b0ab1ea8483d1e3ea43a2a83dae187126804e1b7a16b73ba4cafcb43ef0ab"
         }
       },
       "package": "@roadiehq/backstage-plugin-jira",
@@ -679,6 +747,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:52c742945cbd995ad5a9801444b7aac92d5e6d6e976a898e355ba9548cae68f0"
         }
       },
       "package": "@roadiehq/backstage-plugin-security-insights",
@@ -701,6 +773,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:ad8df316659ca528dc2f6487a5a3c188d1d8c2d4780d9af34e045a7ba165b542"
         }
       },
       "package": "@roadiehq/scaffolder-backend-argocd",
@@ -723,6 +799,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:61e3abd17837d7e62cba4ab454698babd82a47407c18857f000bd6d83ccbd106"
         }
       },
       "package": "@roadiehq/scaffolder-backend-module-utils",
@@ -833,6 +913,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:1890c37b5966095087e31d1a75073b1e26279575f6dab2fe3956e0bf7baadf45"
         }
       },
       "package": "@backstage-community/plugin-tekton",
@@ -855,6 +939,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:4f5ba6b4d5b8f528fb1e86d22a4cc0cac7ee72af10305539ff218177497a36be"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
