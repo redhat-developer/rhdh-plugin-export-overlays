@@ -9,7 +9,7 @@ on:
         type: string
         required: true
       command-name:
-        description: Command to execute (publish, update-versions, update-commit, smoketest)
+        description: Command to execute (publish, update-versions, update-commit, smoketest, override-backstage)
         type: string
         required: true
       smoketest-tag:
@@ -29,7 +29,8 @@ jobs:
       contains(github.event.comment.body, '/publish') ||
       contains(github.event.comment.body, '/update-versions') ||
       contains(github.event.comment.body, '/update-commit') ||
-      contains(github.event.comment.body, '/smoketest')))
+      contains(github.event.comment.body, '/smoketest') ||
+      contains(github.event.comment.body, '/override-backstage')))
     
     outputs:
       command-name: ${{ steps.extract.outputs.command-name }}
@@ -47,7 +48,7 @@ jobs:
             core.setOutput('smoketest-tag', '');
             if (context.eventName === 'workflow_dispatch') {
               const commandName = '${{ inputs.command-name }}';
-              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest']);
+              const allowed = new Set(['publish', 'update-versions', 'update-commit', 'smoketest', 'override-backstage']);
               if (!allowed.has(commandName)) {
                 const errorMsg = `Invalid command: ${commandName}`;
                 core.setOutput('error-message', errorMsg);
@@ -84,7 +85,7 @@ jobs:
               .split(/\r?\n/)
               .map(l => l.trim())
               .filter(l => l.length > 0);
-            const allowed = new Set(['/publish', '/update-versions', '/update-commit']);
+            const allowed = new Set(['/publish', '/update-versions', '/update-commit', '/override-backstage']);
             const matchingCommands = [];
             let smoketestTag = '';
             let malformedSmoketestCommand = '';
@@ -161,7 +162,7 @@ jobs:
           script: |
             const errorMessage = core.getInput('error_message');
             const prNumber = Number(core.getInput('pr_number'));
-            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/smoketest\` - Run smoke tests with default image\n- \`/smoketest <tag>\` - Run smoke tests with \`quay.io/rhdh-community/rhdh:<tag>\`\n  - Allowed tags: \`pr-4907\`, \`pr-4929-90eff067\`, \`next\`, \`next-1.10-244a2755\`, \`next-8a0d43e7\``;
+            const body = `**Error**: ${errorMessage}\n\nValid commands are:\n- \`/publish\` - Publish dynamic plugin images\n- \`/update-versions\` - Update versions from release branch\n- \`/update-commit\` - Update commit from automatic discovery\n- \`/override-backstage\` - Override Backstage version compatibility\n- \`/smoketest\` - Run smoke tests with default image\n- \`/smoketest <tag>\` - Run smoke tests with \`quay.io/rhdh-community/rhdh:<tag>\`\n  - Allowed tags: \`pr-4907\`, \`pr-4929-90eff067\`, \`next\`, \`next-1.10-244a2755\`, \`next-8a0d43e7\``;
             await github.rest.issues.createComment({
               issue_number: prNumber,
               owner: context.repo.owner,
@@ -550,3 +551,176 @@ jobs:
               repo: context.repo.repo,
               body: body
             })
+
+  overrideBackstage:
+    name: Override Backstage compatibility
+    needs:
+      - parse
+      - prepare
+
+    concurrency:
+      group: overrideBackstage-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
+      cancel-in-progress: true
+
+    if: |
+      needs.parse.outputs.command-name == 'override-backstage' &&
+      needs.prepare.outputs.workspace != ''
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    outputs:
+      target-version: ${{ steps.override.outputs.target-version }}
+      source-version: ${{ steps.override.outputs.source-version }}
+      commit-sha: ${{ steps.override.outputs.commit-sha }}
+      fork: ${{ steps.override.outputs.fork }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Override Backstage compatibility
+        id: override
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_WORKSPACE: ${{ needs.prepare.outputs.workspace }}
+          INPUT_OVERLAY_BRANCH: ${{ needs.prepare.outputs.overlay-branch }}
+          INPUT_OVERLAY_REPO: ${{ needs.prepare.outputs.overlay-repo }}
+          INPUT_TARGET_BRANCH: ${{ needs.prepare.outputs.target-branch }}
+        with:
+          script: |
+            const script = require('./.github/workflows/github-script/override-backstage-compatibility.js');
+            await script({github, context, core});
+
+  overrideBackstageMetadataRefresh:
+    name: Override Backstage metadata refresh
+    needs:
+      - parse
+      - prepare
+      - overrideBackstage
+
+    concurrency:
+      group: overrideBackstageMetadataRefresh-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
+      cancel-in-progress: true
+
+    if: |
+      needs.overrideBackstage.result == 'success' &&
+      needs.overrideBackstage.outputs.fork != 'true'
+
+    uses: ./.github/workflows/update-plugins-repo-refs.yaml
+    with:
+      single-branch: ${{ needs.prepare.outputs.target-branch }}
+      workspace-path: ${{ needs.prepare.outputs.workspace }}
+      pr-to-update: ${{ needs.prepare.outputs.pr-number }}
+      force: true
+
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      issues: read
+      attestations: write
+      packages: write
+      id-token: write
+      statuses: write
+
+  add_override_backstage_completion_comment:
+    needs:
+      - parse
+      - prepare
+      - overrideBackstage
+      - overrideBackstageMetadataRefresh
+
+    concurrency:
+      group: add_override_backstage_completion_comment-${{ github.ref_name }}-${{ needs.parse.outputs.pr-number }}
+      cancel-in-progress: false
+
+    permissions:
+      statuses: write
+      pull-requests: write
+
+    if: |
+      always() &&
+      needs.parse.outputs.command-name == 'override-backstage' &&
+      needs.prepare.outputs.overlay-branch != '' &&
+      needs.prepare.outputs.workspace != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add completion comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_COMMAND_NAME: ${{ needs.parse.outputs.command-name }}
+          INPUT_PR_NUMBER: ${{ needs.prepare.outputs.pr-number }}
+          INPUT_TARGET_VERSION: ${{ needs.overrideBackstage.outputs.target-version }}
+          INPUT_SOURCE_VERSION: ${{ needs.overrideBackstage.outputs.source-version }}
+          INPUT_COMMIT_SHA: ${{ needs.overrideBackstage.outputs.commit-sha }}
+          INPUT_FORK: ${{ needs.overrideBackstage.outputs.fork }}
+          INPUT_OVERRIDE_RESULT: ${{ needs.overrideBackstage.result }}
+          INPUT_METADATA_REFRESH_RESULT: ${{ needs.overrideBackstageMetadataRefresh.result }}
+        with:
+          script: |
+            const prNumber = Number(core.getInput('pr_number'));
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            const overlayCommit = pr.data.head.sha;
+            const workflowRun = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: '${{ github.run_id }}'
+            });
+
+            const overrideResult = core.getInput('override_result');
+            const metadataRefreshResult = core.getInput('metadata_refresh_result');
+            const overrideSuccess = overrideResult === 'success';
+            const refreshSuccess = metadataRefreshResult === 'success';
+            const fork = core.getInput('fork') === 'true';
+
+            const allSuccess = overrideSuccess && (refreshSuccess || fork);
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: overlayCommit,
+              description: '${{ github.workflow }}',
+              state: allSuccess ? 'success' : 'failure',
+              target_url: workflowRun.data.html_url,
+              context: core.getInput('command_name'),
+            });
+
+            let body;
+            if (fork) {
+              const targetVersion = core.getInput('target_version');
+              body = `[Override Backstage workflow](${workflowRun.data.html_url}) — skipped: PR is from a fork.\n\nPlease manually:\n1. Create \`backstage.json\` with \`{"version": "${targetVersion}"}\`\n2. Update all \`metadata/*.yaml\` OCI tags from \`bs_<old>__\` to \`bs_${targetVersion}__\`\n3. Update \`supportedVersions\` in all \`metadata/*.yaml\` to \`${targetVersion}\``;
+            } else if (overrideSuccess && refreshSuccess) {
+              const targetVersion = core.getInput('target_version');
+              const sourceVersion = core.getInput('source_version');
+              const commitSha = core.getInput('commit_sha');
+              body = `[Override Backstage workflow](${workflowRun.data.html_url}) completed successfully.\n\n`;
+              body += `#### Backstage Version Override\n`;
+              body += `- Source version: \`${sourceVersion}\`\n`;
+              body += `- Target version: \`${targetVersion}\`\n`;
+              body += `- \`backstage.json\` created/updated (commit: ${commitSha})\n`;
+              body += `- [Metadata refresh](${workflowRun.data.html_url}) completed (OCI tags + \`supportedVersions\`)\n\n`;
+              body += `You can now run \`/publish\` to build and publish the plugin images.`;
+            } else if (overrideSuccess && !refreshSuccess) {
+              const targetVersion = core.getInput('target_version');
+              const commitSha = core.getInput('commit_sha');
+              body = `[Override Backstage workflow](${workflowRun.data.html_url}) partially completed.\n\n`;
+              body += `- \`backstage.json\` created/updated (commit: ${commitSha})\n`;
+              body += `- Metadata refresh **failed** — [see workflow run](${workflowRun.data.html_url})\n\n`;
+              body += `The \`backstage.json\` override to \`${targetVersion}\` was applied, but metadata files (OCI tags, \`supportedVersions\`) were not updated automatically. `;
+              body += `You can retry with \`/override-backstage\` or manually update the metadata files.`;
+            } else {
+              body = `[Override Backstage workflow](${workflowRun.data.html_url}) has completed with failure.`;
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
