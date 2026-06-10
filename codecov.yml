@@ -9,7 +9,7 @@
 # Known gap: uploads currently happen only from PR presubmits (the nightly job
 # runs all workspaces in one invocation and report-coverage.sh skips the
 # upload for multi-workspace runs), so main-branch commits receive no data
-# until the per-workspace coverage split lands — see the TODO in
+# until the per-workspace coverage split lands — see the known-gap note in
 # scripts/report-coverage.sh.
 
 codecov:

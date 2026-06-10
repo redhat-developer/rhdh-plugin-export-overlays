@@ -69,14 +69,13 @@ if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --l
 fi
 rm -rf "$REMAP_DEPS_DIR"
 
-# TODO(e2e-coverage): this guard means the nightly job (which runs ALL
-# workspaces in one invocation) never uploads — so no commit on main ever
-# receives coverage and the per-flag trend on the Codecov dashboard can't
-# form; only PR-head commits get data. Lifting it requires splitting the
-# merged coverage per workspace before remapping (the remapped lcov paths are
-# plain `src/...` with no workspace identity), so the split has to happen at
-# collection/remap time — tracked as a follow-up to the overlay attribution
-# model (PR #2580).
+# Known gap: this guard means the nightly job (which runs ALL workspaces in
+# one invocation) never uploads — so no commit on main ever receives coverage
+# and the per-flag trend on the Codecov dashboard can't form; only PR-head
+# commits get data. Lifting it requires splitting the merged coverage per
+# workspace before remapping (the remapped lcov paths are plain `src/...`
+# with no workspace identity), so the split has to happen at collection/remap
+# time — planned as a follow-up to the overlay attribution model (PR #2580).
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
   echo "[WARN] Multi-workspace coverage upload is not supported." >&2
   echo "[WARN] Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
