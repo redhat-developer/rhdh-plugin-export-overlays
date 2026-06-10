@@ -1,0 +1,62 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    github:
+      development:
+        clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+        clientId: ${GITHUB_OAUTH_APP_ID}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+    pullRequestBranchName: backstage-integration
+  rules:
+    - allow: [Component, System, Group, User, Resource, Location, Template, API]
+  locations:
+    - type: url
+      target: https://github.com/janus-test/janus-test-3-bulk-import/blob/main/catalog-info.yaml
+
+integrations:
+  github:
+    - host: github.com
+      token: ${VAULT_GITHUB_USER_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: temp
+
+permission:
+  enabled: true
+  rbac:
+    maxDepth: 1
+    policyFileReload: true
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - scaffolder
+      - bulk-import
+    policyDecisionPrecedence: conditional # default behavior
+includeTransitiveGroupOwnership: true
+
+bulkImport:
+  instructionsEnabled: true
+  instructionsDefaultExpanded: true
+  instructionsSteps:
+    - id: "step1"
+      text: "Choose a source control tool for pull request creation"
+      icon: "approval-tool"
+    - id: "step2"
+      text: "Choose which items you want to import"
+      icon: "search"
+    - id: "step3"
+      text: "Generate a catalog-info.yaml file for each selected item"
+      icon: "build"
+    - id: "step4"
+      text: "View the pull/merge request details"
+      icon: "kind:api"

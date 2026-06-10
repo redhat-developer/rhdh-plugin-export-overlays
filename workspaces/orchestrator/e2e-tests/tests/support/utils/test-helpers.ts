@@ -150,7 +150,7 @@ export async function verifyRoleWithPolicies(
   }
 }
 
-const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
+const BASELINE_POLICY_SPECS: PolicySpec[] = [
   { permission: "orchestrator.workflow", policy: "read", effect: "allow" },
   {
     permission: "orchestrator.workflow.use",
@@ -178,7 +178,27 @@ const BASELINE_POLICIES = buildPolicies(BASELINE_ROLE_NAME, [
     policy: "read",
     effect: "allow",
   },
-]);
+];
+
+async function createBaselineRoleViaApi(browser: Browser): Promise<void> {
+  if (!process.env.RHDH_BASE_URL?.trim()) {
+    throw new Error(
+      "RHDH_BASE_URL is not set — deploy RHDH in this worker before baseline RBAC setup (withTempPage needs a live hub URL).",
+    );
+  }
+  await withTempPage(browser, async (page) => {
+    const loginHelper = new LoginHelper(page);
+    await loginHelper.loginAsKeycloakUser();
+    const token = await new AuthApiHelper(page).getToken();
+    await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
+    await createRoleWithPolicies(
+      token,
+      BASELINE_ROLE_NAME,
+      [PRIMARY_USER],
+      BASELINE_POLICY_SPECS,
+    );
+  });
+}
 
 async function withTempPage(
   browser: Browser,
@@ -269,51 +289,52 @@ export async function deleteRoleAndPolicies(
 
 export async function ensureBaselineRole(
   browser: Browser,
-  _testInfo: TestInfo,
+  testInfo: TestInfo,
 ): Promise<void> {
-  await test.runOnce("rbac-baseline-setup", async () => {
-    await withTempPage(browser, async (page) => {
-      const loginHelper = new LoginHelper(page);
-      await loginHelper.loginAsKeycloakUser();
-      const token = await new AuthApiHelper(page).getToken();
-      const rbacApi = await RbacApiHelper.build(token);
+  await test.runOnce(`rbac-baseline-setup-${testInfo.project.name}`, () =>
+    createBaselineRoleViaApi(browser),
+  );
+}
 
-      await rbacApi.createRoles({
-        memberReferences: [PRIMARY_USER],
-        name: BASELINE_ROLE_NAME,
-      });
-
-      await rbacApi.createPolicies(BASELINE_POLICIES);
-    });
-  });
+/** Re-applies baseline after Orchestrator RBAC tests call removeBaselineRole. */
+export async function restoreBaselineRole(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<void> {
+  await test.runOnce(`rbac-baseline-restore-${testInfo.project.name}`, () =>
+    createBaselineRoleViaApi(browser),
+  );
 }
 
 export async function removeBaselineRole(
   browser: Browser,
-  _testInfo: TestInfo,
+  testInfo: TestInfo,
 ): Promise<void> {
-  await test.runOnce("rbac-baseline-cleanup", async () => {
-    await withTempPage(browser, async (page) => {
-      const loginHelper = new LoginHelper(page);
-      await loginHelper.loginAsKeycloakUser();
-      const token = await new AuthApiHelper(page).getToken();
-      await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
+  await test.runOnce(
+    `rbac-baseline-cleanup-${testInfo.project.name}`,
+    async () => {
+      await withTempPage(browser, async (page) => {
+        const loginHelper = new LoginHelper(page);
+        await loginHelper.loginAsKeycloakUser();
+        const token = await new AuthApiHelper(page).getToken();
+        await deleteRoleAndPolicies(token, BASELINE_ROLE_NAME);
 
-      const rbacApi = await RbacApiHelper.build(token);
-      const verifyResponse = await rbacApi.getRoles();
-      if (verifyResponse.ok()) {
-        const roles = await verifyResponse.json();
-        const found = roles.find(
-          (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
-        );
-        if (found) {
-          console.warn(
-            "[rbac-baseline] WARNING: Baseline role was NOT removed successfully!",
+        const rbacApi = await RbacApiHelper.build(token);
+        const verifyResponse = await rbacApi.getRoles();
+        if (verifyResponse.ok()) {
+          const roles = await verifyResponse.json();
+          const found = roles.find(
+            (r: { name: string }) => r.name === BASELINE_ROLE_NAME,
           );
+          if (found) {
+            console.warn(
+              "[rbac-baseline] WARNING: Baseline role was NOT removed successfully!",
+            );
+          }
         }
-      }
-    });
-  });
+      });
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------

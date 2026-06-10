@@ -1,7 +1,7 @@
 # Enable Scorecard plugin for e2e tests.
 # Dynamic Home Page is provided by the RHDH chart default; do not redefine it here to avoid config merge conflicts.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -37,9 +37,17 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     metricId: "github.open_prs"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-filecheck.readme"
+                  title: "README file exists"
+                  description: "Checks if the README file exists in the repository"
+                  props:
+                    metricId: "filecheck.readme"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend
     disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
     disabled: false
     pluginConfig:
       scorecard:
@@ -54,7 +62,21 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 5
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
+              thresholds:
+                rules:
+                  - key: ideal
+                    expression: "<30"
+                    icon: star
+                    color: "rgb(180, 211, 178)"
+                  - key: warning
+                    expression: 30-70
+                    icon: scorecardWarningStatusIcon
+                    color: "#FAD5A5"
+                  - key: critical
+                    expression: ">70"
+                    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" style="color:#FAA0A0"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#FAA0A0" stroke-width="2"/><path d="M9 9l6 6M15 9l-6 6" stroke="#FAA0A0" stroke-width="2" stroke-linecap="round"/></svg>
+                    color: "#faa0a0"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira
     disabled: false
     pluginConfig:
       jira:
@@ -72,6 +94,60 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.49.4__0.2.11!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
+    disabled: false
+    pluginConfig:
+      scorecard:
+        plugins:
+          dependabot:
+            alerts_critical:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_high:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_medium:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            alerts_low:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
+    disabled: false
+    pluginConfig:
+      scorecard:
+        plugins:
+          filecheck:
+            files:
+              readme: "README.md"
+              license: "LICENSE"
+            schedule:
+              frequency:
+                minutes: 1
+              timeout:
+                minutes: 15
+              initialDelay:
+                seconds: 5
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:
@@ -94,3 +170,153 @@ plugins:
                   title: "Entity section"
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.49.4__2.5.1!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf
+    disabled: false
+    pluginConfig:
+      scorecard:
+        plugins:
+          openssf:
+            binary_artifacts:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            branch_protection:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            cii_best_practices:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            ci_tests:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            code_review:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            contributors:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            dangerous_workflow:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            dependency_update_tool:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            fuzzing:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            license:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            maintained:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            packaging:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            pinned_dependencies:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            sast:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            security_policy:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            signed_releases:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            token_permissions:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5
+            vulnerabilities:
+              schedule:
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 15
+                initialDelay:
+                  seconds: 5

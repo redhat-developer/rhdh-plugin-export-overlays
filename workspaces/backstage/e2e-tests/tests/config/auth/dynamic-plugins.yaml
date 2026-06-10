@@ -1,0 +1,13 @@
+# Explicit config is required — without it, all 28 backstage workspace plugins
+# are auto-loaded from metadata, and most require provider config (github, gitlab,
+# kubernetes, ldap, etc.) that this test doesn't supply, crashing RHDH on startup.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6!backstage-plugin-auth
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-auth:
+            dynamicRoutes:
+              - path: /oauth2/*
+                importName: Router

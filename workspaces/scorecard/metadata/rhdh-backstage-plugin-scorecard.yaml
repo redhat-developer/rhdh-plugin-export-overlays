@@ -17,11 +17,11 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
-  version: 2.7.4
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.7!red-hat-developer-hub-backstage-plugin-scorecard
+  version: 2.7.7
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.3
+    supportedVersions: 1.49.4
   author: Red Hat
   support: dev-preview
   lifecycle: active
@@ -33,6 +33,12 @@ spec:
         dynamicPlugins:
           frontend:
             red-hat-developer-hub.backstage-plugin-scorecard:
+              translationResources:
+                - importName: scorecardTranslations
+                  ref: scorecardTranslationRef
+              dynamicRoutes:
+                - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
+                  importName: ScorecardPage
               entityTabs:
                 - path: "/scorecard"
                   title: Scorecard
@@ -46,3 +52,85 @@ spec:
                   if:
                     allOf:
                       - isKind: component
+    - title: Optional GitHub Scorecard configuration for read-only Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  props:
+                    aggregationId: "github.open_prs"
+                  layouts:
+                    xl: { w: 3, h: 6, x: 3 }
+                    lg: { w: 4, h: 6, x: 4 }
+                    md: { w: 6, h: 6, x: 6 }
+                    sm: { w: 12, h: 6 }
+                    xs: { w: 12, h: 6 }
+                    xxs: { w: 12, h: 6 }
+    - title: Optional GitHub Scorecard configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-github.open_prs"
+                  title: "GitHub open PRs"
+                  props:
+                    aggregationId: "github.open_prs"
+    - title: Optional GitHub Scorecard custom KPI configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-github.open_prs_weighted_kpi"
+                  title: "GitHub Open PRs (weighted health)"
+                  props:
+                    aggregationId: "openPrsWeightedKpi" # Ensure the definition is under `scorecard.aggregationKPIs.<aggregationId>`
+    - title: Optional Jira Scorecard configuration for read-only Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  props:
+                    aggregationId: "jira.open_issues"
+                  layouts:
+                    xl: { w: 3, h: 6 }
+                    lg: { w: 4, h: 6 }
+                    md: { w: 6, h: 6 }
+                    sm: { w: 12, h: 6 }
+                    xs: { w: 12, h: 6 }
+                    xxs: { w: 12, h: 6 }
+    - title: Optional Jira Scorecard configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-jira.open_issues"
+                  title: "Jira open tickets"
+                  props:
+                    aggregationId: "jira.open_issues"
+    - title: Optional Filecheck Scorecard custom KPI configuration for customizable Homepage
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-scorecard:
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-filecheck.license"
+                  title: "Scorecard: LICENSE file exists"
+                  props:
+                    aggregationId: "licenseFileExistsKpi" # Ensure the definition is under `scorecard.aggregationKPIs.<aggregationId>`

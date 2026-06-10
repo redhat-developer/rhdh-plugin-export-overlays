@@ -17,10 +17,10 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-global-header'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header
-  version: 1.21.4
+  version: 1.21.5
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Red Hat
   support: generally-available
   lifecycle: active

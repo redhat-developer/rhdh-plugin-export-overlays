@@ -17,10 +17,10 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-bulk-import'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import
-  version: 7.3.4
+  version: 7.3.5
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Red Hat
   support: tech-preview
   lifecycle: active
