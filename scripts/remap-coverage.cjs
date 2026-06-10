@@ -16,8 +16,8 @@
 //   writes lcov for Codecov.
 //
 //   When a workspace is given, each plugin's coverage is CONCATENATED onto a
-//   single committed anchor file (`workspaces/<ws>/coverage-sources/<remote>`,
-//   created once by generate-coverage-sources.sh): Codecov only keeps report
+//   single committed anchor file (`workspaces/<ws>/coverage-anchors/<remote>`,
+//   created once by generate-coverage-anchors.sh): Codecov only keeps report
 //   entries whose paths exist in this repo's git tree at the uploaded commit,
 //   and the plugins' real sources live in the upstream repo. It validates the
 //   path's existence but not its content or length, so per-source-file line
@@ -123,7 +123,9 @@ function appendShifted(anchor, data, offset, prefix) {
       locations: br.locations.map(shiftLoc),
       line: (br.line || br.loc?.start?.line || 0) + offset,
     };
-    anchor.b[`${prefix}_${k}`] = data.b[k];
+    // Copy the hit-count array — sharing the reference with the source map
+    // would let a future mutation skew both sides silently.
+    anchor.b[`${prefix}_${k}`] = [...data.b[k]];
   }
 }
 
@@ -191,12 +193,12 @@ function buildAnchor(map, remote, anchorPath) {
 // Anchor mode: one report entry per remote, on its committed anchor file.
 // Remotes with no committed anchor are dropped and reported: Codecov would
 // silently discard them anyway, and a non-empty list means a newly deployed
-// plugin needs generate-coverage-sources.sh re-run.
+// plugin needs generate-coverage-anchors.sh re-run.
 function addAnchorEntries(finalMap, byRemote) {
   const missing = [];
   const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
   for (const [remote, map] of sorted) {
-    const anchorPath = `workspaces/${workspace}/coverage-sources/${remote}`;
+    const anchorPath = `workspaces/${workspace}/coverage-anchors/${remote}`;
     if (fs.existsSync(anchorPath)) {
       finalMap.addFileCoverage(buildAnchor(map, remote, anchorPath));
     } else {
@@ -225,7 +227,7 @@ function addAnchorEntries(finalMap, byRemote) {
   if (missingAnchors.length > 0) {
     console.warn(
       `[remap] ${missingAnchors.length} plugin(s) have no committed anchor ` +
-        "file and were dropped — run ./scripts/generate-coverage-sources.sh " +
+        "file and were dropped — run ./scripts/generate-coverage-anchors.sh " +
         `${workspace} and commit the result:`,
     );
     missingAnchors.forEach((p) => console.warn(`[remap]   missing: ${p}`));
@@ -238,7 +240,9 @@ function addAnchorEntries(finalMap, byRemote) {
   if (finalMap.files().length === 0) {
     console.error(
       "[remap] no source files after remap — coverage is empty. " +
-        "Check that the bundles were instrumented with --source-map.",
+        "Check that the bundles were instrumented with --source-map, and " +
+        "that the workspace's coverage-anchors files are committed (see " +
+        "warnings above).",
     );
     process.exit(1);
   }

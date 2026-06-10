@@ -11,5 +11,5 @@ These files never change with plugin versions. Re-run the generator only when
 a new plugin gains a metadata Package entity:
 
 ```bash
-./scripts/generate-coverage-sources.sh theme
+./scripts/generate-coverage-anchors.sh theme
 ```

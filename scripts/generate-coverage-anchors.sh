@@ -3,7 +3,7 @@
 # Generate the Codecov anchor files for a workspace.
 #
 # Usage:
-#   ./scripts/generate-coverage-sources.sh <workspace-name>
+#   ./scripts/generate-coverage-anchors.sh <workspace-name>
 #
 # Why this exists:
 #   E2E coverage is uploaded to this repo's Codecov project (see
@@ -13,7 +13,7 @@
 #   The plugins' real sources live in the upstream repo, so remap-coverage.cjs
 #   concatenates each plugin's coverage onto a single committed ANCHOR file:
 #
-#     workspaces/<workspace>/coverage-sources/<scalprum-name>
+#     workspaces/<workspace>/coverage-anchors/<scalprum-name>
 #
 #   Codecov validates the path's existence but not its content or length, so
 #   the anchors are empty and STATIC: they never need regenerating when the
@@ -30,6 +30,14 @@
 set -euo pipefail
 
 WORKSPACE="${1:?Usage: $0 <workspace-name>}"
+
+# The name is interpolated into paths that get wiped and regenerated — reject
+# anything that could escape workspaces/<name>/.
+if [[ "$WORKSPACE" == */* || "$WORKSPACE" == .* ]]; then
+  echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKSPACE_DIR="$REPO_ROOT/workspaces/$WORKSPACE"
@@ -68,7 +76,7 @@ if [[ -z "$DEPLOYED_PACKAGES" ]]; then
   exit 1
 fi
 
-OUT_ROOT="$WORKSPACE_DIR/coverage-sources"
+OUT_ROOT="$WORKSPACE_DIR/coverage-anchors"
 rm -rf "$OUT_ROOT"
 mkdir -p "$OUT_ROOT"
 
@@ -80,7 +88,8 @@ echo "  Output:    $OUT_ROOT"
 GENERATED=0
 
 # plugins-list.yaml keys are plugin paths relative to the source workspace
-# (e.g. `plugins/theme:`), optionally with export args as values.
+# (e.g. `plugins/theme:`), optionally with export args as values. Quotes are
+# stripped in case a key is ever quoted YAML.
 while IFS= read -r plugin_path; do
   PKG_JSON=$(gh api "repos/$SLUG/contents/${SRC_PREFIX}${plugin_path}/package.json?ref=$REPO_REF" \
     -H "Accept: application/vnd.github.raw" 2>/dev/null) || {
@@ -103,9 +112,9 @@ while IFS= read -r plugin_path; do
   fi
 
   : > "$OUT_ROOT/$SCALPRUM_NAME"
-  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-sources/$SCALPRUM_NAME"
+  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-anchors/$SCALPRUM_NAME"
   GENERATED=$((GENERATED + 1))
-done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed 's/:.*//')
+done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed "s/:.*//; s/[\"']//g")
 
 cat > "$OUT_ROOT/README.md" <<EOF
 # Codecov coverage anchors (auto-generated — do not edit)
@@ -121,7 +130,7 @@ These files never change with plugin versions. Re-run the generator only when
 a new plugin gains a metadata Package entity:
 
 \`\`\`bash
-./scripts/generate-coverage-sources.sh $WORKSPACE
+./scripts/generate-coverage-anchors.sh $WORKSPACE
 \`\`\`
 EOF
 
