@@ -127,17 +127,16 @@ function appendShifted(anchor, data, offset, prefix) {
   }
 }
 
-(async () => {
-  const raw = JSON.parse(fs.readFileSync(inputJson, "utf8"));
-  const store = libSourceMaps.createSourceMapStore();
-  const transformed = await store.transformCoverage(
-    libCoverage.createCoverageMap(raw),
-  );
-  const remappedCoverage = transformed.map || transformed;
+// Deterministic, locale-independent string ordering.
+function byName(a, b) {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
 
-  // Group by remote and re-key onto clean source paths. addFileCoverage merges
-  // by location, so the same source covered by both the MF and Scalprum builds
-  // combines safely.
+// Group remapped coverage by webpack remote, re-keyed onto clean source paths.
+// addFileCoverage merges by location, so the same source covered by both the
+// MF and Scalprum builds combines safely.
+function groupByRemote(remappedCoverage) {
   const byRemote = new Map();
   for (const file of remappedCoverage.files()) {
     const parsed = parseSourcePath(file);
@@ -149,53 +148,78 @@ function appendShifted(anchor, data, offset, prefix) {
     data.path = parsed.path;
     byRemote.get(parsed.remote).addFileCoverage(data);
   }
+  return byRemote;
+}
+
+// No-anchor mode (multi-workspace runs, local inspection): keep real
+// per-source paths, prefixed by remote to avoid cross-plugin collisions.
+function addPlainEntries(finalMap, byRemote) {
+  for (const [remote, map] of byRemote) {
+    for (const file of map.files()) {
+      const data = structuredClone(map.fileCoverageFor(file).data);
+      data.path = `${remote}/${file}`;
+      finalMap.addFileCoverage(data);
+    }
+  }
+}
+
+// Concatenate one remote's per-file coverage onto its anchor FileCoverage,
+// shifting line ranges so files occupy consecutive windows.
+function buildAnchor(map, remote, anchorPath) {
+  const anchor = {
+    path: anchorPath,
+    statementMap: {},
+    fnMap: {},
+    branchMap: {},
+    s: {},
+    f: {},
+    b: {},
+  };
+  let offset = 0;
+  console.log(`[remap] ${remote}:`);
+  for (const [i, file] of [...map.files()].sort(byName).entries()) {
+    const data = map.fileCoverageFor(file).data;
+    appendShifted(anchor, data, offset, `f${i}`);
+    offset += maxLine(data) + 1;
+    // The anchor hides per-file detail from Codecov — keep it in CI logs.
+    const s = map.fileCoverageFor(file).toSummary().data.lines;
+    console.log(`[remap]   ${file}: ${s.covered}/${s.total} lines (${s.pct}%)`);
+  }
+  return anchor;
+}
+
+// Anchor mode: one report entry per remote, on its committed anchor file.
+// Remotes with no committed anchor are dropped and reported: Codecov would
+// silently discard them anyway, and a non-empty list means a newly deployed
+// plugin needs generate-coverage-sources.sh re-run.
+function addAnchorEntries(finalMap, byRemote) {
+  const missing = [];
+  const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
+  for (const [remote, map] of sorted) {
+    const anchorPath = `workspaces/${workspace}/coverage-sources/${remote}`;
+    if (fs.existsSync(anchorPath)) {
+      finalMap.addFileCoverage(buildAnchor(map, remote, anchorPath));
+    } else {
+      missing.push(anchorPath);
+    }
+  }
+  return missing;
+}
+
+(async () => {
+  const raw = JSON.parse(fs.readFileSync(inputJson, "utf8"));
+  const store = libSourceMaps.createSourceMapStore();
+  const transformed = await store.transformCoverage(
+    libCoverage.createCoverageMap(raw),
+  );
+  const byRemote = groupByRemote(transformed.map || transformed);
 
   const finalMap = libCoverage.createCoverageMap({});
-  const missingAnchors = [];
-
-  if (!workspace) {
-    // No anchor mode (multi-workspace runs, local inspection): keep real
-    // per-source paths, prefixed by remote to avoid cross-plugin collisions.
-    for (const [remote, map] of byRemote) {
-      for (const file of map.files()) {
-        const data = structuredClone(map.fileCoverageFor(file).data);
-        data.path = `${remote}/${file}`;
-        finalMap.addFileCoverage(data);
-      }
-    }
+  let missingAnchors = [];
+  if (workspace) {
+    missingAnchors = addAnchorEntries(finalMap, byRemote);
   } else {
-    // Anchor mode: concatenate each remote's per-file coverage onto its
-    // committed anchor file, shifting line ranges so files occupy consecutive
-    // windows. Drop (and report) remotes with no committed anchor: Codecov
-    // would silently discard them anyway, and a non-empty list means a newly
-    // deployed plugin needs generate-coverage-sources.sh re-run.
-    for (const [remote, map] of [...byRemote.entries()].sort()) {
-      const anchorPath = `workspaces/${workspace}/coverage-sources/${remote}`;
-      if (!fs.existsSync(anchorPath)) {
-        missingAnchors.push(anchorPath);
-        continue;
-      }
-      const anchor = {
-        path: anchorPath,
-        statementMap: {},
-        fnMap: {},
-        branchMap: {},
-        s: {},
-        f: {},
-        b: {},
-      };
-      let offset = 0;
-      console.log(`[remap] ${remote}:`);
-      for (const [i, file] of map.files().sort().entries()) {
-        const data = map.fileCoverageFor(file).data;
-        appendShifted(anchor, data, offset, `f${i}`);
-        offset += maxLine(data) + 1;
-        // The anchor hides per-file detail from Codecov — keep it in CI logs.
-        const s = map.fileCoverageFor(file).toSummary().data.lines;
-        console.log(`[remap]   ${file}: ${s.covered}/${s.total} lines (${s.pct}%)`);
-      }
-      finalMap.addFileCoverage(anchor);
-    }
+    addPlainEntries(finalMap, byRemote);
   }
 
   if (missingAnchors.length > 0) {
