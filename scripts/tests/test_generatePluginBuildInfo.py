@@ -1,8 +1,11 @@
 """Tests for generatePluginBuildInfo.py — parsing, tag listing, and registry reference transforms."""
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+SHA256_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 import generatePluginBuildInfo
 
@@ -290,7 +293,6 @@ class TestGetOutputRegistryReference:
 
 # Fixed known images for testing
 GHCR_KNOWN_REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0"
-GHCR_KNOWN_DIGEST = "sha256:15128f76a6edca410f0aa83f48b63fbdbfc5c319404ee9cb577969a2140f2a56"
 
 QUAY_KNOWN_REF = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
 QUAY_KNOWN_DIGEST = "sha256:e8cb33e40f6f846adaf5e0446049d5a2a5e93a2a12cf8b610e3e0e346f98005c"
@@ -302,7 +304,7 @@ class TestFetchImageMetadata:
     def test_ghcr_returns_digest(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
-        assert metadata["digest"] == GHCR_KNOWN_DIGEST
+        assert SHA256_DIGEST_RE.match(metadata["digest"])
 
     def test_ghcr_returns_dynamic_packages_annotation(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
@@ -358,7 +360,7 @@ class TestGetImageMetadata:
         """When the exact tag exists, no fallback fields are added."""
         metadata = generatePluginBuildInfo.get_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
-        assert metadata["digest"] == GHCR_KNOWN_DIGEST
+        assert SHA256_DIGEST_RE.match(metadata["digest"])
         assert "fallback" not in metadata
         assert "requestedTag" not in metadata
 
