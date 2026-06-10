@@ -32,7 +32,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: 'quay.io/rhdh'
   COMMUNITY_REGISTRY: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays'
   COMMUNITY_CATALOG_INDEX: 'ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-catalog-index'
   SUPPORTED_CATALOG_INDEX: 'quay.io/rhdh-community/plugin-catalog-index'
@@ -46,6 +45,8 @@ jobs:
     outputs:
       supported-ok: ${{ steps.gen-supported.outputs.ok }}
       community-ok: ${{ steps.gen-community.outputs.ok }}
+      supported-clean: ${{ steps.gen-supported.outputs.clean }}
+      community-clean: ${{ steps.gen-community.outputs.clean }}
       backstage-version: ${{ steps.versions.outputs.backstage-version }}
       rhdh-version: ${{ steps.versions.outputs.rhdh-version }}
       source-branch: ${{ steps.branches.outputs.source-branch }}
@@ -139,48 +140,62 @@ jobs:
             RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
           fi
 
-          COMMUNITY_ARG="--community-registry $COMMUNITY_REGISTRY"
-
           # shellcheck disable=SC2086
           if scripts/update-index.sh \
             --overlays-dir . \
-            --registry "$REGISTRY" \
+            --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/supported \
             --plugin-builds-dir plugin_builds/supported \
             --packages-file default.packages.yaml \
             --packages-file rhdh-supported-packages.txt \
             --report-file catalog-index/supported/build-report.json \
-            $COMMUNITY_ARG \
             $RHDH_VERSION_ARG; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Supported catalog generation failed"
             echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check if the catalog is clean (no fallbacks or missing plugins)
+          REPORT="catalog-index/supported/build-report.json"
+          if [[ -f "$REPORT" ]]; then
+            FAILED=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACKS=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            if [[ "$FAILED" -eq 0 && "$FALLBACKS" -eq 0 ]]; then
+              echo "clean=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "clean=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Generate community catalog
         id: gen-community
-        env:
-          RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
         run: |
-          RHDH_VERSION_ARG=""
-          if [[ -n "$RHDH_VERSION" ]]; then
-            RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
-          fi
-
-          # shellcheck disable=SC2086
           if scripts/update-index.sh \
             --overlays-dir . \
-            --registry "$REGISTRY" \
+            --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/community \
             --plugin-builds-dir plugin_builds/community \
             --packages-file rhdh-community-packages.txt \
-            --report-file catalog-index/community/build-report.json \
-            $RHDH_VERSION_ARG; then
+            --report-file catalog-index/community/build-report.json; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Community catalog generation failed"
             echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Check if the catalog is clean (no fallbacks or missing plugins)
+          REPORT="catalog-index/community/build-report.json"
+          if [[ -f "$REPORT" ]]; then
+            FAILED=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACKS=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            if [[ "$FAILED" -eq 0 && "$FALLBACKS" -eq 0 ]]; then
+              echo "clean=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "clean=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Write build-info.json
@@ -232,7 +247,7 @@ jobs:
             fi
             if [[ $i -lt $MAX_RETRIES ]]; then
               echo "Push failed, retrying (attempt $((i+1))/$MAX_RETRIES)..."
-              git pull --rebase origin "$TARGET_BRANCH"
+              git pull -X theirs origin "$TARGET_BRANCH"
             else
               echo "Push failed after $MAX_RETRIES attempts"
               exit 1
@@ -250,10 +265,37 @@ jobs:
         env:
           SUPPORTED_OK: ${{ steps.gen-supported.outputs.ok }}
           COMMUNITY_OK: ${{ steps.gen-community.outputs.ok }}
+          SUPPORTED_CLEAN: ${{ steps.gen-supported.outputs.clean }}
+          COMMUNITY_CLEAN: ${{ steps.gen-community.outputs.clean }}
         run: |
           if [[ "${SUPPORTED_OK}" != "true" || "${COMMUNITY_OK}" != "true" ]]; then
             echo "::error::Catalog generation failed (supported=$SUPPORTED_OK, community=$COMMUNITY_OK)"
             exit 1
+          fi
+
+          # Surface fallbacks and missing plugins as warnings
+          HAS_ISSUES=false
+          for TIER in supported community; do
+            REPORT="catalog-index/$TIER/build-report.json"
+            if [[ ! -f "$REPORT" ]]; then continue; fi
+
+            FAILED_COUNT=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
+            FALLBACK_COUNT=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+
+            if [[ "$FAILED_COUNT" -gt 0 ]]; then
+              FAILED_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.overall == "fail") | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
+              echo "::warning::$TIER catalog: $FAILED_COUNT plugin(s) missing from registry: $FAILED_PLUGINS"
+              HAS_ISSUES=true
+            fi
+            if [[ "$FALLBACK_COUNT" -gt 0 ]]; then
+              FALLBACK_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages["image-metadata-fetch"].fallback == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
+              echo "::warning::$TIER catalog: $FALLBACK_COUNT plugin(s) using fallback tags: $FALLBACK_PLUGINS"
+              HAS_ISSUES=true
+            fi
+          done
+
+          if [[ "$HAS_ISSUES" == "true" ]]; then
+            echo "::warning::Catalog published with issues — last-successful-publish not updated"
           fi
 
   publish-supported:
@@ -389,6 +431,8 @@ jobs:
         env:
           PUBLISH_SUPPORTED_RESULT: ${{ needs.publish-supported.result }}
           PUBLISH_COMMUNITY_RESULT: ${{ needs.publish-community.result }}
+          SUPPORTED_CLEAN: ${{ needs.generate.outputs.supported-clean }}
+          COMMUNITY_CLEAN: ${{ needs.generate.outputs.community-clean }}
           BS_VERSION: ${{ needs.generate.outputs.backstage-version }}
           RHDH_VERSION: ${{ needs.generate.outputs.rhdh-version }}
         run: |
@@ -404,9 +448,11 @@ jobs:
 
             if [[ "$TIER" == "supported" ]]; then
               RESULT="${PUBLISH_SUPPORTED_RESULT}"
+              CLEAN="${SUPPORTED_CLEAN}"
               IMAGE="${SUPPORTED_CATALOG_INDEX}:${TAG}"
             else
               RESULT="${PUBLISH_COMMUNITY_RESULT}"
+              CLEAN="${COMMUNITY_CLEAN}"
               IMAGE="${COMMUNITY_CATALOG_INDEX}:${TAG}"
             fi
 
@@ -414,12 +460,16 @@ jobs:
               '.metadata["catalog-index-image"] = $image' \
               "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
 
-            if [[ "$RESULT" == "success" ]]; then
+            # Only mark as last-successful-publish when publish succeeded AND catalog is clean
+            # (no fallback tags, no missing plugins)
+            if [[ "$RESULT" == "success" && "$CLEAN" == "true" ]]; then
               jq --arg sha "$GITHUB_SHA" \
                 '.metadata["last-successful-publish"] = $sha' \
                 "$REPORT" > "${REPORT}.tmp" && mv "${REPORT}.tmp" "$REPORT"
+              echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish updated)"
+            else
+              echo "Updated $TIER report: publish=$RESULT, clean=$CLEAN, image=$IMAGE (last-successful-publish NOT updated)"
             fi
-            echo "Updated $TIER report: publish=$RESULT, image=$IMAGE"
           done
 
       - name: Render catalog status page
@@ -455,6 +505,7 @@ jobs:
             --backstage-version "$BS_VERSION" \
             --rhdh-version "$RHDH_VERSION" \
             --workflow-run-url "$WORKFLOW_RUN_URL" \
+            --troubleshooting-content user-guide/troubleshooting-catalog-index.md \
             --output /tmp/catalog-status.md
 
           # Write the same status page to the GitHub Job Summary
