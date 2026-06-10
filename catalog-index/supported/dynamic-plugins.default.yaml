@@ -313,8 +313,8 @@ plugins:
               - importName: homepageTranslations
                 ref: homepageTranslationRef
                 module: Alpha
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:e6d280842a8f797e84bf830a6bab02946f394d814b5c6c4b674c06a04498f6a7
-  # Tag: bs_1.49.4__1.21.5, Build date: 2026-06-03T21:16:21Z
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:cbebfa6ef99d5b89d94018d91a347ece8dd3fc84c66cae843fc53d1ee9bf735f
+  # Tag: bs_1.49.4__1.21.6, Build date: 2026-06-03T21:16:21Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # disabled: true

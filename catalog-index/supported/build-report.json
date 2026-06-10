@@ -816,14 +816,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e6d280842a8f797e84bf830a6bab02946f394d814b5c6c4b674c06a04498f6a7",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__1.21.6",
-          "resolvedTag": "bs_1.49.4__1.21.5"
+          "digest": "sha256:cbebfa6ef99d5b89d94018d91a347ece8dd3fc84c66cae843fc53d1ee9bf735f"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-global-header",
-      "version": "1.21.5",
+      "version": "1.21.6",
       "workspace": "global-header",
       "overall": "pass"
     },
