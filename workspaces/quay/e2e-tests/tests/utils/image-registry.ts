@@ -10,8 +10,7 @@ export class ImageRegistry {
       /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}, \d{1,2}:\d{2} [APM]{2}$/; // Example: Feb 2, 2026 4:01 PM
 
     const manifest = /^sha256/;
-    const securityScan =
-      /^(?:Critical:\s\d+)?(?:,\s)?(?:High:\s\d+)?(?:,\s)?(?:Medium:\s\d+)?(?:,\s)?(?:Low:\s\d+)?(?:,\s)?(?:Unknown:\s\d+)?$|^Queued$/i;
+    const securityScan = this.securityScanRegex();
     return [tagText, lastModifiedDate, securityScan, size, expires, manifest];
   }
 
@@ -31,7 +30,7 @@ export class ImageRegistry {
       (i) => `(${i}:\\s\\d+[^\\w]*)`,
     );
     return new RegExp(
-      `^(Passed|unsupported|Queued|Medium|Low|(?:${securityScan.join("|")})+)$`,
+      `^(Passed|unsupported|Queued|(?:${securityScan.join("|")})+)$`,
       "i", // Case-insensitive flag to match "Unsupported" or "unsupported"
     );
   }
