@@ -504,15 +504,15 @@ jobs:
                   body += '\n\n#### Publishing process\n';
                   body += `❌ Plugins with errors during export or container image publishing:`;
                   failedExports.forEach(line => {
-                    body += `\n  - ${line}`;
+                    body += `\n- ${line}`;
                   });
                 } else {
                   body += '\n\n#### Publishing process\n✅ Finished successfully.';
                 }
                 if (publishedExports.length > 0) {
-                  body += `\n- Published container images:`;
+                  body += `\n\n✅ Published container images:`;
                   publishedExports.forEach(line => {
-                    body += `\n  - ${line}`;
+                    body += `\n- ${line}`;
                   });
                 }
               }

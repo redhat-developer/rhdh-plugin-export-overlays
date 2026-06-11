@@ -40,6 +40,19 @@ echo ""
 INSTRUMENTED_COUNT=0
 SKIPPED_COUNT=0
 
+# Count *.js files under $2 whose contents match grep pattern $1. The `|| true`
+# keeps a no-match grep (exit 1) from tripping set -e / pipefail.
+count_files_matching() {
+  { grep -rl "$1" "$2" --include="*.js" 2>/dev/null || true; } | wc -l | tr -d ' '
+}
+
+# Drop the current plugin's work dir and count it as skipped. Only call this
+# after WORK_DIR has been created for the current iteration.
+cleanup_and_skip() {
+  rm -rf "$WORK_DIR"
+  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+}
+
 # Process each published image (format: plain image refs, one per line)
 while IFS= read -r PROD_IMAGE; do
   [[ -z "$PROD_IMAGE" ]] && continue
@@ -82,10 +95,12 @@ while IFS= read -r PROD_IMAGE; do
 
   PLUGIN_PATH=""
   if [[ -n "$PACKAGES_LABEL" && "$PACKAGES_LABEL" != "<no value>" ]]; then
-    # Decode base64 and extract first plugin name
-    # Expected JSON: [{"name":"backstage-community-plugin-acs","version":"0.2.0",...}]
-    # The "name" field is the directory path inside the container
-    PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0].name // empty' 2>/dev/null || echo "")
+    # Decode base64 and extract the plugin directory path inside the container.
+    # Actual JSON shape: [{"<dir-name>": {"name":"@scope/pkg-dynamic","version":...}}]
+    # The directory path is the OBJECT KEY, not a "name" field. (An older `.[0].name`
+    # read returned empty and only worked because of the metadata fallback below.)
+    # Fall back to `.[0].name` for any legacy flat-shaped labels.
+    PLUGIN_PATH=$(echo "$PACKAGES_LABEL" | base64 -d 2>/dev/null | jq -r '.[0] as $p | (if ($p.name | type) == "string" then $p.name else ($p | keys[0]) end) // empty' 2>/dev/null || echo "")
     if [[ -n "$PLUGIN_PATH" ]]; then
       echo "  Plugin path (from OCI label): $PLUGIN_PATH"
     fi
@@ -113,46 +128,77 @@ while IFS= read -r PROD_IMAGE; do
     continue
   fi
 
-  # Create temp container and extract plugin bundle
+  # Create temp container to extract the plugin bundle(s)
   WORK_DIR=$(mktemp -d)
   # Plugin images are static bundles with no CMD/ENTRYPOINT, so we provide a dummy command
   CID=$(podman create "$PROD_IMAGE" /bin/true)
 
-  if ! podman cp "$CID:$PLUGIN_PATH/dist" "$WORK_DIR/dist-original"; then
-    echo "  ❌ Failed to extract plugin bundle from container - skipping"
-    podman rm "$CID" || true
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+  # RHDH ships up to two frontend bundles per plugin and which one it actually
+  # serves/executes at runtime depends on the deployment: the Module Federation
+  # bundle (`dist/`) for the new frontend system and the Scalprum bundle
+  # (`dist-scalprum/`) for the legacy loader. Instrumenting only `dist/` leaves
+  # `window.__coverage__` undefined whenever the browser runs the Scalprum bundle,
+  # so we instrument every bundle that exists and overlay them all.
+  BUNDLE_DIRS=(dist dist-scalprum)
+  COPY_LINES=""
+  TOTAL_JS_COUNT=0
+
+  for BUNDLE in "${BUNDLE_DIRS[@]}"; do
+    # Not every plugin ships every bundle; quietly skip the absent ones.
+    if ! podman cp "$CID:$PLUGIN_PATH/$BUNDLE" "$WORK_DIR/orig-$BUNDLE" 2>/dev/null; then
+      echo "  No $BUNDLE/ in image - skipping that bundle"
+      continue
+    fi
+
+    # Instrument with nyc (pinned version for reproducibility).
+    # Must run from work directory to avoid "outside project root" errors.
+    echo "  Instrumenting $BUNDLE/ with Istanbul/nyc..."
+    if ! (cd "$WORK_DIR" && npx --yes nyc@18.0.0 instrument "orig-$BUNDLE" "inst-$BUNDLE" --source-map); then
+      echo "  ❌ Instrumentation of $BUNDLE/ failed - skipping that bundle"
+      continue
+    fi
+
+    # Fix NYC's global access pattern for modern browsers.
+    # NYC emits `new Function("return this")()`, which RHDH's CSP (no unsafe-eval)
+    # blocks — leaving coverage uncollected. Replace it with `globalThis`.
+    # `|| true` so a single sed failure doesn't abort the whole job (set -e); the
+    # UNFIXED_COUNT check below still catches any file the fix missed.
+    find "$WORK_DIR/inst-$BUNDLE" -name "*.js" -type f -exec sed -i \
+      's/var global=new Function("return this")();/var global=globalThis;/g' {} \; || true
+
+    # Loudly flag any file where the global-scope fix did not apply: a silent miss
+    # means coverage runs but never reaches window.__coverage__.
+    UNFIXED_COUNT=$(count_files_matching 'new Function("return this")' "$WORK_DIR/inst-$BUNDLE")
+    if [[ "$UNFIXED_COUNT" -ne 0 ]]; then
+      echo "  ⚠️  $UNFIXED_COUNT file(s) in $BUNDLE/ still use new Function(\"return this\") after the fix"
+    fi
+
+    BUNDLE_JS_COUNT=$(count_files_matching "__coverage__" "$WORK_DIR/inst-$BUNDLE")
+    if [[ "$BUNDLE_JS_COUNT" -eq 0 ]]; then
+      echo "  ❌ No __coverage__ found in instrumented $BUNDLE/ - skipping that bundle"
+      continue
+    fi
+    echo "  ✓ Instrumented $BUNDLE_JS_COUNT JS files in $BUNDLE/"
+    TOTAL_JS_COUNT=$((TOTAL_JS_COUNT + BUNDLE_JS_COUNT))
+    COPY_LINES+="COPY inst-$BUNDLE/ $PLUGIN_PATH/$BUNDLE/"$'\n'
+  done
+
+  # `|| true` so a podman hiccup removing the throwaway container never aborts
+  # the whole job (set -e) and loses instrumentation for the remaining plugins.
+  podman rm "$CID" || true
+
+  if [[ "$TOTAL_JS_COUNT" -eq 0 ]]; then
+    echo "  ❌ No bundles could be instrumented - skipping"
+    cleanup_and_skip
     continue
   fi
+  echo "  ✓ Instrumented $TOTAL_JS_COUNT JS files total"
 
-  podman rm "$CID"
-
-  # Instrument with nyc (pinned version for reproducibility)
-  # Must run from work directory to avoid "outside project root" errors
-  echo "  Instrumenting with Istanbul/nyc..."
-  if ! (cd "$WORK_DIR" && npx --yes nyc@18.0.0 instrument dist-original dist-instrumented --source-map); then
-    echo "  ❌ Instrumentation failed - skipping"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    continue
-  fi
-
-  # Verify instrumentation
-  JS_COUNT=$(grep -r "__coverage__" "$WORK_DIR/dist-instrumented/" --include="*.js" -l 2>/dev/null | wc -l | tr -d ' ')
-  if [[ "$JS_COUNT" -eq 0 ]]; then
-    echo "  ❌ No __coverage__ found in instrumented files - skipping"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-    continue
-  fi
-  echo "  ✓ Instrumented $JS_COUNT JS files"
-
-  # Build coverage image (copy instrumented files over production image)
-  cat > "$WORK_DIR/Containerfile" <<EOF
-FROM $PROD_IMAGE
-COPY dist-instrumented/ $PLUGIN_PATH/dist/
-EOF
+  # Build coverage image (overlay every instrumented bundle over the production image)
+  {
+    echo "FROM $PROD_IMAGE"
+    printf '%s' "$COPY_LINES"
+  } > "$WORK_DIR/Containerfile"
 
   # Generate coverage image tag: append __coverage suffix to tag
   # Example: plugin:pr_123__1.2.3 → plugin:pr_123__1.2.3__coverage
@@ -160,18 +206,36 @@ EOF
   IMAGE_TAG="${PROD_IMAGE##*:}"
   COVERAGE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}__coverage"
 
-  if ! podman build -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
+  # CRITICAL: --squash-all flattens the result into a SINGLE layer.
+  # RHDH's install-dynamic-plugins (image-cache.ts: downloadAndLocateTarball)
+  # only ever extracts manifest.layers[0] — it assumes dynamic-plugin images are
+  # single-layer. A plain `FROM prod + COPY` produces a multi-layer image whose
+  # FIRST layer is the original (uninstrumented) base, so RHDH would serve the
+  # original code and ignore our instrumented overlay layers. Squashing merges
+  # the overlays into one layer (instrumented files win), so layers[0] carries
+  # the instrumentation that actually reaches the browser.
+  if ! podman build --squash-all -t "$COVERAGE_IMAGE" -f "$WORK_DIR/Containerfile" "$WORK_DIR"; then
     echo "  ❌ Failed to build coverage image - skipping"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
+
+  # Verify the image is single-layer so RHDH's layers[0]-only extraction sees the
+  # instrumented filesystem. Refuse to push a multi-layer image: it would deploy
+  # and run fine but silently serve the ORIGINAL (uninstrumented) base layer —
+  # exactly the failure mode this script exists to avoid — so fail loudly instead.
+  LAYER_COUNT=$(podman inspect "$COVERAGE_IMAGE" --format '{{len .RootFS.Layers}}' 2>/dev/null || echo "?")
+  if [[ "$LAYER_COUNT" != "1" ]]; then
+    echo "  ❌ Coverage image has $LAYER_COUNT layers (expected 1); RHDH only reads layers[0] so coverage would not load - refusing to push"
+    cleanup_and_skip
+    continue
+  fi
+  echo "  ✓ Coverage image squashed to a single layer"
 
   # Push coverage image
   if ! podman push "$COVERAGE_IMAGE"; then
     echo "  ❌ Failed to push coverage image"
-    rm -rf "$WORK_DIR"
-    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    cleanup_and_skip
     continue
   fi
 
