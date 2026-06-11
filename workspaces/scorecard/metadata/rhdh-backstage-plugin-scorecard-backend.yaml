@@ -17,8 +17,8 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.7!red-hat-developer-hub-backstage-plugin-scorecard-backend
-  version: 2.7.7
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.8!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  version: 2.7.8
   backstage:
     role: backend-plugin
     supportedVersions: 1.49.4
@@ -34,12 +34,14 @@ spec:
       content:
         scorecard:
           aggregationKPIs:
-            openPrsKpi: # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
+            openPrsKpi:
+              # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
               title: GitHub Open PRs KPI
               type: statusGrouped
               description: This KPI provides information about GitHub Open PRs grouped by status.
               metricId: github.open_prs
-            openPrsWeightedKpi: # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
+            openPrsWeightedKpi:
+              # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
               title: GitHub Open PRs KPI (weighted health)
               type: average
               description: Weighted health average for GitHub Open PRs by threshold status across your entities.
