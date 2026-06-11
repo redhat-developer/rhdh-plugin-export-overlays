@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { Agent } from "undici";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { runOc, runOcOptional } from "./oc-helpers.js";
 
@@ -23,23 +24,32 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** curl -sk equivalent for OpenShift route certs; token stays in headers only. */
+const lokiHttpsDispatcher = new Agent({
+  connect: { rejectUnauthorized: false },
+});
+
 async function fetchLokiApi(
   probeUrl: string,
   token: string,
 ): Promise<{ status: number; body: string }> {
-  let response: Response;
+  if (!probeUrl.startsWith("https://")) {
+    throw new Error(`Loki API probe requires https URL: ${probeUrl}`);
+  }
+
   try {
-    response = await fetch(probeUrl, {
+    const response = await fetch(probeUrl, {
+      dispatcher: lokiHttpsDispatcher,
       headers: { Authorization: `Bearer ${token}` },
       redirect: "manual",
-    });
+    } as RequestInit & { dispatcher: Agent });
+    return { status: response.status, body: await response.text() };
   } catch (error) {
     throw new Error(
       `Loki API request failed for ${probeUrl}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error },
     );
   }
-  return { status: response.status, body: await response.text() };
 }
 
 async function resolveOpenShiftAuthToken(): Promise<string> {
