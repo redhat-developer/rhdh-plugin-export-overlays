@@ -118,7 +118,8 @@ When working with Pull Requests, use these comment commands:
 | Command | Action |
 |---------|--------|
 | `/publish` | Build and publish test OCI artifacts |
-| `/smoketest` | Re-run smoke tests (requires prior `/publish`) |
+| `/smoketest` | Re-run smoke tests with the default branch-derived RHDH image (requires prior `/publish`) |
+| `/smoketest <tag>` | Re-run smoke tests with `quay.io/rhdh-community/rhdh:<tag>` (allowlisted tag formats, requires prior `/publish`) |
 
 ### What `/publish` Does
 

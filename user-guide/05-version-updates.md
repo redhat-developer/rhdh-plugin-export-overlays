@@ -147,7 +147,11 @@ git push origin update-your-plugin-version
 # Open PR, then comment:
 # /publish
 # /smoketest
+# or: /smoketest pr-4929-90eff067
 ```
+
+`/smoketest <tag>` resolves to `quay.io/rhdh-community/rhdh:<tag>` for the smoke-test run.
+Allowed tags include `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, and `next-8a0d43e7`.
 
 ---
 
@@ -162,6 +166,42 @@ When the target Backstage version introduces breaking changes that affect your p
    - As a temporary measure, create a patch to restore compatibility (see [06 - Patch Management](./06-patch-management.md))
 4. **Test** with `/publish` and `/smoketest` before merging
 5. **Document** any migration notes or known limitations in the PR description
+
+---
+
+## Overriding Backstage Compatibility via PR Command
+
+When a workspace's source Backstage version (`source.json:repo-backstage-version`) differs from the target version (`versions.json:backstage`), you can use the `/override-backstage` PR command instead of manually creating files.
+
+### What It Does
+
+The command atomically:
+1. Creates (or updates) `backstage.json` in the workspace with the target Backstage version
+2. Rewrites all `metadata/*.yaml` OCI tags from `bs_<old>__` to `bs_<target>__`
+3. Commits both changes to the PR branch
+
+### Usage
+
+Comment on your workspace PR:
+
+```
+/override-backstage
+```
+
+### When to Use
+
+- After the daily automation creates a PR with a plugin whose source Backstage version is older than the target
+- After manually adding a workspace with a version mismatch
+- When `/publish` fails with metadata validation errors about OCI tag mismatches
+
+### Example
+
+| Before | After |
+|--------|-------|
+| No `backstage.json` | `backstage.json` with `{"version": "1.49.4"}` |
+| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1!...` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1!...` |
+
+> **Note:** Metadata files with local paths (e.g., `./dynamic-plugins/dist/...`) are left unchanged.
 
 ---
 

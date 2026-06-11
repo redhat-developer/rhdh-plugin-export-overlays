@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
 # Merge per-test Istanbul coverage JSONs, generate lcov, and upload to Codecov.
+# Coverage is attributed to this overlay repo's commit, flagged per workspace
+# (see upload-coverage.sh for the attribution model).
 #
 # Usage:
 #   ./scripts/report-coverage.sh <workspace> [workspace...]
@@ -13,10 +15,10 @@
 #   1. Merges per-test coverage JSONs (written by the _coverageCollector fixture)
 #      into a single coverage-final.json using nyc merge
 #   2. Generates lcov and text-summary reports via nyc report
-#   3. Uploads lcov to Codecov for each workspace with cross-repo attribution
+#   3. Uploads lcov to Codecov flagged per workspace (e2e-<workspace>)
 #
 # Required environment:
-#   CODECOV_TOKEN  - Codecov upload token (org-level for cross-repo uploads)
+#   CODECOV_TOKEN  - Codecov upload token for this repo's project
 
 set -euo pipefail
 
@@ -40,8 +42,40 @@ echo ""
 echo "[INFO] Merging coverage data with nyc..."
 mkdir -p "$REPO_ROOT/.nyc_output"
 npx nyc@18.0.0 merge "$REPO_ROOT/$COVERAGE_JSON_DIR" "$REPO_ROOT/.nyc_output/out.json"
-(cd "$REPO_ROOT" && npx nyc@18.0.0 report --reporter=lcov --reporter=text-summary --report-dir coverage)
 
+# Remap bundle coverage back to source and emit lcov.
+#
+# Plugins are instrumented post-build (on the `dist/` and `dist-scalprum/`
+# bundles), so the collected coverage is keyed by bundle paths that only existed
+# in the publish job's temp dir. `nyc report` cannot resolve those paths here and
+# would report 0/0. remap-coverage.cjs applies the source maps nyc embedded
+# (`--source-map`) to map coverage onto the original source files and write lcov.
+#
+# The istanbul libraries are installed into a throwaway prefix so they never land
+# in the repo or a workspace's node_modules. Keep these pins in sync with the
+# istanbul API that remap-coverage.cjs relies on.
+echo "[INFO] Remapping bundle coverage to source and generating lcov..."
+REMAP_DEPS_DIR=$(mktemp -d)
+if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --loglevel=error \
+    istanbul-lib-coverage@3.2.2 \
+    istanbul-lib-source-maps@5.0.6 \
+    istanbul-lib-report@3.0.1 \
+    istanbul-reports@3.2.0 \
+  && (cd "$REPO_ROOT" && NODE_PATH="$REMAP_DEPS_DIR/node_modules" \
+      node "$SCRIPT_DIR/remap-coverage.cjs" "$REPO_ROOT/.nyc_output/out.json" coverage); }; then
+  echo "[WARN] Coverage remap/report failed (non-fatal); skipping upload" >&2
+  rm -rf "$REMAP_DEPS_DIR"
+  exit 0
+fi
+rm -rf "$REMAP_DEPS_DIR"
+
+# Known gap: this guard means the nightly job (which runs ALL workspaces in
+# one invocation) never uploads — so no commit on main ever receives coverage
+# and the per-flag trend on the Codecov dashboard can't form; only PR-head
+# commits get data. Lifting it requires splitting the merged coverage per
+# workspace before remapping (the remapped lcov paths are plain `src/...`
+# with no workspace identity), so the split has to happen at collection/remap
+# time — planned as a follow-up to the overlay attribution model (PR #2580).
 if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
   echo "[WARN] Multi-workspace coverage upload is not supported." >&2
   echo "[WARN] Coverage is merged across workspaces but uploaded with per-workspace flags." >&2
@@ -50,9 +84,11 @@ if [[ ${#WORKSPACES[@]} -gt 1 ]]; then
 else
   echo "[INFO] Uploading E2E coverage to Codecov..."
   for ws in "${WORKSPACES[@]}"; do
-    if [[ -f "$REPO_ROOT/workspaces/$ws/source.json" ]]; then
+    if [[ -d "$REPO_ROOT/workspaces/$ws" ]]; then
       "$SCRIPT_DIR/upload-coverage.sh" "$ws" || \
         echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+    else
+      echo "[WARN] Workspace '$ws' not found under workspaces/ — skipping upload" >&2
     fi
   done
 fi
