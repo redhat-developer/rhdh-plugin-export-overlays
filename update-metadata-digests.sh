@@ -2,7 +2,7 @@
 
 REDHAT_OCI_PREFIX="oci://registry.access.redhat.com/rhdh/"
 QUAY_IMAGE_ROOT="docker://quay.io/rhdh"
-
+repo_root=$(cd "$(dirname "$0")" || exit; pwd)
 DEBUG=0
 usage() {
   echo "
@@ -11,7 +11,7 @@ for the latest image tag on Quay for the given release version.
 This only impacts GA plugins that are published to RHEC.
 
 Requires:
-  git, skopeo, jq, yq (https://github.com/mikefarah/yq/), GNU date
+  skopeo, jq, yq (https://github.com/mikefarah/yq/), GNU date
 
 Usage: $0 --version {version} [--workspace {workspace}] [--debug]
 
@@ -21,8 +21,7 @@ Options:
   --workspace         the workspace to update the metadata for (e.g. orchestrator)
 
 Example:
-  $0 --version 1.10
-  $0 --version 1.9.4 --workspace orchestrator
+  $0 --version 1.9 --workspace orchestrator
 "
   exit 1
 }
@@ -119,10 +118,6 @@ fi
 
 if ! [[ "$release_version" =~ ^[0-9]+\.[0-9]+([.][0-9]+)?$ ]]; then
   die "release-version must look like 1.y or 1.y.z (got: ${release_version}); see $0 --help"
-fi
-
-if ! repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-  die "run from inside the git repository"
 fi
 
 cd "$repo_root"
