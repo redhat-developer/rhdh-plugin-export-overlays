@@ -26,11 +26,6 @@ test.describe.serial("Dynamic home page customization", () => {
   let baseURL: string;
   let test1Count: number;
 
-  test.skip(
-    process.env.E2E_NIGHTLY_MODE === "true",
-    "homepage-backend absent from DPDY in catalog index image (RHDHBUGS-3190)",
-  );
-
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
 
