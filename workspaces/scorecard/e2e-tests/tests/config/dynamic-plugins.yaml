@@ -1,5 +1,5 @@
 # Enable Scorecard plugin for e2e tests (main scorecard project).
-# Filecheck backend module is intentionally excluded — it lives in dynamic-plugins-filecheck.yaml.
+# Filecheck backend module is intentionally excluded — it lives in filecheck/dynamic-plugins.yaml.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
     disabled: false

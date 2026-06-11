@@ -24,7 +24,6 @@ export interface ScorecardTestContext {
 export type ScorecardDeployOptions = {
   appConfig?: string;
   dynamicPlugins: string;
-  valueFile?: string;
 };
 
 /** Configures and deploys RHDH with keycloak auth using the project-standard version. */
@@ -37,7 +36,6 @@ export async function deployRhdh(
     version: process.env.RHDH_VERSION ?? "1.10",
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     dynamicPlugins: options.dynamicPlugins,
-    ...(options.valueFile ? { valueFile: options.valueFile } : {}),
   });
   await rhdh.deploy();
 }

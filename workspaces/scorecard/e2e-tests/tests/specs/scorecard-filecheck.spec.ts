@@ -17,9 +17,8 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
 
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
-      appConfig: "tests/config/app-config-rhdh-filecheck.yaml",
-      dynamicPlugins: "tests/config/dynamic-plugins-filecheck.yaml",
-      valueFile: "tests/config/value_file-filecheck.yaml",
+      appConfig: "tests/config/filecheck/app-config-rhdh.yaml",
+      dynamicPlugins: "tests/config/filecheck/dynamic-plugins.yaml",
     });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
