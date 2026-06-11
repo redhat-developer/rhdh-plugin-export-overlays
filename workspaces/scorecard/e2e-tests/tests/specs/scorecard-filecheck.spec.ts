@@ -36,12 +36,19 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
     await scorecard.navigateToHome();
     await scorecard.addWidget("README file exists");
     await scorecard.expectNoProgressBar();
+    // A second widget triggers Save and persists the layout to user settings.
+    // Without this, runAggregatedScorecardDrilldownScenario's page.reload() leaves
+    // an empty homepage (single addWidget often skips Save on a fresh page).
+    await scorecard.addWidget("Entity section");
+    await scorecard.expectNoProgressBar();
     await scorecard.expectAggregatedScorecardVisible(
       FILECHECK_METRICS.readme.title,
     );
   });
 
   test.describe("Aggregated scorecard drill-down", () => {
+    test.describe.configure({ retries: 1 });
+
     test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),

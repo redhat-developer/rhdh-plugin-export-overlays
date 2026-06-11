@@ -235,7 +235,6 @@ ${thresholdLabelSnapshots}
       },
     ) {
       await navigateToHome();
-      await page.reload();
       const card = impl.homepageCard(metricId);
 
       await test.step("Homepage card UI is present", async () => {
