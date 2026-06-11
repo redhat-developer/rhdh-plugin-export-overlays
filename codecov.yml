@@ -7,9 +7,12 @@
 # Codecov only keeps paths that exist in the git tree), so only the per-flag
 # percentage and trend are meaningful; line-level annotation is not available.
 #
-# Uploads come from two paths: PR presubmits (changed workspace, PR-head
-# commit) and the nightly (all workspaces, one flag each, main commit) — the
-# nightly feeds the default-branch headline and per-flag trend.
+# Uploads come from PR presubmits (changed workspaces, PR-head commit). The
+# nightly has the upload plumbing too (all workspaces, one flag each, main
+# commit) but collects nothing yet: instrumented `__coverage` images are only
+# built by the PR /publish flow and the e2e-test-utils image swap only runs
+# in PR mode — until those land, the default-branch headline only moves when
+# coverage is uploaded against a main commit manually.
 
 codecov:
   require_ci_to_pass: false

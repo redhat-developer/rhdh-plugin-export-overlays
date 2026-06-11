@@ -62,6 +62,10 @@ echo "[INFO] Remapping bundle coverage to source and generating lcov..."
 # workspace that contributed coverage, plus the combined coverage/lcov.info.
 # Anchors keep lcov paths resolvable in this repo's git tree — Codecov drops
 # report paths it can't resolve against the tree.
+#
+# Wipe previous output first: a stale coverage/<ws>/lcov.info from an earlier
+# local run would otherwise be uploaded below, attributed to today's commit.
+rm -rf "$REPO_ROOT/coverage"
 REMAP_DEPS_DIR=$(mktemp -d)
 if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --loglevel=error \
     istanbul-lib-coverage@3.2.2 \
@@ -76,17 +80,23 @@ if ! { npm install --prefix "$REMAP_DEPS_DIR" --no-save --no-audit --no-fund --l
 fi
 rm -rf "$REMAP_DEPS_DIR"
 
-# Upload each workspace's own lcov under its e2e-<workspace> flag. Workspaces
-# with no per-workspace lcov produced no browser coverage (backend-only
-# plugins, or instrumented images not deployed) — skip them without failing,
-# the nightly legitimately includes such workspaces.
+# Upload every per-workspace lcov the remap produced, each under its own
+# e2e-<workspace> flag. Iterating what was PRODUCED (not what was requested)
+# means coverage attributed to a workspace outside this run's -w list is still
+# uploaded rather than silently orphaned; upload-coverage.sh validates the
+# workspace name. Requested workspaces with no lcov produced no browser
+# coverage (backend-only plugins, or uninstrumented images) — note them
+# without failing, the nightly legitimately includes such workspaces.
 echo "[INFO] Uploading E2E coverage to Codecov..."
+shopt -s nullglob
+for WS_LCOV in "$REPO_ROOT"/coverage/*/lcov.info; do
+  ws=$(basename "$(dirname "$WS_LCOV")")
+  "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$WS_LCOV" || \
+    echo "[WARN] Coverage upload failed for $ws (non-fatal)"
+done
+shopt -u nullglob
 for ws in "${WORKSPACES[@]}"; do
-  WS_LCOV="$REPO_ROOT/coverage/$ws/lcov.info"
-  if [[ -f "$WS_LCOV" ]]; then
-    "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$WS_LCOV" || \
-      echo "[WARN] Coverage upload failed for $ws (non-fatal)"
-  else
+  if [[ ! -f "$REPO_ROOT/coverage/$ws/lcov.info" ]]; then
     echo "[INFO] No coverage collected for workspace '$ws' — skipping upload"
   fi
 done
