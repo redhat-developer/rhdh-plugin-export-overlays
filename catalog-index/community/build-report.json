@@ -668,7 +668,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights:bs_1.49.4__3.5.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -678,7 +679,7 @@
       "package": "@roadiehq/backstage-plugin-github-insights",
       "version": "3.5.0",
       "workspace": "roadie-backstage-plugins",
-      "overall": "pass"
+      "overall": "fail"
     },
     "roadiehq-backstage-plugin-github-pull-requests": {
       "stages": {
@@ -953,9 +954,9 @@
   },
   "summary": {
     "total": 39,
-    "succeeded": 39,
-    "failed": 0,
+    "succeeded": 38,
+    "failed": 1,
     "outdated": 0
   },
-  "status": "success"
+  "status": "partial"
 }
