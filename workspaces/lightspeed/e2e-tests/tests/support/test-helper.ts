@@ -1,6 +1,5 @@
 import { expect, type Page } from "@playwright/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import fs from "fs";
 import yaml from "js-yaml";
@@ -75,7 +74,11 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const tmp = path.join(os.tmpdir(), `${ns}-llama-stack-config.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
   await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, "config.yaml");
-  await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
+  const resource =
+    rhdh.deploymentConfig.method === "operator"
+      ? "statefulset/backstage-developer-hub"
+      : "deployment/redhat-developer-hub";
+  await $`oc rollout restart ${resource} -n ${ns}`;
   await rhdh.waitUntilReady();
 }
 
@@ -83,20 +86,6 @@ export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
   await rhdh.configure(lightspeedDeployConfig);
-
-  // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-  await test.runOnce(
-    `lightspeed-pre-deploy-${lightspeedNamespace}`,
-    async () => {
-      const ns = rhdh.deploymentConfig.namespace;
-      try {
-        await $`oc get deployment redhat-developer-hub -n ${ns}`;
-        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-      } catch {
-        /* fresh install */
-      }
-    },
-  );
   await rhdh.deploy();
   await patchOpenAiAllowedModels(rhdh);
 }
