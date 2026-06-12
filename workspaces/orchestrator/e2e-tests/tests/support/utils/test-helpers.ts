@@ -25,11 +25,7 @@ export {
   runOc,
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
-export {
-  patchHttpbin,
-  restartAndWait,
-  cleanupAfterTest,
-} from "./cluster-helpers.js";
+export { patchHttpbin, cleanupAfterTest } from "./cluster-helpers.js";
 
 // ---------------------------------------------------------------------------
 // Constants
