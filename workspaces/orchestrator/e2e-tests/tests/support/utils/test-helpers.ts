@@ -25,11 +25,22 @@ export {
   runOc,
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
-export {
-  patchHttpbin,
-  restartAndWait,
-  cleanupAfterTest,
-} from "./cluster-helpers.js";
+export { patchHttpbin, cleanupAfterTest } from "./cluster-helpers.js";
+
+// ---------------------------------------------------------------------------
+// Orchestrator UI helpers
+// ---------------------------------------------------------------------------
+
+export async function reRunOnFailure(
+  page: Page,
+  input = "Entire workflow",
+): Promise<void> {
+  await expect(page.getByText("Run again")).toBeVisible();
+  await page.getByText("Run again").click();
+  // eslint-disable-next-line playwright/no-wait-for-timeout
+  await page.waitForTimeout(5000);
+  await page.getByRole("menuitem", { name: input }).click();
+}
 
 // ---------------------------------------------------------------------------
 // Constants

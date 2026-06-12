@@ -115,7 +115,11 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     patchWorkflowPostgres(namespace, workflow);
   }
 
-  await patchWorkflowPropsForLokiLogging(namespace, WORKFLOWS);
+  // Skip failswitch: its props ConfigMap is mutated at runtime by patchHttpbin (HTTPBIN URL).
+  await patchWorkflowPropsForLokiLogging(
+    namespace,
+    WORKFLOWS.filter((workflow) => workflow !== "failswitch"),
+  );
 
   for (const workflow of WORKFLOWS) {
     await waitForWorkflowDeployment(
