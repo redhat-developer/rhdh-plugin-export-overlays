@@ -44,7 +44,9 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyText(/Plugins \((\d+)\)/);
 
     await uiHelper.clickButtonByText("Set up Lightspeed");
-    await uiHelper.verifyTextVisible("Connect Lightspeed to a supported large language model");
+    await uiHelper.verifyTextVisible(
+      "Connect Lightspeed to a supported large language model",
+    );
     await uiHelper.verifyButtonURL(
       "Learn more",
       "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
