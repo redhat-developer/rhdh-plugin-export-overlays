@@ -46,6 +46,10 @@ const E2E_WORKFLOW_PG_SECRET = "backstage-psql-secret";
 const E2E_WORKFLOW_DATABASE = "backstage_plugin_orchestrator";
 const SONATAFLOW_PLATFORM_READY_TIMEOUT_MS = 600_000;
 
+// Delete any existing RHDH deployment so rhdh.deploy() performs a fresh
+// Helm install.  Loki env vars (LOKI_BASE_URL, AUTH_TOKEN) are only set
+// after configureOrchestratorLoki() runs, so a stale deployment would
+// lack the correct Loki config in its ConfigMaps/Secrets.
 export async function prepareRhdhHelmRedeploy(
   namespace: string,
 ): Promise<void> {
@@ -115,7 +119,11 @@ export async function deploySonataflow(namespace: string): Promise<void> {
     patchWorkflowPostgres(namespace, workflow);
   }
 
-  await patchWorkflowPropsForLokiLogging(namespace, WORKFLOWS);
+  // Skip failswitch: its props ConfigMap is mutated at runtime by patchHttpbin (HTTPBIN URL).
+  await patchWorkflowPropsForLokiLogging(
+    namespace,
+    WORKFLOWS.filter((workflow) => workflow !== "failswitch"),
+  );
 
   for (const workflow of WORKFLOWS) {
     await waitForWorkflowDeployment(
