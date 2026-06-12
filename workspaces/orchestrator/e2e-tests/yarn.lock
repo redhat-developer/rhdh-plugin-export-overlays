@@ -1780,6 +1780,7 @@ __metadata:
     prettier: "npm:3.8.1"
     typescript: "npm:6.0.2"
     typescript-eslint: "npm:8.58.1"
+    undici: "npm:7.3.0"
   languageName: unknown
   linkType: soft
 
@@ -2197,6 +2198,13 @@ __metadata:
   version: 7.18.2
   resolution: "undici-types@npm:7.18.2"
   checksum: 10/e61a5918f624d68420c3ca9d301e9f15b61cba6e97be39fe2ce266dd6151e4afe424d679372638826cb506be33952774e0424141200111a9857e464216c009af
+  languageName: node
+  linkType: hard
+
+"undici@npm:7.3.0":
+  version: 7.3.0
+  resolution: "undici@npm:7.3.0"
+  checksum: 10/8165c3a18cd045c70b009db006bee1784c5ba405634e8d2017107f65220a23190e2dfbbcb314bec71add1e43cabcd7515cd29b655c819f22e59b5e2e7025db20
   languageName: node
   linkType: hard
 
