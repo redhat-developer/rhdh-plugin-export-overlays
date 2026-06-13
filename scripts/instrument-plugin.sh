@@ -63,15 +63,32 @@ while IFS= read -r PROD_IMAGE; do
   PLUGIN_NAME=$(basename "${PROD_IMAGE%%:*}")
   echo "  Plugin: $PLUGIN_NAME"
 
-  # Find metadata file for this plugin
-  # The metadata filename matches the OCI image name (e.g., backstage-community-plugin-acs.yaml)
-  METADATA_FILE="${WORKSPACE}/metadata/${PLUGIN_NAME}.yaml"
+  # Find the metadata file for this plugin by matching its packageName to the
+  # image name, NOT by assuming the filename matches the image. The published
+  # image name is the packageName with '@' stripped and '/' replaced by '-'
+  # (e.g. @red-hat-developer-hub/backstage-plugin-quickstart ->
+  # red-hat-developer-hub-backstage-plugin-quickstart). Some workspaces name
+  # their metadata files differently (e.g. rhdh-bsp-quickstart.yaml), so a
+  # filename-based lookup silently skipped them and never built the __coverage
+  # image — the e2e run then failed pulling a manifest that doesn't exist.
+  METADATA_FILE=""
+  for candidate in "${WORKSPACE}"/metadata/*.yaml; do
+    [[ -f "$candidate" ]] || continue
+    candidate_pkg=$(yq -r '.spec.packageName // ""' "$candidate")
+    [[ -z "$candidate_pkg" ]] && continue
+    candidate_image=$(echo "$candidate_pkg" | sed 's|^@||; s|/|-|g')
+    if [[ "$candidate_image" == "$PLUGIN_NAME" ]]; then
+      METADATA_FILE="$candidate"
+      break
+    fi
+  done
 
-  if [[ ! -f "$METADATA_FILE" ]]; then
-    echo "  ⚠️  No metadata file found at $METADATA_FILE - skipping"
+  if [[ -z "$METADATA_FILE" ]]; then
+    echo "  ⚠️  No metadata file with packageName matching '$PLUGIN_NAME' in ${WORKSPACE}/metadata/ - skipping"
     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     continue
   fi
+  echo "  Metadata: $METADATA_FILE"
 
   # Check if this is a frontend plugin (only frontend plugins need instrumentation)
   PLUGIN_ROLE=$(yq -r '.spec.backstage.role // ""' "$METADATA_FILE")
