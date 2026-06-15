@@ -174,3 +174,17 @@ This creates `backstage.json` with the target version and updates all metadata O
 #### Once Testing Is Complete:
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
+
+## E2E coverage anchors
+
+Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH and upload it to this repository's Codecov project (one `e2e-<workspace>` flag per workspace).
+
+Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+
+These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
+
+```bash
+./scripts/generate-coverage-anchors.sh <workspace>
+```
+
+See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
