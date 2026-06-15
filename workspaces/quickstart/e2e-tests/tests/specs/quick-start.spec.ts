@@ -42,7 +42,17 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.clickButtonByText("Explore plugins");
     await uiHelper.verifyText("Catalog");
     await uiHelper.verifyText(/Plugins \((\d+)\)/);
-    await uiHelper.verifyText("25% progress");
+
+    await uiHelper.clickButtonByText("Set up Lightspeed");
+    await uiHelper.verifyTextVisible(
+      "Connect Lightspeed to a supported large language model",
+    );
+    await uiHelper.verifyButtonURL(
+      "Learn more",
+      "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
+      { exact: false },
+    );
+    await uiHelper.verifyText("20% progress");
 
     await uiHelper.clickButton("Hide");
     await expect(page.getByRole("button", { name: "Hide" })).toBeHidden();
@@ -74,6 +84,14 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyButtonURL("View Learning Paths", "/learning-paths");
     await uiHelper.clickButtonByText("View Learning Paths");
     await uiHelper.verifyHeading("Learning Paths");
-    await uiHelper.verifyText("75% progress");
+
+    await uiHelper.clickButtonByText("Get started with Lightspeed");
+    await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
+    await uiHelper.verifyButtonURL(
+      "Learn more",
+      "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
+      { exact: false },
+    );
+    await uiHelper.verifyText("60% progress");
   });
 });
