@@ -24,6 +24,7 @@ auth:
 integrations:
   gitlab:
     - host: gitlab.example.com
+      apiBaseUrl: https://gitlab.example.com/api/v4
       token: ${GITLAB_TOKEN}
   bitbucketServer:
     - host: bitbucket.example.com
