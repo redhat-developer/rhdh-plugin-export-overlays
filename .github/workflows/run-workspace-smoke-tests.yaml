@@ -187,8 +187,8 @@ jobs:
           echo "===== Checking logs for plugin loaded messages"
           for plugin in $PLUGINS; do
             echo "Asserting plugin loaded: $plugin"
-            # Match either the unpack path or the canonical "loaded dynamic ... plugin '<pkg>' from" message
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'" ; then
+            # Match either canonical package log lines or unpack paths (including /alpha suffixes).
+            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}" ; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"

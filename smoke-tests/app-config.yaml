@@ -21,6 +21,15 @@ auth:
   providers:
     guest: {}
 
+integrations:
+  gitlab:
+    - host: gitlab.example.com
+      token: ${GITLAB_TOKEN}
+  bitbucketServer:
+    - host: bitbucket.example.com
+      apiBaseUrl: https://bitbucket.example.com/rest/api/1.0
+      token: ${BITBUCKET_TOKEN}
+
 # Minimal catalog configuration.
 catalog:
   rules:
