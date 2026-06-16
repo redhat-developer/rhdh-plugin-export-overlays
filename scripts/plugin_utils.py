@@ -686,6 +686,18 @@ class BuildReport:
         stage_data.update(details)
         plugin.setdefault("stages", {})[stage] = stage_data
 
+    def get_stage(self, plugin_name: str, stage: str) -> dict | None:
+        """Return the mutable stage dict for a plugin, or None if not found."""
+        if not self.enabled:
+            return None
+        return (
+            self._data
+            .get("plugins", {})
+            .get(plugin_name, {})
+            .get("stages", {})
+            .get(stage)
+        )
+
     def set_stage_all(self, stage: str, status: str, **details) -> None:
         """Apply the same stage outcome to every plugin currently in the report."""
         if not self.enabled:
