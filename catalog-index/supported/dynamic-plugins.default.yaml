@@ -948,8 +948,7 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 15
-  # Tag: bs_1.49.4__0.4.10, Build date: 2026-05-21T20:54:16Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:85df41211cb5f4d2844aaf22f8ea59d62d7ccd336b6044d2fb14c05504916c77
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.49.4__0.4.10
     enabled: false
     pluginConfig:
       events:
@@ -1116,8 +1115,7 @@ plugins:
     pluginConfig:
       bulkImport:
         importAPI: open-pull-requests
-  # Tag: bs_1.49.4__0.1.1, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:c08da8416a7f89dd65c7119d8e5ee82552528fe071bfc3e2a4042995c2aa1b1f
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1
     enabled: false
     pluginConfig:
       homepage:
@@ -1193,7 +1191,7 @@ plugins:
           url: http://sonataflow-platform-data-index-service
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0
     enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay@sha256:0739eac1e8a14f98335d80133a09ed61a78a0d5848d4b6697117129776746b55
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.49.4__1.32.1
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -1208,12 +1206,12 @@ plugins:
                   if:
                     anyOf:
                       - isQuayAvailable
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend@sha256:8069246bcdc42c0e3d7e66ad56e129e1d89d0a6648c8861243e9d50f9e0de3df
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.49.4__1.14.0
     enabled: false
     pluginConfig:
       quay:
         apiUrl: "https://quay.io"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay@sha256:c57eb012af8ced7339c50fdc80f5767ba1477988394ffbdd6b5c79c47472ca54
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0
     enabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.37.0
     enabled: false
