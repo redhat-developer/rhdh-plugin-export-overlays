@@ -116,7 +116,7 @@ test.describe("Lightspeed notebooks", () => {
 
   test("upload modal: duplicate file confirms overwrite then upload", async () => {
     const { absolutePath, fileName } = localeNotebookUpload1Path();
-    
+
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(2000);
     await notebooks.clickOpenUploadDocumentModal();
