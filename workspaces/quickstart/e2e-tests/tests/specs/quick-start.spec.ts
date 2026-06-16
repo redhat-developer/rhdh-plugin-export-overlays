@@ -2,7 +2,10 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test Quick Start plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({
+      auth: "keycloak",
+      disableWrappers: ["red-hat-developer-hub-backstage-plugin-quickstart"],
+    });
     await rhdh.deploy();
   });
 

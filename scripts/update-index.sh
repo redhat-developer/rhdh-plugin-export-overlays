@@ -191,7 +191,7 @@ if [[ -n "$RHDH_VERSION" ]]; then
     RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
 fi
 # shellcheck disable=SC2086
-if ! python3 "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
+if ! python "$SCRIPT_DIR/bootstrapPluginBuilds.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
@@ -230,7 +230,7 @@ trap restore_metadata EXIT
 ##############################################
 echo -e "\n${green}=== Step 2: Enrich plugin_builds/ with registry metadata ===${norm}"
 # shellcheck disable=SC2086
-if ! python3 "$SCRIPT_DIR/generatePluginBuildInfo.py" \
+if ! python "$SCRIPT_DIR/generatePluginBuildInfo.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
@@ -266,7 +266,7 @@ if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
         DPDY_STATUS="fail"
         echo -e "${red}[ERROR] generateDynamicPluginsDefaultYaml.sh failed!${norm}" >&2
         if [[ -n "$REPORT_FILE" && -f "$REPORT_FILE" ]]; then
-            python3 -c "
+            python -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR')
 from plugin_utils import BuildReport
 r = BuildReport('$REPORT_FILE')
@@ -300,7 +300,7 @@ for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
     PACKAGES_FILE_ARGS="$PACKAGES_FILE_ARGS --packages-file $pf"
 done
 # shellcheck disable=SC2086
-if ! python3 "$SCRIPT_DIR/generateCatalogIndex.py" \
+if ! python "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
