@@ -24,8 +24,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-    ({ context, catalog, scorecard, aggregated } =
-      await createScorecardContext(browser, rhdh.rhdhUrl));
+    ({ context, catalog, scorecard, aggregated } = await createScorecardContext(
+      browser,
+      rhdh.rhdhUrl,
+    ));
   });
 
   test.afterAll(async () => {
