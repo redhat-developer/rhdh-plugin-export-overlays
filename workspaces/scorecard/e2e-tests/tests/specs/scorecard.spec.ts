@@ -1,19 +1,16 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { type BrowserContext, type Page } from "@playwright/test";
+import { type BrowserContext } from "@playwright/test";
 import {
   createScorecardContext,
   deployRhdh,
   type AggregatedScorecardHelpers,
   type ScorecardHelpers,
 } from "../utils/setup";
-import {
-  SCORECARD_METRICS,
-} from "../utils/scorecard";
+import { SCORECARD_METRICS } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
   let context: BrowserContext | undefined;
-  let page: Page;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
   let aggregated: AggregatedScorecardHelpers;
@@ -27,7 +24,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     });
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-    ({ context, page, catalog, scorecard, aggregated } =
+    ({ context, catalog, scorecard, aggregated } =
       await createScorecardContext(browser, rhdh.rhdhUrl));
   });
 
@@ -177,21 +174,21 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
     });
 
-  // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip("Verify aggregated scorecard counts increased after import", async () => {
-    await scorecard.navigateToHome();
+    // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
+    // eslint-disable-next-line playwright/no-skipped-test
+    test.skip("Verify aggregated scorecard counts increased after import", async () => {
+      await scorecard.navigateToHome();
 
-    const [githubMetric, jiraMetric] = SCORECARD_METRICS;
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
-    await scorecard.expectAggregatedScorecardEntityCountToBe(
-      githubMetric.title,
-      initialGithubCount + 1,
-    );
-    await scorecard.expectAggregatedScorecardEntityCountToBe(
-      jiraMetric.title,
-      initialJiraCount + 1,
-    );
-  });
+      await scorecard.expectAggregatedScorecardEntityCountToBe(
+        githubMetric.title,
+        initialGithubCount + 1,
+      );
+      await scorecard.expectAggregatedScorecardEntityCountToBe(
+        jiraMetric.title,
+        initialJiraCount + 1,
+      );
+    });
   });
 });
