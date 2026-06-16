@@ -1,11 +1,15 @@
-import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { defineConfig as playwrightDefineConfig } from "@playwright/test";
 
-/** Single project: UI + conversation tests share one RHDH namespace (`lightspeed`). */
-export default defineConfig({
+/** Single project: both specs share one RHDH namespace (`lightspeed`). */
+export default playwrightDefineConfig({
+  ...baseConfig,
+  workers: 1,
   projects: [
     {
       name: "lightspeed",
-      testMatch: "lightspeed.spec.ts",
+      workers: 1,
+      testMatch: ["lightspeed.spec.ts", "notebook.spec.ts"],
       timeout: 5 * 60 * 1000,
     },
   ],
