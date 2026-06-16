@@ -407,7 +407,7 @@ class TestResolveFallbackTag:
         assert result is not None
         assert "bs_1.49.4__" in result['reference']
         assert "9999" not in result['reference']
-        assert result['normalized'] is False
+        assert result['alias'] is False
 
     def test_quay_nonexistent_version_resolves_to_latest(self):
         nonexistent_ref = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--9999.99.9"
@@ -415,7 +415,7 @@ class TestResolveFallbackTag:
         assert result is not None
         assert "1.11--" in result['reference']
         assert "9999" not in result['reference']
-        assert result['normalized'] is False
+        assert result['alias'] is False
 
     def test_nonexistent_prefix_returns_none(self):
         """When the prefix itself has no tags, returns None."""
@@ -439,21 +439,21 @@ class TestResolveFallbackTag:
 
 
 # ---------------------------------------------------------------------------
-# resolve_fallback_tag — RHDH prefix normalization (mocked)
+# resolve_fallback_tag — RHDH version alias resolution (mocked)
 # ---------------------------------------------------------------------------
 
-class TestResolveFallbackTagNormalization:
-    """Tests for two-tier prefix normalization in resolve_fallback_tag."""
+class TestResolveFallbackTagAlias:
+    """Tests for RHDH version alias resolution in resolve_fallback_tag."""
 
     @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_xyz_prefix_normalizes_to_xy(self, mock_get):
-        """Request 1.10.2--1.5.4, registry has 1.10--1.5.4 -> normalization, not fallback."""
+    def test_quay_xyz_prefix_resolves_via_alias(self, mock_get):
+        """Request 1.10.2--1.5.4, registry has 1.10--1.5.4 -> alias, not fallback."""
         mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.10.2--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is not None
         assert result['reference'] == "quay.io/rhdh/plugin:1.10--1.5.4"
-        assert result['normalized'] is True
+        assert result['alias'] is True
 
     @patch("generatePluginBuildInfo.requests.get")
     def test_quay_xyz_prefix_no_exact_version_under_xy_returns_none(self, mock_get):
@@ -472,16 +472,16 @@ class TestResolveFallbackTagNormalization:
         assert result is None
 
     @patch("generatePluginBuildInfo.requests.get")
-    def test_ghcr_does_not_normalize_prefix(self, mock_get):
-        """ghcr.io with nonexistent bs_1.50.0__ prefix should NOT try bs_1.50__ normalization."""
+    def test_ghcr_does_not_use_alias(self, mock_get):
+        """ghcr.io with nonexistent bs_1.50.0__ prefix should NOT try bs_1.50__ alias."""
         mock_get.return_value = _mock_response(GHCR_REAL_TAGS)
         ref = "ghcr.io/org/repo/plugin:bs_1.50.0__2.18.0"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
         assert result is None
 
     @patch("generatePluginBuildInfo.requests.get")
-    def test_quay_two_part_prefix_does_not_normalize(self, mock_get):
-        """Request 1.12--1.5.4, prefix is already two-part, no normalization attempted."""
+    def test_quay_two_part_prefix_does_not_use_alias(self, mock_get):
+        """Request 1.12--1.5.4, prefix is already two-part, no alias resolution attempted."""
         mock_get.return_value = _mock_response(QUAY_REAL_TAGS)
         ref = "quay.io/rhdh/plugin:1.12--1.5.4"
         result = generatePluginBuildInfo.resolve_fallback_tag(ref)
@@ -489,20 +489,20 @@ class TestResolveFallbackTagNormalization:
 
 
 # ---------------------------------------------------------------------------
-# get_image_metadata — normalization vs fallback distinction (mocked)
+# get_image_metadata — alias vs fallback distinction (mocked)
 # ---------------------------------------------------------------------------
 
-class TestGetImageMetadataNormalization:
-    """Tests for get_image_metadata normalization vs fallback distinction."""
+class TestGetImageMetadataAlias:
+    """Tests for get_image_metadata alias vs fallback distinction."""
 
     @patch("generatePluginBuildInfo._fetch_image_metadata")
     @patch("generatePluginBuildInfo.resolve_fallback_tag")
-    def test_normalization_no_fallback_flag(self, mock_resolve, mock_fetch):
-        """When prefix is normalized but plugin version matches, no fallback flag."""
+    def test_alias_no_fallback_flag(self, mock_resolve, mock_fetch):
+        """When resolved via alias but plugin version matches, no fallback flag."""
         mock_fetch.side_effect = [None, {"digest": "sha256:abc123"}]
         mock_resolve.return_value = {
             'reference': 'quay.io/rhdh/plugin:1.10--1.5.4',
-            'normalized': True,
+            'alias': True,
         }
         metadata = generatePluginBuildInfo.get_image_metadata("quay.io/rhdh/plugin:1.10.2--1.5.4")
         assert metadata is not None
@@ -513,11 +513,11 @@ class TestGetImageMetadataNormalization:
     @patch("generatePluginBuildInfo._fetch_image_metadata")
     @patch("generatePluginBuildInfo.resolve_fallback_tag")
     def test_regular_fallback_sets_fallback_flag(self, mock_resolve, mock_fetch):
-        """When resolve returns normalized=False (regular fallback), fallback IS set."""
+        """When resolve returns alias=False (regular fallback), fallback IS set."""
         mock_fetch.side_effect = [None, {"digest": "sha256:abc123"}]
         mock_resolve.return_value = {
             'reference': 'quay.io/rhdh/plugin:1.11--1.5.4',
-            'normalized': False,
+            'alias': False,
         }
         metadata = generatePluginBuildInfo.get_image_metadata("quay.io/rhdh/plugin:1.11--1.6.0")
         assert metadata is not None

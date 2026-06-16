@@ -47,7 +47,7 @@ DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
 
-# Matches a three-part version prefix (x.y.z), captures x.y for normalization
+# Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
 THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
 
 
@@ -264,9 +264,9 @@ def resolve_fallback_tag(registry_reference: str) -> dict | None:
     produces both ``1.10.0--1.5.4`` and ``1.10--1.5.4`` tags, and the
     ``1.10--`` tag remains valid for ``1.10.1``, ``1.10.2``, etc.
 
-    If the exact plugin version suffix is found under the normalized prefix,
-    it is flagged as a prefix normalization rather than a version fallback.
-    If the normalized prefix has tags but not the exact plugin version,
+    If the exact plugin version suffix is found under the alias prefix,
+    it is flagged as an alias match rather than a version fallback.
+    If the alias prefix has tags but not the exact plugin version,
     ``None`` is returned — a new build with the original prefix is needed,
     not a fallback to an older version under a different prefix.
 
@@ -283,22 +283,22 @@ def resolve_fallback_tag(registry_reference: str) -> dict | None:
         The returned dict contains::
 
             {
-                'reference': str,   # full registry reference with resolved tag
-                'normalized': bool, # True if only the RHDH prefix changed
-                                    # (same plugin version), False if the
-                                    # plugin version itself is different
+                'reference': str,  # full registry reference with resolved tag
+                'alias': bool,     # True if resolved via the x.y-- alias
+                                   # (same plugin version), False if the
+                                   # plugin version itself is different
             }
 
     Example:
-        Prefix normalization (``1.10.2--1.5.4`` requested, ``1.10--1.5.4`` exists)::
+        Alias resolution (``1.10.2--1.5.4`` requested, ``1.10--1.5.4`` exists)::
 
             >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.10.2--1.5.4")
-            {'reference': 'quay.io/rhdh/plugin:1.10--1.5.4', 'normalized': True}
+            {'reference': 'quay.io/rhdh/plugin:1.10--1.5.4', 'alias': True}
 
         Version fallback (``1.11--1.6.0`` requested, ``1.11--1.5.4`` is latest)::
 
             >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.11--1.6.0")
-            {'reference': 'quay.io/rhdh/plugin:1.11--1.5.4', 'normalized': False}
+            {'reference': 'quay.io/rhdh/plugin:1.11--1.5.4', 'alias': False}
 
         No tags at all for the prefix::
 
@@ -324,18 +324,18 @@ def resolve_fallback_tag(registry_reference: str) -> dict | None:
 
     tags = list_tags_with_prefix(registry, repository, prefix, auth, headers)
 
-    normalized = False
+    used_alias = False
 
     if not tags and separator == "--":
         prefix_version = prefix[:-len(separator)]
         m = THREE_PART_PREFIX_RE.match(prefix_version)
         if m:
-            normalized_prefix = m.group(1) + separator
-            tags = list_tags_with_prefix(registry, repository, normalized_prefix, auth, headers)
+            alias_prefix = m.group(1) + separator
+            tags = list_tags_with_prefix(registry, repository, alias_prefix, auth, headers)
             if not tags:
                 return None
-            prefix = normalized_prefix
-            normalized = True
+            prefix = alias_prefix
+            used_alias = True
         else:
             return None
     elif not tags:
@@ -347,21 +347,20 @@ def resolve_fallback_tag(registry_reference: str) -> dict | None:
 
     original_ref_base = registry_reference.rsplit(':', 1)[0]
 
-    if normalized:
-        exact_normalized_tag = prefix + requested_suffix
-        if exact_normalized_tag in tags:
+    if used_alias:
+        exact_alias_tag = prefix + requested_suffix
+        if exact_alias_tag in tags:
             return {
-                'reference': f"{original_ref_base}:{exact_normalized_tag}",
-                'normalized': True,
+                'reference': f"{original_ref_base}:{exact_alias_tag}",
+                'alias': True,
             }
-        # Normalized prefix has tags but not the exact plugin version —
-        # this means a new build is needed with the original prefix, not
-        # a fallback to an older version under the normalized prefix.
+        # Alias prefix has tags but not the exact plugin version —
+        # a new build is needed, not a fallback under a different prefix.
         return None
 
     return {
         'reference': f"{original_ref_base}:{best_tag}",
-        'normalized': False,
+        'alias': False,
     }
 
 
@@ -501,7 +500,7 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
     Wraps ``_fetch_image_metadata`` with a multi-step strategy: first tries the
     exact tag, and if that fails, calls ``resolve_fallback_tag`` to find a
-    match via RHDH prefix normalization or the latest published tag with the
+    match via an RHDH version alias or the latest published tag with the
     same version prefix.
 
     Args:
@@ -517,8 +516,8 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
             {'digest': 'sha256:...', 'build-date': '2025-05-01', ...}
 
-        On a **prefix normalization** (RHDH version prefix adjusted, same
-        plugin version), the dict includes the resolved reference but no
+        On an **alias hit** (RHDH version prefix adjusted, same plugin
+        version), the dict includes the resolved reference but no
         fallback flag::
 
             {
@@ -542,7 +541,7 @@ def get_image_metadata(registry_reference: str) -> dict | None:
             >>> get_image_metadata("quay.io/rhdh/plugin:1.11--1.5.4")
             {'digest': 'sha256:a1b2c3...', 'build-date': '2025-05-01'}
 
-        Prefix normalization (tag ``1.10.2--1.5.4`` missing, ``1.10--1.5.4`` used)::
+        Alias hit (tag ``1.10.2--1.5.4`` missing, ``1.10--1.5.4`` used)::
 
             >>> get_image_metadata("quay.io/rhdh/plugin:1.10.2--1.5.4")
             {'digest': 'sha256:a1b2c3...', 'registryReference': 'quay.io/rhdh/plugin:1.10--1.5.4'}
@@ -566,11 +565,11 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
     resolved_ref = resolve_result['reference']
     resolved_tag = resolved_ref.rsplit(':', 1)[-1] if ':' in resolved_ref else ""
-    is_normalization = resolve_result['normalized']
+    is_alias = resolve_result['alias']
 
-    if is_normalization:
+    if is_alias:
         log_info(
-            f"[NORMALIZED] RHDH prefix: {Colors.YELLOW}{original_tag}{Colors.NORM}"
+            f"[ALIAS] RHDH version alias: {Colors.YELLOW}{original_tag}{Colors.NORM}"
             f" -> {Colors.GREEN}{resolved_tag}{Colors.NORM}"
         )
     else:
@@ -585,7 +584,7 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
     metadata['registryReference'] = resolved_ref
 
-    if not is_normalization:
+    if not is_alias:
         metadata['fallback'] = True
         metadata['requestedTag'] = original_tag
 
