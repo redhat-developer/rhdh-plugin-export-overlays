@@ -188,7 +188,7 @@ jobs:
           for plugin in $PLUGINS; do
             echo "Asserting plugin loaded: $plugin"
             # Match loaded plugins by unpack path; allow both root and /alpha module paths.
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* from 'file:///opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?'" ; then
+            if echo "$LOGS" | grep -qiE "loaded dynamic (frontend|backend) plugin .* from 'file:///opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?'" ; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"
