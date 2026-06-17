@@ -21,7 +21,6 @@ spec:
     - ./backstage-community-plugin-topology.yaml
     - ./backstage-plugin-catalog-backend-module-github-org.yaml
     - ./backstage-plugin-catalog-backend-module-github.yaml
-    - ./backstage-plugin-catalog-backend-module-gitlab-org.yaml
     - ./backstage-plugin-catalog-backend-module-gitlab.yaml
     - ./backstage-plugin-catalog-backend-module-ldap.yaml
     - ./backstage-plugin-catalog-backend-module-msgraph.yaml
@@ -32,8 +31,6 @@ spec:
     - ./backstage-plugin-notifications-backend-module-email.yaml
     - ./backstage-plugin-notifications-backend.yaml
     - ./backstage-plugin-notifications.yaml
-    - ./backstage-plugin-scaffolder-backend-module-github.yaml
-    - ./backstage-plugin-scaffolder-backend-module-gitlab.yaml
     - ./backstage-plugin-signals-backend.yaml
     - ./backstage-plugin-signals.yaml
     - ./backstage-plugin-techdocs-backend.yaml

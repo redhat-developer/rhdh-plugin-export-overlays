@@ -200,7 +200,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.49.4__0.2.19"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -210,7 +211,7 @@
       "package": "@backstage/plugin-catalog-backend-module-gitlab-org",
       "version": "0.2.19",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-catalog-backend-module-gitlab": {
       "stages": {
@@ -486,7 +487,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github:bs_1.49.4__0.9.7"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -496,7 +498,7 @@
       "package": "@backstage/plugin-scaffolder-backend-module-github",
       "version": "0.9.7",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-gitlab": {
       "stages": {
@@ -512,7 +514,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab:bs_1.49.4__0.11.4"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -522,7 +525,7 @@
       "package": "@backstage/plugin-scaffolder-backend-module-gitlab",
       "version": "0.11.4",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-signals-backend": {
       "stages": {
@@ -972,7 +975,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:39d4dbf97840ffbfa31803891a19747a2dabded2461804e95f9bf9c06b27a9b7"
+          "digest": "sha256:68da280bd09309612c04cd602377678a654e564d118baca6ee72363a358660b2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
@@ -998,7 +1001,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0b1bcf3238691e9d6d3e5dd74fa0d841b0b36553a1d55872e418c4dbd616cae0"
+          "digest": "sha256:fd13914a29d8c97b6e21bbcf0a289df9e2bce9c296025bba679f09c95d551568"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1024,7 +1027,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:dd9a684e3c1907cce4f1d3d864e6090a109f6304895e69d0542b70de85f87822"
+          "digest": "sha256:656c957d577fb77e51d3fc06fa976baedc1fc365e89cd065441bd5eb9ca795a1"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1050,7 +1053,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9e67c199d2d9390c13a30bac611108065a653ee6b9cf806597ddf807fc51a795"
+          "digest": "sha256:10ea6c40f178dac9e69e0e1b12b3b8d151474f84c5cff032adac453d001e2ce5"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -1076,7 +1079,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:00138097364b8e8738b5dc7308438ae9b258ecc6c4931555a7ffe9ef652b1a09"
+          "digest": "sha256:c262a91a3dcc534e91363b070efffd6cb2a7da1c0b3024f2b88a3e1fea11f180"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -1491,9 +1494,9 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 58,
-    "failed": 0,
+    "succeeded": 55,
+    "failed": 3,
     "outdated": 0
   },
-  "status": "success"
+  "status": "partial"
 }
