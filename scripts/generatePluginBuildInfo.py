@@ -47,6 +47,9 @@ DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
 
+# Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
+THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
+
 
 def is_downstream_quay_rhdh() -> bool:
     """Check if REGISTRY_BASE is quay.io/rhdh (downstream supported, NOT quay.io/rhdh-community)."""
@@ -245,7 +248,7 @@ def list_tags_with_prefix(registry: str, repository: str, prefix: str, auth, hea
     return sorted(matched, key=version_key)
 
 
-def resolve_fallback_tag(registry_reference: str) -> str | None:
+def resolve_fallback_tag(registry_reference: str) -> dict | None:
     """Find the latest published tag sharing the same version prefix when the exact tag doesn't exist.
 
     Constructs a prefix by splitting the tag on the registry-appropriate
@@ -253,36 +256,54 @@ def resolve_fallback_tag(registry_reference: str) -> str | None:
     everything up to and including the separator. Then queries the registry
     for all tags with that prefix and returns the highest version.
 
+    For quay.io/rhdh tags using the ``"--"`` separator, if the original
+    three-part RHDH version prefix (e.g., ``1.10.2--``) has no tags, the
+    patch version is stripped and a two-part prefix (``1.10--``) is tried.
+    This is because downstream builds are not repeated for each RHDH patch
+    release if the plugin hasn't changed — a build done during ``1.10.0``
+    produces both ``1.10.0--1.5.4`` and ``1.10--1.5.4`` tags, and the
+    ``1.10--`` tag remains valid for ``1.10.1``, ``1.10.2``, etc.
+
+    If the exact plugin version suffix is found under the alias prefix,
+    it is flagged as an alias match rather than a version fallback.
+    If the alias prefix has tags but not the exact plugin version,
+    ``None`` is returned — a new build with the original prefix is needed,
+    not a fallback to an older version under a different prefix.
+
     Args:
         registry_reference: Full image reference with the requested tag, e.g.
             ``"quay.io/rhdh/plugin:1.11--1.6.0"`` or
             ``"ghcr.io/org/repo/plugin:bs_1.45.3__2.18.0"``.
 
     Returns:
-        The full registry reference with the fallback tag substituted, e.g.
-        ``"quay.io/rhdh/plugin:1.11--1.5.4"``. Returns ``None`` if no tags
-        match the prefix, if the reference cannot be parsed, or if the best
-        matching tag equals the originally requested tag (no fallback needed).
+        A dict on success, or ``None`` if no tags match the prefix, if the
+        reference cannot be parsed, or if the best matching tag equals the
+        originally requested tag (no fallback needed).
+
+        The returned dict contains::
+
+            {
+                'reference': str,  # full registry reference with resolved tag
+                'alias': bool,     # True if resolved via the x.y-- alias
+                                   # (same plugin version), False if the
+                                   # plugin version itself is different
+            }
 
     Example:
-        If ``quay.io/rhdh/plugin:1.11--1.6.0`` does not exist but
-        ``1.11--1.5.4`` and ``1.11--1.3.0`` do::
+        Alias resolution (``1.10.2--1.5.4`` requested, ``1.10--1.5.4`` exists)::
+
+            >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.10.2--1.5.4")
+            {'reference': 'quay.io/rhdh/plugin:1.10--1.5.4', 'alias': True}
+
+        Version fallback (``1.11--1.6.0`` requested, ``1.11--1.5.4`` is latest)::
 
             >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.11--1.6.0")
-            'quay.io/rhdh/plugin:1.11--1.5.4'
+            {'reference': 'quay.io/rhdh/plugin:1.11--1.5.4', 'alias': False}
 
-        For ghcr.io with prefix ``bs_1.45.3__``::
-
-            >>> resolve_fallback_tag("ghcr.io/org/repo/plugin:bs_1.45.3__2.18.0")
-            'ghcr.io/org/repo/plugin:bs_1.45.3__2.14.0'
-
-        When the requested prefix has no tags at all — even if older prefixes
-        exist in the registry — the fallback returns ``None``.  For example,
-        if the registry has ``1.11--1.5.4`` and ``1.10--1.5.4`` but nothing
-        with prefix ``1.12--``::
+        No tags at all for the prefix::
 
             >>> resolve_fallback_tag("quay.io/rhdh/plugin:1.12--1.5.4")
-            None  # no tags match prefix "1.12--", older prefixes are ignored
+            None
     """
     parsed = parse_registry_reference(registry_reference)
     if not parsed:
@@ -295,22 +316,52 @@ def resolve_fallback_tag(registry_reference: str) -> str | None:
     if separator not in tag:
         return None
     prefix = tag.rsplit(separator, 1)[0] + separator
+    requested_suffix = tag.rsplit(separator, 1)[1]
 
     auth, extra_headers = get_registry_auth(registry, repository)
     headers = {'Accept': 'application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json'}
     headers.update(extra_headers)
 
     tags = list_tags_with_prefix(registry, repository, prefix, auth, headers)
-    if not tags:
+
+    used_alias = False
+
+    if not tags and separator == "--":
+        prefix_version = prefix[:-len(separator)]
+        m = THREE_PART_PREFIX_RE.match(prefix_version)
+        if m:
+            alias_prefix = m.group(1) + separator
+            tags = list_tags_with_prefix(registry, repository, alias_prefix, auth, headers)
+            if not tags:
+                return None
+            prefix = alias_prefix
+            used_alias = True
+        else:
+            return None
+    elif not tags:
         return None
 
     best_tag = tags[-1]
     if best_tag == tag:
         return None
 
-    # Reconstruct the reference with the fallback tag (using original registry, not query registry)
     original_ref_base = registry_reference.rsplit(':', 1)[0]
-    return f"{original_ref_base}:{best_tag}"
+
+    if used_alias:
+        exact_alias_tag = prefix + requested_suffix
+        if exact_alias_tag in tags:
+            return {
+                'reference': f"{original_ref_base}:{exact_alias_tag}",
+                'alias': True,
+            }
+        # Alias prefix has tags but not the exact plugin version —
+        # a new build is needed, not a fallback under a different prefix.
+        return None
+
+    return {
+        'reference': f"{original_ref_base}:{best_tag}",
+        'alias': False,
+    }
 
 
 def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
@@ -447,9 +498,10 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
 def get_image_metadata(registry_reference: str) -> dict | None:
     """Fetch container image metadata, with automatic fallback to the latest published tag.
 
-    Wraps ``_fetch_image_metadata`` with a two-step strategy: first tries the
-    exact tag, and if that fails, calls ``resolve_fallback_tag`` to find the
-    latest published tag with the same version prefix.
+    Wraps ``_fetch_image_metadata`` with a multi-step strategy: first tries the
+    exact tag, and if that fails, calls ``resolve_fallback_tag`` to find a
+    match via an RHDH version alias or the latest published tag with the
+    same version prefix.
 
     Args:
         registry_reference: Full image reference, e.g.
@@ -464,12 +516,20 @@ def get_image_metadata(registry_reference: str) -> dict | None:
 
             {'digest': 'sha256:...', 'build-date': '2025-05-01', ...}
 
+        On an **alias hit** (RHDH version prefix adjusted, same plugin
+        version), the dict includes the resolved reference but no
+        fallback flag::
+
+            {
+                'digest': 'sha256:...',
+                'registryReference': 'quay.io/rhdh/plugin:1.10--1.5.4',
+            }
+
         On a **fallback hit** (exact tag missing, older tag used), the dict
         includes three extra fields::
 
             {
                 'digest': 'sha256:...',
-                'build-date': '2025-05-01',
                 'registryReference': 'quay.io/rhdh/plugin:1.11--1.5.4',
                 'fallback': True,
                 'requestedTag': '1.11--1.6.0',
@@ -481,6 +541,11 @@ def get_image_metadata(registry_reference: str) -> dict | None:
             >>> get_image_metadata("quay.io/rhdh/plugin:1.11--1.5.4")
             {'digest': 'sha256:a1b2c3...', 'build-date': '2025-05-01'}
 
+        Alias hit (tag ``1.10.2--1.5.4`` missing, ``1.10--1.5.4`` used)::
+
+            >>> get_image_metadata("quay.io/rhdh/plugin:1.10.2--1.5.4")
+            {'digest': 'sha256:a1b2c3...', 'registryReference': 'quay.io/rhdh/plugin:1.10--1.5.4'}
+
         Fallback hit (tag ``1.11--1.6.0`` missing, ``1.11--1.5.4`` used)::
 
             >>> get_image_metadata("quay.io/rhdh/plugin:1.11--1.6.0")
@@ -490,28 +555,39 @@ def get_image_metadata(registry_reference: str) -> dict | None:
     metadata = _fetch_image_metadata(registry_reference)
     if metadata is not None:
         return metadata
-    
+
     original_tag = registry_reference.rsplit(':', 1)[-1] if ':' in registry_reference else ""
 
-    fallback_ref = resolve_fallback_tag(registry_reference)
-    if fallback_ref is None:
+    resolve_result = resolve_fallback_tag(registry_reference)
+    if resolve_result is None:
         log_warn(f"Requested tag {Colors.YELLOW}{original_tag}{Colors.NORM} not found, no fallback available")
         return None
 
-    fallback_tag = fallback_ref.rsplit(':', 1)[-1] if ':' in fallback_ref else ""
-    
-    log_warn(
-        f"[FALLBACK] requested tag {Colors.YELLOW}{original_tag}{Colors.NORM} but tag not found,"
-        f" using latest published tag {Colors.GREEN}{fallback_tag}{Colors.NORM} instead"
-    )
+    resolved_ref = resolve_result['reference']
+    resolved_tag = resolved_ref.rsplit(':', 1)[-1] if ':' in resolved_ref else ""
+    is_alias = resolve_result['alias']
 
-    metadata = _fetch_image_metadata(fallback_ref)
+    if is_alias:
+        log_info(
+            f"[ALIAS] RHDH version alias: {Colors.YELLOW}{original_tag}{Colors.NORM}"
+            f" -> {Colors.GREEN}{resolved_tag}{Colors.NORM}"
+        )
+    else:
+        log_warn(
+            f"[FALLBACK] requested tag {Colors.YELLOW}{original_tag}{Colors.NORM} but tag not found,"
+            f" using latest published tag {Colors.GREEN}{resolved_tag}{Colors.NORM} instead"
+        )
+
+    metadata = _fetch_image_metadata(resolved_ref)
     if metadata is None:
         return None
 
-    metadata['registryReference'] = fallback_ref
-    metadata['fallback'] = True
-    metadata['requestedTag'] = original_tag
+    metadata['registryReference'] = resolved_ref
+
+    if not is_alias:
+        metadata['fallback'] = True
+        metadata['requestedTag'] = original_tag
+
     return metadata
 
 
@@ -663,6 +739,13 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
                                 pname, "image-metadata-fetch", "pass",
                                 **stage_kwargs,
                             )
+                            # Update bootstrap oci_ref to the resolved reference
+                            # so the status page links to the actual image
+                            resolved_ref = pdata.get('registryReference', '')
+                            if resolved_ref:
+                                bootstrap_stage = report.get_stage(pname, "bootstrap")
+                                if bootstrap_stage:
+                                    bootstrap_stage["oci_ref"] = resolved_ref
 
                 # Update the equivalent metadata.yaml file in the overlays directory
                 metadata_dir = overlays_dir / "workspaces" / relative_path.parent / "metadata"
