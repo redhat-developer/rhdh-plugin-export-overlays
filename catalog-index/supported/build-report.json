@@ -822,11 +822,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.5"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f8ba121ebe860f5e272354583e77c0bcfc0fb13f27bdbe082d0f1e37a53f68ee"
+          "digest": "sha256:0b1bcf3238691e9d6d3e5dd74fa0d841b0b36553a1d55872e418c4dbd616cae0"
         },
         "dpdy": {
           "status": "pass"
@@ -836,7 +836,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
-      "version": "8.9.4",
+      "version": "8.9.5",
       "workspace": "orchestrator",
       "overall": "pass"
     },
@@ -844,11 +844,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.7"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0c4241d6c4c9ff64c60222e972db0a0c831e9957e8baddb59ad611d2510745a5"
+          "digest": "sha256:dd9a684e3c1907cce4f1d3d864e6090a109f6304895e69d0542b70de85f87822"
         },
         "dpdy": {
           "status": "pass"
@@ -858,7 +858,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
-      "version": "1.10.7",
+      "version": "1.10.8",
       "workspace": "orchestrator",
       "overall": "pass"
     },
@@ -866,11 +866,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.12"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.13"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:be7f49aaf987cdfa017133c6216a560a09fa2468d9d04b97ee4b0fcdc4b0a1f0"
+          "digest": "sha256:9e67c199d2d9390c13a30bac611108065a653ee6b9cf806597ddf807fc51a795"
         },
         "dpdy": {
           "status": "pass"
@@ -880,7 +880,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
-      "version": "5.7.12",
+      "version": "5.7.13",
       "workspace": "orchestrator",
       "overall": "pass"
     },
