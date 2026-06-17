@@ -58,14 +58,39 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectNewNotebookEditorEmptyStateOnboarding();
   });
 
-  test("upload modal: drop zone and disabled add", async () => {
+  test("upload modal: drop zone, disabled add, and duplicate file prompt", async () => {
+    const { absolutePath, fileName } = localeNotebookUpload1Path();
+
     await notebooks.clickOpenUploadDocumentModal();
-    const uploadModal = notebooks.uploadDocumentModal();
+    let uploadModal = notebooks.uploadDocumentModal();
 
     await uploadModal.expectUploadAreaFullyDescribed();
     await uploadModal.expectModalTitleBarMatchesAriaSnapshot();
     await uploadModal.expectAddFilesButtonDisabled(0);
+
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.expectStagedFileCountCaptionVisible(
+      1,
+      NOTEBOOK_SESSION_MAX_DOCUMENTS,
+    );
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await expect(uploadModal.dialog()).toBeHidden();
+    await notebooks.expectDocumentFileListedInSidebar(fileName);
+
+    await notebooks.clickOpenUploadDocumentModal();
+    uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+
+    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
+    await overwriteModal.expectDialogVisible();
+    await overwriteModal.expectListedOverwriteFile(fileName);
+    await overwriteModal.clickCancel();
+    await expect(overwriteModal.dialog()).toBeHidden();
+    await expect(uploadModal.dialog()).toBeVisible();
     await uploadModal.clickCancel();
+
+    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
+    await notebooks.expectNotebookEditorUploadResourceButtonVisible();
   });
 
   test("document sidebar: collapse and expand", async () => {
@@ -112,34 +137,6 @@ test.describe("Lightspeed notebooks", () => {
       "Upload error: Unsupported file type(s) found. Please upload only supported file types.",
     );
     await uploadModal.clickCancel();
-  });
-
-  test("upload modal: duplicate file confirms overwrite then upload", async () => {
-    const { absolutePath, fileName } = localeNotebookUpload1Path();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(2000);
-    await notebooks.clickOpenUploadDocumentModal();
-    let uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    await uploadModal.clickAddFilesForStagedCount(1);
-    await expect(uploadModal.dialog()).toBeHidden();
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
-
-    await notebooks.clickOpenUploadDocumentModal();
-    uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-
-    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
-    await overwriteModal.expectDialogVisible();
-    await overwriteModal.expectListedOverwriteFile(fileName);
-    await overwriteModal.clickCancel();
-    await expect(overwriteModal.dialog()).toBeHidden();
-    await expect(uploadModal.dialog()).toBeVisible();
-    await uploadModal.clickCancel();
-
-    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
-    await notebooks.expectNotebookEditorUploadResourceButtonVisible();
   });
 
   test("grid: close editor, rename, delete", async () => {
