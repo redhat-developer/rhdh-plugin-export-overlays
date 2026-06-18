@@ -188,6 +188,25 @@ export class NotebookSurfacePage {
     ).toBeVisible({ timeout: 60_000 });
   }
 
+  uploadDocumentProgressbar(): Locator {
+    return this.page.getByRole("progressbar", {
+      name: "Uploading document",
+    });
+  }
+
+  async expectDocumentUploadCompletes(fileName: string): Promise<void> {
+    const progressbar = this.uploadDocumentProgressbar();
+
+    // Upload can complete too quickly to reliably catch visible state in every run.
+    await progressbar
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .catch(() => {
+        /* no-op */
+      });
+    await this.expectDocumentFileListedInSidebar(fileName);
+    await expect(progressbar).toBeHidden({ timeout: 60_000 });
+  }
+
   async expectNotebookEditorUploadResourceButtonVisible(
     timeout = 5_000,
   ): Promise<void> {
@@ -267,7 +286,7 @@ export class NotebookSurfacePage {
       NOTEBOOK_SESSION_MAX_DOCUMENTS,
     );
     await uploadModal.clickAddFilesForStagedCount(1);
-    await this.expectDocumentFileListedInSidebar(fileName);
+    await this.expectDocumentUploadCompletes(fileName);
     return fileName;
   }
 }
