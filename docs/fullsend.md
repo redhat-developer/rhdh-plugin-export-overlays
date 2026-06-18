@@ -196,7 +196,6 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 | `.fullsend/customized/skills/` | Monorepo workspace routing skill |
 | `.fullsend/customized/scripts/` | Pre-fix rebase script |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
-| `AGENTS.md` | Root-level agent guidelines (5 principles) |
 
 ## Debugging
 
