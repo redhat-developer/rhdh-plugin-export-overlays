@@ -68,7 +68,20 @@ To enable review for ALL workspaces, remove the `paths` filter entirely.
 
 ## Customization
 
-This install uses **standard upstream agents** — no custom agent prompts or harness overrides. The `.fullsend/customized/` scaffold directories are present for future use.
+This install uses **custom harness, policies, env files, and skills** ported from rhdh-plugins. These customizations are required for the RHDH yarn/corepack monorepo toolchain to work inside the fullsend sandbox.
+
+### RHDH-specific customizations
+
+| File | What it does |
+|------|-------------|
+| `harness/code.yaml` | Points code agent to RHDH custom image, custom policy, and mounts toolchain env files |
+| `harness/fix.yaml` | Same as code + auto-rebase pre-script and validation loop |
+| `policies/code.yaml`, `policies/fix.yaml` | Adds `repo.yarnpkg.com` (corepack), `allow_encoded_slash` on npmjs (yarn scoped packages) |
+| `env/rhdh-toolchain.env` | Sets `COREPACK_HOME=/tmp/corepack` (writable) and disables openspec telemetry |
+| `env/yarn-proxy.env` | Maps `HTTP_PROXY` → `YARN_HTTP_PROXY` (Yarn Berry ignores standard proxy vars) |
+| `agents/code.md` | Code agent with `disallowedTools` safety net and monorepo routing |
+| `skills/monorepo-workspace-routing/` | Routes agents to the correct `workspaces/<name>/` before starting work |
+| `scripts/pre-fix-rebase.sh` | Auto-rebases PR branch onto target before fix agent runs |
 
 ### Review agent architecture (v0.13.0+)
 
@@ -165,7 +178,7 @@ The dispatch job checks `author_association` on `issue_comment` events. Only `OW
 
 ### CODEOWNERS protection
 
-The `.fullsend/` directory and `.github/workflows/fullsend.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom` approval.
+The `.fullsend/` directory and `.github/workflows/fullsend.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
 
 ### Inference authentication
 
@@ -176,8 +189,14 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 | Path | Purpose |
 |------|---------|
 | `.fullsend/config.yaml` | Declares enabled roles (triage, coder, review, fix) |
-| `.fullsend/customized/` | Scaffold for future agent customization |
+| `.fullsend/customized/harness/` | Custom harness definitions for code and fix agents |
+| `.fullsend/customized/policies/` | Custom sandbox policies with yarn/corepack network access |
+| `.fullsend/customized/env/` | Toolchain and proxy env files mounted into sandbox |
+| `.fullsend/customized/agents/` | Custom agent definitions with disallowedTools |
+| `.fullsend/customized/skills/` | Monorepo workspace routing skill |
+| `.fullsend/customized/scripts/` | Pre-fix rebase script |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
+| `AGENTS.md` | Root-level agent guidelines (5 principles) |
 
 ## Debugging
 
