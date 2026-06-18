@@ -68,19 +68,14 @@ To enable review for ALL workspaces, remove the `paths` filter entirely.
 
 ## Customization
 
-This install uses **custom harness, policies, env files, and skills** ported from rhdh-plugins. These customizations are required for the RHDH yarn/corepack monorepo toolchain to work inside the fullsend sandbox.
+This install uses **standard upstream agents** with one custom script. The `.fullsend/customized/` scaffold directories are present as stubs for future customizations.
 
-### RHDH-specific customizations
+Note: unlike rhdh-plugins, this repo is not a yarn monorepo — workspaces contain overlay metadata (source.json, plugins-list.yaml, metadata/*.yaml), not npm packages. Yarn/corepack customizations are not needed here.
+
+### Current customizations
 
 | File | What it does |
 |------|-------------|
-| `harness/code.yaml` | Points code agent to RHDH custom image, custom policy, and mounts toolchain env files |
-| `harness/fix.yaml` | Same as code + auto-rebase pre-script and validation loop |
-| `policies/code.yaml`, `policies/fix.yaml` | Adds `repo.yarnpkg.com` (corepack), `allow_encoded_slash` on npmjs (yarn scoped packages) |
-| `env/rhdh-toolchain.env` | Sets `COREPACK_HOME=/tmp/corepack` (writable) and disables openspec telemetry |
-| `env/yarn-proxy.env` | Maps `HTTP_PROXY` → `YARN_HTTP_PROXY` (Yarn Berry ignores standard proxy vars) |
-| `agents/code.md` | Code agent with `disallowedTools` safety net and monorepo routing |
-| `skills/monorepo-workspace-routing/` | Routes agents to the correct `workspaces/<name>/` before starting work |
 | `scripts/pre-fix-rebase.sh` | Auto-rebases PR branch onto target before fix agent runs |
 
 ### Review agent architecture (v0.13.0+)
@@ -189,12 +184,8 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 | Path | Purpose |
 |------|---------|
 | `.fullsend/config.yaml` | Declares enabled roles (triage, coder, review, fix) |
-| `.fullsend/customized/harness/` | Custom harness definitions for code and fix agents |
-| `.fullsend/customized/policies/` | Custom sandbox policies with yarn/corepack network access |
-| `.fullsend/customized/env/` | Toolchain and proxy env files mounted into sandbox |
-| `.fullsend/customized/agents/` | Custom agent definitions with disallowedTools |
-| `.fullsend/customized/skills/` | Monorepo workspace routing skill |
-| `.fullsend/customized/scripts/` | Pre-fix rebase script |
+| `.fullsend/customized/` | Scaffold stubs for future agent/harness/policy/skill customizations |
+| `.fullsend/customized/scripts/pre-fix-rebase.sh` | Auto-rebase before fix agent runs |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
 
 ## Debugging
