@@ -1,10 +1,7 @@
-import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import { defineConfig as playwrightDefineConfig } from "@playwright/test";
+import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /** Single project: both specs share one RHDH namespace (`lightspeed`). */
-export default playwrightDefineConfig({
-  ...baseConfig,
-  workers: 1,
+export default defineConfig({
   projects: [
     {
       name: "lightspeed",

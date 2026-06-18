@@ -60,9 +60,6 @@ test.describe("Lightspeed notebooks", () => {
 
   test("upload modal: drop zone, disabled add, and duplicate file prompt", async () => {
     const { absolutePath, fileName } = localeNotebookUpload1Path();
-    const progressbar = page.getByRole("progressbar", {
-      name: "Uploading document",
-    });
 
     await notebooks.clickOpenUploadDocumentModal();
     let uploadModal = notebooks.uploadDocumentModal();
@@ -78,9 +75,7 @@ test.describe("Lightspeed notebooks", () => {
     );
     await uploadModal.clickAddFilesForStagedCount(1);
     await expect(uploadModal.dialog()).toBeHidden();
-    await expect(progressbar).toBeVisible();
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
-    await expect(progressbar).toBeHidden();
+    await notebooks.expectDocumentUploadCompletes(fileName);
 
     await notebooks.clickOpenUploadDocumentModal();
     uploadModal = notebooks.uploadDocumentModal();
@@ -115,7 +110,7 @@ test.describe("Lightspeed notebooks", () => {
     );
     await uploadModal.clickAddFilesForStagedCount(1);
 
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
+    await notebooks.expectDocumentUploadCompletes(fileName);
     await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
     await notebooks.expectNotebookEditorUploadResourceButtonVisible();
   });
