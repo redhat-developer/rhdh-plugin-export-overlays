@@ -3,11 +3,16 @@
 # Upload Istanbul/lcov coverage to Codecov, attributed to THIS repo's commit.
 #
 # Usage:
-#   ./scripts/upload-coverage.sh <workspace-name>
+#   ./scripts/upload-coverage.sh <workspace-name> [lcov-file]
 #
 # Example:
 #   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
-#   ./scripts/upload-coverage.sh tech-radar
+#   ./scripts/upload-coverage.sh tech-radar coverage/tech-radar/lcov.info
+#
+# lcov-file defaults to coverage/lcov.info (the combined report, for manual
+# invocations); report-coverage.sh always passes the per-workspace lcov
+# written by remap-coverage.cjs so each `e2e-<workspace>` flag only carries
+# its own workspace's data.
 #
 # Coverage is uploaded to the Codecov project of this overlay repo
 # (redhat-developer/rhdh-plugin-export-overlays), flagged `e2e-<workspace>`,
@@ -46,11 +51,10 @@ set -euo pipefail
 
 readonly AWK_FIRST_FIELD='{print $1}'
 
-WORKSPACE="${1:?Usage: $0 <workspace-name>}"
+WORKSPACE="${1:?Usage: $0 <workspace-name> [lcov-file]}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-COVERAGE_DIR="$REPO_ROOT/coverage"
-LCOV_FILE="$COVERAGE_DIR/lcov.info"
+LCOV_FILE="${2:-$REPO_ROOT/coverage/lcov.info}"
 
 # The workspace name becomes the Codecov flag verbatim — validate it so a typo
 # doesn't create a ghost e2e-<typo> flag that carryforward then keeps alive.

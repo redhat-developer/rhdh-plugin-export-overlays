@@ -130,7 +130,7 @@ OCI_PACKAGE_DIGEST_RE = re.compile(
 )
 COMMENTED_OCI_PACKAGE_RE = re.compile(r'^\s*#\s*-\s+package:\s+oci://')
 MIGRATION_HINT_RE = re.compile(
-    r'^\s*#\s*(new approach using oci images|the \'package\' line above|disabled: true)\b'
+    r'^\s*#\s*(new approach using oci images|the \'package\' line above|enabled: false)\b'
 )
 
 
@@ -770,7 +770,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                                 new_lines.append(
                                     "  # the 'package' line above and remove the next two lines, keeping the pluginConfig.\n"
                                 )
-                                new_lines.append("  # disabled: true\n")
+                                new_lines.append("  # enabled: false\n")
 
                             new_lines.append(line)
 
