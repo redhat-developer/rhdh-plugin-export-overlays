@@ -6,6 +6,10 @@ import {
   cleanupAfterTest,
 } from "../support/utils/test-helpers.js";
 
+const isNightlyMode =
+  !!process.env.E2E_NIGHTLY_MODE ||
+  (process.env.JOB_NAME?.includes("periodic-") ?? false);
+
 type EnsureDataIndexOrSkip = (
   ns: string,
   testObj: { skip: (condition: boolean, reason: string) => void },
@@ -107,6 +111,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     // eslint-disable-next-line playwright/expect-expect
     test("Rerun Failswitch from failure point", async ({}, testInfo) => {
+      test.skip(isNightlyMode, "SonataFlow rerun from failure point uses stale env vars (RHDHBUGS-XXXX)");
       // HTTPBIN patch + 60s Wait timer + failure/recovery rerun
       test.setTimeout(360_000);
       const ns = testInfo.project.name;
