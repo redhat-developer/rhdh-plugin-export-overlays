@@ -82,23 +82,21 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  await rhdh.configure(lightspeedDeployConfig);
+  await test.runOnce(`lightspeed-deploy-${lightspeedNamespace}`, async () => {
+    await rhdh.configure(lightspeedDeployConfig);
 
-  // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-  await test.runOnce(
-    `lightspeed-pre-deploy-${lightspeedNamespace}`,
-    async () => {
-      const ns = rhdh.deploymentConfig.namespace;
-      try {
-        await $`oc get deployment redhat-developer-hub -n ${ns}`;
-        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-      } catch {
-        /* fresh install */
-      }
-    },
-  );
-  await rhdh.deploy();
-  await patchOpenAiAllowedModels(rhdh);
+    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+    const ns = rhdh.deploymentConfig.namespace;
+    try {
+      await $`oc get deployment redhat-developer-hub -n ${ns}`;
+      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+    } catch {
+      /* fresh install */
+    }
+
+    await rhdh.deploy();
+    await patchOpenAiAllowedModels(rhdh);
+  });
 }
 
 /** Opens /lightspeed and waits for any recognizable Lightspeed shell (chat, heading, or empty state). */
