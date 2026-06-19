@@ -75,6 +75,7 @@ test.describe("Kubernetes", () => {
       dynamicPlugins: "tests/config/kubernetes/dynamic-plugins.yaml",
       secrets: "tests/config/kubernetes/rhdh-secrets.yaml",
       valueFile: "tests/config/kubernetes/value_file.yaml",
+      subscription: "tests/config/kubernetes/subscription.yaml",
     });
 
     await rhdh.deploy();
