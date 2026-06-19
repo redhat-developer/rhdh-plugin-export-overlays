@@ -69,3 +69,5 @@ packages:
   - package: '@backstage-community/plugin-tekton' # community
   - package: '@roadiehq/backstage-plugin-argo-cd-backend' # community - TODO: replace with RH Argo CD plugin when it's ready
   - package: '@roadiehq/scaffolder-backend-argocd' # community - TODO: replace with RH Argo CD plugin when it's ready
+  - package: '@backstage-community/plugin-servicenow' # community
+  - package: '@backstage-community/plugin-servicenow-backend' # community

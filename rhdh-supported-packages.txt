@@ -65,6 +65,14 @@ tech-radar/plugins/tech-radar-backend
 bulk-import/plugins/bulk-import
 bulk-import/plugins/bulk-import-backend
 
+# Dev preview — required for Extensions catalog
+konflux/plugins/konflux
+konflux/plugins/konflux-backend
+
+# Certified — required for Extensions catalog
+dynatrace-dql/plugins/dql
+dynatrace-dql/plugins/dql-backend
+
 # currently TP but moving to GA in 1.10
 # can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-kubernetes?tab=tags
 backstage/plugins/kubernetes
