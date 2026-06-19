@@ -188,3 +188,17 @@ These anchors never change with plugin versions. Regenerate them only when a new
 ```
 
 See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
+
+### Populating the `main` branch (snapshots)
+
+Coverage is generated only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds — so every upload is attributed to a PR-head commit. When a PR is squash-merged, GitHub creates a fresh `main` commit that never received an upload, and Codecov's carryforward can't cross the squash. Without help, the Codecov default-branch (`main`) view stays empty even though each PR uploaded fine.
+
+To bridge this, `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` re-uploads them to the current `main` commit (daily, on snapshot change, or manually). Refresh a snapshot from a passing e2e run when a workspace's coverage changes:
+
+```bash
+# point at the run's gcsweb .../artifacts/e2e-test-results/coverage/ directory
+./scripts/refresh-coverage-snapshot.sh <workspace> <coverage-dir-or-gcsweb-url>
+git add coverage-snapshots/<workspace>.lcov
+```
+
+This is a bridge: the number only moves when a snapshot is refreshed (which is also the only time the coverage itself changes). The long-term replacement is live `main`-attributed coverage, which needs instrumented release images plus an e2e-test-utils nightly image swap (the nightly currently deploys uninstrumented / `{{inherit}}` images and collects nothing).
