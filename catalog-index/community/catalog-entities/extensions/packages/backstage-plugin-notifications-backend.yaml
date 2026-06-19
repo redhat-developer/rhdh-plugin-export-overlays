@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-notifications-backend
+  namespace: rhdh
+  title: "Notifications Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
+  tags: []
+spec:
+  packageName: "@backstage/plugin-notifications-backend"
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+  version: 0.6.3
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        notifications:
+          concurrencyLimit: 10
+  partOf:
+    - notifications

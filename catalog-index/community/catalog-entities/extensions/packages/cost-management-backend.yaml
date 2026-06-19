@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/packages.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: cost-management-backend
+  namespace: rhdh
+  title: "Cost Management Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/cost-management
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/cost-management
+  tags:
+    - cost-management
+    - optimization
+    - insights
+    - openshift
+spec:
+  packageName: "@red-hat-developer-hub/plugin-cost-management-backend"
+  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.0!red-hat-developer-hub-plugin-cost-management-backend
+  version: 2.2.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - cost-management
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        costManagement:
+          clientId: ${CM_CLIENT_ID}
+          clientSecret: ${CM_CLIENT_SECRET}
+          optimizationWorkflowId: 'patch-k8s-resource'

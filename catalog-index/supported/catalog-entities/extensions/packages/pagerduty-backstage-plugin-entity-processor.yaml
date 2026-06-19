@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: pagerduty-backstage-plugin-entity-processor
+  namespace: rhdh
+  title: "PagerDuty Entity Processor"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/PagerDuty/backstage-plugins
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/PagerDuty/backstage-plugins/tree/main/plugins/backstage-plugin-entity-processor
+  annotations:
+    backstage.io/source-location: url:https://github.com/PagerDuty/backstage-plugins/tree/main/plugins/backstage-plugin-entity-processor
+  tags: []
+spec:
+  packageName: "@pagerduty/backstage-plugin-entity-processor"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-entity-processor:bs_1.49.4__0.3.10!pagerduty-backstage-plugin-entity-processor
+  version: 0.3.10
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - pagerduty
+  appConfigNotRequired: true
+  appConfigExamples: []

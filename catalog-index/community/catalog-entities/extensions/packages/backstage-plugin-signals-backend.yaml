@@ -1,0 +1,31 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-signals-backend
+  namespace: rhdh
+  title: "Signals Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/signals-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/signals-backend
+  tags: []
+spec:
+  packageName: "@backstage/plugin-signals-backend"
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+  version: 0.3.13
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - signals-frontend
+    - signals-backend
+  appConfigNotRequired: true
+  appConfigExamples: []

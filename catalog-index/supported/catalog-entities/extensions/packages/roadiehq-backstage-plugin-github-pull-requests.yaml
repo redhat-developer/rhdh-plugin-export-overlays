@@ -1,0 +1,142 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: roadiehq-backstage-plugin-github-pull-requests
+  namespace: rhdh
+  title: "GitHub Pull Requests"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/RoadieHQ/roadie-backstage-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-github-pull-requests
+  annotations:
+    backstage.io/source-location: url:https://github.com/RoadieHQ/roadie-backstage-plugins/tree/main/plugins/frontend/backstage-plugin-github-pull-requests
+  tags: []
+spec:
+  packageName: "@roadiehq/backstage-plugin-github-pull-requests"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests:bs_1.49.4__3.7.0!roadiehq-backstage-plugin-github-pull-requests
+  version: 3.7.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Roadie
+  support: community
+  lifecycle: active
+  partOf:
+    - github-pull-requests
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            roadiehq.backstage-plugin-github-pull-requests:
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: EntityGithubPullRequestsOverviewCard
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        lg: span 4
+                        md: span 6
+                        xs: span 12
+                    if:
+                      allOf:
+                        - isGithubPullRequestsAvailable
+                - mountPoint: entity.page.pull-requests/cards
+                  importName: EntityGithubPullRequestsContent
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isGithubPullRequestsAvailable
+                - mountPoint: home.page/cards
+                  importName: HomePageYourOpenPullRequestsCard
+                  config:
+                    id: github-assigned-issues
+                    title: "GitHub: Assigned Issues"
+                    description: Issues assigned to the logged in user
+                    cardLayout:
+                      width:
+                        minColumns: 4
+                        maxColumns: 12
+                        defaultColumns: 12
+                      height:
+                        minRows: 2
+                        maxRows: 12
+                        defaultRows: 4
+                    props:
+                      title: "GitHub: Assigned Issues"
+                      query: is:issue state:open archived:false assignee:@me
+                - mountPoint: home.page/cards
+                  importName: HomePageYourOpenPullRequestsCard
+                  config:
+                    id: github-assigned-pull-requests
+                    title: "GitHub: Assigned Pull Requests"
+                    description: Pull Requests assigned to the logged in user
+                    cardLayout:
+                      width:
+                        minColumns: 4
+                        maxColumns: 12
+                        defaultColumns: 12
+                      height:
+                        minRows: 2
+                        maxRows: 12
+                        defaultRows: 4
+                    props:
+                      title: "GitHub: Assigned Pull Requests"
+                      query: is:pr state:open archived:false assignee:@me
+                - mountPoint: home.page/cards
+                  importName: HomePageYourOpenPullRequestsCard
+                  config:
+                    id: github-open-issues
+                    title: "GitHub: Open Issues"
+                    description: Issues opened by the logged in user
+                    cardLayout:
+                      width:
+                        minColumns: 4
+                        maxColumns: 12
+                        defaultColumns: 12
+                      height:
+                        minRows: 2
+                        maxRows: 12
+                        defaultRows: 4
+                    props:
+                      title: "GitHub: Open Issues"
+                      query: is:issue state:open archived:false author:@me
+                - mountPoint: home.page/cards
+                  importName: HomePageYourOpenPullRequestsCard
+                  config:
+                    id: github-open-pull-requests
+                    title: "GitHub: Open Pull Requests"
+                    description: Pull Requests opened by the logged in user
+                    cardLayout:
+                      width:
+                        minColumns: 4
+                        maxColumns: 12
+                        defaultColumns: 12
+                      height:
+                        minRows: 2
+                        maxRows: 12
+                        defaultRows: 4
+                    props:
+                      title: "GitHub: Open Pull Requests"
+                - mountPoint: home.page/cards
+                  importName: HomePageRequestedReviewsCard
+                  config:
+                    id: github-requested-reviews
+                    title: "GitHub: Requested Reviews"
+                    description: Pull Requests that waiting for a code review of the logged in user
+                    cardLayout:
+                      width:
+                        minColumns: 4
+                        maxColumns: 12
+                        defaultColumns: 12
+                      height:
+                        minRows: 2
+                        maxRows: 12
+                        defaultRows: 4
+                    props:
+                      title: "GitHub: Requested Reviews"

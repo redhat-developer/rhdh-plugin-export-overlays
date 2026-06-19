@@ -1,0 +1,33 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-x2a-backend
+  namespace: rhdh
+  title: "X2A Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/redhat-developer/rhdh-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/x2a
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-x2a-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a-backend:bs_1.49.4__1.4.2!red-hat-developer-hub-backstage-plugin-x2a-backend
+  version: 1.4.2
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Optional X2A runtime overrides
+      content:
+        x2a:
+          callbackBaseUrl: ${X2A_CALLBACK_BASE_URL}
+          kubernetes:
+            namespace: ${X2A_KUBERNETES_NAMESPACE}
+            image: ${X2A_CONVERTOR_IMAGE}
+            imageTag: ${X2A_CONVERTOR_IMAGE_TAG}
