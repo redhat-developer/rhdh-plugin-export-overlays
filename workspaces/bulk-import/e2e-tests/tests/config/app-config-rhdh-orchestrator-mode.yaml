@@ -1,0 +1,25 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+auth:
+  environment: development
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    github:
+      development:
+        clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+        clientId: ${GITHUB_OAUTH_APP_ID}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+
+integrations:
+  github:
+    - host: github.com
+      token: ${VAULT_GITHUB_USER_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: temp
+
+bulkImport:
+  importAPI: orchestrator
+  orchestratorWorkflow: universal-pr
