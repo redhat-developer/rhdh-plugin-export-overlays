@@ -111,7 +111,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     // eslint-disable-next-line playwright/expect-expect
     test("Rerun Failswitch from failure point", async ({}, testInfo) => {
-      test.skip(isNightlyMode, "SonataFlow rerun from failure point uses stale env vars (RHDHBUGS-XXXX)");
+      test.skip(isNightlyMode, "SonataFlow rerun from failure point uses stale env vars (#2627)");
       // HTTPBIN patch + 60s Wait timer + failure/recovery rerun
       test.setTimeout(360_000);
       const ns = testInfo.project.name;
