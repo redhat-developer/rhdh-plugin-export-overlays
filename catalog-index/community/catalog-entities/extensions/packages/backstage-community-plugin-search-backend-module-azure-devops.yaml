@@ -1,0 +1,45 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  namespace: rhdh
+  name: bcp-search-backend-mod-azure-devops
+  title: "Search Backend Module Azure DevOps"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops/plugins/search-backend-module-azure-devops
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/azure-devops/plugins/search-backend-module-azure-devops
+  tags:
+    - search
+spec:
+  packageName: "@backstage-community/plugin-search-backend-module-azure-devops"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-azure-devops:bs_1.49.4__0.5.0
+  version: 0.5.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Azure DevOps wiki collator
+      content:
+        search:
+          collators:
+            azureDevOpsWikiCollator:
+              baseUrl: ${AZURE_DEVOPS_BASE_URL}
+              token: ${AZURE_DEVOPS_TOKEN}
+              wikis:
+                - wikiIdentifier: ${AZURE_DEVOPS_WIKI_IDENTIFIER}
+                  organization: ${AZURE_DEVOPS_ORGANIZATION}
+                  project: ${AZURE_DEVOPS_PROJECT}
+              schedule:
+                frequency: { minutes: 30 }
+                initialDelay: { seconds: 30 }
+                timeout: { minutes: 10 }
+  partOf:
+    - azure-devops

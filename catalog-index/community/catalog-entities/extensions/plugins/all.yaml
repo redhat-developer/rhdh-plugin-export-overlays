@@ -6,9 +6,17 @@ metadata:
 spec:
   targets:
     - ./3scale.yaml
+    - ./adoption-insights.yaml
+    - ./ai-model-catalog.yaml
+    - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
     - ./argocd.yaml
+    - ./aws-codebuild.yaml
+    - ./aws-codepipeline.yaml
+    - ./aws-ecs.yaml
+    - ./aws-scaffolder-actions.yaml
+    - ./azure-container-registry.yaml
     - ./azure-devops.yaml
     - ./azure-scaffolder-actions.yaml
     - ./backstage-community-plugin-quay.yaml
@@ -16,25 +24,71 @@ spec:
     - ./bitbucket-cloud-scaffolder-actions.yaml
     - ./bitbucket-server-catalog-integration.yaml
     - ./bitbucket-server-scaffolder-actions.yaml
+    - ./bulk-import.yaml
+    - ./contrib-techdocs-addons.yaml
+    - ./cost-management.yaml
     - ./datadog.yaml
+    - ./dynatrace-commercial.yaml
     - ./dynatrace-community.yaml
+    - ./events-backend-module-github.yaml
+    - ./events-backend-module-gitlab.yaml
+    - ./extensions.yaml
     - ./gerrit-scaffolder-actions.yaml
     - ./github-actions.yaml
+    - ./github-catalog-integration.yaml
     - ./github-insights.yaml
     - ./github-issues.yaml
+    - ./github-org-catalog-integration.yaml
     - ./github-pull-requests.yaml
+    - ./github-scaffolder-actions.yaml
     - ./gitlab-catalog-cards.yaml
+    - ./gitlab-catalog-integration.yaml
+    - ./gitlab-org-catalog-integration.yaml
+    - ./gitlab-scaffolder-actions.yaml
+    - ./global-header.yaml
+    - ./home-page.yaml
+    - ./http-request-scaffolder-action.yaml
+    - ./ibm-apiconnect-backstage.yaml
     - ./jenkins.yaml
     - ./jfrog-artifactory.yaml
     - ./jira.yaml
+    - ./keycloak-catalog-integration.yaml
+    - ./konflux.yaml
+    - ./kubernetes-backend.yaml
+    - ./kubernetes-scaffolder-actions.yaml
+    - ./kubernetes.yaml
+    - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
+    - ./lightspeed.yaml
+    - ./mcp-actions-backend.yaml
+    - ./microsoft-graph-catalog-integration.yaml
     - ./nexus-repository-manager.yaml
+    - ./notifications-email.yaml
+    - ./notifications.yaml
+    - ./orchestrator-scaffolder-actions.yaml
+    - ./orchestrator.yaml
     - ./pagerduty.yaml
+    - ./pingidentity.yaml
     - ./quay-scaffolder-actions.yaml
+    - ./quickstart.yaml
+    - ./rbac.yaml
+    - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
     - ./roadie-scaffolder-util-actions.yaml
+    - ./scaffolder-mcp-extras.yaml
+    - ./scaffolder-relation-processor-catalog-integration.yaml
+    - ./scorecard.yaml
     - ./security-insights.yaml
     - ./servicenow-scaffolder-actions.yaml
+    - ./servicenow.yaml
+    - ./signals-backend.yaml
+    - ./signals.yaml
+    - ./software-catalog-mcp-extras.yaml
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
+    - ./tech-radar.yaml
+    - ./techdocs-mcp-extras.yaml
+    - ./techdocs.yaml
     - ./tekton.yaml
+    - ./todo.yaml
+    - ./topology.yaml

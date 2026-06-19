@@ -1,0 +1,69 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-backstage-plugin-scorecard-backend
+  namespace: rhdh
+  title: "Scorecard Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.8!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  version: 2.7.8
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        scorecard:
+          dataRetentionDays: 365
+    - tile: Optional aggregation KPIs configuration
+      content:
+        scorecard:
+          aggregationKPIs:
+            openPrsKpi:
+              # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
+              title: GitHub Open PRs KPI
+              type: statusGrouped
+              description: This KPI provides information about GitHub Open PRs grouped by status.
+              metricId: github.open_prs
+            openPrsWeightedKpi:
+              # use this id for ScorecardHomepageCard cards mountpoint under 'config.props.aggregationId'
+              title: GitHub Open PRs KPI (weighted health)
+              type: average
+              description: Weighted health average for GitHub Open PRs by threshold status across your entities.
+              metricId: github.open_prs
+              options:
+                statusScores:
+                  success: 100
+                  warning: 50
+                  error: 0
+                thresholds:
+                  rules:
+                    - key: success
+                      expression: ">=80"
+                      color: "#6bb300" # green
+                    - key: warning
+                      expression: "51-80"
+                      color: "rgb(224, 189, 108)" # light orange
+                    - key: error
+                      expression: "<51"
+                      color: "#be1ec7" # purple
+                    - key: critical
+                      expression: "<10"
+                      color: "#ff0000" # red
+  partOf:
+    - scorecard

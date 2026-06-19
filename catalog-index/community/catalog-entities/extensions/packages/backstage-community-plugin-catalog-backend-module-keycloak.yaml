@@ -1,0 +1,48 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-catalog-backend-module-keycloak
+  namespace: rhdh
+  title: "Catalog Backend Module Keycloak"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/keycloak
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/keycloak
+  tags:
+    - software-catalog
+spec:
+  packageName: "@backstage-community/plugin-catalog-backend-module-keycloak"
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic
+  version: 3.19.2
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - keycloak-catalog-integration
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        catalog:
+          providers:
+            keycloakOrg:
+              default:
+                baseUrl: ${KEYCLOAK_BASE_URL}
+                loginRealm: ${KEYCLOAK_LOGIN_REALM}
+                realm: ${KEYCLOAK_REALM}
+                clientId: ${KEYCLOAK_CLIENT_ID}
+                clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+                schedule:
+                  frequency:
+                    minutes: 60
+                  initialDelay:
+                    seconds: 15
+                  timeout:
+                    minutes: 50

@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-adr
+  namespace: rhdh
+  title: ADR
+  links:
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/adr
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/adr
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-adr"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-adr:bs_1.49.4__0.23.0!backstage-community-plugin-adr
+  version: 0.23.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Backstage Community
+  support: community
+  lifecycle: active
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-adr:
+              entityTabs:
+                - mountPoint: entity.page.adrs
+                  path: /adrs
+                  title: ADRs
+                  config:
+                    if:
+                      allOf:
+                        - isAdrAvailable
