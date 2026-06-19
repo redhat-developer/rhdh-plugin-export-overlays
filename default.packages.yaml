@@ -41,6 +41,7 @@ packages:
   - package: '@backstage/plugin-catalog-backend-module-ldap' # generally-available
   - package: '@backstage/plugin-catalog-backend-module-msgraph' # generally-available
   - package: '@backstage/plugin-events-backend-module-github' # tech-preview
+  - package: '@backstage/plugin-events-backend-module-gitlab' # tech-preview
   - package: '@backstage/plugin-kubernetes' # tech-preview
   - package: '@backstage/plugin-kubernetes-backend' # generally-available
   - package: '@backstage/plugin-notifications' # tech-preview
