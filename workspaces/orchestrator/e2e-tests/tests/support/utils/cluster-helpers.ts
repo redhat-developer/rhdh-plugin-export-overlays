@@ -6,6 +6,7 @@ const FAILSWITCH_APP_LABEL = "app.kubernetes.io/name=failswitch";
 const POD_HTTPBIN_POLL_MS = 2_000;
 const POD_HTTPBIN_TIMEOUT_MS = 120_000;
 const FAILSWITCH_ROLLOUT_TIMEOUT_S = 120;
+const MANAGEMENT_READY_TIMEOUT_MS = 60_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,6 +93,64 @@ export function restartAndWait(ns: string): void {
   );
 }
 
+/**
+ * Poll the SonataFlow management API health endpoint until it responds
+ * successfully. After a rollout restart the pod may report Ready to K8s
+ * before the management API is fully initialised, causing retrigger calls
+ * to receive 503 Service Temporarily Unavailable.
+ */
+async function waitForManagementApiReady(
+  ns: string,
+  timeoutMs = MANAGEMENT_READY_TIMEOUT_MS,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pod = runOcOptional([
+      "-n",
+      ns,
+      "get",
+      "pods",
+      "-l",
+      FAILSWITCH_APP_LABEL,
+      "--field-selector=status.phase=Running",
+      "-o",
+      "jsonpath={.items[0].metadata.name}",
+    ]).stdout.trim();
+
+    if (pod) {
+      // Quarkus/SonataFlow exposes /q/health/ready; fall back to the
+      // management processes endpoint if the health path isn't available.
+      const health = runOcOptional(
+        [
+          "-n",
+          ns,
+          "exec",
+          pod,
+          "--",
+          "curl",
+          "-sf",
+          "-o",
+          "/dev/null",
+          "-w",
+          "%{http_code}",
+          "http://localhost:8080/q/health/ready",
+        ],
+        15_000,
+      );
+      if (health.exitCode === 0 && health.stdout.trim() === "200") {
+        return;
+      }
+    }
+
+    await sleep(POD_HTTPBIN_POLL_MS);
+  }
+  // Don't fail the test — proceed and let the retrigger attempt surface
+  // any remaining issues with a clearer error message.
+  console.warn(
+    `[patchHttpbin] SonataFlow management API readiness not confirmed within ${timeoutMs}ms, proceeding anyway`,
+  );
+}
+
 export async function patchHttpbin(ns: string, value: string): Promise<void> {
   let existing: EnvEntry[] = [];
   try {
@@ -141,6 +200,7 @@ export async function patchHttpbin(ns: string, value: string): Promise<void> {
 
   restartAndWait(ns);
   await waitForRunningPodHttpbin(ns, value);
+  await waitForManagementApiReady(ns);
 }
 
 export async function cleanupAfterTest(
