@@ -30,11 +30,10 @@ export function notebookUnsupportedTypeFixturePath(): string {
   return path.join(import.meta.dirname, "notebook-constants.ts");
 }
 
-export function localeNotebookUpload1Path(): {
+export function localeNotebookUploadPath(fileName = "en.upload1.json"): {
   absolutePath: string;
   fileName: string;
 } {
-  const fileName = "en.upload1.json";
   return {
     absolutePath: path.join(uploadFixturesDir, fileName),
     fileName,
