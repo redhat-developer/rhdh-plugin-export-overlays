@@ -295,17 +295,12 @@ fi
 # Step 4: Generate catalog index
 ##############################################
 echo -e "\n${green}=== Step 4: Generate catalog index ===${norm}"
-PACKAGES_FILE_ARGS=""
-for pf in "${PACKAGES_FILES[@]+"${PACKAGES_FILES[@]}"}"; do
-    PACKAGES_FILE_ARGS="$PACKAGES_FILE_ARGS --packages-file $pf"
-done
 # shellcheck disable=SC2086
 if ! python "$SCRIPT_DIR/generateCatalogIndex.py" \
     --overlays-dir "$OVERLAYS_DIR" \
     --output-dir "$OUTPUT_DIR" \
     --plugin-builds-dir "$PLUGIN_BUILDS_DIR" \
     --registry "$REGISTRY" \
-    $PACKAGES_FILE_ARGS \
     $REPORT_FILE_ARG \
     $DEBUG_FLAG; then
     echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}" >&2; exit 1
