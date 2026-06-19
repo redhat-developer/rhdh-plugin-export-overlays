@@ -6,7 +6,7 @@ import {
   NOTEBOOK_UNTITLED_GRID_NAME,
 } from "../support/notebook-surface-page";
 import {
-  localeNotebookUpload1Path,
+  localeNotebookUploadPath,
   NOTEBOOK_EDITOR_URL_RE,
   NOTEBOOK_SESSION_MAX_DOCUMENTS,
   notebookElevenFileStagingPaths,
@@ -59,7 +59,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: drop zone, disabled add, and duplicate file prompt", async () => {
-    const { absolutePath, fileName } = localeNotebookUpload1Path();
+    const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickOpenUploadDocumentModal();
     let uploadModal = notebooks.uploadDocumentModal();
@@ -98,7 +98,8 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("sidebar: add file then remove", async () => {
-    const { absolutePath, fileName } = localeNotebookUpload1Path();
+    const { absolutePath, fileName } =
+      localeNotebookUploadPath("en.upload2.json");
 
     await notebooks.clickOpenUploadDocumentModal();
     const uploadModal = notebooks.uploadDocumentModal();

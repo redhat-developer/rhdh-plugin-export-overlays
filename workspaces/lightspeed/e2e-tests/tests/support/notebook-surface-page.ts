@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import {
   NOTEBOOK_UNTITLED_GRID_NAME,
-  localeNotebookUpload1Path,
+  localeNotebookUploadPath,
   NOTEBOOK_SESSION_MAX_DOCUMENTS,
 } from "./notebook-constants";
 import { openLightspeed } from "./test-helper";
@@ -277,7 +277,7 @@ export class NotebookSurfacePage {
   }
 
   async uploadSingleDefaultDocumentForConversation(): Promise<string> {
-    const { absolutePath, fileName } = localeNotebookUpload1Path();
+    const { absolutePath, fileName } = localeNotebookUploadPath();
     await this.clickOpenUploadDocumentModal();
     const uploadModal = this.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
