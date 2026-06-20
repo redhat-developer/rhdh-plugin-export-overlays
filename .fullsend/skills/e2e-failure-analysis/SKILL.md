@@ -9,17 +9,18 @@ Debug test failures in the rhdh-plugin-export-overlays E2E testing system.
 
 ## CRITICAL: Context Management Rules
 
-**NEVER read entire log files.** Log files (backstage-backend.log, install-dynamic-plugins.log,
-build-log.txt) can be 5,000–50,000+ lines. Reading them wastes context and finds nothing useful.
+**Always check file size (`wc -l`) before reading any log file.**
 
-Instead:
-- **grep + tail** — `grep -i "error\|fail\|crash" file.log | tail -30`
-- **tail** — `tail -50 file.log` for most-recent entries
-- **Read with offset+limit** — `Read(file, offset=N, limit=50)` for targeted sections
-- **grep -n** — find line numbers first, then read narrow ranges
+- **Small files (under ~200 lines)**: read in full — complete context beats targeted grep.
+- **Large files (200+ lines)**: grep for error patterns first, note line numbers, then
+  read narrow ranges around them. Never read a large file in full.
+  - **grep + tail** — `grep -i "error\|fail\|crash" file.log | tail -30`
+  - **tail** — `tail -50 file.log` for most-recent entries
+  - **Read with offset+limit** — `Read(file, offset=N, limit=50)` for targeted sections
+  - **grep -n** — find line numbers first, then read narrow ranges
 
-**NEVER `cat` or `Read` without limit on**: backstage-backend.log, install-dynamic-plugins.log,
-build-log.txt, events.txt, describe-pods.txt, or any file that could be large.
+Files like backstage-backend.log and build-log.txt can be 5,000–50,000+ lines.
+Auxiliary pod logs are often under 200 lines and safe to read entirely.
 
 ## Investigation Workflow
 
@@ -60,7 +61,7 @@ This script gives you:
 
 **Classify each failure before proceeding:**
 - **UI failure** (Playwright assertions) → proceed to Step 2
-- **Setup/beforeAll failure** (CLI commands, deployment errors) → skip to **Step 5b**
+- **Setup/beforeAll failure** (CLI commands, deployment errors) → skip to **Step 5, build-log.txt**
 
 Setup failures have no useful page snapshots, screenshots, or traces. **Go to
 build-log.txt first** — it captures the full stdout/stderr of every deployment script
@@ -233,61 +234,30 @@ API failing? → pwtrace network --failed → find 4xx/5xx/timeout
 
 ### Step 5: Cluster Log Search
 
-Check cluster logs **alongside** other steps, not only as a last resort. UI failures often
-originate from backend issues (plugin load failures, missing config, crashed pods) that only
-show up in cluster logs. **Use grep and tail — never read full log files.**
+Check cluster logs **alongside** other steps, not only as a last resort. UI failures
+often originate from backend issues (plugin load failures, missing config, crashed pods)
+that only show up in cluster logs.
 
-```bash
-# Find the right namespace's logs
-ls "$ARTIFACTS/e2e-test-results/logs/"
-# Each directory = a project/namespace name
+Logs are at `$ARTIFACTS/e2e-test-results/logs/<project>/`. Start with `pods.txt` to see
+what's running, then investigate relevant pod logs.
 
-# Pod status — this file is small, safe to read
-cat "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/pods.txt"
-```
+#### What to check and what it tells you
 
-#### Pod restarts
+- **`pods.txt`** — pod status, restarts, readiness. Always safe to read in full.
+- **`events.txt`** — K8s events: ImagePullBackOff, CrashLoopBackOff, probe failures.
+  Most recent events are at the bottom.
+- **`backstage-backend.log`** — RHDH startup errors, plugin failures, config issues.
+  Almost always a large file — grep first. Filter out `node_modules` and `trace_id` noise.
+- **`install-dynamic-plugins.log`** — plugin installation: OCI pull failures, version
+  mismatches, disabled wrappers. Usually medium-sized.
+- **Pod restarts** — if `RESTARTS` is non-zero in `pods.txt`, check the `.previous.log`
+  for that pod. Work that started in the killed instance but never completed explains
+  what's missing in the current pod.
 
-If `RESTARTS` is non-zero, a previous container instance ran and was killed mid-flight.
-Check why it was killed and what it left behind before reading the current pod's logs:
-
-```bash
-# Why was the previous pod killed?
-grep -i "kill\|probe\|evict\|OOM" "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/events.txt"
-
-# What was the previous pod doing when it died?
-PREV_LOG=$(find "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/pods" -name "backstage-backend.previous.log" | head -1)
-if [ -f "$PREV_LOG" ]; then
-  grep -E "finished|started|Pulling|Stopping|error|warn" "$PREV_LOG" | tail -40
-fi
-```
-
-Work that started in the previous pod but never completed can directly explain what
-is missing in the current pod — with no error visible in the current pod's own logs.
-
-```bash
-# Backend errors — grep, then read last 100 lines for context
-BACKEND_LOG=$(find "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/pods" -name "backstage-backend.log" | head -1)
-grep -i "error\|fail\|crash" "$BACKEND_LOG" | grep -v "node_modules\|trace_id" | tail -30
-# If grep reveals issues, read the tail for surrounding context:
-# Read(file=$BACKEND_LOG, offset=<total_lines - 100>, limit=100)
-
-# Plugin install issues — common cause of "element not found" UI failures
-INSTALL_LOG=$(find "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/pods" -name "install-dynamic-plugins.log" | head -1)
-grep -i "error\|fail\|skip" "$INSTALL_LOG" | tail -20
-
-# K8s events — last 50 lines (most recent events at bottom)
-tail -50 "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/events.txt"
-```
-
-**When to check logs early (alongside Steps 1-2):**
-- UI test timed out waiting for a plugin element → check `install-dynamic-plugins.log` for load failures
-- Page shows error/blank state → check `backstage-backend.log` for startup crashes
-- Pod never became ready → check `events.txt` for ImagePullBackOff, CrashLoopBackOff
-
-**Reading log context around errors:** When grep finds something interesting, use
-`Read` with `offset` and `limit` to read ~100 lines around the error for context.
-Never read the full file — backend logs can be 5,000-50,000+ lines.
+**When to check early (alongside Steps 1-2):**
+- UI test timed out waiting for a plugin element → plugin install log
+- Page shows error/blank state → backstage-backend log
+- Pod never became ready → events.txt
 
 #### Auxiliary pod logs
 
@@ -301,46 +271,20 @@ you would for RHDH pods.
 - Test interacts with a service deployed by the workspace (workflows, APIs)
 - The error message references a non-RHDH service endpoint or component
 
-#### build-log.txt searches
+#### build-log.txt
 
-The build log contains the full CI output — deployment sequences, config dumps, warnings,
-and the complete stdout/stderr of every CLI command run during setup. It is a **single
-file covering all projects for the entire run**, so one grep pass can surface context
-for multiple failures at once.
+The build log contains the full CI output — deployment sequences, config dumps, and
+the complete stdout/stderr of every CLI command run during setup. It is a single file
+covering all projects, so one grep pass can surface context for multiple failures.
 
 **For setup/beforeAll failures, start here — before cluster logs.** The build log shows
-*why* something failed (the actual error output from the failing command). Cluster logs
-only show what state things ended up in after the failure.
+*why* something failed. Cluster logs only show the resulting state.
 
-```bash
-BUILD_LOG="$(dirname "$ARTIFACTS")/build-log.txt"
-# If not found, try the parent directory:
-# BUILD_LOG="$(dirname "$ARTIFACTS")/../build-log.txt"
+Location: `$(dirname "$ARTIFACTS")/build-log.txt`
 
-# For setup failures: grep for the project name + errors in one pass
-# This often reveals the exact CLI command that failed and its output
-grep -n -i "error\|fail\|warn\|NotFound" "$BUILD_LOG" | grep -i "${PROJECT}" | head -20
-
-# If multiple projects have setup failures, scan all at once
-grep -n -i "error\|fail\|warn\|NotFound" "$BUILD_LOG" | grep -i "proj1\|proj2\|proj3" | head -30
-
-# Find the deployment sequence / config table for a project
-grep -n "${PROJECT}" "$BUILD_LOG" | head -20
-# Then Read with offset+limit around those line numbers to see surrounding context
-
-# Find env vars / mode
-grep -E "GIT_PR_NUMBER|E2E_NIGHTLY|VAULT_" "$BUILD_LOG" | head -10
-
-# Find config dump — look for "App Config" section near project mention
-grep -n "App Config\|${PROJECT}" "$BUILD_LOG" | head -20
-```
-
-After the build log explains the cause, confirm the resulting cluster state:
-```bash
-cat "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/pods.txt"
-cat "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/deployments.txt"
-tail -50 "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/events.txt"
-```
+The build log covers all projects in one file. Filter by project name to avoid noise
+from other projects. Also check env vars (`GIT_PR_NUMBER`, `E2E_NIGHTLY_MODE`) to
+determine the deployment mode — it affects how plugins are resolved.
 
 ## Architecture Reference
 
@@ -431,9 +375,10 @@ artifacts/
 │   ├── logs/<project>/          # Per-namespace cluster diagnostics
 │   │   ├── events.txt
 │   │   ├── pods.txt
-│   │   └── pods/<pod>/
+│   │   └── pods/<pod>/              # One directory per pod in the namespace
 │   │       ├── backstage-backend.log
-│   │       └── install-dynamic-plugins.log
+│   │       ├── install-dynamic-plugins.log
+│   │       └── ...                  # Other pods: workflow engines, databases, services
 │   └── specs-<slug>-<project>/  # Per-test failure artifacts
 │       ├── error-context.md     # Page snapshot (START HERE)
 │       ├── trace.zip            # Playwright trace (may need --fix for pwtrace)
