@@ -289,6 +289,18 @@ tail -50 "$ARTIFACTS/e2e-test-results/logs/${PROJECT}/events.txt"
 `Read` with `offset` and `limit` to read ~100 lines around the error for context.
 Never read the full file — backend logs can be 5,000-50,000+ lines.
 
+#### Auxiliary pod logs
+
+Namespaces often contain pods beyond RHDH (workflow engines, databases, mock services).
+When RHDH pod logs don't explain the failure, scan all other pod logs in the namespace
+for errors. Check `pods.txt` to see what's running, then grep their logs the same way
+you would for RHDH pods.
+
+**When to check:**
+- RHDH logs are clean but the test expects data from an external service
+- Test interacts with a service deployed by the workspace (workflows, APIs)
+- The error message references a non-RHDH service endpoint or component
+
 #### build-log.txt searches
 
 The build log contains the full CI output — deployment sequences, config dumps, warnings,
@@ -301,7 +313,9 @@ for multiple failures at once.
 only show what state things ended up in after the failure.
 
 ```bash
-BUILD_LOG="$(dirname "$ARTIFACTS")/../build-log.txt"
+BUILD_LOG="$(dirname "$ARTIFACTS")/build-log.txt"
+# If not found, try the parent directory:
+# BUILD_LOG="$(dirname "$ARTIFACTS")/../build-log.txt"
 
 # For setup failures: grep for the project name + errors in one pass
 # This often reveals the exact CLI command that failed and its output
