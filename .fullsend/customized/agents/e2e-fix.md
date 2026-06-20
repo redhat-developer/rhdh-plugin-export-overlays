@@ -156,7 +156,7 @@ If an open fix PR already exists for this test case:
 1. Find the associated GitHub issue:
    ```bash
    gh issue list --repo redhat-developer/rhdh-plugin-export-overlays \
-     --search "E2E: $FAILING_TEST" --state open \
+     --search "[fullsend] E2E: $FAILING_TEST" --state open \
      --json number,title,url
    ```
 
@@ -188,7 +188,7 @@ If an open fix PR already exists for this test case:
 
 ```bash
 gh issue list --repo redhat-developer/rhdh-plugin-export-overlays \
-  --search "E2E: <primary-failing-test-name>" --state open \
+  --search "[fullsend] E2E: <primary-failing-test-name>" --state open \
   --json number,title,body,labels,url
 ```
 
@@ -196,7 +196,7 @@ gh issue list --repo redhat-developer/rhdh-plugin-export-overlays \
 
 ```bash
 gh issue create --repo redhat-developer/rhdh-plugin-export-overlays \
-  --title "E2E: <test-name> failing in nightly" \
+  --title "[fullsend] E2E: <test-name> failing in nightly" \
   --label "e2e-failure" \
   --body "$(cat <<'EOF'
 ## Classification
@@ -372,7 +372,7 @@ This path handles two scenarios:
    acli jira --action createIssue \
      --project RHDHBUGS \
      --type Bug \
-     --summary "E2E: <test-name> - <root cause>" \
+     --summary "[fullsend] E2E: <test-name> - <root cause>" \
      --description "Root cause: <analysis>
 
    Skipped in: <PR URL>

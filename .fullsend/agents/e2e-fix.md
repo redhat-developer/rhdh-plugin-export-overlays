@@ -98,9 +98,9 @@ still occurring ("Still failing — PR #N pending merge. Latest failure: URL").
 
 ### Step 2: Issue dedup + create/update
 
-Search for an existing open issue titled `E2E: <test-name>`.
+Search for an existing open issue titled `[fullsend] E2E: <test-name>`.
 
-- **No existing issue** → create one with title `E2E: <test-name> failing in nightly`,
+- **No existing issue** → create one with title `[fullsend] E2E: <test-name> failing in nightly`,
   body containing: `fix_category`, failed tests table, root cause, remediation, prow URL.
 - **Issue exists** → comment with new analysis and updated classification.
 
@@ -178,8 +178,8 @@ After committing a fix (Phase 5) or skip (Phase 6), push and create a PR.
 1. **Push** the branch to the fork.
 
 2. **Create cross-fork PR** on upstream (`redhat-developer/rhdh-plugin-export-overlays`).
-   - Fix PRs: title `fix(e2e): <description>`
-   - Skip PRs: title `test(e2e): skip <test-name> in nightly (RHDHBUGS-XXXX)`
+   - Fix PRs: title `[fullsend] fix(e2e): <description>`
+   - Skip PRs: title `[fullsend] test(e2e): skip <test-name> in nightly (RHDHBUGS-XXXX)`
    - Body: summary, root cause, `Fixes #<issue-number>`, test plan.
 
 3. **Comment on the tracking issue** with the fix summary and PR link.
