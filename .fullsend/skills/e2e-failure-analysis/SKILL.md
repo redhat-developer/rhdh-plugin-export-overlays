@@ -418,13 +418,17 @@ Keep the context of what you've already looked at: it tells you what's been rule
 and where the answer isn't. What you discard is the conclusion drawn from those steps,
 not the investigation history.
 
-1. **Re-read only the original error message** from Step 1.
-2. **Reason from the error outward**: what has to be true for this error to occur? Work
+1. **Ask: did the operation succeed but produce wrong results?** If logs are clean and
+   all inputs were accepted, don't assume "slow." The operation may have completed
+   and produced the wrong outcome. Read the test helpers and the code that processes
+   the trigger to understand what it actually did with the input.
+2. **Re-read only the original error message** from Step 1.
+3. **Reason from the error outward**: what has to be true for this error to occur? Work
    forward from the error itself, not backward from what the steps led you to look at.
-3. **Use what you've already seen to eliminate paths** — if you've checked cluster logs
+4. **Use what you've already seen to eliminate paths** — if you've checked cluster logs
    and they were clean, the cause is upstream of runtime. If error-context showed the
    page loaded fine, the issue isn't deployment. Let ruled-out evidence narrow the space.
-4. **Identify what you haven't checked yet** that could still explain the error, and go
+5. **Identify what you haven't checked yet** that could still explain the error, and go
    there directly.
-5. **Confirm with one cross-check** before concluding — a single additional artifact that
+6. **Confirm with one cross-check** before concluding — a single additional artifact that
    either supports or contradicts the new hypothesis.
