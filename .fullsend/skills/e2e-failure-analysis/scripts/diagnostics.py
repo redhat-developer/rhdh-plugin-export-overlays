@@ -115,7 +115,7 @@ def main():
 
                     # Config tables
                     for match in re.finditer(
-                        r"(┌─[^\n]*(?:Config|Plugins|Deployment)[^\n]*\n)(.*?)(└─+)",
+                        r"(┌─[^\n]*(?:Config|Plugins|Deployment|Value)[^\n]*\n)(.*?)(└─+)",
                         stdout,
                         re.DOTALL,
                     ):
