@@ -39,7 +39,7 @@ export const DEFAULT_WIDGETS = {
 
 export const HOMEPAGE_ADMIN = {
   username: "homepage-admin",
-  password: "homepage-admin@123", // gitleaks:allow
+  password: "homepage-admin@123", // NOSONAR gitleaks:allow
 };
 
 const HOMEPAGE_TEST3 = {
@@ -80,7 +80,7 @@ export async function setupKeycloakGroups(): Promise<void> {
  * Flows ported from rhdh e2e-tests/playwright/support/pages/home-page-customization.ts
  * (same locators/behavior, uses overlay UIhelper).
  */
-export class DynamicHomePagePo {
+export class HomepagePo {
   private baseURL = "";
 
   constructor(

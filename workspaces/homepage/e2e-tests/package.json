@@ -8,7 +8,7 @@
     "yarn": ">=3"
   },
   "packageManager": "yarn@4.12.0",
-  "description": "E2E tests for Dynamic Home Page plugin",
+  "description": "E2E tests for Homepage plugin",
   "scripts": {
     "test": "playwright test",
     "test:vault": "VAULT=1 playwright test",

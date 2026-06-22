@@ -1,10 +1,10 @@
 plugins:
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-homepage
     disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
-          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+          red-hat-developer-hub.backstage-plugin-homepage:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
@@ -42,7 +42,7 @@ plugins:
             translationResources:
               - importName: homepageTranslations
                 ref: homepageTranslationRef
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1!red-hat-developer-hub-backstage-plugin-homepage-backend
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.2.1!red-hat-developer-hub-backstage-plugin-homepage-backend
     disabled: false
     pluginConfig:
       homepage:
@@ -57,23 +57,23 @@ plugins:
               title: Entity section
           - if:
               groups: [group:default/admins]
-            children:
-              - id: template-section
-                ref: template-section
-                props:
-                  title: Template section
-              - id: quickaccess-card
-                ref: quickaccess-card
-                props:
-                  title: Quick Access
+              children:
+                - id: template-section
+                  ref: template-section
+                  props:
+                    title: Template section
+                - id: quickaccess-card
+                  ref: quickaccess-card
+                  props:
+                    title: Quick Access
           - if:
               groups: [group:default/developers]
-            children:
-              - id: recently-visited
-                ref: recently-visited-card
-                props:
-                  title: Recently Visited
-              - id: top-visited
-                ref: top-visited-card
-                props:
-                  title: Top Visited
+              children:
+                - id: recently-visited
+                  ref: recently-visited-card
+                  props:
+                    title: Recently Visited
+                - id: top-visited
+                  ref: top-visited-card
+                  props:
+                    title: Top Visited
