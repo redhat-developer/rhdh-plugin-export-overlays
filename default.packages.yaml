@@ -59,8 +59,10 @@ packages:
     status: generally-available
   - package: '@backstage/plugin-catalog-backend-module-github-org'
     status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-gitlab' # production
-  - package: '@backstage/plugin-catalog-backend-module-gitlab-org' # production
+  - package: '@backstage/plugin-catalog-backend-module-gitlab'
+    status: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-gitlab-org'
+    status: "generally-available"
   - package: '@backstage/plugin-catalog-backend-module-ldap'
     status: "generally-available"
   - package: '@backstage/plugin-catalog-backend-module-msgraph'
@@ -105,9 +107,15 @@ packages:
     status: "generally-available"
 
   # these community supported plugins do not have a downstream analogue in overlays repo's rhdh-supported-packages.txt
-  - package: '@backstage-community/plugin-quay' # community
-  - package: '@backstage-community/plugin-quay-backend' # community
-  - package: '@backstage-community/plugin-scaffolder-backend-module-quay' # community
-  - package: '@backstage-community/plugin-tekton' # community
-  - package: '@roadiehq/backstage-plugin-argo-cd-backend' # community TODO: replace with RH Argo CD plugin when it's ready
-  - package: '@roadiehq/scaffolder-backend-argocd' # community TODO: replace with RH Argo CD plugin when it's ready
+  - package: '@backstage-community/plugin-quay'
+    status: "community"
+  - package: '@backstage-community/plugin-quay-backend'
+    status: "community"
+  - package: '@backstage-community/plugin-scaffolder-backend-module-quay'
+    status: "community"
+  - package: '@backstage-community/plugin-tekton'
+    status: "community"
+  - package: '@roadiehq/backstage-plugin-argo-cd-backend' # TODO: replace with RH Argo CD plugin when it's ready
+    status: "community"
+  - package: '@roadiehq/scaffolder-backend-argocd' # TODO: replace with RH Argo CD plugin when it's ready
+    status: "community"
