@@ -97,6 +97,14 @@ jobs:
       needs.export.result == 'success' &&
       needs.export.outputs.published-exports != ''
     runs-on: ubuntu-latest
+    # Coverage instrumentation must never affect the release. The run step is
+    # already non-fatal per workspace, but an infra failure in an earlier step
+    # (checkout, registry login, node setup) would otherwise fail the job and
+    # turn the publish workflow — and its README status badge — red even though
+    # the artifacts published fine. continue-on-error keeps the run green; the
+    # job still shows its own status, and instrumentation problems surface as
+    # ::warning:: annotations.
+    continue-on-error: true
     timeout-minutes: 30
     permissions:
       contents: read
