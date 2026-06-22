@@ -188,3 +188,12 @@ These anchors never change with plugin versions. Regenerate them only when a new
 ```
 
 See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
+
+### Coverage images for the nightly
+
+Browser coverage can only be collected from an **instrumented** plugin image. The PR `/publish` flow builds an instrumented `__coverage` variant of each plugin image and the e2e-test-utils fixture swaps to it in PR mode, which is why PR e2e runs report coverage. The release publish (`publish-release-branch-workspace-plugins.yaml`) builds the same `__coverage` variant for every rolled-out workspace (any with a `coverage-anchors/` directory), so the instrumented image already exists for the nightly to deploy.
+
+For the nightly to actually feed the default-branch dashboard, two companion pieces are still required:
+
+- The e2e-test-utils image swap must also run in nightly mode (today it only swaps when a PR URL is present), and for plugins resolved via `{{inherit}}` it must use the instrumented ghcr image instead of the RHDH catalog image — those catalog images aren't ours to instrument.
+- The periodic Prow job must have the Codecov token available (the same `VAULT_CODECOV_TOKEN` the PR `ocp-helm` step uses).
