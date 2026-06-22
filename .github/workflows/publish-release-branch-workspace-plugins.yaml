@@ -103,11 +103,15 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The job only reads files and pushes images via podman + GITHUB_TOKEN;
+          # it never uses the git credential, so don't persist it.
+          persist-credentials: false
 
       - name: Log in to GitHub Container Registry
         env:
           REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+        run: echo "$REGISTRY_PASSWORD" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -125,15 +129,29 @@ jobs:
           # nightly to collect coverage from it. This reuses the exact script
           # the PR /publish flow runs; each workspace run instruments only the
           # images that match its own metadata (others are skipped fast, with
-          # no image pull), and a failure here never blocks the release.
+          # no image pull).
+          #
+          # Images are built for every rolled-out workspace, including those the
+          # nightly currently resolves via {{inherit}} — their ghcr images
+          # aren't consumed until the Phase 2 coverage periodic forces ghcr, but
+          # building them now keeps the producer ready ahead of that consumer.
+          #
+          # A failure never blocks the release (exit 0), but it is surfaced as a
+          # workflow warning so a silently-broken pipeline — which would starve
+          # the nightly of coverage — is noticeable in the run summary.
           shopt -s nullglob
-          found=0
+          rolled_out=0
+          failed=0
           for anchor_dir in workspaces/*/coverage-anchors; do
             ws="$(dirname "$anchor_dir")"
             [[ -d "$ws/e2e-tests" ]] || continue
-            found=1
+            rolled_out=$((rolled_out + 1))
             echo "=== Instrumenting $ws ==="
             echo "$PUBLISHED_EXPORTS" | ./scripts/instrument-plugin.sh "$ws" \
-              || echo "[WARN] instrumentation failed for $ws (non-fatal)"
+              || { echo "::warning title=coverage-instrumentation::failed for $ws"; failed=$((failed + 1)); }
           done
-          [[ "$found" == 1 ]] || echo "[INFO] No rolled-out workspaces (coverage-anchors/) to instrument."
+          if [[ "$rolled_out" -eq 0 ]]; then
+            echo "[INFO] No rolled-out workspaces (coverage-anchors/) to instrument."
+          elif [[ "$failed" -gt 0 ]]; then
+            echo "::warning title=coverage-instrumentation::$failed of $rolled_out workspace(s) failed to instrument; nightly coverage may be stale"
+          fi
