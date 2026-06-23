@@ -48,7 +48,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3fabefdb8220825752a6de88b2667157d0515a52ce7ca0172e87beb60398bcad"
+          "digest": "sha256:3fabefdb8220825752a6de88b2667157d0515a52ce7ca0172e87beb60398bcad",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__0.8.3",
+          "resolvedTag": "bs_1.49.4__0.8.2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
@@ -74,7 +77,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7b11e5809d27f408a37bf9238c290d86d73c254845b45b5138ec5705b326e687"
+          "digest": "sha256:7b11e5809d27f408a37bf9238c290d86d73c254845b45b5138ec5705b326e687",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__0.8.3",
+          "resolvedTag": "bs_1.49.4__0.8.2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
@@ -100,7 +106,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0cfcb547a95a4bf147d44add290bd9ae5d607a33e2e117446695d4544f8575fc"
+          "digest": "sha256:0cfcb547a95a4bf147d44add290bd9ae5d607a33e2e117446695d4544f8575fc",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__0.8.3",
+          "resolvedTag": "bs_1.49.4__0.8.2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
@@ -980,7 +989,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7588e95e734a1a7d78159aaff983a11b6ed62fe63da08cfcb425d2a02860229b"
+          "digest": "sha256:fe905bd73d107488ebc8c5af7321637fbe41892b21a61412f45f86c21eb90605"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
@@ -1006,7 +1015,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:37984a0737f925cf84abe52cafa144bcd2f7056094f7e73d02b18b53c98c7d12"
+          "digest": "sha256:1ae1e30eb7e8ab431c45ae4dc4ff1d297e96e57f6d35dc3a2cb1434a18768dba"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1032,7 +1041,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c6d1d7d180d7c6e293567027bcdefd34019d72cb9828ad94f6c26d9c5fcd5c69"
+          "digest": "sha256:3e208d4f2fb80762c8f109c58a0f3435f4fce1b33d7bfd6f393bd81a98954c7b"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1058,7 +1067,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c1bf28664b69502dbf2c58fbb22454bd23b5e32fd61b691ad88cb2a0d3648ca1"
+          "digest": "sha256:8a7ba0ae00a7038261c3b827395f6d2b397a4ae32e36f71207a4c53e7b7ec212"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -1084,7 +1093,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0384d91c8fcd28210d78a8b289bf2b8043106c8aa8baab85e302bc89142835d8"
+          "digest": "sha256:47a4d15a0a6da765d443482bac0cbbf0445419b0dcd524bb83293609754dc18e"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
