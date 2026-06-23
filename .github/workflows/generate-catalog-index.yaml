@@ -71,7 +71,7 @@ jobs:
           echo "Target branch: $TARGET_BRANCH"
 
       - name: Checkout source branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ steps.branches.outputs.source-branch }}
           fetch-depth: 0
@@ -307,7 +307,7 @@ jobs:
 
     steps:
       - name: Checkout (for Dockerfile)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ needs.generate.outputs.source-branch }}
           sparse-checkout: |
@@ -360,7 +360,7 @@ jobs:
 
     steps:
       - name: Checkout (for Dockerfile)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ needs.generate.outputs.source-branch }}
           sparse-checkout: |
@@ -414,7 +414,7 @@ jobs:
 
     steps:
       - name: Checkout catalog-index branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ needs.generate.outputs.target-branch }}
           fetch-depth: 1
@@ -531,7 +531,7 @@ jobs:
       - name: Checkout wiki
         id: wiki-checkout
         continue-on-error: true
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ github.repository }}.wiki
           path: wiki
