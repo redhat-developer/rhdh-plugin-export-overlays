@@ -19,7 +19,7 @@ spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki"
   # Tag: 1.9.4--1.0.6, Build date: 2026-04-30T18:56:52Z
   dynamicArtifact: "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:96746078a2c13ebf673d7f84d327f0e60d70e3c36794ec9b953016834e263f78"
-  version: 1.0.6
+  version: 1.0.7
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.45.3
@@ -35,3 +35,4 @@ spec:
           workflowLogProvider:
             loki:
               baseUrl: ${LOKI_BASE_URL}
+              token: ${AUTH_TOKEN}
