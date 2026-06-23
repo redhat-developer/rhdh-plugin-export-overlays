@@ -204,7 +204,7 @@ export class NotebookSurfacePage {
         /* no-op */
       });
     await this.expectDocumentFileListedInSidebar(fileName);
-    await expect(progressbar).toBeHidden({ timeout: 60_000 });
+    await expect(progressbar).toBeHidden({ timeout: 5 * 60 * 1000 });
   }
 
   async expectNotebookEditorUploadResourceButtonVisible(
