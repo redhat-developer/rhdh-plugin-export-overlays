@@ -117,7 +117,7 @@ plugins:
           backstage.plugin-techdocs-module-addons-contrib:
             techdocsAddons:
               - importName: ReportIssue
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:647835d662602c9d555379b3119cc2a100dddd3b7d493f571b9b9ed8f96d9af2
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:c294731ee5ed0af3cb314e3e248f79bb4e6d8642201133965ee3d7c83e7a3ff5
   # Tag: bs_1.49.4__0.8.3, Build date: 2026-06-03T21:17:56Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
