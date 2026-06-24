@@ -189,11 +189,16 @@ These anchors never change with plugin versions. Regenerate them only when a new
 
 See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
 
-### Coverage images for the nightly
+### Populating the `main` branch (consolidating per-PR coverage)
 
-Browser coverage can only be collected from an **instrumented** plugin image. The PR `/publish` flow builds an instrumented `__coverage` variant of each plugin image and the e2e-test-utils fixture swaps to it in PR mode, which is why PR e2e runs report coverage. The release publish (`publish-release-branch-workspace-plugins.yaml`) builds the same `__coverage` variant for every rolled-out workspace (any with a `coverage-anchors/` directory), so the instrumented image already exists for the nightly to deploy.
+Coverage is generated only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds — so every upload is attributed to a PR-head commit. When a PR is squash-merged, GitHub creates a fresh `main` commit that never received an upload, and Codecov's carryforward can't cross the squash. Without help, the Codecov default-branch (`main`) view stays empty even though each PR uploaded fine.
 
-For the nightly to actually feed the default-branch dashboard, two companion pieces are still required:
+The dashboard is fed by **consolidating that per-PR coverage onto `main`**: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` re-uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually). Refresh a snapshot from a passing e2e run when a workspace's coverage changes:
 
-- The e2e-test-utils image swap must also run in nightly mode (today it only swaps when a PR URL is present), and for plugins resolved via `{{inherit}}` it must use the instrumented ghcr image instead of the RHDH catalog image — those catalog images aren't ours to instrument.
-- The periodic Prow job must have the Codecov token available (the same `VAULT_CODECOV_TOKEN` the PR `ocp-helm` step uses).
+```bash
+# point at the run's gcsweb .../artifacts/e2e-test-results/coverage/ directory
+./scripts/refresh-coverage-snapshot.sh <workspace> <coverage-dir-or-gcsweb-url>
+git add coverage-snapshots/<workspace>.lcov
+```
+
+A snapshot's number only moves when it's refreshed — which is also the only time the coverage itself changes, since a workspace's coverage is fixed until its plugin code changes (and code changes come through PRs that re-run e2e). This keeps the dashboard effectively current without a separate coverage run: the nightly stays entirely on the shipped `{{inherit}}`/Konflux builds and is not involved in coverage.
