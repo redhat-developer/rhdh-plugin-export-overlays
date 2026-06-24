@@ -34,7 +34,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.49.4__0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.49.4__0.8.3"
         },
         "registry-enrich": {
           "status": "pass",
@@ -48,14 +48,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3fabefdb8220825752a6de88b2667157d0515a52ce7ca0172e87beb60398bcad",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__0.8.3",
-          "resolvedTag": "bs_1.49.4__0.8.2"
+          "digest": "sha256:58f03ddbc9d75a43df33152699bd97718deeccbe772831021718cf917b1e8eca"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
-      "version": "0.8.2",
+      "version": "0.8.3",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
@@ -63,7 +60,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights:bs_1.49.4__0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights:bs_1.49.4__0.8.3"
         },
         "registry-enrich": {
           "status": "pass",
@@ -77,14 +74,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7b11e5809d27f408a37bf9238c290d86d73c254845b45b5138ec5705b326e687",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__0.8.3",
-          "resolvedTag": "bs_1.49.4__0.8.2"
+          "digest": "sha256:647835d662602c9d555379b3119cc2a100dddd3b7d493f571b9b9ed8f96d9af2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
-      "version": "0.8.2",
+      "version": "0.8.3",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
@@ -92,7 +86,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:bs_1.49.4__0.8.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:bs_1.49.4__0.8.3"
         },
         "registry-enrich": {
           "status": "pass",
@@ -106,14 +100,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0cfcb547a95a4bf147d44add290bd9ae5d607a33e2e117446695d4544f8575fc",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__0.8.3",
-          "resolvedTag": "bs_1.49.4__0.8.2"
+          "digest": "sha256:31e45d8042b03c2c4f6e7d5f67164cd5008fb10619a09f6b8681363e7b59f0d6"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
-      "version": "0.8.2",
+      "version": "0.8.3",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
