@@ -21,7 +21,7 @@ const DEMO_WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/orchestrator-demo.git";
 const WORKFLOW_REPO_REF =
   process.env.SERVERLESS_WORKFLOWS_REF ||
-  "daeeee8dec16beab6d96a81774ef500081a2c2b0";
+  "2c8de41b292794832f40b8e376da434495683efc";
 
 const MANIFEST_DIRS = [
   "workflows/greeting/manifests",
