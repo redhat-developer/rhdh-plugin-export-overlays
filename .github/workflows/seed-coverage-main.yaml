@@ -7,10 +7,10 @@ name: Seed E2E coverage to main
 # default-branch view stays empty for rolled-out workspaces.
 #
 # This job re-attributes each committed coverage snapshot
-# (coverage-snapshots/<workspace>.lcov) to the current main commit, so the
-# Codecov default-branch headline and per-flag trend reflect the workspaces
-# already rolled out. It is a bridge until live main-attributed coverage exists
-# (see the E2E coverage section in README.md).
+# (coverage-snapshots/<workspace>.lcov) to the current main commit (via the
+# Codecov CLI --sha), so the Codecov default-branch headline and per-flag trend
+# reflect the workspaces already rolled out. This is how the dashboard is fed —
+# see the E2E coverage section in README.md.
 
 on:
   schedule:
@@ -21,6 +21,13 @@ on:
       - "coverage-snapshots/**"
   workflow_dispatch:
 
+# A push to coverage-snapshots/** near the 06:00 schedule could run two seeds
+# against the same main SHA + flag; serialize them. Uploads are idempotent on
+# Codecov's side — this just avoids a wasted double-upload.
+concurrency:
+  group: seed-coverage-main
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
@@ -28,6 +35,7 @@ jobs:
   seed:
     name: Upload coverage snapshots to the current main commit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

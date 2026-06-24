@@ -34,6 +34,14 @@
 
 set -euo pipefail
 
+# Without a token, upload-coverage.sh warns and exits 0 for every workspace, so
+# the job would go green while uploading nothing. Fail fast on the
+# misconfiguration instead — for this upload-only job a missing token is a red X.
+if [[ -z "${CODECOV_TOKEN:-}" && -z "${VAULT_CODECOV_TOKEN:-}" ]]; then
+  echo "ERROR: no Codecov token (CODECOV_TOKEN / VAULT_CODECOV_TOKEN) — the seed would upload nothing. Set the CODECOV_TOKEN secret." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SNAPSHOT_DIR="$REPO_ROOT/coverage-snapshots"
@@ -50,6 +58,8 @@ fi
 echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
 FAILED=0
 for snapshot in "${snapshots[@]}"; do
+  # The snapshot basename must equal a workspaces/<dir> name — it becomes the
+  # Codecov flag (e2e-<ws>) and upload-coverage.sh validates the directory.
   ws="$(basename "$snapshot" .lcov)"
   echo ""
   echo "--- $ws (e2e-$ws) ---"
@@ -61,3 +71,8 @@ done
 
 echo ""
 echo "=== Done: $(( ${#snapshots[@]} - FAILED ))/${#snapshots[@]} seeded ==="
+# A green run here means "dashboard updated". If every seed failed (e.g. all
+# snapshots point at renamed/removed workspaces), that's a misconfiguration
+# worth a red X, not a buried WARN.
+[[ "$FAILED" -eq "${#snapshots[@]}" ]] && exit 1
+exit 0
