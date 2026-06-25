@@ -28,9 +28,8 @@ validation_loop:
 runner_env:
   GH_TOKEN: ${GH_TOKEN}
   PROW_URL: ${PROW_URL}
-  REPO_FULL_NAME: ${REPO_FULL_NAME}
-  JIRA_TOKEN: ${JIRA_TOKEN}
-  JIRA_URL: ${JIRA_URL}
+  REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+  JIRA_URL: https://issues.redhat.com
   FULLSEND_OUTPUT_SCHEMA: schemas/e2e-fix-result.schema.json
 
 timeout_minutes: 30
