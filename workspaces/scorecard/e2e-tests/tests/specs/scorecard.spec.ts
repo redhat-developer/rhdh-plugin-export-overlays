@@ -1,28 +1,16 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { type BrowserContext } from "@playwright/test";
 import {
-  LoginHelper,
-  UIhelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
-import { CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { type BrowserContext, type Page } from "@playwright/test";
-import {
-  aggregatedScorecardHelpers,
+  createScorecardContext,
+  deployRhdh,
   type AggregatedScorecardHelpers,
-} from "../utils/aggregated-scorecard";
-import {
-  FILECHECK_METRICS,
-  SCORECARD_METRICS,
-  scorecardHelpers,
   type ScorecardHelpers,
-} from "../utils/scorecard";
+} from "../utils/setup";
+import { SCORECARD_METRICS } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Plugin Tests", () => {
-  // Override the 90 s base timeout for all tests and hooks in this group.
-  // beforeAll: deploy (~5 min) + filecheck poll (~5 min) + github poll (~2 min) = ~12 min max.
-  test.describe.configure({ timeout: 12 * 60 * 1000 });
-
   let context: BrowserContext | undefined;
-  let page: Page;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
   let aggregated: AggregatedScorecardHelpers;
@@ -31,25 +19,15 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   let initialJiraCount: number;
 
   test.beforeAll(async ({ browser, rhdh }) => {
-    await rhdh.configure({
-      auth: "keycloak",
-      version: process.env.RHDH_VERSION ?? "1.10",
+    await deployRhdh(rhdh, {
+      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
-    await rhdh.deploy();
-
     // Wait 2 minutes for deployment to stabilize before running tests
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
-
-    context = await browser.newContext({
-      baseURL: rhdh.rhdhUrl,
-    });
-    page = await context.newPage();
-    const uiHelper = new UIhelper(page);
-    catalog = new CatalogPage(page);
-    scorecard = scorecardHelpers(page, uiHelper);
-    aggregated = aggregatedScorecardHelpers(page);
-    await new LoginHelper(page).loginAsKeycloakUser();
-    await uiHelper.goToPageUrl("/", "Welcome back!");
+    ({ context, catalog, scorecard, aggregated } = await createScorecardContext(
+      browser,
+      rhdh.rhdhUrl,
+    ));
   });
 
   test.afterAll(async () => {
@@ -63,16 +41,11 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     await scorecard.expectNoProgressBar();
     await scorecard.addWidget("Jira open blocking tickets");
     await scorecard.expectNoProgressBar();
-    await scorecard.addWidget("README file exists");
-    await scorecard.expectNoProgressBar();
 
     const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
     await scorecard.expectAggregatedScorecardVisible(githubMetric.title);
     await scorecard.expectAggregatedScorecardVisible(jiraMetric.title);
-    await scorecard.expectAggregatedScorecardVisible(
-      FILECHECK_METRICS.readme.title,
-    );
 
     initialGithubCount = await scorecard.getAggregatedScorecardEntityCount(
       githubMetric.title,
@@ -105,20 +78,6 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       jiraMetric,
       "jira.open_issues",
       { skipIfHasDrilldown: true },
-    );
-  });
-
-  test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
-    await aggregated.runAggregatedScorecardDrilldownScenario(
-      () => scorecard.navigateToHome(),
-      FILECHECK_METRICS.readme,
-      "filecheck.readme",
-      {
-        thresholdRules: [
-          { key: "exist", color: "rgb(46, 125, 50)" },
-          { key: "missing", color: "rgb(211, 47, 47)" },
-        ],
-      },
     );
   });
 
@@ -217,57 +176,21 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await scorecard.expectScorecardVisible(jiraMetric.title);
     });
 
-    const filecheckCases = [
-      {
-        entity: "filecheck-scorecard-github",
-        key: "readme",
-        expected: "exist",
-      },
-      {
-        entity: "filecheck-scorecard-github",
-        key: "license",
-        expected: "missing",
-      },
-      {
-        entity: "filecheck-scorecard-gitlab",
-        key: "readme",
-        expected: "exist",
-      },
-      {
-        entity: "filecheck-scorecard-gitlab",
-        key: "license",
-        expected: "missing",
-      },
-    ] as const;
+    // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
+    // eslint-disable-next-line playwright/no-skipped-test
+    test.skip("Verify aggregated scorecard counts increased after import", async () => {
+      await scorecard.navigateToHome();
 
-    for (const { entity, key, expected } of filecheckCases) {
-      test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
-        await scorecard.expectFilecheckForEntity(
-          async () => {
-            await catalog.go();
-            await catalog.goToByName(entity);
-          },
-          FILECHECK_METRICS[key].title,
-          expected,
-        );
-      });
-    }
-  });
+      const [githubMetric, jiraMetric] = SCORECARD_METRICS;
 
-  // Re-enable once https://issues.redhat.com/browse/RHIDP-12130 is fixed
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip("Verify aggregated scorecard counts increased after import", async () => {
-    await scorecard.navigateToHome();
-
-    const [githubMetric, jiraMetric] = SCORECARD_METRICS;
-
-    await scorecard.expectAggregatedScorecardEntityCountToBe(
-      githubMetric.title,
-      initialGithubCount + 1,
-    );
-    await scorecard.expectAggregatedScorecardEntityCountToBe(
-      jiraMetric.title,
-      initialJiraCount + 1,
-    );
+      await scorecard.expectAggregatedScorecardEntityCountToBe(
+        githubMetric.title,
+        initialGithubCount + 1,
+      );
+      await scorecard.expectAggregatedScorecardEntityCountToBe(
+        jiraMetric.title,
+        initialJiraCount + 1,
+      );
+    });
   });
 });
