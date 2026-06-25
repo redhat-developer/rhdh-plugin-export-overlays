@@ -108,6 +108,18 @@ Queries the container registry for each plugin's OCI image to retrieve:
 Then updates `plugin_builds` with the relevant metadata.
 Images that don't exist in the registry are logged as warnings.
 
+#### Tag Resolution Strategy
+
+For each plugin, the image metadata fetch follows a three-tier resolution:
+
+1. **Exact tag match**: The constructed tag (e.g., `1.10.0--1.5.4`) is queried directly. If the image exists, its metadata is used as-is.
+
+2. **RHDH version alias** (quay.io/rhdh only): If the exact tag is not found and the RHDH version prefix has three parts (x.y.z), the patch version is stripped to try the minor-version alias (e.g., `1.10.2--` → `1.10--`). This is because downstream builds are not repeated for each RHDH patch release if the plugin hasn't changed — a build done during `1.10.0` produces both `1.10.0--1.5.4` and `1.10--1.5.4` tags, and the `1.10--` alias remains valid for `1.10.1`, `1.10.2`, etc. If the exact plugin version is found under the alias, the resolved reference is used without marking it as a fallback. If the alias has tags but not the exact plugin version, the plugin is reported as not found — a new downstream build is needed.
+
+3. **Fallback to latest version**: If the exact plugin version is not found under the original prefix, the latest published plugin version within that prefix is used. This is flagged as a fallback in the output, and the metadata YAML's `version:` field is updated to match. Fallback only applies within the original prefix — the alias (minor-version) prefix is only used for exact matches.
+
+Alias resolution does not apply to ghcr.io (community) builds, which use Backstage version prefixes (`bs_x.y.z__`).
+
 ### Step 3: DPDY Generation (`generateDynamicPluginsDefaultYaml.sh`)
 
 Generates `dynamic-plugins.default.yaml` — the default plugin configuration shipped with RHDH. This step only runs for the **supported** tier (requires a YAML-format packages file with enabled/disabled structure).
