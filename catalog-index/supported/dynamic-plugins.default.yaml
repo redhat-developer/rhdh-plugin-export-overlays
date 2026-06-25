@@ -117,7 +117,7 @@ plugins:
           backstage.plugin-techdocs-module-addons-contrib:
             techdocsAddons:
               - importName: ReportIssue
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:c294731ee5ed0af3cb314e3e248f79bb4e6d8642201133965ee3d7c83e7a3ff5
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:832be0a033405e6bc0462f76625b19a8b5f7fb90a087b9edfa09eb94a7931c04
   # Tag: bs_1.49.4__0.8.3, Build date: 2026-06-03T21:17:56Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -726,7 +726,7 @@ plugins:
   # enabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-kubernetes-dynamic
     enabled: false
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:79150a9a8e3a610cd52b45bd2f2e734f3e91f452f98919afef55c5379b4da274
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:fa74a440524a4158bab212db3b2ef93eef1c32f0aa9ea2bd294030334fef26df
   # Tag: bs_1.49.4__1.17.0, Build date: 2026-06-03T21:08:19Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -753,7 +753,7 @@ plugins:
                   props:
                     width: 1500
                     height: 800
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:c8574d4a23707eb88396a0820397c3db33f902edaeba0d39b7b1969e83c47b40
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:d30fdbebc361d7b02360267b253523ce439f888be04978b9ad194b26b6036501
   # Tag: bs_1.49.4__1.16.0, Build date: 2026-05-22T15:09:03Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -763,7 +763,7 @@ plugins:
     pluginConfig:
       techRadar:
         url: ${TECH_RADAR_DATA_URL}
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:f60ff647852aee0578991d2f2178d8df217c0f157d8d424c9b932baeb6cb5bcc
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:596a4f2e7097ce5027fe2afad274986fb07646ff239419450290a981dcb0e488
   # Tag: bs_1.49.4__2.12.3, Build date: 2026-06-03T21:11:38Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -1190,7 +1190,7 @@ plugins:
         apiUrl: "https://quay.io"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0
     enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.37.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:ff8d2810c9eaee7e09191ac8c4f34af60bd9a98f1be29b47eef6ce37732bb265
     enabled: false
     pluginConfig:
       dynamicPlugins:

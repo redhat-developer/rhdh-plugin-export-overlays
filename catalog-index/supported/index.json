@@ -110,7 +110,7 @@
   },
   "backstage-community-plugin-tech-radar": {
     "workspacePath": "tech-radar/plugins/tech-radar",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:79150a9a8e3a610cd52b45bd2f2e734f3e91f452f98919afef55c5379b4da274",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:fa74a440524a4158bab212db3b2ef93eef1c32f0aa9ea2bd294030334fef26df",
     "build-date": "2026-06-03T21:08:19Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -121,7 +121,7 @@
   },
   "backstage-community-plugin-tech-radar-backend": {
     "workspacePath": "tech-radar/plugins/tech-radar-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:c8574d4a23707eb88396a0820397c3db33f902edaeba0d39b7b1969e83c47b40",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:d30fdbebc361d7b02360267b253523ce439f888be04978b9ad194b26b6036501",
     "build-date": "2026-05-22T15:09:03Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -132,14 +132,14 @@
   },
   "backstage-community-plugin-tekton": {
     "workspacePath": "tekton/plugins/tekton",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:1890c37b5966095087e31d1a75073b1e26279575f6dab2fe3956e0bf7baadf45",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:ff8d2810c9eaee7e09191ac8c4f34af60bd9a98f1be29b47eef6ce37732bb265",
     "support": "community",
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLWNvbW11bml0eS1wbHVnaW4tdGVrdG9uIjp7Im5hbWUiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tdGVrdG9uLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMy4zNy4wIiwiYmFja3N0YWdlIjp7InJvbGUiOiJmcm9udGVuZC1wbHVnaW4iLCJwbHVnaW5JZCI6InRla3RvbiIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlLWNvbW11bml0eS9wbHVnaW4tdGVrdG9uIiwicGx1Z2luUGFja2FnZXMiOlsiQGJhY2tzdGFnZS1jb21tdW5pdHkvcGx1Z2luLXRla3RvbiIsIkBiYWNrc3RhZ2UtY29tbXVuaXR5L3BsdWdpbi10ZWt0b24tY29tbW9uIiwiQGJhY2tzdGFnZS1jb21tdW5pdHkvcGx1Z2luLXRla3Rvbi1yZWFjdCJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjQ5LjIifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9jb21tdW5pdHktcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvdGVrdG9uL3BsdWdpbnMvdGVrdG9uIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiY2hyaXN0b3BoLWplcm9saW1vdiIsIkBkZWJzbWl0YTEiLCJAZGl2eWFuc2hpR3VwdGEiXSwiYXV0aG9yIjoiUmVkIEhhdCIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vYmFja3N0YWdlL2NvbW11bml0eS1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImt1YmVybmV0ZXMiLCJ0ZWt0b24iLCJiYWNrc3RhZ2UiLCJwbHVnaW4iXX19XQ==",
     "imageTag": "bs_1.49.4__3.37.0"
   },
   "backstage-community-plugin-topology": {
     "workspacePath": "topology/plugins/topology",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:f60ff647852aee0578991d2f2178d8df217c0f157d8d424c9b932baeb6cb5bcc",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:596a4f2e7097ce5027fe2afad274986fb07646ff239419450290a981dcb0e488",
     "build-date": "2026-06-03T21:11:38Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -370,7 +370,7 @@
   },
   "red-hat-developer-hub-backstage-plugin-adoption-insights": {
     "workspacePath": "adoption-insights/plugins/adoption-insights",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:c294731ee5ed0af3cb314e3e248f79bb4e6d8642201133965ee3d7c83e7a3ff5",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:832be0a033405e6bc0462f76625b19a8b5f7fb90a087b9edfa09eb94a7931c04",
     "build-date": "2026-06-03T21:17:56Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -381,7 +381,7 @@
   },
   "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
     "workspacePath": "adoption-insights/plugins/adoption-insights-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:e56b8608d8865131143359ce9784312173a883c525da4a3c83d04c574e133971",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:46d6e98b9572cd4a9294e07e3a54403e437402b3d982ea4b92060734698c28c8",
     "build-date": "2026-05-22T15:13:50Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -392,7 +392,7 @@
   },
   "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights": {
     "workspacePath": "adoption-insights/plugins/analytics-module-adoption-insights",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:01b57f8e479be3f0ac83b8356d017d236b148ce430f36211f17b046ecf8933ee",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:af35fd165da31bc036acaa636e184904c2d1220a1614cd48c3ba4164f7d0b55c",
     "build-date": "2026-06-03T21:21:00Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
