@@ -1,20 +1,17 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
+import { GITHUB_ORG } from "../../support/constants/github";
 
 const TEMPLATE_TITLE =
   "Create catalog-info.yaml in GitHub/GitLab repository" as const;
-
-// TODO: revert to GITHUB_ORG ("janus-qe") before merging — using personal account for local dev
-// const LOCAL_DEV_GITHUB_ORG = "janus-qe";
-const LOCAL_DEV_GITHUB_ORG = "dom-aug-org";
 
 const repositoryParametersGitHub = {
   repoUrl: "",
   branchName: "backstage-integration",
   targetBranchName: "main",
   name: `bulk-import-template-${Date.now()}`,
-  organization: LOCAL_DEV_GITHUB_ORG,
+  organization: GITHUB_ORG,
   gitProviderHost: "github.com",
 };
 repositoryParametersGitHub.repoUrl = `github.com?owner=${repositoryParametersGitHub.organization}&repo=${repositoryParametersGitHub.name}`;
