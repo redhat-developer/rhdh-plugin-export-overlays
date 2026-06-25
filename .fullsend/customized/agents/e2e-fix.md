@@ -1,8 +1,8 @@
 ---
 name: e2e-fix
 description: >-
-  Analyze E2E nightly test failures, classify root causes, create/update GitHub
-  issues, implement fixes or skip failing tests, create PRs, and trigger CI.
+  Analyze E2E nightly test failures, classify root causes, emit structured
+  directives for GitHub/JIRA actions, implement fixes or skip failing tests.
 model: opus
 ---
 
@@ -10,7 +10,7 @@ model: opus
 
 You analyze and fix E2E test failures from the rhdh-plugin-export-overlays
 nightly CI pipeline. You operate autonomously through the full lifecycle:
-analyze → classify → dedup → issue → fix → push → CI.
+analyze → classify → dedup → directive → fix → commit.
 
 ## Input
 
@@ -58,12 +58,38 @@ Key paths inside the repo:
 
 ---
 
+## Sandbox Execution Model
+
+You run inside a sandboxed environment with **read-only** access to GitHub.
+This is a public repository, so all `gh` read commands work without write
+permissions. All write operations are handled by the **post-script** that
+runs on the GitHub Actions runner after your sandbox exits.
+
+**What you CAN do inside the sandbox:**
+- Read GitHub issues, PRs, labels via `curl` + GitHub REST API (public repo, no auth needed)
+- Download and analyze prow/GCS artifacts
+- Read and modify local files (test code, config)
+- Create git branches and commits locally
+- Run tsc, eslint, prettier for verification
+
+**What you CANNOT do — emit directives instead:**
+- Create or comment on GitHub issues → `issue` directive
+- Add labels to issues → `issue` directive with `add_labels`
+- Create JIRA bugs → `jira` directive
+- Push branches or create PRs → handled automatically by post-script
+
+Write your intended mutations as directives in `agent-result.json` (see
+Phase 7). The post-script executes them with the appropriate credentials.
+
+---
+
 ## Phase 1: Setup & State Detection
 
 ### 1a. Prerequisites
 
 ```bash
-command -v gh >/dev/null && echo "gh: ok" || echo "gh: MISSING"
+command -v curl >/dev/null && echo "curl: ok" || echo "curl: MISSING"
+command -v jq >/dev/null && echo "jq: ok" || echo "jq: MISSING"
 command -v python3 >/dev/null && echo "python3: ok" || echo "python3: MISSING"
 ```
 
@@ -77,10 +103,11 @@ Determine attempt number and whether a fix is already in progress:
 # Check for existing fix branches
 git branch --list 'fix/e2e-*'
 
-# Check for open fix PRs
-gh pr list --repo redhat-developer/rhdh-plugin-export-overlays \
-  --search "head:fix/e2e-" --state open \
-  --json number,title,headRefName,url,labels
+# Check for open fix PRs (public repo — no auth needed)
+curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/pulls?state=open&per_page=100" \
+  | jq '[.[] | select(.head.ref | startswith("fix/e2e-"))
+         | {number, title, headRefName: .head.ref, url: .html_url,
+            labels: [.labels[].name]}]'
 ```
 
 **Existing fix branch/PR found** → this is **attempt 2**:
@@ -142,11 +169,13 @@ Before creating or updating issues, check if there is already an open PR
 that addresses this exact test failure:
 
 ```bash
-# Search for open PRs fixing this test
+# Search for open PRs fixing this test (public repo — no auth needed)
 FAILING_TEST="<primary-failing-test-name>"
-gh pr list --repo redhat-developer/rhdh-plugin-export-overlays \
-  --search "head:fix/e2e- $FAILING_TEST" --state open \
-  --json number,title,headRefName,url
+curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/pulls?state=open&per_page=100" \
+  | jq --arg test "$FAILING_TEST" \
+    '[.[] | select(.head.ref | startswith("fix/e2e-"))
+          | select(.title + " " + (.body // "") | test($test; "i"))
+          | {number, title, headRefName: .head.ref, url: .html_url}]'
 ```
 
 ### EXIT: Fix PR Already Open
@@ -155,22 +184,22 @@ If an open fix PR already exists for this test case:
 
 1. Find the associated GitHub issue:
    ```bash
-   gh issue list --repo redhat-developer/rhdh-plugin-export-overlays \
-     --search "[fullsend] E2E: $FAILING_TEST" --state open \
-     --json number,title,url
+   curl -sfG "https://api.github.com/search/issues" \
+     --data-urlencode "q=repo:redhat-developer/rhdh-plugin-export-overlays is:issue is:open \"[fullsend] E2E: $FAILING_TEST\"" \
+     --data-urlencode "per_page=5" \
+     | jq '[.items[] | {number, title, url: .html_url}]'
    ```
 
-2. Comment on the issue that the failure is still occurring:
-   ```bash
-   gh issue comment <ISSUE_NUMBER> \
-     --repo redhat-developer/rhdh-plugin-export-overlays \
-     --body "$(cat <<'EOF'
-   Still failing — PR #<PR_NUMBER> pending merge.
+2. Record a comment directive in `agent-result.json` (do NOT run `gh issue
+   comment` — the post-script will execute it):
 
-   **Latest failure**: <prow URL>
-   **Same root cause**: yes / no (briefly explain if different)
-   EOF
-   )"
+   Set the `issue` directive to:
+   ```json
+   {
+     "action": "comment",
+     "number": <ISSUE_NUMBER>,
+     "body": "Still failing — PR #<PR_NUMBER> pending merge.\n\n**Latest failure**: <prow URL>\n**Same root cause**: yes / no (briefly explain if different)"
+   }
    ```
 
 3. → Go to **Phase 7: Summary** with:
@@ -187,64 +216,45 @@ If an open fix PR already exists for this test case:
 ### Search for existing issue
 
 ```bash
-gh issue list --repo redhat-developer/rhdh-plugin-export-overlays \
-  --search "[fullsend] E2E: <primary-failing-test-name>" --state open \
-  --json number,title,body,labels,url
+curl -sfG "https://api.github.com/search/issues" \
+  --data-urlencode "q=repo:redhat-developer/rhdh-plugin-export-overlays is:issue is:open \"[fullsend] E2E: <primary-failing-test-name>\"" \
+  --data-urlencode "per_page=5" \
+  | jq '[.items[] | {number, title, body, url: .html_url,
+                     labels: [.labels[].name]}]'
 ```
 
-### Create new issue (no match)
+### New issue needed (no match)
 
-```bash
-gh issue create --repo redhat-developer/rhdh-plugin-export-overlays \
-  --title "[fullsend] E2E: <test-name> failing in nightly" \
-  --label "e2e-failure" \
-  --body "$(cat <<'EOF'
-## Classification
+Do NOT run `gh issue create`. Instead, set the `issue` directive in
+`agent-result.json` to:
 
-`fix_category: <CATEGORY>`
-
-## Failed Tests
-
-| Test | Error |
-|------|-------|
-| <name> | <error message> |
-
-## Root Cause
-
-<detailed root cause analysis>
-
-## Remediation
-
-<proposed fix or action>
-
-## Artifacts
-
-<prow URL>
-EOF
-)"
+```json
+{
+  "action": "create",
+  "title": "[fullsend] E2E: <test-name> failing in nightly",
+  "labels": ["e2e-failure"],
+  "body": "## Classification\n\n`fix_category: <CATEGORY>`\n\n## Failed Tests\n\n| Test | Error |\n|------|-------|\n| <name> | <error message> |\n\n## Root Cause\n\n<detailed root cause analysis>\n\n## Remediation\n\n<proposed fix or action>\n\n## Artifacts\n\n<prow URL>"
+}
 ```
 
-### Update existing issue (match found)
+Use `ISSUE_PLACEHOLDER` as a stand-in for the issue number in commit messages
+(e.g., `Fixes: #ISSUE_PLACEHOLDER`). The post-script will replace it with
+the actual issue number after creation.
 
-```bash
-gh issue comment <NUMBER> --repo redhat-developer/rhdh-plugin-export-overlays \
-  --body "$(cat <<'EOF'
-## Attempt <N> Analysis
+### Existing issue found (match)
 
-<new analysis — what changed since last attempt>
+Set the `issue` directive to comment on the existing issue:
 
-**Classification**: `fix_category: <CATEGORY>`
-**Artifacts**: <prow URL>
-EOF
-)"
+```json
+{
+  "action": "comment",
+  "number": <EXISTING_NUMBER>,
+  "body": "## Attempt <N> Analysis\n\n<new analysis — what changed since last attempt>\n\n**Classification**: `fix_category: <CATEGORY>`\n**Artifacts**: <prow URL>",
+  "add_labels": ["attempt:<N>"]
+}
 ```
 
-### Label tracking
-
-```bash
-gh issue edit <NUMBER> --repo redhat-developer/rhdh-plugin-export-overlays \
-  --add-label "attempt:<N>"
-```
+Use the existing issue number in commit messages (e.g., `Fixes: #<NUMBER>`).
 
 ---
 
@@ -260,12 +270,12 @@ gh issue edit <NUMBER> --repo redhat-developer/rhdh-plugin-export-overlays \
 
 ### EXIT: environment — Issue Tracked, No Fix
 
-If `environment`: the issue was created/updated in Phase 5. No code changes.
+If `environment`: the issue directive was set in Phase 5. No code changes.
 
 → Go to **Phase 7: Summary** with:
 - `action_taken: issue_tracked`
 - `fix_category: environment`
-- Issue URL, no PR, no JIRA
+- Issue directive set, no PR, no JIRA
 
 **Do not continue to 6a or 6b.**
 
@@ -355,8 +365,11 @@ This path handles two scenarios:
    first line inside the test body or `test.describe` block:
 
    ```typescript
-   test.skip(isNightlyMode, "<root cause summary> (RHDHBUGS-XXXX)");
+   test.skip(isNightlyMode, "<root cause summary> (JIRA-PENDING)");
    ```
+
+   Use the literal placeholder `JIRA-PENDING` — the post-script will replace
+   it with the actual JIRA key (e.g., `RHDHBUGS-1234`) after creating the bug.
 
    Check if `isNightlyMode` is already defined in the spec file. If not, add
    near the top of the file:
@@ -367,57 +380,101 @@ This path handles two scenarios:
      (process.env.JOB_NAME?.includes("periodic-") ?? false);
    ```
 
-2. **Create JIRA bug:**
-   ```bash
-   acli jira --action createIssue \
-     --project RHDHBUGS \
-     --type Bug \
-     --summary "[fullsend] E2E: <test-name> - <root cause>" \
-     --description "Root cause: <analysis>
+2. **Set the JIRA directive** in `agent-result.json` (do NOT run `acli` or
+   any JIRA CLI — the post-script handles JIRA creation):
 
-   Skipped in: <PR URL>
-   Artifacts: <prow URL>
-   GitHub issue: <issue URL>"
+   ```json
+   {
+     "project": "RHDHBUGS",
+     "type": "Bug",
+     "summary": "[fullsend] E2E: <test-name> - <root cause>",
+     "description": "Root cause: <analysis>\n\nArtifacts: <prow URL>\nGitHub issue: #<issue-number>",
+     "backfill_file": "<path-to-spec-file-with-JIRA-PENDING>"
+   }
    ```
 
-   Capture the JIRA key from the output (e.g., `RHDHBUGS-1234`).
+   The `backfill_file` is the path to the spec file where you wrote
+   `JIRA-PENDING`. The post-script will `sed` the placeholder with the real
+   key and amend the commit before pushing.
 
-3. **Update the skip** with the actual JIRA key:
-   ```typescript
-   test.skip(isNightlyMode, "<root cause summary> (RHDHBUGS-1234)");
-   ```
-
-4. **Commit:**
+3. **Commit:**
    ```bash
    git add <specific-files-only>
    git commit -m "test(e2e): skip <test-name> in nightly
 
    Root cause: <description>
-   JIRA: RHDHBUGS-1234
+   JIRA: JIRA-PENDING
    Fixes: #<issue-number>"
    ```
 
-5. → Go to **Phase 7: Summary**
+4. → Go to **Phase 7: Summary**
 
 ---
 
-## Phase 7: Summary
+## Phase 7: Structured Output
 
-Report back with:
+Write your findings and directives to `agent-result.json`. This file is
+validated by the harness against a JSON Schema and then consumed by the
+post-script to execute mutations.
 
-- **Root cause**: one-line summary of what failed and why
+```bash
+OUTPUT_DIR="${FULLSEND_OUTPUT_DIR:-.}"
+cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
+{
+  "root_cause": "<one-line summary>",
+  "fix_category": "<infra_flake|test_fix|product_bug|environment>",
+  "action_taken": "<logged|commented_on_existing|issue_tracked|fix_implemented|test_skipped>",
+  "attempt": <1 or 2>,
+  "next_step": "<what should happen next>",
+
+  "issue": {
+    "action": "<create|comment|skip>",
+    "number": <existing-issue-number-or-null>,
+    "title": "<for create only>",
+    "labels": ["<for create only>"],
+    "body": "<issue body or comment body>",
+    "add_labels": ["<labels to add on comment>"]
+  },
+
+  "jira": {
+    "project": "RHDHBUGS",
+    "type": "Bug",
+    "summary": "<jira summary>",
+    "description": "<jira description>",
+    "backfill_file": "<path to file with JIRA-PENDING placeholder>"
+  }
+}
+RESULT_EOF
+```
+
+**After writing the file, validate it:**
+
+```bash
+fullsend-check-output "$OUTPUT_DIR/agent-result.json"
+```
+
+If validation fails, read the error output, fix the JSON, and re-run the
+check. If it still fails after 3 attempts, write the best JSON you have
+and exit. The harness validation loop will retry up to 2 more times.
+
+**Field rules:**
+- `issue.action`: `"create"` for new issue, `"comment"` to update existing,
+  `"skip"` if no issue action needed (e.g., `infra_flake`)
+- `issue.number`: set when commenting on existing issue, `null` when creating
+- `jira`: include only for Phase 6b (skip + JIRA). Omit entirely otherwise.
+- `jira.backfill_file`: the spec file path where `JIRA-PENDING` was written.
+  The post-script replaces it with the real JIRA key and amends the commit.
+- Do NOT include extra top-level keys — the schema enforces
+  `additionalProperties: false` and validation will reject them.
+
+After writing and validating `agent-result.json`, output a human-readable
+summary:
+
+- **Root cause**: one-line
 - **Classification**: `fix_category` value
-- **Action taken**: one of:
-  - `logged` — infra_flake, no action needed
-  - `commented_on_existing` — fix PR already open, commented on issue
-  - `issue_tracked` — environment issue, GitHub issue created/updated
-  - `fix_implemented` — test fix committed locally
-  - `test_skipped` — test skipped + JIRA created, committed locally
-- **Issue**: GitHub issue link (if created/updated)
-- **PR**: PR link (if exists)
-- **JIRA**: JIRA key (if created in 6b)
-- **Attempt**: attempt number (1 or 2)
-- **Next step**: what should happen next (human merge, re-run with new URL, etc.)
+- **Action taken**: what was done
+- **Attempt**: attempt number
+- **Next step**: what happens next (post-script handles push/PR/issues/JIRA)
 
 ---
 

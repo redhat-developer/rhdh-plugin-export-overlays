@@ -35,14 +35,14 @@ network_policies:
         port: 443
         protocol: rest
         enforcement: enforce
-        access: read-write
+        access: read-only
       - host: "github.com"
         port: 443
         protocol: rest
         enforcement: enforce
-        access: read-write
+        access: read-only
     binaries:
-      - path: "**/gh"
+      - path: "**/curl"
       - path: "**/git"
       - path: "**/node"
 
@@ -67,19 +67,6 @@ network_policies:
     binaries:
       - path: "**/node"
       - path: "**/gcloud"
-
-  jira_api:
-    name: jira-api
-    endpoints:
-      - host: "issues.redhat.com"
-        port: 443
-        protocol: rest
-        enforcement: enforce
-        access: read-write
-    binaries:
-      - path: "**/acli"
-      - path: "**/java"
-      - path: "**/node"
 
   package_registries:
     name: package-registries

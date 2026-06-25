@@ -21,8 +21,16 @@ skills:
 
 post_script: scripts/post-e2e-fix.sh
 
+validation_loop:
+  script: scripts/validate-output-schema.sh
+  max_iterations: 2
+
 runner_env:
   GH_TOKEN: ${GH_TOKEN}
   PROW_URL: ${PROW_URL}
+  REPO_FULL_NAME: ${REPO_FULL_NAME}
+  JIRA_TOKEN: ${JIRA_TOKEN}
+  JIRA_URL: ${JIRA_URL}
+  FULLSEND_OUTPUT_SCHEMA: schemas/e2e-fix-result.schema.json
 
 timeout_minutes: 30
