@@ -19,6 +19,16 @@ const repositoryParametersGitHub = {
 };
 repositoryParametersGitHub.repoUrl = `github.com?owner=${repositoryParametersGitHub.organization}&repo=${repositoryParametersGitHub.name}`;
 
+const repositoryParametersGitLab = {
+  repoUrl: "",
+  branchName: "backstage-integration",
+  targetBranchName: "main",
+  name: "test-repo",
+  organization: "test-org",
+  gitProviderHost: "gitlab.com",
+};
+repositoryParametersGitLab.repoUrl = `gitlab.com?owner=${repositoryParametersGitLab.organization}&repo=${repositoryParametersGitLab.name}`;
+
 test.describe("Bulk Import via Scaffolder Template", () => {
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce("bulk-import-scaffolder-template-setup", async () => {
@@ -131,19 +141,28 @@ test.describe("Bulk Import via Scaffolder Template", () => {
 
     await uiHelper.fillTextInputByLabel(
       "Repository URL (Backstage format)",
-      "gitlab.com?owner=test-org&repo=test-repo",
+      repositoryParametersGitLab.repoUrl,
     );
-    await uiHelper.fillTextInputByLabel("Owner of the Repository", "test-org");
-    await uiHelper.fillTextInputByLabel("Name of the repository", "test-repo");
+    await uiHelper.fillTextInputByLabel(
+      "Owner of the Repository",
+      repositoryParametersGitLab.organization,
+    );
+    await uiHelper.fillTextInputByLabel(
+      "Name of the repository",
+      repositoryParametersGitLab.name,
+    );
     await uiHelper.fillTextInputByLabel(
       "The branch to add the catalog entity to",
-      "backstage-integration",
+      repositoryParametersGitLab.branchName,
     );
     await uiHelper.fillTextInputByLabel(
       "The branch to target the PR/MR to",
-      "main",
+      repositoryParametersGitLab.targetBranchName,
     );
-    await uiHelper.fillTextInputByLabel("Git provider host", "gitlab.com");
+    await uiHelper.fillTextInputByLabel(
+      "Git provider host",
+      repositoryParametersGitLab.gitProviderHost,
+    );
 
     await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
   });
