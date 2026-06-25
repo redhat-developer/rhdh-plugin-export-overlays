@@ -26,6 +26,9 @@ integrations:
   github:
     - host: github.com
       token: ${VAULT_GITHUB_USER_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: temp
 
 bulkImport:
   importTemplate: create-pr-with-catalog-info
