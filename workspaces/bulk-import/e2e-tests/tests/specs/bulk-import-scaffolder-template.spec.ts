@@ -90,6 +90,7 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     await uiHelper.clickBtnInCard(TEMPLATE_TITLE, "Choose");
     await uiHelper.waitForTitle(TEMPLATE_TITLE, 2);
 
+    // Repository Details screen
     await uiHelper.fillTextInputByLabel(
       "Repository URL (Backstage format)",
       repositoryParametersGitHub.repoUrl,
@@ -110,11 +111,15 @@ test.describe("Bulk Import via Scaffolder Template", () => {
       "The branch to target the PR/MR to",
       repositoryParametersGitHub.targetBranchName,
     );
-    await uiHelper.fillTextInputByLabel("Git provider host", "github.com");
+    await uiHelper.fillTextInputByLabel(
+      "Git provider host",
+      repositoryParametersGitHub.gitProviderHost,
+    );
 
     await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
     await uiHelper.clickButton("Review");
 
+    // Review screen
     await expect(
       page.getByRole("button", { name: "Create", exact: true }),
     ).toBeVisible();
@@ -139,6 +144,7 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     await uiHelper.clickBtnInCard(TEMPLATE_TITLE, "Choose");
     await uiHelper.waitForTitle(TEMPLATE_TITLE, 2);
 
+    // Repository Details screen
     await uiHelper.fillTextInputByLabel(
       "Repository URL (Backstage format)",
       repositoryParametersGitLab.repoUrl,
@@ -165,5 +171,13 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     );
 
     await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
+    await uiHelper.clickButton("Review");
+
+    // Review screen
+    await expect(
+      page.getByRole("button", { name: "Create", exact: true }),
+    ).toBeVisible();
+
+    // test might continue here with finishing the gitlab import
   });
 });
