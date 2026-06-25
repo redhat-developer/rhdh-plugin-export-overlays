@@ -1,5 +1,10 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
+/**
+ * Ordered execution across files while sharing one namespace.
+ * Namespace stays stable via `tests/support/test-helper.ts` (`RHDH_NAMESPACE` fallback).
+ * Keep a literal `projects: [ ... ]` block so `run-e2e.sh` can parse this config.
+ */
 export default defineConfig({
   projects: [
     {
