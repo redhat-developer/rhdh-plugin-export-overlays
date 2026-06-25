@@ -5,8 +5,22 @@ export default defineConfig({
     {
       name: "lightspeed",
       workers: 1,
-      testMatch: "ordered/*.ordered.spec.ts",
+      testMatch: "lightspeed.spec.ts",
       timeout: 5 * 60 * 1000,
+    },
+    {
+      name: "lightspeed-notebook",
+      workers: 1,
+      testMatch: "notebook.spec.ts",
+      timeout: 5 * 60 * 1000,
+      dependencies: ["lightspeed"],
+    },
+    {
+      name: "lightspeed-mcp",
+      workers: 1,
+      testMatch: "mcp.spec.ts",
+      timeout: 5 * 60 * 1000,
+      dependencies: ["lightspeed-notebook"],
     },
   ],
 });
