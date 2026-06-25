@@ -79,7 +79,7 @@ spec:
       plugins:
         # Frontend plugin
         - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-          disabled: false
+          enabled: true
           pluginConfig:
             dynamicPlugins:
               frontend:
@@ -238,7 +238,7 @@ spec:
                       ref: homepageTranslationRef
         # Backend plugin
         - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.0!red-hat-developer-hub-backstage-plugin-homepage-backend
-          disabled: false
+          enabled: true
           pluginConfig:
             homepage:
               defaultWidgets:
