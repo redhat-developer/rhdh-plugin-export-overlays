@@ -12,7 +12,7 @@ auth:
         signIn:
           resolvers:
             # TODO: remove dangerouslyAllowSignInWithoutUserInCatalog before merging — local dev only
-            - resolver: usernameMatchingUserEntityAnnotation
+            - resolver: usernameMatchingUserEntityName
               dangerouslyAllowSignInWithoutUserInCatalog: true
 
 catalog:
