@@ -1,5 +1,5 @@
-# RHDH app config for bulk import via scaffolder template tests.
-# Merged with defaults — only overrides needed for the template flow.
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
 
 auth:
   environment: development
@@ -9,11 +9,6 @@ auth:
         clientSecret: ${GITHUB_OAUTH_APP_SECRET}
         clientId: ${GITHUB_OAUTH_APP_ID}
         callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
-        signIn:
-          resolvers:
-            # TODO: remove dangerouslyAllowSignInWithoutUserInCatalog before merging — local dev only
-            - resolver: usernameMatchingUserEntityName
-              dangerouslyAllowSignInWithoutUserInCatalog: true
 
 catalog:
   rules:

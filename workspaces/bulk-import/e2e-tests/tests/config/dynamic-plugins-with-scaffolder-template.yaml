@@ -18,6 +18,5 @@ plugins:
                   icon: bulkImportIcon
                   text: Bulk import
 
-  # scaffolder GitHub module — required for publish:github:pull-request action
   - package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
     disabled: false
