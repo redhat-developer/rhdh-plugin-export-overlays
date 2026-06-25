@@ -1,5 +1,5 @@
-# Enable Scorecard plugin for e2e tests.
-# Dynamic Home Page is provided by the RHDH chart default; do not redefine it here to avoid config merge conflicts.
+# Enable Scorecard plugin for e2e tests (main scorecard project).
+# Filecheck backend module is intentionally excluded — it lives in filecheck/dynamic-plugins.yaml.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
     disabled: false
@@ -37,14 +37,6 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     metricId: "github.open_prs"
-              - mountPoint: home.page/cards
-                importName: ScorecardHomepageCard
-                config:
-                  id: "scorecard-filecheck.readme"
-                  title: "README file exists"
-                  description: "Checks if the README file exists in the repository"
-                  props:
-                    metricId: "filecheck.readme"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend
     disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github
@@ -57,11 +49,11 @@ plugins:
               schedule:
                 frequency:
                   hours: 0
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 15
                 initialDelay:
-                  seconds: 5
+                  seconds: 10
               thresholds:
                 rules:
                   - key: ideal
@@ -89,28 +81,12 @@ plugins:
             open_issues:
               schedule:
                 frequency:
-                  minutes: 1
+                  minutes: 5
                 timeout:
                   minutes: 5
                 initialDelay:
-                  seconds: 5
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.5!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
-    disabled: false
-    pluginConfig:
-      scorecard:
-        plugins:
-          filecheck:
-            files:
-              readme: "README.md"
-              license: "LICENSE"
-            schedule:
-              frequency:
-                minutes: 1
-              timeout:
-                minutes: 15
-              initialDelay:
-                seconds: 5
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.45.3__1.10.3!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+                  seconds: 15
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1!red-hat-developer-hub-backstage-plugin-dynamic-home-page
     disabled: false
     pluginConfig:
       dynamicPlugins:
