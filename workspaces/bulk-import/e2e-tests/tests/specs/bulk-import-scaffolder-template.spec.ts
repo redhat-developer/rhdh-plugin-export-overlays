@@ -136,8 +136,12 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     // Verify no errors in the task output
     await expect(page.getByRole("article").getByRole("alert")).toHaveCount(0);
 
-    // Verify task detail shows the PR creation step completed
-    await expect(page.getByText("Create PR (GitHub)")).toBeVisible();
+    // Verify the full scaffolder pipeline completed
+    await expect(
+      page
+        .getByRole("article")
+        .getByText("Finished step Register catalog-info.yaml in Backstage"),
+    ).toBeVisible();
   });
 
   test("GitLab form renders correctly", async ({ page, uiHelper }) => {
