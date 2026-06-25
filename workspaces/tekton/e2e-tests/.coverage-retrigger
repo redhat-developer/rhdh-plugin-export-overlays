@@ -1,0 +1,7 @@
+Temporary marker to re-run the e2e for tekton and generate coverage.
+
+tekton was merged with the e2e-test-utils 2.1.0 bump + coverage anchors, but
+its e2e (/test e2e-ocp-helm) never ran, so no coverage was uploaded. This
+PR exists only to trigger /publish + /test e2e-ocp-helm. Once the run
+reports coverage, the snapshot is committed separately (coverage-snapshots/)
+and THIS PR is closed — do not merge it.
