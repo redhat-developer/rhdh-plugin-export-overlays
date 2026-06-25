@@ -55,6 +55,10 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     await uiHelper.verifyHeading("Templates");
     await uiHelper.clickBtnInCard(TEMPLATE_TITLE, "Choose");
     await expect(page.getByText(TEMPLATE_TITLE)).toBeVisible();
+    await expect(
+      page.getByLabel("Repository URL (Backstage format)"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
   });
 
   test("Import a GitHub repository via scaffolder template", async ({
