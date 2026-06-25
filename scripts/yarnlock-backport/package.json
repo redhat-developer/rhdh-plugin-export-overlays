@@ -1,0 +1,16 @@
+{
+  "name": "yarnlock-backport",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generate yarn.lock CVE backport patches for RHDH plugin export overlays",
+  "type": "module",
+  "bin": {
+    "yarnlock-backport": "index.ts"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "yaml": "2.8.2"
+  }
+}
