@@ -30,6 +30,6 @@ runner_env:
   PROW_URL: ${PROW_URL}
   REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
   JIRA_URL: https://issues.redhat.com
-  FULLSEND_OUTPUT_SCHEMA: schemas/e2e-fix-result.schema.json
+  FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/schemas/e2e-fix-result.schema.json
 
 timeout_minutes: 30
