@@ -9,12 +9,17 @@ const TEMPLATE_TITLE =
 // const LOCAL_DEV_GITHUB_ORG = "janus-qe";
 const LOCAL_DEV_GITHUB_ORG = "dom-aug-org";
 
-test.describe("Bulk Import via Scaffolder Template", () => {
-  const repoName = `bulk-import-template-${Date.now()}`;
-  const repoOwner = LOCAL_DEV_GITHUB_ORG;
-  const branchName = "backstage-integration";
-  const targetBranchName = "main";
+const repositoryParametersGitHub = {
+  repoUrl: "",
+  branchName: "backstage-integration",
+  targetBranchName: "main",
+  name: `bulk-import-template-${Date.now()}`,
+  organization: LOCAL_DEV_GITHUB_ORG,
+  gitProviderHost: "github.com",
+};
+repositoryParametersGitHub.repoUrl = `github.com?owner=${repositoryParametersGitHub.organization}&repo=${repositoryParametersGitHub.name}`;
 
+test.describe("Bulk Import via Scaffolder Template", () => {
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce("bulk-import-scaffolder-template-setup", async () => {
       await setupBulkImportRhdh(rhdh, {
@@ -26,8 +31,8 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     });
 
     await APIHelper.createGitHubRepoWithFile(
-      repoOwner,
-      repoName,
+      repositoryParametersGitHub.organization,
+      repositoryParametersGitHub.name,
       "README.md",
       "Bulk import scaffolder template test repo",
     );
@@ -41,10 +46,15 @@ test.describe("Bulk Import via Scaffolder Template", () => {
 
   test.afterAll(async () => {
     try {
-      await APIHelper.deleteGitHubRepo(repoOwner, repoName);
+      await APIHelper.deleteGitHubRepo(
+        repositoryParametersGitHub.organization,
+        repositoryParametersGitHub.name,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Cleanup] Failed to delete repo ${repoName}: ${message}`);
+      console.error(
+        `[Cleanup] Failed to delete repo ${repositoryParametersGitHub.name}: ${message}`,
+      );
     }
   });
 
@@ -72,17 +82,23 @@ test.describe("Bulk Import via Scaffolder Template", () => {
 
     await uiHelper.fillTextInputByLabel(
       "Repository URL (Backstage format)",
-      `github.com?owner=${repoOwner}&repo=${repoName}`,
+      repositoryParametersGitHub.repoUrl,
     );
-    await uiHelper.fillTextInputByLabel("Owner of the Repository", repoOwner);
-    await uiHelper.fillTextInputByLabel("Name of the repository", repoName);
+    await uiHelper.fillTextInputByLabel(
+      "Owner of the Repository",
+      repositoryParametersGitHub.organization,
+    );
+    await uiHelper.fillTextInputByLabel(
+      "Name of the repository",
+      repositoryParametersGitHub.name,
+    );
     await uiHelper.fillTextInputByLabel(
       "The branch to add the catalog entity to",
-      branchName,
+      repositoryParametersGitHub.branchName,
     );
     await uiHelper.fillTextInputByLabel(
       "The branch to target the PR/MR to",
-      targetBranchName,
+      repositoryParametersGitHub.targetBranchName,
     );
     await uiHelper.fillTextInputByLabel("Git provider host", "github.com");
 
