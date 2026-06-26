@@ -1,8 +1,63 @@
 # Helm overrides for RHDH chart built-in Lightspeed (LCS sidecar + RAG init).
 # LLM credentials: rhdh-secrets.yaml (envsubst) — not lightspeed.servers in app-config.
+upstream:
+  backstage:
+    # This is rendered into redhat-developer-hub-app-config (loaded last at runtime),
+    # so keep MCP auth + server definitions here to avoid array-merge overrides.
+    appConfig:
+      backend:
+        actions:
+          pluginSources:
+            - software-catalog-mcp-extras
+            - techdocs-mcp-extras
+            - scaffolder-mcp-extras
+        auth:
+          externalAccess:
+            - type: legacy
+              options:
+                secret: ${BACKEND_SECRET}
+                subject: legacy-default-config
+            - type: static
+              options:
+                token: ${MCP_TOKEN}
+                subject: mcp-clients
+          keys:
+            - secret: ${BACKEND_SECRET}
+      mcpActions:
+        namespacedToolNames: false
+      lightspeed:
+        notebooks:
+          enabled: true
+          queryDefaults:
+            model: ${NOTEBOOK_DEFAULT_MODEL}
+            provider_id: ${NOTEBOOK_PROVIDER}
+        servicePort: 8080
+        mcpServers:
+          - name: mcp-integration-tools
+            token: ${MCP_TOKEN}
+          - name: mcp-token-required-tools
+          - name: mcp-observability-tools
+            token: ${MCP_TOKEN}
+
+    # Ensure the e2e app-config ConfigMap is actually merged into runtime config.
+    extraAppConfig:
+      - configMapRef: app-config-rhdh
+        filename: app-config-rhdh.yaml
+    # Keep all secret-backed env vars (MCP token, model keys) available to backend.
+    extraEnvVarsSecrets:
+      - rhdh-secrets
+
 global:
   lightspeed:
     enabled: true
+    initContainer:
+      name: lightspeed-rag-init
+      args:
+        - >-
+          mkdir -m 777 -p /rag-content/vector_db/notebooks &&
+          mkdir -m 777 -p /rag-content/vector_db/rhdh_product_docs/1.9 &&
+          mkdir -m 777 -p /rag-content/embeddings_model &&
+          echo 'E2E: RAG directories initialized.'
     secret:
       # Use the same secret e2e applies via rhdh-secrets.yaml (includes VLLM_* keys).
       create: false
@@ -13,13 +68,4 @@ global:
         - name: SERVICE_HOST
           value: "0.0.0.0"
 
-upstream:
-  backstage:
-    appConfig:
-      backend:
-        auth:
-          externalAccess:
-            - type: static
-              options:
-                token: ${MCP_TOKEN}
-                subject: mcp-clients
+# App-config-rhdh remains mounted for additional test-specific overrides/prompts.

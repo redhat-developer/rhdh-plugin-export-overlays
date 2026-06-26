@@ -15,9 +15,22 @@ permission:
 backend:
   actions:
     pluginSources:
-      - scaffolder-mcp-extras
       - software-catalog-mcp-extras
       - techdocs-mcp-extras
+      - scaffolder-mcp-extras
+  auth:
+    externalAccess:
+      # Keep legacy token behavior expected by Backstage internals.
+      - type: legacy
+        options:
+          secret: ${BACKEND_SECRET}
+          subject: legacy-default-config
+      - type: static
+        options:
+          token: ${MCP_TOKEN}
+          subject: mcp-clients
+    keys:
+      - secret: ${BACKEND_SECRET}
   csp:
     upgrade-insecure-requests: false
     img-src:

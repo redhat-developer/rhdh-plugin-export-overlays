@@ -231,7 +231,7 @@ test.describe("Lightspeed MCP", () => {
 
     await page.getByRole("button", { name: /close mcp settings/i }).click();
     await openLightspeed(page);
-    await selectChatModel(page, "gpt-4o-mini");
+    await selectChatModel(page, "gpt-5.1");
 
     await sendMessage(MCP_TOOL_CALL_PROMPT, page);
 
