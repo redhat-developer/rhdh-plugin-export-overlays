@@ -48,11 +48,14 @@ jobs:
       - name: Parse the e2e result comment
         id: parse
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Untrusted comment body passed via env (repo convention — see
+          # pr-actions.yaml) and read with process.env, never interpolated into
+          # the script source where it could break out of the string.
+          COMMENT_BODY: ${{ github.event.comment.body }}
         with:
           script: |
-            // comment.body is read from the runtime context, never interpolated
-            // into the script source, so it can't break out of the string.
-            const body = context.payload.comment.body || "";
+            const body = process.env.COMMENT_BODY || "";
             // "✅ Passed E2E Tests - `<workspace>`"
             const ws = body.match(/Passed E2E Tests\s*-\s*`([^`]+)`/);
             // The build-log link sits next to the workspace's Prow artifacts; the
