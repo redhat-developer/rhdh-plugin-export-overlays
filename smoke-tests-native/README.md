@@ -21,15 +21,17 @@ approach to show the smoke validation can be **in-process, no Docker**.
 ## What it does
 
 ```
-install CLI (extract OCI → dynamic-plugins-root)
-  → loadManifest()            # manifest.json from the CLI
+install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
+  → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
-  → startTestBackend()        # boot core + loaded features in-process
+  → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
   → validateFrontendBundle()  # scalprum/remoteEntry present (load-only)
   → results.json + exit code
 ```
 
-`src/loader.ts` is ported verbatim from RHDH PR #4967.
+`src/loader.ts` and `src/{module-resolution,plugin-config}.ts` are ported from RHDH
+PR #4967; `discoverPlugins()` replaces RHDH's `loadManifest()` because this CLI version
+lays out one dir per plugin instead of emitting a `manifest.json`.
 
 ## What it deliberately does NOT do
 
@@ -79,12 +81,12 @@ Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail
 - ✅ Install CLI interface confirmed: `@red-hat-developer-hub/cli-module-install-dynamic-plugins@0.3.0`
   (`install <dynamic-plugins-root>`), fetchable via `npx`.
 - ✅ Harness logic ported from the **already-green** RHDH nightly test (PR #4967).
-- ✅ Transpiles clean (esbuild); ESM `require` resolved via `createRequire`.
+- ✅ Builds clean (esbuild → `dist/native-smoke.mjs`, run with plain `node`); `tsc --noEmit` passes.
 - ✅ `patchModuleResolution()` ported (`src/module-resolution.ts`) so extracted plugins
   resolve their `@backstage/*` peers against this harness's `node_modules`. Requires a
   node-modules linker — see `.yarnrc.yml`.
-- ⏳ End-to-end run against live OCI images should execute in CI (Node 24 + `packages:read`),
-  producing the wall-clock comparison vs the Docker smoke job to attach to RHIDP-15075.
+- ✅ End-to-end run done locally (Node 24) against a real catalog-index plugin: `pass`,
+  backend loaded 1/1, `startTestBackend` booted — see the Benchmark section below.
 
 ## Module resolution
 
@@ -94,3 +96,26 @@ from RHDH PR #4967) extends `Module._nodeModulePaths` to append `HARNESS_NODE_MO
 before any plugin is `require`d. This is why the package uses `nodeLinker: node-modules`
 (`.yarnrc.yml`) rather than Yarn PnP — the patch needs a real `node_modules` directory to
 point at.
+
+## Benchmark: native vs Docker (real run)
+
+Same plugin both ways: `roadiehq-scaffolder-backend-module-http-request`
+(`bs_1.49.4__5.6.0`), from the real catalog index
+`quay.io/rhdh-community/plugin-catalog-index:1.11-bs_1.49.4`. Same minimal app-config
+(sqlite `:memory:` + guest). Node 24. The RHDH base image (`quay.io/rhdh-community/rhdh:next`,
+6.55 GB) was pre-pulled and is excluded from the Docker timing (one-time infra, amortized
+across all workspaces in a CI run).
+
+| Approach | What it does | Wall-clock |
+|----------|--------------|------------|
+| **Native (this harness)** | skopeo pull plugin → load → `startTestBackend` boot | **5 s cold, 3–4 s warm** |
+| **Docker smoke** (`run-workspace-smoke-tests.yaml`) | container start → in-container `install-dynamic-plugins` (pulls same plugin) → full `node packages/backend` boot → `/healthcheck` 200 | **104 s** |
+
+Roughly **20× faster cold, ~25–35× warm.** Both confirm the plugin loads; the Docker run
+additionally boots the entire RHDH backend (that extra work is exactly the overhead the
+in-process approach removes). Note the comparison is per-workspace — the Docker smoke boots
+one container per workspace, which is the unit this harness replaces.
+
+Caveat: the native harness currently boots a minimal backend scoped to the plugin's needs
+(e.g. scaffolder for scaffolder modules). Catalog-extending modules need the catalog core,
+which does not yet boot cleanly standalone — see the coreFeatures note in `src/native-smoke.ts`.

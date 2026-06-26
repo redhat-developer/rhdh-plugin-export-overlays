@@ -10,8 +10,9 @@
   },
   "packageManager": "yarn@4.12.0",
   "scripts": {
-    "smoke": "tsx src/native-smoke.ts",
-    "smoke:catalog-index": "tsx src/native-smoke.ts --catalog-index",
+    "build": "esbuild src/native-smoke.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/native-smoke.mjs",
+    "smoke": "yarn build && node dist/native-smoke.mjs",
+    "smoke:catalog-index": "yarn build && node dist/native-smoke.mjs --catalog-index",
     "tsc:check": "tsc --noEmit",
     "check": "yarn tsc:check"
   },
@@ -25,7 +26,7 @@
   "devDependencies": {
     "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "0.3.0",
     "@types/node": "25.5.2",
-    "tsx": "4.19.2",
+    "esbuild": "0.24.2",
     "typescript": "6.0.2"
   }
 }
