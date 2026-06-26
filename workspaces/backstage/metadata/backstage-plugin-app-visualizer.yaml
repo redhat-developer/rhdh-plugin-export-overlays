@@ -1,0 +1,30 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-app-visualizer
+  namespace: rhdh
+  title: 'App Visualizer Frontend'
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/v1.49.4/plugins/app-visualizer
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/v1.49.4/plugins/app-visualizer
+  tags: []
+spec:
+  packageName: '@backstage/plugin-app-visualizer'
+  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-app-visualizer
+  version: 0.2.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.49.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - app-visualizer
+  appConfigNotRequired: true
+  appConfigExamples: []

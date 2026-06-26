@@ -1,0 +1,27 @@
+# Workspace smoke-test overrides for the backstage workspace.
+# Merged with smoke-tests/app-config.yaml during CI smoketest runs.
+#
+# Catalog and events modules reference integration hosts via test.env placeholders.
+# Provider-specific config still comes from each plugin's metadata appConfigExamples.
+
+integrations:
+  gitlab:
+    - host: ${GITLAB_HOST}
+      token: ${GITLAB_TOKEN}
+      apiBaseUrl: https://${GITLAB_HOST}/api/v4
+  bitbucketServer:
+    - host: ${BITBUCKET_HOST}
+      token: ${BITBUCKET_TOKEN}
+      apiBaseUrl: https://${BITBUCKET_HOST}/rest/api/1.0
+  bitbucketCloud:
+    - username: ${BITBUCKET_CLOUD_USERNAME}
+      appPassword: ${BITBUCKET_CLOUD_APP_PASSWORD}
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
+
+events:
+  http:
+    topics:
+      - github
+      - gitlab
