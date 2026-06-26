@@ -87,7 +87,7 @@ spec:
      plugins:
        # MCP server backend plugin
        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.48.3__0.1.5!backstage-plugin-mcp-actions-backend
-         disabled: false
+         enabled: true
      ```
 
      If you also wish to install the Red Hat MCP Extras plugins, consult the installation instructions for the `Software Catalog MCP Extras`, `Techdocs MCP Extras`, or `Scaffolder MCP Extras` plugins.
