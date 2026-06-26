@@ -42,6 +42,8 @@ import {
   loadManifest,
   loadBackendPlugins,
   validateFrontendBundle,
+  type PluginEntry,
+  type LoadedPlugin,
   type PluginError,
 } from "./loader";
 
@@ -70,6 +72,72 @@ function run(file: string, args: string[], env?: NodeJS.ProcessEnv): string {
     stdio: "pipe",
     env: { ...process.env, ...env },
   }).trim();
+}
+
+function computeStatus(
+  loadErrors: PluginError[],
+  startOk: boolean,
+  loadedCount: number,
+  frontendErrors: PluginError[],
+): Status {
+  if (loadErrors.length > 0) return "fail-load";
+  if (!startOk && loadedCount > 0) return "fail-start";
+  if (frontendErrors.length > 0) return "fail-bundle";
+  return "pass";
+}
+
+// Write the dynamic-plugins.yaml the CLI consumes, then extract (the part PR #2231
+// hand-rolled in 694 lines — now one CLI call).
+async function extractPlugins(
+  root: string,
+  useCatalogIndex: boolean,
+  dynamicPlugins: string | undefined,
+  catalogIndexImage: string | undefined,
+): Promise<void> {
+  if (useCatalogIndex) {
+    // Empty list => CLI extracts everything from CATALOG_INDEX_IMAGE.
+    await writeFile(join(root, "dynamic-plugins.yaml"), "plugins: []\n");
+  } else if (dynamicPlugins) {
+    await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
+  }
+  console.log("▶ extracting plugins via CLI…");
+  execFileSync("npx", [CLI, "install", root], {
+    stdio: "inherit",
+    env: catalogIndexImage
+      ? { ...process.env, CATALOG_INDEX_IMAGE: catalogIndexImage }
+      : process.env,
+  });
+}
+
+// Boot the loaded backend features in-process to confirm they integrate.
+async function startBackend(
+  loaded: LoadedPlugin[],
+): Promise<{ ok: boolean; error?: string }> {
+  if (loaded.length === 0) return { ok: false };
+  try {
+    const backend = await startTestBackend({
+      features: [...coreFeatures, ...loaded.map((p) => p.feature)],
+    });
+    await backend.stop();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// Validate frontend bundles (load-only; no render).
+function validateFrontends(frontend: PluginEntry[]): {
+  valid: number;
+  errors: PluginError[];
+} {
+  const errors: PluginError[] = [];
+  let valid = 0;
+  for (const plugin of frontend) {
+    const error = validateFrontendBundle(plugin);
+    if (error) errors.push({ plugin, error });
+    else valid += 1;
+  }
+  return { valid, errors };
 }
 
 async function main(): Promise<number> {
@@ -101,53 +169,16 @@ async function main(): Promise<number> {
   await mkdir(root, { recursive: true });
 
   try {
-    // Step 1: write the dynamic-plugins.yaml the CLI consumes.
-    if (useCatalogIndex) {
-      // Empty list => CLI extracts everything from CATALOG_INDEX_IMAGE.
-      await writeFile(join(root, "dynamic-plugins.yaml"), "plugins: []\n");
-    } else if (dynamicPlugins) {
-      await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
-    }
+    await extractPlugins(root, useCatalogIndex, dynamicPlugins, catalogIndexImage);
 
-    // Step 2: extract (the part PR #2231 hand-rolled in 694 lines — now one CLI call).
-    console.log("▶ extracting plugins via CLI…");
-    execFileSync("npx", [CLI, "install", root], {
-      stdio: "inherit",
-      env: catalogIndexImage
-        ? { ...process.env, CATALOG_INDEX_IMAGE: catalogIndexImage }
-        : process.env,
-    });
-
-    // Step 3: load backend plugins.
     const manifest = loadManifest(root);
     console.log(
       `▶ manifest: ${manifest.backend.length} backend, ${manifest.frontend.length} frontend`,
     );
+
     const { loaded, errors: loadErrors } = loadBackendPlugins(manifest.backend);
-
-    // Step 4: boot the test backend with the loaded features.
-    let startOk = false;
-    let startError: string | undefined;
-    if (loaded.length > 0) {
-      try {
-        const backend = await startTestBackend({
-          features: [...coreFeatures, ...loaded.map((p) => p.feature)],
-        });
-        startOk = true;
-        await backend.stop();
-      } catch (err) {
-        startError = err instanceof Error ? err.message : String(err);
-      }
-    }
-
-    // Step 5: validate frontend bundles (load-only; no render).
-    const frontendErrors: PluginError[] = [];
-    let validFrontend = 0;
-    for (const plugin of manifest.frontend) {
-      const error = validateFrontendBundle(plugin);
-      if (error) frontendErrors.push({ plugin, error });
-      else validFrontend += 1;
-    }
+    const start = await startBackend(loaded);
+    const frontend = validateFrontends(manifest.frontend);
 
     const report: Report = {
       cliVersion,
@@ -156,27 +187,20 @@ async function main(): Promise<number> {
         loaded: loaded.length,
         errors: loadErrors,
       },
-      backendStart: { ok: startOk, error: startError },
+      backendStart: start,
       frontend: {
         total: manifest.frontend.length,
-        valid: validFrontend,
-        errors: frontendErrors,
+        valid: frontend.valid,
+        errors: frontend.errors,
       },
-      status:
-        loadErrors.length > 0
-          ? "fail-load"
-          : !startOk && loaded.length > 0
-            ? "fail-start"
-            : frontendErrors.length > 0
-              ? "fail-bundle"
-              : "pass",
+      status: computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));
     console.log(`▶ report → ${out} (status: ${report.status})`);
     console.log(
       `  backend loaded ${report.backend.loaded}/${report.backend.total}, ` +
-        `start=${startOk}, frontend ${validFrontend}/${manifest.frontend.length}`,
+        `start=${start.ok}, frontend ${frontend.valid}/${manifest.frontend.length}`,
     );
     return report.status === "pass" ? 0 : 1;
   } finally {
@@ -184,9 +208,9 @@ async function main(): Promise<number> {
   }
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+try {
+  process.exit(await main());
+} catch (err) {
+  console.error(err);
+  process.exit(1);
+}
