@@ -24,8 +24,10 @@ permissions:
   contents: write
   pull-requests: read
 
-# A workspace can get several passed-e2e comments on one PR (re-runs); serialize
-# per PR so two refreshes don't race to push the same branch.
+# Serialize per PR (not per workspace) so two refreshes don't race to push the
+# same branch. The workspace name isn't known until the parse step runs, so it
+# can't key the group; per-PR is coarser but simpler and safe — multiple
+# workspaces passing on one PR just refresh serially.
 concurrency:
   group: refresh-coverage-${{ github.event.issue.number }}
   cancel-in-progress: false
@@ -48,14 +50,37 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            // comment.body is read from the runtime context, never interpolated
+            // into the script source, so it can't break out of the string.
             const body = context.payload.comment.body || "";
             // "✅ Passed E2E Tests - `<workspace>`"
             const ws = body.match(/Passed E2E Tests\s*-\s*`([^`]+)`/);
-            // The build-log link sits next to the workspace's Prow artifacts;
-            // the coverage dir is a fixed sibling path under it.
-            const log = body.match(/\((https:\/\/gcsweb-ci[^)\s]*?\/build-log\.txt)\)/);
+            // The build-log link sits next to the workspace's Prow artifacts; the
+            // coverage dir is a fixed sibling path under it. Pin the host + /gcs/
+            // path shape so a tampered comment can't redirect the download.
+            const log = body.match(
+              /\((https:\/\/gcsweb-ci\.apps\.[\w.-]+\/gcs\/[^)\s]+\/build-log\.txt)\)/,
+            );
             if (!ws || !log) {
               core.info("Not a parseable passed-e2e result comment; skipping.");
+              core.setOutput("skip", "true");
+              return;
+            }
+            // The name flows into file paths and a script argument — reject
+            // anything that isn't a plain directory slug (no traversal, no shell
+            // metacharacters), don't rely on the bot staying trusted.
+            if (!/^[a-z0-9][a-z0-9-]*$/.test(ws[1])) {
+              core.info(`Workspace name '${ws[1]}' is not a valid slug; skipping.`);
+              core.setOutput("skip", "true");
+              return;
+            }
+            const coverageUrl = log[1].replace(
+              /\/build-log\.txt$/,
+              "/artifacts/e2e-test-results/coverage/",
+            );
+            // The rewrite must keep us on gcsweb; bail if the shape was unexpected.
+            if (!coverageUrl.startsWith("https://gcsweb-ci.apps.")) {
+              core.info("Unexpected coverage URL after rewrite; skipping.");
               core.setOutput("skip", "true");
               return;
             }
@@ -73,10 +98,7 @@ jobs:
             }
             core.setOutput("skip", "false");
             core.setOutput("workspace", ws[1]);
-            core.setOutput(
-              "coverage_url",
-              log[1].replace(/build-log\.txt$/, "artifacts/e2e-test-results/coverage/"),
-            );
+            core.setOutput("coverage_url", coverageUrl);
             core.setOutput("head_ref", pr.data.head.ref);
 
       - name: Checkout PR branch
@@ -119,5 +141,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "coverage-snapshots/${WS}.lcov"
+          # No loop: GITHUB_TOKEN pushes don't trigger workflow runs. The
+          # [skip ci] tag is belt-and-suspenders for any push-triggered check,
+          # not the primary guard.
           git commit -m "chore(coverage): refresh ${WS} snapshot from passing e2e run [skip ci]"
           git push origin "HEAD:${HEAD_REF}"
