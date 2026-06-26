@@ -193,7 +193,11 @@ See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechan
 
 Coverage is generated only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds — so every upload is attributed to a PR-head commit. When a PR is squash-merged, GitHub creates a fresh `main` commit that never received an upload, and Codecov's carryforward can't cross the squash. Without help, the Codecov default-branch (`main`) view stays empty even though each PR uploaded fine.
 
-The dashboard is fed by **consolidating that per-PR coverage onto `main`**: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` re-uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually). Refresh a snapshot from a passing e2e run when a workspace's coverage changes:
+The dashboard is fed by **consolidating that per-PR coverage onto `main`**: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` re-uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually).
+
+**Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes. The catch is intrinsic: fresh coverage only exists once an e2e actually runs on the cluster, so a workspace's number updates as fast as its e2e is triggered (`/test e2e-ocp-helm`).
+
+To refresh a snapshot by hand (e.g. from a run the workflow didn't pick up):
 
 ```bash
 # point at the run's gcsweb .../artifacts/e2e-test-results/coverage/ directory
