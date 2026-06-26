@@ -6,13 +6,13 @@
 #   ./scripts/upload-coverage.sh <workspace-name> [lcov-file]
 #
 # Example:
-#   E2E_COLLECT_COVERAGE=true ./run-e2e.sh -w tech-radar
-#   ./scripts/upload-coverage.sh tech-radar coverage/tech-radar/lcov.info
+#   ./scripts/upload-coverage.sh tech-radar coverage-snapshots/tech-radar.lcov
 #
-# lcov-file defaults to coverage/lcov.info (the combined report, for manual
-# invocations); report-coverage.sh always passes the per-workspace lcov
-# written by remap-coverage.cjs so each `e2e-<workspace>` flag only carries
-# its own workspace's data.
+# lcov-file defaults to coverage/lcov.info. The seed (scripts/seed-main-coverage.sh,
+# run by seed-coverage-main.yaml) passes each committed coverage-snapshots/<ws>.lcov
+# so every `e2e-<workspace>` flag carries only its own workspace's data. This is
+# the only path that uploads to Codecov — the per-PR e2e run no longer uploads;
+# it just produces the coverage artifacts the snapshot refresh consumes.
 #
 # Coverage is uploaded to the Codecov project of this overlay repo
 # (redhat-developer/rhdh-plugin-export-overlays), flagged `e2e-<workspace>`,
