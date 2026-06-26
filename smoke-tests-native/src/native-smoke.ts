@@ -32,9 +32,10 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
+import { createRequire } from "node:module";
 import { startTestBackend } from "@backstage/backend-test-utils";
 import catalogPlugin from "@backstage/plugin-catalog-backend";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
@@ -48,6 +49,16 @@ import {
 } from "./loader";
 
 const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
+
+// Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
+// binary (process.execPath), so the executable is never looked up via PATH (Sonar
+// S4036). require.resolve(CLI) returns the package main (dist/index.cjs.js); its
+// package root is two levels up, where the pinned 0.3.0 bin lives.
+const require = createRequire(import.meta.url);
+const CLI_BIN = join(
+  dirname(dirname(require.resolve(CLI))),
+  "bin/install-dynamic-plugins",
+);
 
 // Bundled core plugins so dynamic plugins/modules can resolve their dependencies.
 // This mirrors RHDH's plugin-dynamic-loading.spec.ts (PR #4967), where exactly these
@@ -101,7 +112,7 @@ async function extractPlugins(
     await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
   }
   console.log("▶ extracting plugins via CLI…");
-  execFileSync("npx", [CLI, "install", root], {
+  execFileSync(process.execPath, [CLI_BIN, "install", root], {
     stdio: "inherit",
     env: catalogIndexImage
       ? { ...process.env, CATALOG_INDEX_IMAGE: catalogIndexImage }
@@ -161,7 +172,7 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const cliVersion = run("npx", [CLI, "--version"]);
+  const cliVersion = run(process.execPath, [CLI_BIN, "--version"]);
   console.log(`▶ install CLI: ${CLI}@${cliVersion}`);
 
   const tempDir = await mkdtemp(join(tmpdir(), "native-smoke-"));
