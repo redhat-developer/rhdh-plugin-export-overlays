@@ -32,4 +32,4 @@ spec:
         events:
           modules:
             gitlab:
-              webhookSecret: ${VAULT_GITLAB_WEBHOOK_SECRET}
+              webhookSecret: ${GITLAB_WEBHOOK_SECRET}
