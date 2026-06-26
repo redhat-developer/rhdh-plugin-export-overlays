@@ -15,11 +15,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-todo"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-todo:bs_1.49.4__0.18.0!backstage-community-plugin-todo
-  version: 0.18.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-todo:bs_1.52.0__0.22.0!backstage-community-plugin-todo
+  version: 0.22.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Backstage Community
   support: community
   lifecycle: active

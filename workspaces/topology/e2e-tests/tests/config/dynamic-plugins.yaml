@@ -1,7 +1,7 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
-    disabled: false
+    enabled: true
