@@ -39,11 +39,11 @@ frontend — that is the **NFS / app-next** path (RHIDP-15082), intentionally ou
 
 ## Run
 
-Requires Node 22+ (overlay `versions.json` pins 24) and registry access to pull the OCI
-plugin images.
+Requires Node 24 and Yarn 4 (matching the repo's `versions.json` and the sibling
+`workspaces/*/e2e-tests`), plus registry access to pull the OCI plugin images.
 
 ```bash
-yarn install   # or npm install
+yarn install
 
 # A) explicit OCI refs for one workspace
 cat > dp.yaml <<'YAML'
@@ -55,6 +55,11 @@ yarn smoke --dynamic-plugins dp.yaml
 # B) a whole catalog index image
 CATALOG_INDEX_IMAGE=<image> yarn smoke:catalog-index
 ```
+
+`yarn check` runs `tsc --noEmit`. This is a standalone tool dir, not a
+`workspaces/*/e2e-tests` one, so it is intentionally outside `e2e-code-quality.yaml`
+(which only scans `workspaces/*/e2e-tests/**`); eslint/prettier wiring can be added if
+this graduates from POC.
 
 Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail-start` /
 `fail-bundle`.

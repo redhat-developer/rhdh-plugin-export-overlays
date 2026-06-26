@@ -30,7 +30,7 @@
  *   CATALOG_INDEX_IMAGE=<image> tsx src/native-smoke.ts --catalog-index
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -48,7 +48,9 @@ import {
 const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 
 // Bundled core plugins so dynamic plugins/modules can resolve their dependencies.
-// Extend as needed (auth, permission, search, events) per the workspaces under test.
+// This mirrors RHDH's plugin-dynamic-loading.spec.ts (PR #4967), where exactly these
+// two boot the full catalog index. If a specific workspace's plugin needs another core
+// backend (e.g. auth/permission/events), startTestBackend will fail at boot — add it here.
 const coreFeatures = [catalogPlugin, scaffolderPlugin];
 
 type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle";
@@ -60,8 +62,10 @@ type Report = {
   status: Status;
 };
 
-function run(cmd: string, env?: NodeJS.ProcessEnv): string {
-  return execSync(cmd, {
+// execFileSync (args array, no shell) so workspace names / OCI refs can never be
+// interpolated into a shell command as this grows beyond the POC.
+function run(file: string, args: string[], env?: NodeJS.ProcessEnv): string {
+  return execFileSync(file, args, {
     encoding: "utf-8",
     stdio: "pipe",
     env: { ...process.env, ...env },
@@ -89,7 +93,7 @@ async function main(): Promise<number> {
     return 2;
   }
 
-  const cliVersion = run(`npx ${CLI} --version`);
+  const cliVersion = run("npx", [CLI, "--version"]);
   console.log(`▶ install CLI: ${CLI}@${cliVersion}`);
 
   const tempDir = await mkdtemp(join(tmpdir(), "native-smoke-"));
@@ -107,7 +111,7 @@ async function main(): Promise<number> {
 
     // Step 2: extract (the part PR #2231 hand-rolled in 694 lines — now one CLI call).
     console.log("▶ extracting plugins via CLI…");
-    execSync(`npx ${CLI} install ${root}`, {
+    execFileSync("npx", [CLI, "install", root], {
       stdio: "inherit",
       env: catalogIndexImage
         ? { ...process.env, CATALOG_INDEX_IMAGE: catalogIndexImage }
