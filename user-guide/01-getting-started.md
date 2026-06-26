@@ -307,7 +307,7 @@ Use the OCI references from the bot's comment to test in your own Backstage inst
 # dynamic-plugins.yaml
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-your-plugin:pr_123__1.0.0
-    disabled: false
+    enabled: true
 ```
 
 ---
