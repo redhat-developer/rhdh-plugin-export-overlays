@@ -77,7 +77,7 @@ const CLI_BIN = join(
 void catalogPlugin;
 const coreFeatures = [scaffolderPlugin];
 
-type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle";
+type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
 type Report = {
   cliVersion: string;
   backend: { total: number; loaded: number; errors: PluginError[] };
@@ -239,6 +239,20 @@ async function main(): Promise<number> {
         `start=${start.ok}, frontend ${frontend.valid}/${manifest.frontend.length}`,
     );
     return report.status === "pass" ? 0 : 1;
+  } catch (err) {
+    // Any failure before the report is built (e.g. the install CLI failing on a bad
+    // OCI ref) still writes a results.json, so a consumer never reads a stale "pass".
+    const message = err instanceof Error ? err.message : String(err);
+    const report: Report = {
+      cliVersion,
+      backend: { total: 0, loaded: 0, errors: [] },
+      backendStart: { ok: false, error: message },
+      frontend: { total: 0, valid: 0, errors: [] },
+      status: "error",
+    };
+    await writeFile(out, JSON.stringify(report, null, 2));
+    console.error(`▶ report → ${out} (status: error)\n${message}`);
+    return 1;
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
