@@ -1,0 +1,73 @@
+# Scorecard filecheck e2e tests — only the plugins required for filecheck metric tests.
+# Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
+# GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-scorecard:
+            translationResources:
+              - importName: scorecardTranslations
+                ref: scorecardTranslationRef
+            entityTabs:
+              - path: "/scorecard"
+                title: Scorecard
+                mountPoint: entity.page.scorecard
+            dynamicRoutes:
+              - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
+                importName: ScorecardPage
+            mountPoints:
+              - mountPoint: entity.page.scorecard/cards
+                importName: EntityScorecardContent
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+              - mountPoint: home.page/cards
+                importName: ScorecardHomepageCard
+                config:
+                  id: "scorecard-filecheck.readme"
+                  title: "README file exists"
+                  description: "Checks if the README file exists in the repository"
+                  props:
+                    metricId: "filecheck.readme"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.10!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
+    disabled: false
+    pluginConfig:
+      scorecard:
+        plugins:
+          filecheck:
+            files:
+              readme: "README.md"
+            schedule:
+              frequency:
+                minutes: 10
+              timeout:
+                minutes: 10
+              initialDelay:
+                seconds: 120
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage
+            mountPoints:
+              - mountPoint: home.page/cards
+                importName: OnboardingSection
+                config:
+                  id: "onboarding-section"
+                  title: "Onboarding section"
+              - mountPoint: home.page/cards
+                importName: EntitySection
+                config:
+                  id: "entity-section"
+                  title: "Entity section"
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
+    disabled: true
