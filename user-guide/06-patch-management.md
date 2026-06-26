@@ -112,16 +112,16 @@ For simple changes, create manually:
 
 ### Naming Convention
 
-```
-[number]-[description].patch
+Export applies all `*.patch` files in **lexicographic (alphabetical) order** by filename
+([override-sources.sh](https://github.com/redhat-developer/rhdh-plugin-export-utils/blob/main/override-sources/override-sources.sh)).
 
-Examples:
-1-fix-typescript-errors.patch
-2-add-missing-export.patch
-3-fix-private-root-package.patch
-```
+| Class | Pattern | Examples |
+|-------|---------|----------|
+| **CVE yarn.lock** | `0-cve-yarn-lock.patch` | At most **one** per workspace — dependency CVE fixes in `yarn.lock` only |
+| **Code / build** | `[1-9][0-9]*-[description].patch` | `1-fix-typescript-errors.patch`, `2-add-missing-export.patch` |
 
-Patches are applied in **numerical order**.
+The `0-` prefix ensures CVE lockfile patches run **before** numbered code patches (`1-`, `2-`, …).
+Use numbered prefixes to control order among code patches.
 
 ---
 
@@ -443,6 +443,147 @@ dos2unix my-patch.patch
 - ❌ Create patches for problems that should be fixed upstream
 - ❌ Use patches for adding new features (use overlays instead)
 - ❌ Forget to re-roll patches after source updates
+
+---
+
+## CVE yarn.lock Backports
+
+Use this workflow to backport CVE fixes when a transitive dependency bump in `yarn.lock`
+is all that is required — without bumping `source.json:repo-ref` or changing plugin
+source. Maintain at most one `yarn.lock` patch; `cve-backports.yaml` is auto-generated
+to track the CVEs fixed by that patch.
+
+This is not for code fixes; use numbered patches (`1-*.patch`) or overlays for those.
+
+### Patch and manifest layout
+
+```
+workspaces/[ws]/patches/
+├── 0-cve-yarn-lock.patch    # CVE dependency bumps (max one; applied first)
+├── cve-backports.yaml       # Auto-generated CVE tracking
+└── 1-fix-something.patch    # Optional code/build patches (applied after 0-)
+```
+
+### Workflow
+
+**Prerequisites:** Python 3, `git`, `yarn`, `patch`, `diff`, `npm`, and PyYAML (`pip install pyyaml`).
+Prepare needs network for `git fetch`; generate additionally fetches CVE records from MITRE.
+
+Set paths once in your shell (from the overlays repo root):
+
+```bash
+export OVERLAY_WORKSPACE=./workspaces/orchestrator
+export PLUGINS_REPO=~/git/rhdh-plugins
+```
+
+**Step 1 — Prepare plugins workspace**
+
+Reset the plugins workspace to the pinned `repo-ref` and leave `yarn.lock` in a
+known-good state — either with the existing CVE patch applied, or ready for new
+fixes in Step 2.
+
+```bash
+python scripts/prepare-cve-backport-workspace.py \
+  --release 1.10 \
+  --overlay-workspace "$OVERLAY_WORKSPACE" \
+  --plugins-repo "$PLUGINS_REPO"
+```
+
+Sub-steps (all in prepare):
+
+| Step | Action |
+|------|--------|
+| **1** | Checkout source `repo-ref` for the given release as defined in plugin `source.json` |
+| **1a** | `yarn install` |
+| **1b** | Apply `0-cve-yarn-lock.patch` if present |
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--release` | yes | RHDH release line (logging only) |
+| `--overlay-workspace` | yes | Path to the overlays workspace; reads `source.json` and `patches/` |
+| `--plugins-repo` | yes | Path to the local rhdh-plugins repository root |
+| `--skip-patch` | no | Skip step 1b; do not apply `0-cve-yarn-lock.patch` |
+| `--force` | no | Skip the clean-repo check and proceed when the plugins repo has uncommitted changes (does not discard them) |
+| `--dry-run` | no | Print planned git, yarn, and patch commands without executing them |
+
+**Re-roll when patch apply fails (step 1b)**
+
+If step 1b fails (`Hunk #N FAILED`), the `yarn.lock` at the current source ref no
+longer matches the patch baseline. `yarn install` (step 1a) has already run — discard
+the stale patch, then restore known CVE bumps with `yarn up` for each package in
+`cve-backports.yaml` (prepare prints the exact command). Continue to **Step 2** for
+any additional CVE fixes, then **Step 3**.
+
+Step 1 only establishes the baseline; Step 2 is where new or extra dependency
+bumps are applied before generating a fresh patch in Step 3.
+
+**Step 2 — Apply CVE fixes locally**
+
+Bump vulnerable transitive dependencies in `yarn.lock` (e.g. `yarn up`). This
+includes fixes beyond what was restored during a re-roll. Changes may be uncommitted.
+Run `yarn install` in the plugins workspace if you need `node_modules` in sync
+before Step 3 (generate reads `yarn.lock` but uses `npm ls` for manifest versions).
+
+**Step 3 — Generate patch + manifest**
+
+```bash
+python scripts/generate-cve-backport.py \
+  --release 1.10 \
+  --overlay-workspace "$OVERLAY_WORKSPACE" \
+  --plugins-repo "$PLUGINS_REPO" \
+  --cve 'CVE-2026-44487,CVE-2026-44494'
+```
+
+Diffs **repo-ref baseline** `yarn.lock` vs the local file, writes/replaces
+`0-cve-yarn-lock.patch`, and merges `cve-backports.yaml` for the CVE ids in `--cve`.
+Existing manifest rows are preserved; pass every CVE id you want recorded when
+regenerating after a re-roll (not only newly added ones).
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--release` | yes | RHDH release line (logging only) |
+| `--overlay-workspace` | yes | Path to the overlays workspace; reads `source.json` and `patches/` |
+| `--plugins-repo` | yes | Path to the local rhdh-plugins repository root |
+| `--cve` | yes | Comma-separated CVE ids to fetch from MITRE and record in the manifest; optional `/package` override per id (e.g. `CVE-2026-1234/axios`) |
+| `--dry-run` | no | Validate inputs and print actions without writing the patch or manifest |
+
+**Step 4 — Verify OCI artifacts (future)**
+
+Planned: `scripts/verify-cve-backport-oci.py` to compare published OCI image
+`node_modules` against the manifest after `/publish`.
+
+### Manifest format (`cve-backports.yaml`)
+
+Auto-generated by `generate-cve-backport.py`. CVEs that share the same
+`package` and `patch_version` are **merged into one row** with a `cve_ids` list:
+
+```yaml
+patch_file: 0-cve-yarn-lock.patch
+
+backports:
+  - cve_ids:
+      - CVE-2026-44486
+      - CVE-2026-44487
+    package: axios
+    patch_version: 1.18.1
+```
+
+| Field | Set by | Description |
+|-------|--------|-------------|
+| `patch_file` | script | Always `0-cve-yarn-lock.patch` |
+| `cve_ids` | script | CVE identifiers fixed by the same package version |
+| `package` | script | npm package from MITRE CVE record |
+| `patch_version` | script | Resolved version in patched `yarn.lock` |
+
+### Lifecycle
+
+| Event | Action |
+|-------|--------|
+| First CVE backport | Run generate script; commit patch + manifest |
+| Add CVEs | Re-run generate with expanded `--cve` list |
+| Re-roll patch | Re-run generate after local `yarn.lock` changes |
+| Patch fails at step 1b | `yarn up` from manifest → Step 2 → Step 3 (full `--cve` list) |
+| Retire backport | Delete patch + manifest when fixes are upstream in `repo-ref` |
 
 ---
 
