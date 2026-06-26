@@ -80,15 +80,17 @@ Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail
   (`install <dynamic-plugins-root>`), fetchable via `npx`.
 - ✅ Harness logic ported from the **already-green** RHDH nightly test (PR #4967).
 - ✅ Transpiles clean (esbuild); ESM `require` resolved via `createRequire`.
+- ✅ `patchModuleResolution()` ported (`src/module-resolution.ts`) so extracted plugins
+  resolve their `@backstage/*` peers against this harness's `node_modules`. Requires a
+  node-modules linker — see `.yarnrc.yml`.
 - ⏳ End-to-end run against live OCI images should execute in CI (Node 24 + `packages:read`),
   producing the wall-clock comparison vs the Docker smoke job to attach to RHIDP-15075.
 
-## Known gap before a real run
+## Module resolution
 
-RHDH's `plugin-dynamic-loading.spec.ts` calls a `patchModuleResolution()` step so that the
-extracted plugins — which live under a temp dir — resolve their bare `@backstage/*` imports
-against **this** harness's `node_modules`. Node's default resolution walks up from the
-plugin's temp path, not from here, so without that patch `require()` of a real plugin can
-fail with `Cannot find module '@backstage/...'`. Porting that patch (or installing the
-plugins into a path that resolves the shared deps) is the next step to close before the CI
-run. This is why the POC is marked "transpiles + interface-confirmed", not "end-to-end green".
+Extracted plugins live under a temp dir with no `node_modules` of their own, so their bare
+`@backstage/*` imports must resolve against this harness. `patchModuleResolution()` (ported
+from RHDH PR #4967) extends `Module._nodeModulePaths` to append `HARNESS_NODE_MODULES`
+before any plugin is `require`d. This is why the package uses `nodeLinker: node-modules`
+(`.yarnrc.yml`) rather than Yarn PnP — the patch needs a real `node_modules` directory to
+point at.

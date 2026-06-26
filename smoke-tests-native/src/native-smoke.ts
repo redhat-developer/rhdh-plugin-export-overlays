@@ -33,6 +33,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
@@ -47,6 +48,13 @@ import {
   type LoadedPlugin,
   type PluginError,
 } from "./loader";
+import { patchModuleResolution } from "./module-resolution";
+
+// This harness's own node_modules — extracted plugins resolve @backstage/* against it.
+const HARNESS_NODE_MODULES = join(
+  dirname(dirname(fileURLToPath(import.meta.url))),
+  "node_modules",
+);
 
 const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 
@@ -187,6 +195,8 @@ async function main(): Promise<number> {
       `▶ manifest: ${manifest.backend.length} backend, ${manifest.frontend.length} frontend`,
     );
 
+    // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
+    patchModuleResolution(HARNESS_NODE_MODULES);
     const { loaded, errors: loadErrors } = loadBackendPlugins(manifest.backend);
     const start = await startBackend(loaded);
     const frontend = validateFrontends(manifest.frontend);
