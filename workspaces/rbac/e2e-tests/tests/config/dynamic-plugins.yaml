@@ -1,6 +1,6 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-rbac
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
