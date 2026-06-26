@@ -177,7 +177,7 @@ This creates `backstage.json` with the target version and updates all metadata O
 
 ## E2E coverage anchors
 
-Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH and upload it to this repository's Codecov project (one `e2e-<workspace>` flag per workspace).
+Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
 
 Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
 
@@ -189,13 +189,13 @@ These anchors never change with plugin versions. Regenerate them only when a new
 
 See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
 
-### Populating the `main` branch (consolidating per-PR coverage)
+### Populating the `main` branch
 
-Coverage is generated only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds — so every upload is attributed to a PR-head commit. When a PR is squash-merged, GitHub creates a fresh `main` commit that never received an upload, and Codecov's carryforward can't cross the squash. Without help, the Codecov default-branch (`main`) view stays empty even though each PR uploaded fine.
+Coverage is produced only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds. Those jobs emit per-test coverage **as run artifacts**; they do not upload to Codecov directly. (A PR-head upload would be pointless anyway: squash-merge creates a fresh `main` commit the upload never reaches, and Codecov's carryforward can't cross the squash.)
 
-The dashboard is fed by **consolidating that per-PR coverage onto `main`**: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` re-uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually).
+Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually). This is the **only** path that uploads to Codecov, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits.
 
-**Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes. The catch is intrinsic: fresh coverage only exists once an e2e actually runs on the cluster, so a workspace's number updates as fast as its e2e is triggered (`/test e2e-ocp-helm`).
+**Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes upstream. One intrinsic limit: coverage only exists after an e2e actually runs on the cluster, so a workspace's number updates when its e2e is triggered (`/test e2e-ocp-helm`) — the refresh then happens automatically.
 
 To refresh a snapshot by hand (e.g. from a run the workflow didn't pick up):
 
