@@ -1,0 +1,32 @@
+{
+  "name": "native-smoke-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "POC: Docker-free in-process dynamic-plugin smoke harness (RHIDP-15075/15076). Reuses RHDH PR #4967 loader + the published install-dynamic-plugins CLI + startTestBackend.",
+  "engines": {
+    "node": ">=24",
+    "yarn": ">=3"
+  },
+  "packageManager": "yarn@4.12.0",
+  "scripts": {
+    "build": "esbuild src/native-smoke.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/native-smoke.mjs",
+    "smoke": "yarn build && node dist/native-smoke.mjs",
+    "smoke:catalog-index": "yarn build && node dist/native-smoke.mjs --catalog-index",
+    "tsc:check": "tsc --noEmit",
+    "check": "yarn tsc:check"
+  },
+  "dependencies": {
+    "@backstage/backend-plugin-api": "1.9.2",
+    "@backstage/backend-test-utils": "1.11.4",
+    "@backstage/plugin-catalog-backend": "3.5.0",
+    "@backstage/plugin-scaffolder-backend": "3.3.0",
+    "js-yaml": "4.2.0"
+  },
+  "devDependencies": {
+    "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "0.3.0",
+    "@types/node": "25.5.2",
+    "esbuild": "0.24.2",
+    "typescript": "6.0.2"
+  }
+}
