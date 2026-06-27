@@ -1,0 +1,29 @@
+# rhdh app config file
+# this file is used to merge with the default values of the rhdh app config
+
+auth:
+  environment: development
+  providers:
+    github:
+      development:
+        clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+        clientId: ${GITHUB_OAUTH_APP_ID}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+
+catalog:
+  rules:
+    - allow: [Component, System, Group, User, Resource, Location, Template, API]
+  locations:
+    - type: url
+      target: https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml
+
+integrations:
+  github:
+    - host: github.com
+      token: ${VAULT_GITHUB_USER_TOKEN}
+  gitlab:
+    - host: gitlab.com
+      token: temp
+
+bulkImport:
+  importTemplate: create-pr-with-catalog-info
