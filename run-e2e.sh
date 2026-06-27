@@ -80,7 +80,8 @@ E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
 # Pin specific e2e-test-utils version.
 E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 # Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
-E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
+# TODO: Remove default before merge — only set for testing subhashkhileri/rhdh-e2e-test-utils#disable-quickstart
+E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-subhashkhileri/rhdh-e2e-test-utils#nightly-dpdy-registry-config}"
 
 if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
     CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
