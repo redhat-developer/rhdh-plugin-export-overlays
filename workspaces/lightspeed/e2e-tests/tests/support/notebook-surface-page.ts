@@ -204,7 +204,12 @@ export class NotebookSurfacePage {
         /* no-op */
       });
     await this.expectDocumentFileListedInSidebar(fileName);
-    await expect(progressbar).toBeHidden({ timeout: 60_000 });
+    await expect(progressbar).toBeHidden({ timeout: 5 * 60 * 1000 });
+    // Wait for notebook to become query-ready; this avoids racing duplicate checks
+    // while backend indexing is still finalizing.
+    await expect(this.disabledComposerPlaceholder()).toBeEnabled({
+      timeout: 60_000,
+    });
   }
 
   async expectNotebookEditorUploadResourceButtonVisible(

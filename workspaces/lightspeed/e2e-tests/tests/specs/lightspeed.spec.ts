@@ -195,7 +195,7 @@ test.describe("Lightspeed UI", () => {
           - menuitem "gpt-5.1"
           - menuitem "redhataillama-31-8b-instruct"
         `);
-      await selectChatModel(page, "gpt-4o-mini");
+      await selectChatModel(page, "gpt-5.1");
     });
 
     test("sidebar opens, closes, and reopens", async () => {

@@ -110,18 +110,34 @@ export async function submitFeedback(
 }
 
 export function lastBotMessage(page: Page) {
-  return page.locator(".pf-chatbot__message--bot").last();
+  return page
+    .getByLabel("Scrollable message log")
+    .locator(".pf-chatbot__message--bot:visible")
+    .last();
 }
 
 /** Response body only — excludes model name, timestamp, and action buttons. */
 export function lastBotResponseBody(page: Page) {
-  return lastBotMessage(page).locator(".pf-chatbot__message-response");
+  return lastBotMessage(page)
+    .locator(".pf-chatbot__message-response:visible")
+    .last();
 }
 
 export async function getLastBotResponseText(page: Page): Promise<string> {
-  const body = lastBotResponseBody(page);
-  await expect(body).toBeVisible();
-  const text = (await body.innerText()).trim();
+  const textParagraph = lastBotMessage(page)
+    .locator(".pf-chatbot__message-response p:visible")
+    .last();
+
+  let text: string;
+  if ((await textParagraph.count()) > 0) {
+    await expect(textParagraph).toBeVisible();
+    text = (await textParagraph.innerText()).trim();
+  } else {
+    const body = lastBotResponseBody(page);
+    await expect(body).toBeVisible();
+    text = (await body.innerText()).trim();
+  }
+
   expect(text.length).toBeGreaterThan(0);
   return text;
 }
@@ -139,43 +155,19 @@ export async function assertLastBotResponseCopiedToClipboard(
 
   await copyButton.click();
 
+  const normalizeText = (value: string): string =>
+    value.toLowerCase().replace(/\s+/g, " ").trim();
+
   // Clipboard writes can lag behind click handling in browsers.
-  let clipboardText = "";
   await expect
     .poll(
-      async () => {
-        clipboardText = (
-          await page.evaluate(() => navigator.clipboard.readText())
-        ).trim();
-        return clipboardText.length;
-      },
-      {
-        timeout: 10_000,
-      },
+      async () =>
+        normalizeText(
+          await page.evaluate(() => navigator.clipboard.readText()),
+        ),
+      { timeout: 10_000 },
     )
-    .toBeGreaterThan(0);
-
-  const normalizeToWords = (value: string): string[] =>
-    value
-      .toLowerCase()
-      .replace(/message from bot:/g, " ")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .split(" ")
-      .filter((word) => word.length > 2);
-
-  const responseWords = new Set(normalizeToWords(responseText));
-  const clipboardWords = new Set(normalizeToWords(clipboardText));
-  expect(responseWords.size).toBeGreaterThan(0);
-  expect(clipboardWords.size).toBeGreaterThan(0);
-
-  const commonWordCount = [...responseWords].filter((word) =>
-    clipboardWords.has(word),
-  ).length;
-  const responseCoverage = commonWordCount / responseWords.size;
-
-  expect(responseCoverage).toBeGreaterThan(0.6);
+    .toContain(normalizeText(responseText));
 }
 
 export async function verifySidePanelConversation(page: Page): Promise<void> {
