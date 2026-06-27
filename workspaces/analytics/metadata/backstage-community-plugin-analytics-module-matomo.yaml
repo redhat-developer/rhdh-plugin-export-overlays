@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-analytics-module-matomo"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-module-matomo:bs_1.49.4__1.27.0!backstage-community-plugin-analytics-module-matomo
-  version: 1.27.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-module-matomo:bs_1.52.0__1.29.0!backstage-community-plugin-analytics-module-matomo
+  version: 1.29.0
   backstage:
     role: frontend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: The Backstage Community
   support: community
   lifecycle: active
