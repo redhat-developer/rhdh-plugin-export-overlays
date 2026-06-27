@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "e2e-fix-result.schema.json",
+  "title": "E2E Fix Agent Result",
+  "description": "Structured output from the e2e-fix agent, validated by the harness before the post-script runs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["root_cause", "fix_category", "action_taken", "attempt", "next_step"],
+  "properties": {
+    "root_cause": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "One-line summary of what failed and why."
+    },
+    "fix_category": {
+      "type": "string",
+      "enum": ["infra_flake", "test_fix", "product_bug", "environment"],
+      "description": "Classification of the failure."
+    },
+    "action_taken": {
+      "type": "string",
+      "enum": ["logged", "commented_on_existing", "issue_tracked", "fix_implemented", "test_skipped"],
+      "description": "What the agent did in response."
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Which attempt this is (1 or 2 for fixes)."
+    },
+    "next_step": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "What should happen next (human merge, re-run, etc.)."
+    },
+    "issue": {
+      "$ref": "#/$defs/issue_directive"
+    },
+    "jira": {
+      "$ref": "#/$defs/jira_directive"
+    }
+  },
+  "$defs": {
+    "issue_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["create", "comment", "skip"],
+          "description": "Whether to create a new issue, comment on an existing one, or skip."
+        },
+        "number": {
+          "type": ["integer", "null"],
+          "description": "Existing issue number (required for comment action)."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Issue title (required for create action)."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 10,
+          "description": "Labels for new issue (create action)."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "description": "Issue body or comment body."
+        },
+        "add_labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 10,
+          "description": "Labels to add when commenting on existing issue."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "action": { "const": "create" } },
+            "required": ["action"]
+          },
+          "then": { "required": ["title", "body"] }
+        },
+        {
+          "if": {
+            "properties": { "action": { "const": "comment" } },
+            "required": ["action"]
+          },
+          "then": { "required": ["number", "body"] }
+        }
+      ]
+    },
+    "jira_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "type", "summary", "description", "backfill_file"],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*$",
+          "maxLength": 20,
+          "description": "JIRA project key (e.g., RHDHBUGS)."
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Issue type (e.g., Bug)."
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "JIRA issue summary."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "description": "JIRA issue description."
+        },
+        "backfill_file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to spec file containing JIRA-PENDING placeholder."
+        }
+      }
+    }
+  }
+}

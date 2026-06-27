@@ -1,0 +1,35 @@
+agent: agents/e2e-fix.md
+model: opus
+image: localhost:5050/rhdh-fullsend-code:local
+policy: policies/e2e-fix.yaml
+
+host_files:
+  - src: env/gcp-vertex.env
+    dest: /sandbox/workspace/.env.d/gcp-vertex.env
+    expand: true
+  - src: ${GOOGLE_APPLICATION_CREDENTIALS}
+    dest: /tmp/.gcp-credentials.json
+  - src: ${GCP_OIDC_TOKEN_FILE}
+    dest: /tmp/.gcp-oidc-token
+    optional: true
+  - src: env/e2e-fix.env
+    dest: /sandbox/workspace/.env.d/e2e-fix.env
+    expand: true
+
+skills:
+  - skills/e2e-failure-analysis
+
+post_script: scripts/post-e2e-fix.sh
+
+validation_loop:
+  script: scripts/validate-output-schema.sh
+  max_iterations: 2
+
+runner_env:
+  GH_TOKEN: ${GH_TOKEN}
+  PROW_URL: ${PROW_URL}
+  REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+  JIRA_URL: https://issues.redhat.com
+  FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/schemas/e2e-fix-result.schema.json
+
+timeout_minutes: 30
