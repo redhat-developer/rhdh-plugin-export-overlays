@@ -114,6 +114,10 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ steps.parse.outputs.head_ref }}
+          # Full history so the push-retry's `git rebase origin/<branch>` has a
+          # merge base if the branch advanced under us (a shallow clone can't
+          # always compute it).
+          fetch-depth: 0
 
       - name: Setup Node
         if: steps.parse.outputs.skip == 'false'
