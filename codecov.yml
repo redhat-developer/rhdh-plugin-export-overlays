@@ -7,12 +7,12 @@
 # Codecov only keeps paths that exist in the git tree), so only the per-flag
 # percentage and trend are meaningful; line-level annotation is not available.
 #
-# Uploads come from PR presubmits (changed workspaces, PR-head commit). The
-# nightly has the upload plumbing too (all workspaces, one flag each, main
-# commit) but collects nothing yet: instrumented `__coverage` images are only
-# built by the PR /publish flow and the e2e-test-utils image swap only runs
-# in PR mode — until those land, the default-branch headline only moves when
-# coverage is uploaded against a main commit manually.
+# Uploads come ONLY from the seed (scripts/seed-main-coverage.sh, run by
+# seed-coverage-main.yaml), attributed to main commits. The per-PR e2e run no
+# longer uploads — it produces coverage artifacts that refresh-coverage-snapshot.yaml
+# turns into committed coverage-snapshots/<ws>.lcov, which the seed then uploads
+# on merge. So Codecov only ever reflects main, with no orphan flags on PR-head
+# commits (which never survive squash-merge anyway).
 
 codecov:
   require_ci_to_pass: false
@@ -23,13 +23,13 @@ coverage:
     project: off
     patch: off
 
-# A PR run only exercises the changed workspace's E2E suite. Carry every other
-# workspace's flag forward from the last commit that measured it, so the
-# overall picture doesn't drop to a single flag on each upload.
+# The seed uploads one workspace flag per snapshot. Carry every other workspace's
+# flag forward from the last commit that measured it, so the overall picture
+# doesn't drop to a single flag on each upload.
 flag_management:
   default_rules:
     carryforward: true
 
-comment:
-  layout: "flags"
-  require_changes: false
+# No per-PR upload means there's nothing workspace-specific to say on a PR, and a
+# PR comment built from carried-forward main data would only be noise.
+comment: false
