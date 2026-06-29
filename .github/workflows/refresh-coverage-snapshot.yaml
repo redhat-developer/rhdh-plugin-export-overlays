@@ -25,13 +25,17 @@ name: Refresh E2E coverage snapshot
 #   to a canonical version (there's no canonical RHDH version in versions.json to
 #   pin to without hardcoding).
 #
-# - The refresh commit becomes the new PR HEAD. The push uses GITHUB_TOKEN, which
-#   does NOT re-trigger workflows — so any `pull_request`-triggered REQUIRED
-#   GitHub Actions check that applies to the PR's paths won't re-run on the new
-#   HEAD and could leave the merge waiting on it. Prow presubmits re-run on the
-#   new commit (webhook-based, not token-gated), so those are fine. Verify on a
-#   protected PR that a bot coverage commit doesn't wedge the merge before
-#   relying on this on branches with required Actions checks.
+# - The refresh commit becomes the new PR HEAD via a GITHUB_TOKEN push, which does
+#   NOT re-trigger GitHub Actions (only webhooks). Checked against this repo's
+#   checks and it doesn't wedge: SonarCloud (no Actions workflow — runs via its
+#   App on the webhook) and the Prow presubmits (e2e / publish / smoketest) all
+#   re-run on the new commit regardless of pusher. The native Actions checks
+#   (e2e-code-quality, validate-app-config-examples, validate-catalog-scripts) are
+#   path-filtered to workspaces/*/e2e-tests/**, workspaces/**/metadata/** and
+#   scripts/*.py — none of which the refresh commit (only coverage-snapshots/
+#   <ws>.lcov) touches, so they aren't expected on it. The one residual edge to
+#   re-check is a PR that itself changed e2e-tests where e2e-code-quality is a
+#   *required* status check on a protected branch.
 
 on:
   issue_comment:
