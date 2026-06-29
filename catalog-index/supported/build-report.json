@@ -756,14 +756,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.8.6"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__2.8.6",
-          "resolvedTag": "bs_1.49.4__2.9.0"
+          "digest": "sha256:3a9e85bc453511f28d0c6b60e4c43395b6d4cb99ac9c522460bd412d57edbf9f"
         },
         "dpdy": {
           "status": "pass"
@@ -773,7 +770,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed-backend",
-      "version": "2.9.0",
+      "version": "2.8.6",
       "workspace": "lightspeed",
       "overall": "pass"
     },
@@ -781,14 +778,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.8.6"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__2.8.6",
-          "resolvedTag": "bs_1.49.4__2.9.0"
+          "digest": "sha256:71093b98f8b5a8981b6e5880378a36be7e945b4d6dc421f10b8cae98ebed6731"
         },
         "dpdy": {
           "status": "pass"
@@ -798,7 +792,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-lightspeed",
-      "version": "2.9.0",
+      "version": "2.8.6",
       "workspace": "lightspeed",
       "overall": "pass"
     },
@@ -810,7 +804,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fe905bd73d107488ebc8c5af7321637fbe41892b21a61412f45f86c21eb90605"
+          "digest": "sha256:fe905bd73d107488ebc8c5af7321637fbe41892b21a61412f45f86c21eb90605",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__1.2.7",
+          "resolvedTag": "bs_1.49.4__1.2.6"
         },
         "dpdy": {
           "status": "pass"
