@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-3scale-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.49.4__3.13.0!backstage-community-plugin-3scale-backend
-  version: 3.13.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.52.0__3.15.0!backstage-community-plugin-3scale-backend
+  version: 3.15.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: community
   lifecycle: active
