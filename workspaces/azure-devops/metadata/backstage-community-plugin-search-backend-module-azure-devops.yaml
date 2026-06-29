@@ -17,11 +17,11 @@ metadata:
     - search
 spec:
   packageName: "@backstage-community/plugin-search-backend-module-azure-devops"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-azure-devops:bs_1.49.4__0.5.0
-  version: 0.5.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-azure-devops:bs_1.52.0__0.7.0
+  version: 0.7.0
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Backstage Community
   support: community
   lifecycle: active

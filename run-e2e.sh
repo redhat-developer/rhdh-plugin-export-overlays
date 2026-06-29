@@ -310,10 +310,18 @@ echo ""
 TEST_EXIT_CODE=0
 npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
 
-# ── Merge coverage data ──────────────────────────────────────────────────
+# ── Coverage artifacts ───────────────────────────────────────────────────
+# The instrumented plugins emit per-test coverage JSONs (written by the
+# e2e-test-utils fixture) under node_modules/.cache/e2e-test-results/coverage,
+# which Prow publishes as run artifacts. They are deliberately NOT uploaded to
+# Codecov here: refresh-coverage-snapshot.yaml regenerates each workspace's
+# committed snapshot from those artifacts on a passing PR run, and the seed
+# (seed-coverage-main.yaml) re-attributes it to the main commit. Keeping the
+# upload out of the per-PR run means Codecov only ever reflects main, with no
+# orphan flags on PR-head commits. See the E2E coverage section in README.md.
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "true" ]]; then
     if [[ -d "node_modules/.cache/e2e-test-results/coverage" ]]; then
-        "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}"
+        echo "[INFO] Coverage JSONs collected as run artifacts — the snapshot refresh workflow consumes the Prow run's copy (not this local/nightly output), so nothing is uploaded here."
     else
         echo "[INFO] Coverage collection enabled but no coverage data found."
         echo "[INFO] Ensure plugins are loaded from instrumented (-coverage) images."
