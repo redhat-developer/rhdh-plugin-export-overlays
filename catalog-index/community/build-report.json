@@ -100,18 +100,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend:bs_1.52.0__0.30.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend:bs_1.52.0__0.30.0"
+          "status": "pass",
+          "digest": "sha256:faac938e502f6a2a81b21390daf4826272189b25eaeddaa3c881201271de25f4"
         }
       },
       "package": "@backstage-community/plugin-azure-devops-backend",
       "version": "0.30.0",
       "workspace": "azure-devops",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-azure-devops": {
       "stages": {
@@ -127,18 +126,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
+          "status": "pass",
+          "digest": "sha256:710c18b7537ae9bcb357e32ec1c2cedf59a371fb9b6fcdbee58e3252651b0105"
         }
       },
       "package": "@backstage-community/plugin-azure-devops",
       "version": "0.32.0",
       "workspace": "azure-devops",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-catalog-backend-module-bitbucket-cloud": {
       "stages": {
@@ -337,10 +335,8 @@
     "backstage-community-plugin-github-actions": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -350,25 +346,24 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:77309d14238a6a05b6d0c229b9e08b96104a9d2a19443e105c84371fe6d78d9d"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
-      "version": "0.22.0",
+      "version": "1.2.0",
       "workspace": "github",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-github-issues": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues:bs_1.52.0__1.2.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -378,17 +373,18 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues:bs_1.52.0__1.2.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:5203992ffc4bb91eed6c6e551579569b62195ab0079695abd05ddd561d29818c"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues:bs_1.52.0__1.2.0"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
-      "version": "0.21.0",
+      "version": "1.2.0",
       "workspace": "github",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "immobiliarelabs-backstage-plugin-gitlab-backend": {
       "stages": {
@@ -441,10 +437,8 @@
     "backstage-community-plugin-jenkins-backend": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -454,21 +448,24 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
         }
       },
       "package": "@backstage-community/plugin-jenkins-backend",
-      "version": "0.27.0",
+      "version": "0.29.0",
       "workspace": "jenkins",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-jenkins": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.52.0__0.32.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -478,13 +475,18 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.52.0__0.32.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.52.0__0.32.0"
         }
       },
       "package": "@backstage-community/plugin-jenkins",
-      "version": "0.30.0",
+      "version": "0.32.0",
       "workspace": "jenkins",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-jfrog-artifactory": {
       "stages": {
@@ -1045,9 +1047,9 @@
   },
   "summary": {
     "total": 39,
-    "succeeded": 4,
-    "failed": 2,
-    "outdated": 33
+    "succeeded": 6,
+    "failed": 4,
+    "outdated": 29
   },
   "status": "partial"
 }
