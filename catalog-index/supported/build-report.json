@@ -1188,18 +1188,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0"
+          "status": "pass",
+          "digest": "sha256:304d32a289dea66c278b738d23c6b5e637604d00a7c4d4baf63c8d33c4a65de9"
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-pingidentity",
       "version": "0.13.0",
       "workspace": "pingidentity",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-quay-backend": {
       "stages": {
@@ -1504,10 +1503,8 @@
     "backstage-community-plugin-tech-radar-backend": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend:bs_1.52.0__1.19.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1517,25 +1514,24 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend:bs_1.52.0__1.19.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:d30fdbebc361d7b02360267b253523ce439f888be04978b9ad194b26b6036501"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend:bs_1.52.0__1.19.0"
         }
       },
       "package": "@backstage-community/plugin-tech-radar-backend",
-      "version": "1.16.0",
+      "version": "1.19.0",
       "workspace": "tech-radar",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-tech-radar": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:bs_1.52.0__1.20.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1545,17 +1541,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:bs_1.52.0__1.20.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:fa74a440524a4158bab212db3b2ef93eef1c32f0aa9ea2bd294030334fef26df"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:bs_1.52.0__1.20.0"
         }
       },
       "package": "@backstage-community/plugin-tech-radar",
-      "version": "1.17.0",
+      "version": "1.20.0",
       "workspace": "tech-radar",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-tekton": {
       "stages": {
@@ -1616,9 +1613,9 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 1,
-    "failed": 1,
-    "outdated": 56
+    "succeeded": 2,
+    "failed": 2,
+    "outdated": 54
   },
   "status": "partial"
 }

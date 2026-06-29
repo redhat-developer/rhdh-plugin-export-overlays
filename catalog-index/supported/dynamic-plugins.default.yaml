@@ -659,7 +659,11 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 50
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:304d32a289dea66c278b738d23c6b5e637604d00a7c4d4baf63c8d33c4a65de9
   # Tag: bs_1.52.0__0.13.0, Build date: 2026-05-22T14:59:58Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-pingidentity-dynamic
     enabled: false
     pluginConfig:
@@ -722,11 +726,7 @@ plugins:
   # enabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-kubernetes-dynamic
     enabled: false
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:fa74a440524a4158bab212db3b2ef93eef1c32f0aa9ea2bd294030334fef26df
-  # Tag: bs_1.49.4__1.17.0, Build date: 2026-06-03T21:08:19Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # enabled: false
+  # Tag: bs_1.52.0__1.20.0, Build date: 2026-06-03T21:08:19Z
   - package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
     enabled: false
     pluginConfig:
@@ -749,11 +749,7 @@ plugins:
                   props:
                     width: 1500
                     height: 800
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:d30fdbebc361d7b02360267b253523ce439f888be04978b9ad194b26b6036501
-  # Tag: bs_1.49.4__1.16.0, Build date: 2026-05-22T15:09:03Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # enabled: false
+  # Tag: bs_1.52.0__1.19.0, Build date: 2026-05-22T15:09:03Z
   - package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar-backend-dynamic
     enabled: false
     pluginConfig:

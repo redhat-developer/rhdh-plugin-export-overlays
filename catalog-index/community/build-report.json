@@ -22,7 +22,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:61f795b1637177f9703b379438621cc5dc5be97e783a978d79a3d3e30fbc80f8"
+          "digest": "sha256:c447e8616d847e8344ca9d1ad1c1640e20199eb10a622bbb973793c855f08e23"
         }
       },
       "package": "@backstage-community/plugin-3scale-backend",
@@ -89,10 +89,8 @@
     "backstage-community-plugin-azure-devops-backend": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend:bs_1.52.0__0.30.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -102,21 +100,24 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend:bs_1.52.0__0.30.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops-backend:bs_1.52.0__0.30.0"
         }
       },
       "package": "@backstage-community/plugin-azure-devops-backend",
-      "version": "0.27.0",
+      "version": "0.30.0",
       "workspace": "azure-devops",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-azure-devops": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -126,13 +127,18 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
         }
       },
       "package": "@backstage-community/plugin-azure-devops",
-      "version": "0.29.0",
+      "version": "0.32.0",
       "workspace": "azure-devops",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-plugin-catalog-backend-module-bitbucket-cloud": {
       "stages": {
@@ -320,7 +326,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c098ee169a05c925367584dfb419037ef85107e4050d8a7a08efada65d2d6696"
+          "digest": "sha256:708a8bfe0e6d42842a34d072bd2176c6350a1c55aa3f92d8a77560ea3c453a08"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
@@ -498,7 +504,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:90f9a151d664017166566f7aabd229f0fcce693497bf72ffa64a7118a9a43c9f"
+          "digest": "sha256:a5880be2f54dcae683da9d773f072d7c6e903e9dc82ae186b5c19a5119e3dfe9"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
@@ -524,7 +530,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:61f4ec6089da446deda73b7f404b6e7e34c14c20452b89081e75a52e8a55a7fa"
+          "digest": "sha256:f4f4a9b12d4ec92e55df9b6949b296721142f2f571ca41345f9aa62618c7bb2d"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
@@ -1040,8 +1046,8 @@
   "summary": {
     "total": 39,
     "succeeded": 4,
-    "failed": 0,
-    "outdated": 35
+    "failed": 2,
+    "outdated": 33
   },
   "status": "partial"
 }
