@@ -64,16 +64,21 @@ jobs:
             const log = body.match(
               /\((https:\/\/gcsweb-ci\.apps\.[\w.-]+\/gcs\/[^)\s]+\/build-log\.txt)\)/,
             );
+            // The job-level `if` already confirmed this is a "Passed E2E Tests"
+            // comment from the bot, so failing to extract the workspace or the
+            // coverage URL here means the comment format drifted. Warn (not info)
+            // so it surfaces as a run annotation instead of the refresh silently
+            // going quiet and snapshots never updating again.
             if (!ws || !log) {
-              core.info("Not a parseable passed-e2e result comment; skipping.");
+              core.warning("Passed-e2e comment didn't match the expected workspace/coverage-URL format; skipping (comment format may have drifted).");
               core.setOutput("skip", "true");
               return;
             }
             // The name flows into file paths and a script argument — reject
             // anything that isn't a plain directory slug (no traversal, no shell
-            // metacharacters), don't rely on the bot staying trusted.
-            if (!/^[a-z0-9][a-z0-9-]*$/.test(ws[1])) {
-              core.info(`Workspace name '${ws[1]}' is not a valid slug; skipping.`);
+            // metacharacters, max 50 chars), don't rely on the bot staying trusted.
+            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(ws[1]) || ws[1].endsWith('-')) {
+              core.warning(`Workspace name '${ws[1]}' is not a valid slug; skipping (comment format may have drifted).`);
               core.setOutput("skip", "true");
               return;
             }
@@ -83,7 +88,7 @@ jobs:
             );
             // The rewrite must keep us on gcsweb; bail if the shape was unexpected.
             if (!coverageUrl.startsWith("https://gcsweb-ci.apps.")) {
-              core.info("Unexpected coverage URL after rewrite; skipping.");
+              core.warning("Unexpected coverage URL after rewrite; skipping (comment format may have drifted).");
               core.setOutput("skip", "true");
               return;
             }
@@ -125,7 +130,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Only workspaces with committed anchors have coverage enabled.
+          # Only workspaces with committed anchors have coverage enabled. This
+          # pre-check intentionally pre-empts refresh-coverage-snapshot.sh, which
+          # treats a missing coverage-anchors/ dir as a fatal error (exit 1) — here
+          # a workspace without coverage enabled is a normal skip, not a failure.
           if [[ ! -d "workspaces/${WS}/coverage-anchors" ]]; then
             echo "Workspace '${WS}' has no coverage-anchors (coverage not enabled) — skipping."
             exit 0
@@ -148,4 +156,17 @@ jobs:
           # [skip ci] tag is belt-and-suspenders for any push-triggered check,
           # not the primary guard.
           git commit -m "chore(coverage): refresh ${WS} snapshot from passing e2e run [skip ci]"
-          git push origin "HEAD:${HEAD_REF}"
+
+          # The push is unforced so it never clobbers concurrent work. The per-PR
+          # concurrency group serializes bot refreshes, but a human push landing
+          # between the checkout above and here would reject this push and fail the
+          # job on a data-only commit. Re-sync onto the branch tip and retry once;
+          # the commit only touches coverage-snapshots/${WS}.lcov, so a rebase
+          # rarely conflicts. If it still fails, let the job fail — we genuinely
+          # couldn't persist a real update.
+          if ! git push origin "HEAD:${HEAD_REF}"; then
+            echo "[WARN] Push rejected (branch advanced?) — re-syncing and retrying once."
+            git fetch origin "${HEAD_REF}"
+            git rebase "origin/${HEAD_REF}"
+            git push origin "HEAD:${HEAD_REF}"
+          fi

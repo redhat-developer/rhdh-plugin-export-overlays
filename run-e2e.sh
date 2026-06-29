@@ -321,7 +321,7 @@ npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT
 # orphan flags on PR-head commits. See the E2E coverage section in README.md.
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "true" ]]; then
     if [[ -d "node_modules/.cache/e2e-test-results/coverage" ]]; then
-        echo "[INFO] Coverage JSONs collected — consumed by the snapshot refresh workflow, not uploaded here."
+        echo "[INFO] Coverage JSONs collected as run artifacts — the snapshot refresh workflow consumes the Prow run's copy (not this local/nightly output), so nothing is uploaded here."
     else
         echo "[INFO] Coverage collection enabled but no coverage data found."
         echo "[INFO] Ensure plugins are loaded from instrumented (-coverage) images."

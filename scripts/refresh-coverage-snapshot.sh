@@ -41,7 +41,7 @@ cleanup() { rm -rf ${DOWNLOAD_DIR:+"$DOWNLOAD_DIR"} ${REPORT_DIR:+"$REPORT_DIR"}
 trap cleanup EXIT
 
 JSON_DIR=""
-if [[ "$SOURCE" =~ ^https?:// ]]; then
+if [[ "$SOURCE" =~ ^https:// ]]; then
   DOWNLOAD_DIR="$(mktemp -d)"
   JSON_DIR="$DOWNLOAD_DIR"
   echo "[INFO] Downloading coverage JSONs from $SOURCE"
@@ -65,6 +65,9 @@ if [[ "$SOURCE" =~ ^https?:// ]]; then
       exit 1
     }
   done
+elif [[ "$SOURCE" =~ ^http:// ]]; then
+  echo "ERROR: refusing to download over insecure HTTP; use HTTPS" >&2
+  exit 1
 else
   JSON_DIR="$SOURCE"
 fi
@@ -87,6 +90,6 @@ if [[ ! -f "$REPORT_DIR/$WORKSPACE/lcov.info" ]]; then
 fi
 
 cp "$REPORT_DIR/$WORKSPACE/lcov.info" "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov"
-anchors=$(grep -c '^SF:' "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov")
+anchors=$(grep -c '^SF:' "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov" || true)
 
 echo "[OK] Wrote coverage-snapshots/$WORKSPACE.lcov ($anchors plugin anchor(s)). Commit it."
