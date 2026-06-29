@@ -1177,10 +1177,8 @@
     "backstage-community-plugin-catalog-backend-module-pingidentity": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.3"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1190,13 +1188,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0"
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-pingidentity",
-      "version": "0.11.1",
+      "version": "0.13.0",
       "workspace": "pingidentity",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-quay-backend": {
       "stages": {
@@ -1614,8 +1617,8 @@
   "summary": {
     "total": 58,
     "succeeded": 1,
-    "failed": 0,
-    "outdated": 57
+    "failed": 1,
+    "outdated": 56
   },
   "status": "partial"
 }

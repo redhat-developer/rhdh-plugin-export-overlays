@@ -18,18 +18,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.52.0__3.15.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.52.0__3.15.0"
+          "status": "pass",
+          "digest": "sha256:61f795b1637177f9703b379438621cc5dc5be97e783a978d79a3d3e30fbc80f8"
         }
       },
       "package": "@backstage-community/plugin-3scale-backend",
       "version": "3.15.0",
       "workspace": "3scale",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-argocd-backend": {
       "stages": {
@@ -317,18 +316,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.52.0__10.21.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.52.0__10.21.0"
+          "status": "pass",
+          "digest": "sha256:c098ee169a05c925367584dfb419037ef85107e4050d8a7a08efada65d2d6696"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
       "version": "10.21.0",
       "workspace": "dynatrace",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-github-actions": {
       "stages": {
@@ -496,18 +494,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.52.0__1.30.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.52.0__1.30.0"
+          "status": "pass",
+          "digest": "sha256:90f9a151d664017166566f7aabd229f0fcce693497bf72ffa64a7118a9a43c9f"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
       "version": "1.30.0",
       "workspace": "jfrog-artifactory",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-lighthouse": {
       "stages": {
@@ -523,18 +520,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.52.0__0.24.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.52.0__0.24.0"
+          "status": "pass",
+          "digest": "sha256:61f4ec6089da446deda73b7f404b6e7e34c14c20452b89081e75a52e8a55a7fa"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
       "version": "0.24.0",
       "workspace": "lighthouse",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-nexus-repository-manager": {
       "stages": {
@@ -1043,8 +1039,8 @@
   },
   "summary": {
     "total": 39,
-    "succeeded": 0,
-    "failed": 4,
+    "succeeded": 4,
+    "failed": 0,
     "outdated": 35
   },
   "status": "partial"
