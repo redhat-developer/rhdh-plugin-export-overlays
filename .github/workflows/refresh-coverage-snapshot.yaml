@@ -12,6 +12,26 @@ name: Refresh E2E coverage snapshot
 # The only thing that produces fresh coverage is a real e2e run on the cluster,
 # so this fires off the e2e result rather than off a code change. See the
 # E2E coverage section in README.md.
+#
+# Assumptions / caveats:
+#
+# - One e2e invocation posts SEVERAL "Passed E2E Tests" comments (one per RHDH
+#   version in the matrix, e.g. 1.10 + 1.11), so this job fires once per comment.
+#   The per-PR concurrency group serializes them and the "snapshot unchanged"
+#   guard below makes the repeats no-ops: the same PR-built instrumented image
+#   runs on every RHDH version, so coverage is identical and converges to one
+#   commit. Only if coverage genuinely differed across versions would the
+#   committed number be last-writer-wins by comment order — accepted, not pinned
+#   to a canonical version (there's no canonical RHDH version in versions.json to
+#   pin to without hardcoding).
+#
+# - The refresh commit becomes the new PR HEAD. The push uses GITHUB_TOKEN, which
+#   does NOT re-trigger workflows — so any `pull_request`-triggered REQUIRED
+#   GitHub Actions check that applies to the PR's paths won't re-run on the new
+#   HEAD and could leave the merge waiting on it. Prow presubmits re-run on the
+#   new commit (webhook-based, not token-gated), so those are fine. Verify on a
+#   protected PR that a bot coverage commit doesn't wedge the merge before
+#   relying on this on branches with required Actions checks.
 
 on:
   issue_comment:
@@ -56,6 +76,13 @@ jobs:
         with:
           script: |
             const body = process.env.COMMENT_BODY || "";
+            // One place for the skip contract: log + set the output later steps
+            // gate on. Format drift warns (surfaces as a run annotation); an
+            // expected skip (fork) is info.
+            const skip = (msg, level = "warning") => {
+              core[level](msg);
+              core.setOutput("skip", "true");
+            };
             // "✅ Passed E2E Tests - `<workspace>`"
             const ws = body.match(/Passed E2E Tests\s*-\s*`([^`]+)`/);
             // The build-log link sits next to the workspace's Prow artifacts; the
@@ -64,32 +91,30 @@ jobs:
             const log = body.match(
               /\((https:\/\/gcsweb-ci\.apps\.[\w.-]+\/gcs\/[^)\s]+\/build-log\.txt)\)/,
             );
-            // The job-level `if` already confirmed this is a "Passed E2E Tests"
-            // comment from the bot, so failing to extract the workspace or the
-            // coverage URL here means the comment format drifted. Warn (not info)
-            // so it surfaces as a run annotation instead of the refresh silently
-            // going quiet and snapshots never updating again.
+            // The job-level `if` already confirmed this is a bot "Passed E2E Tests"
+            // comment, so failing to extract the workspace or coverage URL here
+            // means the comment format drifted — warn so it surfaces instead of
+            // the refresh silently going quiet and snapshots never updating again.
             if (!ws || !log) {
-              core.warning("Passed-e2e comment didn't match the expected workspace/coverage-URL format; skipping (comment format may have drifted).");
-              core.setOutput("skip", "true");
+              skip("Passed-e2e comment didn't match the expected workspace/coverage-URL format; skipping (comment format may have drifted).");
               return;
             }
             // The name flows into file paths and a script argument — reject
             // anything that isn't a plain directory slug (no traversal, no shell
             // metacharacters, max 50 chars), don't rely on the bot staying trusted.
-            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(ws[1]) || ws[1].endsWith('-')) {
-              core.warning(`Workspace name '${ws[1]}' is not a valid slug; skipping (comment format may have drifted).`);
-              core.setOutput("skip", "true");
+            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(ws[1]) || ws[1].endsWith("-")) {
+              skip(`Workspace name '${ws[1]}' is not a valid slug; skipping (comment format may have drifted).`);
               return;
             }
             const coverageUrl = log[1].replace(
               /\/build-log\.txt$/,
               "/artifacts/e2e-test-results/coverage/",
             );
-            // The rewrite must keep us on gcsweb; bail if the shape was unexpected.
-            if (!coverageUrl.startsWith("https://gcsweb-ci.apps.")) {
-              core.warning("Unexpected coverage URL after rewrite; skipping (comment format may have drifted).");
-              core.setOutput("skip", "true");
+            // The host/prefix is already pinned by the regex, so the suffix is the
+            // only part the rewrite could get wrong — assert it produced the
+            // coverage path it was supposed to.
+            if (!coverageUrl.endsWith("/artifacts/e2e-test-results/coverage/")) {
+              skip("Coverage URL rewrite didn't yield the expected coverage path; skipping.");
               return;
             }
             const pr = await github.rest.pulls.get({
@@ -100,8 +125,7 @@ jobs:
             // Same-repo PRs only: a fork head can't receive our push, and we
             // won't run PR-head scripts with a write token from an untrusted fork.
             if (pr.data.head.repo.full_name !== pr.data.base.repo.full_name) {
-              core.info("Fork PR — skipping snapshot refresh.");
-              core.setOutput("skip", "true");
+              skip("Fork PR — skipping snapshot refresh.", "info");
               return;
             }
             core.setOutput("skip", "false");
@@ -170,7 +194,11 @@ jobs:
           # couldn't persist a real update.
           if ! git push origin "HEAD:${HEAD_REF}"; then
             echo "[WARN] Push rejected (branch advanced?) — re-syncing and retrying once."
+            # Rebase onto FETCH_HEAD, not origin/${HEAD_REF}: actions/checkout
+            # uses a narrow refspec, so `git fetch` reliably moves FETCH_HEAD but
+            # may leave the remote-tracking ref stale (which would rebase onto the
+            # old tip and fail again for the same reason).
             git fetch origin "${HEAD_REF}"
-            git rebase "origin/${HEAD_REF}"
+            git rebase FETCH_HEAD
             git push origin "HEAD:${HEAD_REF}"
           fi

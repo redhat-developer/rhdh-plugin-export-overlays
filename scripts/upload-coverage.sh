@@ -8,10 +8,11 @@
 # Example:
 #   ./scripts/upload-coverage.sh tech-radar coverage-snapshots/tech-radar.lcov
 #
-# lcov-file defaults to coverage/lcov.info. The seed (scripts/seed-main-coverage.sh,
-# run by seed-coverage-main.yaml) passes each committed coverage-snapshots/<ws>.lcov
-# so every `e2e-<workspace>` flag carries only its own workspace's data. This is
-# the only path that uploads to Codecov — the per-PR e2e run no longer uploads;
+# lcov-file defaults to coverage/lcov.info, which only matters for a manual run:
+# the sole automated caller — the seed (scripts/seed-main-coverage.sh, run by
+# seed-coverage-main.yaml) — always passes an explicit coverage-snapshots/<ws>.lcov
+# so every `e2e-<workspace>` flag carries only its own workspace's data. The seed
+# is the only path that uploads to Codecov; the per-PR e2e run no longer uploads,
 # it just produces the coverage artifacts the snapshot refresh consumes.
 #
 # Coverage is uploaded to the Codecov project of this overlay repo
