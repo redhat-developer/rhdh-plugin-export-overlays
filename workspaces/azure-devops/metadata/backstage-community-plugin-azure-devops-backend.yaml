@@ -33,3 +33,7 @@ spec:
           host: dev.azure.com
           token: ${AZURE_TOKEN}
           organization: ${AZURE_ORG}
+          pullRequestDashboard:
+            organizations:
+              - organization: ${AZURE_ORG}
+                host: ${AZURE_HOST}
