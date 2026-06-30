@@ -11,26 +11,38 @@ export class NotificationPage {
   }
 
   async clickNotificationsNavBarItem() {
+    await this.dismissNotificationToasts();
     await this.uiHelper.openSidebar("Notifications");
     await this.uiHelper.verifyHeading("Notifications");
     await this.uiHelper.waitForLoad();
   }
 
   async notificationContains(text: string | RegExp) {
-    await this.page.getByLabel("rows").click();
-    // always expand the notifications table to show as many notifications as possible
-    await this.page.getByRole("option", { name: "20" }).click();
-    await this.uiHelper.waitForLoad();
-    const row = this.page.locator(`tr`, { hasText: text }).first();
-    await expect(row).toHaveCount(1);
+    await this.dismissNotificationToasts();
+    const row = this.notificationRows().filter({ hasText: text }).first();
+    if (!(await row.isVisible())) {
+      await this.setRowsPerPage(20);
+    }
+    await expect(row).toBeVisible();
   }
 
-  async selectNotification(nth = 1) {
-    await this.page.getByRole("checkbox").nth(nth).click();
+  async selectNotification(text?: string) {
+    await this.dismissNotificationToasts();
+    let row = text
+      ? this.notificationRows().filter({ hasText: text }).first()
+      : this.notificationRows().first();
+    if (text && !(await row.isVisible())) {
+      await this.setRowsPerPage(20);
+      row = this.notificationRows().filter({ hasText: text }).first();
+    }
+    const checkbox = row.getByRole("checkbox", {
+      name: "Select notification",
+    });
+    await checkbox.check({ force: true });
   }
 
   async selectSeverity(severity = "") {
-    await this.page.getByLabel("Severity").click();
+    await this.page.getByLabel("Min severity").click();
     await this.page.getByRole("option", { name: severity }).click();
     await expect(
       this.page.getByRole("table").filter({ hasText: "Rows per page" }),
@@ -39,10 +51,9 @@ export class NotificationPage {
   }
 
   async saveSelected() {
+    // Header BulkActions: use aria-label on the real <button>, not the draggable wrapper.
     await this.page
-      .locator("thead")
-      .getByTitle("Save selected for later")
-      .getByRole("button")
+      .locator('thead button[aria-label="Save selected for later"]')
       .click();
     await this.uiHelper.waitForLoad();
   }
@@ -77,16 +88,53 @@ export class NotificationPage {
     await this.uiHelper.waitForLoad();
   }
 
+  private notificationRows() {
+    return this.page.getByRole("row").filter({
+      has: this.page.getByRole("checkbox", { name: "Select notification" }),
+    });
+  }
+
+  /** Broadcast toasts from parallel filter tests can block table interactions. */
+  private async dismissNotificationToasts() {
+    const toasts = this.page.locator(
+      "#notistack-snackbar, .notistack-CollapseWrapper",
+    );
+    if (
+      await toasts
+        .first()
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await expect(toasts.first()).toBeHidden({ timeout: 15000 });
+    }
+  }
+
+  private async setRowsPerPage(size: number) {
+    await this.dismissNotificationToasts();
+    await this.page
+      .getByRole("button", { name: /rows per page/i })
+      .click({ force: true });
+    await this.page.getByRole("option", { name: String(size) }).click();
+    await this.uiHelper.waitForLoad();
+  }
+
   private async toggleRead(currentState: "read" | "unread", text?: string) {
-    const rows = this.page.getByRole("row").filter({ hasText: "Notification" });
+    await this.dismissNotificationToasts();
+    const rows = this.notificationRows();
     const count = await rows.count();
 
     const row = text ? rows.filter({ hasText: text }) : rows.first();
-    await row.getByRole("button").nth(1).click();
+    const readButtonName =
+      currentState === "unread"
+        ? /Mark selected as read/i
+        : /Return selected among unread/i;
+    await row.getByRole("button", { name: readButtonName }).click();
 
-    if (
-      await this.page.getByText(`${currentState} notifications (`).isVisible()
-    ) {
+    const viewPattern =
+      currentState === "unread"
+        ? /Unread notifications \(/
+        : /Read notifications \(/;
+    if (await this.page.getByText(viewPattern).isVisible()) {
       await expect(rows).toHaveCount(count - 1);
     }
   }

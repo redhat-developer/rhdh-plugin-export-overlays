@@ -1,7 +1,8 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import * as path from "node:path";
 import { NotificationPage } from "../../support/pages/notifications";
 import {
+  type NotificationSeverity,
   Notifications,
   RhdhNotificationsApi,
 } from "../../support/api/notifications";
@@ -16,20 +17,24 @@ async function createNotification(
   const title = severity
     ? `${notificationTitle} ${severity}-${r}`
     : `${notificationTitle}-${r}`;
+  const apiSeverity = (
+    severity ?? "normal"
+  ).toLowerCase() as NotificationSeverity;
 
   const notification: Notifications = {
-    recipients: {
-      type: "broadcast",
-      entityRef: [""],
-    },
+    recipients: { type: "broadcast" },
     payload: {
       title,
       description: `Test ${title}`,
-      severity: severity || "Normal",
+      severity: apiSeverity,
       topic: `Testing ${title}`,
     },
   };
-  await notificationsApi.createNotification(notification);
+  const response = await notificationsApi.createNotification(notification);
+  expect(
+    response.ok(),
+    `create notification failed (${response.status()}): ${await response.text()}`,
+  ).toBeTruthy();
   return title;
 }
 
@@ -108,7 +113,8 @@ test.describe("Backstage Notifications Plugin", () => {
         "UI Notification Mark as saved",
       );
       await notificationPage.clickNotificationsNavBarItem();
-      await notificationPage.selectNotification();
+      await notificationPage.notificationContains(`${notificationId}`);
+      await notificationPage.selectNotification(notificationId);
       await notificationPage.saveSelected();
       await notificationPage.viewSaved();
       await notificationPage.notificationContains(

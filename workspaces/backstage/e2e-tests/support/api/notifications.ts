@@ -4,17 +4,26 @@ import {
   request,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 
+export type NotificationSeverity = "critical" | "high" | "normal" | "low";
+
 export interface Payload {
   title: string;
   description: string;
-  severity: string;
+  severity: NotificationSeverity;
   topic: string;
 }
 
-export interface Recipients {
-  type: string;
-  entityRef: string[];
-}
+export type BroadcastRecipients = {
+  type: "broadcast";
+};
+
+export type EntityRecipients = {
+  type: "entity";
+  entityRef: string | string[];
+  excludeEntityRef?: string | string[];
+};
+
+export type Recipients = BroadcastRecipients | EntityRecipients;
 
 export interface Notifications {
   recipients: Recipients;
