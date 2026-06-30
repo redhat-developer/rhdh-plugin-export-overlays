@@ -179,6 +179,11 @@ jobs:
             exit 0
           fi
 
+          # Subject of our own refresh commits — pinned once so the guard below
+          # and the commit at the end can't drift apart (a mismatch would silently
+          # disable the guard and re-open the loop it exists to prevent).
+          refresh_subject="refresh ${WS} snapshot from passing e2e run"
+
           # Loop guard. On a PR where Prow auto-runs the e2e on every push (e.g.
           # an /ok-to-test'd bot bump PR), our snapshot commit re-triggers the e2e
           # via the synchronize webhook — Prow ignores [skip ci] and isn't gated by
@@ -186,13 +191,26 @@ jobs:
           # workflow again. The "unchanged" guard below would normally stop the
           # second pass, but if a workspace's coverage is flaky run-to-run the lcov
           # differs every time and it never catches — an unbounded refresh/e2e loop.
-          # So: if HEAD is already this workspace's refresh commit, this run came
-          # from the e2e Prow ran on top of it — keep the first snapshot, stop here.
-          if [[ "$(git log -1 --format='%an')" == "github-actions[bot]" ]] \
-            && git log -1 --format='%s' | grep -qF "refresh ${WS} snapshot from passing e2e run"; then
-            echo "HEAD is already this workspace's refresh commit — skipping to avoid a re-refresh loop."
-            exit 0
-          fi
+          #
+          # Walk the contiguous run of our own refresh commits at the tip: if THIS
+          # workspace already has one there, this run came from the e2e Prow ran on
+          # top of it — keep the first snapshot and stop. Looking back past HEAD
+          # (not just at it) also bounds the multi-workspace case the concurrency
+          # comment allows: two workspaces' refresh commits would otherwise
+          # alternate at HEAD forever, each missing the other's. A real (non-refresh)
+          # commit breaks the run, so a genuine new change still refreshes.
+          # [[ ]] matching (not `git log | grep -q`) keeps this off a pipe, so a
+          # SIGPIPE under `set -o pipefail` can't misread a match as a miss.
+          n=0
+          while subject=$(git log -1 --format='%s' "HEAD~${n}" 2>/dev/null) \
+            && [[ "$(git log -1 --format='%an' "HEAD~${n}" 2>/dev/null)" == "github-actions[bot]" ]] \
+            && [[ "$subject" == *"snapshot from passing e2e run"* ]]; do
+            if [[ "$subject" == *"$refresh_subject"* ]]; then
+              echo "Workspace '${WS}' already has a refresh commit in the bot run at the tip — skipping to avoid a re-refresh loop."
+              exit 0
+            fi
+            n=$((n + 1))
+          done
 
           # A passed run can still carry zero browser coverage (backend-only, or
           # uninstrumented images). refresh-coverage-snapshot.sh is non-fatal in
@@ -210,7 +228,7 @@ jobs:
           # GITHUB_TOKEN pushes don't trigger GitHub Actions (no Actions loop);
           # Prow re-running the e2e is handled by the loop guard above. [skip ci]
           # still skips any push-triggered Actions check on this data-only commit.
-          git commit -m "chore(coverage): refresh ${WS} snapshot from passing e2e run [skip ci]"
+          git commit -m "chore(coverage): ${refresh_subject} [skip ci]"
 
           # The push is unforced so it never clobbers concurrent work. The per-PR
           # concurrency group serializes bot refreshes, but a human push landing
