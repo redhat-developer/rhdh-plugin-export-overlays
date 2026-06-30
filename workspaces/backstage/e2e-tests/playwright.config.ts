@@ -47,6 +47,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
     },
     {
+      name: "backstage-gitlab-scaffolder-actions",
+      testMatch: /tests\/specs\/gitlab-scaffolder-actions\.spec\.ts/,
+    },
+    {
       name: "backstage-auth",
       testMatch: /tests\/specs\/auth\.spec\.ts/,
     },

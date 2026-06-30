@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 
 import { APIRequestContext, APIResponse, request } from "@playwright/test";
 
+import { GitLabScaffolderApi } from "./gitlab-scaffolder-api.js";
+
 /* eslint-disable @typescript-eslint/naming-convention --
    GitLab REST request bodies, query params, and headers follow API names (snake_case, PRIVATE-TOKEN). */
 
@@ -149,6 +151,22 @@ export class GitLabApiHelper {
     }
     return value as T[];
   }
+
+  /** @internal — shared by gitlab-scaffolder-api.ts */
+  static readonly gitlabClient = {
+    request: (
+      method: string,
+      endpoint: string,
+      body?: string | object,
+    ): Promise<APIResponse> =>
+      GitLabApiHelper.safeGitLabRequest(method, endpoint, body),
+    parseJson: <T>(response: APIResponse): Promise<T> =>
+      GitLabApiHelper.parseJson<T>(response),
+    assertJsonArray: <T>(value: unknown): T[] =>
+      GitLabApiHelper.assertJsonArray<T>(value),
+    getGroupProjects: (groupId: number, prefix?: string) =>
+      GitLabApiHelper.getGroupProjects(groupId, prefix),
+  };
 
   /**
    * Create a new project in a group
@@ -860,4 +878,14 @@ export class GitLabApiHelper {
     );
     return this.parseJson<GitLabProject>(response);
   }
+
+  static findProjectInGroup = GitLabScaffolderApi.findProjectInGroup;
+  static listProjectIssues = GitLabScaffolderApi.listProjectIssues;
+  static listMergeRequests = GitLabScaffolderApi.listMergeRequests;
+  static getCurrentUser = GitLabScaffolderApi.getCurrentUser;
+  static getProjectVariable = GitLabScaffolderApi.getProjectVariable;
+  static getRepositoryFile = GitLabScaffolderApi.getRepositoryFile;
 }
+
+/** @internal — shared by gitlab-scaffolder-api.ts */
+export const gitlabClient = GitLabApiHelper.gitlabClient;
