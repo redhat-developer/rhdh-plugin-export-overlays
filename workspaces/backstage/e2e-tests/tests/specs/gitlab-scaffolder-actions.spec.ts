@@ -37,12 +37,15 @@ async function runScaffolderTemplate(
   await uiHelper.clickBtnInCard(templateTitle, "Choose");
   await uiHelper.waitForTitle(templateTitle, 2);
   await fillParameters();
-  await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
-  await uiHelper.clickButton("Review");
-  await expect(
-    page.getByRole("button", { name: "Create", exact: true }),
-  ).toBeVisible();
-  await uiHelper.clickButton("Create");
+  const reviewButton = page.getByRole("button", { name: "Review" });
+  await expect(reviewButton).toBeEnabled();
+  await reviewButton.click();
+  const createButton = page.getByRole("button", {
+    name: "Create",
+    exact: true,
+  });
+  await expect(createButton).toBeVisible();
+  await createButton.click();
   await waitForScaffolderSuccess(page);
 }
 

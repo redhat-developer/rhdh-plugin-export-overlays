@@ -879,12 +879,17 @@ export class GitLabApiHelper {
     return this.parseJson<GitLabProject>(response);
   }
 
-  static findProjectInGroup = GitLabScaffolderApi.findProjectInGroup;
-  static listProjectIssues = GitLabScaffolderApi.listProjectIssues;
-  static listMergeRequests = GitLabScaffolderApi.listMergeRequests;
-  static getCurrentUser = GitLabScaffolderApi.getCurrentUser;
-  static getProjectVariable = GitLabScaffolderApi.getProjectVariable;
-  static getRepositoryFile = GitLabScaffolderApi.getRepositoryFile;
+  public static readonly findProjectInGroup =
+    GitLabScaffolderApi.findProjectInGroup;
+  public static readonly listProjectIssues =
+    GitLabScaffolderApi.listProjectIssues;
+  public static readonly listMergeRequests =
+    GitLabScaffolderApi.listMergeRequests;
+  public static readonly getCurrentUser = GitLabScaffolderApi.getCurrentUser;
+  public static readonly getProjectVariable =
+    GitLabScaffolderApi.getProjectVariable;
+  public static readonly getRepositoryFile =
+    GitLabScaffolderApi.getRepositoryFile;
 }
 
 /** @internal — shared by gitlab-scaffolder-api.ts */
