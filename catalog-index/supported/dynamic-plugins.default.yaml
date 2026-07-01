@@ -1062,7 +1062,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:71093b98f8b5a8981b6e5880378a36be7e945b4d6dc421f10b8cae98ebed6731
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:044300816e95e0a7a0ebf431c7c54358e4c31ad6c64b642990b6ba8683f6e72f
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1095,7 +1095,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:3a9e85bc453511f28d0c6b60e4c43395b6d4cb99ac9c522460bd412d57edbf9f
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:aeade1e18d1c0b146a11f928bf6ae41cfe4ca06bc23f23d15911ba2619e8f757
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1105,7 +1105,7 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:062a536d266bcd76d454fc9fdc0157b99e62074f6d3304578a68f515ced83e64
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:606ef00e43217c9a7e57ab0b64ec6834d5f96ce518424879de06c57701d01569
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1139,13 +1139,13 @@ plugins:
                     if:
                       anyOf:
                         - IsOrchestratorCatalogTabAvailable
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:365d67fddeeaa2cf0b0266b012eb3e74fb5d5071b848059662353e62e7f9ceab
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:0c92710ac251d2fdafdc89ed7096d90e9e1fcd5c1135007e8a7589b8ec754169
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:fe905bd73d107488ebc8c5af7321637fbe41892b21a61412f45f86c21eb90605
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:8e162fc2af4fa6f660ae4e7bfa5e08e0b05881a90bad845756736518be5ae9e5
     disabled: true
     pluginConfig:
       orchestrator:
@@ -1153,13 +1153,13 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:b8d9886e39fa1262bfe1046f6ec5825b8e576c4997c744e0f90f722453f35aec
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:1c57f9d8913d9676a1163471a4820b42c738187557e8f29febaf2300f98422ec
     disabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:5b52adc153afcf79fb134262aa01b1e117085bf59c1a1997ff2e3a6f31c7647a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:138577aa09025e035587b466de4203a0eae45fb7378583562da571683719ccd8
     disabled: true
     pluginConfig:
       orchestrator:
