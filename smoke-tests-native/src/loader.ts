@@ -59,7 +59,11 @@ export function discoverPlugins(root: string): PluginManifest {
     try {
       pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
     } catch {
-      // A malformed package.json in one dir shouldn't abort discovery of the rest.
+      // A malformed package.json shouldn't abort discovery of the rest, but it's a real
+      // problem — warn loudly so it isn't skipped silently.
+      console.warn(
+        `⚠ skipping '${entry.name}': malformed package.json (${pkgPath})`,
+      );
       continue;
     }
     const role: string = pkg.backstage?.role ?? "";

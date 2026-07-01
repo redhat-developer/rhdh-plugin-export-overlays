@@ -9,6 +9,10 @@
  * e2e-tests/playwright/utils/plugin-config.ts). Some backend plugins/modules
  * validate config at boot, so startTestBackend needs a root config with (dummy)
  * values for them; others can't load in a test env and are skipped.
+ *
+ * These lists mostly matter for multi-plugin / whole-workspace runs (they don't fire
+ * for a single scaffolder-module run). Kept in TS — rather than package.json — to stay
+ * type-checked and in sync with the RHDH source they're ported from.
  */
 
 import type { JsonObject } from "@backstage/types";

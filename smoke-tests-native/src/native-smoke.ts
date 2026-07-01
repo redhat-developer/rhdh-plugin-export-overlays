@@ -27,6 +27,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,7 +75,12 @@ const coreFeatures = [scaffolderPlugin];
 type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
 type Report = {
   cliVersion: string;
-  backend: { total: number; loaded: number; errors: PluginError[] };
+  backend: {
+    total: number;
+    loaded: number;
+    skipped: string[];
+    errors: PluginError[];
+  };
   backendStart: { ok: boolean; skipped?: boolean; error?: string };
   frontend: { total: number; valid: number; errors: PluginError[] };
   status: Status;
@@ -169,15 +175,25 @@ async function main(): Promise<number> {
     console.error("Provide --dynamic-plugins <dynamic-plugins.yaml>.");
     return 2;
   }
+  if (!existsSync(dynamicPlugins)) {
+    console.error(`dynamic-plugins file not found: ${dynamicPlugins}`);
+    return 2;
+  }
 
-  const cliVersion = run(process.execPath, [CLI_BIN, "--version"]);
-  console.log(`▶ install CLI: ${CLI}@${cliVersion}`);
-
-  const tempDir = await mkdtemp(join(tmpdir(), "native-smoke-"));
-  const root = join(tempDir, "dynamic-plugins-root");
-  await mkdir(root, { recursive: true });
+  // Declared outside the try so the catch/finally can see them even if setup fails.
+  let cliVersion = "unknown";
+  let tempDir: string | undefined;
 
   try {
+    // Everything fallible lives in the try, so any failure still writes a results.json
+    // (status: error) instead of exiting with no report.
+    cliVersion = run(process.execPath, [CLI_BIN, "--version"]);
+    console.log(`▶ install CLI: ${CLI}@${cliVersion}`);
+
+    tempDir = await mkdtemp(join(tmpdir(), "native-smoke-"));
+    const root = join(tempDir, "dynamic-plugins-root");
+    await mkdir(root, { recursive: true });
+
     await extractPlugins(root, dynamicPlugins);
 
     const manifest = discoverPlugins(root);
@@ -187,6 +203,16 @@ async function main(): Promise<number> {
 
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
+
+    const skipped = manifest.backend
+      .filter((p) => KNOWN_FAILURES.has(p.dirName))
+      .map((p) => p.dirName);
+    if (skipped.length > 0) {
+      console.warn(
+        `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
+      );
+    }
+
     const backendPlugins = manifest.backend.filter(
       (p) => !KNOWN_FAILURES.has(p.dirName),
     );
@@ -194,11 +220,21 @@ async function main(): Promise<number> {
     const start = await startBackend(loaded);
     const frontend = validateFrontends(manifest.frontend);
 
+    // A workspace whose only backend plugin is a known failure would otherwise pass
+    // silently having validated nothing — make that visible.
+    if (loaded.length === 0 && manifest.frontend.length === 0) {
+      console.warn(
+        `⚠ nothing validated: 0 plugins loaded ` +
+          `(${manifest.backend.length} backend found, ${skipped.length} skipped)`,
+      );
+    }
+
     const report: Report = {
       cliVersion,
       backend: {
         total: manifest.backend.length,
         loaded: loaded.length,
+        skipped,
         errors: loadErrors,
       },
       backendStart: start,
@@ -216,8 +252,9 @@ async function main(): Promise<number> {
       : String(start.ok);
     console.log(`▶ report → ${out} (status: ${report.status})`);
     console.log(
-      `  backend loaded ${report.backend.loaded}/${report.backend.total}, ` +
-        `start=${startLabel}, frontend ${frontend.valid}/${manifest.frontend.length}`,
+      `  backend loaded ${report.backend.loaded}/${report.backend.total}` +
+        (skipped.length ? ` (${skipped.length} skipped)` : "") +
+        `, start=${startLabel}, frontend ${frontend.valid}/${manifest.frontend.length}`,
     );
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
@@ -226,7 +263,7 @@ async function main(): Promise<number> {
     const message = err instanceof Error ? err.message : String(err);
     const report: Report = {
       cliVersion,
-      backend: { total: 0, loaded: 0, errors: [] },
+      backend: { total: 0, loaded: 0, skipped: [], errors: [] },
       backendStart: { ok: false, error: message },
       frontend: { total: 0, valid: 0, errors: [] },
       status: "error",
@@ -235,7 +272,7 @@ async function main(): Promise<number> {
     console.error(`▶ report → ${out} (status: error)\n${message}`);
     return 1;
   } finally {
-    await rm(tempDir, { recursive: true, force: true });
+    if (tempDir) await rm(tempDir, { recursive: true, force: true });
   }
 }
 
