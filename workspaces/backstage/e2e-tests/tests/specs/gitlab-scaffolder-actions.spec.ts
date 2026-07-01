@@ -3,6 +3,7 @@ import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { Page } from "@playwright/test";
 
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
+import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 import {
   bootstrapGitLabDiscoveryApiClient,
   bootstrapGitLabScaffolderPreflight,
@@ -12,10 +13,9 @@ import {
   initOrRestoreGitLabScaffolderSharedState,
   isGitLabScaffolderCleanupEnabled,
   requireGitLabScaffolderSharedState,
-  runGitLabCleanupSafely,
   writeGitLabScaffolderSharedState,
   type GitLabScaffolderSharedState,
-} from "../../support/gitlab-events-test-setup.js";
+} from "../../support/gitlab/scaffolder-test-setup.js";
 
 async function waitForScaffolderSuccess(page: Page): Promise<void> {
   await expect(
