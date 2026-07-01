@@ -346,18 +346,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0"
+          "status": "pass",
+          "digest": "sha256:196608288857f0f24dfcd24f8f52e87b191fb3252625c25ef96859eacb5a8da8"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
       "version": "1.2.0",
       "workspace": "github",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-github-issues": {
       "stages": {
@@ -373,18 +372,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues:bs_1.52.0__1.2.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-issues:bs_1.52.0__1.2.0"
+          "status": "pass",
+          "digest": "sha256:67c8caf578168d9e00137329b597e8d3af1c0bd1b6ed2edbcaf6cd43657c6be1"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
       "version": "1.2.0",
       "workspace": "github",
-      "overall": "fail"
+      "overall": "pass"
     },
     "immobiliarelabs-backstage-plugin-gitlab-backend": {
       "stages": {
@@ -448,18 +446,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
+          "status": "pass",
+          "digest": "sha256:b9b5440cadd5be8719502106cb2262b198c55f516a80e465e49c19df26e9be2c"
         }
       },
       "package": "@backstage-community/plugin-jenkins-backend",
       "version": "0.29.0",
       "workspace": "jenkins",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-jenkins": {
       "stages": {
@@ -475,18 +472,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.52.0__0.32.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins:bs_1.52.0__0.32.0"
+          "status": "pass",
+          "digest": "sha256:eb80097f4c9a020e3c9e3e64608fb070f5b001cd1f345d3075c7e4b4ca190796"
         }
       },
       "package": "@backstage-community/plugin-jenkins",
       "version": "0.32.0",
       "workspace": "jenkins",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-jfrog-artifactory": {
       "stages": {
@@ -615,10 +611,8 @@
     "backstage-community-plugin-quay": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -628,25 +622,24 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:0739eac1e8a14f98335d80133a09ed61a78a0d5848d4b6697117129776746b55"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
         }
       },
       "package": "@backstage-community/plugin-quay",
-      "version": "1.32.1",
+      "version": "1.36.0",
       "workspace": "quay",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-scaffolder-backend-module-quay": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.52.0__2.21.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -656,17 +649,18 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.52.0__2.21.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:c57eb012af8ced7339c50fdc80f5767ba1477988394ffbdd6b5c79c47472ca54"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.52.0__2.21.0"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
-      "version": "2.18.0",
+      "version": "2.21.0",
       "workspace": "quay",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "roadiehq-backstage-plugin-argo-cd-backend": {
       "stages": {
@@ -1019,10 +1013,8 @@
     "backstage-community-plugin-quay-backend": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.52.0__1.17.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1032,24 +1024,25 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.52.0__1.17.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:8069246bcdc42c0e3d7e66ad56e129e1d89d0a6648c8861243e9d50f9e0de3df"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.52.0__1.17.0"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
-      "version": "1.14.0",
+      "version": "1.17.0",
       "workspace": "quay",
-      "overall": "outdated"
+      "overall": "fail"
     }
   },
   "summary": {
     "total": 39,
-    "succeeded": 6,
-    "failed": 4,
-    "outdated": 29
+    "succeeded": 10,
+    "failed": 3,
+    "outdated": 26
   },
   "status": "partial"
 }
