@@ -36,6 +36,14 @@ name: Refresh E2E coverage snapshot
 #   <ws>.lcov) touches, so they aren't expected on it. The one residual edge to
 #   re-check is a PR that itself changed e2e-tests where e2e-code-quality is a
 #   *required* status check on a protected branch.
+#
+# - Prow (unlike GitHub Actions) DOES re-run the e2e on the refresh commit via the
+#   synchronize webhook on PRs where it auto-runs on push (e.g. /ok-to-test'd bot
+#   bump PRs) — it ignores [skip ci] and isn't gated by GITHUB_TOKEN. That fresh
+#   "Passed" comment re-fires this workflow, and with flaky coverage the
+#   "unchanged" guard never catches it → a refresh/e2e loop. The "Regenerate"
+#   step's loop guard (skip if HEAD is already this workspace's refresh commit)
+#   bounds it to the first refresh after a real change.
 
 on:
   issue_comment:
@@ -171,6 +179,39 @@ jobs:
             exit 0
           fi
 
+          # Subject of our own refresh commits — pinned once so the guard below
+          # and the commit at the end can't drift apart (a mismatch would silently
+          # disable the guard and re-open the loop it exists to prevent).
+          refresh_subject="refresh ${WS} snapshot from passing e2e run"
+
+          # Loop guard. On a PR where Prow auto-runs the e2e on every push (e.g.
+          # an /ok-to-test'd bot bump PR), our snapshot commit re-triggers the e2e
+          # via the synchronize webhook — Prow ignores [skip ci] and isn't gated by
+          # GITHUB_TOKEN. That posts a fresh "Passed" comment which fires this
+          # workflow again. The "unchanged" guard below would normally stop the
+          # second pass, but if a workspace's coverage is flaky run-to-run the lcov
+          # differs every time and it never catches — an unbounded refresh/e2e loop.
+          #
+          # Walk the contiguous run of our own refresh commits at the tip: if THIS
+          # workspace already has one there, this run came from the e2e Prow ran on
+          # top of it — keep the first snapshot and stop. Looking back past HEAD
+          # (not just at it) also bounds the multi-workspace case the concurrency
+          # comment allows: two workspaces' refresh commits would otherwise
+          # alternate at HEAD forever, each missing the other's. A real (non-refresh)
+          # commit breaks the run, so a genuine new change still refreshes.
+          # [[ ]] matching (not `git log | grep -q`) keeps this off a pipe, so a
+          # SIGPIPE under `set -o pipefail` can't misread a match as a miss.
+          n=0
+          while subject=$(git log -1 --format='%s' "HEAD~${n}" 2>/dev/null) \
+            && [[ "$(git log -1 --format='%an' "HEAD~${n}" 2>/dev/null)" == "github-actions[bot]" ]] \
+            && [[ "$subject" == *"snapshot from passing e2e run"* ]]; do
+            if [[ "$subject" == *"$refresh_subject"* ]]; then
+              echo "Workspace '${WS}' already has a refresh commit in the bot run at the tip — skipping to avoid a re-refresh loop."
+              exit 0
+            fi
+            n=$((n + 1))
+          done
+
           # A passed run can still carry zero browser coverage (backend-only, or
           # uninstrumented images). refresh-coverage-snapshot.sh is non-fatal in
           # that case; guard the commit on an actual change below.
@@ -184,10 +225,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "coverage-snapshots/${WS}.lcov"
-          # No loop: GITHUB_TOKEN pushes don't trigger workflow runs. The
-          # [skip ci] tag is belt-and-suspenders for any push-triggered check,
-          # not the primary guard.
-          git commit -m "chore(coverage): refresh ${WS} snapshot from passing e2e run [skip ci]"
+          # GITHUB_TOKEN pushes don't trigger GitHub Actions (no Actions loop);
+          # Prow re-running the e2e is handled by the loop guard above. [skip ci]
+          # still skips any push-triggered Actions check on this data-only commit.
+          git commit -m "chore(coverage): ${refresh_subject} [skip ci]"
 
           # The push is unforced so it never clobbers concurrent work. The per-PR
           # concurrency group serializes bot refreshes, but a human push landing
