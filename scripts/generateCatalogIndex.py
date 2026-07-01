@@ -31,16 +31,10 @@ from plugin_utils import (
     log_warn,
     log_error,
     set_debug,
-    load_and_resolve_to_stems,
 )
 
 # Global registry config
 REGISTRY_BASE = ""
-
-
-def is_registry_rarc() -> bool:
-    """Check if REGISTRY_BASE is registry.access.redhat.com. Used to determine if queries should be routed through quay.io for unauthenticated access."""
-    return REGISTRY_BASE.startswith("registry.access.redhat.com")
 
 
 def get_image_name_from_package_yaml(yaml_path: Path) -> str | None:
@@ -60,6 +54,12 @@ def get_image_name_from_package_yaml(yaml_path: Path) -> str | None:
         return data.get('metadata', {}).get('name', yaml_path.stem)
     except Exception:
         return yaml_path.stem
+
+
+def is_registry_rarc() -> bool:
+    """Check if REGISTRY_BASE is registry.access.redhat.com. Used to determine if queries should be routed through quay.io for unauthenticated access."""
+    return REGISTRY_BASE.startswith("registry.access.redhat.com")
+
 
 
 def get_query_registry_reference(registry_reference: str) -> str:
@@ -826,40 +826,6 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
             log_debug("dynamic-plugins.default.yaml not present, skipping DPDY updates")
 
 
-def prune_packages_dir(output_dir: Path, found_plugins: list[str]) -> None:
-    """Remove package YAML files that don't correspond to plugins in the index.
-
-    Iterates over ``catalog-entities/extensions/packages/*.yaml`` and deletes
-    any file whose image name (derived via ``get_image_name_from_package_yaml``)
-    is not present in the ``found_plugins`` list. This ensures the output
-    catalog only contains Package entities for plugins whose OCI images were
-    successfully resolved.
-
-    Args:
-        output_dir: Output directory containing the assembled catalog index.
-        found_plugins: List of plugin image names that have valid OCI images
-            in the registry (from ``generate_index_json``).
-    """
-    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-    if not packages_dir.exists():
-        return
-
-    found_set = set(found_plugins)
-    removed_count = 0
-
-    for yaml_file in packages_dir.glob("*.yaml"):
-        if yaml_file.name == "all.yaml":
-            continue
-        image_name = get_image_name_from_package_yaml(yaml_file)
-
-        if image_name not in found_set:
-            yaml_file.unlink()
-            removed_count += 1
-            log_debug(f"Pruned {yaml_file.name}")
-
-    if removed_count > 0:
-        log_info(f"Pruned {removed_count} package file(s) not in the index")
-
 
 def regenerate_all_yaml_files(output_dir: Path) -> None:
     """Regenerate all.yaml files in plugins/ and packages/ directories"""
@@ -907,166 +873,6 @@ def _support_label_color(label: str) -> str:
     return colors.get(label, Colors.RED)
 
 
-def scrub_plugin_entity_file(yaml_file: Path, filtered_stems: set[str]) -> str:
-    """Scrub a single Plugin entity YAML file based on a package filter.
-
-    Examines the ``spec.packages`` list of a ``kind: Plugin`` entity and
-    determines how to handle it relative to the allowed package stems:
-
-    - If **no** packages match the filter, the file is deleted entirely.
-    - If **all** packages match, the file is kept unchanged.
-    - If the match is **mixed**, line-based editing removes only the
-      excluded package references while preserving the rest of the file.
-
-    Non-Plugin entities (wrong ``kind`` or unparseable) are skipped.
-
-    Args:
-        yaml_file: Path to a Plugin entity YAML file in the
-            ``catalog-entities/extensions/plugins/`` directory.
-        filtered_stems: Set of allowed package entity names (metadata.name
-            values) derived from the package filter files.
-
-    Returns:
-        One of four status strings:
-        - ``'removed'``: File was deleted (no packages matched the filter).
-        - ``'stripped'``: File was edited to remove excluded package refs.
-        - ``'kept'``: File was left unchanged (all packages matched).
-        - ``'skipped'``: File was not a Plugin entity or could not be parsed.
-    """
-    try:
-        with open(yaml_file, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-
-        if not data or data.get('kind') != 'Plugin':
-            return 'skipped'
-
-        spec = data.get('spec', {})
-        packages = spec.get('packages', [])
-
-        if not packages:
-            return 'kept'
-
-        # Ensure packages is a list of strings
-        pkg_list = [p for p in packages if isinstance(p, str)]
-        if not pkg_list:
-            return 'kept'
-
-        matched_packages = [p for p in pkg_list if p in filtered_stems]
-        excluded_packages = {p for p in pkg_list if p not in filtered_stems}
-
-        if not matched_packages:
-            yaml_file.unlink()
-            return 'removed'
-
-        if not excluded_packages:
-            return 'kept'
-
-        # Mixed plugin: remove excluded package lines using line-based editing
-        with open(yaml_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        new_lines = []
-        in_packages = False
-        for line in lines:
-            stripped = line.strip()
-
-            if stripped.startswith('packages:'):
-                in_packages = True
-                new_lines.append(line)
-                continue
-
-            if in_packages:
-                if stripped.startswith('- '):
-                    pkg_name = stripped[2:].strip()
-                    if pkg_name in excluded_packages:
-                        continue
-                    new_lines.append(line)
-                    continue
-                elif not stripped or stripped.startswith('#'):
-                    new_lines.append(line)
-                    continue
-                else:
-                    in_packages = False
-
-            new_lines.append(line)
-
-        with open(yaml_file, 'w', encoding='utf-8') as f:
-            f.writelines(new_lines)
-
-        return 'stripped'
-
-    except Exception as e:
-        log_error(f"Error scrubbing plugin entity {yaml_file}: {e}")
-        return 'skipped'
-
-
-
-def scrub_catalog_entities(output_dir: Path, overlays_dir: Path, packages_files: list[str]) -> None:
-    """Scrub both plugins/ and packages/ directories to only retain entities from the package filter files.
-
-    Resolves the union of package stems from all provided filter files
-    (YAML and/or txt format), then:
-
-    1. Scrubs ``plugins/`` by delegating each Plugin entity YAML to
-       ``scrub_plugin_entity_file`` (removes, strips, or keeps).
-    2. Scrubs ``packages/`` by removing any Package metadata YAML whose
-       ``metadata.name`` is not in the resolved filter set.
-
-    Args:
-        output_dir: Output directory containing the assembled catalog index
-            with ``catalog-entities/extensions/plugins/`` and ``packages/``.
-        overlays_dir: Root of the overlays repository, used for resolving
-            workspace paths in txt-format filter files.
-        packages_files: List of paths to package filter files. Accepts YAML
-            (``default.packages.yaml`` with npm names) or txt (workspace
-            paths, one per line). Stems from all files are unioned.
-    """
-    filtered_stems = load_and_resolve_to_stems(packages_files, overlays_dir)
-    log_info(f"Resolved {len(filtered_stems)} filtered package stems from {len(packages_files)} file(s)")
-
-    # Scrub Plugin entity YAMLs
-    plugins_dir = output_dir / "catalog-entities" / "extensions" / "plugins"
-    removed = stripped = kept = skipped = 0
-    if plugins_dir.exists():
-        for yaml_file in sorted(plugins_dir.glob("*.yaml")):
-            if yaml_file.name in ("all.yaml", "1-boilerplate.yaml.sample"):
-                continue
-            result = scrub_plugin_entity_file(yaml_file, filtered_stems)
-            if result == 'removed':
-                removed += 1
-                log_debug(f"Removed excluded plugin: {yaml_file.name}")
-            elif result == 'stripped':
-                stripped += 1
-                log_info(f"Stripped excluded packages from: {yaml_file.name}")
-            elif result == 'kept':
-                kept += 1
-            else:
-                skipped += 1
-
-    log_info(f"Plugin entities: {kept} kept, {stripped} stripped, {removed} removed" +
-             (f", {skipped} skipped" if skipped else ""))
-
-    # Pre-prune Package metadata to only keep filtered plugins.
-    # filtered_stems uses metadata.name (from build_workspace_mappings), so match on that.
-    packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
-    if packages_dir.exists():
-        pkg_removed = 0
-        for yaml_file in sorted(packages_dir.glob("*.yaml")):
-            if yaml_file.name == "all.yaml":
-                continue
-            try:
-                with open(yaml_file, 'r', encoding='utf-8') as f:
-                    data = yaml.safe_load(f)
-                entity_name = (data or {}).get('metadata', {}).get('name', yaml_file.stem)
-            except Exception:
-                entity_name = yaml_file.stem
-            if entity_name not in filtered_stems:
-                yaml_file.unlink()
-                pkg_removed += 1
-                log_debug(f"Removed excluded package metadata: {yaml_file.name}")
-        if pkg_removed > 0:
-            log_info(f"Package metadata: removed {pkg_removed} excluded files")
-
 
 def main():
     global REGISTRY_BASE
@@ -1077,29 +883,25 @@ Usage: python3 generateCatalogIndex.py [--debug] \\
     [-d|--overlays-dir PATH] \\
     [-o|--output-dir PATH] \\
     [-b|--plugin-builds-dir PATH] \\
-    [-p|--packages-file FILE ...] \\
     [-c|--catalog-entities-dir PATH]
 
 Examples:
-    # Generate supported catalog index (union of YAML + txt package lists)
+    # Generate supported catalog index
     python3 generateCatalogIndex.py \\
         -o catalog-index/supported \\
         -b plugin_builds/supported \\
-        -r quay.io/rhdh \\
-        -p catalog-index/default.packages.yaml \\
-        -p rhdh-supported-packages.txt
+        -r quay.io/rhdh
 
     # Generate community catalog index
     python3 generateCatalogIndex.py \\
         -o catalog-index/community \\
         -b plugin_builds/community \\
-        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays \\
-        -p rhdh-community-packages.txt
+        -r ghcr.io/redhat-developer/rhdh-plugin-export-overlays
 """
 
     parser = argparse.ArgumentParser(
         description='Generate catalog index from plugin_builds and workspace metadata. '
-                    'No filtering — plugin_builds/ is pre-filtered by bootstrapPluginBuilds.py.',
+                    'Catalog entities are copied unfiltered; plugin_builds/ is pre-filtered by bootstrapPluginBuilds.py.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=usage
     )
@@ -1132,15 +934,6 @@ Examples:
         required=True,
         metavar='BASE',
         help='Registry base (e.g., ghcr.io/redhat-developer/rhdh-plugin-export-overlays, quay.io/rhdh)',
-    )
-    parser.add_argument(
-        '-p', '--packages-file',
-        type=str,
-        action='append',
-        metavar='FILE',
-        help='Package list file to filter catalog entities. Can be specified multiple times. '
-             'Accepts YAML (default.packages.yaml format with npm names) or txt '
-             '(workspace paths, one per line). Stems from all files are unioned.',
     )
     parser.add_argument(
         '-c', '--catalog-entities-dir',
@@ -1183,18 +976,10 @@ Examples:
     print(f"\n{Colors.GREEN}=== Copy workspaces/*/metadata/*.yaml to output packages/ ==={Colors.NORM}")
     yaml_file_names, _ = copy_workspace_metadata_files(overlays_dir, output_dir)
 
-    # Scrub catalog entities based on package list files
-    if args.packages_file:
-        print(f"\n{Colors.GREEN}=== Scrub catalog entities to packages from {len(args.packages_file)} file(s) ==={Colors.NORM}")
-        scrub_catalog_entities(output_dir, overlays_dir, args.packages_file)
-
     report = BuildReport(args.report_file)
 
     print(f"\n{Colors.GREEN}=== Generate index.json from plugin_builds ==={Colors.NORM}")
     index_data, found_plugins, missing_references, plugin_workspace_paths, all_plugin_data = generate_index_json(plugin_builds_dir, output_dir, report)
-
-    print(f"\n{Colors.GREEN}=== Prune packages/ to match index ==={Colors.NORM}")
-    prune_packages_dir(output_dir, found_plugins)
 
     print(f"\n{Colors.GREEN}=== Update package files with OCI references ==={Colors.NORM}")
     log_debug(f"Found {len(found_plugins)} plugins with valid OCI images")
@@ -1203,8 +988,8 @@ Examples:
     print(f"\n{Colors.GREEN}=== Regenerate all.yaml files ==={Colors.NORM}")
     regenerate_all_yaml_files(output_dir)
 
-    # Re-derive yaml_file_names from what actually remains after scrub+prune.
-    # Use spec.packageName→image_name to match found_plugins (which uses the same derivation).
+    # Re-derive yaml_file_names using image names (from spec.packageName) so they
+    # match found_plugins keys (which use the same packageName→image-name derivation).
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
         yaml_file_names = {

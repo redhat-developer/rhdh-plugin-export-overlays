@@ -174,3 +174,35 @@ This creates `backstage.json` with the target version and updates all metadata O
 #### Once Testing Is Complete:
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
+
+## E2E coverage anchors
+
+Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
+
+Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+
+These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
+
+```bash
+./scripts/generate-coverage-anchors.sh <workspace>
+```
+
+See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
+
+### Populating the `main` branch
+
+Coverage is produced only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds. Those jobs emit per-test coverage **as run artifacts**; they do not upload to Codecov directly. (A PR-head upload would be pointless anyway: squash-merge creates a fresh `main` commit the upload never reaches, and Codecov's carryforward can't cross the squash.)
+
+Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually). This is the **only** path that uploads to Codecov, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits.
+
+**Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes upstream. One intrinsic limit: coverage only exists after an e2e actually runs on the cluster, so a workspace's number updates when its e2e is triggered (`/test e2e-ocp-helm`) — the refresh then happens automatically.
+
+To refresh a snapshot by hand (e.g. from a run the workflow didn't pick up):
+
+```bash
+# point at the run's gcsweb .../artifacts/e2e-test-results/coverage/ directory
+./scripts/refresh-coverage-snapshot.sh <workspace> <coverage-dir-or-gcsweb-url>
+git add coverage-snapshots/<workspace>.lcov
+```
+
+A snapshot's number only moves when it's refreshed — which is also the only time the coverage itself changes, since a workspace's coverage is fixed until its plugin code changes (and code changes come through PRs that re-run e2e). This keeps the dashboard effectively current without a separate coverage run: the nightly stays entirely on the shipped `{{inherit}}`/Konflux builds and is not involved in coverage.

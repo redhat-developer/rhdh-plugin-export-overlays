@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-adoption-insights'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-adoption-insights
-  version: 0.8.2
+  version: 0.8.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.49.4
@@ -34,6 +34,7 @@ spec:
             red-hat-developer-hub.backstage-plugin-adoption-insights:
               translationResources:
                 - importName: adoptionInsightsTranslations
+                  module: Alpha
                   ref: adoptionInsightsTranslationRef
               appIcons:
                 - name: adoptionInsightsIcon

@@ -127,19 +127,26 @@ jobs:
 
       - name: Wait for RHDH to be ready
         run: |
-          set -e
-          for i in $(seq 1 10); do
+          set -euo pipefail
+          TOTAL_ATTEMPTS=30
+          SLEEP_SECONDS=10
+
+          TOTAL_WAIT_SECONDS=$(( TOTAL_ATTEMPTS * SLEEP_SECONDS ))
+          TOTAL_WAIT_MINUTES=$(( TOTAL_WAIT_SECONDS / 60 ))
+          echo "Readiness window: ${TOTAL_ATTEMPTS} attempts x ${SLEEP_SECONDS}s (~${TOTAL_WAIT_MINUTES}m)"
+
+          for i in $(seq 1 "$TOTAL_ATTEMPTS"); do
             if curl -fsS http://localhost:7007/health >/dev/null; then
               echo "RHDH is ready"; exit 0; fi
-            echo "Waiting for RHDH... (Attempt ${i}/10)"
+            echo "Waiting for RHDH... (Attempt ${i}/${TOTAL_ATTEMPTS})"
             # Check if container is still running
             if ! docker ps | grep -q rhdh; then
               echo "Container stopped unexpectedly."
               exit 1
             fi
-            sleep 10
+            sleep "$SLEEP_SECONDS"
           done
-          echo "RHDH did not become ready in time."
+          echo "RHDH did not become ready in time after ${TOTAL_WAIT_SECONDS}s."
           exit 1
 
       - name: List installed plugins
@@ -180,8 +187,8 @@ jobs:
           echo "===== Checking logs for plugin loaded messages"
           for plugin in $PLUGINS; do
             echo "Asserting plugin loaded: $plugin"
-            # Match either the unpack path or the canonical "loaded dynamic ... plugin '<pkg>' from" message
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'" ; then
+            # Match loaded plugins by unpack path; allow both root and /alpha module paths.
+            if echo "$LOGS" | grep -qiE "loaded dynamic (frontend|backend) plugin .* from 'file:///opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?'" ; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"

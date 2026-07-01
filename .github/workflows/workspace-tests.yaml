@@ -264,7 +264,7 @@ jobs:
 
               STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
               echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${STRIPPED}\"" >> "$OUT_FILE"
-              echo "  disabled: false" >> "$OUT_FILE"
+              echo "  enabled: true" >> "$OUT_FILE"
               if [ -n "$CONFIG_CONTENT" ]; then
                 echo "  pluginConfig:" >> "$OUT_FILE"
                 echo "$CONFIG_CONTENT" | sed 's/^/    /' >> "$OUT_FILE"
