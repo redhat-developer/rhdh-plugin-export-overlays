@@ -3,6 +3,7 @@ set -euo pipefail
 
 # =============================================================================
 # E2E Test Runner for rhdh-plugin-export-overlays
+# debug: investigating SHARED_DIR data loss (RHIDP investigation)
 #
 # Runs workspace E2E tests in parallel using Playwright workers.
 # Uses yarn workspaces for dependency management (single root node_modules).
