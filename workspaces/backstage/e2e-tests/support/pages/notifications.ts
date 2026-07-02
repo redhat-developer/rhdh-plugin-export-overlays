@@ -1,5 +1,6 @@
 import { expect, type Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { waitForAppReady } from "../utils/wait-for-app-ready";
 
 export class NotificationPage {
   private readonly page: Page;
@@ -12,9 +13,12 @@ export class NotificationPage {
 
   async clickNotificationsNavBarItem() {
     await this.dismissNotificationToasts();
-    await this.uiHelper.openSidebar("Notifications");
-    await this.uiHelper.verifyHeading("Notifications");
-    await this.uiHelper.waitForLoad();
+    await expect(async () => {
+      await this.page.goto("/notifications");
+      await waitForAppReady(this.page, this.uiHelper);
+      await expect(this.page).toHaveURL(/\/notifications/);
+      await this.uiHelper.verifyHeading("Notifications", 30_000);
+    }).toPass({ timeout: 60_000, intervals: [2_000] });
   }
 
   async notificationContains(text: string | RegExp) {
@@ -47,7 +51,7 @@ export class NotificationPage {
     await expect(
       this.page.getByRole("table").filter({ hasText: "Rows per page" }),
     ).toBeVisible();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   async saveSelected() {
@@ -55,13 +59,13 @@ export class NotificationPage {
     await this.page
       .locator('thead button[aria-label="Save selected for later"]')
       .click();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   async viewSaved() {
     await this.page.getByLabel("View").click();
     await this.page.getByRole("option", { name: "Saved" }).click();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   async markNotificationAsRead(text: string) {
@@ -77,7 +81,7 @@ export class NotificationPage {
     await this.page
       .getByRole("option", { name: "Read notifications", exact: true })
       .click();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   async viewUnRead() {
@@ -85,7 +89,7 @@ export class NotificationPage {
     await this.page
       .getByRole("option", { name: "Unread notifications", exact: true })
       .click();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   private notificationRows() {
@@ -105,7 +109,7 @@ export class NotificationPage {
         .isVisible()
         .catch(() => false)
     ) {
-      await expect(toasts.first()).toBeHidden({ timeout: 15000 });
+      await expect(toasts.first()).toBeHidden({ timeout: 15_000 });
     }
   }
 
@@ -115,7 +119,7 @@ export class NotificationPage {
       .getByRole("button", { name: /rows per page/i })
       .click({ force: true });
     await this.page.getByRole("option", { name: String(size) }).click();
-    await this.uiHelper.waitForLoad();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
   }
 
   private async toggleRead(currentState: "read" | "unread", text?: string) {
@@ -129,13 +133,16 @@ export class NotificationPage {
         ? /Mark selected as read/i
         : /Return selected among unread/i;
     await row.getByRole("button", { name: readButtonName }).click();
+    await waitForAppReady(this.page, this.uiHelper, 30_000);
 
     const viewPattern =
       currentState === "unread"
         ? /Unread notifications \(/
         : /Read notifications \(/;
     if (await this.page.getByText(viewPattern).isVisible()) {
-      await expect(rows).toHaveCount(count - 1);
+      await expect(async () => {
+        await expect(rows).toHaveCount(count - 1);
+      }).toPass({ timeout: 15_000, intervals: [1_000] });
     }
   }
 }

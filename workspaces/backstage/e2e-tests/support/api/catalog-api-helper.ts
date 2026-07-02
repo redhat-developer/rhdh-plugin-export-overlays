@@ -73,6 +73,20 @@ export class CatalogApiHelper {
   }
 
   /**
+   * Read metadata.description for a catalog entity.
+   */
+  static async getEntityDescription(
+    baseUrl: string,
+    token: string,
+    kind: string,
+    name: string,
+    namespace = "default",
+  ): Promise<string | undefined> {
+    const entity = await this.getEntity(baseUrl, token, kind, name, namespace);
+    return entity.metadata?.description as string | undefined;
+  }
+
+  /**
    * Get a group entity from the RHDH catalog API
    */
   static async getGroupEntity(
