@@ -73,6 +73,7 @@ const CLI_BIN = join(
 const coreFeatures = [scaffolderPlugin];
 
 type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
+type BackendStartResult = { ok: boolean; skipped?: boolean; error?: string };
 type Report = {
   cliVersion: string;
   backend: {
@@ -81,19 +82,34 @@ type Report = {
     skipped: string[];
     errors: PluginError[];
   };
-  backendStart: { ok: boolean; skipped?: boolean; error?: string };
+  backendStart: BackendStartResult;
   frontend: { total: number; valid: number; errors: PluginError[] };
   status: Status;
 };
 
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
-function run(file: string, args: string[], env?: NodeJS.ProcessEnv): string {
-  return execFileSync(file, args, {
-    encoding: "utf-8",
-    stdio: "pipe",
-    env: { ...process.env, ...env },
-  }).trim();
+function run(file: string, args: string[]): string {
+  return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
+}
+
+// Any failure — bad args, install CLI crash, boot error before the report is built —
+// still produces a results.json (status: error), so a consumer never reads a stale
+// "pass" or finds no report at all.
+async function writeErrorReport(
+  out: string,
+  cliVersion: string,
+  message: string,
+): Promise<void> {
+  const report: Report = {
+    cliVersion,
+    backend: { total: 0, loaded: 0, skipped: [], errors: [] },
+    backendStart: { ok: false, error: message },
+    frontend: { total: 0, valid: 0, errors: [] },
+    status: "error",
+  };
+  await writeFile(out, JSON.stringify(report, null, 2));
+  console.error(`▶ report → ${out} (status: error)\n${message}`);
 }
 
 function computeStatus(
@@ -122,9 +138,7 @@ async function extractPlugins(root: string, dynamicPlugins: string): Promise<voi
 }
 
 // Boot the loaded backend features in-process to confirm they integrate.
-async function startBackend(
-  loaded: LoadedPlugin[],
-): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+async function startBackend(loaded: LoadedPlugin[]): Promise<BackendStartResult> {
   // No backend plugins (e.g. a frontend-only workspace) — boot wasn't attempted, not a
   // failure. Flag it so results.json doesn't read like the backend crashed.
   if (loaded.length === 0) return { ok: true, skipped: true };
@@ -172,11 +186,11 @@ async function main(): Promise<number> {
   const dynamicPlugins = values["dynamic-plugins"];
 
   if (!dynamicPlugins) {
-    console.error("Provide --dynamic-plugins <dynamic-plugins.yaml>.");
+    await writeErrorReport(out, "unknown", "Provide --dynamic-plugins <dynamic-plugins.yaml>.");
     return 2;
   }
   if (!existsSync(dynamicPlugins)) {
-    console.error(`dynamic-plugins file not found: ${dynamicPlugins}`);
+    await writeErrorReport(out, "unknown", `dynamic-plugins file not found: ${dynamicPlugins}`);
     return 2;
   }
 
@@ -204,18 +218,18 @@ async function main(): Promise<number> {
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    const skipped = manifest.backend
-      .filter((p) => KNOWN_FAILURES.has(p.dirName))
-      .map((p) => p.dirName);
+    // Partition in one pass so `skipped` and `backendPlugins` stay complementary.
+    const skipped: string[] = [];
+    const backendPlugins: PluginEntry[] = [];
+    for (const p of manifest.backend) {
+      if (KNOWN_FAILURES.has(p.dirName)) skipped.push(p.dirName);
+      else backendPlugins.push(p);
+    }
     if (skipped.length > 0) {
       console.warn(
         `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
       );
     }
-
-    const backendPlugins = manifest.backend.filter(
-      (p) => !KNOWN_FAILURES.has(p.dirName),
-    );
     const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
     const start = await startBackend(loaded);
     const frontend = validateFrontends(manifest.frontend);
@@ -258,18 +272,8 @@ async function main(): Promise<number> {
     );
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
-    // Any failure before the report is built (e.g. the install CLI failing on a bad
-    // OCI ref) still writes a results.json, so a consumer never reads a stale "pass".
-    const message = err instanceof Error ? err.message : String(err);
-    const report: Report = {
-      cliVersion,
-      backend: { total: 0, loaded: 0, skipped: [], errors: [] },
-      backendStart: { ok: false, error: message },
-      frontend: { total: 0, valid: 0, errors: [] },
-      status: "error",
-    };
-    await writeFile(out, JSON.stringify(report, null, 2));
-    console.error(`▶ report → ${out} (status: error)\n${message}`);
+    // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
+    await writeErrorReport(out, cliVersion, err instanceof Error ? err.message : String(err));
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });

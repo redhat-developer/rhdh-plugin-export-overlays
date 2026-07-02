@@ -23,11 +23,11 @@ on:
     inputs:
       plugin_ref:
         description: >-
-          OCI package ref to validate (oci://…:tag!name). Defaults to a known-good
-          pure-backend plugin. Catalog-extending modules are not supported yet.
+          OCI package ref to validate (oci://…:tag!name). Leave empty to use the
+          known-good pure-backend default (env.DEFAULT_PLUGIN_REF below).
+          Catalog-extending modules are not supported yet.
         type: string
         required: false
-        default: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -38,7 +38,8 @@ permissions:
   packages: read
 
 env:
-  # Default plugin validated on pull_request; overridable via the dispatch input.
+  # Single source of truth for the plugin validated on pull_request and when the
+  # dispatch input is left empty.
   DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
 
 jobs:
@@ -54,13 +55,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
-
-      - name: Enable Corepack
-        run: corepack enable
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
 
       - name: Install skopeo
         # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.

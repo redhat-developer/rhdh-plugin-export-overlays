@@ -67,15 +67,16 @@ export function discoverPlugins(root: string): PluginManifest {
       continue;
     }
     const role: string = pkg.backstage?.role ?? "";
+    const isFrontend = role.includes("frontend");
     const item: PluginEntry = {
       name: pkg.name ?? entry.name,
       version: pkg.version ?? "0.0.0",
       dirName: entry.name,
       path: dir,
-      role: role.includes("frontend") ? "frontend" : "backend",
+      role: isFrontend ? "frontend" : "backend",
     };
 
-    if (role.includes("frontend")) frontend.push(item);
+    if (isFrontend) frontend.push(item);
     else if (role.includes("backend")) backend.push(item);
     // dirs without a backstage role aren't plugins — skip
   }
@@ -90,12 +91,14 @@ function resolveEntryPoint(pluginPath: string): string {
     throw new Error(`package.json not found in ${pluginPath}`);
   }
   const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  // Normalize "./dist/…" → "dist/…" so an explicit main is not silently excluded.
+  const main: string | undefined = pkg.main?.replace(/^\.\//, "");
   const candidates = [
     "dist/index.cjs.js",
     "dist/index.esm.js",
     "dist/index.js",
-    pkg.main?.startsWith("dist/") ? pkg.main : undefined,
-  ].filter(Boolean) as string[];
+    main?.startsWith("dist/") ? main : undefined,
+  ].filter((c): c is string => Boolean(c));
 
   for (const candidate of candidates) {
     const full = join(pluginPath, candidate);
