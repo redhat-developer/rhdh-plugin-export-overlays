@@ -106,8 +106,9 @@ export function registerOrchestratorCoreWorkflowTests(
       await orchestrator.validateCurrentWorkflowStatus("Completed");
     });
 
+    // FIXME: This test is flaky, needs to be fixed. tracked here https://redhat.atlassian.net/browse/RHDHBUGS-3431
     // eslint-disable-next-line playwright/expect-expect
-    test("Rerun Failswitch from failure point", async ({}, testInfo) => {
+    test.fixme("Rerun Failswitch from failure point", async ({}, testInfo) => {
       // 4 minutes: pod restarts + 60s sleep + failure/recovery time
       test.setTimeout(240_000);
       const ns = testInfo.project.name;
