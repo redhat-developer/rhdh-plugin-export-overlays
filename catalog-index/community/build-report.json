@@ -622,18 +622,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
+          "status": "pass",
+          "digest": "sha256:f2d671bb1aac1c3293d704b0f362598e5c2446cd94236173053beff9d1a70276"
         }
       },
       "package": "@backstage-community/plugin-quay",
       "version": "1.36.0",
       "workspace": "quay",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-scaffolder-backend-module-quay": {
       "stages": {
@@ -649,18 +648,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.52.0__2.21.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.52.0__2.21.0"
+          "status": "pass",
+          "digest": "sha256:5bc80b9601a8289de21233953d6b1ff0293a72ffca803a65a126948c389b8d5e"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
       "version": "2.21.0",
       "workspace": "quay",
-      "overall": "fail"
+      "overall": "pass"
     },
     "roadiehq-backstage-plugin-argo-cd-backend": {
       "stages": {
@@ -1024,24 +1022,23 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.52.0__1.17.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay-backend:bs_1.52.0__1.17.0"
+          "status": "pass",
+          "digest": "sha256:a9378d9e72200d499d1b890c1ec3df1c9f2b428ded622fa8e3955966dd9e8858"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
       "version": "1.17.0",
       "workspace": "quay",
-      "overall": "fail"
+      "overall": "pass"
     }
   },
   "summary": {
     "total": 39,
-    "succeeded": 10,
-    "failed": 3,
+    "succeeded": 13,
+    "failed": 0,
     "outdated": 26
   },
   "status": "partial"
