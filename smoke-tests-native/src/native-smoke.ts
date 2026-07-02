@@ -29,7 +29,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
@@ -91,6 +91,29 @@ type Report = {
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
+}
+
+// --out comes from the CLI; constrain it to the working directory so a faulty
+// argument can never write outside it (Sonar S8707). Returns the resolved absolute
+// path, or null when the argument escapes the working directory.
+function resolveOutPath(outArg: string): string | null {
+  const resolved = resolve(outArg);
+  return resolved.startsWith(process.cwd() + sep) ? resolved : null;
+}
+
+// Partition backend entries into known-failure skips and loadable plugins in one
+// pass, so the two lists stay complementary.
+function partitionKnownFailures(entries: PluginEntry[]): {
+  skipped: string[];
+  backendPlugins: PluginEntry[];
+} {
+  const skipped: string[] = [];
+  const backendPlugins: PluginEntry[] = [];
+  for (const entry of entries) {
+    if (KNOWN_FAILURES.has(entry.dirName)) skipped.push(entry.dirName);
+    else backendPlugins.push(entry);
+  }
+  return { skipped, backendPlugins };
 }
 
 // Any failure — bad args, install CLI crash, boot error before the report is built —
@@ -182,9 +205,14 @@ async function main(): Promise<number> {
     },
   });
 
-  const out = values.out ?? "results.json";
+  const outArg = values.out ?? "results.json";
+  const out = resolveOutPath(outArg);
   const dynamicPlugins = values["dynamic-plugins"];
 
+  if (!out) {
+    console.error(`--out must resolve inside the working directory: ${outArg}`);
+    return 2;
+  }
   if (!dynamicPlugins) {
     await writeErrorReport(out, "unknown", "Provide --dynamic-plugins <dynamic-plugins.yaml>.");
     return 2;
@@ -218,13 +246,7 @@ async function main(): Promise<number> {
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    // Partition in one pass so `skipped` and `backendPlugins` stay complementary.
-    const skipped: string[] = [];
-    const backendPlugins: PluginEntry[] = [];
-    for (const p of manifest.backend) {
-      if (KNOWN_FAILURES.has(p.dirName)) skipped.push(p.dirName);
-      else backendPlugins.push(p);
-    }
+    const { skipped, backendPlugins } = partitionKnownFailures(manifest.backend);
     if (skipped.length > 0) {
       console.warn(
         `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
