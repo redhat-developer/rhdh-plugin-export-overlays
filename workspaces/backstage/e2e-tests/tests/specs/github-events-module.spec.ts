@@ -18,6 +18,11 @@ test.describe("GitHub Events Module", () => {
   test.beforeAll(async ({ rhdh }) => {
     requireEnv("VAULT_GITHUB_APP_WEBHOOK_SECRET");
 
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: ["@backstage/plugin-events-backend-module-github"],
+    });
+
     await rhdh.configure({
       auth: "keycloak",
       appConfig: "tests/config/github-events/app-config-rhdh.yaml",

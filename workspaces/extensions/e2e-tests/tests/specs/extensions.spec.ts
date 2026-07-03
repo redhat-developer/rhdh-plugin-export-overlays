@@ -18,7 +18,7 @@ test.describe("Admin > Extensions", () => {
   const supportTypeOptions = [
     "Generally available (GA)",
     "Tech preview (TP)",
-    "Dev preview (DP)",
+    "Custom plugin",
     "Community plugin",
   ];
   const provider = "Red Hat";
@@ -48,8 +48,8 @@ test.describe("Admin > Extensions", () => {
   test.describe("Extensions > Catalog", () => {
     // eslint-disable-next-line playwright/expect-expect -- uiHelper.verifyHeading asserts internally
     test("Verify search bar in extensions", async ({ page }) => {
-      await extensions.searchExtensions("Dynatrace");
-      await uiHelper.verifyHeading("DynaTrace");
+      await extensions.searchExtensions("Bulk Import");
+      await uiHelper.verifyHeading("Bulk Import");
       await page
         .getByRole("button", {
           name: "Clear Search",
@@ -71,9 +71,11 @@ test.describe("Admin > Extensions", () => {
       await extensions.selectDropdown("Author");
       await extensions.toggleOption("Red Hat");
       await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("Argo CD");
+      await uiHelper.verifyHeading("Pipelines With Tekton");
       await uiHelper.verifyText(" by " + "Red Hat");
-      await page.getByRole("heading", { name: "Argo CD" }).click();
+      await page
+        .getByRole("heading", { name: "Pipelines With Tekton" })
+        .click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
         "Version",
@@ -177,20 +179,21 @@ test.describe("Admin > Extensions", () => {
     });
 
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
-    test("Verify dev preview badge in extensions", async () => {
-      await extensions.selectSupportTypeFilter("Dev preview (DP)");
-      await uiHelper.verifyHeading("Konflux");
+    test("Verify custom plugin badge in extensions", async () => {
+      await extensions.selectSupportTypeFilter("Custom plugin");
+      await uiHelper.verifyHeading("Github Events Backend Module");
 
       await extensions.verifyPluginDetails({
-        pluginName: "Konflux",
-        badgeLabel: "An early-stage, experimental plugin",
-        badgeText: "Dev preview (DP)",
-        headings: commonHeadings,
+        pluginName: "Github Events Backend Module",
+        badgeLabel: "Plugin still in development",
+        badgeText: "Tech preview (TP)",
+        headings: commonHeadings.filter((value) => value !== "Tags"),
         includeTable: true,
         includeAbout: false,
+        author: "Backstage Community",
       });
 
-      await extensions.resetSupportTypeFilter("Dev preview (DP)");
+      await extensions.resetSupportTypeFilter("Custom plugin");
     });
 
     test("Verify community plugin badge in extensions", async ({
@@ -200,7 +203,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.selectSupportTypeFilter("Community plugin");
 
       await extensions.clickReadMoreByPluginTitle(
-        "ServiceNow Integration for Red Hat Developer Hub",
+        "Pipelines With Tekton",
         "Community plugin",
       );
       await expect(

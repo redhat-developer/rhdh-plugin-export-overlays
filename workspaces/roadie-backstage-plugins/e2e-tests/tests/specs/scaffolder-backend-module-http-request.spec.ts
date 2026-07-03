@@ -4,6 +4,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 // Pre-req: Enable roadiehq-scaffolder-backend-module-http-request-dynamic plugin
 test.describe("Testing scaffolder-backend-module-http-request to invoke an external request", () => {
   test.beforeAll(async ({ rhdh }) => {
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: ["@roadiehq/scaffolder-backend-module-http-request"],
+    });
+
     test.info().annotations.push({
       type: "component",
       description: "plugins",

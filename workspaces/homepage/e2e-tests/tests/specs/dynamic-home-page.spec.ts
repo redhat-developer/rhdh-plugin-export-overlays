@@ -38,6 +38,12 @@ test.describe.serial("Dynamic home page customization", () => {
       const namespace = rhdh.deploymentConfig.namespace;
       await $`oc apply -f ${rbacConfigmapPath} -n ${namespace}`;
 
+      const ghcrRegistry =
+        "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+      process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+        [ghcrRegistry]: ["@roadiehq/scaffolder-backend-module-http-request"],
+      });
+
       await rhdh.configure({
         auth: "keycloak",
         disableWrappers: DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES,
@@ -77,7 +83,7 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards can be resized in edit mode", async () => {
-    await home.addWidget("Entity Section");
+    await home.addWidget("Entity section");
     await home.resizeFirstCard();
     await home.exitEditMode();
   });
@@ -109,7 +115,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.clearAllCardsWithButton();
       await home.verifyCardsDeleted();
 
-      await home.addWidget("Entity Section");
+      await home.addWidget("Entity section");
       await home.addWidget("Recently visited");
       await home.exitEditMode();
 
@@ -124,8 +130,8 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
       await home.verifyCardsDeleted();
-      await home.addWidget("Entity Section");
-      await home.addWidget("Entity Section");
+      await home.addWidget("Entity section");
+      await home.addWidget("Entity section");
       await home.exitEditMode();
 
       const cardCount = await home.getVisibleCardCount();
@@ -135,8 +141,8 @@ test.describe.serial("Dynamic home page customization", () => {
     test("Widget layout survives edit mode toggle", async () => {
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
-      await home.addWidget("Entity Section");
-      await home.addWidget("Onboarding Section");
+      await home.addWidget("Entity section");
+      await home.addWidget("Onboarding section");
       await home.exitEditMode();
 
       const countAfterSave = await home.getVisibleCardCount();
@@ -178,7 +184,7 @@ test.describe.serial("Dynamic home page customization", () => {
     test("Resized layout persists after reload", async () => {
       await home.enterEditMode();
       await home.clearAllCardsWithButton();
-      await home.addWidget("Entity Section");
+      await home.addWidget("Entity section");
       await home.resizeFirstCard();
       await home.exitEditMode();
       const panel = page.locator('[class*="react-grid-item"]').first();

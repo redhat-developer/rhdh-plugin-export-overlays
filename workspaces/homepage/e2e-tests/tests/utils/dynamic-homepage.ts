@@ -18,8 +18,8 @@ const EXPECTED_CARD_TEXTS = [
 
 /** All widgets available in the "Add widget" dialog. */
 export const AVAILABLE_WIDGETS = [
-  "Onboarding Section",
-  "Entity Section",
+  "Onboarding section",
+  "Entity section",
   "Recently visited",
   "Top visited",
 ] as const;
@@ -174,8 +174,8 @@ export class DynamicHomePagePo {
   async seedHomePageWidgets(): Promise<void> {
     await this.enterEditMode();
     await this.deleteAllCards();
-    await this.addWidget("Entity Section");
-    await this.addWidget("Onboarding Section");
+    await this.addWidget("Entity section");
+    await this.addWidget("Onboarding section");
     await this.addWidget("Recently visited");
     await this.addWidget("Top visited");
     await this.exitEditMode();
@@ -283,7 +283,9 @@ export class DynamicHomePagePo {
     await this.ui.clickButton("Add widget");
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
-    await this.page.getByRole("button", { name: widgetType }).click();
+    await this.page
+      .getByRole("button", { name: widgetType, exact: true })
+      .click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- widget mount
     await this.page.waitForTimeout(1000);
   }
@@ -316,7 +318,7 @@ export class DynamicHomePagePo {
     await this.page.waitForTimeout(1000);
     for (const widget of AVAILABLE_WIDGETS) {
       await expect(
-        this.page.getByRole("button", { name: widget }),
+        this.page.getByRole("button", { name: widget, exact: true }),
       ).toBeVisible();
     }
     await this.page.keyboard.press("Escape");

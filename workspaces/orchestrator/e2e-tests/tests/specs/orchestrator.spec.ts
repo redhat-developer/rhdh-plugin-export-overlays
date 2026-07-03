@@ -12,6 +12,14 @@ import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests
 
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: [
+        "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
+        "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
+      ],
+    });
+
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
     test.setTimeout(60 * 60 * 1000);
     await test.runOnce(

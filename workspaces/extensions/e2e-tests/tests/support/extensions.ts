@@ -29,7 +29,11 @@ export class ExtensionsPage {
     this.uiHelper = uiHelper;
   }
 
-  async clickReadMoreByPluginTitle(pluginTitle: string, badgeText: string) {
+  async clickReadMoreByPluginTitle(
+    pluginTitle: string,
+    badgeText: string,
+    author = "Red Hat",
+  ) {
     const allCards = this.page.locator(".v5-MuiPaper-outlined");
     const targetCard = allCards.filter({ hasText: pluginTitle });
     await targetCard
@@ -38,10 +42,9 @@ export class ExtensionsPage {
       })
       .click();
     await expect(
-      this.page.getByText(pluginTitle + " " + " by " + " Red Hat" + badgeText, {
-        exact: true,
-      }),
+      this.page.getByText(`${pluginTitle} by ${author}`),
     ).toBeVisible();
+    await expect(this.page.getByText(badgeText)).toBeVisible();
   }
 
   async selectDropdown(name: string) {
@@ -107,6 +110,7 @@ export class ExtensionsPage {
     headings = this.commonHeadings,
     includeTable = true,
     includeAbout = false,
+    author = "Red Hat",
   }: {
     pluginName: string;
     badgeLabel: string;
@@ -114,8 +118,9 @@ export class ExtensionsPage {
     headings?: string[];
     includeTable?: boolean;
     includeAbout?: boolean;
+    author?: string;
   }) {
-    await this.clickReadMoreByPluginTitle(pluginName, badgeText);
+    await this.clickReadMoreByPluginTitle(pluginName, badgeText, author);
     await expect(
       this.page.getByLabel(badgeLabel).getByText(badgeText),
     ).toBeVisible();

@@ -25,7 +25,7 @@ async function createNotification(
     payload: {
       title,
       description: `Test ${title}`,
-      severity: severity || "Normal",
+      severity: severity || "normal",
       topic: `Testing ${title}`,
     },
   };
@@ -62,7 +62,7 @@ test.describe("Backstage Notifications Plugin", () => {
       test(`Filter notifications by severity - ${severity}`, async () => {
         const notificationId = await createNotification(
           notificationTitle,
-          severity,
+          severity.toLowerCase(),
         );
         await notificationPage.clickNotificationsNavBarItem();
         await notificationPage.selectSeverity(severity);
@@ -108,8 +108,7 @@ test.describe("Backstage Notifications Plugin", () => {
         "UI Notification Mark as saved",
       );
       await notificationPage.clickNotificationsNavBarItem();
-      await notificationPage.selectNotification();
-      await notificationPage.saveSelected();
+      await notificationPage.saveNotification(notificationId);
       await notificationPage.viewSaved();
       await notificationPage.notificationContains(
         new RegExp(`${notificationId}.*(a few seconds ago)|(a minute ago)`),

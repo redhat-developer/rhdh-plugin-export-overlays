@@ -25,12 +25,8 @@ export class NotificationPage {
     await expect(row).toHaveCount(1);
   }
 
-  async selectNotification(nth = 1) {
-    await this.page.getByRole("checkbox").nth(nth).click();
-  }
-
   async selectSeverity(severity = "") {
-    await this.page.getByLabel("Severity").click();
+    await this.page.getByLabel("Min severity").click();
     await this.page.getByRole("option", { name: severity }).click();
     await expect(
       this.page.getByRole("table").filter({ hasText: "Rows per page" }),
@@ -38,13 +34,9 @@ export class NotificationPage {
     await this.uiHelper.waitForLoad();
   }
 
-  async saveSelected() {
-    await this.page
-      .locator("thead")
-      .getByTitle("Save selected for later")
-      .getByRole("button")
-      .click();
-    await this.uiHelper.waitForLoad();
+  async saveNotification(text: string | RegExp) {
+    const row = this.page.locator(`tr`, { hasText: text }).first();
+    await row.getByRole("button", { name: "Save selected for later" }).click();
   }
 
   async viewSaved() {
