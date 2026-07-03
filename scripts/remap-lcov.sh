@@ -4,10 +4,10 @@
 # coverage anchors, writing <report-dir>/<workspace>/lcov.info (one per
 # workspace that contributed coverage) plus the combined <report-dir>/lcov.info.
 #
-# Shared by report-coverage.sh (live e2e run) and refresh-coverage-snapshot.sh
-# (rebuild a committed snapshot) so the istanbul pins and the merge/remap
-# pipeline live in one place. Keep these pins in sync with the API
-# remap-coverage.cjs relies on.
+# Used by refresh-coverage-snapshot.sh (rebuild a committed snapshot from a
+# passing e2e run's coverage) so the istanbul pins and the merge/remap pipeline
+# live in one place. Keep these pins in sync with the API remap-coverage.cjs
+# relies on.
 #
 # Usage:
 #   ./scripts/remap-lcov.sh <coverage-json-dir> <report-dir>
