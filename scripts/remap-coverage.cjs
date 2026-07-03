@@ -35,14 +35,15 @@
 //   run covering several workspaces (the nightly) needs no external mapping.
 //   Besides the combined report in <report-dir>, a per-workspace
 //   `<report-dir>/<workspace>/lcov.info` is written for each workspace that
-//   contributed coverage — report-coverage.sh uploads each one under its own
-//   `e2e-<workspace>` Codecov flag.
+//   contributed coverage — refresh-coverage-snapshot.sh keeps each as a
+//   committed `coverage-snapshots/<workspace>.lcov`, which the seed later
+//   uploads under its own `e2e-<workspace>` Codecov flag.
 //
 // Usage:
 //   node scripts/remap-coverage.cjs <nyc-output-json> [report-dir]
 //
 // Requires istanbul-lib-coverage, istanbul-lib-source-maps, istanbul-lib-report,
-// istanbul-reports to be resolvable (installed by report-coverage.sh).
+// istanbul-reports to be resolvable (installed by remap-lcov.sh).
 
 const fs = require("node:fs");
 const libCoverage = require("istanbul-lib-coverage");
@@ -260,10 +261,10 @@ function linesSummary(coverageMap) {
     missing.forEach((r) => console.warn(`[remap]   missing anchor for: ${r}`));
   }
 
-  // Fail loudly (and let report-coverage.sh skip the upload) rather than write an
-  // empty lcov: zero source files means the source maps, path normalization or
-  // anchor discovery broke, and silently uploading nothing is the failure mode
-  // this whole pipeline exists to avoid.
+  // Fail loudly (refresh-coverage-snapshot.sh treats this as "nothing to
+  // snapshot") rather than write an empty lcov: zero source files means the
+  // source maps, path normalization or anchor discovery broke, and silently
+  // snapshotting nothing is the failure mode this whole pipeline exists to avoid.
   if (byWorkspace.size === 0) {
     console.error(
       "[remap] no source files after remap — coverage is empty. " +
@@ -274,8 +275,8 @@ function linesSummary(coverageMap) {
     process.exit(1);
   }
 
-  // Combined report (all workspaces) for humans + per-workspace lcov for the
-  // per-flag Codecov uploads done by report-coverage.sh.
+  // Combined report (all workspaces) for humans + per-workspace lcov that
+  // refresh-coverage-snapshot.sh commits and the seed uploads per flag.
   const combined = libCoverage.createCoverageMap({});
   for (const [ws, map] of byWorkspace) {
     writeReport(`${reportDir}/${ws}`, map, ["lcovonly"]);

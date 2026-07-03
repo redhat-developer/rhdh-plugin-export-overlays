@@ -16,22 +16,36 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.49.4__0.27.0!backstage-community-plugin-jenkins-backend
-  version: 0.27.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0!backstage-community-plugin-jenkins-backend
+  version: 0.29.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - jenkins
+# The default example uses legacy top-level jenkins.* keys (not jenkins.instances)
+# because the scaffolder-backend-module-jenkins package reads jenkins.baseUrl at
+# startup and smoke tests merge pluginConfig from every plugin in this workspace.
+# jenkins-backend rejects having both styles in the same config.  
   appConfigExamples:
     - title: Default configuration
+      content:
+        jenkins:
+          baseUrl: ${JENKINS_URL}
+          username: ${JENKINS_USERNAME}
+          apiKey: ${JENKINS_TOKEN}
+    - title: Multiple global instances
       content:
         jenkins:
           instances:
             - name: default
               baseUrl: ${JENKINS_URL}
+              username: ${JENKINS_USERNAME}
+              apiKey: ${JENKINS_TOKEN}
+            - name: departmentFoo
+              baseUrl: https://jenkins-foo.example.com
               username: ${JENKINS_USERNAME}
               apiKey: ${JENKINS_TOKEN}

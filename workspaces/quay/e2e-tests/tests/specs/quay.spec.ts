@@ -94,8 +94,8 @@ test.describe("Test Quay.io plugin", () => {
       await page.getByRole("button", { name: "Visibility​" }).click();
       await page.getByRole("option", { name: "public" }).click();
       await uiHelper.fillTextInputByLabel("Description", description);
-      await uiHelper.clickButton("Review");
-      await uiHelper.clickButton("Create");
+      await page.getByRole("button", { name: "Review" }).click();
+      await page.getByRole("button", { name: "Create" }).click();
       await expect(
         page.getByRole("link", { name: "Quay repository link" }),
       ).toBeVisible();
