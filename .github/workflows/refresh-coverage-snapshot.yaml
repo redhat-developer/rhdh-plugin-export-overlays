@@ -1,0 +1,249 @@
+name: Refresh E2E coverage snapshot
+
+# Closes the coverage loop so snapshots stay current with ZERO manual work.
+#
+# When the e2e bot reports a PASSED run on a PR, this regenerates that
+# workspace's committed coverage snapshot (coverage-snapshots/<workspace>.lcov)
+# from the run's coverage artifacts and commits it back to the PR. On merge,
+# seed-coverage-main.yaml re-attributes it to the current main commit — so the
+# Codecov default-branch number tracks every workspace change automatically,
+# including the daily upstream repo-ref bumps (update-plugins-repo-refs.yaml).
+#
+# The only thing that produces fresh coverage is a real e2e run on the cluster,
+# so this fires off the e2e result rather than off a code change. See the
+# E2E coverage section in README.md.
+#
+# Assumptions / caveats:
+#
+# - One e2e invocation posts SEVERAL "Passed E2E Tests" comments (one per RHDH
+#   version in the matrix, e.g. 1.10 + 1.11), so this job fires once per comment.
+#   The per-PR concurrency group serializes them and the "snapshot unchanged"
+#   guard below makes the repeats no-ops: the same PR-built instrumented image
+#   runs on every RHDH version, so coverage is identical and converges to one
+#   commit. Only if coverage genuinely differed across versions would the
+#   committed number be last-writer-wins by comment order — accepted, not pinned
+#   to a canonical version (there's no canonical RHDH version in versions.json to
+#   pin to without hardcoding).
+#
+# - The refresh commit becomes the new PR HEAD via a GITHUB_TOKEN push, which does
+#   NOT re-trigger GitHub Actions (only webhooks). Checked against this repo's
+#   checks and it doesn't wedge: SonarCloud (no Actions workflow — runs via its
+#   App on the webhook) and the Prow presubmits (e2e / publish / smoketest) all
+#   re-run on the new commit regardless of pusher. The native Actions checks
+#   (e2e-code-quality, validate-app-config-examples, validate-catalog-scripts) are
+#   path-filtered to workspaces/*/e2e-tests/**, workspaces/**/metadata/** and
+#   scripts/*.py — none of which the refresh commit (only coverage-snapshots/
+#   <ws>.lcov) touches, so they aren't expected on it. The one residual edge to
+#   re-check is a PR that itself changed e2e-tests where e2e-code-quality is a
+#   *required* status check on a protected branch.
+#
+# - Prow (unlike GitHub Actions) DOES re-run the e2e on the refresh commit via the
+#   synchronize webhook on PRs where it auto-runs on push (e.g. /ok-to-test'd bot
+#   bump PRs) — it ignores [skip ci] and isn't gated by GITHUB_TOKEN. That fresh
+#   "Passed" comment re-fires this workflow, and with flaky coverage the
+#   "unchanged" guard never catches it → a refresh/e2e loop. The "Regenerate"
+#   step's loop guard (skip if HEAD is already this workspace's refresh commit)
+#   bounds it to the first refresh after a real change.
+
+on:
+  issue_comment:
+    types: [created]
+
+# contents: write to push the regenerated snapshot back to the PR branch (pushes
+# made with GITHUB_TOKEN do not trigger further workflow runs, so there is no
+# loop); pull-requests: read for the parse step's pulls.get (head ref + fork check).
+permissions:
+  contents: write
+  pull-requests: read
+
+# Serialize per PR (not per workspace) so two refreshes don't race to push the
+# same branch. The workspace name isn't known until the parse step runs, so it
+# can't key the group; per-PR is coarser but simpler and safe — multiple
+# workspaces passing on one PR just refresh serially.
+concurrency:
+  group: refresh-coverage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Regenerate coverage snapshot from a passing e2e run
+    # Trusted bot only, passed runs only, real PRs only. The same-repo / fork
+    # check is in the parse step (it needs the API), which also guards against
+    # running PR-head scripts with a write token for an untrusted fork head.
+    if: >
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'rhdh-test-bot' &&
+      contains(github.event.comment.body, 'Passed E2E Tests')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Parse the e2e result comment
+        id: parse
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Untrusted comment body passed via env (repo convention — see
+          # pr-actions.yaml) and read with process.env, never interpolated into
+          # the script source where it could break out of the string.
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const body = process.env.COMMENT_BODY || "";
+            // One place for the skip contract: log + set the output later steps
+            // gate on. Format drift warns (surfaces as a run annotation); an
+            // expected skip (fork) is info.
+            const skip = (msg, level = "warning") => {
+              core[level](msg);
+              core.setOutput("skip", "true");
+            };
+            // "✅ Passed E2E Tests - `<workspace>`"
+            const ws = body.match(/Passed E2E Tests\s*-\s*`([^`]+)`/);
+            // The build-log link sits next to the workspace's Prow artifacts; the
+            // coverage dir is a fixed sibling path under it. Pin the host + /gcs/
+            // path shape so a tampered comment can't redirect the download.
+            const log = body.match(
+              /\((https:\/\/gcsweb-ci\.apps\.[\w.-]+\/gcs\/[^)\s]+\/build-log\.txt)\)/,
+            );
+            // The job-level `if` already confirmed this is a bot "Passed E2E Tests"
+            // comment, so failing to extract the workspace or coverage URL here
+            // means the comment format drifted — warn so it surfaces instead of
+            // the refresh silently going quiet and snapshots never updating again.
+            if (!ws || !log) {
+              skip("Passed-e2e comment didn't match the expected workspace/coverage-URL format; skipping (comment format may have drifted).");
+              return;
+            }
+            // The name flows into file paths and a script argument — reject
+            // anything that isn't a plain directory slug (no traversal, no shell
+            // metacharacters, max 50 chars), don't rely on the bot staying trusted.
+            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(ws[1]) || ws[1].endsWith("-")) {
+              skip(`Workspace name '${ws[1]}' is not a valid slug; skipping (comment format may have drifted).`);
+              return;
+            }
+            const coverageUrl = log[1].replace(
+              /\/build-log\.txt$/,
+              "/artifacts/e2e-test-results/coverage/",
+            );
+            // The host/prefix is already pinned by the regex, so the suffix is the
+            // only part the rewrite could get wrong — assert it produced the
+            // coverage path it was supposed to.
+            if (!coverageUrl.endsWith("/artifacts/e2e-test-results/coverage/")) {
+              skip("Coverage URL rewrite didn't yield the expected coverage path; skipping.");
+              return;
+            }
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+            });
+            // Same-repo PRs only: a fork head can't receive our push, and we
+            // won't run PR-head scripts with a write token from an untrusted fork.
+            if (pr.data.head.repo.full_name !== pr.data.base.repo.full_name) {
+              skip("Fork PR — skipping snapshot refresh.", "info");
+              return;
+            }
+            core.setOutput("skip", "false");
+            core.setOutput("workspace", ws[1]);
+            core.setOutput("coverage_url", coverageUrl);
+            core.setOutput("head_ref", pr.data.head.ref);
+
+      - name: Checkout PR branch
+        if: steps.parse.outputs.skip == 'false'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.parse.outputs.head_ref }}
+          # Full history so the push-retry's `git rebase origin/<branch>` has a
+          # merge base if the branch advanced under us (a shallow clone can't
+          # always compute it).
+          fetch-depth: 0
+
+      - name: Setup Node
+        if: steps.parse.outputs.skip == 'false'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+
+      - name: Regenerate snapshot and commit if it changed
+        if: steps.parse.outputs.skip == 'false'
+        env:
+          WS: ${{ steps.parse.outputs.workspace }}
+          COVERAGE_URL: ${{ steps.parse.outputs.coverage_url }}
+          HEAD_REF: ${{ steps.parse.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+
+          # Only workspaces with committed anchors have coverage enabled. This
+          # pre-check intentionally pre-empts refresh-coverage-snapshot.sh, which
+          # treats a missing coverage-anchors/ dir as a fatal error (exit 1) — here
+          # a workspace without coverage enabled is a normal skip, not a failure.
+          if [[ ! -d "workspaces/${WS}/coverage-anchors" ]]; then
+            echo "Workspace '${WS}' has no coverage-anchors (coverage not enabled) — skipping."
+            exit 0
+          fi
+
+          # Subject of our own refresh commits — pinned once so the guard below
+          # and the commit at the end can't drift apart (a mismatch would silently
+          # disable the guard and re-open the loop it exists to prevent).
+          refresh_subject="refresh ${WS} snapshot from passing e2e run"
+
+          # Loop guard. On a PR where Prow auto-runs the e2e on every push (e.g.
+          # an /ok-to-test'd bot bump PR), our snapshot commit re-triggers the e2e
+          # via the synchronize webhook — Prow ignores [skip ci] and isn't gated by
+          # GITHUB_TOKEN. That posts a fresh "Passed" comment which fires this
+          # workflow again. The "unchanged" guard below would normally stop the
+          # second pass, but if a workspace's coverage is flaky run-to-run the lcov
+          # differs every time and it never catches — an unbounded refresh/e2e loop.
+          #
+          # Walk the contiguous run of our own refresh commits at the tip: if THIS
+          # workspace already has one there, this run came from the e2e Prow ran on
+          # top of it — keep the first snapshot and stop. Looking back past HEAD
+          # (not just at it) also bounds the multi-workspace case the concurrency
+          # comment allows: two workspaces' refresh commits would otherwise
+          # alternate at HEAD forever, each missing the other's. A real (non-refresh)
+          # commit breaks the run, so a genuine new change still refreshes.
+          # [[ ]] matching (not `git log | grep -q`) keeps this off a pipe, so a
+          # SIGPIPE under `set -o pipefail` can't misread a match as a miss.
+          n=0
+          while subject=$(git log -1 --format='%s' "HEAD~${n}" 2>/dev/null) \
+            && [[ "$(git log -1 --format='%an' "HEAD~${n}" 2>/dev/null)" == "github-actions[bot]" ]] \
+            && [[ "$subject" == *"snapshot from passing e2e run"* ]]; do
+            if [[ "$subject" == *"$refresh_subject"* ]]; then
+              echo "Workspace '${WS}' already has a refresh commit in the bot run at the tip — skipping to avoid a re-refresh loop."
+              exit 0
+            fi
+            n=$((n + 1))
+          done
+
+          # A passed run can still carry zero browser coverage (backend-only, or
+          # uninstrumented images). refresh-coverage-snapshot.sh is non-fatal in
+          # that case; guard the commit on an actual change below.
+          ./scripts/refresh-coverage-snapshot.sh "${WS}" "${COVERAGE_URL}"
+
+          if [[ -z "$(git status --porcelain -- "coverage-snapshots/${WS}.lcov")" ]]; then
+            echo "Snapshot unchanged — nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "coverage-snapshots/${WS}.lcov"
+          # GITHUB_TOKEN pushes don't trigger GitHub Actions (no Actions loop);
+          # Prow re-running the e2e is handled by the loop guard above. [skip ci]
+          # still skips any push-triggered Actions check on this data-only commit.
+          git commit -m "chore(coverage): ${refresh_subject} [skip ci]"
+
+          # The push is unforced so it never clobbers concurrent work. The per-PR
+          # concurrency group serializes bot refreshes, but a human push landing
+          # between the checkout above and here would reject this push and fail the
+          # job on a data-only commit. Re-sync onto the branch tip and retry once;
+          # the commit only touches coverage-snapshots/${WS}.lcov, so a rebase
+          # rarely conflicts. If it still fails, let the job fail — we genuinely
+          # couldn't persist a real update.
+          if ! git push origin "HEAD:${HEAD_REF}"; then
+            echo "[WARN] Push rejected (branch advanced?) — re-syncing and retrying once."
+            # Rebase onto FETCH_HEAD, not origin/${HEAD_REF}: actions/checkout
+            # uses a narrow refspec, so `git fetch` reliably moves FETCH_HEAD but
+            # may leave the remote-tracking ref stale (which would rebase onto the
+            # old tip and fail again for the same reason).
+            git fetch origin "${HEAD_REF}"
+            git rebase FETCH_HEAD
+            git push origin "HEAD:${HEAD_REF}"
+          fi

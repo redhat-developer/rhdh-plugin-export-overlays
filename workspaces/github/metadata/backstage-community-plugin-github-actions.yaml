@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-github-actions"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.49.4__0.22.0!backstage-community-plugin-github-actions
-  version: 0.22.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-github-actions:bs_1.52.0__1.2.0!backstage-community-plugin-github-actions
+  version: 1.2.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: community
   lifecycle: active
