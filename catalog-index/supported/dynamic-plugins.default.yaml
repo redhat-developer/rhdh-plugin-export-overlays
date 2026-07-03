@@ -615,11 +615,7 @@ plugins:
                 importName: QuickstartButton
                 config:
                   priority: 100
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:67ae88524ce03553a5dff762a84927ce0e899ea21d76b89f79ed939c47b59330
-  # Tag: bs_1.49.4__1.24.1, Build date: 2026-06-03T21:08:22Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # enabled: false
+  # Tag: bs_1.52.0__1.26.0, Build date: 2026-06-03T21:08:22Z
   - package: ./dynamic-plugins/dist/backstage-community-plugin-acr
     enabled: false
     pluginConfig:

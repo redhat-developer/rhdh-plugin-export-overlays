@@ -7,10 +7,8 @@
     "backstage-community-plugin-acr": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.26.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -20,17 +18,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.26.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:67ae88524ce03553a5dff762a84927ce0e899ea21d76b89f79ed939c47b59330"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.26.0"
         }
       },
       "package": "@backstage-community/plugin-acr",
-      "version": "1.24.1",
+      "version": "1.26.0",
       "workspace": "acr",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
       "stages": {
@@ -1602,8 +1601,8 @@
   "summary": {
     "total": 58,
     "succeeded": 9,
-    "failed": 0,
-    "outdated": 49
+    "failed": 1,
+    "outdated": 48
   },
   "status": "partial"
 }
