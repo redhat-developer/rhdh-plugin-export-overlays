@@ -539,10 +539,8 @@
     "backstage-community-plugin-nexus-repository-manager": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.25.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -552,13 +550,18 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.25.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.25.0"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
-      "version": "1.23.2",
+      "version": "1.25.0",
       "workspace": "nexus-repository-manager",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "pagerduty-backstage-plugin-backend": {
       "stages": {
@@ -1038,8 +1041,8 @@
   "summary": {
     "total": 39,
     "succeeded": 13,
-    "failed": 0,
-    "outdated": 26
+    "failed": 1,
+    "outdated": 25
   },
   "status": "partial"
 }
