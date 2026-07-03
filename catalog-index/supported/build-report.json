@@ -1083,7 +1083,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:da1492c66310c0965e36243601be3ca60967e489c7e8ce3cdb1007e83f5ff08a"
+          "digest": "sha256:c4440678b9508a1f2bea8b58652298de9e0b10b5bca9a2cbbb763dddd6fd40b3"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1112,7 +1112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:01d7306fb6fa719286719245fdd8f8026f7004746094f2aefff4b22e19ded778"
+          "digest": "sha256:e6168e613bc42d3e65edfbfc7f89060e95423d501b97499d7f5467604fed446b"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1141,7 +1141,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9b0ba5624f62fd31114c4e6991a36023dbab97d99180b14f468568ce1ee6af5b"
+          "digest": "sha256:29c94dea5e42ecf6b3b2efb39d5442eb4fdeca1bbd7c660bd5efd1e63df8583f"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -1170,7 +1170,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b1cea241f8aa26c98c2730b2b02c7c7f9d6f5a2474ee91e21b8333a41a1fa648"
+          "digest": "sha256:24bda41368faafa5350f726f51ee16fb386eae793de84610bc3c24455c910969"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -1313,10 +1313,8 @@
     "backstage-community-plugin-rbac": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1326,17 +1324,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:e8d4ff98841a7c7209485a6c8abffd0f78a553575928c92130fdb4ae49ebfe6c"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.0"
         }
       },
       "package": "@backstage-community/plugin-rbac",
-      "version": "1.52.4",
+      "version": "1.55.0",
       "workspace": "rbac",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "roadiehq-backstage-plugin-argo-cd-backend": {
       "stages": {
@@ -1582,7 +1581,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.52.0__2.14.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.52.0__2.15.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1596,14 +1595,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:526f7887acab03ba82879636a4bcaaa6dc553f925d2f95a749bc48b2972f8966",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__2.15.0",
-          "resolvedTag": "bs_1.52.0__2.14.0"
+          "digest": "sha256:3c5ba5628cb7bd3af2232192167d2f1cc10f5fc21fe333f698704216df87b00b"
         }
       },
       "package": "@backstage-community/plugin-topology",
-      "version": "2.14.0",
+      "version": "2.15.0",
       "workspace": "topology",
       "overall": "pass"
     }
@@ -1611,8 +1607,8 @@
   "summary": {
     "total": 58,
     "succeeded": 8,
-    "failed": 0,
-    "outdated": 50
+    "failed": 1,
+    "outdated": 49
   },
   "status": "partial"
 }
