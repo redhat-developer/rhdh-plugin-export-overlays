@@ -13,3 +13,44 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  # Notify the RHDH repo that plugins were (re)published so its plugin sanity
+  # check (.github/workflows/plugin-sanity-check.yaml) can validate the new
+  # builds immediately instead of waiting for the next scheduled run. The RHDH
+  # side fingerprints the catalog index composition first, so redundant
+  # dispatches are cheap (they short-circuit in ~1 min).
+  #
+  # Requires the RHDH_REPO_DISPATCH_TOKEN secret: a token allowed to create
+  # repository_dispatch events on redhat-developer/rhdh (fine-grained PAT with
+  # "Contents: read and write" on that repo, or a GitHub App token). The job
+  # exits successfully without dispatching while the secret is not configured.
+  notify-rhdh:
+    name: Notify RHDH plugin sanity check
+    runs-on: ubuntu-latest
+    needs: export
+    permissions:
+      contents: read
+    steps:
+      - name: Send repository_dispatch (catalog-plugins-published)
+        env:
+          GH_TOKEN: ${{ secrets.RHDH_REPO_DISPATCH_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "RHDH_REPO_DISPATCH_TOKEN not configured - skipping dispatch"
+            exit 0
+          fi
+
+          # Same branch->tag mapping as the RHDH CI pipelines:
+          # main -> next, release-X.Y -> X.Y
+          if [ "$BRANCH" = "main" ]; then
+            TAG="next"
+          else
+            TAG="${BRANCH#release-}"
+          fi
+          IMAGE="quay.io/rhdh/plugin-catalog-index:${TAG}"
+
+          echo "Dispatching catalog-plugins-published to redhat-developer/rhdh (index: ${IMAGE})"
+          gh api repos/redhat-developer/rhdh/dispatches \
+            -f event_type=catalog-plugins-published \
+            -f "client_payload[catalog_index_image]=${IMAGE}"
