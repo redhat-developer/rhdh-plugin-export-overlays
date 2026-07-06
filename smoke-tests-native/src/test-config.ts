@@ -26,7 +26,11 @@ export function loadEnvFile(path: string): string[] {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
     const eq = line.indexOf("=");
-    if (eq <= 0) continue;
+    if (eq <= 0) {
+      // A typo'd `KEY VALUE` line would otherwise vanish silently.
+      console.warn(`⚠ ${path}: ignoring malformed env line: ${line}`);
+      continue;
+    }
     const key = line.slice(0, eq).trim();
     let value = line.slice(eq + 1).trim();
     if (
@@ -46,20 +50,47 @@ export function loadEnvFile(path: string): string[] {
 // ${VAR} / ${VAR:-default} — the substitution the Backstage config loader would
 // perform when the Docker smoke mounts app-config.test.yaml into the container.
 // mockServices.rootConfig takes literal data, so it must happen here instead.
-function substituteEnv(value: string): string {
-  return value.replace(
-    /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
-    (_match, name: string, fallback?: string) => process.env[name] ?? fallback ?? "",
+// Mirrors the loader's semantics: `$$` escapes to a literal `$`, and a string
+// referencing an unset variable with no default resolves to undefined (the key is
+// dropped) rather than "" — plugins checking key presence see the same shape they
+// would in the real container.
+function substituteEnv(value: string): string | undefined {
+  let unresolved = false;
+  const substituted = value.replace(
+    /(\$)?\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
+    (match, escape: string | undefined, name: string, fallback?: string) => {
+      if (escape) return match.slice(1);
+      const resolved = process.env[name] ?? fallback;
+      if (resolved === undefined) {
+        unresolved = true;
+        return "";
+      }
+      return resolved;
+    },
   );
+  return unresolved ? undefined : substituted;
 }
 
-function substituteDeep(node: unknown): unknown {
-  if (typeof node === "string") return substituteEnv(node);
-  if (Array.isArray(node)) return node.map(substituteDeep);
+function substituteDeep(node: unknown, path: string): unknown {
+  if (typeof node === "string") {
+    const substituted = substituteEnv(node);
+    if (substituted === undefined) {
+      console.warn(
+        `⚠ app-config: dropping '${path}' — references an unset env var with no default`,
+      );
+    }
+    return substituted;
+  }
+  if (Array.isArray(node)) {
+    return node
+      .map((item, i) => substituteDeep(item, `${path}[${i}]`))
+      .filter((item) => item !== undefined);
+  }
   if (node && typeof node === "object") {
-    return Object.fromEntries(
-      Object.entries(node).map(([key, value]) => [key, substituteDeep(value)]),
-    );
+    const entries = Object.entries(node)
+      .map(([key, value]) => [key, substituteDeep(value, path ? `${path}.${key}` : key)])
+      .filter(([, value]) => value !== undefined);
+    return Object.fromEntries(entries);
   }
   return node;
 }
@@ -71,5 +102,5 @@ export function loadAppConfig(path: string): JsonObject {
   if (typeof doc !== "object" || Array.isArray(doc)) {
     throw new Error(`app-config must be a YAML mapping: ${path}`);
   }
-  return substituteDeep(doc) as JsonObject;
+  return substituteDeep(doc, "") as JsonObject;
 }

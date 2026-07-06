@@ -81,8 +81,10 @@ yarn smoke --dynamic-plugins dp.yaml \
   (e.g. real CI secrets) win over the committed placeholders. (Named `--test-env`
   because Node claims `--env-file` for itself even after the script path.)
 - `--app-config`: extra app-config layer, deep-merged over the harness's built-in dummy
-  config (the file wins). `${VAR}` / `${VAR:-default}` are substituted from the env,
-  mirroring what the Backstage config loader does inside the container.
+  config (the file wins). `${VAR}` / `${VAR:-default}` are substituted from the env with
+  the Backstage config loader's semantics: `$$` escapes to a literal `$`, and a value
+  referencing an unset variable with no default is dropped (with a warning), not
+  replaced by an empty string.
 
 `yarn check` runs `tsc --noEmit`. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
@@ -105,10 +107,20 @@ Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail
 
 ## Best fit (from the 64-workspace analysis, RHIDP-15076)
 
-- **12 pure-backend workspaces** → fully covered here (load + backend start):
-  `3scale, ai-integrations, apiconnect, github-notifications, keycloak,
-  mcp-integrations, pingidentity, scaffolder-backend-module-{kubernetes,regex,servicenow,sonarqube},
-  scaffolder-relation-processor`.
+Of the 12 pure-backend workspaces, validated empirically:
+
+- **Covered now (4)**: `mcp-integrations` (3 plugins boot together), `github-notifications`,
+  `scaffolder-backend-module-{servicenow,sonarqube}` — load + backend start via their
+  published OCI refs.
+- **Catalog-gated (6)**: `3scale, ai-integrations, apiconnect, keycloak, pingidentity,
+  scaffolder-relation-processor` — blocked by the upstream catalog-backend boot issue
+  (see the caveat at the bottom); they stay on the Docker smoke for now.
+- **No published OCI artifact (2)**: `scaffolder-backend-module-{kubernetes,regex}` —
+  their released `dynamicArtifact` is a local `./dynamic-plugins/dist/…` path (plugin
+  ships inside the RHDH image), so there is nothing for this harness to pull.
+
+Beyond those:
+
 - **32 smoke-tests** → replace the Docker container with this harness (backend start +
   frontend bundle/registration check).
 - **24 UI e2e-tests** → NOT this harness; need the NFS/app-next render harness.

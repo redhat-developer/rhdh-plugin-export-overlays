@@ -41,6 +41,9 @@ env:
   # Single source of truth for the plugin validated on pull_request and when the
   # dispatch input is left empty.
   DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
+  # Known-good FRONTEND plugin (dual-system bundle) for the second run, which covers
+  # the frontend bundle validation and the --app-config/--test-env paths.
+  FRONTEND_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acs:bs_1.49.4__0.2.0!backstage-community-plugin-acs"
 
 jobs:
   smoke:
@@ -98,14 +101,31 @@ jobs:
         # Exits non-zero on any failure, so the job fails on a bad plugin.
         run: yarn smoke --dynamic-plugins dp.yaml --out results.json
 
-      - name: Show result
+      - name: Run native smoke harness (frontend bundle + test-config flags)
+        # Second run covering the paths the backend default can't reach: frontend
+        # bundle validation (both frontend systems) and the --app-config/--test-env
+        # parsing/merge/substitution. The borrowed workspace files exercise the
+        # harness plumbing, not those plugins' semantics. Skipped when a custom
+        # ref was dispatched — that run is about the caller's plugin.
+        if: inputs.plugin_ref == ''
+        run: |
+          printf 'plugins:\n  - package: %s\n' "$FRONTEND_PLUGIN_REF" > dp-fe.yaml
+          yarn smoke --dynamic-plugins dp-fe.yaml \
+            --app-config ../workspaces/mcp-chat/smoke-tests/app-config.test.yaml \
+            --test-env ../workspaces/acs/smoke-tests/test.env \
+            --out results-frontend.json
+
+      - name: Show results
         if: always()
-        run: cat results.json || echo "no results.json produced"
+        run: |
+          for f in results.json results-frontend.json; do
+            [ -f "$f" ] && { echo "== $f"; cat "$f"; } || echo "no $f produced"
+          done
 
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-smoke-results
-          path: smoke-tests-native/results.json
+          path: smoke-tests-native/results*.json
           if-no-files-found: warn
