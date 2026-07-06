@@ -29,10 +29,6 @@ packages:
     status: "tech-preview"
   - package: '@red-hat-developer-hub/backstage-plugin-extensions-backend'
     status: "tech-preview"
-  - package: "@red-hat-developer-hub/backstage-plugin-lightspeed"
-    status: "generally-available"
-  - package: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-    status: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-quickstart'
     status: "generally-available"
 
@@ -93,6 +89,10 @@ packages:
     status: "tech-preview"
   - package: '@red-hat-developer-hub/backstage-plugin-homepage-backend'
     status: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-lightspeed'
+    status: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-lightspeed-backend'
+    status: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator'
     status: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend'
