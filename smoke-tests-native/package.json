@@ -1,0 +1,30 @@
+{
+  "name": "native-smoke-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Docker-free, in-process smoke harness for RHDH dynamic backend plugins: install via the published install-dynamic-plugins CLI, then boot with startTestBackend — no container, no cluster.",
+  "engines": {
+    "node": ">=24",
+    "yarn": ">=4"
+  },
+  "packageManager": "yarn@4.12.0",
+  "scripts": {
+    "build": "esbuild src/native-smoke.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/native-smoke.mjs",
+    "smoke": "yarn build && node dist/native-smoke.mjs",
+    "tsc:check": "tsc --noEmit",
+    "check": "yarn tsc:check"
+  },
+  "dependencies": {
+    "@backstage/backend-plugin-api": "1.9.2",
+    "@backstage/backend-test-utils": "1.11.4",
+    "@backstage/plugin-scaffolder-backend": "3.3.0",
+    "yaml": "2.9.0"
+  },
+  "devDependencies": {
+    "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "0.3.0",
+    "@types/node": "24.13.2",
+    "esbuild": "0.28.1",
+    "typescript": "6.0.3"
+  }
+}

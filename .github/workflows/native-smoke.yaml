@@ -1,0 +1,131 @@
+# Copyright Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+# Run the Docker-free, in-process smoke harness: validates that a dynamic backend
+# plugin installs (via the install-dynamic-plugins CLI) and boots (via startTestBackend)
+# with no container and no cluster.
+#
+# - pull_request: validates the harness itself when smoke-tests-native/ changes.
+# - workflow_dispatch: run on demand against any plugin ref.
+name: Native Smoke Harness
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "release-*"
+    paths:
+      - "smoke-tests-native/**"
+      - ".github/workflows/native-smoke.yaml"
+  workflow_dispatch:
+    inputs:
+      plugin_ref:
+        description: >-
+          OCI package ref to validate (oci://…:tag!name). Leave empty to use the
+          known-good pure-backend default (env.DEFAULT_PLUGIN_REF below).
+          Catalog-extending modules are not supported yet.
+        type: string
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  # Single source of truth for the plugin validated on pull_request and when the
+  # dispatch input is left empty.
+  DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
+  # Known-good FRONTEND plugin (dual-system bundle) for the second run, which covers
+  # the frontend bundle validation and the --app-config/--test-env paths.
+  FRONTEND_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acs:bs_1.49.4__0.2.0!backstage-community-plugin-acs"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        # Public plugin images pull anonymously; authenticating only avoids rate limits.
+        # Non-fatal: fork PRs get a restricted token, and anonymous pulls still work.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Resolve plugin ref
+        # Dispatch input wins; otherwise the default. Encapsulated in env vars so the
+        # value never lands in a shell script via ${{ }} interpolation.
+        env:
+          INPUT_REF: ${{ inputs.plugin_ref }}
+        run: |
+          REF="${INPUT_REF:-$DEFAULT_PLUGIN_REF}"
+          printf 'plugins:\n  - package: %s\n' "$REF" > dp.yaml
+          echo "dynamic-plugins.yaml:"
+          cat dp.yaml
+
+      - name: Run native smoke harness
+        # yarn smoke builds with esbuild then runs `node dist/native-smoke.mjs`.
+        # Exits non-zero on any failure, so the job fails on a bad plugin.
+        run: yarn smoke --dynamic-plugins dp.yaml --out results.json
+
+      - name: Run native smoke harness (frontend bundle + test-config flags)
+        # Second run covering the paths the backend default can't reach: frontend
+        # bundle validation (both frontend systems) and the --app-config/--test-env
+        # parsing/merge/substitution. The borrowed workspace files exercise the
+        # harness plumbing, not those plugins' semantics. Skipped when a custom
+        # ref was dispatched — that run is about the caller's plugin.
+        if: inputs.plugin_ref == ''
+        run: |
+          printf 'plugins:\n  - package: %s\n' "$FRONTEND_PLUGIN_REF" > dp-fe.yaml
+          yarn smoke --dynamic-plugins dp-fe.yaml \
+            --app-config ../workspaces/mcp-chat/smoke-tests/app-config.test.yaml \
+            --test-env ../workspaces/acs/smoke-tests/test.env \
+            --out results-frontend.json
+
+      - name: Show results
+        if: always()
+        run: |
+          for f in results.json results-frontend.json; do
+            [ -f "$f" ] && { echo "== $f"; cat "$f"; } || echo "no $f produced"
+          done
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-smoke-results
+          path: smoke-tests-native/results*.json
+          if-no-files-found: warn
