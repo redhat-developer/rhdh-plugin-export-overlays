@@ -18,7 +18,8 @@
   "dependencies": {
     "@backstage/backend-plugin-api": "1.9.2",
     "@backstage/backend-test-utils": "1.11.4",
-    "@backstage/plugin-scaffolder-backend": "3.3.0"
+    "@backstage/plugin-scaffolder-backend": "3.3.0",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "0.3.0",

@@ -23,9 +23,22 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
-  → validateFrontendBundle()  # scalprum/remoteEntry present (presence check, not executed)
+  → validateFrontendBundle()  # legacy and/or new-FE bundle present (not executed)
   → results.json + exit code
 ```
+
+### Frontend bundle validation (both frontend systems)
+
+The presence check recognizes both packagings and records which one(s) each plugin
+ships in `results.json` (`frontend.bundles[].systems`):
+
+| System | Required artifacts | Example plugin |
+|---|---|---|
+| Legacy (Scalprum) | `dist-scalprum/` + `plugin-manifest.json` | most current plugins |
+| New frontend system (module federation) | `dist/remoteEntry.js` + `dist/mf-manifest.json` | `app-auth` (new-FE only) |
+| Dual | both layouts | `tech-radar` |
+
+A present-but-incomplete layout fails even if the other system's layout is valid.
 
 `src/loader.ts` and `src/{module-resolution,plugin-config}.ts` are ported from RHDH
 PR #4967; `discoverPlugins()` replaces RHDH's `loadManifest()` because this CLI version
@@ -51,6 +64,25 @@ plugins:
 YAML
 yarn smoke --dynamic-plugins dp.yaml
 ```
+
+### Test config (parity with the Docker smoke)
+
+Workspaces that ship `smoke-tests/app-config.test.yaml` and/or `smoke-tests/test.env`
+(consumed by the Docker smoke as an extra `--config` mount and `docker run --env-file`)
+are supported via two optional flags:
+
+```bash
+yarn smoke --dynamic-plugins dp.yaml \
+  --app-config ../workspaces/<name>/smoke-tests/app-config.test.yaml \
+  --test-env   ../workspaces/<name>/smoke-tests/test.env
+```
+
+- `--test-env`: `KEY=VALUE` lines loaded into the process env. Variables already set
+  (e.g. real CI secrets) win over the committed placeholders. (Named `--test-env`
+  because Node claims `--env-file` for itself even after the script path.)
+- `--app-config`: extra app-config layer, deep-merged over the harness's built-in dummy
+  config (the file wins). `${VAR}` / `${VAR:-default}` are substituted from the env,
+  mirroring what the Backstage config loader does inside the container.
 
 `yarn check` runs `tsc --noEmit`. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans

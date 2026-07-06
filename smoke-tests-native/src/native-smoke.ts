@@ -16,7 +16,8 @@
  *   1. Run the install CLI to extract OCI plugins into a temp dynamic-plugins-root.
  *   2. Load each backend plugin and assert a default BackendFeature export.
  *   3. Boot startTestBackend with core features + loaded features → confirms they integrate.
- *   4. Check frontend plugin bundles exist (scalprum/remoteEntry presence — not executed).
+ *   4. Check frontend plugin bundles exist for the legacy (Scalprum) and/or new
+ *      (module federation) frontend system — presence only, never executed.
  *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
@@ -24,6 +25,12 @@
  *
  * Usage:
  *   yarn smoke --dynamic-plugins <dynamic-plugins.yaml> [--out results.json]
+ *              [--app-config <app-config.test.yaml>] [--test-env <test.env>]
+ *
+ * --app-config / --test-env mirror what the Docker smoke passes to the container
+ * (an extra --config mount and docker run --env-file) — see src/test-config.ts.
+ * (The flag is --test-env, not --env-file: Node claims --env-file for itself even
+ * when it appears after the script path, exiting 9 if the file is missing.)
  */
 
 import { execFileSync } from "node:child_process";
@@ -36,16 +43,19 @@ import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
+import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
   loadBackendPlugins,
   validateFrontendBundle,
+  type FrontendSystem,
   type PluginEntry,
   type LoadedPlugin,
   type PluginError,
 } from "./loader";
 import { patchModuleResolution } from "./module-resolution";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
+import { loadAppConfig, loadEnvFile } from "./test-config";
 
 // This harness's own node_modules — extracted plugins resolve @backstage/* against it.
 const HARNESS_NODE_MODULES = join(
@@ -74,6 +84,9 @@ const coreFeatures = [scaffolderPlugin];
 
 type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
 type BackendStartResult = { ok: boolean; skipped?: boolean; error?: string };
+// Which frontend system(s) each bundle ships — the signal for tracking migration to
+// the new frontend system across the catalog.
+type FrontendBundleInfo = { name: string; version: string; systems: FrontendSystem[] };
 type Report = {
   cliVersion: string;
   backend: {
@@ -83,7 +96,12 @@ type Report = {
     errors: PluginError[];
   };
   backendStart: BackendStartResult;
-  frontend: { total: number; valid: number; errors: PluginError[] };
+  frontend: {
+    total: number;
+    valid: number;
+    errors: PluginError[];
+    bundles: FrontendBundleInfo[];
+  };
   status: Status;
 };
 
@@ -128,11 +146,59 @@ async function writeErrorReport(
     cliVersion,
     backend: { total: 0, loaded: 0, skipped: [], errors: [] },
     backendStart: { ok: false, error: message },
-    frontend: { total: 0, valid: 0, errors: [] },
+    frontend: { total: 0, valid: 0, errors: [], bundles: [] },
     status: "error",
   };
   await writeFile(out, JSON.stringify(report, null, 2));
   console.error(`▶ report → ${out} (status: error)\n${message}`);
+}
+
+type CliInputs = {
+  out: string | null;
+  dynamicPlugins?: string;
+  appConfig?: string;
+  envFile?: string;
+  usageError?: string;
+};
+
+// Validate the CLI arguments up front: a sane --out, a required --dynamic-plugins,
+// and the optional --app-config/--test-env test-config inputs (see test-config.ts).
+function parseCliInputs(): CliInputs {
+  const { values } = parseArgs({
+    options: {
+      "dynamic-plugins": { type: "string" },
+      "app-config": { type: "string" },
+      "test-env": { type: "string" },
+      out: { type: "string" },
+    },
+  });
+
+  const outArg = values.out ?? "results.json";
+  const out = resolveOutPath(outArg);
+  if (!out) {
+    return { out: null, usageError: `--out must resolve inside the working directory: ${outArg}` };
+  }
+
+  const dynamicPlugins = values["dynamic-plugins"];
+  if (!dynamicPlugins) {
+    return { out, usageError: "Provide --dynamic-plugins <dynamic-plugins.yaml>." };
+  }
+  const files: Array<[flag: string, file: string | undefined]> = [
+    ["--dynamic-plugins", dynamicPlugins],
+    ["--app-config", values["app-config"]],
+    ["--test-env", values["test-env"]],
+  ];
+  for (const [flag, file] of files) {
+    if (file && !existsSync(file)) {
+      return { out, usageError: `${flag} file not found: ${file}` };
+    }
+  }
+  return {
+    out,
+    dynamicPlugins,
+    appConfig: values["app-config"],
+    envFile: values["test-env"],
+  };
 }
 
 function computeStatus(
@@ -161,13 +227,17 @@ async function extractPlugins(root: string, dynamicPlugins: string): Promise<voi
 }
 
 // Boot the loaded backend features in-process to confirm they integrate.
-async function startBackend(loaded: LoadedPlugin[]): Promise<BackendStartResult> {
+async function startBackend(
+  loaded: LoadedPlugin[],
+  appConfig?: JsonObject,
+): Promise<BackendStartResult> {
   // No backend plugins (e.g. a frontend-only workspace) — boot wasn't attempted, not a
   // failure. Flag it so results.json doesn't read like the backend crashed.
   if (loaded.length === 0) return { ok: true, skipped: true };
   try {
-    // Inject a root config (dummy values for plugins that validate config at boot).
-    const config = buildMergedConfig(loaded);
+    // Inject a root config (dummy values for plugins that validate config at boot,
+    // overridden by the caller's --app-config layer when provided).
+    const config = buildMergedConfig(loaded, appConfig);
     const backend = await startTestBackend({
       features: [
         ...coreFeatures,
@@ -182,43 +252,38 @@ async function startBackend(loaded: LoadedPlugin[]): Promise<BackendStartResult>
   }
 }
 
-// Check frontend bundles are present (presence check only — the bundle is not executed).
+// Check frontend bundles are present (presence check only — the bundle is not
+// executed), recording which frontend system(s) each one ships.
 function validateFrontends(frontend: PluginEntry[]): {
   valid: number;
   errors: PluginError[];
+  bundles: FrontendBundleInfo[];
 } {
   const errors: PluginError[] = [];
+  const bundles: FrontendBundleInfo[] = [];
   let valid = 0;
   for (const plugin of frontend) {
-    const error = validateFrontendBundle(plugin);
+    const { systems, error } = validateFrontendBundle(plugin);
+    bundles.push({ name: plugin.name, version: plugin.version, systems });
     if (error) errors.push({ plugin, error });
-    else valid += 1;
+    else {
+      valid += 1;
+      console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
+    }
   }
-  return { valid, errors };
+  return { valid, errors, bundles };
 }
 
 async function main(): Promise<number> {
-  const { values } = parseArgs({
-    options: {
-      "dynamic-plugins": { type: "string" },
-      out: { type: "string" },
-    },
-  });
-
-  const outArg = values.out ?? "results.json";
-  const out = resolveOutPath(outArg);
-  const dynamicPlugins = values["dynamic-plugins"];
-
-  if (!out) {
-    console.error(`--out must resolve inside the working directory: ${outArg}`);
+  const inputs = parseCliInputs();
+  if (!inputs.out) {
+    // No safe report path to write to — console is all we have.
+    console.error(inputs.usageError);
     return 2;
   }
-  if (!dynamicPlugins) {
-    await writeErrorReport(out, "unknown", "Provide --dynamic-plugins <dynamic-plugins.yaml>.");
-    return 2;
-  }
-  if (!existsSync(dynamicPlugins)) {
-    await writeErrorReport(out, "unknown", `dynamic-plugins file not found: ${dynamicPlugins}`);
+  const out = inputs.out;
+  if (inputs.usageError || !inputs.dynamicPlugins) {
+    await writeErrorReport(out, "unknown", inputs.usageError ?? "invalid arguments");
     return 2;
   }
 
@@ -229,6 +294,14 @@ async function main(): Promise<number> {
   try {
     // Everything fallible lives in the try, so any failure still writes a results.json
     // (status: error) instead of exiting with no report.
+    // Env vars first: the app-config layer's ${VAR} substitution reads process.env.
+    if (inputs.envFile) {
+      const applied = loadEnvFile(inputs.envFile);
+      console.log(`▶ test-env: ${inputs.envFile} (${applied.length} var(s) applied)`);
+    }
+    const appConfig = inputs.appConfig ? loadAppConfig(inputs.appConfig) : undefined;
+    if (inputs.appConfig) console.log(`▶ app-config: ${inputs.appConfig}`);
+
     cliVersion = run(process.execPath, [CLI_BIN, "--version"]);
     console.log(`▶ install CLI: ${CLI}@${cliVersion}`);
 
@@ -236,7 +309,7 @@ async function main(): Promise<number> {
     const root = join(tempDir, "dynamic-plugins-root");
     await mkdir(root, { recursive: true });
 
-    await extractPlugins(root, dynamicPlugins);
+    await extractPlugins(root, inputs.dynamicPlugins);
 
     const manifest = discoverPlugins(root);
     console.log(
@@ -253,7 +326,7 @@ async function main(): Promise<number> {
       );
     }
     const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
-    const start = await startBackend(loaded);
+    const start = await startBackend(loaded, appConfig);
     const frontend = validateFrontends(manifest.frontend);
 
     // A workspace whose only backend plugin is a known failure would otherwise pass
@@ -278,6 +351,7 @@ async function main(): Promise<number> {
         total: manifest.frontend.length,
         valid: frontend.valid,
         errors: frontend.errors,
+        bundles: frontend.bundles,
       },
       status: computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
     };

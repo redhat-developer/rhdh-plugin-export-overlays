@@ -6872,6 +6872,7 @@ __metadata:
     "@types/node": "npm:24.13.2"
     esbuild: "npm:0.28.1"
     typescript: "npm:6.0.3"
+    yaml: "npm:2.9.0"
   languageName: unknown
   linkType: soft
 
@@ -9415,7 +9416,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"yaml@npm:^2.0.0, yaml@npm:^2.2.1, yaml@npm:^2.2.2, yaml@npm:^2.8.2":
+"yaml@npm:2.9.0, yaml@npm:^2.0.0, yaml@npm:^2.2.1, yaml@npm:^2.2.2, yaml@npm:^2.8.2":
   version: 2.9.0
   resolution: "yaml@npm:2.9.0"
   bin:

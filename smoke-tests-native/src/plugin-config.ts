@@ -64,11 +64,18 @@ function deepMerge(
   return target;
 }
 
-export function buildMergedConfig(plugins: LoadedPlugin[]): JsonObject {
+// `extra` is a caller-supplied app-config layer (e.g. a workspace's
+// smoke-tests/app-config.test.yaml) merged last, so it wins over the built-in dummies —
+// same precedence the Docker smoke gives its extra `--config` mount.
+export function buildMergedConfig(
+  plugins: LoadedPlugin[],
+  extra?: JsonObject,
+): JsonObject {
   const merged: Record<string, unknown> = {};
   for (const { plugin } of plugins) {
     const overrides = configOverrides[plugin.dirName];
     if (overrides) deepMerge(merged, overrides);
   }
+  if (extra) deepMerge(merged, extra as Record<string, unknown>);
   return merged as JsonObject;
 }

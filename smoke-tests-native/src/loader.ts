@@ -137,18 +137,52 @@ export function loadBackendPlugins(plugins: PluginEntry[]): {
   return { loaded, errors };
 }
 
+/** Which frontend system(s) a plugin's bundle supports. */
+export type FrontendSystem = "legacy" | "new-frontend-system";
+
+export type FrontendBundleResult = {
+  systems: FrontendSystem[];
+  error: string | null;
+};
+
 /**
- * Check that a frontend plugin's bundle artifacts EXIST (scalprum/remoteEntry). This is a
- * presence check only — the bundle is never loaded or evaluated.
+ * Check that a frontend plugin's bundle artifacts EXIST for at least one frontend
+ * system (presence check only — the bundle is never loaded or evaluated):
+ * - legacy frontend system: `dist-scalprum/` + `plugin-manifest.json` (Scalprum)
+ * - new frontend system: `dist/remoteEntry.js` + `dist/mf-manifest.json` (module
+ *   federation remote, loaded by @backstage/frontend-dynamic-feature-loader)
+ * Dual-system plugins (e.g. tech-radar) ship both layouts; new-system-only plugins
+ * (e.g. app-auth) ship only the module-federation one. A present-but-incomplete
+ * layout is an error even when the other system's layout is valid — the artifact
+ * advertises a system it can't deliver.
  */
-export function validateFrontendBundle(plugin: PluginEntry): string | null {
+export function validateFrontendBundle(plugin: PluginEntry): FrontendBundleResult {
   const has = (rel: string) => existsSync(join(plugin.path, rel));
-  if (!has("package.json")) return "missing package.json";
-  if (!has("dist-scalprum") && !has("dist/remoteEntry.js")) {
-    return "missing both dist-scalprum/ and dist/remoteEntry.js - needs at least one";
+  if (!has("package.json")) return { systems: [], error: "missing package.json" };
+
+  const systems: FrontendSystem[] = [];
+  if (has("dist-scalprum")) {
+    if (!has("dist-scalprum/plugin-manifest.json")) {
+      return { systems, error: "dist-scalprum/ found but missing plugin-manifest.json" };
+    }
+    systems.push("legacy");
   }
-  if (has("dist-scalprum") && !has("dist-scalprum/plugin-manifest.json")) {
-    return "dist-scalprum/ found but missing plugin-manifest.json";
+  if (has("dist/remoteEntry.js")) {
+    if (!has("dist/mf-manifest.json")) {
+      return {
+        systems,
+        error: "dist/remoteEntry.js found but missing dist/mf-manifest.json",
+      };
+    }
+    systems.push("new-frontend-system");
   }
-  return null;
+  if (systems.length === 0) {
+    return {
+      systems,
+      error:
+        "no frontend bundle found — needs dist-scalprum/ (legacy frontend system) " +
+        "and/or dist/remoteEntry.js (new frontend system)",
+    };
+  }
+  return { systems, error: null };
 }
