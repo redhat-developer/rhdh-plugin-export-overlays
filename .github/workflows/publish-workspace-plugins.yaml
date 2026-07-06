@@ -20,10 +20,13 @@ jobs:
   # side fingerprints the catalog index composition first, so redundant
   # dispatches are cheap (they short-circuit in ~1 min).
   #
-  # Requires the RHDH_REPO_DISPATCH_TOKEN secret: a token allowed to create
-  # repository_dispatch events on redhat-developer/rhdh (fine-grained PAT with
-  # "Contents: read and write" on that repo, or a GitHub App token). The job
-  # exits successfully without dispatching while the secret is not configured.
+  # Credentials (either works; the job exits successfully without dispatching
+  # while neither is configured):
+  #   - RHDH_GITHUB_APP_ID + RHDH_GITHUB_APP_PRIVATE_KEY (preferred): the RHDH
+  #     GitHub App already used by redhat-developer/rhdh workflows - mints a
+  #     short-lived token scoped to that single repo.
+  #   - RHDH_REPO_DISPATCH_TOKEN: fine-grained PAT with "Contents: read and
+  #     write" on redhat-developer/rhdh.
   notify-rhdh:
     name: Notify RHDH plugin sanity check
     runs-on: ubuntu-latest
@@ -31,16 +34,37 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Send repository_dispatch (catalog-plugins-published)
+      - name: Detect available credentials
+        id: creds
         env:
-          GH_TOKEN: ${{ secrets.RHDH_REPO_DISPATCH_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
+          APP_ID: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          DISPATCH_TOKEN: ${{ secrets.RHDH_REPO_DISPATCH_TOKEN }}
         run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "RHDH_REPO_DISPATCH_TOKEN not configured - skipping dispatch"
-            exit 0
+          if [ -n "$APP_ID" ]; then
+            echo "mode=app" >> "$GITHUB_OUTPUT"
+          elif [ -n "$DISPATCH_TOKEN" ]; then
+            echo "mode=pat" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=none" >> "$GITHUB_OUTPUT"
+            echo "No dispatch credentials configured (RHDH_GITHUB_APP_ID/RHDH_GITHUB_APP_PRIVATE_KEY or RHDH_REPO_DISPATCH_TOKEN) - skipping dispatch"
           fi
 
+      - name: Generate GitHub App token
+        id: app-token
+        if: steps.creds.outputs.mode == 'app'
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          owner: redhat-developer
+          repositories: rhdh
+
+      - name: Send repository_dispatch (catalog-plugins-published)
+        if: steps.creds.outputs.mode != 'none'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.RHDH_REPO_DISPATCH_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
           # Same branch->tag mapping as the RHDH CI pipelines:
           # main -> next, release-X.Y -> X.Y
           if [ "$BRANCH" = "main" ]; then
