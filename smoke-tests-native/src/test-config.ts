@@ -57,7 +57,7 @@ export function loadEnvFile(path: string): string[] {
 function substituteEnv(value: string): string | undefined {
   let unresolved = false;
   const substituted = value.replace(
-    /(\$)?\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
+    /(\$)?\$\{([A-Za-z_]\w*)(?::-([^}]*))?\}/g,
     (match, escape: string | undefined, name: string, fallback?: string) => {
       if (escape) return match.slice(1);
       const resolved = process.env[name] ?? fallback;
@@ -100,7 +100,7 @@ export function loadAppConfig(path: string): JsonObject {
   const doc: unknown = parse(readFileSync(path, "utf8"));
   if (doc === null || doc === undefined) return {};
   if (typeof doc !== "object" || Array.isArray(doc)) {
-    throw new Error(`app-config must be a YAML mapping: ${path}`);
+    throw new TypeError(`app-config must be a YAML mapping: ${path}`);
   }
   return substituteDeep(doc, "") as JsonObject;
 }
