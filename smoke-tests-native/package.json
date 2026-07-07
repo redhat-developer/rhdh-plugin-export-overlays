@@ -12,8 +12,9 @@
   "scripts": {
     "build": "esbuild src/native-smoke.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/native-smoke.mjs",
     "smoke": "yarn build && node dist/native-smoke.mjs",
+    "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-tests --out-extension:.js=.mjs && node --test \"dist-tests/*.test.mjs\"",
     "tsc:check": "tsc --noEmit",
-    "check": "yarn tsc:check"
+    "check": "yarn tsc:check && yarn test"
   },
   "dependencies": {
     "@backstage/backend-plugin-api": "1.9.2",

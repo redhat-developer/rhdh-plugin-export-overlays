@@ -28,6 +28,13 @@ on:
           Catalog-extending modules are not supported yet.
         type: string
         required: false
+      workspace:
+        description: >-
+          Workspace mode — validate ALL published plugins of workspaces/<name>
+          (resolved from its metadata/*.yaml oci:// refs). Takes precedence over
+          plugin_ref when both are set.
+        type: string
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -41,9 +48,10 @@ env:
   # Single source of truth for the plugin validated on pull_request and when the
   # dispatch input is left empty.
   DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
-  # Known-good FRONTEND plugin (dual-system bundle) for the second run, which covers
-  # the frontend bundle validation and the --app-config/--test-env paths.
-  FRONTEND_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acs:bs_1.49.4__0.2.0!backstage-community-plugin-acs"
+  # Known-good FRONTEND workspace for the second run: acs has a dual-system frontend
+  # bundle AND a smoke-tests/test.env, so one --workspace run covers workspace
+  # resolution, test-config auto-discovery, and frontend bundle validation.
+  FRONTEND_WORKSPACE: "acs"
 
 jobs:
   smoke:
@@ -85,9 +93,16 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Unit tests
+        # node:test over the pure helpers (workspace resolution, name validation,
+        # env/app-config substitution, frontend bundle matrix) — ~1s.
+        run: yarn test
+
       - name: Resolve plugin ref
-        # Dispatch input wins; otherwise the default. Encapsulated in env vars so the
-        # value never lands in a shell script via ${{ }} interpolation.
+        # Single-ref mode only (skipped in workspace mode). Dispatch input wins;
+        # otherwise the default. Encapsulated in env vars so the value never lands
+        # in a shell script via ${{ }} interpolation.
+        if: inputs.workspace == ''
         env:
           INPUT_REF: ${{ inputs.plugin_ref }}
         run: |
@@ -99,26 +114,28 @@ jobs:
       - name: Run native smoke harness
         # yarn smoke builds with esbuild then runs `node dist/native-smoke.mjs`.
         # Exits non-zero on any failure, so the job fails on a bad plugin.
-        run: yarn smoke --dynamic-plugins dp.yaml --out results.json
-
-      - name: Run native smoke harness (frontend bundle + test-config flags)
-        # Second run covering the paths the backend default can't reach: frontend
-        # bundle validation (both frontend systems) and the --app-config/--test-env
-        # parsing/merge/substitution. The borrowed workspace files exercise the
-        # harness plumbing, not those plugins' semantics. Skipped when a custom
-        # ref was dispatched — that run is about the caller's plugin.
-        if: inputs.plugin_ref == ''
+        env:
+          INPUT_WORKSPACE: ${{ inputs.workspace }}
         run: |
-          printf 'plugins:\n  - package: %s\n' "$FRONTEND_PLUGIN_REF" > dp-fe.yaml
-          yarn smoke --dynamic-plugins dp-fe.yaml \
-            --app-config ../workspaces/mcp-chat/smoke-tests/app-config.test.yaml \
-            --test-env ../workspaces/acs/smoke-tests/test.env \
-            --out results-frontend.json
+          if [ -n "$INPUT_WORKSPACE" ]; then
+            yarn smoke --workspace "$INPUT_WORKSPACE" --out results.json
+          else
+            yarn smoke --dynamic-plugins dp.yaml --out results.json
+          fi
+
+      - name: Run native smoke harness (workspace mode, frontend + test-config)
+        # Second run covering the paths the backend default can't reach — and it IS
+        # the feature this workflow ships: workspace resolution, smoke-tests/
+        # auto-discovery (acs has a test.env), and frontend bundle validation (acs
+        # ships a dual-system bundle). Skipped when a custom ref or workspace was
+        # dispatched — those runs are about the caller's plugin.
+        if: inputs.plugin_ref == '' && inputs.workspace == ''
+        run: yarn smoke --workspace "$FRONTEND_WORKSPACE" --out results-workspace.json
 
       - name: Show results
         if: always()
         run: |
-          for f in results.json results-frontend.json; do
+          for f in results.json results-workspace.json; do
             [ -f "$f" ] && { echo "== $f"; cat "$f"; } || echo "no $f produced"
           done
 

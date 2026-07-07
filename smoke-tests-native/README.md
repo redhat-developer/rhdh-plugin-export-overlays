@@ -65,6 +65,28 @@ YAML
 yarn smoke --dynamic-plugins dp.yaml
 ```
 
+### Workspace mode
+
+Validate ALL published plugins of a workspace together — the same unit the Docker
+smoke covers:
+
+```bash
+yarn smoke --workspace mcp-integrations
+```
+
+It resolves every `oci://` `spec.dynamicArtifact` from
+`workspaces/<name>/metadata/*.yaml` and installs/boots them in one run. Metadata
+whose artifact is a local `./dynamic-plugins/dist/…` path (plugin bundled inside the
+RHDH image, no published OCI artifact — e.g. `scaffolder-backend-module-kubernetes`)
+is skipped with a warning and recorded in `results.json`
+(`workspace.skippedMetadata`); a workspace with no `oci://` refs at all reports
+`status: error` (nothing to validate). `--workspace` and `--dynamic-plugins` are
+mutually exclusive.
+
+Workspace mode also auto-discovers the workspace's Docker-smoke test config —
+`workspaces/<name>/smoke-tests/app-config.test.yaml` and `smoke-tests/test.env` —
+when present. Explicit `--app-config`/`--test-env` flags win over discovered files.
+
 ### Test config (parity with the Docker smoke)
 
 Workspaces that ship `smoke-tests/app-config.test.yaml` and/or `smoke-tests/test.env`
@@ -86,7 +108,9 @@ yarn smoke --dynamic-plugins dp.yaml \
   referencing an unset variable with no default is dropped (with a warning), not
   replaced by an empty string.
 
-`yarn check` runs `tsc --noEmit`. This is a standalone tool dir, not a
+`yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace
+resolution, name validation, env/app-config substitution, frontend bundle matrix);
+`yarn check` runs `tsc --noEmit` + the tests. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
 `workspaces/*/e2e-tests/**`).
 
@@ -97,7 +121,8 @@ yarn smoke --dynamic-plugins dp.yaml \
 - **`pull_request`** (paths `smoke-tests-native/**`): validates the harness itself on every
   change here, against a known-good pure-backend plugin.
 - **`workflow_dispatch`**: Actions → "Native Smoke Harness" → Run workflow, with an optional
-  `plugin_ref` to validate any plugin on demand.
+  `plugin_ref` (single ref) or `workspace` (all of a workspace's published plugins)
+  to validate on demand.
 
 It installs skopeo, builds, runs `yarn smoke`, uploads `results.json`, and fails the job on
 a non-passing plugin.
