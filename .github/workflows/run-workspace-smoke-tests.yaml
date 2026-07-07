@@ -246,3 +246,124 @@ jobs:
       - name: Cleanup
         if: always()
         run: docker rm -f rhdh || true
+
+  # Runs the Docker-free, in-process harness (smoke-tests-native/) on the same
+  # artifact the container smoke consumes, and compares the two verdicts in the
+  # run summary. Informational only — continue-on-error keeps it from ever
+  # blocking a PR.
+  native-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      verdict: ${{ steps.verdict.outputs.verdict }}
+    steps:
+      - name: Checkout (harness source)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Download smoke test artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: smoke-test-artifacts
+          path: ./artifacts
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      - name: Install dependencies
+        working-directory: smoke-tests-native
+        run: yarn install --immutable
+
+      - name: Run native smoke harness
+        id: native
+        continue-on-error: true
+        working-directory: smoke-tests-native
+        # The container also consumes artifacts/app-config.yaml (backend.baseUrl,
+        # db, auth) — the native harness deliberately skips it: startTestBackend
+        # mocks the core services that config feeds. The plugin-relevant inputs
+        # are the same: dynamic-plugins.test.yaml plus the optional
+        # app-config.test.yaml (--config mount) and test.env (--env-file).
+        run: |
+          ARGS=(--dynamic-plugins ../artifacts/dynamic-plugins.test.yaml --out results-parity.json)
+          [ -f ../artifacts/app-config.test.yaml ] && ARGS+=(--app-config ../artifacts/app-config.test.yaml)
+          [ -f ../artifacts/test.env ] && ARGS+=(--test-env ../artifacts/test.env)
+          yarn smoke "${ARGS[@]}"
+
+      - name: Record verdict
+        id: verdict
+        env:
+          OUTCOME: ${{ steps.native.outcome }}
+        run: echo "verdict=$OUTCOME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload native results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-smoke-parity-results
+          path: smoke-tests-native/results-parity.json
+          if-no-files-found: warn
+
+  parity-report:
+    # Renders the native-vs-Docker comparison in the run summary. Informational.
+    needs: [run, native-smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Write parity summary
+        env:
+          DOCKER_SUCCESS: ${{ needs.run.outputs.success }}
+          NATIVE_VERDICT: ${{ needs.native-smoke.outputs.verdict }}
+        run: |
+          DOCKER=$( [ "$DOCKER_SUCCESS" = "true" ] && echo "pass" || echo "fail" )
+          # An empty verdict means the native job died before the harness ran
+          # (install flake, artifact download, …) — that's "no data", not a
+          # failure, or every infra hiccup would record a false divergence.
+          if [ -z "$NATIVE_VERDICT" ]; then
+            NATIVE="no-data"
+            AGREEMENT="not comparable — the native job failed before the harness ran"
+          else
+            NATIVE=$( [ "$NATIVE_VERDICT" = "success" ] && echo "pass" || echo "fail" )
+            if [ "$DOCKER" = "$NATIVE" ]; then
+              AGREEMENT="agree ($DOCKER)"
+            else
+              AGREEMENT="DIVERGE — docker=$DOCKER native=$NATIVE"
+            fi
+          fi
+          {
+            echo "## Native vs Docker smoke parity (informational — RHIDP-13530)"
+            echo ""
+            echo "| Harness | Verdict |"
+            echo "|---|---|"
+            echo "| Docker (container) | $DOCKER |"
+            echo "| Native (in-process) | $NATIVE |"
+            echo ""
+            echo "**Verdicts: $AGREEMENT.** Native failures on catalog-extending"
+            echo "workspaces are expected at this stage (upstream catalog-backend"
+            echo "boot issue). Details: native-smoke-parity-results artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
