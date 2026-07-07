@@ -32,11 +32,14 @@ spec:
         homepage:
           defaultWidgets:
             - id: rhdh-onboarding-section
+              ref: onboarding-section
               props:
                 title: Onboarding section
             - id: rhdh-entity-section
+              ref: entity-section
               props:
                 title: Entity section
             - id: rhdh-template-section
+              ref: template-section
               props:
                 title: Template section
