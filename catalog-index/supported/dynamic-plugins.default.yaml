@@ -34,11 +34,7 @@ plugins:
             testMode: ${SEGMENT_TEST_MODE}
             appVersion: ${RHDH_VERSION}
             backstageVersion: ${BACKSTAGE_VERSION}
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:febed9a5a0066359decfbb47a26c1d2b0d87ba16029bd8590ed8ed6ea5b33592
-  # Tag: bs_1.49.4__2.15.1, Build date: 2026-05-26T12:36:49Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # enabled: false
+  # Tag: bs_1.52.0__2.17.0, Build date: 2026-05-26T12:36:49Z
   - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-regex-dynamic
     enabled: true
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:30f81d7c08993fd785f5a0d835dc741225533268d45e503095620d508e3fe704
