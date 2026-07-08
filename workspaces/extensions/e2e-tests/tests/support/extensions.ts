@@ -137,6 +137,22 @@ export class ExtensionsPage {
       .click();
   }
 
+  async searchExtensionsByName(searchText: string) {
+    await this.page
+      .getByRole("textbox", {
+        name: "Search",
+      })
+      .click();
+    await this.page
+      .getByRole("textbox", {
+        name: "Search",
+      })
+      .fill(searchText);
+    await this.page
+      .getByRole("heading", { name: "Installed packages (1)" })
+      .waitFor({ state: "visible" });
+  }
+
   async verifySupportTypeBadge({
     supportType,
     pluginName,
