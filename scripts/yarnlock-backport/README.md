@@ -1,26 +1,23 @@
 # yarnlock-backport
 
-Generate `0-cve-yarn-lock.patch` and `cve-backports.yaml` for overlay workspaces without bumping `source.json:repo-ref`.
+Generate `0-cve-yarn-lock.patch` and `cve-backports.yaml` without bumping `source.json:repo-ref`.
 
-Full workflow: [user-guide/06-patch-management.md](../../user-guide/06-patch-management.md).
+Details: [user-guide/06-patch-management.md](../../user-guide/06-patch-management.md).
 
 ```bash
-cd scripts/yarnlock-backport && npm install
+cd scripts/yarnlock-backport && npm install   # not on npm — install locally first
 
-export OVERLAY_WORKSPACE=<absolute-path>/workspaces/orchestrator
-export PLUGINS_REPO=<absolute-path>
+export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/orchestrator
+export PLUGINS_REPO=<absolute-path>   # clone of source.json:repo (e.g. rhdh-plugins or community-plugins)
 
-yarnlock-backport prepare  --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO"
-# … yarn up in plugins workspace …
-yarnlock-backport generate --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO" --cve 'CVE-…,CVE-…/package'
+npx yarnlock-backport prepare  --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO"
+# Manual step: update dependencies in plugins workspace (Instructions TBD)
+npx yarnlock-backport generate --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO" --cve 'CVE-…,CVE-…/package'
 ```
 
-`--cve` accepts comma-separated CVE ids. Override the npm package name when MITRE metadata is wrong:
-`CVE-2026-41674/@xmldom/xmldom` or multiple aliases: `CVE-2026-41674/@xmldom/xmldom,xmldom` (same syntax as [rhdh-security triager](https://github.com/redhat-developer/rhdh-security/blob/main/triage/triager.py)).
+`--cve`: comma-separated ids; optional `/npm-package` override (and comma-separated aliases) when MITRE product names differ from npm. Multiple CVEs may be listed together — commas before the next `CVE-` start a new token. Add `--verbose` on prepare for git output.
 
-Requires: Node.js, `git`, `yarn`, `patch`, `diff`, `npm`. `--overlay-workspace` and `--plugins-repo` must be **absolute** paths.
-
-Fork clones need an `upstream` remote pointing at `https://github.com/redhat-developer/rhdh-plugin-export-overlays.git` (step 0 syncs the release branch from there).
+Requires Node.js, `git`, `yarn`, `patch`, `diff`, `npm`. Paths must be absolute. Fork clones need `upstream` on the overlays repo.
 
 ```bash
 npm test

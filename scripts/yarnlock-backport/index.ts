@@ -5,19 +5,22 @@ import { parseArgs } from 'node:util';
 import { generateBackport, prepareWorkspace } from './backport.ts';
 
 const USAGE = `Usage:
-  yarnlock-backport prepare  --release <version> --overlay-workspace <path> --plugins-repo <path> [--skip-patch] [--force] [--dry-run]
-  yarnlock-backport generate --release <version> --overlay-workspace <path> --plugins-repo <path> --cve <ids> [--dry-run]`;
+  yarnlock-backport prepare  --release <version> --overlay-workspace <path> --plugins-repo <path> [--skip-patch] [--force] [--verbose] [--dry-run]
+  yarnlock-backport generate --release <version> --overlay-workspace <path> --plugins-repo <path> --cve <ids> [--verbose] [--dry-run]`;
 
 const common = {
   release: { type: 'string' as const },
   'overlay-workspace': { type: 'string' as const },
   'plugins-repo': { type: 'string' as const },
+  verbose: { type: 'boolean' as const, default: false },
   'dry-run': { type: 'boolean' as const, default: false },
 };
 
 function requirePaths(values: Record<string, unknown>, extra: string[] = []): void {
   const missing = ['release', 'overlay-workspace', 'plugins-repo', ...extra].filter(k => !values[k]);
   if (missing.length) {
+    const flags = missing.map(k => `--${k}`).join(', ');
+    console.error(`Missing required flags: ${flags}`);
     console.error(USAGE);
     process.exit(1);
   }
@@ -40,6 +43,7 @@ try {
       skipPatch: values['skip-patch'],
       force: values.force,
       dryRun: values['dry-run'],
+      verbose: values.verbose,
     });
   } else if (command === 'generate') {
     const { values } = parseArgs({ args: rest, options: { ...common, cve: { type: 'string' as const } }, strict: true });
@@ -50,12 +54,15 @@ try {
       pluginsRepo: values['plugins-repo']!,
       cve: values.cve!,
       dryRun: values['dry-run'],
+      verbose: values.verbose,
     });
   } else {
     console.error(USAGE);
-    process.exit(command ? 1 : 0);
+    process.exit(1);
   }
 } catch (err) {
-  console.error(err instanceof Error ? err.message : 'command failed');
+  if (err instanceof Error && !err.message.startsWith('command failed:')) {
+    console.error(err.message);
+  }
   process.exit(1);
 }
