@@ -376,7 +376,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:67c8caf578168d9e00137329b597e8d3af1c0bd1b6ed2edbcaf6cd43657c6be1"
+          "digest": "sha256:67c8caf578168d9e00137329b597e8d3af1c0bd1b6ed2edbcaf6cd43657c6be1",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.2.1",
+          "resolvedTag": "bs_1.52.0__1.2.0"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
@@ -924,18 +927,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.52.0__2.16.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.52.0__2.16.0"
+          "status": "pass",
+          "digest": "sha256:9d29d7ffb14edfdaa8cb79854ae734e8c2bf9bce514764cefde37c69043c20cf"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-sonarqube",
       "version": "2.16.0",
       "workspace": "scaffolder-backend-module-sonarqube",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-sonarqube-backend": {
       "stages": {
@@ -1038,13 +1040,149 @@
       "version": "1.17.0",
       "workspace": "quay",
       "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot",
+      "version": "0.2.12",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck",
+      "version": "0.1.10",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github",
+      "version": "2.7.8",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira",
+      "version": "2.7.8",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf",
+      "version": "0.2.12",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube",
+      "version": "0.1.7",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard-backend",
+      "version": "2.7.8",
+      "workspace": "scorecard",
+      "overall": "outdated"
+    },
+    "red-hat-developer-hub-backstage-plugin-scorecard": {
+      "stages": {
+        "bootstrap": {
+          "status": "outdated",
+          "reason": "Backstage version mismatch",
+          "expected_version": "1.52.0",
+          "found_version": "1.49.3"
+        },
+        "dpdy": {
+          "status": "skip"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-scorecard",
+      "version": "2.7.8",
+      "workspace": "scorecard",
+      "overall": "outdated"
     }
   },
   "summary": {
-    "total": 39,
-    "succeeded": 14,
-    "failed": 1,
-    "outdated": 24
+    "total": 47,
+    "succeeded": 15,
+    "failed": 0,
+    "outdated": 32
   },
   "status": "partial"
 }

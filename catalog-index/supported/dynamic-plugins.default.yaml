@@ -640,11 +640,15 @@ plugins:
                   minutes: 10
                 initialDelay:
                   seconds: 15
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:dc288738e61f01ade40652c8d47faa74ae2238da2b2c7cba0d52ad5bcfb5fea9
   # Tag: bs_1.52.0__2.15.0, Build date: 2026-05-26T12:36:48Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor-dynamic
     enabled: false
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:c1616c19573955f16860f380401ca9495e39f2b58ef027c0bbf528403deba019
-  # Tag: bs_1.52.0__1.55.0, Build date: 2026-06-03T21:19:15Z
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:6af1e71b35b70b3d1e53eebd817c2d04497a4bc1cb9905aede34ea563d26acae
+  # Tag: bs_1.52.0__1.55.1, Build date: 2026-06-03T21:19:15Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # enabled: false

@@ -1308,7 +1308,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1322,14 +1322,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c1616c19573955f16860f380401ca9495e39f2b58ef027c0bbf528403deba019",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.55.1",
-          "resolvedTag": "bs_1.52.0__1.55.0"
+          "digest": "sha256:6af1e71b35b70b3d1e53eebd817c2d04497a4bc1cb9905aede34ea563d26acae"
         }
       },
       "package": "@backstage-community/plugin-rbac",
-      "version": "1.55.0",
+      "version": "1.55.1",
       "workspace": "rbac",
       "overall": "pass"
     },
@@ -1485,18 +1482,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.52.0__2.15.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.52.0__2.15.0"
+          "status": "pass",
+          "digest": "sha256:dc288738e61f01ade40652c8d47faa74ae2238da2b2c7cba0d52ad5bcfb5fea9"
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor",
       "version": "2.15.0",
       "workspace": "scaffolder-relation-processor",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-tech-radar-backend": {
       "stages": {
@@ -1607,8 +1603,8 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 11,
-    "failed": 1,
+    "succeeded": 12,
+    "failed": 0,
     "outdated": 46
   },
   "status": "partial"
