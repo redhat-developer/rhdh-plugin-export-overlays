@@ -1322,7 +1322,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c1616c19573955f16860f380401ca9495e39f2b58ef027c0bbf528403deba019"
+          "digest": "sha256:c1616c19573955f16860f380401ca9495e39f2b58ef027c0bbf528403deba019",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.55.1",
+          "resolvedTag": "bs_1.52.0__1.55.0"
         }
       },
       "package": "@backstage-community/plugin-rbac",
@@ -1456,26 +1459,23 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.52.0__2.17.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.52.0__2.17.0"
+          "status": "pass",
+          "digest": "sha256:63dd700aca93f17a09966ec661232e6ded2c93bc35ba28d957d69b4e17306cdc"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-regex",
       "version": "2.17.0",
       "workspace": "scaffolder-backend-module-regex",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.3"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.52.0__2.15.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1485,13 +1485,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.52.0__2.15.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.52.0__2.15.0"
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor",
-      "version": "2.14.2",
+      "version": "2.15.0",
       "workspace": "scaffolder-relation-processor",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "backstage-community-plugin-tech-radar-backend": {
       "stages": {
@@ -1602,9 +1607,9 @@
   },
   "summary": {
     "total": 58,
-    "succeeded": 10,
+    "succeeded": 11,
     "failed": 1,
-    "outdated": 47
+    "outdated": 46
   },
   "status": "partial"
 }
