@@ -5,9 +5,10 @@ import { tmpdir } from 'node:os';
 import {
   buildManifestRows,
   canonicalBaseDir,
+  canonicalRepoFromUrl,
   collectInstallationPaths,
-  collectPackageVersionsFromNpmLs,
   formatManifestDocument,
+  formatInstallationPathNotes,
   formatNpmLsSpine,
   formatPatchVersions,
   mergeManifestNotes,
@@ -19,14 +20,13 @@ import {
   pathUnderBase,
   releaseBranch,
   requireLockfileChange,
-  resolveOverlayGitRemote,
-  resolvePluginsGitRemote,
-  resolveVersions,
-  resolveVersionsForCve,
+  resolveGitRemote,
+  resolvePackageInLock,
   semverInAnyAffected,
   stripAutoNotes,
-  vulnerablePatchVersions,
+  versionsInLock,
   vulnerabilityNoteForRow,
+  vulnerablePatchVersions,
 } from './backport.ts';
 
 describe('pathUnderBase', () => {
@@ -41,7 +41,10 @@ describe('pathUnderBase', () => {
   });
 
   it('rejects relative CLI roots', () => {
-    assert.throws(() => canonicalBaseDir('workspaces/orchestrator', 'overlay-workspace'), /absolute path/);
+    assert.throws(
+      () => canonicalBaseDir('workspaces/orchestrator', 'overlay-workspace'),
+      /absolute path/,
+    );
   });
 });
 
@@ -51,45 +54,86 @@ describe('requireLockfileChange', () => {
   });
 
   it('rejects when lockfile is unchanged from repo-ref', () => {
-    assert.throws(() => requireLockfileChange('same', 'same'), /yarn.lock unchanged from repo-ref baseline/);
+    assert.throws(
+      () => requireLockfileChange('same', 'same'),
+      /yarn.lock unchanged from repo-ref baseline/,
+    );
   });
 });
 
-describe('resolveOverlayGitRemote', () => {
-  const forkRemotes = `origin\tgit@github.com:JessicaJHee/rhdh-plugin-export-overlays.git (fetch)
-origin\tgit@github.com:JessicaJHee/rhdh-plugin-export-overlays.git (push)
-upstream\thttps://github.com/redhat-developer/rhdh-plugin-export-overlays.git (fetch)
-upstream\thttps://github.com/redhat-developer/rhdh-plugin-export-overlays.git (push)`;
-
+describe('resolveGitRemote', () => {
   it('prefers upstream on fork clones', () => {
+    const remotes = `origin\tgit@github.com:JessicaJHee/rhdh-plugin-export-overlays.git (fetch)
+upstream\thttps://github.com/redhat-developer/rhdh-plugin-export-overlays.git (fetch)`;
     assert.equal(
-      resolveOverlayGitRemote(forkRemotes, 'git@github.com:JessicaJHee/rhdh-plugin-export-overlays.git'),
+      resolveGitRemote(
+        remotes,
+        'git@github.com:JessicaJHee/rhdh-plugin-export-overlays.git',
+        'redhat-developer/rhdh-plugin-export-overlays',
+      ),
       'upstream',
     );
   });
 
   it('uses origin for direct upstream clones', () => {
-    const remotes = `origin\thttps://github.com/redhat-developer/rhdh-plugin-export-overlays.git (fetch)`;
+    const remotes = `origin\thttps://github.com/backstage/community-plugins.git (fetch)`;
     assert.equal(
-      resolveOverlayGitRemote(remotes, 'https://github.com/redhat-developer/rhdh-plugin-export-overlays.git'),
+      resolveGitRemote(
+        remotes,
+        'https://github.com/backstage/community-plugins.git',
+        'backstage/community-plugins',
+      ),
       'origin',
     );
   });
 
   it('errors when fork has no upstream remote', () => {
-    const remotes = `origin\tgit@github.com:JessicaJHee/rhdh-plugin-export-overlays.git (fetch)`;
+    const remotes = `origin\tgit@github.com:JessicaJHee/rhdh-plugins.git (fetch)`;
     assert.throws(
-      () => resolveOverlayGitRemote(remotes, 'git@github.com:JessicaJHee/rhdh-plugin-export-overlays.git'),
+      () =>
+        resolveGitRemote(
+          remotes,
+          'git@github.com:JessicaJHee/rhdh-plugins.git',
+          'redhat-developer/rhdh-plugins',
+        ),
+      /no upstream remote/,
+    );
+  });
+
+  it('ignores upstream remote that does not match the canonical repo', () => {
+    const remotes = `origin\tgit@github.com:me/rhdh-plugins.git (fetch)
+upstream\thttps://github.com/unrelated/other.git (fetch)`;
+    assert.throws(
+      () =>
+        resolveGitRemote(remotes, 'git@github.com:me/rhdh-plugins.git', 'redhat-developer/rhdh-plugins'),
       /no upstream remote/,
     );
   });
 });
 
-describe('resolvePluginsGitRemote', () => {
-  it('prefers upstream on fork clones', () => {
-    const remotes = `origin\tgit@github.com:JessicaJHee/rhdh-plugins.git (fetch)
-upstream\thttps://github.com/redhat-developer/rhdh-plugins.git (fetch)`;
-    assert.equal(resolvePluginsGitRemote(remotes, 'git@github.com:JessicaJHee/rhdh-plugins.git'), 'upstream');
+describe('canonicalRepoFromUrl', () => {
+  it('parses github HTTPS repo URLs', () => {
+    assert.equal(
+      canonicalRepoFromUrl('https://github.com/redhat-developer/rhdh-plugins'),
+      'redhat-developer/rhdh-plugins',
+    );
+    assert.equal(
+      canonicalRepoFromUrl('https://github.com/backstage/community-plugins.git'),
+      'backstage/community-plugins',
+    );
+  });
+
+  it('parses github tree URLs and SSH remotes', () => {
+    assert.equal(
+      canonicalRepoFromUrl(
+        'https://github.com/backstage/community-plugins/tree/main/workspaces/pingidentity',
+      ),
+      'backstage/community-plugins',
+    );
+    assert.equal(
+      canonicalRepoFromUrl('git@github.com:backstage/community-plugins.git'),
+      'backstage/community-plugins',
+    );
   });
 });
 
@@ -138,6 +182,13 @@ describe('parseCveArg', () => {
   it('rejects duplicate CVE ids', () => {
     assert.throws(() => parseCveArg('CVE-2026-1234,CVE-2026-1234'), /duplicate CVE/);
   });
+
+  it('keeps package aliases together when listing multiple CVEs', () => {
+    assert.deepEqual(parseCveArg('CVE-2026-44487,CVE-2026-41674/@xmldom/xmldom,xmldom'), [
+      ['CVE-2026-44487', []],
+      ['CVE-2026-41674', ['@xmldom/xmldom', 'xmldom']],
+    ]);
+  });
 });
 
 describe('parseCveDetails', () => {
@@ -154,7 +205,9 @@ describe('parseCveDetails', () => {
       cveMetadata: { state: 'PUBLISHED' },
       containers: {
         cna: {
-          affected: [{ packageName: 'axios', versions: [{ status: 'affected', version: '0', lessThan: '1.18.1' }] }],
+          affected: [
+            { packageName: 'axios', versions: [{ status: 'affected', version: '0', lessThan: '1.18.1' }] },
+          ],
         },
       },
     });
@@ -164,13 +217,33 @@ describe('parseCveDetails', () => {
     assert.deepEqual(result.affected_ranges, [{ from: '0', to: '1.18.1', upper_inclusive: false }]);
   });
 
+  it('treats lessThanOrEqual bound as affected, not a fix version', () => {
+    const result = parseCveDetails({
+      cveMetadata: { state: 'PUBLISHED' },
+      containers: {
+        cna: {
+          affected: [
+            {
+              packageName: 'lodash',
+              versions: [{ status: 'affected', version: '0', lessThanOrEqual: '4.17.20' }],
+            },
+          ],
+        },
+      },
+    });
+    assert.deepEqual(result.patch_versions, []);
+    assert.deepEqual(result.affected_ranges, [{ from: '0', to: '4.17.20', upper_inclusive: true }]);
+  });
+
   it('uses override package names from the CLI token', () => {
     const result = parseCveDetails(
       {
         cveMetadata: { state: 'PUBLISHED' },
         containers: {
           cna: {
-            affected: [{ product: 'wrong-name', versions: [{ status: 'affected', version: '0', lessThan: '0.8.11' }] }],
+            affected: [
+              { product: 'wrong-name', versions: [{ status: 'affected', version: '0', lessThan: '0.8.11' }] },
+            ],
           },
         },
       },
@@ -182,17 +255,10 @@ describe('parseCveDetails', () => {
   });
 });
 
-describe('resolveVersionsForCve', () => {
-  const cve = {
-    name: '@xmldom/xmldom',
-    names: ['@xmldom/xmldom', 'xmldom'],
-    patch_versions: ['0.8.11'],
-    affected_ranges: [{ from: '0', to: '0.8.11', upper_inclusive: false }],
-  };
-
+describe('resolvePackageInLock', () => {
   it('uses the first override name present in yarn.lock', () => {
     const lockText = '"xmldom@npm:0.8.10":\n  resolution: "xmldom@npm:0.8.10"\n';
-    const resolved = resolveVersionsForCve(cve, '/tmp/ws', lockText);
+    const resolved = resolvePackageInLock(['@xmldom/xmldom', 'xmldom'], lockText);
     assert.equal(resolved?.package, 'xmldom');
     assert.deepEqual(resolved?.versions, ['0.8.10']);
   });
@@ -248,11 +314,15 @@ describe('vulnerabilityNoteForRow', () => {
     const cveDict = {
       'CVE-2026-45736': {
         name: 'ws',
+        names: ['ws'],
         patch_versions: ['8.21.0'],
         affected_ranges: [{ from: '8.0.0', to: '8.21.0', upper_inclusive: false }],
       },
     };
-    assert.deepEqual(vulnerablePatchVersions(parsePatchVersions(row.patch_version), row.cve_ids, cveDict), ['8.18.0']);
+    assert.deepEqual(
+      vulnerablePatchVersions(parsePatchVersions(row.patch_version), row.cve_ids, cveDict),
+      ['8.18.0'],
+    );
     const note = vulnerabilityNoteForRow(row, cveDict, npmLs);
     assert.match(note!, /ws@8\.18\.0 is still in CVE affected range/);
     assert.match(note!, /@backstage\/cli-defaults@0\.1\.0/);
@@ -263,6 +333,54 @@ describe('vulnerabilityNoteForRow', () => {
     const paths = collectInstallationPaths(npmLs, 'ws', '8.18.0');
     assert.equal(paths.length, 1);
     assert.equal(formatNpmLsSpine(paths[0]).includes('ws@8.18.0'), true);
+  });
+
+  it('includes every installation path for a still-vulnerable version', () => {
+    const npmLsMulti = {
+      name: '@internal/orchestrator',
+      version: '1.0.0',
+      dependencies: {
+        '@backstage/cli': {
+          version: '0.34.5',
+          dependencies: {
+            jsdom: { version: '20.0.3', dependencies: { 'form-data': { version: '4.0.5' } } },
+          },
+        },
+        '@backstage/repo-tools': {
+          version: '0.16.0',
+          dependencies: {
+            axios: { version: '1.13.2', dependencies: { 'form-data': { version: '4.0.5' } } },
+          },
+        },
+      },
+    };
+    const paths = collectInstallationPaths(npmLsMulti, 'form-data', '4.0.5');
+    assert.equal(paths.length, 2);
+    const spines = formatInstallationPathNotes(paths);
+    assert.match(spines, /@backstage\/cli@0\.34\.5/);
+    assert.match(spines, /@backstage\/repo-tools@0\.16\.0/);
+    assert.match(spines, /\n\n/);
+
+    const row = {
+      cve_ids: ['CVE-2026-12143'],
+      package: 'form-data',
+      patch_version: '4.0.5',
+    };
+    const cveDict = {
+      'CVE-2026-12143': {
+        name: 'form-data',
+        names: ['form-data'],
+        patch_versions: ['2.5.6', '4.0.6'],
+        affected_ranges: [
+          { from: '0', to: '2.5.6', upper_inclusive: false },
+          { from: '4.0.0', to: '4.0.6', upper_inclusive: false },
+        ],
+      },
+    };
+    const note = vulnerabilityNoteForRow(row, cveDict, npmLsMulti);
+    assert.match(note!, /form-data@4\.0\.5 is still in CVE affected range/);
+    assert.match(note!, /@backstage\/cli@0\.34\.5/);
+    assert.match(note!, /@backstage\/repo-tools@0\.16\.0/);
   });
 });
 
@@ -298,7 +416,12 @@ describe('buildManifestRows', () => {
   it('merges CVEs with the same package and patch_version', () => {
     const rows = buildManifestRows([
       { cveId: 'CVE-2026-44486', package: 'axios', patch_versions: ['1.18.1'] },
-      { cveId: 'CVE-2026-44487', package: 'axios', patch_versions: ['1.18.1'], notes: 'MITRE fix >= 1.16.0' },
+      {
+        cveId: 'CVE-2026-44487',
+        package: 'axios',
+        patch_versions: ['1.18.1'],
+        notes: 'MITRE fix >= 1.16.0',
+      },
     ]);
     assert.equal(rows.length, 1);
     assert.deepEqual(rows[0].cve_ids, ['CVE-2026-44486', 'CVE-2026-44487']);
@@ -306,7 +429,9 @@ describe('buildManifestRows', () => {
   });
 
   it('omits notes when none are set', () => {
-    const rows = buildManifestRows([{ cveId: 'CVE-2026-12143', package: 'form-data', patch_versions: ['2.5.6', '4.0.6'] }]);
+    const rows = buildManifestRows([
+      { cveId: 'CVE-2026-12143', package: 'form-data', patch_versions: ['2.5.6', '4.0.6'] },
+    ]);
     assert.equal(rows[0].patch_version, '2.5.6, 4.0.6');
     assert.equal(rows[0].notes, undefined);
   });
@@ -328,27 +453,7 @@ describe('parsePatchVersions', () => {
   });
 });
 
-describe('collectPackageVersionsFromNpmLs', () => {
-  it('collects every distinct version from the dependency tree', () => {
-    const tree = {
-      dependencies: {
-        'form-data': { version: '4.0.6' },
-        '@backstage/backend-defaults': {
-          dependencies: {
-            '@types/request': {
-              dependencies: {
-                'form-data': { version: '2.5.6' },
-              },
-            },
-          },
-        },
-      },
-    };
-    assert.deepEqual(collectPackageVersionsFromNpmLs(tree, 'form-data'), ['2.5.6', '4.0.6']);
-  });
-});
-
-describe('resolveVersions', () => {
+describe('versionsInLock', () => {
   it('returns all distinct versions present in yarn.lock', () => {
     const lockText = `
 "form-data@npm:2.5.6":
@@ -356,13 +461,6 @@ describe('resolveVersions', () => {
 "form-data@npm:4.0.6":
   resolution: "form-data@npm:4.0.6"
 `;
-    assert.deepEqual(resolveVersions('form-data', '/tmp/ws', lockText, undefined, ''), ['2.5.6', '4.0.6']);
-  });
-});
-
-describe('maxVersion', () => {
-  it('orders semver-like versions numerically', () => {
-    const sorted = ['1.10.0', '1.9.0', '1.18.1'].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    assert.deepEqual(sorted, ['1.9.0', '1.10.0', '1.18.1']);
+    assert.deepEqual(versionsInLock(lockText, 'form-data'), ['2.5.6', '4.0.6']);
   });
 });

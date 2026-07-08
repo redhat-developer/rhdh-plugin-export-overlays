@@ -448,9 +448,24 @@ dos2unix my-patch.patch
 
 ## CVE yarn.lock Backports
 
-Backport transitive dependency CVE fixes via `yarn.lock` only — no `source.json:repo-ref`
-or source changes. One patch per workspace (`0-cve-yarn-lock.patch`); `cve-backports.yaml`
-tracks fixed CVEs. For code fixes, use numbered patches or overlays.
+For **transitive-only** (i.e. `yarn.lock` change only) fixes, use `yarnlock-backport` — one `0-cve-yarn-lock.patch` per
+workspace plus auto-generated `cve-backports.yaml`, without bumping `repo-ref`. For code
+fixes, use numbered patches or overlays. When CVEs also require **direct** dependency
+bumps in the upstream `package.json`, follow the sequence below first, then run the tooling to create the patch to fix the transitive dependencies.
+
+CVE fixes for one workspace can include both **direct** dependencies (pinned in a
+plugin's `package.json`) and **transitive** ones (lockfile-only). Use both upstream
+releases and `yarnlock-backport` — in this order:
+
+| Step | Where | Action |
+|------|--------|--------|
+| **1** | Upstream source repo (e.g. [rhdh-plugins](https://github.com/redhat-developer/rhdh-plugins) or [community-plugins](https://github.com/backstage/community-plugins)) | Bump affected **direct** dependencies in the plugin workspace `package.json`, merge, and publish new plugin npm versions (Release with changesets). |
+| **2** | Overlays (`source.json` + metadata) | Update `repo-ref` to the upstream commit or tag that contains those releases. Sync `metadata/*.yaml` package versions. See [04 - Metadata Synchronization](./04-metadata-synchronization.md). |
+| **3** | Overlays (`yarnlock-backport`) | At the **new** `repo-ref`, fix any remaining **transitive** CVEs with `0-cve-yarn-lock.patch` + `cve-backports.yaml` (steps below). |
+
+Step 3 only covers what step 1–2 did not — lockfile bumps without another upstream release.
+Re-run `generate` with the full CVE list after step 2 so `repo_ref` in the manifest matches
+the updated baseline.
 
 ```
 workspaces/[ws]/patches/
@@ -460,54 +475,61 @@ workspaces/[ws]/patches/
 ```
 
 Tooling: `scripts/yarnlock-backport/` (`npm install` once). Requires Node.js
-(see `versions.json`), `git`, `yarn`, `patch`, `diff`, `npm`. Fork clones need
-an `upstream` remote on rhdh-plugin-export-overlays; prepare syncs `release-{version}`
-from there. `--overlay-workspace` and `--plugins-repo` must be **absolute** paths
-(use a [git worktree](https://git-scm.com/docs/git-worktree) on the release branch
-when overlay content is not on your current branch).
+(see `versions.json`), `git`, `yarn`, `patch`, `diff`, `npm`. Use after step 2 above
+when transitive bumps are still required at the current `repo-ref`.
+
+| Path / remote | Requirement |
+|---------------|-------------|
+| `--overlay-workspace` | Absolute path; fork needs `upstream` on rhdh-plugin-export-overlays (prepare syncs `release-{version}`) |
+| `--plugins-repo` | Absolute path to a local clone of **`source.json:repo`** (e.g. rhdh-plugins, [community-plugins](https://github.com/backstage/community-plugins)); git remote is resolved from that URL |
+
+Use a [git worktree](https://git-scm.com/docs/git-worktree) on the overlay release branch when patch files are not on your current branch.
 
 ```bash
-cd scripts/yarnlock-backport && npm install
+# Overlay release branch (for patches/manifest on release-1.10)
+git worktree add ../rhdh-overlays-release-1.10 release-1.10
+# Optional: dedicated tree for script development (keeps main checkout clean)
+git worktree add ../rhdh-overlays-scripts lockfile-patch-scripts
+```
 
-export OVERLAY_WORKSPACE=<absolute-path>/workspaces/orchestrator
-export PLUGINS_REPO=<absolute-path>
+```bash
+cd scripts/yarnlock-backport && npm install   # local tool — not published to npm
 
-# 1. Reset plugins repo to repo-ref; yarn install; apply existing patch if any
-yarnlock-backport prepare --release 1.10 \
+export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/orchestrator
+export PLUGINS_REPO=<absolute-path>   # clone matching source.json:repo
+
+npx yarnlock-backport prepare --release 1.10 \
   --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO"
 
-# 2. Bump deps locally (yarn up, etc.)
+# Manual step: Update dependencies in $PLUGINS_REPO/workspaces/<ws>/ (Instructions TBD)
 
-# 3. Diff yarn.lock → patch + manifest (pass full CVE list on re-roll)
-yarnlock-backport generate --release 1.10 \
+npx yarnlock-backport generate --release 1.10 \
   --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO" \
-  --cve 'CVE-2026-44487,CVE-2026-44494'
+  --cve 'CVE-2026-44487,CVE-2026-41674/@xmldom/xmldom'
 ```
 
 | Command | What it does |
 |---------|--------------|
-| **prepare** | Sync overlay release branch → checkout `repo-ref` → `yarn install` → apply `0-cve-yarn-lock.patch` |
-| **generate** | `yarn install` → diff baseline vs local `yarn.lock` → write patch + merge manifest (fetches MITRE) |
+| **prepare** | Sync overlay release branch → checkout `repo-ref` in source repo → `yarn install` → apply existing `0-cve-yarn-lock.patch` |
+| **generate** | `yarn install` → diff `repo-ref` baseline vs local `yarn.lock` → write patch + merge manifest (fetches MITRE) |
 
-Common flags: `--release`, `--overlay-workspace`, `--plugins-repo` (all required);
-`prepare`: `--skip-patch`, `--force`, `--dry-run`; `generate`: `--cve` (required,
-comma-separated; optional `CVE-…/package` override), `--dry-run`.
+**Flags:** `--release`, `--overlay-workspace`, `--plugins-repo` (required). `prepare`: `--skip-patch`, `--force`, `--verbose`, `--dry-run`. `generate`: `--cve` (required), `--dry-run`.
 
-**Re-roll:** If prepare fails at patch apply, discard the stale patch, restore bumps
-from `cve-backports.yaml` (`yarn up` — prepare prints the command), apply any new
-fixes, then re-run **generate** with the **full** `--cve` list.
+**`--cve` syntax:** comma-separated CVE ids. Append `/npm-package` when MITRE names the product differently from the npm package (e.g. `CVE-2026-41242/protobufjs`). Multiple npm aliases: `CVE-2026-41674/@xmldom/xmldom,xmldom`. Combine with other CVEs via commas before the next `CVE-` id (e.g. `CVE-2026-44487,CVE-2026-41674/@xmldom/xmldom,xmldom`).
+
+**Debugging:** `yarn install` streams output by default. Use `--verbose` on prepare to also stream git fetch/checkout. Other subprocess failures print captured stderr plus exit code and `cwd`.
+
+**Re-roll:** If prepare fails at patch apply, discard the stale patch, restore bumps from `cve-backports.yaml` (Instructions TBD), apply any new fixes, then re-run **generate** with the **full** `--cve` list.
 
 **Verify (future):** Planned `yarnlock-backport verify` against OCI images after `/publish`.
 
 ### Manifest (`cve-backports.yaml`)
 
-Rows merge CVEs sharing the same `package` + `patch_version`. `repo_ref` records
-`source.json:repo-ref` at generate time (patch baseline). `patch_version` is
-comma-separated when multiple major lines exist (from patched lockfile + `npm ls`).
+Rows merge CVEs sharing the same `package` + `patch_version`. `repo_ref` is `source.json:repo-ref` at generate time (patch baseline). `patch_version` is comma-separated when multiple major lines exist (read from the local `yarn.lock`). Optional manual `notes` are preserved across re-runs.
 
 ```yaml
 patch_file: 0-cve-yarn-lock.patch
-repo_ref: eb6cce6110fc8bd532e717e9d995764481b36f1b   # source.json:repo-ref at generate time
+repo_ref: eb6cce6110fc8bd532e717e9d995764481b36f1b
 backports:
   - cve_ids: [CVE-2026-44486, CVE-2026-44487]
     package: axios
@@ -522,17 +544,12 @@ backports:
         └── … → ws@8.18.0
 ```
 
-**Auto-generated `[auto]` notes:** On generate, each `patch_version` is checked
-against MITRE affected ranges ([`branch-check.py`](https://github.com/redhat-developer/rhdh-security/blob/main/triage/branch-check.py)
-logic). Versions still in range get a warning plus an `npm ls` spine — usually
-dev-only deps (e.g. `ws@8.18.0` under `@backstage/cli` while `8.21.0` is patched).
-Manual notes above `[auto]` are preserved; the `[auto]` block is refreshed each run.
-Do not edit `[auto]` by hand. Confirm with `branch-check.py` locally before merging.
+**`[auto]` notes:** On generate, each `patch_version` is checked against MITRE affected ranges. Versions still in range get a warning plus an `npm ls` spine (usually dev-only). Manual notes above `[auto]` are preserved; the `[auto]` block is refreshed each run.
 
 | Event | Action |
 |-------|--------|
 | First backport | generate → commit patch + manifest |
-| Add CVEs / re-roll | `yarn up` fixes → generate with full `--cve` list |
+| Add CVEs / re-roll | update dependencies (Instructions TBD) → generate with full `--cve` list |
 | Patch fails at prepare | Re-roll flow above |
 | Retire | Delete patch + manifest when fixed upstream in `repo-ref` |
 
