@@ -16,8 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-  # Tag: bs_1.49.4__2.8.6
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:aeade1e18d1c0b146a11f928bf6ae41cfe4ca06bc23f23d15911ba2619e8f757"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.8.6!red-hat-developer-hub-backstage-plugin-lightspeed-backend
   version: 2.8.6
   backstage:
     role: backend-plugin
