@@ -53,3 +53,14 @@ quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 tekton/plugins/tekton
+
+# scorecard plugins are going TP in 2.1
+# TODO move this to the supported list when ready in https://redhat.atlassian.net/browse/RHDHPLAN-1234
+scorecard/plugins/scorecard
+scorecard/plugins/scorecard-backend
+scorecard/plugins/scorecard-backend-module-github
+scorecard/plugins/scorecard-backend-module-jira
+scorecard/plugins/scorecard-backend-module-openssf
+scorecard/plugins/scorecard-backend-module-dependabot
+scorecard/plugins/scorecard-backend-module-filecheck
+scorecard/plugins/scorecard-backend-module-sonarqube
