@@ -3,12 +3,14 @@ import {
   request,
   test,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { createHmac } from "node:crypto";
-import { CatalogApiHelper } from "../../support/api/catalog-api-helper";
-import { GitHubEventsHelper } from "../../support/api/github-events";
+import {
+  CatalogApiHelper,
+  getSessionAuthToken,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { createHmac } from "node:crypto";
+import { GitHubEventsHelper } from "../../support/api/github-events";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
-import { getSessionAuthToken } from "../../support/utils/auth-token";
 
 test.describe("GitHub Events Module", () => {
   let githubEventsHelper: GitHubEventsHelper;

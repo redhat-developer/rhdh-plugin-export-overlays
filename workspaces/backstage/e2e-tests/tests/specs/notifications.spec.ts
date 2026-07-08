@@ -1,11 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import * as path from "node:path";
-import { NotificationPage } from "../../support/pages/notifications";
 import {
+  type NotificationRequest,
   type NotificationSeverity,
-  Notifications,
   RhdhNotificationsApi,
-} from "../../support/api/notifications";
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import * as path from "node:path";
 
 async function createNotification(
   notificationTitle: string,
@@ -21,7 +21,7 @@ async function createNotification(
     severity ?? "normal"
   ).toLowerCase() as NotificationSeverity;
 
-  const notification: Notifications = {
+  const notification: NotificationRequest = {
     recipients: { type: "broadcast" },
     payload: {
       title,
@@ -69,7 +69,7 @@ test.describe("Backstage Notifications Plugin", () => {
           notificationTitle,
           severity,
         );
-        await notificationPage.clickNotificationsNavBarItem();
+        await notificationPage.navigateToNotifications();
         await notificationPage.selectSeverity(severity);
         await notificationPage.notificationContains(notificationId);
       });
@@ -81,7 +81,7 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as read",
       );
-      await notificationPage.clickNotificationsNavBarItem();
+      await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
       await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
@@ -94,7 +94,7 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as unread",
       );
-      await notificationPage.clickNotificationsNavBarItem();
+      await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
       await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
@@ -112,7 +112,7 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as saved",
       );
-      await notificationPage.clickNotificationsNavBarItem();
+      await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
       await notificationPage.selectNotification(notificationId);
       await notificationPage.saveSelected();
