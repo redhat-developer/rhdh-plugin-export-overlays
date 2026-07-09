@@ -8,8 +8,7 @@ metadata:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
-      title: "Report issues here. Note: Customers of Red Hat Developer Hub should
-        raise a Red Hat support case instead."
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
     - title: Source Code
       url: https://github.com/backstage/backstage/tree/master/plugins/mcp-actions-backend
   annotations:
@@ -17,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-mcp-actions-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.49.4__0.1.11!backstage-plugin-mcp-actions-backend
-  version: 0.1.11
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.52.0__0.1.14!backstage-plugin-mcp-actions-backend
+  version: 0.1.14
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Backstage
   support: dev-preview
   lifecycle: active

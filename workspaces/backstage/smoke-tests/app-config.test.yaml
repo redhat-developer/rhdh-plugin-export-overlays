@@ -1,0 +1,13 @@
+# Shared SCM integrations for catalog providers in this workspace.
+# Provider hosts in plugin metadata must match these integration hosts.
+integrations:
+  gitlab:
+    - host: ${GITLAB_HOST}
+      token: ${GITLAB_TOKEN}
+      apiBaseUrl: https://${GITLAB_HOST}/api/v4
+  bitbucketServer:
+    - host: ${BITBUCKET_HOST}
+      token: ${BITBUCKET_TOKEN}
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
