@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-auth"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6!backstage-plugin-auth
-  version: 0.1.6
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.52.0__0.1.9!backstage-plugin-auth
+  version: 0.1.9
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: community
   lifecycle: active
