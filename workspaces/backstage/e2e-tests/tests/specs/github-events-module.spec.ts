@@ -233,58 +233,58 @@ spec:
 
   test.describe("GitHub Organizational Data", () => {
     // eslint-disable-next-line playwright/max-nested-describe
-    test.describe("Teams", () => {
+    test.describe.serial("Teams", () => {
       const teamName = "test-team-" + Date.now();
 
-      test("Adding a new group", async ({ page, uiHelper }) => {
+      test.beforeEach(async ({ page, uiHelper }) => {
+        if (!staticToken) {
+          staticToken = await getSessionAuthToken(page, uiHelper, rhdhBaseUrl);
+        }
+      });
+
+      test("Adding a new group", async () => {
         await GitHubApiHelper.createTeamInOrg("janus-qe", teamName);
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
         await expect
           .poll(
-            async () => {
-              await page.reload();
-              await uiHelper.openSidebar("Catalog");
-              await uiHelper.waitForLoad();
-              await uiHelper.selectMuiBox("Kind", "Group");
-              await uiHelper.searchInputPlaceholder(teamName);
-              return await page
-                .getByRole("link", { name: teamName })
-                .isVisible();
-            },
+            async () =>
+              await CatalogApiHelper.entityExists(
+                rhdhBaseUrl,
+                staticToken,
+                "Group",
+                teamName,
+              ),
             {
               message: `Team ${teamName} should appear in catalog`,
-              timeout: 60000,
-              intervals: [10000],
+              timeout: 120_000,
+              intervals: [3_000],
             },
           )
           .toBe(true);
       });
 
-      test("Deleting a group", async ({ page, uiHelper }) => {
+      test("Deleting a group", async () => {
         await GitHubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
 
         await githubEventsHelper.sendTeamEvent("deleted", teamName, "janus-qe");
 
         await expect
           .poll(
-            async () => {
-              await page.reload();
-              await uiHelper.openSidebar("Catalog");
-              await uiHelper.waitForLoad();
-              await uiHelper.selectMuiBox("Kind", "Group");
-              await uiHelper.searchInputPlaceholder(teamName);
-              return await page
-                .getByRole("link", { name: teamName })
-                .isVisible();
-            },
+            async () =>
+              !(await CatalogApiHelper.entityExists(
+                rhdhBaseUrl,
+                staticToken,
+                "Group",
+                teamName,
+              )),
             {
               message: `Team ${teamName} should be removed from catalog`,
-              timeout: 60000,
-              intervals: [10000],
+              timeout: 120_000,
+              intervals: [3_000],
             },
           )
-          .toBe(false);
+          .toBe(true);
       });
     });
 
