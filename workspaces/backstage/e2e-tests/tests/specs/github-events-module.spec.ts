@@ -262,6 +262,14 @@ spec:
             },
           )
           .toBe(true);
+
+        const entity = await CatalogApiHelper.getEntity(
+          rhdhBaseUrl,
+          staticToken,
+          "Group",
+          teamName,
+        );
+        expect(entity.metadata.name).toBe(teamName);
       });
 
       test("Deleting a group", async () => {
@@ -285,6 +293,15 @@ spec:
             },
           )
           .toBe(true);
+
+        expect(
+          await CatalogApiHelper.entityExists(
+            rhdhBaseUrl,
+            staticToken,
+            "Group",
+            teamName,
+          ),
+        ).toBe(false);
       });
     });
 

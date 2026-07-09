@@ -7,7 +7,7 @@ import { defineConfig as playwrightDefineConfig } from "@playwright/test";
  */
 export default playwrightDefineConfig({
   ...baseConfig,
-  workers: 1,
+  workers: 4,
   timeout: 120000,
   projects: [
     {
