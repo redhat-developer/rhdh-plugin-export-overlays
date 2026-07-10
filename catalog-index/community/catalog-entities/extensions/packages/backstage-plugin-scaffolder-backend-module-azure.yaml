@@ -17,7 +17,8 @@ metadata:
     - software-templates
 spec:
   packageName: '@backstage/plugin-scaffolder-backend-module-azure'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.52.0__0.2.22!backstage-plugin-scaffolder-backend-module-azure-dynamic
+  # Tag: bs_1.52.0__0.2.22
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:5e0831acd481dab932ed0432a15751423f86691f7834e2ab141aed2e59f537df"
   version: 0.2.22
   backstage:
     role: backend-plugin-module

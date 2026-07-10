@@ -41,7 +41,11 @@ plugins:
   # enabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-regex-dynamic
     enabled: true
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:4df9ba074192c00ab84c7e1e90a3125018f8531acda2b0f76aacd3eaa3ba6740
   # Tag: bs_1.52.0__1.17.7, Build date: 2026-06-03T21:12:19Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-techdocs
     enabled: true
     pluginConfig:
@@ -86,7 +90,11 @@ plugins:
                   props:
                     name: Documentation
                     icon: docs
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:1882d0c0b7c222673f91257bf208dd3faa764f2d51e64a9642bc322b676f1683
   # Tag: bs_1.52.0__2.2.1, Build date: 2026-05-21T21:24:29Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-techdocs-backend-dynamic
     enabled: true
     pluginConfig:
@@ -96,7 +104,11 @@ plugins:
           runIn: local
         publisher:
           type: local
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:3ae960a41b44bb95892d151b0be0ed8c1b1a06128b6318f38d8270f976ec79bd
   # Tag: bs_1.52.0__1.1.37, Build date: 2026-06-03T21:19:52Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-techdocs-module-addons-contrib
     enabled: true
     pluginConfig:
@@ -134,6 +146,34 @@ plugins:
               adoption-insights:
                 parent: default.admin
                 icon: adoptionInsightsIcon
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:46d6e98b9572cd4a9294e07e3a54403e437402b3d982ea4b92060734698c28c8
+  # Tag: bs_1.49.4__0.8.3, Build date: 2026-05-22T15:13:50Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-adoption-insights-backend-dynamic
+    enabled: true
+    pluginConfig:
+      app:
+        analytics:
+          adoptionInsights:
+            maxBufferSize: 20
+            flushInterval: 5000
+            debug: false
+            licensedUsers: 100
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:af35fd165da31bc036acaa636e184904c2d1220a1614cd48c3ba4164f7d0b55c
+  # Tag: bs_1.49.4__0.8.3, Build date: 2026-06-03T21:21:00Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights-dynamic
+    enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
+            analyticsApiExtensions:
+              - importName: AdoptionInsightsAnalyticsApi
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:fb66fc0e86fbf58529213287bb35b1216b4d276a8950a5f53c3433462d81e83a
   # Tag: bs_1.49.4__0.17.1, Build date: 2026-05-22T15:19:47Z
   # new approach using oci images: to switch to the new approach, uncomment
@@ -560,26 +600,6 @@ plugins:
                 importName: QuickstartButton
                 config:
                   priority: 100
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr@sha256:d8e09ef809af464d064685e5fb970f891daaad13c07878d704f7f3cbe177ef4f
-  # Tag: bs_1.52.0__1.26.0, Build date: 2026-06-03T21:08:22Z
-  # new approach using oci images: to switch to the new approach, uncomment
-  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
-  # enabled: false
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-acr
-    enabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-acr:
-            mountPoints:
-              - mountPoint: entity.page.image-registry/cards
-                importName: AcrImagesEntityContent
-                config:
-                  layout:
-                    gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                      - isAcrAvailable
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:6a3278952b6f767c8337eb3071e1309c9b8a10c1c9010811cc235b3e16a9c0f8
   # Tag: bs_1.49.4__3.19.2, Build date: 2026-05-22T14:59:57Z
   # new approach using oci images: to switch to the new approach, uncomment
@@ -734,7 +754,11 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:49a5c912b171691c7ca3bbd7d5fc32ef26c9ab7faaa947618aaf1c024e0ff3d5
   # Tag: bs_1.52.0__0.13.3, Build date: 2026-05-21T21:07:49Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic
     enabled: false
     pluginConfig:
@@ -743,7 +767,11 @@ plugins:
           github:
             providerId:
               organization: ${GITHUB_ORG}
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:c3fff47864cc3417c216c5478188d6a5a5a91d72e7ef4a0064ad4d69437e7cfb
   # Tag: bs_1.52.0__0.3.23, Build date: 2026-05-21T21:48:12Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-org-dynamic
     enabled: false
     pluginConfig:
@@ -761,7 +789,11 @@ plugins:
                 seconds: 15
               timeout:
                 minutes: 15
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:5854633acb97797b2ec09cc904468c6f61ff626afb0956663f1d27c6f6ed394e
   # Tag: bs_1.52.0__0.8.4, Build date: 2026-05-21T21:33:39Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-dynamic
     enabled: false
     pluginConfig:
@@ -778,7 +810,11 @@ plugins:
                   minutes: 3
                 initialDelay:
                   seconds: 15
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:5229f3d9f8da9b6b68af0523335e3b080099ac4edfa43895dc6ad2511fd4e477
   # Tag: bs_1.52.0__0.2.22, Build date: 2026-05-21T21:07:19Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-org-dynamic
     enabled: false
     pluginConfig:
@@ -796,7 +832,11 @@ plugins:
                   minutes: 3
                 initialDelay:
                   seconds: 15
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:d1c3cc1cdfeef0fe021ee8c24648ccbee8847791d00adc127bfef7e3d8700e80
   # Tag: bs_1.52.0__0.12.6, Build date: 2026-05-21T21:26:30Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
     enabled: false
     pluginConfig:
@@ -823,7 +863,11 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 15
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:3fbaa1a9e306d6495af01df33357551e6eb16ac2668bfd3ffcf646dd6dbdaffe
   # Tag: bs_1.52.0__0.10.3, Build date: 2026-05-21T21:02:22Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
     enabled: false
     pluginConfig:
@@ -842,7 +886,8 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github:bs_1.52.0__0.4.13
+  # Tag: bs_1.52.0__0.4.13, Build date: 2026-05-21T20:54:16Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:8b073bfbf7d68071ce8ae66f442b099bac6c6260f59d02fae7e8c68d35397647
     enabled: false
     pluginConfig:
       events:
@@ -852,7 +897,11 @@ plugins:
         modules:
           github:
             webhookSecret: ${GITHUB_WEBHOOK_SECRET}
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:9aa3d23cfdde4b8dc409d62e74d314236168905dbd2a40c8a1e94c2eb55688f0
   # Tag: bs_1.52.0__0.12.20, Build date: 2026-06-03T21:17:35Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
     enabled: false
     pluginConfig:
@@ -869,7 +918,11 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:b0447c9d5211ee3623fec1a393fd55530cb306b25013fb4a718b6ffe7a383462
   # Tag: bs_1.52.0__0.21.5, Build date: 2026-05-21T21:07:46Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
     enabled: false
     pluginConfig:
@@ -884,7 +937,11 @@ plugins:
                 authProvider: serviceAccount
                 skipTLSVerify: true
                 serviceAccountToken: ${K8S_CLUSTER_TOKEN}
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:bd9828cea48461e14870d29fb8c312764fa213407904647c02669068cf83cdac
   # Tag: bs_1.52.0__0.5.18, Build date: 2026-06-03T21:14:02Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
     enabled: false
     pluginConfig:
@@ -900,13 +957,21 @@ plugins:
                       webNotificationsEnabled: false
                   importName: NotificationsSidebarItem
                 path: /notifications
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:ed070af13694936e915f6ce653b452c8707ffe01de4f2bf0f51951445f72145f
   # Tag: bs_1.52.0__0.6.6, Build date: 2026-05-21T21:01:27Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
     enabled: false
     pluginConfig:
       notifications:
         concurrencyLimit: 10
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:f8746d723702a9fbe7f68fe2926806589bac484520c0946e30d8adeae03b5c86
   # Tag: bs_1.52.0__0.3.22, Build date: 2026-05-21T21:16:42Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-module-email-dynamic
     enabled: false
     pluginConfig:
@@ -922,20 +987,36 @@ plugins:
             sender: ${EMAIL_SENDER}
             broadcastConfig:
               receiver: users
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:e320db63ef420d10a4beffdb147729a1f60da6462d288360532a6db6c411066c
   # Tag: bs_1.52.0__0.9.10, Build date: 2026-05-21T21:24:29Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-github-dynamic
     enabled: false
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:463aa0aff8af526488e0971dd400688bed622380b3ca943fd481a595abe3f027
   # Tag: bs_1.52.0__0.11.7, Build date: 2026-05-21T21:20:59Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-scaffolder-backend-module-gitlab-dynamic
     enabled: false
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:8ee40671ba8576488f31458063ade506c91ca678fae7cecd6a310c59a0bbd3f9
   # Tag: bs_1.52.0__0.0.32, Build date: 2026-06-03T21:12:06Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-signals
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           backstage.plugin-signals: {}
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:694b573aa980dc62105dd274e37a447758de8486fd2439f232b747044cc28d8f
   # Tag: bs_1.52.0__0.3.16, Build date: 2026-05-21T21:25:10Z
+  # new approach using oci images: to switch to the new approach, uncomment
+  # the 'package' line above and remove the next two lines, keeping the pluginConfig.
+  # enabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
     enabled: false
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:c8621816e6ad698b71f8d62bfff9035e5b9145be9659168113957f5e7145d16d
@@ -1030,7 +1111,8 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.49.4__5.7.13
+  # Tag: bs_1.49.4__5.7.13, Build date: 2026-06-02T17:21:47Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:cc1b62aeb49733520f8c79ff3deb684bc19016b43eb428dd38d56e192f1ef0b0
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -1068,7 +1150,8 @@ plugins:
                     if:
                       anyOf:
                         - IsOrchestratorCatalogTabAvailable
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.49.4__8.9.5
+  # Tag: bs_1.49.4__8.9.5, Build date: 2026-05-22T15:16:41Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:df70c4965c1c6a1d33d3f7e3dd5f616965be9808d304534ae78faf9c9ae02a5b
     enabled: false
     pluginConfig:
       orchestrator:
@@ -1082,13 +1165,15 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.49.4__1.10.8
+  # Tag: bs_1.49.4__1.10.8, Build date: 2026-06-02T17:28:54Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:e894c426eea1b654a23ca6eaed504816cd87c157aa281d70c912180c0451f772
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.49.4__1.5.4
+  # Tag: bs_1.49.4__1.5.4, Build date: 2026-05-26T12:41:42Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:bb8b9f435cdc072e2a50cb411e98f09cfde298f393f86b2a03dc24443fce435c
     enabled: false
     pluginConfig:
       orchestrator:
