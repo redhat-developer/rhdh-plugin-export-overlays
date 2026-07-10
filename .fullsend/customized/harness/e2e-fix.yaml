@@ -25,11 +25,18 @@ validation_loop:
   script: scripts/validate-output-schema.sh
   max_iterations: 2
 
-runner_env:
-  GH_TOKEN: ${GH_TOKEN}
-  PROW_URL: ${PROW_URL}
-  REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
-  JIRA_URL: https://issues.redhat.com
-  FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/schemas/e2e-fix-result.schema.json
+env:
+  runner:
+    GH_TOKEN: ${GH_TOKEN}
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+    JIRA_URL: https://issues.redhat.com
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/schemas/e2e-fix-result.schema.json
+  sandbox:
+    PROW_URL: "${PROW_URL}"
+    SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
+    GIT_AUTHOR_NAME: e2e-fix-agent
+    GIT_AUTHOR_EMAIL: "${GIT_BOT_EMAIL:-noreply@github.com}"
+    GIT_COMMITTER_NAME: e2e-fix-agent
+    GIT_COMMITTER_EMAIL: "${GIT_BOT_EMAIL:-noreply@github.com}"
 
 timeout_minutes: 30
