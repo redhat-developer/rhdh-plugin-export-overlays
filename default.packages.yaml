@@ -4,7 +4,7 @@
 #
 # New packages *support* level should only be "tech-preview" or "generally-available"
 #    16 are tech-preview, and should be promoted via a PM-sponsored Feature to generally-available at some point
-#    06 are community, and should be removed over time
+#    06 are community, and should be removed in 2.1 - https://redhat.atlassian.net/browse/RHIDP-13261
 packages:
   enabled: # should only include GA (or TP with a path to GA) content here
   - package: '@backstage-community/plugin-analytics-provider-segment'
@@ -19,6 +19,10 @@ packages:
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights'
     support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights-backend'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions'
     support: "tech-preview"
   - package: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
@@ -32,9 +36,7 @@ packages:
   - package: '@red-hat-developer-hub/backstage-plugin-quickstart'
     support: "generally-available"
 
-  disabled: # should ideally contain no community content; TODO: remove some community or TP stuff in 2.1?
-  - package: '@backstage-community/plugin-acr'
-    support: "tech-preview"
+  disabled: # should contain no community content; TODO: remove all community and TP stuff in 2.1 - https://redhat.atlassian.net/browse/RHIDP-13261
   - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
     support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
@@ -106,7 +108,7 @@ packages:
   - package: '@roadiehq/scaffolder-backend-module-http-request'
     support: "generally-available"
 
-  # these community supported plugins do not have a downstream analogue in overlays repo's rhdh-supported-packages.txt
+  # TODO: remove all community and TP stuff in 2.1 - https://redhat.atlassian.net/browse/RHIDP-13261
   - package: '@backstage-community/plugin-quay'
     support: "community"
   - package: '@backstage-community/plugin-quay-backend'
