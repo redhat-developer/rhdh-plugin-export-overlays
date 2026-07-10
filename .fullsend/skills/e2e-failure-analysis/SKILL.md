@@ -144,9 +144,9 @@ Verify that `appConfig`, `dynamicPlugins`, AND `secrets` all point to the correc
 A common bug is specifying `appConfig` and `dynamicPlugins` with a subdirectory but forgetting
 the `secrets` parameter, causing it to fall back to the default path.
 
-### Step 4: Trace Analysis with pwtrace
+### Step 4: Trace Analysis
 
-**Use pwtrace for UI interaction failures** — when the page loaded but an action failed
+**Use traces for UI interaction failures** — when the page loaded but an action failed
 (click, navigation, element interaction). **Skip traces ONLY when:**
 - Step 1 already revealed config/deployment warnings (missing YAML, missing config sections)
 - The failure is clearly a config issue (missing integration, wrong secret path)
@@ -157,79 +157,47 @@ Traces add no value — go straight to Step 3 (config comparison) or Step 5 (clu
 **When traces ARE valuable:**
 - Login failures, click/navigation issues, popup handling problems
 - Element interaction timeouts where the page state is ambiguous, flaky timing issues
-- **Element not found / timeout when the page loaded correctly** — use `pwtrace dom
-  --interactive` to discover what IS on the page (search fields, filters, pagination
-  controls, alternative elements) that could inform the fix. Don't just diagnose why the
-  element is missing — look for what the test COULD use instead.
+- **Element not found / timeout when the page loaded correctly** — use
+  `trace snapshot <action-id>` to get the accessibility tree and discover what IS on the
+  page (search fields, filters, pagination controls, alternative elements) that could
+  inform the fix. Don't just diagnose why the element is missing — look for what the test
+  COULD use instead.
 
-#### Finding and preparing traces
+#### Finding traces
 
-Traces live in `e2e-test-results/specs-<slug>/trace.zip`, mapped to test names via
-`results.json`. **Important:** newer Playwright versions use `0-trace.trace` inside the zip
-instead of `trace.trace`, which pwtrace cannot read directly. Use the find-traces script
-to locate traces and create pwtrace-compatible copies:
+Traces live in `e2e-test-results/specs-<slug>/trace.zip`:
 
 ```bash
-SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-
-# List traces and check format:
-python3 "$SKILL_DIR/scripts/find-traces.py" "$ARTIFACTS"
-
-# Filter to a project:
-python3 "$SKILL_DIR/scripts/find-traces.py" "$ARTIFACTS" --project techdocs
-
-# Fix traces for pwtrace (creates fixed copies in $ARTIFACTS/fixed-traces/):
-python3 "$SKILL_DIR/scripts/find-traces.py" "$ARTIFACTS" --project techdocs --fix
+find "$ARTIFACTS/e2e-test-results" -name "trace.zip" | sort
 ```
 
-The `--fix` flag creates copies with `trace.trace` added alongside `0-trace.trace`,
-outputs the fixed paths, and prints ready-to-use `npx pwtrace show <path>` commands.
+#### Using traces
 
-**ALWAYS run find-traces.py with --fix before attempting pwtrace commands.** If pwtrace
-reports "trace.trace is empty" or "Invalid trace file", the trace needs fixing first.
-
-#### Progressive investigation:
+Use `npx playwright trace` — the official Playwright CLI for trace inspection. See the
+**playwright-trace** skill for full command reference. Quick workflow:
 
 ```bash
-# 1. Overview — which steps passed/failed and what actions were taken
-npx pwtrace show <path/to/trace.zip>
+# 1. Open trace and see metadata
+npx playwright trace open <path/to/trace.zip>
 
-# 2. Drill into the failed step — see details, timing, errors
-npx pwtrace step <path/to/trace.zip> <STEP_NUMBER>
+# 2. List all actions — find the failed ones
+npx playwright trace actions --errors-only
 
-# 3. Inspect DOM at the failed step — what elements exist?
-npx pwtrace dom <path/to/trace.zip> --step <N> --interactive
+# 3. Drill into the failed action
+npx playwright trace action <action-id>
 
-# 4. Search for a specific element in the DOM
-npx pwtrace dom <path/to/trace.zip> --step <N> --selector "text=Expected Text"
+# 4. Inspect DOM at that action
+npx playwright trace snapshot <action-id>
 
-# 5. Check for JavaScript errors
-npx pwtrace console <path/to/trace.zip> --level error
+# 5. Query DOM for specific elements
+npx playwright trace snapshot <action-id> -- eval "document.querySelector('.error-message').textContent"
 
-# 6. Check for failed network requests (API errors)
-npx pwtrace network <path/to/trace.zip> --failed
+# 6. Check for console errors and failed network requests
+npx playwright trace console --errors-only
+npx playwright trace requests --failed
 
-# 7. Get a screenshot at a specific step
-npx pwtrace screenshot <path/to/trace.zip> --step <N> --list
-npx pwtrace screenshot <path/to/trace.zip> --step <N> --index <I>
-```
-
-#### pwtrace decision tree:
-
-```
-Test failed → pwtrace show → identify failed step(s)
-     ↓
-Step N failed → pwtrace step N → understand what happened
-     ↓
-Element not found? → pwtrace dom --step N --interactive → see what exists
-     |                  └→ --selector "button" to find similar elements
-     ↓
-JS errors? → pwtrace console --level error → find exceptions
-     ↓
-API failing? → pwtrace network --failed → find 4xx/5xx/timeout
-     ↓
-👁️ Visual check → pwtrace screenshot --step N --list → choose screenshot
-                  └→ pwtrace screenshot --step N --index <I> → extract & view with Read tool
+# 7. Close when done
+npx playwright trace close
 ```
 
 ### Step 5: Cluster Log Search
@@ -348,7 +316,7 @@ CI env ($VAULT_TOKEN=abc) → rhdh-secrets.yaml (TOKEN: $VAULT_TOKEN) → app-co
 **Causes**: Keycloak not deployed, wrong secret, RHDH not ready
 
 ### Timeout Waiting for Element
-**Check**: error-context.md → screenshot → pwtrace dom --interactive → adjacent tests in spec file
+**Check**: error-context.md → screenshot → `trace snapshot <action-id>` → adjacent tests in spec file
 **Causes**: Data not loaded, backend failing, wrong selector, element not on visible page
 **Before suggesting a fix**: `grep -A5 '<element text>' <spec-file>` — check if sibling
 tests already handle this element.
@@ -370,7 +338,7 @@ artifacts/
 ├── playwright-report/
 │   ├── results.json             # Test results with stdout/stderr + trace attachment mappings
 │   └── data/                    # Hash-named trace/screenshot data (same content as e2e-test-results)
-│       └── <sha1-hash>.zip      # Trace files (may use 0-trace.trace format)
+│       └── <sha1-hash>.zip      # Trace files
 ├── e2e-test-results/
 │   ├── logs/<project>/          # Per-namespace cluster diagnostics
 │   │   ├── events.txt
@@ -381,20 +349,14 @@ artifacts/
 │   │       └── ...                  # Other pods: workflow engines, databases, services
 │   └── specs-<slug>-<project>/  # Per-test failure artifacts
 │       ├── error-context.md     # Page snapshot (START HERE)
-│       ├── trace.zip            # Playwright trace (may need --fix for pwtrace)
+│       ├── trace.zip            # Playwright trace
 │       ├── test-failed-1.png    # Screenshot
 │       └── video.webm           # Recording
-└── fixed-traces/                # Created by find-traces.py --fix
-    └── specs-<slug>.zip         # pwtrace-compatible copies
 ```
 
 **Trace locations:** Both `e2e-test-results/specs-*/trace.zip` and `playwright-report/data/*.zip`
 contain traces. The `e2e-test-results` traces are named by test slug (easier to identify).
-The `playwright-report/data` traces are hash-named (mapped via results.json attachments).
-Use `find-traces.py` to find and fix them — don't manually search for traces.
-
-**Trace format:** Newer Playwright uses `0-trace.trace` (not `trace.trace`) inside the zip.
-pwtrace expects `trace.trace`. Run `find-traces.py --fix` to create compatible copies.
+Use `find "$ARTIFACTS/e2e-test-results" -name "trace.zip"` to locate them.
 
 ## Discovery Commands
 

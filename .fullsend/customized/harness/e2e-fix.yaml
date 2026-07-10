@@ -21,6 +21,7 @@ host_files:
 
 skills:
   - skills/e2e-failure-analysis
+  - skills/playwright-trace
 
 post_script: scripts/post-e2e-fix.sh
 
