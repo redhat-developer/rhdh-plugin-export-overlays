@@ -2,8 +2,6 @@
 # do not include package for which we never had wrappers / bundled the package in RHDH
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
-acr/plugins/acr
-
 adoption-insights/plugins/adoption-insights
 adoption-insights/plugins/adoption-insights-backend
 adoption-insights/plugins/analytics-module-adoption-insights

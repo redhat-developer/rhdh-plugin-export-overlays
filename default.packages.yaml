@@ -33,8 +33,6 @@ packages:
     support: "generally-available"
 
   disabled: # should ideally contain no community content; TODO: remove some community or TP stuff in 2.1?
-  - package: '@backstage-community/plugin-acr'
-    support: "tech-preview"
   - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
     support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
