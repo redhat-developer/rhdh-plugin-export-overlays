@@ -1,5 +1,5 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { CatalogApiHelper } from "../../support/api/catalog-api-helper.js";
+import { CatalogApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
