@@ -81,11 +81,13 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await uiHelper.dismissQuickstartIfVisible();
 
     if (testInfo.retry > 0) {
-      const coolDownMs = 2000;
       console.log(
-        `Attempt ${testInfo.retry + 1} failed, waiting ${coolDownMs}ms before retry...`,
+        `Attempt ${testInfo.retry + 1} failed, waiting for scaffolder page to be ready before retry...`,
       );
-      await page.waitForTimeout(coolDownMs);
+      await uiHelper.verifyHeading("Self-service");
+      await expect(
+        page.getByRole("button", { name: "Create", exact: true }),
+      ).toBeHidden();
     }
   });
 
