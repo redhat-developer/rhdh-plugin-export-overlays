@@ -293,14 +293,20 @@ test.describe("Admin > Extensions", () => {
     }) => {
       await uiHelper.clickByDataTestId("header-tab-0");
       await extensions.clickReadMoreByPluginTitle(
-        "Dynamic Home Page",
+        "Adoption Insights for Red Hat Developer Hub",
         "Generally available (GA)",
       );
-      await uiHelper.verifyHeading("Dynamic Home Page");
+      await uiHelper.verifyHeading(
+        "Adoption Insights for Red Hat Developer Hub",
+      );
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
-      await page.getByTestId("disable-plugin").click();
-      await expect(page.getByTestId("enable-plugin")).toBeVisible();
+      await page.getByTestId("enable-plugin").click();
+      await expect(page.getByTestId("disable-plugin")).toBeVisible();
+      await expect(page.getByTestId("ToggleOnOutlinedIcon")).toBeVisible();
+      await expect(page.getByLabel("EditPlugin")).toContainText(
+        "Plugin currently enabled",
+      );
     });
   });
 
