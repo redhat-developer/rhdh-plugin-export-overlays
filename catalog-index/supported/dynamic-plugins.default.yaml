@@ -1062,7 +1062,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed:bs_1.49.4__2.8.6
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:fe2ec34d5af314d5d74953898c1fb57afe486d67accb5c68a3e81aeccbf0c810
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1095,7 +1095,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.8.6
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:a402ff93672a8a611a05b2ff9fa634c419a683e5f363c11eb6d2405b84a2e8a1
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1105,7 +1105,7 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:062a536d266bcd76d454fc9fdc0157b99e62074f6d3304578a68f515ced83e64
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:cc1b62aeb49733520f8c79ff3deb684bc19016b43eb428dd38d56e192f1ef0b0
     disabled: true
     pluginConfig:
       dynamicPlugins:
@@ -1113,7 +1113,6 @@ plugins:
           red-hat-developer-hub.backstage-plugin-orchestrator:
             translationResources:
               - importName: orchestratorTranslations
-                module: Alpha
                 ref: orchestratorTranslationRef
             appIcons:
               - importName: OrchestratorIcon
@@ -1139,13 +1138,13 @@ plugins:
                     if:
                       anyOf:
                         - IsOrchestratorCatalogTabAvailable
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:365d67fddeeaa2cf0b0266b012eb3e74fb5d5071b848059662353e62e7f9ceab
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:df70c4965c1c6a1d33d3f7e3dd5f616965be9808d304534ae78faf9c9ae02a5b
     disabled: true
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:d5970c0e63d43162fa77f342a76b3bffbe54fe6cbabc56335ea11ecaa74591c4
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:d1202bcb12f6947134b35d490b5329fa019ed0dde150e4a8101a4af4ba8cea50
     disabled: true
     pluginConfig:
       orchestrator:
@@ -1153,13 +1152,13 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:867a04a5b7b08086e49e6553446cece480fc7b0e65db290075d7db04a90f9ccf
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:e894c426eea1b654a23ca6eaed504816cd87c157aa281d70c912180c0451f772
     disabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:5b52adc153afcf79fb134262aa01b1e117085bf59c1a1997ff2e3a6f31c7647a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:bb8b9f435cdc072e2a50cb411e98f09cfde298f393f86b2a03dc24443fce435c
     disabled: true
     pluginConfig:
       orchestrator:
