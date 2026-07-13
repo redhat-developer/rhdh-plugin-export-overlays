@@ -146,59 +146,85 @@ the `secrets` parameter, causing it to fall back to the default path.
 
 ### Step 4: Trace Analysis
 
-**Use traces for UI interaction failures** — when the page loaded but an action failed
-(click, navigation, element interaction). **Skip traces ONLY when:**
-- Step 1 already revealed config/deployment warnings (missing YAML, missing config sections)
-- The failure is clearly a config issue (missing integration, wrong secret path)
+**MANDATORY for every UI test failure.** You MUST inspect the trace for each failed test
+that involves browser interaction (Playwright assertions, timeouts, element waits) before
+drawing any conclusions about root cause.
 
-In those cases, the root cause is in the deployment config, not the browser interaction.
-Traces add no value — go straight to Step 3 (config comparison) or Step 5 (cluster logs).
+Screenshots and error-context show the *end state* — what the page looked like when the
+test failed. Traces show the *timeline* — what happened between navigation and failure.
+You cannot distinguish a timing flake from a real bug without the timeline. Specific
+things only traces reveal:
+- Background async operations (popup listeners, event waiters) running concurrently
+  with test actions — these can interfere with or mask the actual failure
+- The exact duration of each step in the action chain — pinpoints which step is slow
+  vs which step actually fails
+- Network request timing relative to UI actions — shows whether data arrived but
+  rendering was slow, or data never arrived
+- Console errors that fire during the test (not just at page load)
 
-**When traces ARE valuable:**
-- Login failures, click/navigation issues, popup handling problems
-- Element interaction timeouts where the page state is ambiguous, flaky timing issues
-- **Element not found / timeout when the page loaded correctly** — use
-  `trace snapshot <action-id>` to get the accessibility tree and discover what IS on the
-  page (search fields, filters, pagination controls, alternative elements) that could
-  inform the fix. Don't just diagnose why the element is missing — look for what the test
-  COULD use instead.
+**Skip traces ONLY when ALL of these are true:**
+- The failure is a setup/beforeAll error with no browser involvement (exit code from a
+  shell script, deployment failure, pod crash)
+- No trace.zip file exists in the test's artifact directory
+- Step 1 revealed config/deployment warnings that fully explain the failure AND the
+  error-context confirms the page never loaded (blank page, error page, config error)
+
+**If in doubt, open the trace.** A 30-second `trace actions` check is cheaper than a
+wrong classification.
 
 #### Finding traces
-
-Traces live in `e2e-test-results/specs-<slug>/trace.zip`:
 
 ```bash
 find "$ARTIFACTS/e2e-test-results" -name "trace.zip" | sort
 ```
 
-#### Using traces
+#### Invoking the playwright-trace skill
 
-Use `npx playwright trace` — the official Playwright CLI for trace inspection. See the
-**playwright-trace** skill for full command reference. Quick workflow:
+**You MUST invoke `/playwright-trace` before running any trace commands.** The skill
+provides the complete command reference for `npx playwright trace` — all subcommands,
+flags, filters, and workflows. Do not rely on memory for trace CLI usage.
 
-```bash
-# 1. Open trace and see metadata
-npx playwright trace open <path/to/trace.zip>
+#### Minimum trace inspection for every UI failure
 
-# 2. List all actions — find the failed ones
-npx playwright trace actions --errors-only
+After invoking the skill and opening a trace, do at minimum:
 
-# 3. Drill into the failed action
-npx playwright trace action <action-id>
+1. `trace actions` — the **full** action list, not just `--errors-only`. Background
+   operations that succeed but take a long time (like a 15s popup listener) won't
+   show up in errors-only but are critical for understanding the failure timeline.
+2. `trace action <id>` — for each failed action and any action with a suspiciously
+   long duration
+3. `trace console --errors-only` — browser errors during the test
+4. `trace requests --failed` — failed network requests
 
-# 4. Inspect DOM at that action
-npx playwright trace snapshot <action-id>
+Then go deeper based on what you find (snapshots, request details, filtered requests).
+The playwright-trace skill documents all available commands.
 
-# 5. Query DOM for specific elements
-npx playwright trace snapshot <action-id> -- eval "document.querySelector('.error-message').textContent"
+#### What to look for in traces
 
-# 6. Check for console errors and failed network requests
-npx playwright trace console --errors-only
-npx playwright trace requests --failed
+1. **The full action timeline** — not just errors. Look for:
+   - Actions with unexpectedly long durations (> 5s for simple operations)
+   - Background operations running in parallel with the main test flow
+   - Gaps in the timeline where nothing happens (rendering delays, polling)
 
-# 7. Close when done
-npx playwright trace close
-```
+2. **Concurrent async operations** — `waitForEvent`, popup listeners, parallel
+   promises. These appear as overlapping actions in the timeline. If a background
+   operation times out during your main test action, it can disrupt the test even
+   if the main action would otherwise succeed.
+
+3. **Network timing vs UI timing** — compare when API responses arrive (fulfill
+   requests, 200s) against when UI elements appear (expect toBeVisible resolves).
+   A large gap between "data available" and "UI renders" indicates browser CPU
+   saturation or widget rendering delays, not network issues.
+
+4. **Retry accumulation** — check the trace metadata for page count and total
+   requests. Multiple pages (e.g., Pages: 11) means the test was retried many
+   times. Each retry loads a new page with hundreds of requests, degrading browser
+   performance. The last attempt may fail purely from accumulated browser load.
+
+5. **Element not found / timeout when the page loaded correctly** — use
+   `trace snapshot <action-id>` to get the accessibility tree and discover what IS
+   on the page that could inform the fix. Don't just diagnose why the element is
+   missing — look for what the test COULD use instead.
 
 ### Step 5: Cluster Log Search
 

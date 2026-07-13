@@ -130,6 +130,31 @@ From the skill's output, extract:
 - Root cause for each failure
 - Whether the failure is UI-level, config-level, or setup-level
 
+### Phase 2 completion checklist
+
+**Do not proceed to Phase 3 until ALL applicable items are done:**
+
+- [ ] Diagnostics script ran (Step 1) — all failed tests identified
+- [ ] error-context.md read for each failure (Step 2)
+- [ ] Screenshots viewed for each UI failure (Step 2)
+- [ ] **Trace inspected for each UI failure (Step 4)** — invoke
+      `/playwright-trace` first, then at minimum: `actions` (full list,
+      not just errors-only), `action <id>` for failed actions,
+      `console --errors-only`, `requests --failed`
+- [ ] build-log.txt checked for setup/beforeAll failures (Step 5)
+- [ ] Cluster logs checked where relevant (Step 5)
+
+The trace requirement applies to EVERY test failure that involves browser
+interaction. The only exceptions are setup failures (shell script exit,
+deployment error) where no browser was involved and no trace exists.
+
+**Why this matters:** error-context and screenshots show the end state —
+what the page looked like when the test failed. Traces show the timeline —
+what happened between navigation and failure. You cannot reliably
+distinguish a timing flake from a real bug, or identify background async
+operations interfering with the test, without the trace timeline. A
+30-second `trace actions` check is cheaper than a wrong classification.
+
 ---
 
 ## Phase 3: Classify
@@ -508,8 +533,19 @@ summary:
 - Analysis is handled by `/e2e-failure-analysis` — do not duplicate its work.
 - Use the skill's output to drive classification and fix decisions.
 - Do not classify (`fix_category`) until all investigation steps in Phase 2
-  are complete. Premature classification biases the fix toward an incomplete
-  understanding of the failure.
+  are complete — including trace inspection for every UI failure. Premature
+  classification biases the fix toward an incomplete understanding of the
+  failure.
+- **Trace inspection is mandatory for UI failures.** Do not classify any
+  test failure involving browser interaction (Playwright assertions, element
+  timeouts, navigation errors) without first invoking `/playwright-trace`
+  and running `trace actions` + `trace action <id>` on the failed actions.
+  Screenshots show the end state; traces show the mechanism. You need both.
+- Distinguish **symptoms** from **mechanisms**. "The h1 timed out because
+  the cluster was slow" is a symptom. "The h1 timed out because a background
+  `waitForEvent('popup')` competed with the selector wait while the OAuth
+  refresh returned 401" is a mechanism. You cannot identify mechanisms
+  without traces.
 - Treat existing GitHub issues as **hypotheses, not facts**. Prior issues may
   contain stale analysis, incorrect classification, or incomplete root causes.
   Always verify independently through your own analysis before adopting an
