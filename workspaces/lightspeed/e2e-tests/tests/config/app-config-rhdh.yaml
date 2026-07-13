@@ -26,6 +26,11 @@ backend:
       - https://cdn.jsdelivr.net
 
 lightspeed:
+  notebooks:
+    enabled: true
+    queryDefaults:
+      model: ${NOTEBOOK_DEFAULT_MODEL}
+      provider_id: ${NOTEBOOK_PROVIDER}
   servicePort: 8080
   prompts:
     - title: Getting Started with Red Hat Developer Hub
