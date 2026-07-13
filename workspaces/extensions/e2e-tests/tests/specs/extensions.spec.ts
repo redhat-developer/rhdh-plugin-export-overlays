@@ -301,11 +301,10 @@ test.describe("Admin > Extensions", () => {
       );
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
-      await page.getByTestId("enable-plugin").click();
-      await expect(page.getByTestId("disable-plugin")).toBeVisible();
-      await expect(page.getByTestId("ToggleOnOutlinedIcon")).toBeVisible();
-      await expect(page.getByLabel("EditPlugin")).toContainText(
-        "Plugin currently enabled",
+      await page.getByTestId("disable-plugin").click();
+      await expect(page.getByTestId("enable-plugin")).toBeVisible();
+      await expect(page.getByRole("alert")).toContainText(
+        "The Adoption Insights for Red Hat Developer Hub package requires a restart of the backend system to finish installing, updating, enabling or disabling.",
       );
     });
   });
