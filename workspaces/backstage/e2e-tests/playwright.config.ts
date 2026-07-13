@@ -48,6 +48,8 @@ export default playwrightDefineConfig({
     {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
+      // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-auth",
