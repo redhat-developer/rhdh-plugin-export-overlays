@@ -10,6 +10,15 @@ test.describe("Test Tekton plugin", () => {
     process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
       [ghcrRegistry]: ["@backstage-community/plugin-tekton"],
     });
+    const project = rhdh.deploymentConfig.namespace;
+    const isNightlyMode =
+      process.env.E2E_NIGHTLY_MODE === "true" ||
+      process.env.E2E_NIGHTLY_MODE === "1" ||
+      (process.env.JOB_NAME?.includes("periodic-") ?? false);
+    test.skip(
+      project === "tekton-app-next" && isNightlyMode,
+      "tekton-app-next not ready for nightly",
+    );
     await rhdh.configure({
       auth: "keycloak",
     });
