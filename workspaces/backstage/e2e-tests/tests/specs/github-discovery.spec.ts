@@ -66,7 +66,8 @@ test.describe("Github Discovery Catalog", () => {
         .poll(
           async () => {
             await catalogPage.search(repo);
-            return catalogPage.tableRow(repo).isVisible();
+            const row = await catalogPage.tableRow(repo);
+            return row.isVisible();
           },
           {
             message: `Component ${repo} should appear in catalog after GitHub discovery`,
