@@ -131,6 +131,7 @@ test.describe("TechDocs", () => {
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
     await verifyReportIssueAddon(page);
+    await expect(page.getByText("Open new Github issue")).toBeVisible();
   });
 
   test("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
@@ -143,5 +144,6 @@ test.describe("TechDocs", () => {
     await uiHelper.clickTab("Docs");
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
     await verifyReportIssueAddon(page);
+    await expect(page.getByText("Open new Github issue")).toBeVisible();
   });
 });
