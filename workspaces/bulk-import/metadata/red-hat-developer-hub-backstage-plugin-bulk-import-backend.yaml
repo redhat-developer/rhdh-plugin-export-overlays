@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-bulk-import-backend"
-  dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend:bs_1.49.4__7.3.5!red-hat-developer-hub-backstage-plugin-bulk-import-backend
   version: 7.3.5
   backstage:
     role: backend-plugin
