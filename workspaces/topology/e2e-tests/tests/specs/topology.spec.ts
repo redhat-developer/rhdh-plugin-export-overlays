@@ -1,3 +1,4 @@
+// trigger e2e
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
