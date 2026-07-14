@@ -147,6 +147,17 @@ export async function loginAsKeycloakUserWithRetry(
           });
           return;
         }
+
+        // OIDC auto-redirect may have silently authenticated the user
+        // without showing a login form or popup.
+        if (
+          await page
+            .locator("nav a")
+            .first()
+            .isVisible({ timeout: LOGIN_SUCCESS_TIMEOUT_MS })
+        ) {
+          return;
+        }
       } catch (fallbackError) {
         lastError = fallbackError;
       }
