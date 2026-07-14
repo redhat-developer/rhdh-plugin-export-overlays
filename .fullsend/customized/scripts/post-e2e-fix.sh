@@ -74,6 +74,7 @@ if [[ -z "${RESULT_FILE}" ]]; then
   exit 0
 fi
 
+RESULT_FILE="$(cd "$(dirname "${RESULT_FILE}")" && pwd)/$(basename "${RESULT_FILE}")"
 echo "Found agent-result.json: ${RESULT_FILE}"
 
 # ---------------------------------------------------------------------------
@@ -311,12 +312,15 @@ done
 # ---------------------------------------------------------------------------
 # 4. Backfill, push, and create PRs per workspace branch
 # ---------------------------------------------------------------------------
-if [[ -d "${REPO_DIR}" && "${REPO_DIR}" != "." ]]; then
-  cd "${REPO_DIR}"
+if [[ ! -d "${REPO_DIR}/.git" ]]; then
+  echo "::error::REPO_DIR (${REPO_DIR}) is not a git repository"
+  exit 1
 fi
+cd "${REPO_DIR}"
 
 git remote set-url origin \
   "https://x-access-token:${GH_TOKEN}@github.com/${REPO_FULL_NAME}.git"
+git fetch origin "${TARGET_BRANCH}" --quiet 2>/dev/null || true
 
 declare -a WS_PR_URLS=()
 
