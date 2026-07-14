@@ -444,6 +444,7 @@ post-script to execute mutations.
 
 ```bash
 OUTPUT_DIR="${FULLSEND_OUTPUT_DIR:-.}"
+mkdir -p "$OUTPUT_DIR"
 cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
 {
   "root_cause": "<one-line summary>",

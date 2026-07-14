@@ -1,12 +1,14 @@
 ---
 name: playwright-trace
 description: Inspect Playwright trace files from the command line — list actions, view requests, console, errors, snapshots and screenshots.
-allowed-tools: Bash(npx:*)
+allowed-tools: Bash(npx:*),Bash(playwright:*)
 ---
 
 # Playwright Trace CLI
 
 Inspect `.zip` trace files produced by Playwright tests without opening a browser.
+
+**If `npx playwright trace` fails with a registry/network error (403, ENOTFOUND), use `playwright trace` directly — it is globally installed in the sandbox image.**
 
 ## Workflow
 
