@@ -1,3 +1,7 @@
+# Lightspeed is being disabled due to https://redhat.atlassian.net/browse/RHDHBUGS-3145
+global:
+  lightspeed:
+    enabled: false
 upstream:
   backstage:
     extraVolumeMounts:
