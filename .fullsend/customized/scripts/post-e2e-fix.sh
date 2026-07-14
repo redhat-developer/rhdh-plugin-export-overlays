@@ -26,14 +26,15 @@
 # Optional environment variables:
 #   JIRA_TOKEN        — JIRA API bearer token for bug creation
 #   JIRA_URL          — JIRA instance URL (default: https://issues.redhat.com)
-#   REPO_DIR          — path to extracted repo (default: current directory)
+#   TARGET_REPO_DIR   — path to extracted repo (set by fullsend automatically)
+#   REPO_DIR          — fallback repo path if TARGET_REPO_DIR not set (default: .)
 #   TARGET_BRANCH     — base branch for PRs (default: main)
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-REPO_DIR="${REPO_DIR:-.}"
+REPO_DIR="${TARGET_REPO_DIR:-${REPO_DIR:-.}}"
 REPO_FULL_NAME="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
 TARGET_BRANCH="${TARGET_BRANCH:-main}"
 JIRA_URL="${JIRA_URL:-https://issues.redhat.com}"
@@ -202,6 +203,18 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
         --body "${ISSUE_BODY}" 2>&1)"; then
         ISSUE_NUMBER="$(echo "${ISSUE_URL}" | grep -o '[0-9]*$')"
         echo "  Created issue #${ISSUE_NUMBER}: ${ISSUE_URL}"
+      elif echo "${ISSUE_URL}" | grep -qi "label.*not found"; then
+        echo "  Label not found — retrying without labels..."
+        if ISSUE_URL="$(gh issue create \
+          --repo "${REPO_FULL_NAME}" \
+          --title "${ISSUE_TITLE}" \
+          --body "${ISSUE_BODY}" 2>&1)"; then
+          ISSUE_NUMBER="$(echo "${ISSUE_URL}" | grep -o '[0-9]*$')"
+          echo "  Created issue #${ISSUE_NUMBER}: ${ISSUE_URL}"
+        else
+          echo "::warning::Failed to create issue for ${WS_NAME}: $(sanitize_for_gha "${ISSUE_URL}")"
+          ISSUE_URL=""
+        fi
       else
         if echo "${ISSUE_URL}" | grep -qE "HTTP (401|403)"; then
           echo "::warning::Insufficient permissions to create issue for ${WS_NAME} — skipping"
