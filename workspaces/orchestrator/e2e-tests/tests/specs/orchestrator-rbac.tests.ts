@@ -147,6 +147,17 @@ export async function loginAsKeycloakUserWithRetry(
           });
           return;
         }
+
+        // OIDC auto-redirect may have completed without showing the
+        // Keycloak form (e.g. SSO session). Check if already logged in.
+        if (
+          await page
+            .locator("nav a")
+            .first()
+            .isVisible({ timeout: LOGIN_SUCCESS_TIMEOUT_MS })
+        ) {
+          return;
+        }
       } catch (fallbackError) {
         lastError = fallbackError;
       }
