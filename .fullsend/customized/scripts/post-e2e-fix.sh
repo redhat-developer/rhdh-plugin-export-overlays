@@ -22,6 +22,7 @@
 #   GH_TOKEN          — GitHub token with issues:write, pull-requests:write,
 #                       contents:write on the target repo
 #   REPO_FULL_NAME    — owner/repo (default: redhat-developer/rhdh-plugin-export-overlays)
+#   PUSH_REPO         — fork owner/repo for push and PR head (default: REPO_FULL_NAME)
 #
 # Optional environment variables:
 #   JIRA_TOKEN        — JIRA API bearer token for bug creation
@@ -36,6 +37,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 REPO_DIR="${TARGET_REPO_DIR:-${REPO_DIR:-.}}"
 REPO_FULL_NAME="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
+PUSH_REPO="${PUSH_REPO:-${REPO_FULL_NAME}}"
 TARGET_BRANCH="${TARGET_BRANCH:-main}"
 JIRA_URL="${JIRA_URL:-https://issues.redhat.com}"
 
@@ -327,7 +329,7 @@ fi
 cd "${REPO_DIR}"
 
 git remote set-url origin \
-  "https://x-access-token:${GH_TOKEN}@github.com/${REPO_FULL_NAME}.git"
+  "https://x-access-token:${GH_TOKEN}@github.com/${PUSH_REPO}.git"
 git fetch origin "${TARGET_BRANCH}" --quiet 2>/dev/null || true
 
 declare -a WS_PR_URLS=()
@@ -448,7 +450,14 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   # 4d. Create or update PR
   # -----------------------------------------------------------------------
   PR_URL=""
-  EXISTING_PR="$(gh pr list --repo "${REPO_FULL_NAME}" --head "${BRANCH}" \
+  PUSH_OWNER="${PUSH_REPO%%/*}"
+  if [[ "${PUSH_REPO}" == "${REPO_FULL_NAME}" ]]; then
+    PR_HEAD="${BRANCH}"
+  else
+    PR_HEAD="${PUSH_OWNER}:${BRANCH}"
+  fi
+
+  EXISTING_PR="$(gh pr list --repo "${REPO_FULL_NAME}" --head "${PR_HEAD}" \
     --json number,url --jq '.[0]' 2>/dev/null || true)"
 
   if [[ -n "${EXISTING_PR}" && "${EXISTING_PR}" != "null" ]]; then
@@ -470,7 +479,7 @@ JIRA: [${JIRA_KEY}](${JIRA_URL}/browse/${JIRA_KEY})"
 
     if ! PR_URL="$(gh pr create \
       --repo "${REPO_FULL_NAME}" \
-      --head "${BRANCH}" \
+      --head "${PR_HEAD}" \
       --base "${TARGET_BRANCH}" \
       --title "${COMMIT_SUBJECT}" \
       --body "${PR_BODY}" 2>&1)"; then

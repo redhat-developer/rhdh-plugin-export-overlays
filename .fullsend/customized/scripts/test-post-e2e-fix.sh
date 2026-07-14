@@ -1102,6 +1102,220 @@ fi
 cleanup; rm -rf "${WORKDIR}"
 
 # ===========================================================================
+# I. Target Branch Detection
+# ===========================================================================
+echo -e "\n${YELLOW}I. Target Branch Detection${NC}"
+
+# I1: target_branch in result JSON overrides default
+setup_workdir
+setup_repo
+git checkout -q -b "release-1.10"
+git checkout -q main
+create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+mock_gh success
+mock_git_push
+write_result '{
+  "target_branch": "release-1.10",
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Fix",
+    "fix_category": "test_fix",
+    "action_taken": "fix_implemented",
+    "attempt": 1,
+    "next_step": "Merge",
+    "branch": "fix/e2e-argocd-test",
+    "issue": {"action": "skip"}
+  }]
+}'
+run_test "I1: target_branch from result → uses release-1.10" 0 "Target branch.*from result.*release-1.10"
+cleanup; rm -rf "${WORKDIR}"
+
+# I2: No target_branch in result → uses default (main)
+setup_workdir
+setup_repo
+mock_gh success
+mock_git_push
+write_result '{
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Flake",
+    "fix_category": "infra_flake",
+    "action_taken": "logged",
+    "attempt": 1,
+    "next_step": "Monitor",
+    "branch": null,
+    "issue": {"action": "skip"}
+  }]
+}'
+run_test "I2: No target_branch → uses default main" 0 "Target branch.*default.*main"
+cleanup; rm -rf "${WORKDIR}"
+
+# I3: TARGET_BRANCH env var overridden by result JSON
+setup_workdir
+setup_repo
+git checkout -q -b "release-1.9"
+git checkout -q main
+mock_gh success
+mock_git_push
+export TARGET_BRANCH="release-1.9"
+write_result '{
+  "target_branch": "main",
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Flake",
+    "fix_category": "infra_flake",
+    "action_taken": "logged",
+    "attempt": 1,
+    "next_step": "Monitor",
+    "branch": null,
+    "issue": {"action": "skip"}
+  }]
+}'
+run_test "I3: Result JSON overrides TARGET_BRANCH env" 0 "Target branch.*from result.*main"
+export TARGET_BRANCH="main"
+cleanup; rm -rf "${WORKDIR}"
+
+# ===========================================================================
+# J. Fork / PUSH_REPO Support
+# ===========================================================================
+echo -e "\n${YELLOW}J. Fork / PUSH_REPO Support${NC}"
+
+# J1: PUSH_REPO set to fork → push uses fork, PR head uses owner:branch
+setup_workdir
+setup_repo
+create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+export PUSH_REPO="myfork/rhdh-plugin-export-overlays"
+
+# Mock gh to capture the --head argument
+mkdir -p "${PWD}/mock-bin"
+cat > "${PWD}/mock-bin/gh" << 'MOCKEOF'
+#!/usr/bin/env bash
+case "$1" in
+  issue)
+    echo "https://github.com/test/repo/issues/42"
+    ;;
+  pr)
+    case "$2" in
+      list) echo "" ;;
+      create)
+        # Echo args so test can verify --head
+        echo "https://github.com/test/repo/pull/99"
+        echo "ARGS: $*" >&2
+        ;;
+    esac
+    ;;
+esac
+MOCKEOF
+chmod +x "${PWD}/mock-bin/gh"
+export PATH="${PWD}/mock-bin:${PATH}"
+mock_git_push
+
+write_result '{
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Fix",
+    "fix_category": "test_fix",
+    "action_taken": "fix_implemented",
+    "attempt": 1,
+    "next_step": "Merge",
+    "branch": "fix/e2e-argocd-test",
+    "issue": {"action": "skip"}
+  }]
+}'
+
+OUTPUT="$(bash "${SCRIPT_UNDER_TEST}" 2>&1)" || true
+if echo "${OUTPUT}" | grep -q "myfork:fix/e2e-argocd-test"; then
+  echo -e "  ${GREEN}✓${NC} J1: Fork PUSH_REPO → PR head uses owner:branch"
+  ((PASS++))
+else
+  echo -e "  ${RED}✗${NC} J1: Expected myfork:fix/e2e-argocd-test in PR head"
+  ((FAIL++))
+  ERRORS+="  J1: PR head should contain myfork:fix/e2e-argocd-test\n"
+  ERRORS+="    output: $(echo "${OUTPUT}" | grep -i 'args\|head\|PR' | tail -3)\n"
+fi
+unset PUSH_REPO
+cleanup; rm -rf "${WORKDIR}"
+
+# J2: PUSH_REPO same as REPO_FULL_NAME → PR head uses plain branch
+setup_workdir
+setup_repo
+create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+export PUSH_REPO="redhat-developer/rhdh-plugin-export-overlays"
+
+mkdir -p "${PWD}/mock-bin"
+cat > "${PWD}/mock-bin/gh" << 'MOCKEOF'
+#!/usr/bin/env bash
+case "$1" in
+  issue) echo "https://github.com/test/repo/issues/42" ;;
+  pr)
+    case "$2" in
+      list) echo "" ;;
+      create)
+        echo "https://github.com/test/repo/pull/99"
+        echo "ARGS: $*" >&2
+        ;;
+    esac
+    ;;
+esac
+MOCKEOF
+chmod +x "${PWD}/mock-bin/gh"
+export PATH="${PWD}/mock-bin:${PATH}"
+mock_git_push
+
+write_result '{
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Fix",
+    "fix_category": "test_fix",
+    "action_taken": "fix_implemented",
+    "attempt": 1,
+    "next_step": "Merge",
+    "branch": "fix/e2e-argocd-test",
+    "issue": {"action": "skip"}
+  }]
+}'
+
+OUTPUT="$(bash "${SCRIPT_UNDER_TEST}" 2>&1)" || true
+if echo "${OUTPUT}" | grep -q "myfork:" 2>/dev/null; then
+  echo -e "  ${RED}✗${NC} J2: Same repo should not use owner:branch prefix"
+  ((FAIL++))
+  ERRORS+="  J2: Should use plain branch, not owner:branch\n"
+else
+  echo -e "  ${GREEN}✓${NC} J2: Same repo → PR head uses plain branch name"
+  ((PASS++))
+fi
+unset PUSH_REPO
+cleanup; rm -rf "${WORKDIR}"
+
+# J3: PUSH_REPO not set → falls back to REPO_FULL_NAME
+setup_workdir
+setup_repo
+create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+unset PUSH_REPO 2>/dev/null || true
+mock_gh success
+mock_git_push
+write_result '{
+  "workspaces": [{
+    "workspace": "argocd",
+    "tests": [{"name": "T1", "error": "E1"}],
+    "root_cause": "Fix",
+    "fix_category": "test_fix",
+    "action_taken": "fix_implemented",
+    "attempt": 1,
+    "next_step": "Merge",
+    "branch": "fix/e2e-argocd-test",
+    "issue": {"action": "skip"}
+  }]
+}'
+run_test "J3: No PUSH_REPO → falls back to REPO_FULL_NAME" 0 "PR created"
+cleanup; rm -rf "${WORKDIR}"
+
+# ===========================================================================
 # Summary
 # ===========================================================================
 echo ""

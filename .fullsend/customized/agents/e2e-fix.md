@@ -390,7 +390,7 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 5. **Commit:**
    ```bash
    git add <specific-files-only>
-   git commit -m "fix(e2e): <workspace> — <description>
+   git commit -m "fix(e2e): [fullsend] <workspace> — <description>
 
    Root cause: <one-line>
    Fixes: #ISSUE_PLACEHOLDER"
@@ -456,7 +456,7 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 4. **Commit:**
    ```bash
    git add <specific-files-only>
-   git commit -m "test(e2e): skip <workspace> tests in nightly
+   git commit -m "test(e2e): [fullsend] skip <workspace> tests in nightly
 
    Root cause: <description>
    JIRA: JIRA-PENDING
