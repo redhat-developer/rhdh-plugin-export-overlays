@@ -8,7 +8,16 @@ allowed-tools: Bash(npx:*),Bash(playwright:*)
 
 Inspect `.zip` trace files produced by Playwright tests without opening a browser.
 
-**If `npx playwright trace` fails with a registry/network error (403, ENOTFOUND), use `playwright trace` directly — it is globally installed in the sandbox image.**
+**Before first use**, check if `playwright` is globally installed. If it is, use `playwright trace` for all commands — the global binary has matching browser binaries and avoids `npx` downloading a separate copy that can't find them. If not, fall back to `npx playwright trace`.
+
+```bash
+if command -v playwright &>/dev/null; then
+  alias npx_pw="playwright"
+else
+  alias npx_pw="npx playwright"
+fi
+# Then use: npx_pw trace open <file.zip>
+```
 
 ## Workflow
 
