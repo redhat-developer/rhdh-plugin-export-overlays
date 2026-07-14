@@ -39,7 +39,7 @@ env:
   sandbox:
     PROW_URL: "${PROW_URL}"
     SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
-    PLAYWRIGHT_BROWSERS_PATH: /sandbox/playwright-browsers
+    PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
     GIT_AUTHOR_NAME: e2e-fix-agent
     GIT_AUTHOR_EMAIL: noreply@github.com
     GIT_COMMITTER_NAME: e2e-fix-agent
