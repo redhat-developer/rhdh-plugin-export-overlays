@@ -39,7 +39,7 @@ upstream:
           - name: NPM_CONFIG_USERCONFIG
             value: /opt/app-root/src/.npmrc.dynamic-plugins
           - name: MAX_ENTRY_SIZE
-            value: "40000000"
+            value: "100000000"
           - name: CATALOG_INDEX_IMAGE
             value: "{{ .Values.global.catalogIndex.image.registry }}/{{ .Values.global.catalogIndex.image.repository }}:{{ .Values.global.catalogIndex.image.tag }}"
           - name: CATALOG_ENTITIES_EXTRACT_DIR
