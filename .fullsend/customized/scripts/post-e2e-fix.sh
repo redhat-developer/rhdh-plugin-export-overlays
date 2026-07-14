@@ -85,6 +85,14 @@ if ! jq empty "${RESULT_FILE}" 2>/dev/null; then
   exit 1
 fi
 
+RESULT_TARGET_BRANCH="$(jq -r '.target_branch // empty' "${RESULT_FILE}")"
+if [[ -n "${RESULT_TARGET_BRANCH}" ]]; then
+  TARGET_BRANCH="${RESULT_TARGET_BRANCH}"
+  echo "Target branch (from result): ${TARGET_BRANCH}"
+else
+  echo "Target branch (default): ${TARGET_BRANCH}"
+fi
+
 WORKSPACE_COUNT="$(jq '.workspaces | length' "${RESULT_FILE}")"
 if [[ -z "${WORKSPACE_COUNT}" || "${WORKSPACE_COUNT}" -lt 1 ]]; then
   echo "::error::agent-result.json has no workspaces entries"

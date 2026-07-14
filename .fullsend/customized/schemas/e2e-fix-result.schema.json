@@ -5,8 +5,14 @@
   "description": "Structured output from the e2e-fix agent — one entry per workspace with failures.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["workspaces"],
+  "required": ["target_branch", "workspaces"],
   "properties": {
+    "target_branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Branch the Prow job ran against (e.g., main, release-1.10). Fix branches are created from this base."
+    },
     "workspaces": {
       "type": "array",
       "minItems": 1,

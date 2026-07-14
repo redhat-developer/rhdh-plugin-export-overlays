@@ -30,6 +30,33 @@ echo "Analyzing failure: $PROW_URL"
 
 Use `$PROW_URL` wherever the workflow references the prow/gcsweb URL.
 
+### Detect target branch
+
+The Prow job name encodes the branch. Extract it:
+
+```bash
+# Job name format: periodic-ci-{org}-{repo}-{branch}-{job-suffix}
+# Example: periodic-ci-redhat-developer-rhdh-plugin-export-overlays-release-1.10-e2e-ocp-helm-nightly
+JOB_NAME=$(echo "$PROW_URL" | grep -oP '(?<=logs/)[^/]+')
+TARGET_BRANCH=$(echo "$JOB_NAME" \
+  | sed 's/^periodic-ci-redhat-developer-rhdh-plugin-export-overlays-//' \
+  | sed 's/-e2e-ocp-helm.*//')
+echo "Target branch: $TARGET_BRANCH"
+```
+
+Verify the branch exists locally:
+
+```bash
+if ! git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
+  git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
+fi
+git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1 \
+  && echo "Branch $TARGET_BRANCH: ok" \
+  || echo "WARNING: Branch $TARGET_BRANCH not found — falling back to main" && TARGET_BRANCH="main"
+```
+
+Use `$TARGET_BRANCH` as the base for all fix branches (not hardcoded `main`).
+
 ## Repository Context
 
 - **Upstream**: `redhat-developer/rhdh-plugin-export-overlays`
@@ -185,10 +212,11 @@ workspace, assign a `fix_category`:
 - The issue body will list all failing tests regardless.
 
 After classifying, you have a list of workspaces with failures. Process
-each workspace through Phases 4–6. Return to `main` between workspaces:
+each workspace through Phases 4–6. Return to `$TARGET_BRANCH` between
+workspaces:
 
 ```bash
-git checkout main
+git checkout "$TARGET_BRANCH"
 ```
 
 ---
@@ -331,9 +359,9 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 
 ##### Attempt 1 — New Fix
 
-1. **Create branch from main:**
+1. **Create branch from `$TARGET_BRANCH`:**
    ```bash
-   git checkout main
+   git checkout "$TARGET_BRANCH"
    git checkout -b fix/e2e-<workspace>-<short-slug>
    ```
    Use workspace name + short slug (e.g., `fix/e2e-argocd-route-wait`).
@@ -379,8 +407,8 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 
 2. **Review what was tried:**
    ```bash
-   git log --oneline main..HEAD
-   git diff main..HEAD
+   git log --oneline "$TARGET_BRANCH"..HEAD
+   git diff "$TARGET_BRANCH"..HEAD
    ```
 
 3. **Decision:**
@@ -394,7 +422,7 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 
 1. **Create branch** (if not already on one):
    ```bash
-   git checkout main
+   git checkout "$TARGET_BRANCH"
    git checkout -b fix/e2e-<workspace>-<short-slug>
    ```
 
@@ -450,6 +478,7 @@ OUTPUT_DIR="${FULLSEND_OUTPUT_DIR:-.}"
 mkdir -p "$OUTPUT_DIR"
 cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
 {
+  "target_branch": "<TARGET_BRANCH value>",
   "workspaces": [
     {
       "workspace": "<workspace-name>",
@@ -496,6 +525,8 @@ check. If it still fails after 3 attempts, write the best JSON you have
 and exit. The harness validation loop will retry up to 2 more times.
 
 **Field rules:**
+- `target_branch`: the branch detected from the Prow URL (e.g., `main`,
+  `release-1.10`). Must match the `$TARGET_BRANCH` variable.
 - `workspace`: the workspace directory name (e.g., `argocd`, `orchestrator`)
 - `tests`: array of `{name, error}` for every failing test in this workspace
 - `branch`: the full branch name (e.g., `fix/e2e-argocd-route-wait`), or
@@ -546,7 +577,7 @@ Workspaces processed: <N>
 - Always create new commits — never `git commit --amend`
 - Never force push
 - Never rebase
-- **Return to `main` between workspaces** before creating the next branch
+- **Return to `$TARGET_BRANCH` between workspaces** before creating the next branch
 
 ### Sub-agents
 
