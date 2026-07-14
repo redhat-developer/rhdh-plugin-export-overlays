@@ -69,7 +69,7 @@
         },
         "branch": {
           "type": ["string", "null"],
-          "description": "Branch name (e.g., fix/e2e-argocd-route-wait), or null if no code changes."
+          "description": "Branch name (e.g., fullsend/argocd-route-wait), or null if no code changes."
         },
         "issue": {
           "$ref": "#/$defs/issue_directive"

@@ -403,7 +403,7 @@ write_result '{
     "action_taken": "test_skipped",
     "attempt": 1,
     "next_step": "track",
-    "branch": "fix/e2e-argocd-skip",
+    "branch": "fullsend/argocd-skip",
     "jira": {"project": "RHDHBUGS", "type": "Bug", "summary": "test"}
   }]
 }'
@@ -576,7 +576,7 @@ cleanup; rm -rf "${WORKDIR}"
 # C2: Branch exists → push and create PR
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-route-wait" "workspaces/argocd/e2e-tests/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-route-wait" "workspaces/argocd/e2e-tests/test.ts" "fixed"
 mock_gh success
 mock_git_push
 write_result '{
@@ -588,7 +588,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge PR",
-    "branch": "fix/e2e-argocd-route-wait",
+    "branch": "fullsend/argocd-route-wait",
     "issue": {
       "action": "create",
       "title": "[fullsend] E2E: argocd",
@@ -613,17 +613,17 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge PR",
-    "branch": "fix/e2e-nonexistent-branch",
+    "branch": "fullsend/nonexistent-branch",
     "issue": {"action": "skip"}
   }]
 }'
-run_test "C3: Branch not found → warning" 0 "Branch fix/e2e-nonexistent-branch not found"
+run_test "C3: Branch not found → warning" 0 "Branch fullsend/nonexistent-branch not found"
 cleanup; rm -rf "${WORKDIR}"
 
 # C4: Existing PR → updates, doesn't create new
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-route-wait" "workspaces/argocd/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-route-wait" "workspaces/argocd/test.ts" "fixed"
 mock_gh pr_exists
 mock_git_push
 write_result '{
@@ -635,7 +635,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 2,
     "next_step": "Merge PR",
-    "branch": "fix/e2e-argocd-route-wait",
+    "branch": "fullsend/argocd-route-wait",
     "issue": {"action": "skip"}
   }]
 }'
@@ -650,7 +650,7 @@ echo -e "\n${YELLOW}D. Placeholder Backfill${NC}"
 # D1: ISSUE_PLACEHOLDER backfill in files
 setup_workdir
 setup_repo
-git checkout -q -b "fix/e2e-argocd-test"
+git checkout -q -b "fullsend/argocd-test"
 mkdir -p workspaces/argocd/e2e-tests/tests/specs
 cat > workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts << 'EOF'
 // Fixes: #ISSUE_PLACEHOLDER
@@ -671,7 +671,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge",
-    "branch": "fix/e2e-argocd-test",
+    "branch": "fullsend/argocd-test",
     "issue": {
       "action": "create",
       "title": "[fullsend] E2E: argocd",
@@ -694,7 +694,7 @@ cleanup; rm -rf "${WORKDIR}"
 # D2: JIRA-PENDING backfill
 setup_workdir
 setup_repo
-git checkout -q -b "fix/e2e-techdocs-skip"
+git checkout -q -b "fullsend/techdocs-skip"
 mkdir -p workspaces/techdocs/e2e-tests/tests/specs
 cat > workspaces/techdocs/e2e-tests/tests/specs/techdocs.spec.ts << 'EOF'
 test.skip(isNightlyMode, "Plugin not loaded (JIRA-PENDING)");
@@ -729,7 +729,7 @@ write_result '{
     "action_taken": "test_skipped",
     "attempt": 1,
     "next_step": "Track JIRA",
-    "branch": "fix/e2e-techdocs-skip",
+    "branch": "fullsend/techdocs-skip",
     "issue": {
       "action": "create",
       "title": "[fullsend] E2E: techdocs",
@@ -798,9 +798,9 @@ echo -e "\n${YELLOW}F. Multi-Workspace Integration${NC}"
 # F1: Full multi-workspace — mixed actions
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-route-wait" "workspaces/argocd/test.ts" "fixed argocd"
+create_fix_branch "fullsend/argocd-route-wait" "workspaces/argocd/test.ts" "fixed argocd"
 git checkout -q main
-create_fix_branch "fix/e2e-techdocs-skip" "workspaces/techdocs/test.ts" "skip techdocs"
+create_fix_branch "fullsend/techdocs-skip" "workspaces/techdocs/test.ts" "skip techdocs"
 mock_gh success
 mock_git_push
 write_result '{
@@ -813,7 +813,7 @@ write_result '{
       "action_taken": "fix_implemented",
       "attempt": 1,
       "next_step": "Merge PR",
-      "branch": "fix/e2e-argocd-route-wait",
+      "branch": "fullsend/argocd-route-wait",
       "issue": {
         "action": "create",
         "title": "[fullsend] E2E: argocd",
@@ -842,7 +842,7 @@ write_result '{
       "action_taken": "test_skipped",
       "attempt": 1,
       "next_step": "Track JIRA",
-      "branch": "fix/e2e-techdocs-skip",
+      "branch": "fullsend/techdocs-skip",
       "issue": {
         "action": "create",
         "title": "[fullsend] E2E: techdocs",
@@ -1057,9 +1057,9 @@ cleanup; rm -rf "${WORKDIR}"
 # H3: Multiple workspaces with branches — each gets its own PR
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fix argocd"
+create_fix_branch "fullsend/argocd-test" "workspaces/argocd/test.ts" "fix argocd"
 git checkout -q main
-create_fix_branch "fix/e2e-backstage-test" "workspaces/backstage/test.ts" "fix backstage"
+create_fix_branch "fullsend/backstage-test" "workspaces/backstage/test.ts" "fix backstage"
 mock_gh success
 mock_git_push
 write_result '{
@@ -1072,7 +1072,7 @@ write_result '{
       "action_taken": "fix_implemented",
       "attempt": 1,
       "next_step": "Merge",
-      "branch": "fix/e2e-argocd-test",
+      "branch": "fullsend/argocd-test",
       "issue": {"action": "create", "title": "Issue A", "body": "Body A"}
     },
     {
@@ -1083,7 +1083,7 @@ write_result '{
       "action_taken": "fix_implemented",
       "attempt": 1,
       "next_step": "Merge",
-      "branch": "fix/e2e-backstage-test",
+      "branch": "fullsend/backstage-test",
       "issue": {"action": "create", "title": "Issue B", "body": "Body B"}
     }
   ]
@@ -1111,7 +1111,7 @@ setup_workdir
 setup_repo
 git checkout -q -b "release-1.10"
 git checkout -q main
-create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-test" "workspaces/argocd/test.ts" "fixed"
 mock_gh success
 mock_git_push
 write_result '{
@@ -1124,7 +1124,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge",
-    "branch": "fix/e2e-argocd-test",
+    "branch": "fullsend/argocd-test",
     "issue": {"action": "skip"}
   }]
 }'
@@ -1186,7 +1186,7 @@ echo -e "\n${YELLOW}J. Fork / PUSH_REPO Support${NC}"
 # J1: PUSH_REPO set to fork → push uses fork, PR head uses owner:branch
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-test" "workspaces/argocd/test.ts" "fixed"
 export PUSH_REPO="myfork/rhdh-plugin-export-overlays"
 
 # Mock gh to capture the --head argument
@@ -1222,19 +1222,19 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge",
-    "branch": "fix/e2e-argocd-test",
+    "branch": "fullsend/argocd-test",
     "issue": {"action": "skip"}
   }]
 }'
 
 OUTPUT="$(bash "${SCRIPT_UNDER_TEST}" 2>&1)" || true
-if echo "${OUTPUT}" | grep -q "myfork:fix/e2e-argocd-test"; then
+if echo "${OUTPUT}" | grep -q "myfork:fullsend/argocd-test"; then
   echo -e "  ${GREEN}✓${NC} J1: Fork PUSH_REPO → PR head uses owner:branch"
   ((PASS++))
 else
-  echo -e "  ${RED}✗${NC} J1: Expected myfork:fix/e2e-argocd-test in PR head"
+  echo -e "  ${RED}✗${NC} J1: Expected myfork:fullsend/argocd-test in PR head"
   ((FAIL++))
-  ERRORS+="  J1: PR head should contain myfork:fix/e2e-argocd-test\n"
+  ERRORS+="  J1: PR head should contain myfork:fullsend/argocd-test\n"
   ERRORS+="    output: $(echo "${OUTPUT}" | grep -i 'args\|head\|PR' | tail -3)\n"
 fi
 unset PUSH_REPO
@@ -1243,7 +1243,7 @@ cleanup; rm -rf "${WORKDIR}"
 # J2: PUSH_REPO same as REPO_FULL_NAME → PR head uses plain branch
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-test" "workspaces/argocd/test.ts" "fixed"
 export PUSH_REPO="redhat-developer/rhdh-plugin-export-overlays"
 
 mkdir -p "${PWD}/mock-bin"
@@ -1275,7 +1275,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge",
-    "branch": "fix/e2e-argocd-test",
+    "branch": "fullsend/argocd-test",
     "issue": {"action": "skip"}
   }]
 }'
@@ -1295,7 +1295,7 @@ cleanup; rm -rf "${WORKDIR}"
 # J3: PUSH_REPO not set → falls back to REPO_FULL_NAME
 setup_workdir
 setup_repo
-create_fix_branch "fix/e2e-argocd-test" "workspaces/argocd/test.ts" "fixed"
+create_fix_branch "fullsend/argocd-test" "workspaces/argocd/test.ts" "fixed"
 unset PUSH_REPO 2>/dev/null || true
 mock_gh success
 mock_git_push
@@ -1308,7 +1308,7 @@ write_result '{
     "action_taken": "fix_implemented",
     "attempt": 1,
     "next_step": "Merge",
-    "branch": "fix/e2e-argocd-test",
+    "branch": "fullsend/argocd-test",
     "issue": {"action": "skip"}
   }]
 }'

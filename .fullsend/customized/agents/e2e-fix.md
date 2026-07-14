@@ -125,23 +125,20 @@ command -v python3 >/dev/null && echo "python3: ok" || echo "python3: MISSING"
 
 If any are missing, stop and report.
 
-### 1b. Detect continuation state
+### 1b. Check for open fix PRs
 
-Check for existing fix branches and open PRs across all workspaces:
+Check for open fix PRs across all workspaces (public repo — no auth needed):
 
 ```bash
-# Check for existing fix branches
-git branch --list 'fix/e2e-*'
-
-# Check for open fix PRs (public repo — no auth needed)
 curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/pulls?state=open&per_page=100" \
-  | jq '[.[] | select(.head.ref | startswith("fix/e2e-"))
+  | jq '[.[] | select(.head.ref | startswith("fullsend/"))
          | {number, title, headRefName: .head.ref, url: .html_url,
             labels: [.labels[].name]}]'
 ```
 
-Note which workspaces already have fix branches/PRs — their attempt number
-is 2. Workspaces without existing branches are attempt 1.
+Note which workspaces already have open PRs — their attempt number is 2.
+Workspaces without existing PRs are attempt 1. **Do not check local
+branches** — they may be stale from previous runs.
 
 ---
 
@@ -233,7 +230,7 @@ Search for open PRs targeting this workspace:
 WORKSPACE="<workspace-name>"
 curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/pulls?state=open&per_page=100" \
   | jq --arg ws "$WORKSPACE" \
-    '[.[] | select(.head.ref | startswith("fix/e2e-"))
+    '[.[] | select(.head.ref | startswith("fullsend/"))
           | select(.head.ref | test($ws; "i"))
           | {number, title, headRefName: .head.ref, url: .html_url}]'
 ```
@@ -362,9 +359,9 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 1. **Create branch from `$TARGET_BRANCH`:**
    ```bash
    git checkout "$TARGET_BRANCH"
-   git checkout -b fix/e2e-<workspace>-<short-slug>
+   git checkout -b fullsend/<workspace>-<short-slug>
    ```
-   Use workspace name + short slug (e.g., `fix/e2e-argocd-route-wait`).
+   Use workspace name + short slug (e.g., `fullsend/argocd-route-wait`).
 
 2. **Read the code.** Do not trust the analysis blindly. Read:
    - The failing spec file
@@ -400,19 +397,16 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 
 ##### Attempt 2 — Different Approach or Escalate
 
-1. **Checkout existing branch:**
+1. **Create a fresh branch** (do not reuse existing local branches):
    ```bash
-   git checkout fix/e2e-<workspace>-<slug>
+   git checkout "$TARGET_BRANCH"
+   git checkout -b fullsend/<workspace>-<short-slug>
    ```
 
-2. **Review what was tried:**
-   ```bash
-   git log --oneline "$TARGET_BRANCH"..HEAD
-   git diff "$TARGET_BRANCH"..HEAD
-   ```
+2. **Review the open PR** to understand what was tried previously.
 
 3. **Decision:**
-   - If a different fix can work → implement, commit on top
+   - If a different fix can work → implement, commit
    - If root cause is in plugin source → escalate to **6b**
    - If two attempts have failed → escalate to **6b**
 
@@ -423,7 +417,7 @@ Record: `action_taken: issue_tracked`, `branch: null`.
 1. **Create branch** (if not already on one):
    ```bash
    git checkout "$TARGET_BRANCH"
-   git checkout -b fix/e2e-<workspace>-<short-slug>
+   git checkout -b fullsend/<workspace>-<short-slug>
    ```
 
 2. **Add skip to failing tests.** For each failing test in this workspace,
@@ -490,7 +484,7 @@ cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
       "action_taken": "<logged|commented_on_existing|issue_tracked|fix_implemented|test_skipped>",
       "attempt": 1,
       "next_step": "<what should happen next>",
-      "branch": "<fix/e2e-workspace-slug or null>",
+      "branch": "<fullsend/workspace-slug or null>",
 
       "issue": {
         "action": "<create|comment|skip>",
@@ -529,7 +523,7 @@ and exit. The harness validation loop will retry up to 2 more times.
   `release-1.10`). Must match the `$TARGET_BRANCH` variable.
 - `workspace`: the workspace directory name (e.g., `argocd`, `orchestrator`)
 - `tests`: array of `{name, error}` for every failing test in this workspace
-- `branch`: the full branch name (e.g., `fix/e2e-argocd-route-wait`), or
+- `branch`: the full branch name (e.g., `fullsend/argocd-route-wait`), or
   `null` if no code changes (infra_flake, environment, commented_on_existing)
 - `issue.action`: `"create"` for new issue, `"comment"` to update existing,
   `"skip"` if no issue action needed
@@ -547,7 +541,7 @@ Workspaces processed: <N>
     Category:  test_fix
     Action:    fix_implemented
     Tests:     1
-    Branch:    fix/e2e-argocd-route-wait
+    Branch:    fullsend/argocd-route-wait
 
   [orchestrator]
     Category:  infra_flake
