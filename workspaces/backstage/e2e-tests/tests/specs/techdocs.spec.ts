@@ -40,25 +40,44 @@ async function docsTextHighlight(page: Page): Promise<boolean> {
   });
 }
 
-async function prepareReportIssueDocsContent(page: Page) {
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(() => {
-          const host = document.querySelector(
-            '[data-testid="techdocs-native-shadowroot"]',
-          );
-          const text =
-            host?.shadowRoot?.querySelector("article p")?.textContent ?? "";
-          return text.length >= 5;
-        }),
-      {
-        message: "TechDocs shadow article paragraph should be ready",
-        timeout: REPORT_ISSUE_POLL_TIMEOUT_MS,
-        intervals: [500],
-      },
-    )
-    .toBe(true);
+async function isReportIssueDocsContentReady(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const host = document.querySelector(
+      '[data-testid="techdocs-native-shadowroot"]',
+    );
+    const text =
+      host?.shadowRoot?.querySelector("article p")?.textContent ?? "";
+    return text.length >= 5;
+  });
+}
+
+async function waitForReportIssueDocsContent(page: Page) {
+  const deadline = Date.now() + REPORT_ISSUE_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await isReportIssueDocsContentReady(page)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  throw new Error("TechDocs shadow article paragraph should be ready");
+}
+
+async function pollForReportIssueLink(page: Page): Promise<boolean> {
+  await waitForReportIssueDocsContent(page);
+
+  const deadline = Date.now() + REPORT_ISSUE_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await docsTextHighlight(page);
+    if (await page.getByText("Open new Github issue").isVisible()) {
+      return true;
+    }
+    await new Promise((resolve) =>
+      setTimeout(resolve, REPORT_ISSUE_POLL_INTERVAL_MS),
+    );
+  }
+
+  return false;
 }
 
 test.describe("TechDocs", () => {
@@ -116,20 +135,7 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Docs");
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
-    await prepareReportIssueDocsContent(page);
-    await expect
-      .poll(
-        async () => {
-          await docsTextHighlight(page);
-          return page.getByText("Open new Github issue").isVisible();
-        },
-        {
-          message: "ReportIssue link should appear after text selection",
-          timeout: REPORT_ISSUE_POLL_TIMEOUT_MS,
-          intervals: [REPORT_ISSUE_POLL_INTERVAL_MS],
-        },
-      )
-      .toBe(true);
+    expect(await pollForReportIssueLink(page)).toBe(true);
   });
 
   test("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
@@ -141,19 +147,6 @@ test.describe("TechDocs", () => {
     await uiHelper.clickLink("Red Hat Developer Hub");
     await uiHelper.clickTab("Docs");
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
-    await prepareReportIssueDocsContent(page);
-    await expect
-      .poll(
-        async () => {
-          await docsTextHighlight(page);
-          return page.getByText("Open new Github issue").isVisible();
-        },
-        {
-          message: "ReportIssue link should appear after text selection",
-          timeout: REPORT_ISSUE_POLL_TIMEOUT_MS,
-          intervals: [REPORT_ISSUE_POLL_INTERVAL_MS],
-        },
-      )
-      .toBe(true);
+    expect(await pollForReportIssueLink(page)).toBe(true);
   });
 });
