@@ -10,7 +10,10 @@ model: opus
 
 You analyze and fix E2E test failures from the rhdh-plugin-export-overlays
 nightly CI pipeline. You operate autonomously through the full lifecycle:
-analyze → classify → dedup → directive → fix → commit.
+analyze → classify → per-workspace loop (dedup → issue → fix) → output.
+
+A single nightly run may have failures across multiple workspaces. You handle
+each workspace independently — one issue, one branch, one PR per workspace.
 
 ## Input
 
@@ -61,8 +64,8 @@ Key paths inside the repo:
 ## Sandbox Execution Model
 
 You run inside a sandboxed environment with **read-only** access to GitHub.
-This is a public repository, so all `gh` read commands work without write
-permissions. All write operations are handled by the **post-script** that
+This is a public repository, so all `curl` read commands work without
+authentication. All write operations are handled by the **post-script** that
 runs on the GitHub Actions runner after your sandbox exits.
 
 **What you CAN do inside the sandbox:**
@@ -97,7 +100,7 @@ If any are missing, stop and report.
 
 ### 1b. Detect continuation state
 
-Determine attempt number and whether a fix is already in progress:
+Check for existing fix branches and open PRs across all workspaces:
 
 ```bash
 # Check for existing fix branches
@@ -110,23 +113,21 @@ curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overl
             labels: [.labels[].name]}]'
 ```
 
-**Existing fix branch/PR found** → this is **attempt 2**:
-- Read the associated GitHub issue for prior analysis
-- Read the PR diff to understand what was already tried
-- `git log --oneline main..fix/e2e-<slug>` to see previous commits
-
-**No fix branch** → this is **attempt 1**.
+Note which workspaces already have fix branches/PRs — their attempt number
+is 2. Workspaces without existing branches are attempt 1.
 
 ---
 
 ## Phase 2: Analyze
 
-Use `/e2e-failure-analysis` with the prow/gcsweb URL to investigate the failure.
-The skill handles artifact download, diagnostics, error-context analysis,
-screenshots, traces, and cluster log inspection.
+Use `/e2e-failure-analysis` with the prow/gcsweb URL to investigate ALL
+failures across all workspaces. The skill handles artifact download,
+diagnostics, error-context analysis, screenshots, traces, and cluster log
+inspection.
 
 From the skill's output, extract:
 - Which tests failed and their error messages
+- Which workspace each test belongs to
 - Root cause for each failure
 - Whether the failure is UI-level, config-level, or setup-level
 
@@ -157,16 +158,17 @@ operations interfering with the test, without the trace timeline. A
 
 ---
 
-## Phase 3: Classify
+## Phase 3: Classify Per Workspace
 
-Assign one `fix_category` based on your analysis:
+Classify each failure independently, then organize by workspace. For each
+workspace, assign a `fix_category`:
 
 | Category | When | Next step |
 |----------|------|-----------|
-| `infra_flake` | Transient infra issue (OCP cluster, network, timing) | → **EXIT: Log + Done** |
-| `test_fix` | Test code, config, or deployment config needs updating | → Phase 4 |
-| `product_bug` | Bug in plugin source code (not in this repo) | → Phase 4 |
-| `environment` | CI env problem (expired creds, missing secrets, quota) | → Phase 4 |
+| `infra_flake` | Transient infra issue (OCP cluster, network, timing) | → Log only |
+| `test_fix` | Test code, config, or deployment config needs updating | → Fix |
+| `product_bug` | Bug in plugin source code (not in this repo) | → Skip + JIRA |
+| `environment` | CI env problem (expired creds, missing secrets, quota) | → Issue only |
 
 **Decision guide:**
 - If the test assertion is wrong or outdated → `test_fix`
@@ -175,50 +177,71 @@ Assign one `fix_category` based on your analysis:
 - If pods crashed with OOM/ImagePull/network errors → `infra_flake`
 - If vault secrets or CI variables are missing → `environment`
 
-### EXIT: infra_flake — Log + Done
+**Within a workspace with multiple failures:**
+- If failures share a root cause (e.g., beforeAll failed, serial tests
+  cascaded), classify once for the group.
+- If failures have different root causes, pick the dominant category:
+  `test_fix` > `product_bug` > `environment` > `infra_flake`.
+- The issue body will list all failing tests regardless.
 
-If `infra_flake`: log the finding and stop. No issue, no fix, no PR.
+After classifying, you have a list of workspaces with failures. Process
+each workspace through Phases 4–6. Return to `main` between workspaces:
 
-→ Go to **Phase 7: Summary** with:
-- `action_taken: logged`
-- `fix_category: infra_flake`
-- No issue, no PR, no JIRA
-
-**Do not continue to Phase 4.**
+```bash
+git checkout main
+```
 
 ---
 
-## Phase 4: Dedup — Check for Existing Fix PR
+## Phases 4–6: Per-Workspace Loop
 
-Before creating or updating issues, check if there is already an open PR
-that addresses this exact test failure:
+For each workspace with failures, run Phases 4, 5, and 6 in sequence.
+
+### Phase 4: Dedup — Check for Existing Fix PR
+
+Search for open PRs targeting this workspace:
 
 ```bash
-# Search for open PRs fixing this test (public repo — no auth needed)
-FAILING_TEST="<primary-failing-test-name>"
+WORKSPACE="<workspace-name>"
 curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/pulls?state=open&per_page=100" \
-  | jq --arg test "$FAILING_TEST" \
+  | jq --arg ws "$WORKSPACE" \
     '[.[] | select(.head.ref | startswith("fix/e2e-"))
-          | select(.title + " " + (.body // "") | test($test; "i"))
+          | select(.head.ref | test($ws; "i"))
           | {number, title, headRefName: .head.ref, url: .html_url}]'
 ```
 
-### EXIT: Fix PR Already Open
+#### When an existing issue is found — fetch context
 
-If an open fix PR already exists for this test case:
+Before deciding to comment or create new, fetch the issue's history:
 
-1. Find the associated GitHub issue:
-   ```bash
-   curl -sfG "https://api.github.com/search/issues" \
-     --data-urlencode "q=repo:redhat-developer/rhdh-plugin-export-overlays is:issue is:open \"[fullsend] E2E: $FAILING_TEST\"" \
-     --data-urlencode "per_page=5" \
-     | jq '[.items[] | {number, title, url: .html_url}]'
-   ```
+```bash
+ISSUE_NUMBER=<number>
 
-2. Record a comment directive in `agent-result.json` (do NOT run `gh issue
-   comment` — the post-script will execute it):
+# Prior analysis and comments
+curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/issues/${ISSUE_NUMBER}/comments?per_page=50" \
+  | jq '[.[] | {user: .user.login, created_at, body}]'
 
-   Set the `issue` directive to:
+# Linked PRs and their state (open/merged/closed)
+curl -sf "https://api.github.com/repos/redhat-developer/rhdh-plugin-export-overlays/issues/${ISSUE_NUMBER}/timeline?per_page=50" \
+  | jq '[.[] | select(.event == "cross-referenced")
+        | {source_url: .source.issue.html_url,
+           source_title: .source.issue.title,
+           source_state: .source.issue.state}]'
+```
+
+Use this context to understand:
+- Was a fix already attempted? Did it work?
+- Did a reviewer provide feedback on the approach?
+- Is the issue stale (months old, different root cause)?
+
+#### EXIT: Fix PR Already Open
+
+If an open fix PR already exists for this workspace:
+
+1. Find the associated GitHub issue (if not already found).
+
+2. Record a comment directive for this workspace's entry in the output:
+
    ```json
    {
      "action": "comment",
@@ -227,46 +250,46 @@ If an open fix PR already exists for this test case:
    }
    ```
 
-3. → Go to **Phase 7: Summary** with:
+3. Record this workspace with:
    - `action_taken: commented_on_existing`
-   - Existing issue and PR URLs
-   - **Do not continue to Phase 5.**
+   - `branch: null` (no new branch needed)
+   - **Skip Phases 5–6 for this workspace.**
 
-### No existing PR → continue to Phase 5.
+#### No existing PR → continue to Phase 5.
 
 ---
 
-## Phase 5: Issue Management
+### Phase 5: Issue Management
 
-### Search for existing issue
+#### Search for existing issue
 
 ```bash
 curl -sfG "https://api.github.com/search/issues" \
-  --data-urlencode "q=repo:redhat-developer/rhdh-plugin-export-overlays is:issue is:open \"[fullsend] E2E: <primary-failing-test-name>\"" \
+  --data-urlencode "q=repo:redhat-developer/rhdh-plugin-export-overlays is:issue is:open \"[fullsend] E2E: $WORKSPACE\"" \
   --data-urlencode "per_page=5" \
   | jq '[.items[] | {number, title, body, url: .html_url,
                      labels: [.labels[].name]}]'
 ```
 
-### New issue needed (no match)
+If an existing issue is found, fetch its comments and timeline (same curl
+commands as Phase 4 above) to understand prior context.
 
-Do NOT run `gh issue create`. Instead, set the `issue` directive in
-`agent-result.json` to:
+#### New issue needed (no match)
+
+Set the `issue` directive to:
 
 ```json
 {
   "action": "create",
-  "title": "[fullsend] E2E: <test-name> failing in nightly",
+  "title": "[fullsend] E2E: <workspace> — <short root cause>",
   "labels": ["e2e-failure"],
-  "body": "## Classification\n\n`fix_category: <CATEGORY>`\n\n## Failed Tests\n\n| Test | Error |\n|------|-------|\n| <name> | <error message> |\n\n## Root Cause\n\n<detailed root cause analysis>\n\n## Remediation\n\n<proposed fix or action>\n\n## Artifacts\n\n<prow URL>"
+  "body": "## Classification\n\n`fix_category: <CATEGORY>`\n\n## Failed Tests\n\n| Test | Error |\n|------|-------|\n| <name> | <error> |\n| <name2> | <error2> |\n\n## Root Cause\n\n<detailed analysis>\n\n## Remediation\n\n<proposed fix>\n\n## Artifacts\n\n<prow URL>"
 }
 ```
 
-Use `ISSUE_PLACEHOLDER` as a stand-in for the issue number in commit messages
-(e.g., `Fixes: #ISSUE_PLACEHOLDER`). The post-script will replace it with
-the actual issue number after creation.
+Use `ISSUE_PLACEHOLDER` in commit messages — the post-script replaces it.
 
-### Existing issue found (match)
+#### Existing issue found (match)
 
 Set the `issue` directive to comment on the existing issue:
 
@@ -274,49 +297,46 @@ Set the `issue` directive to comment on the existing issue:
 {
   "action": "comment",
   "number": <EXISTING_NUMBER>,
-  "body": "## Attempt <N> Analysis\n\n<new analysis — what changed since last attempt>\n\n**Classification**: `fix_category: <CATEGORY>`\n**Artifacts**: <prow URL>",
+  "body": "## Attempt <N> Analysis\n\n<new analysis>\n\n**Classification**: `fix_category: <CATEGORY>`\n**Artifacts**: <prow URL>",
   "add_labels": ["attempt:<N>"]
 }
 ```
 
-Use the existing issue number in commit messages (e.g., `Fixes: #<NUMBER>`).
-
 ---
 
-## Phase 6: Action — Route by Category
-
-### Decision: Is this a test_fix?
+### Phase 6: Action — Route by Category
 
 | Category | Path |
 |----------|------|
 | `test_fix` | → **6a. Fix** |
-| `product_bug` | → **6b. Skip + JIRA** (cannot fix — code is in another repo) |
-| `environment` | → **EXIT: Issue Tracked, No Fix** |
+| `product_bug` | → **6b. Skip + JIRA** |
+| `environment` | → **EXIT: Issue Tracked** |
+| `infra_flake` | → **EXIT: Logged** |
 
-### EXIT: environment — Issue Tracked, No Fix
+#### EXIT: infra_flake — Logged
 
-If `environment`: the issue directive was set in Phase 5. No code changes.
+Record this workspace with `action_taken: logged`, `branch: null`,
+`issue.action: skip`. No issue, no fix, no PR.
 
-→ Go to **Phase 7: Summary** with:
-- `action_taken: issue_tracked`
-- `fix_category: environment`
-- Issue directive set, no PR, no JIRA
+#### EXIT: environment — Issue Tracked
 
-**Do not continue to 6a or 6b.**
+The issue directive was set in Phase 5. No code changes.
+Record: `action_taken: issue_tracked`, `branch: null`.
 
 ---
 
-### 6a. Fix (`test_fix`)
+#### 6a. Fix (`test_fix`)
 
-**Max attempts: 2.** If this is attempt 3+, go to **6b. Skip + JIRA** instead.
+**Max attempts: 2.** If this is attempt 3+, go to **6b. Skip + JIRA**.
 
-#### Attempt 1 — New Fix
+##### Attempt 1 — New Fix
 
-1. **Create branch:**
+1. **Create branch from main:**
    ```bash
-   git checkout -b fix/e2e-<short-slug>
+   git checkout main
+   git checkout -b fix/e2e-<workspace>-<short-slug>
    ```
-   Use a short descriptive slug from the test name (e.g., `fix/e2e-techdocs-config`).
+   Use workspace name + short slug (e.g., `fix/e2e-argocd-route-wait`).
 
 2. **Read the code.** Do not trust the analysis blindly. Read:
    - The failing spec file
@@ -324,11 +344,11 @@ If `environment`: the issue directive was set in Phase 5. No code changes.
    - Any test helpers or fixtures involved
    - `CLAUDE.md` and `CONTRIBUTING.md` for conventions
 
-3. **Implement the minimal fix.** Every changed line must trace to the failure
-   analysis. You may modify:
-   - `workspaces/*/e2e-tests/tests/specs/` — test specs
-   - `workspaces/*/e2e-tests/tests/config/` — app-config, secrets, dynamic-plugins
-   - `workspaces/*/e2e-tests/playwright.config.ts` — playwright configuration
+3. **Implement the minimal fix.** Every changed line must trace to the
+   failure analysis. You may modify:
+   - `workspaces/<workspace>/e2e-tests/tests/specs/` — test specs
+   - `workspaces/<workspace>/e2e-tests/tests/config/` — app-config, secrets, dynamic-plugins
+   - `workspaces/<workspace>/e2e-tests/playwright.config.ts` — playwright config
 
 4. **Verify:**
    ```bash
@@ -342,62 +362,50 @@ If `environment`: the issue directive was set in Phase 5. No code changes.
 5. **Commit:**
    ```bash
    git add <specific-files-only>
-   git commit -m "fix(e2e): <description>
+   git commit -m "fix(e2e): <workspace> — <description>
 
    Root cause: <one-line>
-   Fixes: #<issue-number>"
+   Fixes: #ISSUE_PLACEHOLDER"
    ```
 
-6. → Go to **Phase 7: Summary**
+6. Record the branch name in this workspace's output entry.
 
-#### Attempt 2 — Different Approach or Escalate
+##### Attempt 2 — Different Approach or Escalate
 
 1. **Checkout existing branch:**
    ```bash
-   git checkout fix/e2e-<slug>
+   git checkout fix/e2e-<workspace>-<slug>
    ```
 
-2. **Re-analyze with new prow URL:**
-   Run `/e2e-failure-analysis` again with the new failure URL.
-   Compare the new failure against the previous attempt's analysis.
-
-3. **Compare failures:** Is it the same test with the same error? Different
-   error? Different test entirely?
-
-4. **Review what was tried:**
+2. **Review what was tried:**
    ```bash
    git log --oneline main..HEAD
    git diff main..HEAD
    ```
 
-5. **Decision:**
-   - If a different fix approach can work → implement it, commit on top
-   - If the root cause is in plugin source code → escalate to **6b**
-   - If two fix attempts have failed → escalate to **6b**
-
-6. If fixing: implement, verify, commit as in attempt 1. Then:
-   - → Go to **Phase 7: Summary**
+3. **Decision:**
+   - If a different fix can work → implement, commit on top
+   - If root cause is in plugin source → escalate to **6b**
+   - If two attempts have failed → escalate to **6b**
 
 ---
 
-### 6b. Skip + JIRA (`product_bug`, or escalated `test_fix` after max attempts)
+#### 6b. Skip + JIRA (`product_bug` or escalated `test_fix`)
 
-This path handles two scenarios:
-- **product_bug**: Bug is in plugin source code (not fixable in this repo)
-- **Escalated test_fix**: Fix was attempted but failed after max attempts
+1. **Create branch** (if not already on one):
+   ```bash
+   git checkout main
+   git checkout -b fix/e2e-<workspace>-<short-slug>
+   ```
 
-1. **Add skip to the failing test.** Find the test and add `test.skip` as the
-   first line inside the test body or `test.describe` block:
+2. **Add skip to failing tests.** For each failing test in this workspace,
+   add `test.skip` as the first line:
 
    ```typescript
    test.skip(isNightlyMode, "<root cause summary> (JIRA-PENDING)");
    ```
 
-   Use the literal placeholder `JIRA-PENDING` — the post-script will replace
-   it with the actual JIRA key (e.g., `RHDHBUGS-1234`) after creating the bug.
-
-   Check if `isNightlyMode` is already defined in the spec file. If not, add
-   near the top of the file:
+   Check if `isNightlyMode` is defined. If not, add near the top:
 
    ```typescript
    const isNightlyMode =
@@ -405,70 +413,74 @@ This path handles two scenarios:
      (process.env.JOB_NAME?.includes("periodic-") ?? false);
    ```
 
-2. **Set the JIRA directive** in `agent-result.json` (do NOT run `acli` or
-   any JIRA CLI — the post-script handles JIRA creation):
+3. **Set the JIRA directive:**
 
    ```json
    {
      "project": "RHDHBUGS",
      "type": "Bug",
-     "summary": "[fullsend] E2E: <test-name> - <root cause>",
-     "description": "Root cause: <analysis>\n\nArtifacts: <prow URL>\nGitHub issue: #<issue-number>",
+     "summary": "[fullsend] E2E: <workspace> — <root cause>",
+     "description": "Root cause: <analysis>\n\nArtifacts: <prow URL>\nGitHub issue: #ISSUE_PLACEHOLDER",
      "backfill_file": "<path-to-spec-file-with-JIRA-PENDING>"
    }
    ```
 
-   The `backfill_file` is the path to the spec file where you wrote
-   `JIRA-PENDING`. The post-script will `sed` the placeholder with the real
-   key and amend the commit before pushing.
-
-3. **Commit:**
+4. **Commit:**
    ```bash
    git add <specific-files-only>
-   git commit -m "test(e2e): skip <test-name> in nightly
+   git commit -m "test(e2e): skip <workspace> tests in nightly
 
    Root cause: <description>
    JIRA: JIRA-PENDING
-   Fixes: #<issue-number>"
+   Fixes: #ISSUE_PLACEHOLDER"
    ```
 
-4. → Go to **Phase 7: Summary**
+5. Record the branch name in this workspace's output entry.
 
 ---
 
 ## Phase 7: Structured Output
 
-Write your findings and directives to `agent-result.json`. This file is
-validated by the harness against a JSON Schema and then consumed by the
-post-script to execute mutations.
+After processing all workspaces, write the combined results to
+`agent-result.json`. The file contains a `workspaces` array with one entry
+per workspace that had failures.
 
 ```bash
 OUTPUT_DIR="${FULLSEND_OUTPUT_DIR:-.}"
 mkdir -p "$OUTPUT_DIR"
 cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
 {
-  "root_cause": "<one-line summary>",
-  "fix_category": "<infra_flake|test_fix|product_bug|environment>",
-  "action_taken": "<logged|commented_on_existing|issue_tracked|fix_implemented|test_skipped>",
-  "attempt": <1 or 2>,
-  "next_step": "<what should happen next>",
+  "workspaces": [
+    {
+      "workspace": "<workspace-name>",
+      "tests": [
+        { "name": "<test title>", "error": "<error message>" }
+      ],
+      "root_cause": "<summary covering all failures in this workspace>",
+      "fix_category": "<infra_flake|test_fix|product_bug|environment>",
+      "action_taken": "<logged|commented_on_existing|issue_tracked|fix_implemented|test_skipped>",
+      "attempt": 1,
+      "next_step": "<what should happen next>",
+      "branch": "<fix/e2e-workspace-slug or null>",
 
-  "issue": {
-    "action": "<create|comment|skip>",
-    "number": <existing-issue-number-or-null>,
-    "title": "<for create only>",
-    "labels": ["<for create only>"],
-    "body": "<issue body or comment body>",
-    "add_labels": ["<labels to add on comment>"]
-  },
+      "issue": {
+        "action": "<create|comment|skip>",
+        "number": null,
+        "title": "<for create only>",
+        "labels": ["e2e-failure"],
+        "body": "<issue body or comment body>",
+        "add_labels": ["<labels to add on comment>"]
+      },
 
-  "jira": {
-    "project": "RHDHBUGS",
-    "type": "Bug",
-    "summary": "<jira summary>",
-    "description": "<jira description>",
-    "backfill_file": "<path to file with JIRA-PENDING placeholder>"
-  }
+      "jira": {
+        "project": "RHDHBUGS",
+        "type": "Bug",
+        "summary": "<jira summary>",
+        "description": "<jira description>",
+        "backfill_file": "<path to file with JIRA-PENDING>"
+      }
+    }
+  ]
 }
 RESULT_EOF
 ```
@@ -484,23 +496,34 @@ check. If it still fails after 3 attempts, write the best JSON you have
 and exit. The harness validation loop will retry up to 2 more times.
 
 **Field rules:**
+- `workspace`: the workspace directory name (e.g., `argocd`, `orchestrator`)
+- `tests`: array of `{name, error}` for every failing test in this workspace
+- `branch`: the full branch name (e.g., `fix/e2e-argocd-route-wait`), or
+  `null` if no code changes (infra_flake, environment, commented_on_existing)
 - `issue.action`: `"create"` for new issue, `"comment"` to update existing,
-  `"skip"` if no issue action needed (e.g., `infra_flake`)
-- `issue.number`: set when commenting on existing issue, `null` when creating
+  `"skip"` if no issue action needed
 - `jira`: include only for Phase 6b (skip + JIRA). Omit entirely otherwise.
-- `jira.backfill_file`: the spec file path where `JIRA-PENDING` was written.
-  The post-script replaces it with the real JIRA key and amends the commit.
-- Do NOT include extra top-level keys — the schema enforces
-  `additionalProperties: false` and validation will reject them.
+- `jira.backfill_file`: the spec file path where `JIRA-PENDING` was written
+- Do NOT include extra keys — the schema enforces `additionalProperties: false`
 
-After writing and validating `agent-result.json`, output a human-readable
-summary:
+After writing and validating, output a human-readable summary per workspace:
 
-- **Root cause**: one-line
-- **Classification**: `fix_category` value
-- **Action taken**: what was done
-- **Attempt**: attempt number
-- **Next step**: what happens next (post-script handles push/PR/issues/JIRA)
+```
+=== E2E Fix Agent Results ===
+Workspaces processed: <N>
+
+  [argocd]
+    Category:  test_fix
+    Action:    fix_implemented
+    Tests:     1
+    Branch:    fix/e2e-argocd-route-wait
+
+  [orchestrator]
+    Category:  infra_flake
+    Action:    logged
+    Tests:     3
+    Branch:    (none)
+```
 
 ---
 
@@ -523,6 +546,7 @@ summary:
 - Always create new commits — never `git commit --amend`
 - Never force push
 - Never rebase
+- **Return to `main` between workspaces** before creating the next branch
 
 ### Sub-agents
 
