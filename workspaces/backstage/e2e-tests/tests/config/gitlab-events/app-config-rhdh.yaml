@@ -10,7 +10,7 @@ events:
       - gitlab
   modules:
     gitlab:
-      webhookSecret: ${VAULT_GITLAB_WEBHOOK_SECRET}
+      webhookSecret: ${GITLAB_WEBHOOK_SECRET}
 
 catalog:
   rules:
@@ -29,8 +29,8 @@ catalog:
   providers:
     gitlab:
       default:
-        host: ${VAULT_EVENTS_GITLAB_HOST}
-        group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+        host: ${EVENTS_GITLAB_HOST}
+        group: ${EVENTS_GITLAB_PARENT_ORG}
         schedule:
           initialDelay:
             seconds: 15
@@ -40,8 +40,8 @@ catalog:
             minutes: 3
     gitlabOrg:
       default:
-        host: ${VAULT_EVENTS_GITLAB_HOST}
-        group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+        host: ${EVENTS_GITLAB_HOST}
+        group: ${EVENTS_GITLAB_PARENT_ORG}
         schedule:
           initialDelay:
             seconds: 15
@@ -52,6 +52,6 @@ catalog:
 
 integrations:
   gitlab:
-    - host: ${VAULT_EVENTS_GITLAB_HOST}
-      token: ${VAULT_EVENTS_GITLAB_TOKEN}
-      apiBaseUrl: https://${VAULT_EVENTS_GITLAB_HOST}/api/v4
+    - host: ${EVENTS_GITLAB_HOST}
+      token: ${EVENTS_GITLAB_TOKEN}
+      apiBaseUrl: https://${EVENTS_GITLAB_HOST}/api/v4
