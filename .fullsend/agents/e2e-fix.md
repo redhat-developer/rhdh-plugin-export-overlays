@@ -64,7 +64,7 @@ Key paths inside the repo:
 
 ```bash
 command -v gh >/dev/null && echo "gh: ok" || echo "gh: MISSING"
-command -v python3 >/dev/null && echo "python3: ok" || echo "python3: MISSING"
+command -v node >/dev/null && echo "node: ok" || echo "node: MISSING"
 ```
 
 If any are missing, stop and report.

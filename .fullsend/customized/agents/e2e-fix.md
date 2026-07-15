@@ -120,7 +120,7 @@ Phase 7). The post-script executes them with the appropriate credentials.
 ```bash
 command -v curl >/dev/null && echo "curl: ok" || echo "curl: MISSING"
 command -v jq >/dev/null && echo "jq: ok" || echo "jq: MISSING"
-command -v python3 >/dev/null && echo "python3: ok" || echo "python3: MISSING"
+command -v node >/dev/null && echo "node: ok" || echo "node: MISSING"
 ```
 
 If any are missing, stop and report.
