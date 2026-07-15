@@ -17,11 +17,11 @@ metadata:
     - software-catalog
 spec:
   packageName: '@backstage/plugin-catalog-backend-module-ldap'
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-ldap-dynamic
-  version: 0.12.3
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap:bs_1.52.0__0.12.6!backstage-plugin-catalog-backend-module-ldap
+  version: 0.12.6
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: generally-available
   lifecycle: active

@@ -1,0 +1,148 @@
+# Copyright Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+# Run the Docker-free, in-process smoke harness: validates that a dynamic backend
+# plugin installs (via the install-dynamic-plugins CLI) and boots (via startTestBackend)
+# with no container and no cluster.
+#
+# - pull_request: validates the harness itself when smoke-tests-native/ changes.
+# - workflow_dispatch: run on demand against any plugin ref.
+name: Native Smoke Harness
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "release-*"
+    paths:
+      - "smoke-tests-native/**"
+      - ".github/workflows/native-smoke.yaml"
+  workflow_dispatch:
+    inputs:
+      plugin_ref:
+        description: >-
+          OCI package ref to validate (oci://…:tag!name). Leave empty to use the
+          known-good pure-backend default (env.DEFAULT_PLUGIN_REF below).
+          Catalog-extending modules are not supported yet.
+        type: string
+        required: false
+      workspace:
+        description: >-
+          Workspace mode — validate ALL published plugins of workspaces/<name>
+          (resolved from its metadata/*.yaml oci:// refs). Takes precedence over
+          plugin_ref when both are set.
+        type: string
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  # Single source of truth for the plugin validated on pull_request and when the
+  # dispatch input is left empty.
+  DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
+  # Known-good FRONTEND workspace for the second run: acs has a dual-system frontend
+  # bundle AND a smoke-tests/test.env, so one --workspace run covers workspace
+  # resolution, test-config auto-discovery, and frontend bundle validation.
+  FRONTEND_WORKSPACE: "acs"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        # Public plugin images pull anonymously; authenticating only avoids rate limits.
+        # Non-fatal: fork PRs get a restricted token, and anonymous pulls still work.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Unit tests
+        # node:test over the pure helpers (workspace resolution, name validation,
+        # env/app-config substitution, frontend bundle matrix) — ~1s.
+        run: yarn test
+
+      - name: Resolve plugin ref
+        # Single-ref mode only (skipped in workspace mode). Dispatch input wins;
+        # otherwise the default. Encapsulated in env vars so the value never lands
+        # in a shell script via ${{ }} interpolation.
+        if: inputs.workspace == ''
+        env:
+          INPUT_REF: ${{ inputs.plugin_ref }}
+        run: |
+          REF="${INPUT_REF:-$DEFAULT_PLUGIN_REF}"
+          printf 'plugins:\n  - package: %s\n' "$REF" > dp.yaml
+          echo "dynamic-plugins.yaml:"
+          cat dp.yaml
+
+      - name: Run native smoke harness
+        # yarn smoke builds with esbuild then runs `node dist/native-smoke.mjs`.
+        # Exits non-zero on any failure, so the job fails on a bad plugin.
+        env:
+          INPUT_WORKSPACE: ${{ inputs.workspace }}
+        run: |
+          if [ -n "$INPUT_WORKSPACE" ]; then
+            yarn smoke --workspace "$INPUT_WORKSPACE" --out results.json
+          else
+            yarn smoke --dynamic-plugins dp.yaml --out results.json
+          fi
+
+      - name: Run native smoke harness (workspace mode, frontend + test-config)
+        # Second run covering the paths the backend default can't reach — and it IS
+        # the feature this workflow ships: workspace resolution, smoke-tests/
+        # auto-discovery (acs has a test.env), and frontend bundle validation (acs
+        # ships a dual-system bundle). Skipped when a custom ref or workspace was
+        # dispatched — those runs are about the caller's plugin.
+        if: inputs.plugin_ref == '' && inputs.workspace == ''
+        run: yarn smoke --workspace "$FRONTEND_WORKSPACE" --out results-workspace.json
+
+      - name: Show results
+        if: always()
+        run: |
+          for f in results.json results-workspace.json; do
+            [ -f "$f" ] && { echo "== $f"; cat "$f"; } || echo "no $f produced"
+          done
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-smoke-results
+          path: smoke-tests-native/results*.json
+          if-no-files-found: warn
