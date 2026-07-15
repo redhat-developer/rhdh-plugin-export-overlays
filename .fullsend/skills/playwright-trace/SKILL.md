@@ -8,7 +8,7 @@ allowed-tools: Bash(playwright:*),Bash(npx:*)
 
 Inspect `.zip` trace files produced by Playwright tests without opening a browser.
 
-`playwright` is installed globally at `/usr/bin/playwright` — use it directly (no `npx` needed). The harness sets `PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers` which points to pre-installed Chromium for `trace snapshot`.
+`playwright` is installed globally at `/usr/bin/playwright` — use it directly (no `npx` needed). The harness sets `PLAYWRIGHT_BROWSERS_PATH=/sandbox/playwright-browsers` which points to pre-installed Chromium for `trace snapshot`.
 
 Use `playwright trace <cmd>` for everything below. Fall back to `playwright trace <cmd>` only if the global binary is unavailable.
 
