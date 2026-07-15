@@ -1,22 +1,22 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: red-hat-developer-hub-backstage-plugin-lightspeed-backend
+  name: red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
   namespace: rhdh
-  title: "Lightspeed Backend"
+  title: "Intelligent Assistant Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
     - url: https://issues.redhat.com/browse/RHDHBUGS
       title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
     - title: Source Code
-      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed-backend
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/intelligent-assistant/plugins/intelligent-assistant-backend
   annotations:
-    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/lightspeed/plugins/lightspeed-backend
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/intelligent-assistant/plugins/intelligent-assistant-backend
   tags: []
 spec:
-  packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend:bs_1.49.4__2.9.0!red-hat-developer-hub-backstage-plugin-lightspeed-backend
+  packageName: "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.49.4__2.9.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
   version: 2.9.0
   backstage:
     role: backend-plugin
@@ -25,12 +25,12 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-    - lightspeed
+    - intelligent-assistant
   appConfigExamples:
     - title: Default configuration
       content:
-        lightspeed:
-          # OPTIONAL: Port for lightspeed service (default: 8080)
+        intelligent-assistant:
+          # OPTIONAL: Port for intelligent-assistant service (default: 8080)
           servicePort: 8080
           # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
           # mcpServers:

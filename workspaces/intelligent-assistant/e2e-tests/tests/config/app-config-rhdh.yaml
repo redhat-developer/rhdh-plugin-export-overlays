@@ -1,4 +1,4 @@
-# RHDH app config merged at deploy. Do not use legacy lightspeed.servers (Road-Core era).
+# RHDH app config merged at deploy. Do not use legacy intelligent-assistant.servers (Road-Core era).
 # LCS + Llama Stack run as the lightspeed-core sidecar when global.lightspeed.enabled is true.
 
 permission:
@@ -7,7 +7,7 @@ permission:
     pluginsWithPermission:
       - catalog
       - permission
-      - lightspeed
+      - intelligent-assistant
     admin:
       superUsers:
         - name: user:default/test1
@@ -25,7 +25,7 @@ backend:
       - "'unsafe-eval'"
       - https://cdn.jsdelivr.net
 
-lightspeed:
+intelligent-assistant:
   notebooks:
     enabled: true
     queryDefaults:

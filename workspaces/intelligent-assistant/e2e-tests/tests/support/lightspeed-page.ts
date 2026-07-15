@@ -33,7 +33,7 @@ export async function selectChatModel(
 }
 
 export async function openChatbot(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Open Lightspeed" }).click();
+  await page.getByRole("button", { name: "Open Intelligent Assistant" }).click();
 }
 
 export async function selectDisplayMode(
@@ -78,7 +78,7 @@ export async function expectRhdhContentVisible(
   }
 }
 
-/** Opens Lightspeed chatbot in fullscreen from the RHDH shell (avoids /lightspeed route). */
+/** Opens Intelligent Assistant chatbot in fullscreen from the RHDH shell (avoids /intelligent-assistant route). */
 export async function openChatbotFullscreen(page: Page): Promise<void> {
   await expectRhdhContentVisible(page);
   await openChatbot(page);
@@ -129,7 +129,7 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
 
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
   await expect(
-    page.getByRole("textbox", { name: "Enter a prompt for Lightspeed" }),
+    page.getByRole("textbox", { name: "Enter a prompt for Intelligent Assistant" }),
   ).toBeVisible();
 }
 

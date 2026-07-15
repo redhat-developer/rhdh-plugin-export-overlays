@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { selectChatModel } from "./lightspeed-page";
 
-export const CHAT_PROMPT_PLACEHOLDER = "Enter a prompt for Lightspeed";
+export const CHAT_PROMPT_PLACEHOLDER = "Enter a prompt for Intelligent Assistant";
 const BOT_RESPONSE_TIMEOUT_MS = 180_000;
 
 export async function sendMessage(

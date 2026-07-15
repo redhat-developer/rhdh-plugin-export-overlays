@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 export async function assertChatDialogInitialState(page: Page): Promise<void> {
   await expect(page.getByLabel("Chatbot", { exact: true })).toContainText(
-    "Developer Lightspeed",
+    "Intelligent Assistant",
   );
 
   const chatHistoryMenu = page.getByRole("button", {

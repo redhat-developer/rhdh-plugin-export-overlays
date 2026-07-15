@@ -46,9 +46,9 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyText("Catalog");
     await uiHelper.verifyText(/Plugins \((\d+)\)/);
 
-    await uiHelper.clickButtonByText("Set up Lightspeed");
+    await uiHelper.clickButtonByText("Set up Intelligent Assistant");
     await uiHelper.verifyTextVisible(
-      "Connect Lightspeed to a supported large language model",
+      "Connect Intelligent Assistant to a supported large language model",
     );
     await uiHelper.verifyButtonURL(
       "Learn more",
@@ -88,7 +88,7 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.clickButtonByText("View Learning Paths");
     await uiHelper.verifyHeading("Learning Paths");
 
-    await uiHelper.clickButtonByText("Get started with Lightspeed");
+    await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
     await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
     await uiHelper.verifyButtonURL(
       "Learn more",

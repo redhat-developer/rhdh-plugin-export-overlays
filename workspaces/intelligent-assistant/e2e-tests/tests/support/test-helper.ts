@@ -99,14 +99,14 @@ export async function ensureLightspeedDeployment(
   });
 }
 
-/** Opens /lightspeed and waits for any recognizable Lightspeed shell (chat, heading, or empty state). */
+/** Opens /intelligent-assistant and waits for any recognizable Intelligent Assistant shell (chat, heading, or empty state). */
 export async function openLightspeed(page: Page): Promise<void> {
-  await page.goto("/lightspeed", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/lightspeed/, { timeout: 60_000 });
+  await page.goto("/intelligent-assistant", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/intelligent-assistant/, { timeout: 60_000 });
 
   const chatUi = page
     .locator(".pf-chatbot__messagebox")
-    .or(page.getByRole("heading", { name: "Developer Lightspeed" }))
+    .or(page.getByRole("heading", { name: "Intelligent Assistant" }))
     .or(page.getByTestId("lightspeed-lcore-not-configured"));
 
   await chatUi.first().waitFor({ state: "visible", timeout: 120_000 });

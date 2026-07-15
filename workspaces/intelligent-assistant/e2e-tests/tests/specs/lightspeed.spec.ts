@@ -166,9 +166,9 @@ test.describe("Lightspeed UI", () => {
     });
 
     test("page is available", async () => {
-      await expect(page).toHaveURL(/\/lightspeed/);
+      await expect(page).toHaveURL(/\/intelligent-assistant/);
       await expect(
-        page.getByRole("heading", { name: "Developer Lightspeed" }),
+        page.getByRole("heading", { name: "Intelligent Assistant" }),
       ).toBeVisible();
       await expect(page.getByText("How can I help you today?")).toBeVisible();
     });
