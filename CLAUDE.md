@@ -413,6 +413,13 @@ oc delete project <namespace>
 
 Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 
+### Failure Analysis
+
+Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
+- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
