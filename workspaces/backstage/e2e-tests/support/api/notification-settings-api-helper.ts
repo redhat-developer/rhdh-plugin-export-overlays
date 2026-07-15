@@ -29,9 +29,7 @@ function withEmailOriginState(
   origins: OriginSetting[],
   enabled: boolean,
 ): OriginSetting[] {
-  if (
-    origins.some((origin) => origin.id === NOTIFICATIONS_API_ORIGIN)
-  ) {
+  if (origins.some((origin) => origin.id === NOTIFICATIONS_API_ORIGIN)) {
     return origins.map((origin) =>
       origin.id === NOTIFICATIONS_API_ORIGIN
         ? {
