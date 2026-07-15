@@ -1,7 +1,8 @@
 import path from "path";
 
 export const NOTEBOOK_UNTITLED_GRID_NAME = "Untitled Notebook";
-export const NOTEBOOK_EDITOR_URL_RE = /\/intelligent-assistant\/notebooks\/[^/]+$/;
+export const NOTEBOOK_EDITOR_URL_RE =
+  /\/intelligent-assistant\/notebooks\/[^/]+$/;
 export const NOTEBOOK_SESSION_MAX_DOCUMENTS = 10;
 
 const uploadFixturesDir = path.join(import.meta.dirname, "../fixtures/uploads");

@@ -33,7 +33,9 @@ export async function selectChatModel(
 }
 
 export async function openChatbot(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Open Intelligent Assistant" }).click();
+  await page
+    .getByRole("button", { name: "Open Intelligent Assistant" })
+    .click();
 }
 
 export async function selectDisplayMode(
@@ -129,7 +131,9 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
 
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
   await expect(
-    page.getByRole("textbox", { name: "Enter a prompt for Intelligent Assistant" }),
+    page.getByRole("textbox", {
+      name: "Enter a prompt for Intelligent Assistant",
+    }),
   ).toBeVisible();
 }
 
