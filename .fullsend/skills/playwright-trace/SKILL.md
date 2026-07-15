@@ -1,14 +1,16 @@
 ---
 name: playwright-trace
 description: Inspect Playwright trace files from the command line — list actions, view requests, console, errors, snapshots and screenshots.
-allowed-tools: Bash(npx:*),Bash(playwright:*)
+allowed-tools: Bash(playwright:*),Bash(npx:*)
 ---
 
 # Playwright Trace CLI
 
 Inspect `.zip` trace files produced by Playwright tests without opening a browser.
 
-The `PLAYWRIGHT_BROWSERS_PATH` env var must be set so `npx playwright` can find the pre-installed Chromium for `trace snapshot`. If snapshot fails with a "browser not found" error, verify the env var points to a directory containing `chromium_headless_shell-*`.
+`playwright` is installed globally at `/usr/bin/playwright` — use it directly (no `npx` needed). The harness sets `PLAYWRIGHT_BROWSERS_PATH=/tmp/playwright-browsers` which points to pre-installed Chromium for `trace snapshot`.
+
+Use `playwright trace <cmd>` for everything below. Fall back to `playwright trace <cmd>` only if the global binary is unavailable.
 
 ## Workflow
 
@@ -27,34 +29,34 @@ All commands after `open` operate on the currently opened trace — no need to p
 
 ```bash
 # Extract trace and show metadata: browser, viewport, duration, action/error counts
-npx playwright trace open <trace.zip>
+playwright trace open <trace.zip>
 ```
 
 ### Close a trace
 
 ```bash
 # Remove extracted trace data
-npx playwright trace close
+playwright trace close
 ```
 
 ### Actions
 
 ```bash
 # List all actions as a tree with action IDs and timing
-npx playwright trace actions
+playwright trace actions
 
 # Filter by action title (regex, case-insensitive)
-npx playwright trace actions --grep "click"
+playwright trace actions --grep "click"
 
 # Only failed actions
-npx playwright trace actions --errors-only
+playwright trace actions --errors-only
 ```
 
 ### Action details
 
 ```bash
 # Show full details for one action: params, result, logs, source, snapshots
-npx playwright trace action <action-id>
+playwright trace action <action-id>
 ```
 
 The `action` command displays available snapshot phases (before, input, after) and the exact command to extract them.
@@ -63,46 +65,46 @@ The `action` command displays available snapshot phases (before, input, after) a
 
 ```bash
 # All network requests: method, status, URL, duration, size
-npx playwright trace requests
+playwright trace requests
 
 # Filter by URL pattern
-npx playwright trace requests --grep "api"
+playwright trace requests --grep "api"
 
 # Filter by HTTP method
-npx playwright trace requests --method POST
+playwright trace requests --method POST
 
 # Only failed requests (status >= 400)
-npx playwright trace requests --failed
+playwright trace requests --failed
 ```
 
 ### Request details
 
 ```bash
 # Show full details for one request: headers, body, security
-npx playwright trace request <request-id>
+playwright trace request <request-id>
 ```
 
 ### Console
 
 ```bash
 # All console messages and stdout/stderr
-npx playwright trace console
+playwright trace console
 
 # Only errors
-npx playwright trace console --errors-only
+playwright trace console --errors-only
 
 # Only browser console (no stdout/stderr)
-npx playwright trace console --browser
+playwright trace console --browser
 
 # Only stdout/stderr (no browser console)
-npx playwright trace console --stdio
+playwright trace console --stdio
 ```
 
 ### Errors
 
 ```bash
 # All errors with stack traces and associated actions
-npx playwright trace errors
+playwright trace errors
 ```
 
 ### Snapshots
@@ -111,24 +113,24 @@ The `snapshot` command loads the DOM snapshot for an action into a headless brow
 
 ```bash
 # Get the accessibility snapshot (default)
-npx playwright trace snapshot <action-id>
+playwright trace snapshot <action-id>
 
 # Use a specific phase
-npx playwright trace snapshot <action-id> --name before
+playwright trace snapshot <action-id> --name before
 
 # Run eval to query the DOM
-npx playwright trace snapshot <action-id> -- eval "document.title"
-npx playwright trace snapshot <action-id> -- eval "document.querySelector('#error').textContent"
+playwright trace snapshot <action-id> -- eval "document.title"
+playwright trace snapshot <action-id> -- eval "document.querySelector('#error').textContent"
 
 # Eval on a specific element ref (from the snapshot)
-npx playwright trace snapshot <action-id> -- eval "el => el.getAttribute('data-testid')" e5
+playwright trace snapshot <action-id> -- eval "el => el.getAttribute('data-testid')" e5
 
 # Take a screenshot of the snapshot
-npx playwright trace snapshot <action-id> -- screenshot
+playwright trace snapshot <action-id> -- screenshot
 
 # Redirect output to a file
-npx playwright trace snapshot <action-id> -- eval "document.body.outerHTML" --filename=page.html
-npx playwright trace snapshot <action-id> -- screenshot --filename=screenshot.png
+playwright trace snapshot <action-id> -- eval "document.body.outerHTML" --filename=page.html
+playwright trace snapshot <action-id> -- screenshot --filename=screenshot.png
 ```
 
 Only three browser commands are useful on a frozen snapshot: `snapshot`, `eval`, and `screenshot`.
@@ -137,37 +139,37 @@ Only three browser commands are useful on a frozen snapshot: `snapshot`, `eval`,
 
 ```bash
 # List all trace attachments
-npx playwright trace attachments
+playwright trace attachments
 
 # Extract an attachment by its number
-npx playwright trace attachment 1
-npx playwright trace attachment 1 -o out.png
+playwright trace attachment 1
+playwright trace attachment 1 -o out.png
 ```
 
 ## Typical investigation
 
 ```bash
 # 1. Open the trace and see what's inside
-npx playwright trace open test-results/my-test/trace.zip
+playwright trace open test-results/my-test/trace.zip
 
 # 2. What actions ran?
-npx playwright trace actions
+playwright trace actions
 
 # 3. Which action failed?
-npx playwright trace actions --errors-only
+playwright trace actions --errors-only
 
 # 4. What went wrong?
-npx playwright trace action 12
+playwright trace action 12
 
 # 5. What did the page look like at that moment?
-npx playwright trace snapshot 12
+playwright trace snapshot 12
 
 # 6. Query the DOM for more detail
-npx playwright trace snapshot 12 -- eval "document.querySelector('.error-message').textContent"
+playwright trace snapshot 12 -- eval "document.querySelector('.error-message').textContent"
 
 # 7. Any relevant network failures?
-npx playwright trace requests --failed
+playwright trace requests --failed
 
 # 8. Any console errors?
-npx playwright trace console --errors-only
+playwright trace console --errors-only
 ```
