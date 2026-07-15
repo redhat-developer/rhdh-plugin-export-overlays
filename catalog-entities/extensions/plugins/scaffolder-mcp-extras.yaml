@@ -77,7 +77,7 @@ spec:
      plugins:
        # MCP extras backend plugin
        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.48.3__0.4.0!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
-         disabled: false
+         enabled: true
      ```
 
      ## RHDH Configuration

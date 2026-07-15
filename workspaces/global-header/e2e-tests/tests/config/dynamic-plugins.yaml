@@ -1,12 +1,12 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-signals
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header
     pluginConfig:
       app:

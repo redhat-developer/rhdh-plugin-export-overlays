@@ -56,6 +56,8 @@ On a PR, comment:
 - `/publish` — Build and publish test OCI images (tagged `pr_<number>__<version>`)
 - `/smoketest` — Run smoke tests against last published artifacts (requires prior `/publish`)
 - `/override-backstage` — Override workspace Backstage compatibility version (creates `backstage.json` and rewrites metadata OCI tags)
+- `/update-versions` — Copy `versions.json` from the PR base branch onto the PR branch (release-line alignment)
+- `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
 - `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
 ### Important Workflows (`.github/workflows/`)
@@ -64,7 +66,7 @@ On a PR, comment:
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
 | `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
-| `pr-actions.yaml` | PR comments | Handles `/publish` and `/smoketest` commands |
+| `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
@@ -410,6 +412,13 @@ oc delete project <namespace>
 | Nightly (`e2e-ocp-helm-nightly`) | Daily cron / manual | All workspaces | Released (metadata refs) |
 
 Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
+
+### Failure Analysis
+
+Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
+- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
 
 ## Documentation
 

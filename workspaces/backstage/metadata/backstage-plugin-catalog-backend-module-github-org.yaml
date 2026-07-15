@@ -17,11 +17,11 @@ metadata:
     - software-catalog
 spec:
   packageName: "@backstage/plugin-catalog-backend-module-github-org"
-  dynamicArtifact: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-org-dynamic
-  version: 0.3.20
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org:bs_1.52.0__0.3.23!backstage-plugin-catalog-backend-module-github-org
+  version: 0.3.23
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: generally-available
   lifecycle: active
