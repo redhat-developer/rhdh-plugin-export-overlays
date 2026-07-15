@@ -144,7 +144,7 @@ You **must** add your plugin yaml file to the list in the `plugins/all.yaml` fil
 
 # Using RHDH-local
 
-You need to reconfigure a few bits for the rhdh-1.5 image build, but when you do your local edits will show up within 15 secs...
+You need to reconfigure a few bits for a local RHDH image build, but when you do your local edits will show up within 15 secs...
 
 In `app-config.yaml` do this:
 
