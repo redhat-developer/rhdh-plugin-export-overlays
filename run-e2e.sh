@@ -73,7 +73,8 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 # skipped silently (no -coverage images exist).
 #
 # To disable (faster local dev): E2E_COLLECT_COVERAGE=false
-export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-true}"
+# Disabled by default due to zip bomb detection failures — see RHDHBUGS-3470
+export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-false}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
