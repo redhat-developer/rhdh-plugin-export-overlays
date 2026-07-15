@@ -246,7 +246,8 @@ test.describe("Notifications email processor", () => {
             mailpitApi.countMessages(mailpitQuery(TEST1_EMAIL, entityTitle)),
           {
             timeout: 15_000,
-            message: "Entity email should be suppressed when the channel is off",
+            message:
+              "Entity email should be suppressed when the channel is off",
           },
         )
         .toBe(0);
