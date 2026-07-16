@@ -11,20 +11,28 @@
 # directive. This script iterates over all workspaces and processes each
 # independently.
 #
+# Security layers (defense-in-depth):
+#   - Branch validation — refuse to push main/master
+#   - Authoritative secret scan (gitleaks) — final gate before any push
+#   - Signed-off-by trailer rejection — agents must not sign commits
+#   - Secret scan on agent-result.json — before posting content as comments
+#   - Token isolation — PUSH_TOKEN never enters the sandbox
+#
 # Steps:
 #   1. Locate and validate agent-result.json
 #   2. For each workspace: execute GitHub issue directives
 #   3. For each workspace: execute JIRA directives
-#   4. For each workspace with a branch: backfill placeholders, push, create PR
+#   4. For each workspace with a branch: validate, scan, backfill, push, create PR
 #   5. Display summary
 #
 # Required environment variables:
-#   GH_TOKEN          — GitHub token with issues:write, pull-requests:write,
-#                       contents:write on the target repo
+#   GH_TOKEN          — GitHub token (used for API calls and as push fallback)
 #   REPO_FULL_NAME    — owner/repo (default: redhat-developer/rhdh-plugin-export-overlays)
 #   PUSH_REPO         — fork owner/repo for push and PR head (default: REPO_FULL_NAME)
 #
 # Optional environment variables:
+#   PUSH_TOKEN        — dedicated push token (minted by fullsend; falls back to GH_TOKEN)
+#   PUSH_TOKEN_SOURCE — "github-app" when PUSH_TOKEN is from mint service
 #   JIRA_TOKEN        — JIRA API bearer token for bug creation
 #   JIRA_URL          — JIRA instance URL (default: https://issues.redhat.com)
 #   TARGET_REPO_DIR   — path to extracted repo (set by fullsend automatically)
@@ -35,6 +43,9 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+GITLEAKS_VERSION="8.30.1"
+GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+
 REPO_DIR="${TARGET_REPO_DIR:-${REPO_DIR:-.}}"
 REPO_FULL_NAME="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
 PUSH_REPO="${PUSH_REPO:-${REPO_FULL_NAME}}"
@@ -44,6 +55,18 @@ JIRA_URL="${JIRA_URL:-https://issues.redhat.com}"
 : "${GH_TOKEN:?GH_TOKEN is required}"
 export GH_TOKEN
 echo "::add-mask::${GH_TOKEN}"
+
+PUSH_TOKEN="${PUSH_TOKEN:-${GH_TOKEN}}"
+echo "::add-mask::${PUSH_TOKEN}"
+if [[ -n "${PUSH_TOKEN_SOURCE:-}" ]]; then
+  echo "Push token source: ${PUSH_TOKEN_SOURCE}"
+fi
+
+# Promote GH_TOKEN to PUSH_TOKEN so the gh CLI has write permissions
+# for issues, PRs, and labels. When PUSH_TOKEN is minted (GitHub Actions),
+# it carries contents:write + pull_requests:write + issues:write.
+# Locally, PUSH_TOKEN == GH_TOKEN so this is a no-op.
+export GH_TOKEN="${PUSH_TOKEN}"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,6 +80,32 @@ sanitize_for_gha() {
   text="${text//%0D/}"
   text="${text//%0d/}"
   echo "${text}"
+}
+
+install_gitleaks() {
+  if command -v gitleaks >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "Installing gitleaks v${GITLEAKS_VERSION}..."
+  mkdir -p "${HOME}/.local/bin"
+  local os_name arch_name
+  os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  arch_name="$(uname -m)"
+  case "${arch_name}" in
+    x86_64) arch_name="x64" ;;
+    aarch64|arm64) arch_name="arm64" ;;
+  esac
+  if curl -fsSL \
+    "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${os_name}_${arch_name}.tar.gz" \
+    -o /tmp/gitleaks.tar.gz \
+    && tar xzf /tmp/gitleaks.tar.gz -C "${HOME}/.local/bin" gitleaks \
+    && rm /tmp/gitleaks.tar.gz; then
+    export PATH="${HOME}/.local/bin:${PATH}"
+    echo "gitleaks installed"
+    return 0
+  fi
+  echo "::warning::Failed to install gitleaks — secret scans will be skipped"
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -176,6 +225,22 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
 done
 
 echo "Validation passed for all ${WORKSPACE_COUNT} workspace(s)"
+
+# ---------------------------------------------------------------------------
+# 1c. Scan agent-result.json for secrets before posting as comments
+# ---------------------------------------------------------------------------
+if install_gitleaks; then
+  echo "Scanning agent-result.json for secrets before posting..."
+  SCAN_DIR="$(mktemp -d)"
+  cp "${RESULT_FILE}" "${SCAN_DIR}/agent-result.json"
+  if ! gitleaks detect --source "${SCAN_DIR}" --no-git --redact 2>/dev/null; then
+    echo "::error::Secret detected in agent-result.json — refusing to post comments"
+    rm -rf "${SCAN_DIR}"
+    exit 1
+  fi
+  rm -rf "${SCAN_DIR}"
+  echo "Result file scan passed"
+fi
 
 # ---------------------------------------------------------------------------
 # 2-3. Execute issue and JIRA directives per workspace
@@ -320,7 +385,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
 done
 
 # ---------------------------------------------------------------------------
-# 4. Backfill, push, and create PRs per workspace branch
+# 4. Validate, scan, backfill, push, and create PRs per workspace branch
 # ---------------------------------------------------------------------------
 if [[ ! -d "${REPO_DIR}/.git" ]]; then
   echo "::error::REPO_DIR (${REPO_DIR}) is not a git repository"
@@ -329,7 +394,7 @@ fi
 cd "${REPO_DIR}"
 
 git remote set-url origin \
-  "https://x-access-token:${GH_TOKEN}@github.com/${PUSH_REPO}.git"
+  "https://x-access-token:${PUSH_TOKEN}@github.com/${PUSH_REPO}.git"
 git fetch origin "${TARGET_BRANCH}" --quiet 2>/dev/null || true
 
 declare -a WS_PR_URLS=()
@@ -353,7 +418,59 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   fi
 
   # -----------------------------------------------------------------------
-  # 4a. Backfill JIRA key
+  # 4a. Branch validation — refuse to push main/master
+  # -----------------------------------------------------------------------
+  if [[ "${BRANCH}" == "main" || "${BRANCH}" == "master" ]]; then
+    echo "::error::BLOCKED — agent committed on ${BRANCH}; refusing to push"
+    WS_PR_URLS+=("")
+    continue
+  fi
+
+  # -----------------------------------------------------------------------
+  # 4b. Compute changed files
+  # -----------------------------------------------------------------------
+  MERGE_BASE="$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null)" || MERGE_BASE=""
+  if [[ -n "${MERGE_BASE}" ]]; then
+    CHANGED="$(git diff --name-only "${MERGE_BASE}..HEAD")"
+  else
+    CHANGED="$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)"
+  fi
+
+  if [[ -z "${CHANGED}" ]]; then
+    echo "  No changed files — skipping push"
+    WS_PR_URLS+=("")
+    continue
+  fi
+
+  echo "  Changed files:"
+  echo "${CHANGED}" | sed 's/^/    /'
+
+  # -----------------------------------------------------------------------
+  # 4c. Authoritative secret scan (gitleaks)
+  # -----------------------------------------------------------------------
+  SCAN_RANGE="${MERGE_BASE:-$(git rev-parse HEAD~1 2>/dev/null || echo HEAD)}..HEAD"
+
+  if install_gitleaks; then
+    echo "  Running secret scan on agent commits..."
+    if ! gitleaks detect --source . --log-opts="${SCAN_RANGE}" --redact; then
+      echo "::error::BLOCKED — secret detected in agent commits for ${WS_NAME}"
+      WS_PR_URLS+=("")
+      continue
+    fi
+    echo "  Secret scan passed"
+  fi
+
+  # -----------------------------------------------------------------------
+  # 4d. Reject Signed-off-by trailers
+  # -----------------------------------------------------------------------
+  if git log --format='%b' "${SCAN_RANGE}" | grep -q '^Signed-off-by:'; then
+    echo "::error::BLOCKED — agent commit contains a Signed-off-by trailer for ${WS_NAME}"
+    WS_PR_URLS+=("")
+    continue
+  fi
+
+  # -----------------------------------------------------------------------
+  # 4e. Backfill JIRA key
   # -----------------------------------------------------------------------
   NEEDS_AMEND=false
   JIRA_KEY="${WS_JIRA_KEYS[$i]}"
@@ -377,7 +494,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   fi
 
   # -----------------------------------------------------------------------
-  # 4b. Backfill issue number
+  # 4f. Backfill issue number
   # -----------------------------------------------------------------------
   if [[ -n "${ISSUE_NUMBER}" ]]; then
     BF_BASE="$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null)" || BF_BASE=""
@@ -405,27 +522,21 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
 
     git commit --amend -m "${NEW_MSG}"
     echo "  Amended commit with backfilled placeholders"
+
+    # Re-scan after amend if gitleaks is available
+    if command -v gitleaks >/dev/null 2>&1; then
+      echo "  Re-running secret scan on amended commit..."
+      if ! gitleaks detect --source . --log-opts="${SCAN_RANGE}" --redact; then
+        echo "::error::BLOCKED — secret detected in amended commit for ${WS_NAME}"
+        WS_PR_URLS+=("")
+        continue
+      fi
+    fi
   fi
 
   # -----------------------------------------------------------------------
-  # 4c. Push branch
+  # 4g. Push branch
   # -----------------------------------------------------------------------
-  MERGE_BASE="$(git merge-base "origin/${TARGET_BRANCH}" HEAD 2>/dev/null)" || MERGE_BASE=""
-  if [[ -n "${MERGE_BASE}" ]]; then
-    CHANGED="$(git diff --name-only "${MERGE_BASE}..HEAD")"
-  else
-    CHANGED="$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)"
-  fi
-
-  if [[ -z "${CHANGED}" ]]; then
-    echo "  No changed files — skipping push"
-    WS_PR_URLS+=("")
-    continue
-  fi
-
-  echo "  Changed files:"
-  echo "${CHANGED}" | sed 's/^/    /'
-
   echo "  Pushing branch ${BRANCH}..."
   PUSH_OUTPUT=""
   PUSH_OUTPUT="$(git push -u origin -- "${BRANCH}" 2>&1)" && PUSH_RC=0 || PUSH_RC=$?
@@ -447,7 +558,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   fi
 
   # -----------------------------------------------------------------------
-  # 4d. Create or update PR
+  # 4h. Create or update PR
   # -----------------------------------------------------------------------
   PR_URL=""
   PUSH_OWNER="${PUSH_REPO%%/*}"

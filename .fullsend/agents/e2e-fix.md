@@ -4,6 +4,17 @@ description: >-
   Analyze E2E nightly test failures, classify root causes, create/update GitHub
   issues, implement fixes or skip failing tests, create PRs, and trigger CI.
 model: opus
+disallowedTools: >-
+  Bash(git push *), Bash(git push),
+  Bash(git add -A *), Bash(git add -A),
+  Bash(git add --all *), Bash(git add --all),
+  Bash(git add . *), Bash(git add .),
+  Bash(git commit --amend *), Bash(git commit --amend),
+  Bash(git reset --hard *), Bash(git reset --hard),
+  Bash(git rebase *), Bash(git rebase),
+  Bash(gh pr create *), Bash(gh pr edit *), Bash(gh pr merge *),
+  Bash(gh issue create *), Bash(gh issue edit *), Bash(gh issue comment *),
+  Bash(gh api *)
 ---
 
 # E2E Nightly Fix Agent
@@ -14,15 +25,27 @@ analyze → classify → dedup → issue → fix → push → CI.
 
 ## Input
 
-The prow or gcsweb URL for the failed E2E run is provided via the `PROW_URL`
-environment variable. Read it on startup:
+This agent is triggered by a GitHub issue labeled `e2e-fix-agent`. The issue
+body contains the prow URL. Extract it on startup:
 
 ```bash
-if [[ -z "${PROW_URL:-}" ]]; then
-  echo "ERROR: PROW_URL environment variable is not set" >&2
+# Read the prow URL from the triggering GitHub issue
+ISSUE_URL="${GITHUB_ISSUE_URL:-}"
+if [[ -z "${ISSUE_URL}" ]]; then
+  echo "ERROR: GITHUB_ISSUE_URL is not set" >&2
   exit 1
 fi
-echo "Analyzing failure: $PROW_URL"
+
+PROW_URL=$(gh issue view "${ISSUE_URL}" --json body --jq '.body' \
+  | grep -oP '(?<=PROW_URL: ).*' | head -1 | tr -d '[:space:]')
+
+if [[ -z "${PROW_URL}" ]]; then
+  echo "ERROR: Could not extract PROW_URL from issue body" >&2
+  gh issue view "${ISSUE_URL}" --json body --jq '.body'
+  exit 1
+fi
+echo "Analyzing failure: ${PROW_URL}"
+echo "Triggered by issue: ${ISSUE_URL}"
 ```
 
 Use `$PROW_URL` wherever the workflow references the prow/gcsweb URL.
