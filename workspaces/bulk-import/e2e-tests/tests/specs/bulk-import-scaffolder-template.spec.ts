@@ -2,9 +2,7 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { GITHUB_ORG } from "../../support/constants/github";
-
-const TEMPLATE_TITLE =
-  "Create catalog-info.yaml in GitHub/GitLab repository" as const;
+import { TEMPLATE_TITLE } from "../../support/constants/bulk-import-selectors";
 
 const repositoryParametersGitHub = {
   repoUrl: "",
