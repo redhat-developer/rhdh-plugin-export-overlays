@@ -45,6 +45,7 @@ spec:
     - ./home-page.yaml
     - ./http-request-scaffolder-action.yaml
     - ./ibm-apiconnect-backstage.yaml
+    - ./intelligent-assistant.yaml
     - ./jenkins.yaml
     - ./jfrog-artifactory.yaml
     - ./jira.yaml
@@ -55,7 +56,6 @@ spec:
     - ./kubernetes.yaml
     - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
-    - ./intelligent-assistant.yaml
     - ./mcp-actions-backend.yaml
     - ./microsoft-graph-catalog-integration.yaml
     - ./nexus-repository-manager.yaml
