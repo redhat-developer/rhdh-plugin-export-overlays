@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: entity-feedback
+  namespace: community
+  title: Entity Feedback
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  description: |
+    Collect and view user feedback on catalog entities with like/dislike or star ratings.
+    Provides rating buttons, aggregated views, and feedback collection for entity owners.
+  tags:
+    - feedback
+    - ratings
+    - collaboration
+    - user-experience
+  links:
+    - url: https://github.com/backstage/community-plugins/tree/main/workspaces/entity-feedback
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/entity-feedback/plugins
+    - title: Documentation
+      url: https://github.com/backstage/community-plugins/blob/main/workspaces/entity-feedback/plugins/entity-feedback/README.md
+spec:
+  authors:
+    - name: Backstage Community
+      url: https://backstage.io/
+
+  publisher: Backstage Community
+  support:
+    provider: Community
+    level: community
+  lifecycle: active
+
+  categories:
+    - Collaboration
+
+  highlights:
+    - Like/Dislike or Star-based rating systems
+    - Collect detailed feedback on poorly-rated entities
+    - Aggregated rating views for entity owners
+    - Customizable response categories
+    - Rating breakdown analytics
+
+  description: |
+    The Entity Feedback plugin enables users to rate and provide feedback on catalog entities
+    within Backstage. It helps teams understand how useful and accurate their catalog entries
+    are by collecting structured user feedback.
+
+    ## Key Features
+
+    * **Flexible Rating Systems**: Choose between like/dislike toggles or 5-star ratings
+    * **Feedback Collection**: Automatically prompt for detailed feedback on poor ratings
+    * **Owner Dashboards**: Aggregated views showing ratings for owned entities
+    * **Customizable Prompts**: Configure response categories and dialog text
+    * **Rating Analytics**: View rating breakdowns and trends
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    This plugin consists of both frontend and backend components that work together.
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin
+
+    ### Rating Variant
+
+    Configure the rating style in `app-config.yaml`:
+
+    ```yaml
+    entityFeedback:
+      ratings:
+        - variant: starred  # or 'like-dislike' (default)
+    ```
+
+    ### Feedback Collection
+
+    Customize feedback prompts:
+
+    ```yaml
+    entityFeedback:
+      ratings:
+        - requireResponse: true
+          dialogTitle: "Help us improve"
+          dialogResponses:
+            - Incorrect information
+            - Missing details
+            - Outdated content
+            - Other
+    ```
+
+    ### Mount Points
+
+    The plugin provides several UI components:
+
+    * **EntityLikeDislikeRatingsCard**: Rating buttons for entity pages
+    * **EntityFeedbackResponseContent**: Feedback tab showing collected responses
+    * **UserEntitiesRatingsCard**: Aggregated ratings for user/group pages
+
+    ## Prerequisites
+
+    * **Authentication Required**: This plugin requires user authentication. The guest identity
+      provider is not supported as the plugin needs to identify who submitted each rating.
+    * **Backend Plugin**: The backend plugin must be installed for the frontend to function.
+    * **Notifications (Optional)**: Integrates with Backstage Notifications to alert entity
+      owners of new feedback.
+
+    For more detailed configuration instructions, see the [plugin documentation](https://github.com/backstage/community-plugins/blob/main/workspaces/entity-feedback/plugins/entity-feedback/README.md).
+
+  packages:
+    - backstage-community-plugin-entity-feedback
+    - backstage-community-plugin-entity-feedback-backend
+
+  history:
+    added: '2026-01-14'
