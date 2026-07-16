@@ -1,29 +1,19 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
-import { GITHUB_ORG } from "../../support/constants/github";
 import { TEMPLATE_TITLE } from "../../support/constants/bulk-import-selectors";
+import {
+  RepositoryParameters,
+  defaultGitHubRepositoryParameters,
+  defaultGitLabRepositoryParameters,
+} from "../../support/test-data/template-repository-data";
 import { fillFormFields } from "../../support/utils/fill-template-form";
 
-const repositoryParametersGitHub = {
-  repoUrl: "",
-  branchName: "backstage-integration",
-  targetBranchName: "main",
-  name: `bulk-import-template-${Date.now()}`,
-  organization: GITHUB_ORG,
-  gitProviderHost: "github.com",
-};
-repositoryParametersGitHub.repoUrl = `github.com?owner=${repositoryParametersGitHub.organization}&repo=${repositoryParametersGitHub.name}`;
+const repositoryParametersGitHub: RepositoryParameters =
+  defaultGitHubRepositoryParameters();
 
-const repositoryParametersGitLab = {
-  repoUrl: "",
-  branchName: "backstage-integration",
-  targetBranchName: "main",
-  name: "test-repo",
-  organization: "test-org",
-  gitProviderHost: "gitlab.com",
-};
-repositoryParametersGitLab.repoUrl = `gitlab.com?owner=${repositoryParametersGitLab.organization}&repo=${repositoryParametersGitLab.name}`;
+const repositoryParametersGitLab: RepositoryParameters =
+  defaultGitLabRepositoryParameters();
 
 test.describe("Bulk Import via Scaffolder Template", () => {
   test.beforeAll(async ({ rhdh }) => {
