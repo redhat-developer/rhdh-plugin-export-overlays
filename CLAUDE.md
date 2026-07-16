@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md`
+before doing any work.
+
 This file provides guidance to Agentic AI coding tools when working with code in this repository.
 
 ## Repository Purpose
@@ -412,6 +415,13 @@ oc delete project <namespace>
 | Nightly (`e2e-ocp-helm-nightly`) | Daily cron / manual | All workspaces | Released (metadata refs) |
 
 Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
+
+### Failure Analysis
+
+Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
+- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
 
 ## Documentation
 

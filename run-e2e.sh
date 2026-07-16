@@ -69,7 +69,12 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 # instrumentation boilerplate, which triggers RHDH's zip bomb detection and causes
 # plugin installation failures. Disabled until the zip bomb threshold is fixed.
 #
-# To enable: E2E_COLLECT_COVERAGE=true
+# For nightly/local: Depends on e2e-test-utils automatic image swap logic
+# (PR #95, merged 2026-06-04). Until that lands, coverage collection will be
+# skipped silently (no -coverage images exist).
+#
+# To disable (faster local dev): E2E_COLLECT_COVERAGE=false
+# Disabled by default due to zip bomb detection failures — see RHDHBUGS-3470
 export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-false}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
