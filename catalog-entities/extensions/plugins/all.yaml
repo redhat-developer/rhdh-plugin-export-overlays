@@ -20,13 +20,17 @@ spec:
     - ./azure-scaffolder-actions.yaml
     - ./backstage-community-plugin-quay.yaml
     - ./bitbucket-cloud-catalog-integration.yaml
+    - ./bitbucket-cloud-scaffolder-actions.yaml
     - ./bitbucket-server-catalog-integration.yaml
+    - ./bitbucket-server-scaffolder-actions.yaml
     - ./bulk-import.yaml
     - ./contrib-techdocs-addons.yaml
     - ./cost-management.yaml
     - ./datadog.yaml
     - ./dynatrace-commercial.yaml
     - ./dynatrace-community.yaml
+    - ./events-backend-module-github.yaml
+    - ./events-backend-module-gitlab.yaml
     - ./extensions.yaml
     - ./gerrit-scaffolder-actions.yaml
     - ./github-actions.yaml
