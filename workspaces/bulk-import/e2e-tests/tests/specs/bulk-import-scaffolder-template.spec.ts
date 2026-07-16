@@ -58,8 +58,11 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     page,
     uiHelper,
   }) => {
+    // templates list
     await uiHelper.verifyHeading("Templates");
     await uiHelper.clickBtnInCard(TEMPLATE_TITLE, "Choose");
+
+    // template detail page
     await expect(page.getByText(TEMPLATE_TITLE)).toBeVisible();
     await expect(
       page.getByLabel("Repository URL (Backstage format)"),
@@ -71,8 +74,6 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     page,
     uiHelper,
   }) => {
-    test.setTimeout(5 * 60 * 1000);
-
     await uiHelper.clickBtnInCard(TEMPLATE_TITLE, "Choose");
     await uiHelper.waitForTitle(TEMPLATE_TITLE, 2);
 
