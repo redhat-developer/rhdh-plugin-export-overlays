@@ -1,5 +1,8 @@
 # CLAUDE.md
 
+If `FULLSEND_OUTPUT_DIR` is set, read and follow `.fullsend/AGENTS.md`
+before doing any work.
+
 This file provides guidance to Agentic AI coding tools when working with code in this repository.
 
 ## Repository Purpose
