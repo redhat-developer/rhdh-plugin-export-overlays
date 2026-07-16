@@ -364,12 +364,12 @@ test.describe("Admin > Extensions", () => {
         "Version",
         "Actions",
       ]);
-      await page
-        .getByRole("button", {
-          name: "Name",
-          exact: true,
-        })
-        .click();
+      const lastRowCells = page.locator("table tbody tr:nth-child(5) td");
+      for (let i = 0; i < (await lastRowCells.count()); i++) {
+        await expect(lastRowCells.nth(i)).not.toBeEmpty({ timeout: 30000 });
+      }
+
+      await page.getByRole("button", { name: "Name", exact: true }).click();
       await uiHelper.verifyRowInTableByUniqueText("TechDocs Add-ons Contrib", [
         /backstage-plugin-techdocs-module-addons-contrib/,
         /Frontend plugin module/,
