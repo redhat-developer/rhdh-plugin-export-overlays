@@ -3,6 +3,7 @@ import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { GITHUB_ORG } from "../../support/constants/github";
 import { TEMPLATE_TITLE } from "../../support/constants/bulk-import-selectors";
+import { fillFormFields } from "../../support/utils/fill-template-form";
 
 const repositoryParametersGitHub = {
   repoUrl: "",
@@ -86,31 +87,7 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     await uiHelper.waitForTitle(TEMPLATE_TITLE, 2);
 
     // Repository Details screen
-    await uiHelper.fillTextInputByLabel(
-      "Repository URL (Backstage format)",
-      repositoryParametersGitHub.repoUrl,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Owner of the Repository",
-      repositoryParametersGitHub.organization,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Name of the repository",
-      repositoryParametersGitHub.name,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "The branch to add the catalog entity to",
-      repositoryParametersGitHub.branchName,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "The branch to target the PR/MR to",
-      repositoryParametersGitHub.targetBranchName,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Git provider host",
-      repositoryParametersGitHub.gitProviderHost,
-    );
-
+    await fillFormFields(uiHelper, repositoryParametersGitHub);
     await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
     await uiHelper.clickButton("Review");
 
@@ -144,31 +121,7 @@ test.describe("Bulk Import via Scaffolder Template", () => {
     await uiHelper.waitForTitle(TEMPLATE_TITLE, 2);
 
     // Repository Details screen
-    await uiHelper.fillTextInputByLabel(
-      "Repository URL (Backstage format)",
-      repositoryParametersGitLab.repoUrl,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Owner of the Repository",
-      repositoryParametersGitLab.organization,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Name of the repository",
-      repositoryParametersGitLab.name,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "The branch to add the catalog entity to",
-      repositoryParametersGitLab.branchName,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "The branch to target the PR/MR to",
-      repositoryParametersGitLab.targetBranchName,
-    );
-    await uiHelper.fillTextInputByLabel(
-      "Git provider host",
-      repositoryParametersGitLab.gitProviderHost,
-    );
-
+    await fillFormFields(uiHelper, repositoryParametersGitLab);
     await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
     await uiHelper.clickButton("Review");
 
