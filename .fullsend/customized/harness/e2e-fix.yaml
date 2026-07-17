@@ -29,9 +29,6 @@ host_files:
   - src: ${GCP_OIDC_TOKEN_FILE}
     dest: /tmp/.gcp-oidc-token
     optional: true
-  - src: customized/env/e2e-fix.env
-    dest: /sandbox/workspace/.env.d/e2e-fix.env
-    expand: true
   - src: rhdh/env/rhdh-toolchain.env
     dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
   - src: rhdh/env/yarn-proxy.env
