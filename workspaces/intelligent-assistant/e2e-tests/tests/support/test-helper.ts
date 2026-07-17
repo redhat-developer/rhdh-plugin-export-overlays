@@ -7,8 +7,9 @@ import yaml from "js-yaml";
 import os from "os";
 import path from "path";
 
-/** Single namespace for all Lightspeed Playwright projects (see playwright.config.ts). */
-export const lightspeedNamespace = process.env.RHDH_NAMESPACE ?? "lightspeed";
+/** Single namespace for all Intelligent Assistant Playwright projects (see playwright.config.ts). */
+export const lightspeedNamespace =
+  process.env.RHDH_NAMESPACE ?? "intelligent-assistant";
 
 function isNightlyMode(): boolean {
   if (process.env.GIT_PR_NUMBER) {
@@ -82,7 +83,7 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  await test.runOnce(`lightspeed-deploy-${lightspeedNamespace}`, async () => {
+  await test.runOnce(`intelligent-assistant-deploy-${lightspeedNamespace}`, async () => {
     await rhdh.configure(lightspeedDeployConfig);
 
     // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).

@@ -1,5 +1,5 @@
 {
-  "name": "lightspeed-e2e-tests",
+  "name": "intelligent-assistant-e2e-tests",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,7 @@
     "yarn": ">=3"
   },
   "packageManager": "yarn@4.12.0",
-  "description": "E2E tests for Lightspeed plugin",
+  "description": "E2E tests for Intelligent Assistant plugin",
   "scripts": {
     "test": "playwright test",
     "test:serial": "playwright test --workers=1",
