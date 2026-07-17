@@ -11,10 +11,11 @@ spec:
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
-    - ./aws-scaffolder-actions.yaml
+    - ./argocd.yaml
     - ./aws-codebuild.yaml
     - ./aws-codepipeline.yaml
     - ./aws-ecs.yaml
+    - ./aws-scaffolder-actions.yaml
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
     - ./azure-scaffolder-actions.yaml
@@ -71,10 +72,10 @@ spec:
     - ./quay-scaffolder-actions.yaml
     - ./quickstart.yaml
     - ./rbac.yaml
-    - ./argocd.yaml
     - ./regex-scaffolder-actions.yaml
     - ./roadie-argocd.yaml
     - ./roadie-scaffolder-util-actions.yaml
+    - ./scaffolder-mcp-extras.yaml
     - ./scaffolder-relation-processor-catalog-integration.yaml
     - ./scorecard.yaml
     - ./security-insights.yaml
@@ -86,9 +87,8 @@ spec:
     - ./sonarqube-catalog-cards.yaml
     - ./sonarqube-scaffolder-actions.yaml
     - ./tech-radar.yaml
-    - ./techdocs.yaml
     - ./techdocs-mcp-extras.yaml
-    - ./scaffolder-mcp-extras.yaml
+    - ./techdocs.yaml
     - ./tekton.yaml
     - ./todo.yaml
     - ./topology.yaml
