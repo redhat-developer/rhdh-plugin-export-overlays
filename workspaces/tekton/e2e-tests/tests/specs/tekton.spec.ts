@@ -12,6 +12,7 @@ test.describe("Test Tekton plugin", () => {
     });
     await rhdh.configure({
       auth: "keycloak",
+      disableWrappers: ["backstage-community-plugin-tekton"],
     });
     const namespace = rhdh.deploymentConfig.namespace;
     // operator-install.sh: Tekton/Pipelines operator + waits, then namespace Active wait, pipeline-tests + RBAC (see operator::grant_default_service_account_cluster_reader_and_tekton).
