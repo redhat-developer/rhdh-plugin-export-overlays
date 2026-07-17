@@ -28,7 +28,7 @@ Auxiliary pod logs are often under 200 lines and safe to read entirely.
 
 ```bash
 SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-ARTIFACTS=$(node --experimental-strip-types "$SKILL_DIR/scripts/download-artifacts.ts" "<PROW_OR_GCSWEB_URL>")
+ARTIFACTS=$(python3 "$SKILL_DIR/scripts/download-artifacts.py" "<PROW_OR_GCSWEB_URL>")
 ```
 
 The script parses both PR check and nightly (periodic) prow/gcsweb URLs, downloads
@@ -42,10 +42,10 @@ Run the diagnostics script from the skill's scripts directory:
 
 ```bash
 SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS"
+python3 "$SKILL_DIR/scripts/diagnostics.py" "$ARTIFACTS"
 
 # Filter to a specific project:
-node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS" --project techdocs
+python3 "$SKILL_DIR/scripts/diagnostics.py" "$ARTIFACTS" --project techdocs
 ```
 
 This script gives you:
