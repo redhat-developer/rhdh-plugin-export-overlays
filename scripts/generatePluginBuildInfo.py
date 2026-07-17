@@ -1040,11 +1040,6 @@ Examples:
         action='store_true',
         help='Enable debug output',
     )
-    parser.add_argument(
-        '--skip-fallback-cta',
-        action='store_true',
-        help='Skip the end-of-run fallback rebuild CTA (e.g. when update-index.sh prints it last)',
-    )
 
     args = parser.parse_args()
     set_debug(args.debug)
@@ -1080,9 +1075,7 @@ Examples:
 
     report.save()
 
-    # When run standalone, surface the rebuild CTA last. update-index.sh passes
-    # --skip-fallback-cta and prints this after the full index regen instead.
-    if fallbacks and not args.skip_fallback_cta:
+    if fallbacks:
         print_fallback_rebuild_cta(fallbacks)
 
 if __name__ == "__main__":
