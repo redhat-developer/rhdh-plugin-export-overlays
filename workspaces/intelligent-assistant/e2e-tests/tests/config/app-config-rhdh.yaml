@@ -1,0 +1,37 @@
+# RHDH app config merged at deploy. Do not use legacy lightspeed.servers (Road-Core era).
+# LCS + Llama Stack run as the lightspeed-core sidecar when global.lightspeed.enabled is true.
+
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - intelligent-assistant
+    admin:
+      superUsers:
+        - name: user:default/test1
+
+backend:
+  csp:
+    upgrade-insecure-requests: false
+    img-src:
+      - "'self'"
+      - "data:"
+      - https://avatars.githubusercontent.com
+      - https://secure.gravatar.com
+    script-src:
+      - "'self'"
+      - "'unsafe-eval'"
+      - https://cdn.jsdelivr.net
+
+intelligent-assistant:
+  notebooks:
+    enabled: true
+    queryDefaults:
+      model: ${NOTEBOOK_DEFAULT_MODEL}
+      provider_id: ${NOTEBOOK_PROVIDER}
+  servicePort: 8080
+  prompts:
+    - title: Getting Started with Red Hat Developer Hub
+      message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
