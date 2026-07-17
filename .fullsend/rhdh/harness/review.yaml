@@ -1,0 +1,4 @@
+base: https://raw.githubusercontent.com/fullsend-ai/agents/4bbe4f50ed8e33c60539eaa30ddc320edf8bcda0/harness/review.yaml#sha256=08456e534c7d1251b3a3b2bc1236643403809ecab27832c273764769f219a45b
+skills:
+  - skills/e2e-failure-analysis
+  - skills/playwright-trace
