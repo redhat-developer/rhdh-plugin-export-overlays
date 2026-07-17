@@ -104,8 +104,8 @@ packages:
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend'
     support: "generally-available"
-  # - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
-  #   support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator'
