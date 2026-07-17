@@ -83,21 +83,24 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  await test.runOnce(`intelligent-assistant-deploy-${lightspeedNamespace}`, async () => {
-    await rhdh.configure(lightspeedDeployConfig);
+  await test.runOnce(
+    `intelligent-assistant-deploy-${lightspeedNamespace}`,
+    async () => {
+      await rhdh.configure(lightspeedDeployConfig);
 
-    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-    const ns = rhdh.deploymentConfig.namespace;
-    try {
-      await $`oc get deployment redhat-developer-hub -n ${ns}`;
-      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-    } catch {
-      /* fresh install */
-    }
+      // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+      const ns = rhdh.deploymentConfig.namespace;
+      try {
+        await $`oc get deployment redhat-developer-hub -n ${ns}`;
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* fresh install */
+      }
 
-    await rhdh.deploy();
-    await patchOpenAiAllowedModels(rhdh);
-  });
+      await rhdh.deploy();
+      await patchOpenAiAllowedModels(rhdh);
+    },
+  );
 }
 
 /** Opens /intelligent-assistant and waits for any recognizable Intelligent Assistant shell (chat, heading, or empty state). */
