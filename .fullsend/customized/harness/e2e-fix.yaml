@@ -34,6 +34,8 @@ host_files:
     expand: true
   - src: rhdh/env/rhdh-toolchain.env
     dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
+  - src: rhdh/env/yarn-proxy.env
+    dest: /sandbox/workspace/.env.d/yarn-proxy.env
 
 skills:
   - skills/e2e-failure-analysis

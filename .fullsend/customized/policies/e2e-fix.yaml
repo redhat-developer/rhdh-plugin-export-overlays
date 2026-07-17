@@ -1,4 +1,12 @@
+---
 version: 1
+
+# Sandbox policy for the e2e-fix agent.
+#
+# Based on rhdh/policies/code.yaml (PR #2794) with additions:
+#   - github_api is read-only (writes happen in the post-script on the runner)
+#   - prow_artifacts policy for downloading nightly CI artifacts
+#   - **/gh binary for GitHub read operations (issue view, pr list, dedup)
 
 filesystem_policy:
   include_workdir: true
@@ -42,7 +50,7 @@ network_policies:
         enforcement: enforce
         access: read-only
     binaries:
-      - path: "**/curl"
+      - path: "**/gh"
       - path: "**/git"
       - path: "**/node"
 
@@ -76,7 +84,13 @@ network_policies:
         protocol: rest
         enforcement: enforce
         access: read-only
+        allow_encoded_slash: true
       - host: "registry.yarnpkg.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      - host: "repo.yarnpkg.com"
         port: 443
         protocol: rest
         enforcement: enforce
@@ -86,4 +100,5 @@ network_policies:
       - path: "**/npx"
       - path: "**/yarn"
       - path: "**/yarnpkg"
+      - path: "**/corepack"
       - path: "**/node"
