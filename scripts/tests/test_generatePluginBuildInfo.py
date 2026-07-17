@@ -286,16 +286,15 @@ class TestGetOutputRegistryReference:
 
 
 # ---------------------------------------------------------------------------
-# _fetch_image_metadata — real HTTP calls against fixed known images
+# _fetch_image_metadata — real HTTP calls against known published images
 #
-# These tests use published images with stable digests that won't change.
+# Digests are validated by shape only: mutable tags can be republished.
 # ---------------------------------------------------------------------------
 
-# Fixed known images for testing
+# Known images for testing
 GHCR_KNOWN_REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-quay:bs_1.49.4__2.18.0"
 
 QUAY_KNOWN_REF = "quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:1.11--1.5.4"
-QUAY_KNOWN_DIGEST = "sha256:e8cb33e40f6f846adaf5e0446049d5a2a5e93a2a12cf8b610e3e0e346f98005c"
 
 
 class TestFetchImageMetadata:
@@ -319,7 +318,7 @@ class TestFetchImageMetadata:
     def test_quay_returns_digest(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
         assert metadata is not None
-        assert metadata["digest"] == QUAY_KNOWN_DIGEST
+        assert SHA256_DIGEST_RE.match(metadata["digest"])
 
     def test_quay_downstream_has_build_date(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(QUAY_KNOWN_REF)
@@ -524,3 +523,111 @@ class TestGetImageMetadataAlias:
         assert metadata.get('fallback') is True
         assert metadata['requestedTag'] == '1.11--1.6.0'
         assert metadata['registryReference'] == 'quay.io/rhdh/plugin:1.11--1.5.4'
+
+
+# ---------------------------------------------------------------------------
+# collect_fallback_entries
+# ---------------------------------------------------------------------------
+
+class TestCollectFallbackEntries:
+    """Unit tests for scanning plugin_builds JSON for fallback tuples."""
+
+    def test_collects_have_and_want_tags(self, tmp_path):
+        ws = tmp_path / "topology"
+        ws.mkdir()
+        (ws / "plugin.json").write_text(
+            '{\n'
+            '  "backstage-community-plugin-topology": {\n'
+            '    "registryReference": "quay.io/rhdh/backstage-community-plugin-topology:1.11--1.5.4",\n'
+            '    "fallback": true,\n'
+            '    "requestedTag": "1.11--1.6.0"\n'
+            '  },\n'
+            '  "other-plugin": {\n'
+            '    "registryReference": "quay.io/rhdh/other:1.11--1.6.0"\n'
+            '  }\n'
+            '}\n'
+        )
+        result = generatePluginBuildInfo.collect_fallback_entries(tmp_path)
+        assert result == [
+            ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
+        ]
+
+    def test_empty_when_no_fallbacks(self, tmp_path):
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        (ws / "plugin.json").write_text(
+            '{"p": {"registryReference": "quay.io/rhdh/p:1.0--1.0"}}\n'
+        )
+        assert generatePluginBuildInfo.collect_fallback_entries(tmp_path) == []
+
+
+# ---------------------------------------------------------------------------
+# _fallback_regex_fragment / print_fallback_rebuild_cta
+# ---------------------------------------------------------------------------
+
+class TestFallbackRegexFragment:
+    """Unit tests for packages-list path fragments used in rebuild CTA regex."""
+
+    @pytest.mark.parametrize(
+        "container, expected",
+        [
+            ("backstage-community-plugin-topology", "topology"),
+            (
+                "backstage-community-plugin-catalog-backend-module-pingidentity",
+                "catalog-backend-module-pingidentity",
+            ),
+            ("backstage-plugin-kubernetes", "kubernetes"),
+            ("redhat-backstage-plugin-orchestrator", "orchestrator"),
+            ("red-hat-developer-hub-backstage-plugin-lightspeed", "backstage-plugin-lightspeed"),
+            ("custom-container-name", "custom-container-name"),
+        ],
+    )
+    def test_strips_known_prefixes(self, container, expected):
+        assert generatePluginBuildInfo._fallback_regex_fragment(container) == expected
+
+    def test_cta_regex_includes_fetched_version(self, capsys):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1-rhel-9"):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
+                    ("backstage-plugin-kubernetes", "1.11--1.5.4", "1.11--1.6.0"),
+                ]
+            )
+        out = capsys.readouterr().out
+        assert "--regex 'topology|kubernetes' -v 1.next" in out
+        assert "--regex '|" not in out
+
+    def test_cta_uses_package_version_on_release_branch(self, capsys):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0")]
+            )
+        out = capsys.readouterr().out
+        assert "--regex 'topology' -v 1.10.3" in out
+
+
+class TestRhdhBranchAndVersion:
+    """Unit tests for midstream → rhdh branch mapping and version fetch."""
+
+    @pytest.mark.parametrize(
+        "midstream, expected",
+        [
+            ("main", "main"),
+            ("rhdh-1-rhel-9", "main"),
+            ("rhdh-1.10-rhel-9", "release-1.10"),
+            ("rhdh-1.9-rhel-9", "release-1.9"),
+            ("feature/foo", "main"),
+        ],
+    )
+    def test_rhdh_git_branch_for_midstream(self, midstream, expected):
+        assert generatePluginBuildInfo.rhdh_git_branch_for_midstream(midstream) == expected
+
+    def test_fetch_rhdh_package_version(self):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"version": "1.10.3"}
+        with patch("generatePluginBuildInfo.requests.get", return_value=mock_resp) as mock_get:
+            assert generatePluginBuildInfo.fetch_rhdh_package_version("release-1.10") == "1.10.3"
+            mock_get.assert_called_once()
+            assert "release-1.10" in mock_get.call_args.args[0]
