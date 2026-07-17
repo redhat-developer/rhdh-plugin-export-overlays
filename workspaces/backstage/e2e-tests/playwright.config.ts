@@ -17,6 +17,9 @@ export default playwrightDefineConfig({
     {
       name: "backstage-github-discovery",
       testMatch: /tests\/specs\/github-discovery\.spec\.ts/,
+      // GitHub discovery depends on a scheduled provider refresh and external API
+      // availability; allow one retry before failing the PR check.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-gitlab-discovery",
@@ -45,6 +48,8 @@ export default playwrightDefineConfig({
     {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
+      // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-auth",
