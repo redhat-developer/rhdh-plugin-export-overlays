@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-intelligent-assistant"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant
-  version: 3.0.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.2!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+  version: 3.0.2
   backstage:
     role: frontend-plugin
     supportedVersions: 1.52.0

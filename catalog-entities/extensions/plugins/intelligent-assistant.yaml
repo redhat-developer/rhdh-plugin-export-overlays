@@ -107,7 +107,7 @@ spec:
         - dynamic-plugins.default.yaml
       plugins:
         # Frontend plugin
-        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.2!red-hat-developer-hub-backstage-plugin-intelligent-assistant
           enabled: true
           pluginConfig:
             intelligent-assistant:
@@ -132,7 +132,7 @@ spec:
                         text: Intelligent Assistant
         
         # Backend plugin
-        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.2!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
           enabled: true
           pluginConfig:
             intelligent-assistant:
