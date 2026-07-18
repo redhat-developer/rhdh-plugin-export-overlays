@@ -8,28 +8,7 @@ module.exports = async ({github, context, core}) => {
 
   /** @type { Array<{ number: number, title: string, branch: string, repository?: string}> } */
   const pullRequests = [];
-  if (singlePR !== '') {
-      const prNumber = parseInt(singlePR);
-      if (Number.isNaN(prNumber)) {
-        core.setFailed(`PR workflow parameter is not a valid number: ${singlePR}`);
-        return;
-      }
-      const response = await github.rest.pulls.get({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        pull_number: prNumber,
-      });
-      if (response.data.base.ref !== releaseBranch) {
-        core.setFailed(`PR #${singlePR} is not based on release branch \`${releaseBranch}\``);
-        return;
-      }
-      pullRequests.push({
-        number: response.data.number,
-        title: response.data.title,
-        branch: response.data.head.ref,
-        repository: response.data.head.repo?.full_name
-      });
-  } else {
+  if (singlePR === '') {
       /** @type {import('@octokit/types').GetResponseTypeFromEndpointMethod<typeof github.rest.pulls.list>} */
       let response;
       let page = 1;
@@ -50,6 +29,27 @@ module.exports = async ({github, context, core}) => {
           })));
           page++;
       } while (response.data.length > 0);
+  } else {
+      const prNumber = Number.parseInt(singlePR);
+      if (Number.isNaN(prNumber)) {
+        core.setFailed(`PR workflow parameter is not a valid number: ${singlePR}`);
+        return;
+      }
+      const response = await github.rest.pulls.get({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        pull_number: prNumber,
+      });
+      if (response.data.base.ref !== releaseBranch) {
+        core.setFailed(`PR #${singlePR} is not based on release branch \`${releaseBranch}\``);
+        return;
+      }
+      pullRequests.push({
+        number: response.data.number,
+        title: response.data.title,
+        branch: response.data.head.ref,
+        repository: response.data.head.repo?.full_name
+      });
   }
 
   const { data: sourceFile } = await github.rest.repos.getContent({
@@ -67,7 +67,6 @@ module.exports = async ({github, context, core}) => {
     sourceFile.content,
     (Buffer.isEncoding(sourceFile.encoding) ? sourceFile.encoding : 'utf-8')
   ).toString('utf-8');
-  const sourceSha = sourceFile.sha;
 
   /** @type { Array<{title: string, number: number}> } */
   const updatedPullRequests = [];
@@ -135,7 +134,7 @@ ${sourceContent}
           ref: c.sha
         })
       ))).flatMap(response => response.data.files);
-      if (prFiles.find(f => f?.filename === path)) {
+      if (prFiles.some(f => f?.filename === path)) {
         if (force) {
           core.notice(`Overwriting previous manual \`${path}\` change.`);
         } else {

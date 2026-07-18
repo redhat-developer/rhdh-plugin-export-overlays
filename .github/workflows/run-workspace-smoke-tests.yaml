@@ -7,6 +7,10 @@ on:
         description: PR target branch (main or release-X.Y)
         type: string
         default: main
+      rhdh-tag:
+        description: Optional RHDH image tag override for quay.io/rhdh-community/rhdh:<tag>
+        type: string
+        required: false
     outputs:
       success:
         description: Overall smoke test result
@@ -17,6 +21,9 @@ on:
       error-logs:
         description: Extracted error messages from container logs
         value: ${{ jobs.run.outputs.error-logs }}
+      image-ref:
+        description: Resolved RHDH container image used for smoke tests
+        value: ${{ jobs.run.outputs.image-ref }}
 
 jobs:
   run:
@@ -29,6 +36,7 @@ jobs:
       success: ${{ steps.collect-results.outputs.success }}
       failed-plugins: ${{ steps.collect-results.outputs.failed-plugins }}
       error-logs: ${{ steps.capture-errors.outputs.error-logs }}
+      image-ref: ${{ steps.start-rhdh.outputs.image-ref }}
     steps:
       - name: Download smoke test artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -44,6 +52,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start RHDH with test plugins config
+        id: start-rhdh
+        env:
+          INPUT_RHDH_TAG: ${{ inputs.rhdh-tag }}
+          INPUT_TARGET_BRANCH: ${{ inputs.target-branch }}
         run: |
           set -euo pipefail
           ls -la ./artifacts/ || true
@@ -72,17 +84,30 @@ jobs:
           DOCKER_CMD="$DOCKER_CMD -v $HOME/.docker/config.json:/root/.docker/config.json:ro"
           DOCKER_CMD="$DOCKER_CMD -e REGISTRY_AUTH_FILE=/root/.docker/config.json"
           
-          # Derive image tag from target branch
-          TARGET_BRANCH="${{ inputs.target-branch }}"
-          if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
-            IMAGE_TAG="next-${BASH_REMATCH[1]}"
+          # Resolve image from explicit /smoketest <tag> override or target branch default
+          RHDH_TAG="${INPUT_RHDH_TAG:-}"
+          if [[ -n "$RHDH_TAG" ]]; then
+            if [[ ! "$RHDH_TAG" =~ ^(pr-[0-9]+(-[0-9a-f]{7,40})?|next(-[0-9]+\.[0-9]+-[0-9a-f]{7,40}|-[0-9a-f]{7,40})?)$ ]]; then
+              echo "Invalid rhdh-tag input: $RHDH_TAG."
+              echo "Allowed tags: pr-<digits>, pr-<digits>-<hash>, next, next-<major>.<minor>-<hash>, next-<hash>."
+              exit 1
+            fi
+            IMAGE_REF="quay.io/rhdh-community/rhdh:${RHDH_TAG}"
+            echo "Using explicit RHDH image override from smoketest tag: $IMAGE_REF"
           else
-            IMAGE_TAG="next"
+            TARGET_BRANCH="${INPUT_TARGET_BRANCH:-main}"
+            if [[ "$TARGET_BRANCH" =~ ^release-([0-9]+\.[0-9]+)$ ]]; then
+              IMAGE_TAG="next-${BASH_REMATCH[1]}"
+            else
+              IMAGE_TAG="next"
+            fi
+            IMAGE_REF="quay.io/rhdh-community/rhdh:${IMAGE_TAG}"
+            echo "Using default RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
           fi
-          echo "Using RHDH image tag: $IMAGE_TAG (target branch: $TARGET_BRANCH)"
+          echo "image-ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
           
           # Add image and command
-          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash quay.io/rhdh-community/rhdh:${IMAGE_TAG} -c '"
+          DOCKER_CMD="$DOCKER_CMD --entrypoint /bin/bash ${IMAGE_REF} -c '"
           DOCKER_CMD="$DOCKER_CMD set -ex; "
           DOCKER_CMD="$DOCKER_CMD PLUGINS_ROOT=/opt/app-root/src/dynamic-plugins-root; "
           DOCKER_CMD="$DOCKER_CMD GENERATED_CONFIG=\$PLUGINS_ROOT/app-config.dynamic-plugins.yaml; "
@@ -102,19 +127,26 @@ jobs:
 
       - name: Wait for RHDH to be ready
         run: |
-          set -e
-          for i in $(seq 1 10); do
+          set -euo pipefail
+          TOTAL_ATTEMPTS=30
+          SLEEP_SECONDS=10
+
+          TOTAL_WAIT_SECONDS=$(( TOTAL_ATTEMPTS * SLEEP_SECONDS ))
+          TOTAL_WAIT_MINUTES=$(( TOTAL_WAIT_SECONDS / 60 ))
+          echo "Readiness window: ${TOTAL_ATTEMPTS} attempts x ${SLEEP_SECONDS}s (~${TOTAL_WAIT_MINUTES}m)"
+
+          for i in $(seq 1 "$TOTAL_ATTEMPTS"); do
             if curl -fsS http://localhost:7007/health >/dev/null; then
               echo "RHDH is ready"; exit 0; fi
-            echo "Waiting for RHDH... (Attempt ${i}/10)"
+            echo "Waiting for RHDH... (Attempt ${i}/${TOTAL_ATTEMPTS})"
             # Check if container is still running
             if ! docker ps | grep -q rhdh; then
               echo "Container stopped unexpectedly."
               exit 1
             fi
-            sleep 10
+            sleep "$SLEEP_SECONDS"
           done
-          echo "RHDH did not become ready in time."
+          echo "RHDH did not become ready in time after ${TOTAL_WAIT_SECONDS}s."
           exit 1
 
       - name: List installed plugins
@@ -155,8 +187,8 @@ jobs:
           echo "===== Checking logs for plugin loaded messages"
           for plugin in $PLUGINS; do
             echo "Asserting plugin loaded: $plugin"
-            # Match either the unpack path or the canonical "loaded dynamic ... plugin '<pkg>' from" message
-            if echo "$LOGS" | grep -qiE "loaded dynamic .* plugin .*${plugin}(-dynamic)?'" ; then
+            # Match loaded plugins by unpack path; allow both root and /alpha module paths.
+            if echo "$LOGS" | grep -qiE "loaded dynamic (frontend|backend) plugin .* from 'file:///opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?'" ; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"

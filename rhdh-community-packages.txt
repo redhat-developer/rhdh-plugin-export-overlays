@@ -49,7 +49,22 @@ argocd/plugins/argocd-backend
 # continue to use wrappers in 1.9; moving to Commmunity in 1.10 (per PM/Eng sync meeting 01/12; on 01/28 PM decided to move these in 1.10, not 1.11)
 # TODO remove from supported / move to community in 1.10 - https://issues.redhat.com/browse/RHIDP-11354
 quay/plugins/quay
+quay/plugins/quay-backend
 quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 tekton/plugins/tekton
+
+# scorecard plugins are going TP in 2.1
+# TODO move this to the supported list when ready in https://redhat.atlassian.net/browse/RHDHPLAN-1234
+scorecard/plugins/scorecard
+scorecard/plugins/scorecard-backend
+scorecard/plugins/scorecard-backend-module-github
+scorecard/plugins/scorecard-backend-module-jira
+scorecard/plugins/scorecard-backend-module-openssf
+scorecard/plugins/scorecard-backend-module-dependabot
+scorecard/plugins/scorecard-backend-module-filecheck
+scorecard/plugins/scorecard-backend-module-sonarqube
+
+# moved from TP to Community in 2.1 - https://redhat.atlassian.net/browse/RHDHPLAN-951
+acr/plugins/acr

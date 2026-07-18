@@ -2,8 +2,6 @@
 # do not include package for which we never had wrappers / bundled the package in RHDH
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
-acr/plugins/acr
-
 adoption-insights/plugins/adoption-insights
 adoption-insights/plugins/adoption-insights-backend
 adoption-insights/plugins/analytics-module-adoption-insights
@@ -21,10 +19,9 @@ backstage/plugins/techdocs
 backstage/plugins/techdocs-backend
 backstage/plugins/techdocs-module-addons-contrib
 
-global-floating-action-button/plugins/global-floating-action-button
 global-header/plugins/global-header
 
-homepage/plugins/dynamic-home-page
+homepage/plugins/homepage
 homepage/plugins/homepage-backend
 
 keycloak/plugins/catalog-backend-module-keycloak
