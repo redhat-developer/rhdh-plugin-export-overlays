@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-homepage-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.49.4__0.1.1!red-hat-developer-hub-backstage-plugin-homepage-backend
-  version: 0.1.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.2.1!red-hat-developer-hub-backstage-plugin-homepage-backend
+  version: 0.2.1
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: tech-preview
   lifecycle: active
@@ -32,11 +32,14 @@ spec:
         homepage:
           defaultWidgets:
             - id: rhdh-onboarding-section
+              ref: onboarding-section
               props:
                 title: Onboarding section
             - id: rhdh-entity-section
+              ref: entity-section
               props:
                 title: Entity section
             - id: rhdh-template-section
+              ref: template-section
               props:
                 title: Template section
