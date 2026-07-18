@@ -898,7 +898,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b4e43ba6849e74089cc6a5ab69734fd46dac7b36179b88df212ca7f0dba8ebc3"
+          "digest": "sha256:c195188ab045e23aa47ff0678aa756ea8a8d4d8257779da60ab78a65a66ea189"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1004,18 +1004,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.52.0__1.3.3"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki:bs_1.52.0__1.3.3"
+          "status": "pass",
+          "digest": "sha256:fbec83e3b3391c297e84f23590a20779a851c9ca615f69153082985040199914"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
       "version": "1.3.3",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator-backend": {
       "stages": {
@@ -1031,18 +1030,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.52.0__8.10.3"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend:bs_1.52.0__8.10.3"
+          "status": "pass",
+          "digest": "sha256:b89ef27f692c1d9b1c0804f0913fba4071f2fa5876780f79b6a59d1602bf7a9d"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
       "version": "8.10.3",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets": {
       "stages": {
@@ -1058,18 +1056,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.52.0__1.11.3"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets:bs_1.52.0__1.11.3"
+          "status": "pass",
+          "digest": "sha256:a69d3c05ca22b210f92608259269dd22425e6de48c4da4727ce4f66d1438c7ec"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
       "version": "1.11.3",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-orchestrator": {
       "stages": {
@@ -1085,18 +1082,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.52.0__5.9.3"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.52.0__5.9.3"
+          "status": "pass",
+          "digest": "sha256:591b50a2399db85caf298bb40843e27c51a5104acb5695066c555e36c77c991a"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
       "version": "5.9.3",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator": {
       "stages": {
@@ -1112,18 +1108,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.52.0__1.6.4"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator:bs_1.52.0__1.6.4"
+          "status": "pass",
+          "digest": "sha256:08a94629204ded621cf8b798b16a9579eb0ff982ec52fb4283befa27412ca670"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
       "version": "1.6.4",
       "workspace": "orchestrator",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-catalog-backend-module-pingidentity": {
       "stages": {
@@ -1561,7 +1556,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:355e1bc19ef7de07faa5d93f36fcba0c699eace6ef396a77373e62f370d7171c"
+          "digest": "sha256:d9fee3bb0790f7b959315356b197cce016fbc8cc3bb44dd9ce83a7b20ecf1c77"
         },
         "dpdy": {
           "status": "pass"
@@ -1578,8 +1573,8 @@
   },
   "summary": {
     "total": 59,
-    "succeeded": 34,
-    "failed": 5,
+    "succeeded": 39,
+    "failed": 0,
     "outdated": 20
   },
   "status": "partial"
