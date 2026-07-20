@@ -123,6 +123,16 @@ echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
+
+    # Extract OpenShift router CA so Playwright validates TLS instead of bypassing it
+    if oc get secret router-ca -n openshift-ingress-operator &>/dev/null; then
+        oc get secret router-ca -n openshift-ingress-operator \
+          -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/cluster-router-ca.pem
+        export NODE_EXTRA_CA_CERTS=/tmp/cluster-router-ca.pem
+        echo "[INFO] Loaded cluster router CA for TLS validation"
+    else
+        echo "[INFO] No OpenShift router CA found — TLS bypass will be used for cluster routes"
+    fi
 elif [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" ]]; then
     echo "[ERROR] Not logged into a cluster. Login with 'oc login' first."
     exit 1
