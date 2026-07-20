@@ -53,7 +53,7 @@ export JOB_NAME="${JOB_NAME:-}"                          # If contains "periodic
 export GIT_PR_NUMBER="${GIT_PR_NUMBER:-}"                 # PR number for OCI URL generation
 
 # Catalog index image — only set if you need to override the default baked into the RHDH chart
-export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
+export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/rhdh/plugin-catalog-index:1.10-84}"
 
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
