@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 import requests
@@ -591,7 +592,146 @@ def get_image_metadata(registry_reference: str) -> dict | None:
     return metadata
 
 
-def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> tuple[int, int, list[str], int, int]:
+def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, str]]:
+    """Scan ``plugin_builds`` JSON for entries that used a fallback tag.
+
+    Returns:
+        Sorted list of ``(container_name, have_older_tag, should_have_newer_tag)``
+        tuples (e.g. ``('backstage-community-plugin-topology', '1.11--1.5.4', '1.11--1.6.0')``).
+    """
+    fallbacks: list[tuple[str, str, str]] = []
+    if not plugin_builds_dir.exists():
+        return fallbacks
+
+    for json_file in sorted(plugin_builds_dir.glob("*/*.json")):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        for plugin_name, plugin_data in data.items():
+            if not isinstance(plugin_data, dict) or not plugin_data.get('fallback'):
+                continue
+            ref = plugin_data.get('registryReference', '')
+            have_tag = ref.rsplit(':', 1)[-1] if isinstance(ref, str) and ':' in ref else ''
+            want_tag = plugin_data.get('requestedTag', '') or ''
+            fallbacks.append((plugin_name, have_tag, want_tag))
+
+    return sorted(fallbacks, key=lambda t: t[0])
+
+
+def _fallback_regex_fragment(container: str) -> str:
+    """Map a container image name to a packages-list path fragment for ``--regex``.
+
+    ``generatePipelineRunsForPlugins.sh --regex`` matches lines like
+    ``topology/plugins/topology``, not full OCI names, so strip common
+    container prefixes to leave a distinctive path fragment.
+    """
+    for prefix in (
+        "backstage-community-plugin-",
+        "backstage-plugin-",
+        "redhat-backstage-plugin-",
+        "red-hat-developer-hub-",
+    ):
+        if container.startswith(prefix):
+            return container[len(prefix):]
+    return container
+
+
+def rhdh_git_branch_for_midstream(midstream_branch: str) -> str:
+    """Map a midstream catalog branch to the matching ``redhat-developer/rhdh`` git branch.
+
+    - ``main`` / ``rhdh-1-rhel-9`` (next) → ``main``
+    - ``rhdh-1.10-rhel-9`` → ``release-1.10``
+    """
+    branch = (midstream_branch or "").strip()
+    if branch in ("main", "rhdh-1-rhel-9", ""):
+        return "main"
+    match = re.fullmatch(r"rhdh-([0-9]+(?:\.[0-9]+)+)-rhel-9", branch)
+    if match:
+        return f"release-{match.group(1)}"
+    return "main"
+
+
+def current_midstream_branch() -> str:
+    """Return the current git branch name, or ``rhdh-1-rhel-9`` if unavailable."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return "rhdh-1-rhel-9"
+
+
+def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
+    """Fetch ``.version`` from ``redhat-developer/rhdh`` ``package.json`` for the given branch.
+
+    Defaults to the rhdh branch implied by the current midstream git branch.
+    See https://raw.githubusercontent.com/redhat-developer/rhdh/main/package.json
+    and release branches such as ``release-1.10``.
+    """
+    branch = rhdh_branch or rhdh_git_branch_for_midstream(current_midstream_branch())
+    url = f"https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/{branch}/package.json"
+    try:
+        response = requests.get(url, timeout=15)
+        response.raise_for_status()
+        version = response.json().get("version")
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+    except (OSError, requests.RequestException, ValueError, json.JSONDecodeError) as exc:
+        log_debug(f"Could not fetch RHDH version from {url}: {exc}")
+    return None
+
+
+def print_fallback_rebuild_cta(fallbacks: list[tuple[str, str, str]]) -> None:
+    """Print a clear rebuild call-to-action for plugins using older published tags."""
+    if not fallbacks:
+        return
+
+    print("\n========")
+    log_warn(
+        f"Fallback Tags: {Colors.YELLOW}{len(fallbacks)}{Colors.NORM} "
+        f"plugin(s) using older published tags"
+    )
+    print(
+        f"{Colors.YELLOW}ACTION REQUIRED:{Colors.NORM} Rebuild and publish these plugins "
+        f"so the catalog can use the newer requested tags:\n"
+        f"  (container, have_older_tag, should_have_newer_tag)"
+    )
+    parts: list[str] = []
+    for container, have_tag, want_tag in fallbacks:
+        print(
+            f"  - {Colors.YELLOW}{container}{Colors.NORM}: "
+            f"have {Colors.YELLOW}{have_tag}{Colors.NORM}  →  "
+            f"need {Colors.GREEN}{want_tag}{Colors.NORM}"
+        )
+        parts.append(_fallback_regex_fragment(container))
+
+    regex = "|".join(parts)
+    # next midstream (main / rhdh-1-rhel-9) uses the 1.next alias; release
+    # branches use the concrete x.y.z from redhat-developer/rhdh package.json
+    rhdh_branch = rhdh_git_branch_for_midstream(current_midstream_branch())
+    if rhdh_branch == "main":
+        # TODO switch to 2.next when we move to the main branch downstream
+        version = "1.next"
+    else:
+        version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
+    print(
+        f"\n{Colors.YELLOW}Re-export with:{Colors.NORM}\n"
+        f".tekton/generatePipelineRunsForPlugins.sh --trigger --regex '{regex}' -v {version}\n"
+        f"\n{Colors.YELLOW}Then re-run ./build/ci/update-index.sh{Colors.NORM}\n"
+    )
+
+
+def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, report: BuildReport | None = None) -> tuple[int, int, list[str], int, int, list[tuple[str, str, str]]]:
     """Enrich plugin_builds JSON files with container image metadata from the registry.
 
     The main enrichment pipeline. For each ``plugin_builds/*/*.json`` file,
@@ -610,14 +750,15 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
             stage results (pass/fail with digest and fallback info).
 
     Returns:
-        A 5-tuple of ``(updated_count, error_count, missing_refs,
-        overlays_metadata_changes, fallback_count)`` where:
+        A 6-tuple of ``(updated_count, error_count, missing_refs,
+        overlays_metadata_changes, fallback_count, fallbacks)`` where:
 
         - ``updated_count``: Number of JSON files successfully enriched.
         - ``error_count``: Number of JSON files that failed to parse or process.
         - ``missing_refs``: List of registry references where no image was found.
         - ``overlays_metadata_changes``: Number of metadata YAML files updated.
         - ``fallback_count``: Number of plugins that used a fallback tag.
+        - ``fallbacks``: List of ``(container, have_tag, want_tag)`` tuples.
     """
     if not plugin_builds_dir.exists():
         log_error(f"Plugin builds directory {plugin_builds_dir} does not exist")
@@ -634,6 +775,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
     missing_refs = []
     overlays_metadata_changes = 0
     fallback_count = 0
+    fallbacks: list[tuple[str, str, str]] = []
 
     for i, json_file in enumerate(json_files, 1):
         relative_path = json_file.relative_to(plugin_builds_dir)
@@ -659,6 +801,9 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
 
                         if metadata.get('fallback'):
                             fallback_count += 1
+                            have_tag = registry_reference.rsplit(':', 1)[-1] if ':' in registry_reference else ''
+                            want_tag = metadata.get('requestedTag', '')
+                            fallbacks.append((plugin_name, have_tag, want_tag))
 
                         for key, value in metadata.items():
                             if plugin_data.get(key) != value:
@@ -833,7 +978,7 @@ def update_plugin_build_files(plugin_builds_dir: Path, overlays_dir: Path, repor
             log_error(f"Error processing {json_file}: {e}")
             error_count += 1
 
-    return updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count
+    return updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count, fallbacks
 
 
 def main():
@@ -909,7 +1054,7 @@ Examples:
         sys.exit(1)
 
     log_info("\n=== Update plugin_builds/*.json files with container metadata ===")
-    updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count = update_plugin_build_files(plugin_builds_dir, overlays_dir, report)
+    updated_count, error_count, missing_refs, overlays_metadata_changes, fallback_count, fallbacks = update_plugin_build_files(plugin_builds_dir, overlays_dir, report)
     total = updated_count + error_count + len(missing_refs)
 
     log_info("\n=== Results ===")
@@ -929,6 +1074,9 @@ Examples:
         print(" ")
 
     report.save()
+
+    if fallbacks:
+        print_fallback_rebuild_cta(fallbacks)
 
 if __name__ == "__main__":
     main()
