@@ -1,4 +1,5 @@
-import { gitlabClient, type GitLabProject } from "./gitlab-api-helper.js";
+import { gitlabClient } from "./gitlab-client.js";
+import type { GitLabProject } from "./gitlab-api-helper.js";
 
 /* eslint-disable @typescript-eslint/naming-convention --
    GitLab REST request bodies, query params, and headers follow API names (snake_case, PRIVATE-TOKEN). */

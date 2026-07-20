@@ -3,6 +3,7 @@ import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { Page } from "@playwright/test";
 
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
+import { GitLabScaffolderApi } from "../../support/api/gitlab-scaffolder-api.js";
 import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 import {
   bootstrapGitLabDiscoveryApiClient,
@@ -81,7 +82,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await uiHelper.dismissQuickstartIfVisible();
 
     if (testInfo.retry > 0) {
-      console.log(
+      console.info(
         `Attempt ${testInfo.retry + 1} failed, waiting for scaffolder page to be ready before retry...`,
       );
       await uiHelper.verifyHeading("Self-service");
@@ -108,13 +109,13 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
         }
       });
     } else if (state.projectId || state.subgroupId) {
-      console.warn(
+      console.info(
         "GitLab scaffolder cleanup skipped (set GITLAB_SCAFFOLDER_CLEANUP=true locally, or run in CI). Preserved resources:",
       );
-      console.warn(`  subgroupPath: ${state.subgroupPath}`);
-      console.warn(`  subgroupId: ${state.subgroupId}`);
-      console.warn(`  projectName: ${state.projectName}`);
-      console.warn(`  projectId: ${state.projectId}`);
+      console.info(`  subgroupPath: ${state.subgroupPath}`);
+      console.info(`  subgroupId: ${state.subgroupId}`);
+      console.info(`  projectName: ${state.projectName}`);
+      console.info(`  projectId: ${state.projectId}`);
     }
 
     deleteGitLabScaffolderSharedState(playwrightProjectName);
@@ -155,7 +156,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
             names.subgroupPath,
           );
           subgroupId = subgroup.id;
-          const project = await GitLabApiHelper.findProjectInGroup(
+          const project = await GitLabScaffolderApi.findProjectInGroup(
             subgroup.id,
             names.projectName,
           );
@@ -169,7 +170,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await expect
       .poll(
         async () =>
-          GitLabApiHelper.getRepositoryFile(projectId, "catalog-info.yaml"),
+          GitLabScaffolderApi.getRepositoryFile(projectId, "catalog-info.yaml"),
         { timeout: 30_000 },
       )
       .toBeDefined();
@@ -190,9 +191,9 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       project.path_with_namespace ??
       project.full_path ??
       `${names.subgroupPath}/${names.projectName}`;
-    console.warn("GitLab scaffolder publish complete — created resources:");
-    console.warn(`  subgroupPath: ${names.subgroupPath} (id=${subgroupId})`);
-    console.warn(`  projectPath: ${projectPath} (id=${projectId})`);
+    console.info("GitLab scaffolder publish complete — created resources:");
+    console.info(`  subgroupPath: ${names.subgroupPath} (id=${subgroupId})`);
+    console.info(`  projectPath: ${projectPath} (id=${projectId})`);
   });
 
   test("gitlab:issues:create and gitlab:issue:edit", async ({
@@ -225,7 +226,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await expect
       .poll(
         async () => {
-          const issues = await GitLabApiHelper.listProjectIssues(
+          const issues = await GitLabScaffolderApi.listProjectIssues(
             state.projectId,
             editedIssueTitle,
           );
@@ -260,7 +261,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await expect
       .poll(
         async () => {
-          const mergeRequests = await GitLabApiHelper.listMergeRequests(
+          const mergeRequests = await GitLabScaffolderApi.listMergeRequests(
             state.projectId,
             branchName,
           );
@@ -277,7 +278,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     test.setTimeout(180_000);
 
     const state = requireGitLabScaffolderSharedState(playwrightProjectName);
-    const currentUser = await GitLabApiHelper.getCurrentUser();
+    const currentUser = await GitLabScaffolderApi.getCurrentUser();
 
     await runScaffolderTemplate(
       page,
@@ -322,7 +323,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await expect
       .poll(
         async () => {
-          const variable = await GitLabApiHelper.getProjectVariable(
+          const variable = await GitLabScaffolderApi.getProjectVariable(
             state.projectId,
             variableKey,
           );
@@ -356,7 +357,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
     await expect
       .poll(
         async () => {
-          const file = await GitLabApiHelper.getRepositoryFile(
+          const file = await GitLabScaffolderApi.getRepositoryFile(
             state.projectId,
             pushedFilePath,
           );

@@ -5,6 +5,7 @@ import path from "node:path";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
+import { GitLabScaffolderApi } from "../api/gitlab-scaffolder-api.js";
 
 export const GITLAB_SCAFFOLDER_PARENT_GROUP = "rhdh-qe-test";
 
@@ -59,7 +60,7 @@ export function isGitLabScaffolderCleanupEnabled(): boolean {
  */
 export async function bootstrapGitLabScaffolderPreflight(): Promise<void> {
   bootstrapGitLabDiscoveryApiClient();
-  const currentUser = await GitLabApiHelper.getCurrentUser();
+  const currentUser = await GitLabScaffolderApi.getCurrentUser();
   console.log(
     `GitLab scaffolder preflight: authenticated as ${currentUser.username} (id=${currentUser.id})`,
   );

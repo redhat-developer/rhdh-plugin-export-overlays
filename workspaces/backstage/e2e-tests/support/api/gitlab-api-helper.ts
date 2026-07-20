@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { APIRequestContext, APIResponse, request } from "@playwright/test";
 
-import { GitLabScaffolderApi } from "./gitlab-scaffolder-api.js";
+import { bindGitLabClient } from "./gitlab-client.js";
 
 /* eslint-disable @typescript-eslint/naming-convention --
    GitLab REST request bodies, query params, and headers follow API names (snake_case, PRIVATE-TOKEN). */
@@ -56,6 +56,16 @@ export class GitLabApiHelper {
   static init(baseUrl: string, token: string) {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
     this.token = token;
+    bindGitLabClient({
+      request: (method, endpoint, body) =>
+        GitLabApiHelper.safeGitLabRequest(method, endpoint, body),
+      parseJson: <T>(response: APIResponse) =>
+        GitLabApiHelper.parseJson<T>(response),
+      assertJsonArray: <T>(value: unknown) =>
+        GitLabApiHelper.assertJsonArray<T>(value),
+      getGroupProjects: (groupId, prefix) =>
+        GitLabApiHelper.getGroupProjects(groupId, prefix),
+    });
   }
 
   private static async getContext(): Promise<APIRequestContext> {
@@ -151,22 +161,6 @@ export class GitLabApiHelper {
     }
     return value as T[];
   }
-
-  /** @internal — shared by gitlab-scaffolder-api.ts */
-  static readonly gitlabClient = {
-    request: (
-      method: string,
-      endpoint: string,
-      body?: string | object,
-    ): Promise<APIResponse> =>
-      GitLabApiHelper.safeGitLabRequest(method, endpoint, body),
-    parseJson: <T>(response: APIResponse): Promise<T> =>
-      GitLabApiHelper.parseJson<T>(response),
-    assertJsonArray: <T>(value: unknown): T[] =>
-      GitLabApiHelper.assertJsonArray<T>(value),
-    getGroupProjects: (groupId: number, prefix?: string) =>
-      GitLabApiHelper.getGroupProjects(groupId, prefix),
-  };
 
   /**
    * Create a new project in a group
@@ -878,19 +872,4 @@ export class GitLabApiHelper {
     );
     return this.parseJson<GitLabProject>(response);
   }
-
-  public static readonly findProjectInGroup =
-    GitLabScaffolderApi.findProjectInGroup;
-  public static readonly listProjectIssues =
-    GitLabScaffolderApi.listProjectIssues;
-  public static readonly listMergeRequests =
-    GitLabScaffolderApi.listMergeRequests;
-  public static readonly getCurrentUser = GitLabScaffolderApi.getCurrentUser;
-  public static readonly getProjectVariable =
-    GitLabScaffolderApi.getProjectVariable;
-  public static readonly getRepositoryFile =
-    GitLabScaffolderApi.getRepositoryFile;
 }
-
-/** @internal — shared by gitlab-scaffolder-api.ts */
-export const gitlabClient = GitLabApiHelper.gitlabClient;
