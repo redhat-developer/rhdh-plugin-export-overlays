@@ -22,6 +22,8 @@ catalog:
         schedule:
           frequency:
             hours: 24
+          initialDelay:
+            seconds: 15
           timeout:
             minutes: 10
 

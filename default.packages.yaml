@@ -29,7 +29,7 @@ packages:
     support: "generally-available"
   # - package: '@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions'
   #   support: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
+  - package: '@red-hat-developer-hub/backstage-plugin-homepage'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-global-header'
     support: "generally-available"
@@ -104,8 +104,8 @@ packages:
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend'
     support: "generally-available"
-  # - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
-  #   support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator'

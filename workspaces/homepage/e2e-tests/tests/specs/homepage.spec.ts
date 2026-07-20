@@ -13,8 +13,8 @@ import {
   setupKeycloakGroups,
 } from "../utils/dynamic-homepage";
 
-const DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES: string[] = [
-  "red-hat-developer-hub-backstage-plugin-dynamic-home-page",
+const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
+  "red-hat-developer-hub-backstage-plugin-homepage",
 ];
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
@@ -40,7 +40,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
       await rhdh.configure({
         auth: "keycloak",
-        disableWrappers: DYNAMIC_HOME_PAGE_WRAPPER_DIST_NAMES,
+        disableWrappers: HOMEPAGE_WRAPPER_DIST_NAMES,
       });
       await rhdh.deploy();
     });
