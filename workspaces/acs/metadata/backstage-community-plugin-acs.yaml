@@ -14,11 +14,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-acs"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acs:bs_1.49.4__0.2.0!backstage-community-plugin-acs
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acs:bs_1.52.0__0.2.0!backstage-community-plugin-acs
   version: 0.2.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Backstage Community
   support: community
   lifecycle: active
