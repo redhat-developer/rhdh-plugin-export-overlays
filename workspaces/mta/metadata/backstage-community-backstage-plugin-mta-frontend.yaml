@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/backstage-plugin-mta-frontend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-mta-frontend:bs_1.49.4__0.4.2!backstage-community-backstage-plugin-mta-frontend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-backstage-plugin-mta-frontend:bs_1.52.0__0.4.2!backstage-community-backstage-plugin-mta-frontend
   version: 0.4.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Backstage Community
   support: community
   lifecycle: active
