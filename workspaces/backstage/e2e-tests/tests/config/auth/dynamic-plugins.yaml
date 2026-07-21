@@ -2,7 +2,7 @@
 # are auto-loaded from metadata, and most require provider config (github, gitlab,
 # kubernetes, ldap, etc.) that this test doesn't supply, crashing RHDH on startup.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6!backstage-plugin-auth
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6
     disabled: false
     pluginConfig:
       dynamicPlugins:

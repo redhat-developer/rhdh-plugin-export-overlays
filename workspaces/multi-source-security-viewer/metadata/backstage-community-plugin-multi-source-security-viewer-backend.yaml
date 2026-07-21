@@ -14,7 +14,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-multi-source-security-viewer-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-multi-source-security-viewer-backend:bs_1.49.4__0.4.1!backstage-community-plugin-multi-source-security-viewer-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-multi-source-security-viewer-backend:bs_1.49.4__0.4.1
   version: 0.4.1
   backstage:
     role: backend-plugin
