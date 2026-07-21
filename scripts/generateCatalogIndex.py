@@ -681,18 +681,29 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                         i += 1
                         continue
 
-                    matched_oci = False
-
-                    for pname in [plugin_name, plugin_name_alternative,
-                                  plugin_name_with_dynamic, plugin_name_alternative_with_dynamic]:
-                        oci_pattern_old = rf'^  - package: oci://.*!{re.escape(pname)}\s*$'
-                        if re.match(oci_pattern_old, line):
-                            matched_oci = True
-                            break
+                    matched_oci = re.match(
+                        rf'^  - package: oci://{re.escape(registry_reference_for_oci)}\s*$',
+                        line,
+                    ) is not None
                     if not matched_oci:
-                        oci_pattern_new = rf'^  - package: oci://{re.escape(registry_reference_for_oci)}\s*$'
-                        if re.match(oci_pattern_new, line):
-                            matched_oci = True
+                        for pname in [
+                            plugin_name,
+                            plugin_name_alternative,
+                            plugin_name_with_dynamic,
+                            plugin_name_alternative_with_dynamic,
+                        ]:
+                            if re.match(
+                                rf'^  - package: oci://.*!{re.escape(pname)}\s*$',
+                                line,
+                            ):
+                                matched_oci = True
+                                break
+                            if re.match(
+                                rf'^  - package: oci://.*/{re.escape(pname)}(:|@)',
+                                line,
+                            ):
+                                matched_oci = True
+                                break
 
                     if matched_oci:
                         pop_trailing_tag_comments(new_lines)
