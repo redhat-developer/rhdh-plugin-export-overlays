@@ -190,6 +190,27 @@ while IFS= read -r PROD_IMAGE; do
       echo "  ⚠️  $UNFIXED_COUNT file(s) in $BUNDLE/ still use new Function(\"return this\") after the fix"
     fi
 
+    # Zip-bomb guard (RHDHBUGS-3470): Istanbul inflates large vendor chunks
+    # (lodash, d3, MUI, ...) far past RHDH's install-dynamic-plugins per-entry
+    # limit (MAX_ENTRY_SIZE), e.g. topology's 1.7 MB vendor chunk becomes
+    # 44.6 MB and the pod init fails with "Zip bomb detected". Vendor code is
+    # dropped from the coverage report anyway (remap-coverage.cjs skips
+    # node_modules), so restore the original file for any instrumented output
+    # exceeding the threshold — losing nothing the report would have kept.
+    MAX_INSTRUMENTED_ENTRY_SIZE="${MAX_INSTRUMENTED_ENTRY_SIZE:-15000000}"
+    while IFS= read -r -d '' BIG_FILE; do
+      REL="${BIG_FILE#"$WORK_DIR/inst-$BUNDLE/"}"
+      ORIG_FILE="$WORK_DIR/orig-$BUNDLE/$REL"
+      if [[ -f "$ORIG_FILE" ]]; then
+        INST_SIZE=$(stat -c%s "$BIG_FILE" 2>/dev/null || stat -f%z "$BIG_FILE")
+        ORIG_SIZE=$(stat -c%s "$ORIG_FILE" 2>/dev/null || stat -f%z "$ORIG_FILE")
+        cp "$ORIG_FILE" "$BIG_FILE"
+        echo "  ⚠️  $BUNDLE/$REL instrumented to ${INST_SIZE}B (> ${MAX_INSTRUMENTED_ENTRY_SIZE}B zip-bomb guard) — restored original (${ORIG_SIZE}B); no coverage for this chunk"
+      else
+        echo "  ❌ $BUNDLE/$REL exceeds the zip-bomb guard but its original was not found — leaving instrumented (may trip zip bomb detection)"
+      fi
+    done < <(find "$WORK_DIR/inst-$BUNDLE" -type f -name '*.js' -size +"${MAX_INSTRUMENTED_ENTRY_SIZE}c" -print0)
+
     BUNDLE_JS_COUNT=$(count_files_matching "__coverage__" "$WORK_DIR/inst-$BUNDLE")
     if [[ "$BUNDLE_JS_COUNT" -eq 0 ]]; then
       echo "  ❌ No __coverage__ found in instrumented $BUNDLE/ - skipping that bundle"
