@@ -827,10 +827,8 @@
     "red-hat-developer-hub-backstage-plugin-global-header": {
       "stages": {
         "bootstrap": {
-          "status": "outdated",
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.52.0__1.22.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -840,17 +838,18 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.52.0__1.22.0"
         },
         "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:1e837ae53443d677c8944e87f645fe94d2d52822da7ab88969a174bbb1acbe34"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.52.0__1.22.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-global-header",
-      "version": "1.21.6",
+      "version": "1.22.0",
       "workspace": "global-header",
-      "overall": "outdated"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-dynamic-home-page": {
       "stages": {
@@ -1540,7 +1539,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:53ba861bb2a3a2d6fa3657845d6505f9c0aceab0b6cf2fe6c7c9522b6c108e75"
+          "digest": "sha256:f02e6130fc78486797c6e8698c84b4f0d235c13aa131ef6c78f22ea708e86e2c"
         }
       },
       "package": "@backstage-community/plugin-topology",
@@ -1574,8 +1573,8 @@
   "summary": {
     "total": 59,
     "succeeded": 39,
-    "failed": 0,
-    "outdated": 20
+    "failed": 1,
+    "outdated": 19
   },
   "status": "partial"
 }
