@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-mcp-actions-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.52.0__0.1.14!backstage-plugin-mcp-actions-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.52.0__0.1.14
   version: 0.1.14
   backstage:
     role: backend-plugin
