@@ -296,11 +296,16 @@ test.describe("Admin > Extensions", () => {
         "Adoption Insights for Red Hat Developer Hub",
         "Generally available (GA)",
       );
-      await uiHelper.verifyHeading("Adoption Insights for Red Hat");
+      await uiHelper.verifyHeading(
+        "Adoption Insights for Red Hat Developer Hub",
+      );
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
       await expect(page.getByTestId("enable-plugin")).toBeVisible();
+      await expect(page.getByRole("alert")).toContainText(
+        "The Adoption Insights for Red Hat Developer Hub package requires a restart of the backend system to finish installing, updating, enabling or disabling.",
+      );
     });
   });
 
@@ -372,16 +377,7 @@ test.describe("Admin > Extensions", () => {
     test("TechDocs Add-ons Contrib package sidebar for CI", async ({
       page,
     }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("TechDocs Add-ons Contrib");
+      await extensions.searchExtensionsByName("TechDocs Add-ons Contrib");
       await expect(
         page.getByRole("cell", {
           name: "backstage-plugin-techdocs-module-addons-contrib",
@@ -432,19 +428,7 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Analytics provider segment");
-      await page
-        .getByRole("heading", { name: "Installed packages (1)" })
-        .waitFor({ state: "visible" });
+      await extensions.searchExtensionsByName("Analytics provider segment");
       await expect(
         page.getByRole("cell", { name: "Analytics Provider Segment" }),
       ).toBeVisible();
@@ -492,16 +476,7 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Analytics provider segment");
+      await extensions.searchExtensionsByName("Analytics provider segment");
       await expect(
         page.getByRole("cell", { name: "Analytics Provider Segment" }),
       ).toBeVisible();
@@ -537,16 +512,7 @@ test.describe("Admin > Extensions", () => {
     test("Plugin enable-disable toggle in action cell in the installed package row", async ({
       page,
     }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Dynamic Home Page");
+      await extensions.searchExtensionsByName("Dynamic Home Page");
       await expect(
         page.getByRole("cell", { name: "Dynamic Home Page" }),
       ).toBeVisible();
