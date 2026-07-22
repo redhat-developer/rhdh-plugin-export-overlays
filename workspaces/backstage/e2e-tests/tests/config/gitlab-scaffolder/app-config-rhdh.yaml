@@ -1,0 +1,53 @@
+app:
+  title: RHDH GitLab Scaffolder Actions e2e
+
+integrations:
+  github:
+    - host: github.com
+  gitlab:
+    - host: gitlab.com
+      token: ${GITLAB_TOKEN}
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Template, Location]
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-publish.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-issues-create-edit.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-create-merge-request.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-user-info.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-variable-create.yaml
+      rules:
+        - allow: [Template]
+    - type: url
+      target: https://github.com/janus-qe/overlay-scaffolder-backend-module-gitlab-test/blob/main/gitlab-repo-push.yaml
+      rules:
+        - allow: [Template]
+
+permission:
+  enabled: false
+
+backend:
+  reading:
+    allow:
+      - host: github.com
+
+scaffolder:
+  defaultAuthor:
+    name: Scaffolder E2E
+    email: scaffolder-e2e@example.com
