@@ -89,8 +89,8 @@ You can also create PRs manually. For adding a **new workspace**, your PR should
 To add a new workspace with plugins:
 
 1. Create a new workspace in the overlay repository.
-2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/plugins-list.yaml))
-3. Add a `source.json` file with the following fields ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/source.json)):
+2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](./workspaces/adoption-insights/plugins-list.yaml))
+3. Add a `source.json` file with the following fields ([See example](./workspaces/adoption-insights/source.json)):
    - `repo`: URL of the source repository (only `https://github.com/xxx` URLs are supported for now)
    - `repo-ref`: Specific tag or commit for the target plugin/workspace version
    - `repo-flat`:
@@ -103,13 +103,13 @@ To add a new workspace with plugins:
 Sometimes, additional configuration is required in the PR:
 
 - **Frontend plugins** may need:
-   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/release-1.5/workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
-   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
+   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](./workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
+   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
 
 - **Any plugin** may need:
    - Overlay source files in an `overlay` directory
-  (e.g., [`api-docs-module-protoc-gen-doc`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
-  - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/150c9d98830039315df6b4f23bf9f85b1cf5ae55/workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
+  (e.g., [`api-docs-module-protoc-gen-doc`](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
+  - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](./workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
 
 > **Overlay vs. Patch**
 > - **Overlay**: Replaces or adds entire files during the packaging process.
@@ -143,7 +143,7 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from any runnable plugin metadata it finds (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). Published plugins without runnable metadata are skipped; if none are runnable, smoke tests are skipped.
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from any runnable plugin metadata it finds (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). Published plugins without runnable metadata are skipped; if none are runnable, smoke tests are skipped. Each generated `package` line uses `oci://…/image:<tag>` only (no `!package-id` suffix). If a published export tag still includes a legacy `!<plugin reference>` suffix matching the normalized `spec.packageName` (scope stripped, `/` → `-`), the workflow removes that suffix before writing the file.
 3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin included in the generated config loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
