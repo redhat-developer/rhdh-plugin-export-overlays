@@ -1,6 +1,20 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
     enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-kubernetes:
+            mountPoints:
+              - mountPoint: entity.page.kubernetes/cards
+                importName: EntityKubernetesContent
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                  if:
+                    anyOf:
+                      - hasAnnotation: backstage.io/kubernetes-id
+                      - hasAnnotation: backstage.io/kubernetes-namespace
   - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
     enabled: true
   - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
