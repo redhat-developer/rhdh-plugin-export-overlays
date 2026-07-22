@@ -5,8 +5,8 @@ import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
   prepareGitLabEventsParentGroup,
-  runGitLabEventsCleanupSafely,
-} from "../../support/gitlab-events-test-setup.js";
+} from "../../support/gitlab/events-test-setup.js";
+import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
   let testPrefix: string;
@@ -47,7 +47,7 @@ test.describe.serial("GitLab Events - Discovery", () => {
   });
 
   test.afterAll(async () => {
-    await runGitLabEventsCleanupSafely(async () => {
+    await runGitLabCleanupSafely(async () => {
       if (projectWebhookId && testProjectId) {
         await GitLabApiHelper.deleteProjectWebhook(
           testProjectId,
