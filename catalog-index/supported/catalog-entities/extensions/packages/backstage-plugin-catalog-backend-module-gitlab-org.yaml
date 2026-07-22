@@ -17,7 +17,8 @@ metadata:
     - software-catalog
 spec:
   packageName: "@backstage/plugin-catalog-backend-module-gitlab-org"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.52.0__0.2.22
+  # Tag: bs_1.52.0__0.2.22, Build date: 2026-05-21T21:07:19Z
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:950ea4a7cdec5293c5ec48b9ff710674889323ea586bbaec6a183b2ae09c3f7f"
   version: 0.2.22
   backstage:
     role: backend-plugin-module
