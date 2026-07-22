@@ -6,31 +6,47 @@ As a plugin owner, you are responsible for maintaining the health and compatibil
 
 ## Ownership Model
 
+### Two ways a plugin can appear in this repository
+
+Not every plugin is built and exported through overlays. Ownership responsibilities depend on which model applies:
+
+| Model | What lives in overlays | OCI build / publish | Typical when |
+|-------|------------------------|---------------------|--------------|
+| **A. Source + overlay build** | `workspaces/<name>/` (`source.json`, `plugins-list.yaml`, `metadata/*.yaml`, optional patches) **and** a Plugin entity under `catalog-entities/extensions/plugins/` (usually with `packages:` / OCI refs) | Built and published by overlay CI / midstream export | Source is on a **public** GitHub repo that CI can clone (`https://github.com/...` only today) |
+| **B. Catalog metadata only** | Plugin entity YAML under `catalog-entities/extensions/plugins/` only — **no** `workspaces/` export config | Built and published **outside** this repository (owner’s own pipeline / registry) | Source or build stays outside overlays (including private source trees); overlays only need marketplace/catalog listing metadata |
+
+> **Important:** Overlay export does **not** clone private source repositories. If the plugin cannot be built from a public GitHub URL via `source.json`, use **Model B** and keep OCI production in your own pipeline. Maintain the catalog Plugin YAML here so the plugin can still appear in the plugin catalog index.
+
+Model A is the default path described in the rest of this guide (metadata sync, version bumps, patches, `/publish`, `/smoketest`). Model B owners skip workspace/export maintenance and focus on catalog YAML accuracy (title, description, support level, links, configuration guidance).
+
 ### Who is a Plugin Owner?
 
 You are a plugin owner if you:
 
-1. **Maintain** the source plugin in upstream repositories (backstage/backstage, backstage/community-plugins, rhdh-plugins, etc.)
-2. **Created** or **modified** the overlay configuration for your plugin
+1. **Maintain** the plugin source (in a public GitHub repo such as backstage/backstage, backstage/community-plugins, redhat-developer/rhdh-plugins, or another public plugin repo) **and/or** maintain its catalog Plugin YAML in this repository
+2. **Created** or **modified** the overlay workspace configuration **or** the catalog-only Plugin entity for your plugin
 3. Are **assigned** as maintainer by your organization
 
 ### Responsibilities Overview
 
-| Area | Frequency | Criticality |
-|------|-----------|-------------|
-| Metadata synchronization | Every release | 🔴 High |
-| Backstage version updates | When compatibility signals appear | 🔴 High |
-| Patch maintenance | As needed | 🟡 Medium |
-| Test validation | Every PR | 🔴 High |
-| Deprecation communication | As needed | 🟡 Medium |
+| Area | Applies to | Frequency | Criticality |
+|------|------------|-----------|-------------|
+| Metadata synchronization (source ↔ workspace) | Model A | Every release | 🔴 High |
+| Catalog Plugin YAML accuracy | Model A and B | When listing/docs/support info changes | 🔴 High |
+| Backstage version updates | Model A (Model B: keep external build compatible) | When compatibility signals appear | 🔴 High |
+| Patch maintenance | Model A | As needed | 🟡 Medium |
+| Test validation (`/publish`, `/smoketest`) | Model A | Every PR | 🔴 High |
+| Deprecation communication | Model A and B | As needed | 🟡 Medium |
 
 ---
 
 ## Core Responsibilities
 
+> The subsections below focus on **Model A** (source + overlay build). For **Model B**, keep the Plugin YAML under `catalog-entities/extensions/plugins/` accurate and up to date; do not add a `workspaces/` entry unless you are moving the plugin onto the overlay export path with a public cloneable source.
+
 ### 1. Keep Metadata Synchronized
 
-Your plugin exists in **two places** that must stay in sync:
+For **Model A**, your plugin exists in **two places** that must stay in sync:
 
 | Location | Files | Owner Updates |
 |----------|-------|---------------|
@@ -123,6 +139,8 @@ Notify downstream users when:
 
 ## Maintenance Checklist
 
+### Model A (source + overlay build)
+
 Use this checklist when updating your plugin (triggered by a compatibility signal, a new upstream release, or a platform version bump):
 
 ```markdown
@@ -138,6 +156,7 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Verified `spec.packageName` matches source `package.json:name`
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
 - [ ] Updated metadata links (source, issues, docs) if needed
+- [ ] Updated catalog Plugin YAML under `catalog-entities/extensions/plugins/` if listing text changed
 
 ### Patch Check
 - [ ] Verified all patches apply cleanly to current source
@@ -149,6 +168,17 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] `/publish` completed successfully
 - [ ] `/smoketest` passed or manual testing completed
 - [ ] PR merged
+```
+
+### Model B (catalog metadata only)
+
+```markdown
+## Catalog-only Plugin Maintenance - [Plugin Name] - [Date]
+
+- [ ] Confirmed OCI images are still built and published by the external pipeline
+- [ ] Updated `catalog-entities/extensions/plugins/<plugin>.yaml` (title, description, support level, links, tags)
+- [ ] Reviewed configuration / install guidance in the Plugin YAML against current external docs
+- [ ] Opened PR against this repository; no `workspaces/` changes required
 ```
 
 ---
@@ -165,6 +195,8 @@ spec:
   # Add deprecation notice
 ```
 
+Apply this on workspace Package metadata (**Model A**) and/or the catalog Plugin entity under `catalog-entities/extensions/plugins/` (**Model A and B**).
+
 ### 2. Communicate to Users
 
 - Open an issue documenting the deprecation
@@ -173,12 +205,13 @@ spec:
 
 ### 3. Remove After Grace Period
 
-When the grace period ends, remove the workspace entirely:
+When the grace period ends:
 
-- Delete the workspace folder (including `source.json`, `plugins-list.yaml`, metadata files, and any patches)
+- **Model A:** Delete the workspace folder entirely (including `source.json`, `plugins-list.yaml`, metadata files, and any patches), and remove or update the related catalog Plugin YAML
+- **Model B:** Remove or update the catalog Plugin YAML under `catalog-entities/extensions/plugins/`
 - Document removal in release notes
 
-> **Important:** Simply commenting out entries in `plugins-list.yaml` or removing metadata files while keeping the workspace folder is not sufficient. If the workspace folder and `source.json` remain, automatic discovery will detect the plugin again and propose re-adding it. To permanently remove a plugin, delete the entire workspace directory.
+> **Important (Model A):** Simply commenting out entries in `plugins-list.yaml` or removing metadata files while keeping the workspace folder is not sufficient. If the workspace folder and `source.json` remain, automatic discovery will detect the plugin again and propose re-adding it. To permanently remove a plugin, delete the entire workspace directory.
 
 ---
 
