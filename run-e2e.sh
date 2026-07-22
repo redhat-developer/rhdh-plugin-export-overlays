@@ -65,12 +65,11 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Coverage collection (Istanbul) — enabled by default
 #
-# For PR checks: Works now. The auto-publish-pr.yaml workflow builds -coverage
-# images (plugin:tag__coverage) that e2e-test-utils will load when available.
-#
-# For nightly/local: Depends on e2e-test-utils automatic image swap logic
-# (PR #95, merged 2026-06-04). Until that lands, coverage collection will be
-# skipped silently (no -coverage images exist).
+# PR checks: auto-publish-pr.yaml builds __coverage images
+# (plugin:tag__coverage) that e2e-test-utils automatically swaps in for
+# frontend plugins. Zip bomb detection (RHDHBUGS-3470) is handled at
+# image-build time: instrument-plugin.sh restores the original file for any
+# chunk whose instrumented output would exceed RHDH's per-entry size limit.
 #
 # To disable (faster local dev): E2E_COLLECT_COVERAGE=false
 export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-true}"
@@ -310,10 +309,18 @@ echo ""
 TEST_EXIT_CODE=0
 npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
 
-# ── Merge coverage data ──────────────────────────────────────────────────
+# ── Coverage artifacts ───────────────────────────────────────────────────
+# The instrumented plugins emit per-test coverage JSONs (written by the
+# e2e-test-utils fixture) under node_modules/.cache/e2e-test-results/coverage,
+# which Prow publishes as run artifacts. They are deliberately NOT uploaded to
+# Codecov here: refresh-coverage-snapshot.yaml regenerates each workspace's
+# committed snapshot from those artifacts on a passing PR run, and the seed
+# (seed-coverage-main.yaml) re-attributes it to the main commit. Keeping the
+# upload out of the per-PR run means Codecov only ever reflects main, with no
+# orphan flags on PR-head commits. See the E2E coverage section in README.md.
 if [[ "${E2E_COLLECT_COVERAGE:-}" == "true" ]]; then
     if [[ -d "node_modules/.cache/e2e-test-results/coverage" ]]; then
-        "$SCRIPT_DIR/scripts/report-coverage.sh" "${E2E_WORKSPACES[@]}"
+        echo "[INFO] Coverage JSONs collected as run artifacts — the snapshot refresh workflow consumes the Prow run's copy (not this local/nightly output), so nothing is uploaded here."
     else
         echo "[INFO] Coverage collection enabled but no coverage data found."
         echo "[INFO] Ensure plugins are loaded from instrumented (-coverage) images."

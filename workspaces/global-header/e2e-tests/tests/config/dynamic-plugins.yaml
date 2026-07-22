@@ -1,6 +1,13 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
     disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-notifications:
+            dynamicRoutes:
+              - importName: NotificationsPage
+                path: /notifications
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
     disabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
