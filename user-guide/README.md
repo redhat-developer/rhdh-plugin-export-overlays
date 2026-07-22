@@ -24,12 +24,12 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 |------|---------|
 | `versions.json` | Target Backstage version, Node version, CLI version |
 | `plugins-regexps` | Auto-discovery scope patterns |
-| `workspaces/[name]/source.json` | Source repo URL, ref, and Backstage version |
+| `workspaces/[name]/source.json` | Source repo URL, ref, and Backstage version (Model A: overlay build) |
 | `workspaces/[name]/plugins-list.yaml` | Plugin paths and export arguments |
 | `workspaces/[name]/metadata/*.yaml` | Package entity definitions |
 | `workspaces/[name]/patches/*.patch` | Unified diff patches |
 | `workspaces/[name]/plugins/[plugin]/` | Plugin-specific overlays |
-| `catalog-entities/extensions/plugins/*.yaml` | Plugin entities for Extensions catalog (required only if PM approved) |
+| `catalog-entities/extensions/plugins/*.yaml` | Plugin catalog listing entities (Model A and Model B / catalog-only; PM approval required for curated catalog tiers) |
 | `catalog-entities/extensions/collections/*.yaml` | Collection groupings (required only if PM approved) |
 | `rhdh-community-packages.txt` / `rhdh-supported-packages.txt` | Curated Optional Extras / Supported Plugins catalog tier lists (required only if PM approved; support level is in metadata YAML) |
 | `default.packages.yaml` | GA packages under `enabled:` / `disabled:` (required only if PM approved; GA only) |
@@ -38,7 +38,8 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 
 | Task | Start Here |
 |------|-----------|
-| Add a new plugin | [01 - Getting Started](./01-getting-started.md#adding-a-new-plugin) |
+| Add a new plugin (overlay export) | [01 - Getting Started](./01-getting-started.md#adding-a-new-plugin) |
+| Catalog-only plugin (external OCI build) | [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository) |
 | Update plugin version | [05 - Version Updates](./05-version-updates.md) |
 | Fix build failure | [02 - Export Tools](./02-export-tools.md#troubleshooting) |
 | Sync metadata | [04 - Metadata Synchronization](./04-metadata-synchronization.md) |
