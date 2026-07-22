@@ -28,13 +28,15 @@ test.describe("GitHub Integration Org", () => {
     await new Promise((resolve) => setTimeout(resolve, 60_000));
   });
 
-  test.beforeEach(async ({ loginHelper }, testInfo) => {
+  test.beforeEach(async ({ loginHelper, uiHelper }, testInfo) => {
     if (testInfo.retry > 0) {
       // Progressively increase timeout for retries.
       test.setTimeout(testInfo.timeout + testInfo.timeout * 0.25);
     }
 
     await loginHelper.loginAsGuest();
+    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
+    await uiHelper.dismissQuickstartIfVisible();
   });
 
   // eslint-disable-next-line playwright/expect-expect

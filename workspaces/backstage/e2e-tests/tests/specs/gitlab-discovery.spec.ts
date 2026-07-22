@@ -17,6 +17,8 @@ test.describe("gitlab discovery UI tests", () => {
 
   test.beforeEach(async ({ loginHelper, uiHelper }) => {
     await loginHelper.loginAsGuest();
+    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
+    await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
   });
 
@@ -24,8 +26,6 @@ test.describe("gitlab discovery UI tests", () => {
     page,
     uiHelper,
   }) => {
-    await uiHelper.dismissQuickstartIfVisible();
-
     await page
       .getByRole("textbox", { name: "Search" })
       .waitFor({ state: "visible" });
