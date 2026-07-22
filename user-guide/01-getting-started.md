@@ -51,11 +51,12 @@ rhdh-plugin-export-overlays/
 ├── catalog-entities/          # Catalog Plugin / Collection entities
 │   └── extensions/
 │       ├── plugins/           # Marketplace/catalog Plugin YAML (all models)
-│       ├── packages/          # Generated/copied Package entities in index output
 │       └── collections/
 └── .github/workflows/         # CI/CD automation
 ```
 
+> Package entities live in `workspaces/*/metadata/`, not under `catalog-entities/`. A `packages/` directory appears only in **catalog-index pipeline output** (see [07 - Plugin Catalog Index](./07-plugin-catalog-index.md)).
+>
 > Some plugins only contribute a Plugin YAML under `catalog-entities/extensions/plugins/` and are **not** exported via `workspaces/` (OCI is built externally). See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
 ---
