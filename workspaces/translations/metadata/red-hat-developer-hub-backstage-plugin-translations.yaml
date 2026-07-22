@@ -14,7 +14,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-translations"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations:bs_1.52.0__0.4.0!red-hat-developer-hub-backstage-plugin-translations
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-translations:bs_1.52.0__0.4.0
   version: 0.4.0
   backstage:
     role: frontend-plugin
@@ -29,9 +29,14 @@ spec:
           frontend:
             red-hat-developer-hub.backstage-plugin-translations:
               translationResources:
-                - module: alpha
-                  importName: translationsPluginTranslations
+                - importName: translationsPluginTranslations
+                  module: Alpha
                   ref: translationsPluginTranslationRef
               dynamicRoutes:
                 - path: /translations
                   importName: TranslationsPage
+                  module: Legacy
+              mountPoints:
+                - mountPoint: application/provider
+                  importName: PseudoLocalizationProvider
+                  module: Legacy
