@@ -681,27 +681,20 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                         i += 1
                         continue
 
-                    matched_oci = re.match(
-                        rf'^  - package: oci://{re.escape(registry_reference_for_oci)}\s*$',
-                        line,
-                    ) is not None
+                    # Exact resolved-reference match is tried first, since it's the
+                    # cheapest and most specific check.
+                    oci_pattern_new = rf'^  - package: oci://{re.escape(registry_reference_for_oci)}\s*$'
+                    matched_oci = re.match(oci_pattern_new, line) is not None
                     if not matched_oci:
-                        for pname in [
-                            plugin_name,
-                            plugin_name_alternative,
-                            plugin_name_with_dynamic,
-                            plugin_name_alternative_with_dynamic,
-                        ]:
-                            if re.match(
-                                rf'^  - package: oci://.*!{re.escape(pname)}\s*$',
-                                line,
-                            ):
+                        for pname in [plugin_name, plugin_name_alternative,
+                                      plugin_name_with_dynamic, plugin_name_alternative_with_dynamic]:
+                            # Legacy !pname fragment, kept for backward compatibility.
+                            if re.match(rf'^  - package: oci://.*!{re.escape(pname)}\s*$', line):
                                 matched_oci = True
                                 break
-                            if re.match(
-                                rf'^  - package: oci://.*/{re.escape(pname)}(:|@)',
-                                line,
-                            ):
+                            # General fallback: matches the image path segment right
+                            # before ":" or "@", for any registry (not just ghcr.io).
+                            if re.match(rf'^  - package: oci://.*/{re.escape(pname)}(:|@)', line):
                                 matched_oci = True
                                 break
 
