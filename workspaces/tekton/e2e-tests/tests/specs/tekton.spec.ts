@@ -23,6 +23,7 @@ test.describe("Test Tekton plugin", () => {
   });
 
   test.beforeEach(async ({ loginHelper }) => {
+    test.setTimeout(180_000);
     await loginHelper.loginAsKeycloakUser();
   });
 

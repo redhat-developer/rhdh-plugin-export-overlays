@@ -14,7 +14,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-search-backend-module-announcements"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-announcements:bs_1.52.0__0.19.0!backstage-community-plugin-search-backend-module-announcements
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-search-backend-module-announcements:bs_1.52.0__0.19.0
   version: 0.19.0
   backstage:
     role: backend-plugin

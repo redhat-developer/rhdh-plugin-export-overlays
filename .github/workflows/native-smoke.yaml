@@ -47,7 +47,7 @@ permissions:
 env:
   # Single source of truth for the plugin validated on pull_request and when the
   # dispatch input is left empty.
-  DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0!roadiehq-scaffolder-backend-module-http-request"
+  DEFAULT_PLUGIN_REF: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request:bs_1.49.4__5.6.0"
   # Known-good FRONTEND workspace for the second run: acs has a dual-system frontend
   # bundle AND a smoke-tests/test.env, so one --workspace run covers workspace
   # resolution, test-config auto-discovery, and frontend bundle validation.

@@ -1,12 +1,19 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
-    enabled: true
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-notifications:
+            dynamicRoutes:
+              - importName: NotificationsPage
+                path: /notifications
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
-    enabled: true
+    disabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
-    enabled: true
+    disabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-signals
-    enabled: true
+    disabled: false
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header
     pluginConfig:
       app:
