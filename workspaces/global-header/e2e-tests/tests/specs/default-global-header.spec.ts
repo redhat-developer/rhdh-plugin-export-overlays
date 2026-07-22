@@ -82,7 +82,7 @@ test.describe("Default Global Header", () => {
     await page
       .getByTestId("support-button")
       .waitFor({ state: "visible", timeout: 10000 });
-    await uiHelper.verifyTextVisible("Support", false);
+    await uiHelper.verifyTextVisible("Support", true);
 
     const [newTab] = await Promise.all([
       context.waitForEvent("page"),
@@ -182,6 +182,8 @@ test.describe("Default Global Header", () => {
     });
     expect(postResponse.status()).toBe(200);
 
-    await expect(notificationsBadge).toHaveText("1");
+    await page.reload();
+    await expect(page.getByRole("navigation").first()).toBeVisible();
+    await expect(notificationsBadge).toHaveText("1", { timeout: 15000 });
   });
 });

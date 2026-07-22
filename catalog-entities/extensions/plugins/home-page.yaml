@@ -85,7 +85,7 @@ spec:
               frontend:
                 red-hat-developer-hub.backstage-plugin-homepage: {}
         # Backend plugin
-        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.2.1!red-hat-developer-hub-backstage-plugin-homepage-backend
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.2.1
           enabled: true
           pluginConfig:
             homepage:
@@ -103,4 +103,3 @@ spec:
                   props:
                     title: Template section
       ```
-
