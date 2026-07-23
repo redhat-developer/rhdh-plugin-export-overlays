@@ -1,0 +1,21 @@
+{
+  "name": "kuadrant.kuadrant-backstage-plugin-frontend",
+  "exposedModules": {
+    "PluginRoot": "./src/index.ts",
+    "KuadrantPage": "./src/plugin.ts",
+    "ApiProductsPage": "./src/plugin.ts",
+    "MyApiKeysPage": "./src/plugin.ts",
+    "ApiKeyApprovalPage": "./src/plugin.ts",
+    "ApiProductDetailPage": "./src/plugin.ts",
+    "ApiKeyDetailPage": "./src/plugin.ts",
+    "EntityKuadrantApiAccessCard": "./src/plugin.ts",
+    "EntityKuadrantApiKeyManagementTab": "./src/plugin.ts",
+    "EntityKuadrantApiKeysContent": "./src/plugin.ts",
+    "EntityKuadrantApiProductInfoContent": "./src/plugin.ts",
+    "KuadrantIcon": "./src/components/KuadrantIcon",
+    "ApiIcon": "./src/components/icons",
+    "KeyIcon": "./src/components/icons",
+    "ApprovalIcon": "./src/components/icons",
+    "kuadrantApiFactory": "./src/apis"
+  }
+}

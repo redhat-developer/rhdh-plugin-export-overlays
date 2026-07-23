@@ -1,0 +1,70 @@
+dynamicPlugins:
+  frontend:
+    kuadrant.kuadrant-backstage-plugin-frontend:
+      apiFactories:
+        - importName: kuadrantApiFactory
+      appIcons:
+        - name: kuadrantIcon
+          importName: KuadrantIcon
+        - name: apiIcon
+          importName: ApiIcon
+        - name: keyIcon
+          importName: KeyIcon
+        - name: approvalIcon
+          importName: ApprovalIcon
+      menuItems:
+        kuadrant.api-products:
+          parent: kuadrant
+        kuadrant.my-api-keys:
+          parent: kuadrant
+        kuadrant.api-key-approval:
+          parent: kuadrant
+      dynamicRoutes:
+        - path: /kuadrant
+          importName: KuadrantPage
+          menuItem:
+            icon: kuadrantIcon
+            text: Kuadrant
+        - path: /kuadrant/api-products
+          importName: ApiProductsPage
+          menuItem:
+            icon: apiIcon
+            text: API Products
+        - path: /kuadrant/my-api-keys
+          importName: MyApiKeysPage
+          menuItem:
+            icon: keyIcon
+            text: My API Keys
+        - path: /kuadrant/api-key-approval
+          importName: ApiKeyApprovalPage
+          menuItem:
+            icon: approvalIcon
+            text: API Key Approval
+        - path: /kuadrant/api-products/:namespace/:name
+          importName: ApiProductDetailPage
+        - path: /kuadrant/api-keys/:namespace/:name
+          importName: ApiKeyDetailPage
+      entityTabs:
+        - mountPoint: entity.page.api-keys
+          path: /api-keys
+          title: API Keys
+        - mountPoint: entity.page.api-product-info
+          path: /api-product-info
+          title: API Product Info
+      mountPoints:
+        - mountPoint: entity.page.api-keys/cards
+          importName: EntityKuadrantApiKeyManagementTab
+          config:
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isKind: api
+        - mountPoint: entity.page.api-product-info/cards
+          importName: EntityKuadrantApiProductInfoContent
+          config:
+            layout:
+              gridColumn: "1 / -1"
+            if:
+              allOf:
+                - isKind: api
