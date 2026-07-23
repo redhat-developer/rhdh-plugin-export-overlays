@@ -5,6 +5,7 @@ import json
 import pytest
 
 from bootstrapPluginBuilds import (
+    construct_registry_reference,
     get_outdated_workspaces,
     versions_match_minor,
 )
@@ -125,3 +126,32 @@ class TestGetOutdatedWorkspaces:
         result = get_outdated_workspaces([ws_dir], "1.49.4")
         assert "broken" in result
         assert result["broken"]["found"] == "missing"
+
+
+# ---------------------------------------------------------------------------
+# construct_registry_reference
+# ---------------------------------------------------------------------------
+
+class TestConstructRegistryReference:
+    def test_ghcr_uses_given_backstage_version_in_tag(self):
+        ref = construct_registry_reference(
+            "ghcr.io/redhat-developer/rhdh-plugin-export-overlays",
+            "backstage-community-plugin-foo",
+            "2.0.0",
+            "1.45.3",
+            "",
+            "",
+        )
+        assert ref.endswith(":bs_1.45.3__2.0.0")
+        assert "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-foo" in ref
+
+    def test_quay_uses_rhdh_version_not_backstage(self):
+        ref = construct_registry_reference(
+            "quay.io/rhdh",
+            "red-hat-developer-hub-backstage-plugin-bar",
+            "1.5.4",
+            "1.52.0",
+            "1.11",
+            "",
+        )
+        assert ref.endswith(":1.11--1.5.4")
