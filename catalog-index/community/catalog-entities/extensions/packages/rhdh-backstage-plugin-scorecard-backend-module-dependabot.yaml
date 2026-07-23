@@ -17,7 +17,8 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.49.4__0.2.12!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot
+  # Tag: bs_1.49.4__0.2.12
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot@sha256:77071d6435953cc990d6ad002e217ae11ec653f6532a2b15e496390972decc43"
   version: 0.2.12
   backstage:
     role: backend-plugin-module
