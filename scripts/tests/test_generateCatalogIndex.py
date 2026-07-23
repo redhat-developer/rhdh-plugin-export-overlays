@@ -1,6 +1,7 @@
 """Tests for pure-logic functions in generateCatalogIndex.py."""
 
 import pytest
+import yaml
 
 from generateCatalogIndex import (
     build_digest_comment_map,
@@ -11,6 +12,7 @@ from generateCatalogIndex import (
     parse_image_reference,
     peek_digest_after,
     pop_trailing_tag_comments,
+    regenerate_all_yaml_files,
     tag_comment_for_plugin,
     trailing_tag_comment_matches,
 )
@@ -324,3 +326,42 @@ spec:
         missing = tmp_path / "nonexistent-plugin.yaml"
         result = get_image_name_from_package_yaml(missing)
         assert result == "nonexistent-plugin"
+
+
+# ---------------------------------------------------------------------------
+# regenerate_all_yaml_files
+# ---------------------------------------------------------------------------
+class TestRegenerateAllYamlFiles:
+    def test_regenerates_plugins_all_yaml_from_directory(self, tmp_path):
+        plugins_dir = tmp_path / "catalog-entities" / "extensions" / "plugins"
+        plugins_dir.mkdir(parents=True)
+
+        (plugins_dir / "alpha.yaml").write_text("kind: Plugin\n")
+        (plugins_dir / "beta.yaml").write_text("kind: Plugin\n")
+        (plugins_dir / "all.yaml").write_text(
+            "spec:\n  targets:\n    - ./stale.yaml\n",
+            encoding="utf-8",
+        )
+
+        regenerate_all_yaml_files(tmp_path)
+
+        with open(plugins_dir / "all.yaml", encoding="utf-8") as f:
+            all_yaml = yaml.safe_load(f)
+
+        assert all_yaml["apiVersion"] == "backstage.io/v1alpha1"
+        assert all_yaml["kind"] == "Location"
+        assert all_yaml["metadata"]["namespace"] == "rhdh"
+        assert all_yaml["metadata"]["name"] == "plugins"
+        assert all_yaml["spec"]["targets"] == ["./alpha.yaml", "./beta.yaml"]
+
+    def test_skips_missing_packages_directory(self, tmp_path):
+        plugins_dir = tmp_path / "catalog-entities" / "extensions" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "only.yaml").write_text("kind: Plugin\n")
+
+        regenerate_all_yaml_files(tmp_path)
+
+        with open(plugins_dir / "all.yaml", encoding="utf-8") as f:
+            all_yaml = yaml.safe_load(f)
+
+        assert all_yaml["spec"]["targets"] == ["./only.yaml"]

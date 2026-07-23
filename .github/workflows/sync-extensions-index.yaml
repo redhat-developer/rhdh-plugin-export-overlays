@@ -1,0 +1,66 @@
+name: Sync extensions catalog index
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-**'
+    paths:
+      # Exclude all.yaml so bot sync commits do not re-trigger this workflow.
+      # GITHUB_TOKEN pushes also do not start new workflow runs, but this
+      # keeps the intent explicit and covers PAT-based pushes.
+      - 'catalog-entities/extensions/**'
+      - '!catalog-entities/extensions/**/all.yaml'
+      - 'scripts/generateCatalogIndex.py'
+      - 'scripts/updateExtensionsIndex.py'
+      - '.github/workflows/sync-extensions-index.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-extensions-index-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      !startsWith(github.event.head_commit.message, 'chore: sync catalog-entities/extensions/plugins/all.yaml')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Regenerate plugins/all.yaml
+        run: python scripts/updateExtensionsIndex.py --overlays-dir .
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- catalog-entities/extensions; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push regenerated index
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog-entities/extensions/
+          git commit -m "chore: sync catalog-entities/extensions/plugins/all.yaml [skip ci]"
+          git push origin "HEAD:${REF_NAME}"
