@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -431,10 +431,8 @@ function formatCmd(cmd: string[], cwd?: string): string {
   return `> ${cmd.join(' ')}${cwdSuffix}`;
 }
 
-type SpawnStdio = 'inherit' | readonly ['pipe', 'pipe', 'pipe'] | readonly ['pipe', 'inherit', 'inherit'];
-
 /** `input` requires piped stdin; inherit would silently drop it. */
-function spawnStdio(quiet: boolean, hasInput: boolean): SpawnStdio {
+function spawnStdio(quiet: boolean, hasInput: boolean): SpawnSyncOptions['stdio'] {
   if (quiet) return ['pipe', 'pipe', 'pipe'];
   if (hasInput) return ['pipe', 'inherit', 'inherit'];
   return 'inherit';

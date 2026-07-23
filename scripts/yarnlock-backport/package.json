@@ -4,13 +4,19 @@
   "private": true,
   "description": "Generate yarn.lock CVE backport patches for RHDH plugin export overlays",
   "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "bin": {
     "yarnlock-backport": "index.ts"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --experimental-strip-types --test backport.test.ts"
   },
   "dependencies": {
     "yaml": "2.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
   }
 }
