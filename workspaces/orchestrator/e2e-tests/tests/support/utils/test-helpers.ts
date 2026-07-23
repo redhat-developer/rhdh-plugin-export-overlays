@@ -21,6 +21,7 @@ export {
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
 export {
+  ensureE2eHttpbin,
   patchHttpbin,
   restartAndWait,
   cleanupAfterTest,
