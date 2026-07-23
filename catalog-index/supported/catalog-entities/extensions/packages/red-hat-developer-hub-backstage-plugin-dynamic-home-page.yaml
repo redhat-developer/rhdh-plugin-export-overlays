@@ -16,7 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  # Tag: bs_1.49.4__1.13.1, Build date: 2026-06-03T21:07:07Z
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page@sha256:4c8eed91d429b39189f54edaede99f6673cf753aab4925f6b958b1520d450517
   version: 1.13.1
   backstage:
     role: frontend-plugin
@@ -38,7 +39,6 @@ spec:
               mountPoints:
                 - mountPoint: application/listener
                   importName: VisitListener
-
                 # the default cards
                 - mountPoint: home.page/cards
                   importName: OnboardingSection
@@ -148,7 +148,6 @@ spec:
                   config:
                     id: joke-card
                     title: Random joke
-
               translationResources:
                 - importName: homepageTranslations
                   ref: homepageTranslationRef

@@ -36,7 +36,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "found_version": "1.49.2",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend:bs_1.49.4__1.4.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -64,7 +65,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "found_version": "1.49.2",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.49.4__2.8.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -378,7 +380,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab-backend:bs_1.49.4__7.0.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -389,6 +392,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:3d31c16b31c491c42620e9e2172ef26d7f9bfcc4056152f82a5658907bc8ce6a"
         }
       },
       "package": "@immobiliarelabs/backstage-plugin-gitlab-backend",
@@ -402,7 +409,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.49.4__7.0.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -413,6 +421,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:9f758d985ae10c0c9a65931c0dd29c15886315305f3a0fb839517d91761a133f"
         }
       },
       "package": "@immobiliarelabs/backstage-plugin-gitlab",
@@ -556,7 +568,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.49.4__0.12.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -567,6 +580,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:c2d665dd21a464d6490f2c4249fcadf6f2f76fc555a71447f12c7527d4881609"
         }
       },
       "package": "@pagerduty/backstage-plugin-backend",
@@ -580,7 +597,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.49.4__0.19.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -591,6 +609,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:e51a490f55d08b1ef6fb5d6655757241014f12aaca1fa2dcf643a842ce307c6d"
         }
       },
       "package": "@pagerduty/backstage-plugin",
@@ -656,7 +678,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-argo-cd-backend:bs_1.49.4__4.8.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -684,7 +707,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-datadog:bs_1.49.4__2.7.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -712,7 +736,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights:bs_1.49.4__3.5.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -740,7 +765,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests:bs_1.49.4__3.7.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -768,7 +794,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.49.4__2.14.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -796,7 +823,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-security-insights:bs_1.49.4__3.3.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -824,7 +852,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-argocd:bs_1.49.4__1.8.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -852,7 +881,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.4"
+          "found_version": "1.49.4",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-utils:bs_1.49.4__4.1.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -880,7 +910,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-servicenow:bs_1.49.4__2.15.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -891,6 +922,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:cfe02f275eb096a67bc5a89435aa0452abbfdfad3271bcdb1f7fbde8ffe67ab5"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-servicenow",
@@ -930,7 +965,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend:bs_1.49.4__1.1.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -941,6 +977,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:a675e2df6bda1da0d8789e32a49f33d67cb3455baf586cb7a31608cea20a1faa"
         }
       },
       "package": "@backstage-community/plugin-sonarqube-backend",
@@ -954,7 +994,8 @@
           "status": "outdated",
           "reason": "Backstage version mismatch",
           "expected_version": "1.52.0",
-          "found_version": "1.49.3"
+          "found_version": "1.49.3",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube:bs_1.49.4__1.1.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -965,6 +1006,10 @@
         },
         "catalog-index": {
           "status": "pass"
+        },
+        "image-metadata-fetch": {
+          "status": "pass",
+          "digest": "sha256:36cb47920422c64a472e23f0484f76c68f04c4f20e913f55fbf45e555bdebfd3"
         }
       },
       "package": "@backstage-community/plugin-sonarqube",
