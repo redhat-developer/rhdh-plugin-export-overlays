@@ -46,6 +46,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications\.spec\.ts/,
     },
     {
+      name: "backstage-notifications-email",
+      testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
+    },
+    {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
       // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.

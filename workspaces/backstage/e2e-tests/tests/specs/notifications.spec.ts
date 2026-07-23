@@ -1,42 +1,7 @@
-import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  type NotificationRequest,
-  type NotificationSeverity,
-  RhdhNotificationsApi,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import * as path from "node:path";
-
-async function createNotification(
-  notificationTitle: string,
-  severity?: string,
-) {
-  const apiToken = "test-token";
-  const r = crypto.randomUUID();
-  const notificationsApi = await RhdhNotificationsApi.build(apiToken);
-  const title = severity
-    ? `${notificationTitle} ${severity}-${r}`
-    : `${notificationTitle}-${r}`;
-  const apiSeverity = (
-    severity ?? "normal"
-  ).toLowerCase() as NotificationSeverity;
-
-  const notification: NotificationRequest = {
-    recipients: { type: "broadcast" },
-    payload: {
-      title,
-      description: `Test ${title}`,
-      severity: apiSeverity,
-      topic: `Testing ${title}`,
-    },
-  };
-  const response = await notificationsApi.createNotification(notification);
-  expect(
-    response.ok(),
-    `create notification failed (${response.status()}): ${await response.text()}`,
-  ).toBeTruthy();
-  return title;
-}
+import { createNotification } from "../../support/api/notifications-helper";
 
 test.describe("Backstage Notifications Plugin", () => {
   let notificationPage: NotificationPage;
