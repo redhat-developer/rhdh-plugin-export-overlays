@@ -7,7 +7,7 @@
 # To update this file, trigger a rebuld of the index image from 
 # https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
 plugins:
-  # Tag: bs_1.49.4__1.27.0, Build date: 2026-06-03T21:17:18Z
+  # Tag: bs_1.49.2__1.27.0, Build date: 2026-06-03T21:17:18Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:60193fc5f56758fe8bd013bf81d8286e8bec46fc8633ed6caa4b679bc763c822
     enabled: true
     pluginConfig:
@@ -97,7 +97,7 @@ plugins:
           backstage.plugin-techdocs-module-addons-contrib:
             techdocsAddons:
               - importName: ReportIssue
-  # Tag: bs_1.49.4__0.8.3, Build date: 2026-06-03T21:17:56Z
+  # Tag: bs_1.49.3__0.8.3, Build date: 2026-06-03T21:17:56Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:832be0a033405e6bc0462f76625b19a8b5f7fb90a087b9edfa09eb94a7931c04
     enabled: true
     pluginConfig:
@@ -122,7 +122,7 @@ plugins:
               adoption-insights:
                 parent: default.admin
                 icon: adoptionInsightsIcon
-  # Tag: bs_1.49.4__0.8.3, Build date: 2026-05-22T15:13:50Z
+  # Tag: bs_1.49.3__0.8.3, Build date: 2026-05-22T15:13:50Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:46d6e98b9572cd4a9294e07e3a54403e437402b3d982ea4b92060734698c28c8
     enabled: true
     pluginConfig:
@@ -133,7 +133,7 @@ plugins:
             flushInterval: 5000
             debug: false
             licensedUsers: 100
-  # Tag: bs_1.49.4__0.8.3, Build date: 2026-06-03T21:21:00Z
+  # Tag: bs_1.49.3__0.8.3, Build date: 2026-06-03T21:21:00Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:af35fd165da31bc036acaa636e184904c2d1220a1614cd48c3ba4164f7d0b55c
     enabled: true
     pluginConfig:
@@ -275,7 +275,7 @@ plugins:
                 importName: LogoutButton
                 config:
                   priority: 10
-  # Tag: bs_1.49.4__1.9.6, Build date: 2026-06-03T21:14:06Z
+  # Tag: bs_1.49.2__1.9.6, Build date: 2026-06-03T21:14:06Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:29b668977fa089a444e293286b88353b3046b987af590405f70f0c4ce74a7ddd
     enabled: true
     pluginConfig:
@@ -389,7 +389,7 @@ plugins:
                 importName: QuickstartButton
                 config:
                   priority: 100
-  # Tag: bs_1.49.4__3.19.2, Build date: 2026-05-22T14:59:57Z
+  # Tag: bs_1.49.3__3.19.2, Build date: 2026-05-22T14:59:57Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:6a3278952b6f767c8337eb3071e1309c9b8a10c1c9010811cc235b3e16a9c0f8
     enabled: false
     pluginConfig:
@@ -434,7 +434,7 @@ plugins:
               rbac:
                 parent: default.admin
                 icon: rbacIcon
-  # Tag: bs_1.49.4__2.17.1, Build date: 2026-05-26T12:41:25Z
+  # Tag: bs_1.49.3__2.17.1, Build date: 2026-05-26T12:41:25Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:597001d187dfd3e193563825eabc6fc7b57a477e1f3aa1e63ba30e2eb9c9073b
     enabled: false
   # Tag: bs_1.52.0__1.20.0, Build date: 2026-06-03T21:08:19Z
@@ -617,7 +617,7 @@ plugins:
   # Tag: bs_1.52.0__0.3.16, Build date: 2026-05-21T21:25:10Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:9f804d3773beaf1ca982e196131d02766afcffaf189e513568118230494954da
     enabled: false
-  # Tag: bs_1.49.4__2.9.0, Build date: 2026-06-03T21:21:04Z
+  # Tag: bs_1.49.2__2.9.0, Build date: 2026-06-03T21:21:04Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f
     enabled: false
     pluginConfig:
@@ -651,7 +651,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  # Tag: bs_1.49.4__2.9.0, Build date: 2026-05-22T15:08:30Z
+  # Tag: bs_1.49.2__2.9.0, Build date: 2026-05-22T15:08:30Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c
     enabled: false
     pluginConfig:
