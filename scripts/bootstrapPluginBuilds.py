@@ -290,7 +290,7 @@ Examples:
     created_count = 0
     updated_count = 0
     skipped_count = 0
-    outdated_count = 0
+    bs_mismatch_count = 0
     no_ref_count = 0
 
     for workspace_dir in workspace_dirs:
@@ -322,29 +322,21 @@ Examples:
                     skipped_count += 1
                     continue
 
-                # Check workspace backstage version (only for plugins passing the packages filter)
-                if workspace_name in outdated_workspaces:
-                    outdated_count += 1
-                    info = outdated_workspaces[workspace_name]
-                    image_name = package_name_to_image_name(package_name) if package_name else stem
-                    report.add_plugin(
-                        image_name,
-                        package=package_name,
-                        version=version,
-                        workspace=workspace_name,
-                    )
-                    report.set_stage(
-                        image_name, "bootstrap", "outdated",
-                        reason="Backstage version mismatch",
-                        expected_version=info["expected"],
-                        found_version=info["found"],
-                    )
-                    log_debug(f"Skipped {stem} (workspace {workspace_name}): "
-                              f"backstage version {info['found']} != expected {info['expected']}")
-                    continue
-
                 # Construct registryReference
                 image_name = package_name_to_image_name(package_name) if package_name else stem
+
+                bs_mismatch_info = outdated_workspaces.get(workspace_name)
+                tag_backstage_version = backstage_version
+                if bs_mismatch_info:
+                    bs_mismatch_count += 1
+                    found = bs_mismatch_info.get("found", "")
+                    if found and found != "missing":
+                        tag_backstage_version = found
+                    log_debug(
+                        f"{stem} (workspace {workspace_name}): "
+                        f"backstage version {bs_mismatch_info['found']} != expected "
+                        f"{bs_mismatch_info['expected']}, using tag bs version {tag_backstage_version}"
+                    )
 
                 # Look up workspacePath from pre-built mappings (uses scored matching
                 # + process-of-elimination to handle divergent folder/package names)
@@ -358,7 +350,7 @@ Examples:
                 if support_level == 'community' and community_registry != registry_base:
                     effective_registry = community_registry
                 registry_reference = construct_registry_reference(
-                    effective_registry, image_name, version, backstage_version, rhdh_version, dynamic_artifact,
+                    effective_registry, image_name, version, tag_backstage_version, rhdh_version, dynamic_artifact,
                 )
 
                 if not registry_reference:
@@ -412,6 +404,11 @@ Examples:
                 stage_details = {}
                 if registry_reference:
                     stage_details["oci_ref"] = registry_reference
+                if bs_mismatch_info:
+                    stage_details["bs_version_mismatch"] = True
+                    stage_details["reason"] = "Backstage version mismatch"
+                    stage_details["expected_version"] = bs_mismatch_info["expected"]
+                    stage_details["found_version"] = bs_mismatch_info["found"]
                 report.set_stage(image_name, "bootstrap", "pass", **stage_details)
 
             except Exception as e:
@@ -426,8 +423,11 @@ Examples:
         log_info(f"Updated: {Colors.BLUE}{updated_count}{Colors.NORM}")
     if skipped_count > 0:
         log_info(f"Filtered out: {skipped_count}")
-    if outdated_count > 0:
-        log_warn(f"Outdated (backstage version mismatch): {Colors.YELLOW}{outdated_count}{Colors.NORM}")
+    if bs_mismatch_count > 0:
+        log_warn(
+            f"Backstage version mismatch (included with warning): "
+            f"{Colors.YELLOW}{bs_mismatch_count}{Colors.NORM}"
+        )
     if no_ref_count > 0:
         log_warn(f"No OCI reference (local path): {Colors.YELLOW}{no_ref_count}{Colors.NORM}")
     log_info(f"Total: {total}")
