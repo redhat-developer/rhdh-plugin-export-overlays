@@ -2,6 +2,7 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
+  ensureE2eHttpbin,
   patchHttpbin,
   restartAndWait,
   cleanupAfterTest,
@@ -106,18 +107,19 @@ export function registerOrchestratorCoreWorkflowTests(
       await orchestrator.validateCurrentWorkflowStatus("Completed");
     });
 
-    // FIXME: This test is flaky, needs to be fixed. tracked here https://redhat.atlassian.net/browse/RHDHBUGS-3431
     // eslint-disable-next-line playwright/expect-expect
-    test.fixme("Rerun Failswitch from failure point", async ({}, testInfo) => {
+    test("Rerun Failswitch from failure point", async ({}, testInfo) => {
       // 4 minutes: pod restarts + 60s sleep + failure/recovery time
       test.setTimeout(240_000);
       const ns = testInfo.project.name;
 
       test.skip(!ns, "NAME_SPACE not set");
 
-      const originalHttpbin = "https://httpbin.org/";
+      // Avoid flaky public httpbin.org (503s during retrigger). Use in-cluster mock + local fail URL.
+      const originalHttpbin = `http://e2e-httpbin.${ns}.svc.cluster.local/`;
       try {
-        patchHttpbin(ns!, "https://foobar.org/");
+        ensureE2eHttpbin(ns!);
+        patchHttpbin(ns!, "http://127.0.0.1:1/");
         restartAndWait(ns!);
 
         await orchestratorPo.openFailswitchWorkflowFromSidebar();
