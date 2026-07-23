@@ -1,12 +1,17 @@
-import { writeFileSync } from "node:fs";
+import { unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runOc } from "./workflow-deployment-helpers.js";
 
 type EnvEntry = { name: string; value: string };
 
+const K8S_NAMESPACE_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+
 /** Minimal in-cluster /get mock so recovery does not depend on public httpbin.org. */
 export function ensureE2eHttpbin(ns: string): void {
+  if (!K8S_NAMESPACE_RE.test(ns)) {
+    throw new Error(`invalid kubernetes namespace for e2e-httpbin: ${ns}`);
+  }
   const manifest = `
 apiVersion: apps/v1
 kind: Deployment
@@ -58,7 +63,15 @@ spec:
 `;
   const file = join(tmpdir(), `e2e-httpbin-${ns}.yaml`);
   writeFileSync(file, manifest);
-  runOc(["apply", "-f", file], 60_000);
+  try {
+    runOc(["apply", "-f", file], 60_000);
+  } finally {
+    try {
+      unlinkSync(file);
+    } catch {
+      // best-effort cleanup of temp manifest
+    }
+  }
   runOc(
     ["-n", ns, "rollout", "status", "deployment/e2e-httpbin", "--timeout=180s"],
     210_000,
