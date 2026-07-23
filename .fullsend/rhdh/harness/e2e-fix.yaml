@@ -7,10 +7,10 @@
 #
 # The agent NEVER pushes or creates PRs (disallowedTools enforces this).
 # Only the post-script, running on the runner with PUSH_TOKEN, can write.
-agent: customized/agents/e2e-fix.md
+agent: rhdh/agents/e2e-fix.md
 model: opus
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
-policy: customized/policies/e2e-fix.yaml
+policy: rhdh/policies/e2e-fix.yaml
 
 role: coder
 slug: rhdh-e2e-fix
@@ -21,7 +21,7 @@ trigger: |
   && event.transition.label.name == "e2e-fix-agent"
 
 host_files:
-  - src: customized/env/gcp-vertex.env
+  - src: env/gcp-vertex.env
     dest: /sandbox/workspace/.env.d/gcp-vertex.env
     expand: true
   - src: ${GOOGLE_APPLICATION_CREDENTIALS}
@@ -38,10 +38,10 @@ skills:
   - skills/e2e-failure-analysis
   - skills/playwright-trace
 
-post_script: customized/scripts/post-e2e-fix.sh
+post_script: rhdh/scripts/post-e2e-fix.sh
 
 validation_loop:
-  script: customized/scripts/validate-output-schema.sh
+  script: rhdh/scripts/validate-output-schema.sh
   max_iterations: 2
 
 env:
@@ -49,7 +49,7 @@ env:
     GH_TOKEN: ${GH_TOKEN}
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
     JIRA_URL: https://issues.redhat.com
-    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/customized/schemas/e2e-fix-result.schema.json
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-fix-result.schema.json
     TARGET_REPO_DIR: ${FULLSEND_TARGET_REPO}
   sandbox:
     SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
