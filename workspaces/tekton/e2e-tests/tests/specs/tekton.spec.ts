@@ -36,9 +36,9 @@ test.describe("Test Tekton plugin", () => {
     await loginHelper.loginAsKeycloakUser();
   });
 
-  test("Check Pipeline Run", async ({ page, uiHelper }) => {
+  test("Check Pipeline Run", async ({ page, uiHelper }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.ensurePipelineRunsTableIsNotEmpty();
     await uiHelper.verifyHeading("Pipeline Runs");
     await uiHelper.verifyTableHeadingAndRows(
@@ -46,18 +46,18 @@ test.describe("Test Tekton plugin", () => {
     );
   });
 
-  test("Check search functionality", async ({ page }) => {
+  test("Check search functionality", async ({ page }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.search("hello-world");
     await tekton.ensurePipelineRunsTableIsNotEmpty();
   });
 
   test("Check if modal is opened after click on the pipeline stage", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.clickOnExpandRowFromPipelineRunsTable(
       "hello-world-pipeline-run",
     );
