@@ -1,0 +1,151 @@
+# E2E nightly fix agent — discovers failed nightly runs and creates a
+# labeled GitHub issue. The existing fullsend.yaml dispatch picks up the
+# label event and routes it to the e2e-fix agent via CEL trigger.
+#
+# Flow:
+#   schedule/manual → discover failed nightly → create issue + label
+#                                                     ↓
+#                           fullsend.yaml (issues: [labeled]) → dispatch
+#                                                     ↓
+#                           CEL trigger matches → e2e-fix agent runs
+#
+# The e2e-fix agent is NOT reachable from /fs-* comments.
+name: E2E Fix Agent
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 13:00 UTC — after the main nightly (~11:15 UTC)
+  workflow_dispatch:
+    inputs:
+      prow_url:
+        description: "Prow/GCSWeb URL of a failed run. Leave empty to auto-discover."
+        required: false
+        type: string
+      branch:
+        description: "Branch to check nightly results for"
+        required: false
+        type: string
+        default: "main"
+      dry_run:
+        description: "Print discovered URL without creating an issue"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  discover-and-file:
+    name: Discover & file issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Discover latest failed nightly
+        id: discover
+        env:
+          INPUT_PROW_URL: ${{ inputs.prow_url }}
+          INPUT_BRANCH: ${{ inputs.branch || 'main' }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${INPUT_PROW_URL}" ]]; then
+            echo "prow_url=${INPUT_PROW_URL}" >> "${GITHUB_OUTPUT}"
+            echo "should_file=true" >> "${GITHUB_OUTPUT}"
+            echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          PERIODIC="periodic-ci-redhat-developer-rhdh-plugin-export-overlays-${INPUT_BRANCH}-e2e-ocp-helm-nightly"
+          GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/${PERIODIC}"
+          PROW="https://prow.ci.openshift.org/view/gs/test-platform-results/logs/${PERIODIC}"
+
+          RUN_ID=$(curl -fsSL --proto =https "${GCS}/" | grep -oE '[0-9]{19,}' | sort -u -r | head -1) || true
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::notice::No runs found"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          TS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/started.json" | jq -r '.timestamp') || true
+          if [[ -z "${TS}" ]]; then
+            echo "::notice::No started.json"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+          RUN_DATE=$(date -u -d "@${TS}" '+%Y-%m-%d' 2>/dev/null || date -u -r "${TS}" '+%Y-%m-%d')
+          TODAY=$(date -u '+%Y-%m-%d')
+          if [[ "${RUN_DATE}" != "${TODAY}" ]]; then
+            echo "::notice::Latest run from ${RUN_DATE}, not today"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          RESULT=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/finished.json" | jq -r '.result // .passed') || true
+          if [[ "${RESULT}" == "SUCCESS" || "${RESULT}" == "true" ]]; then
+            echo "::notice::Nightly passed"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+          if [[ -z "${RESULT}" ]]; then
+            echo "::notice::No finished.json — still running?"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          STEP="redhat-developer-rhdh-plugin-export-overlays-ocp-helm"
+          STATS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/artifacts/e2e-ocp-helm-nightly/${STEP}/artifacts/playwright-report/results.json" 2>/dev/null | jq -r '.stats') || true
+          if [[ -n "${STATS}" ]]; then
+            FAILED=$(echo "${STATS}" | jq -r '.unexpected // 0')
+            PASSED=$(echo "${STATS}" | jq -r '.expected // 0')
+            echo "Stats — passed: ${PASSED}, failed: ${FAILED}"
+            if [[ "${FAILED}" -eq 0 && "${PASSED}" -gt 0 ]]; then
+              echo "::notice::Tests passed, job failed — infra issue"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+            fi
+          fi
+
+          echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "should_file=true" >> "${GITHUB_OUTPUT}"
+          echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create issue and trigger agent
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROW_URL: ${{ steps.discover.outputs.prow_url }}
+          BRANCH: ${{ steps.discover.outputs.branch }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TODAY=$(date -u '+%Y-%m-%d')
+
+          # Skip if an open issue already exists for today's failure
+          EXISTING=$(gh issue list --repo "${REPO}" \
+            --label "e2e-fix-agent" --state open \
+            --search "[fullsend] E2E nightly failure: ${BRANCH}" \
+            --json number,title --jq ".[].number" | head -1) || true
+
+          if [[ -n "${EXISTING}" ]]; then
+            echo "Issue #${EXISTING} already open — adding comment with new prow URL"
+            gh issue comment "${EXISTING}" --repo "${REPO}" \
+              --body "New failure detected:
+          PROW_URL: ${PROW_URL}"
+            # Re-apply label to re-trigger the agent
+            gh issue edit "${EXISTING}" --repo "${REPO}" --remove-label "e2e-fix-agent" 2>/dev/null || true
+            sleep 5
+            gh issue edit "${EXISTING}" --repo "${REPO}" --add-label "e2e-fix-agent"
+            echo "Re-triggered agent on issue #${EXISTING}"
+            exit 0
+          fi
+
+          # Create the label if it doesn't exist
+          gh label create "e2e-fix-agent" --repo "${REPO}" \
+            --description "Triggers the fullsend e2e-fix agent" --color "7057ff" \
+            --force 2>/dev/null || true
+
+          ISSUE_URL=$(gh issue create --repo "${REPO}" \
+            --title "[fullsend] E2E nightly failure: ${BRANCH} (${TODAY})" \
+            --label "e2e-fix-agent" \
+            --body "Nightly E2E run failed on \`${BRANCH}\`.
+
+          PROW_URL: ${PROW_URL}
+
+          The e2e-fix agent will analyze this failure, classify the root cause, and either implement a fix or skip the failing test with a JIRA bug.")
+          echo "Created issue: ${ISSUE_URL}"
+
+      - name: Dry run summary
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') == 'true'
+        env:
+          PROW_URL: ${{ steps.discover.outputs.prow_url }}
+        run: echo "Dry run — would create issue for ${PROW_URL}"
