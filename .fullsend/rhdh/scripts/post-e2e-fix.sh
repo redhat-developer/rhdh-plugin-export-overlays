@@ -98,6 +98,7 @@ install_gitleaks() {
   if curl -fsSL --proto =https \
     "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${os_name}_${arch_name}.tar.gz" \
     -o /tmp/gitleaks.tar.gz \
+    && echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c --quiet \
     && tar xzf /tmp/gitleaks.tar.gz -C "${HOME}/.local/bin" gitleaks \
     && rm /tmp/gitleaks.tar.gz; then
     export PATH="${HOME}/.local/bin:${PATH}"
@@ -448,7 +449,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   # -----------------------------------------------------------------------
   # 4c. Authoritative secret scan (gitleaks)
   # -----------------------------------------------------------------------
-  SCAN_RANGE="${MERGE_BASE:-$(git rev-parse HEAD~1 2>/dev/null || echo HEAD)}..HEAD"
+  SCAN_RANGE="${MERGE_BASE:-$(git rev-parse HEAD~1 2>/dev/null || git rev-list --max-parents=0 HEAD)}..HEAD"
 
   if install_gitleaks; then
     echo "  Running secret scan on agent commits..."
@@ -478,7 +479,8 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
 
   if [[ -n "${JIRA_KEY}" ]]; then
     BACKFILL_FILE="$(jq -r ".workspaces[$i].jira.backfill_file // empty" "${RESULT_FILE}")"
-    if [[ -n "${BACKFILL_FILE}" && -f "${BACKFILL_FILE}" ]]; then
+    if [[ -n "${BACKFILL_FILE}" && -f "${BACKFILL_FILE}" ]] \
+       && [[ "$(realpath "${BACKFILL_FILE}")" == "$(realpath .)/workspaces/"* ]]; then
       if grep -q 'JIRA-PENDING' "${BACKFILL_FILE}"; then
         echo "  Backfilling JIRA key ${JIRA_KEY} in ${BACKFILL_FILE}"
         sed -i.bak "s/JIRA-PENDING/${JIRA_KEY}/g" "${BACKFILL_FILE}"
@@ -503,7 +505,8 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
     else
       CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)"
     fi
-    for f in ${CHANGED_FILES}; do
+    while IFS= read -r f; do
+      [[ -z "${f}" ]] && continue
       if [[ -f "${f}" ]] && grep -q 'ISSUE_PLACEHOLDER' "${f}"; then
         echo "  Backfilling issue #${ISSUE_NUMBER} in ${f}"
         sed -i.bak "s/ISSUE_PLACEHOLDER/${ISSUE_NUMBER}/g" "${f}"
@@ -511,7 +514,7 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
         git add "${f}"
         NEEDS_AMEND=true
       fi
-    done
+    done <<< "${CHANGED_FILES}"
   fi
 
   if [[ "${NEEDS_AMEND}" == "true" ]]; then
