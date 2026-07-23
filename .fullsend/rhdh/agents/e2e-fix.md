@@ -73,9 +73,12 @@ Verify the branch exists locally:
 if ! git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
   git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
 fi
-git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1 \
-  && echo "Branch $TARGET_BRANCH: ok" \
-  || echo "WARNING: Branch $TARGET_BRANCH not found — falling back to main" && TARGET_BRANCH="main"
+if git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
+  echo "Branch $TARGET_BRANCH: ok"
+else
+  echo "WARNING: Branch $TARGET_BRANCH not found — falling back to main"
+  TARGET_BRANCH="main"
+fi
 ```
 
 Use `$TARGET_BRANCH` as the base for all fix branches (not hardcoded `main`).

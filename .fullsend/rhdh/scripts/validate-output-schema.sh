@@ -56,14 +56,14 @@ fi
 
 if ! python3 -c "
 import json, sys
-from jsonschema import validate, ValidationError
+from jsonschema import Draft202012Validator, ValidationError
 
 with open(sys.argv[1]) as f:
     instance = json.load(f)
 with open(sys.argv[2]) as f:
     schema = json.load(f)
 try:
-    validate(instance=instance, schema=schema)
+    Draft202012Validator(schema).validate(instance)
     print('PASS: output validated against schema')
 except ValidationError as e:
     print(f'FAIL: schema validation error: {e.message}')
