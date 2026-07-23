@@ -1,0 +1,270 @@
+# Publish prepared-source OCI artifacts to quay.io/rhdh/prepared-sources/<workspace>:<branch>
+# See docs/prepared-sources.md (RHIDP-15699 / RHDHPLAN-1568)
+name: Publish Prepared Source OCI Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace-path:
+        description: 'Single workspace path (e.g. workspaces/topology). Empty = all workspaces.'
+        required: false
+        type: string
+        default: ''
+      overlay-branch:
+        description: 'Overlay branch to build from (default: current ref)'
+        required: false
+        type: string
+        default: ''
+      registry-prefix:
+        description: 'OCI registry prefix for prepared sources'
+        required: false
+        type: string
+        default: 'quay.io/rhdh/prepared-sources'
+      continue-on-push-error:
+        description: 'If true, push failures warn but do not fail the job'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: prepared-sources-${{ github.ref }}-${{ inputs.workspace-path || 'all' }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=8192
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    name: Prepare
+    outputs:
+      node-version: ${{ steps.set-env-vars.outputs.NODE_VERSION }}
+      janus-cli-version: ${{ steps.set-env-vars.outputs.JANUS_CLI_VERSION }}
+      cli-package: ${{ steps.set-env-vars.outputs.CLI_PACKAGE }}
+      workspaces: ${{ steps.gather-workspaces.outputs.workspaces }}
+      overlay-repo-ref: ${{ steps.set-overlay-repo-ref.outputs.OVERLAY_REPO_REF }}
+      overlay-commit: ${{ steps.overlay-commit.outputs.sha }}
+    steps:
+      - name: Validate Inputs
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_WORKSPACE_PATH: ${{ inputs.workspace-path }}
+        with:
+          script: |
+            const workspacePath = process.env.INPUT_WORKSPACE_PATH || '';
+            if (workspacePath && (workspacePath.startsWith('/') || workspacePath.includes('..'))) {
+              core.setFailed(`Invalid workspace path: ${workspacePath}`);
+            }
+
+      - name: Set overlay ref
+        id: set-overlay-repo-ref
+        env:
+          INPUT_OVERLAY_BRANCH: ${{ inputs.overlay-branch }}
+          DEFAULT_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if [[ -n "${INPUT_OVERLAY_BRANCH}" ]]; then
+            echo "OVERLAY_REPO_REF=${INPUT_OVERLAY_BRANCH}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "OVERLAY_REPO_REF=${DEFAULT_REF}" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.set-overlay-repo-ref.outputs.OVERLAY_REPO_REF }}
+
+      - name: Overlay commit SHA
+        id: overlay-commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+      - name: Set environment variables
+        id: set-env-vars
+        run: |
+          versions=$(cat versions.json)
+          {
+            echo "NODE_VERSION=$(echo "${versions}" | jq -r '.node // "20.x"')"
+            echo "JANUS_CLI_VERSION=$(echo "${versions}" | jq -r '.cli // "^3.0.0"')"
+            echo "CLI_PACKAGE=$(echo "${versions}" | jq -r '."cliPackage" // "@janus-idp/cli"')"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Gather workspaces
+        id: gather-workspaces
+        env:
+          INPUT_WORKSPACE_PATH: ${{ inputs.workspace-path }}
+        run: |
+          set -euo pipefail
+          workspacePath="${INPUT_WORKSPACE_PATH}"
+          json='['
+          comma=''
+          for d in workspaces/*; do
+            [[ -d "${d}" ]] || continue
+            if [[ -n "${workspacePath}" && "${workspacePath}" != "${d}" ]]; then
+              continue
+            fi
+            if [[ -f "${d}/plugins-list.yaml" && -f "${d}/source.json" ]]; then
+              workspace=$(jq -c --arg overlay_root "${d}" '
+                . as $s
+                | {
+                    "plugins-repo": ($s.repo | sub("https://github.com/"; "")),
+                    "plugins-repo-ref": $s["repo-ref"],
+                    "plugins-repo-backstage-version": ($s["repo-backstage-version"] // ""),
+                    "plugins-repo-flat": ($s["repo-flat"] // false),
+                    "overlay-root": $overlay_root,
+                    "plugins-root": (if ($s["repo-flat"] // false) then "." else $overlay_root end),
+                    "workspace-name": ($overlay_root | sub("^workspaces/"; ""))
+                  }
+              ' "${d}/source.json")
+              json+="${comma}${workspace}"
+              comma=','
+            fi
+          done
+          json+=']'
+          echo "Workspaces to publish:"
+          echo "${json}" | jq .
+          if [[ "${json}" == "[]" ]]; then
+            echo "::error title=No workspaces::No workspace found to publish prepared sources."
+            exit 1
+          fi
+          {
+            echo "workspaces<<EOF"
+            echo "${json}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+  publish:
+    name: prepared-sources / ${{ matrix.workspace.workspace-name }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJson(needs.prepare.outputs.workspaces) }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout plugins repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: ${{ matrix.workspace.plugins-root == '.' }}
+        with:
+          repository: ${{ matrix.workspace.plugins-repo }}
+          ref: ${{ matrix.workspace.plugins-repo-ref }}
+          path: source-repo
+
+      - name: Checkout plugins repository (sparse)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: ${{ matrix.workspace.plugins-root != '.' }}
+        with:
+          repository: ${{ matrix.workspace.plugins-repo }}
+          ref: ${{ matrix.workspace.plugins-repo-ref }}
+          sparse-checkout: |
+            /*
+            !/workspaces/
+            ${{ matrix.workspace.plugins-root }}
+            workspaces/repo-tools/
+          sparse-checkout-cone-mode: false
+          path: source-repo
+
+      - name: Checkout overlay repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.prepare.outputs.overlay-repo-ref }}
+          path: overlay-repo
+          fetch-depth: 50
+
+      - name: Override Sources
+        uses: redhat-developer/rhdh-plugin-export-utils/override-sources@main
+        with:
+          overlay-root: ${{ github.workspace }}/overlay-repo/${{ matrix.workspace.overlay-root }}
+          workspace-root: source-repo/${{ matrix.workspace.plugins-root }}
+
+      - name: Install required native libraries
+        working-directory: source-repo/${{ matrix.workspace.plugins-root }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
+      - name: Use node.js ${{ needs.prepare.outputs.node-version }}
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+        with:
+          node-version: ${{ needs.prepare.outputs.node-version }}
+          registry-url: https://registry.npmjs.org/
+
+      - name: Enable Corepack
+        working-directory: source-repo/${{ matrix.workspace.plugins-root }}
+        run: corepack enable
+
+      - name: Run yarn install
+        working-directory: source-repo/${{ matrix.workspace.plugins-root }}
+        run: |
+          yarn --version
+          yarn install --immutable
+
+      - name: Run Typescript type checking
+        working-directory: source-repo/${{ matrix.workspace.plugins-root }}
+        run: yarn tsc
+
+      - name: Export dynamic plugin packages
+        uses: redhat-developer/rhdh-plugin-export-utils/export-dynamic@main
+        with:
+          plugins-root: source-repo/${{ matrix.workspace.plugins-root }}
+          plugins-file: ${{ github.workspace }}/overlay-repo/${{ matrix.workspace.overlay-root }}/plugins-list.yaml
+          destination: ${{ github.workspace }}/dynamic-plugin-archives
+          janus-cli-version: ${{ needs.prepare.outputs.janus-cli-version }}
+          cli-package: ${{ needs.prepare.outputs.cli-package }}
+
+      - name: Scrub install caches from prepared tree
+        working-directory: source-repo/${{ matrix.workspace.plugins-root }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' d; do
+            rm -rf "${d}"
+          done < <(find . \( -name node_modules -o -path './.yarn/cache/*' -o -name install-state.gz -o -name dist -o -name dist-types -o -name dist-scalprum -o -name '*.orig' -o -name '*.rej' \) -print0 2>/dev/null || true)
+
+          # Keep dist-dynamic package.json, yarn.lock, and embedded/ only
+          while IFS= read -r -d '' file; do
+            rm -rf "${file}"
+          done < <(find . -path '*/dist-dynamic/*' \( \
+            -not -name package.json \
+            -a -not -name yarn.lock \
+            -a -not -name embedded \
+            -a -not -path '*/dist-dynamic/embedded/*' \
+          \) -print0 2>/dev/null || true)
+
+      - name: Setup ORAS
+        uses: oras-project/setup-oras@9c25bb34621ffa44c0270193e214678344af196c # v1.2.4
+
+      - name: Log in to quay.io
+        env:
+          QUAY_TOKEN: ${{ secrets.QUAY_TOKEN }}
+          QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+        run: |
+          if [[ -z "${QUAY_USERNAME:-}" || -z "${QUAY_TOKEN:-}" ]]; then
+            echo "::error title=Missing Quay credentials::QUAY_USERNAME / QUAY_TOKEN secrets are required."
+            exit 1
+          fi
+          echo "${QUAY_TOKEN}" | oras login quay.io -u "${QUAY_USERNAME}" --password-stdin
+
+      - name: Push prepared-source OCI artifact
+        id: push
+        continue-on-error: ${{ inputs.continue-on-push-error }}
+        env:
+          REGISTRY_PREFIX: ${{ inputs.registry-prefix }}
+          WORKSPACE_NAME: ${{ matrix.workspace.workspace-name }}
+          TAG: ${{ needs.prepare.outputs.overlay-repo-ref }}
+          OVERLAY_COMMIT: ${{ needs.prepare.outputs.overlay-commit }}
+          SOURCE_REF: ${{ matrix.workspace.plugins-repo-ref }}
+          SOURCE_DIR: source-repo/${{ matrix.workspace.plugins-root }}
+        run: |
+          set -euo pipefail
+          image="${REGISTRY_PREFIX}/${WORKSPACE_NAME}:${TAG}"
+          chmod +x overlay-repo/scripts/prepared-sources/push-prepared-source.sh
+          overlay-repo/scripts/prepared-sources/push-prepared-source.sh \
+            --dir "${SOURCE_DIR}" \
+            --image "${image}" \
+            --overlay-commit "${OVERLAY_COMMIT}" \
+            --source-ref "${SOURCE_REF}"
+
+      - name: Warn on non-blocking push failure
+        if: ${{ inputs.continue-on-push-error && steps.push.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Prepared source push failed::Push failed for ${{ matrix.workspace.workspace-name }} but continue-on-push-error=true"
