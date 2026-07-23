@@ -732,18 +732,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions:bs_1.52.0__0.19.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions:bs_1.52.0__0.19.0"
+          "status": "pass",
+          "digest": "sha256:6aa3d4a78a90531745681e83ba1621a8c2f250f8bec5f5d9286f19829e10b1d5"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions",
       "version": "0.19.0",
       "workspace": "extensions",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-extensions-backend": {
       "stages": {
@@ -759,18 +758,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend:bs_1.52.0__0.19.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend:bs_1.52.0__0.19.0"
+          "status": "pass",
+          "digest": "sha256:eef636d5b713503e807f6ee848e7964f82b0c523f1f10d0b1fc46ed737de96ec"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-extensions-backend",
       "version": "0.19.0",
       "workspace": "extensions",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-extensions": {
       "stages": {
@@ -786,18 +784,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions:bs_1.52.0__0.19.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions:bs_1.52.0__0.19.0"
+          "status": "pass",
+          "digest": "sha256:4eb4e187bc1b9f8fe9e7479a921ae555604d70cc2a4b1a03a5ebbb8f3d4a9c65"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-extensions",
       "version": "0.19.0",
       "workspace": "extensions",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-global-floating-action-button": {
       "stages": {
@@ -1568,8 +1565,8 @@
   },
   "summary": {
     "total": 59,
-    "succeeded": 40,
-    "failed": 3,
+    "succeeded": 43,
+    "failed": 0,
     "outdated": 16
   },
   "status": "partial"

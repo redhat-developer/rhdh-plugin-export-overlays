@@ -17,8 +17,7 @@ metadata:
     - software-templates
 spec:
   packageName: "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud"
-  # Tag: bs_1.52.0__0.3.7
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud@sha256:74db05756c26b4843665d08d22f0c529f26caf043fe82d4ccb13ef3ca6b5c9ec"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.52.0__0.3.7
   version: 0.3.7
   backstage:
     role: backend-plugin-module
