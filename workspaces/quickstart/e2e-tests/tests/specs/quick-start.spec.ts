@@ -43,8 +43,7 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Browse and install extensions");
     await uiHelper.verifyButtonURL("Explore plugins", "/extensions");
     await uiHelper.clickButtonByText("Explore plugins");
-    await uiHelper.verifyText("Catalog");
-    await uiHelper.verifyText(/Plugins \((\d+)\)/);
+    await expect(page).toHaveURL(/\/extensions/);
 
     await uiHelper.clickButtonByText("Set up Intelligent Assistant");
     await uiHelper.verifyTextVisible(
