@@ -95,7 +95,7 @@ install_gitleaks() {
     x86_64) arch_name="x64" ;;
     aarch64|arm64) arch_name="arm64" ;;
   esac
-  if curl -fsSL \
+  if curl -fsSL --proto =https \
     "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_${os_name}_${arch_name}.tar.gz" \
     -o /tmp/gitleaks.tar.gz \
     && tar xzf /tmp/gitleaks.tar.gz -C "${HOME}/.local/bin" gitleaks \

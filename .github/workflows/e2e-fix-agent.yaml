@@ -61,12 +61,12 @@ jobs:
           GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/${PERIODIC}"
           PROW="https://prow.ci.openshift.org/view/gs/test-platform-results/logs/${PERIODIC}"
 
-          RUN_ID=$(curl -fsSL "${GCS}/" | grep -oE '[0-9]{19,}' | sort -u -r | head -1) || true
+          RUN_ID=$(curl -fsSL --proto =https "${GCS}/" | grep -oE '[0-9]{19,}' | sort -u -r | head -1) || true
           if [[ -z "${RUN_ID}" ]]; then
             echo "::notice::No runs found"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
           fi
 
-          TS=$(curl -fsSL "${GCS}/${RUN_ID}/started.json" | jq -r '.timestamp') || true
+          TS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/started.json" | jq -r '.timestamp') || true
           if [[ -z "${TS}" ]]; then
             echo "::notice::No started.json"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
           fi
@@ -76,7 +76,7 @@ jobs:
             echo "::notice::Latest run from ${RUN_DATE}, not today"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
           fi
 
-          RESULT=$(curl -fsSL "${GCS}/${RUN_ID}/finished.json" | jq -r '.result // .passed') || true
+          RESULT=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/finished.json" | jq -r '.result // .passed') || true
           if [[ "${RESULT}" == "SUCCESS" || "${RESULT}" == "true" ]]; then
             echo "::notice::Nightly passed"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
           fi
@@ -85,7 +85,7 @@ jobs:
           fi
 
           STEP="redhat-developer-rhdh-plugin-export-overlays-ocp-helm"
-          STATS=$(curl -fsSL "${GCS}/${RUN_ID}/artifacts/e2e-ocp-helm-nightly/${STEP}/artifacts/playwright-report/results.json" 2>/dev/null | jq -r '.stats') || true
+          STATS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/artifacts/e2e-ocp-helm-nightly/${STEP}/artifacts/playwright-report/results.json" 2>/dev/null | jq -r '.stats') || true
           if [[ -n "${STATS}" ]]; then
             FAILED=$(echo "${STATS}" | jq -r '.unexpected // 0')
             PASSED=$(echo "${STATS}" | jq -r '.expected // 0')
