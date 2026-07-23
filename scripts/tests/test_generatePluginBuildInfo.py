@@ -1,5 +1,6 @@
 """Tests for generatePluginBuildInfo.py — parsing, tag listing, and registry reference transforms."""
 
+import json
 import re
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +9,7 @@ import pytest
 SHA256_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 import generatePluginBuildInfo
+from plugin_utils import BuildReport
 
 
 # ---------------------------------------------------------------------------
@@ -631,3 +633,197 @@ class TestRhdhBranchAndVersion:
             assert generatePluginBuildInfo.fetch_rhdh_package_version("release-1.10") == "1.10.3"
             mock_get.assert_called_once()
             assert "release-1.10" in mock_get.call_args.args[0]
+
+
+# ---------------------------------------------------------------------------
+# update_plugin_build_files — metadata sync vs plugin_builds modified gate
+# ---------------------------------------------------------------------------
+
+_TEST_PLUGIN = "test-plugin"
+_TEST_REF = "registry.access.redhat.com/rhdh/test-plugin:1.10--1.0.0"
+_TEST_DIGEST = "sha256:" + "a" * 64
+_TEST_BUILD_DATE = "2026-01-01T00:00:00Z"
+
+
+def _stable_image_metadata():
+    return {
+        "digest": _TEST_DIGEST,
+        "registryReference": _TEST_REF,
+        "build-date": _TEST_BUILD_DATE,
+    }
+
+
+def _write_plugin_build_fixtures(tmp_path):
+    plugin_builds_dir = tmp_path / "plugin_builds" / "lightspeed"
+    plugin_builds_dir.mkdir(parents=True)
+    json_path = plugin_builds_dir / f"{_TEST_PLUGIN}.json"
+    json_path.write_text(
+        json.dumps(
+            {
+                _TEST_PLUGIN: {
+                    "workspacePath": "lightspeed/plugins/test",
+                    "registryReference": _TEST_REF,
+                    "digest": _TEST_DIGEST,
+                    "build-date": _TEST_BUILD_DATE,
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    metadata_dir = tmp_path / "workspaces" / "lightspeed" / "metadata"
+    metadata_dir.mkdir(parents=True)
+    return json_path, metadata_dir
+
+
+def _metadata_yaml_body(dynamic_artifact: str) -> str:
+    return f"""apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: {_TEST_PLUGIN}
+spec:
+  packageName: "@example/test-plugin"
+  dynamicArtifact: {dynamic_artifact}
+  version: 1.0.0
+"""
+
+
+class TestUpdatePluginBuildFiles:
+    @pytest.fixture(autouse=True)
+    def _rarc_registry(self, monkeypatch):
+        monkeypatch.setattr(
+            generatePluginBuildInfo,
+            "REGISTRY_BASE",
+            "registry.access.redhat.com/rhdh",
+        )
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_metadata_yaml_resolved_even_when_registry_reference_unchanged(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        json_path, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        original_json = json_path.read_text(encoding="utf-8")
+
+        updated_count, _, _, overlays_metadata_changes, _, _ = (
+            generatePluginBuildInfo.update_plugin_build_files(
+                tmp_path / "plugin_builds",
+                tmp_path,
+                None,
+            )
+        )
+
+        assert updated_count == 0
+        assert json_path.read_text(encoding="utf-8") == original_json
+        assert overlays_metadata_changes == 1
+        resolved = (
+            f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+        )
+        assert resolved in meta_path.read_text(encoding="utf-8")
+        assert "ghcr.io" not in meta_path.read_text(encoding="utf-8")
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_report_stage_marked_pass_when_unchanged(self, mock_get_metadata, tmp_path):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _write_plugin_build_fixtures(tmp_path)
+        metadata_dir = tmp_path / "workspaces" / "lightspeed" / "metadata"
+        metadata_dir.joinpath(f"{_TEST_PLUGIN}.yaml").write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        report_path = tmp_path / "build-report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin(_TEST_PLUGIN)
+        report.set_stage(
+            _TEST_PLUGIN,
+            "bootstrap",
+            "pass",
+            oci_ref="ghcr.io/placeholder",
+        )
+
+        generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds",
+            tmp_path,
+            report,
+        )
+
+        stage = report.get_stage(_TEST_PLUGIN, "image-metadata-fetch")
+        assert stage is not None
+        assert stage["status"] == "pass"
+        assert stage["digest"] == _TEST_DIGEST
+        bootstrap = report.get_stage(_TEST_PLUGIN, "bootstrap")
+        assert bootstrap["oci_ref"] == _TEST_REF
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_metadata_yaml_not_rewritten_when_already_correct(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        resolved_oci = (
+            f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+        )
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(
+            f"""apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: {_TEST_PLUGIN}
+spec:
+  packageName: "@example/test-plugin"
+  # Tag: 1.10--1.0.0, Build date: {_TEST_BUILD_DATE}
+  dynamicArtifact: "{resolved_oci}"
+  version: 1.0.0
+""",
+            encoding="utf-8",
+        )
+        original_meta = meta_path.read_text(encoding="utf-8")
+
+        _, _, _, overlays_metadata_changes, _, _ = (
+            generatePluginBuildInfo.update_plugin_build_files(
+                tmp_path / "plugin_builds",
+                tmp_path,
+                None,
+            )
+        )
+
+        assert overlays_metadata_changes == 0
+        assert meta_path.read_text(encoding="utf-8") == original_meta
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_plugin_builds_json_untouched_when_unchanged(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        json_path, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        metadata_dir.joinpath(f"{_TEST_PLUGIN}.yaml").write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        before_mtime = json_path.stat().st_mtime_ns
+        original_json = json_path.read_text(encoding="utf-8")
+
+        updated_count, _, _, _, _, _ = generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds",
+            tmp_path,
+            None,
+        )
+
+        assert updated_count == 0
+        assert json_path.read_text(encoding="utf-8") == original_json
+        assert json_path.stat().st_mtime_ns == before_mtime
