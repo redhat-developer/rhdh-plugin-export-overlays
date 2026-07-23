@@ -12,7 +12,10 @@ agents:
       source: rhdh/harness/code.yaml
     - name: fix
       source: rhdh/harness/fix.yaml
-    - source: rhdh/harness/e2e-fix.yaml
+    - name: review
+      source: rhdh/harness/review.yaml
+    - name: e2e-fix
+      source: rhdh/harness/e2e-fix.yaml
 roles:
     - triage
     - coder
