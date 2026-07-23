@@ -15,11 +15,11 @@ metadata:
     backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/quickstart
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-quickstart'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.49.4__1.9.6
-  version: 1.9.6
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.52.0__1.11.1
+  version: 1.11.1
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: generally-available
   lifecycle: active
@@ -123,7 +123,6 @@ spec:
             red-hat-developer-hub.backstage-plugin-quickstart:
               translationResources:
                 - importName: quickstartTranslations
-                  module: Alpha
                   ref: quickstartTranslationRef
               mountPoints:
                 - mountPoint: application/provider
