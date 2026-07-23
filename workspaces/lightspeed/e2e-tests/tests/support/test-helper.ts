@@ -30,9 +30,9 @@ export const lightspeedDeployConfig = {
   appConfig: "tests/config/app-config-rhdh.yaml",
   secrets: "tests/config/rhdh-secrets.yaml",
   valueFile: "tests/config/value_file.yaml",
-  ...(isNightlyMode()
-    ? { dynamicPlugins: "tests/config/dynamic-plugins-nightly.yaml" }
-    : {}),
+  dynamicPlugins: isNightlyMode()
+    ? "tests/config/dynamic-plugins-nightly.yaml"
+    : "tests/config/dynamic-plugins.yaml",
 };
 
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
