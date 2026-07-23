@@ -13,6 +13,7 @@ from generateCatalogIndex import (
     pop_trailing_tag_comments,
     tag_comment_for_plugin,
     trailing_tag_comment_matches,
+    update_package_files,
 )
 
 
@@ -324,3 +325,119 @@ spec:
         missing = tmp_path / "nonexistent-plugin.yaml"
         result = get_image_name_from_package_yaml(missing)
         assert result == "nonexistent-plugin"
+
+
+# ---------------------------------------------------------------------------
+# update_package_files: DPDY placeholder-matching (RHDHBUGS-3492)
+# ---------------------------------------------------------------------------
+class TestUpdatePackageFilesDpdyMatching:
+    PLUGIN_NAME = "red-hat-developer-hub-backstage-plugin-lightspeed"
+    RESOLVED_DIGEST_REF = (
+        f"registry.access.redhat.com/rhdh/{PLUGIN_NAME}@sha256:"
+        "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd"
+    )
+
+    def _run(self, tmp_path, placeholder_line):
+        (tmp_path / "catalog-entities" / "extensions" / "packages").mkdir(parents=True)
+        dpdy = tmp_path / "dynamic-plugins.default.yaml"
+        dpdy.write_text(f"plugins:\n{placeholder_line}    disabled: true\n")
+
+        index_data = {
+            self.PLUGIN_NAME: {
+                "registryReference": self.RESOLVED_DIGEST_REF,
+                "imageTag": "bs_1.49.4__2.8.6",
+                "build-date": "2025-05-01",
+            },
+        }
+        update_package_files(tmp_path, index_data, [self.PLUGIN_NAME], tmp_path)
+        return dpdy.read_text()
+
+    def test_fragmentless_placeholder_is_resolved(self, tmp_path):
+        """Reproduces the Lightspeed regression: a ghcr.io tag-pinned
+        placeholder with no !fragment must still be replaced."""
+        placeholder = (
+            f"  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+            f"{self.PLUGIN_NAME}:bs_1.49.4__2.8.6\n"
+        )
+        result = self._run(tmp_path, placeholder)
+        assert f"oci://{self.RESOLVED_DIGEST_REF}" in result
+        assert "ghcr.io" not in result
+        assert "disabled: true" in result
+
+    def test_fragment_bearing_placeholder_is_resolved(self, tmp_path):
+        """Legacy !fragment-bearing placeholders must still match via the
+        backward-compatible pattern."""
+        placeholder = (
+            f"  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/"
+            f"{self.PLUGIN_NAME}:bs_1.49.4__2.8.6!{self.PLUGIN_NAME}\n"
+        )
+        result = self._run(tmp_path, placeholder)
+        assert f"oci://{self.RESOLVED_DIGEST_REF}" in result
+        assert "ghcr.io" not in result
+        assert "disabled: true" in result
+
+
+# ---------------------------------------------------------------------------
+# update_package_files: packages/*.yaml scalar dynamicArtifact
+# ---------------------------------------------------------------------------
+class TestUpdatePackageFilesPackagesDirMatching:
+    PLUGIN_NAME = "red-hat-developer-hub-backstage-plugin-lightspeed"
+    RESOLVED_DIGEST_REF = (
+        f"registry.access.redhat.com/rhdh/{PLUGIN_NAME}@sha256:"
+        "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd"
+    )
+
+    def _index_data(self):
+        return {
+            self.PLUGIN_NAME: {
+                "registryReference": self.RESOLVED_DIGEST_REF,
+                "imageTag": "1.10.3--2.8.6",
+                "build-date": "2025-05-01",
+            },
+        }
+
+    def _run_on_package_file(self, tmp_path, filename, body):
+        packages_dir = tmp_path / "catalog-entities" / "extensions" / "packages"
+        packages_dir.mkdir(parents=True)
+        package_yaml = packages_dir / filename
+        package_yaml.write_text(body)
+        update_package_files(tmp_path, self._index_data(), [self.PLUGIN_NAME], tmp_path)
+        return package_yaml.read_text()
+
+    def test_scalar_unquoted_dynamic_artifact_is_resolved(self, tmp_path):
+        body = (
+            "spec:\n"
+            '  packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"\n'
+            "  dynamicArtifact: "
+            f"oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/{self.PLUGIN_NAME}"
+            f":bs_1.49.4__2.8.6!{self.PLUGIN_NAME}\n"
+        )
+        result = self._run_on_package_file(tmp_path, "rhdh-bsp-lightspeed.yaml", body)
+        assert f"oci://{self.RESOLVED_DIGEST_REF}" in result
+        assert "ghcr.io" not in result
+
+    def test_scalar_quoted_dynamic_artifact_is_resolved(self, tmp_path):
+        ghcr = (
+            f"oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/{self.PLUGIN_NAME}"
+            f":bs_1.49.4__2.8.6!{self.PLUGIN_NAME}"
+        )
+        body = (
+            "spec:\n"
+            '  packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"\n'
+            f'  dynamicArtifact: "{ghcr}"\n'
+        )
+        result = self._run_on_package_file(tmp_path, "rhdh-bsp-lightspeed.yaml", body)
+        assert f'"oci://{self.RESOLVED_DIGEST_REF}"' in result
+        assert "ghcr.io" not in result
+
+    def test_mismatched_filename_still_resolved(self, tmp_path):
+        """Filename rhdh-bsp-lightspeed.yaml is not plugin_name.yaml — lookup is by packageName."""
+        body = (
+            "spec:\n"
+            '  packageName: "@red-hat-developer-hub/backstage-plugin-lightspeed"\n'
+            "  dynamicArtifact: "
+            f"oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/{self.PLUGIN_NAME}"
+            f":bs_1.49.4__2.8.6!{self.PLUGIN_NAME}\n"
+        )
+        result = self._run_on_package_file(tmp_path, "rhdh-bsp-lightspeed.yaml", body)
+        assert f"oci://{self.RESOLVED_DIGEST_REF}" in result
