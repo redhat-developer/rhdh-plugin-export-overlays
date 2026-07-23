@@ -79,6 +79,8 @@ sanitize_for_gha() {
   text="${text//%0a/}"
   text="${text//%0D/}"
   text="${text//%0d/}"
+  text="${text//$'\n'/ }"
+  text="${text//$'\r'/}"
   echo "${text}"
 }
 
@@ -419,10 +421,10 @@ for i in $(seq 0 $((WORKSPACE_COUNT - 1))); do
   fi
 
   # -----------------------------------------------------------------------
-  # 4a. Branch validation — refuse to push main/master
+  # 4a. Branch validation — only allow fullsend/ prefixed branches
   # -----------------------------------------------------------------------
-  if [[ "${BRANCH}" == "main" || "${BRANCH}" == "master" ]]; then
-    echo "::error::BLOCKED — agent committed on ${BRANCH}; refusing to push"
+  if [[ "${BRANCH}" != fullsend/* ]]; then
+    echo "::error::BLOCKED — branch '${BRANCH}' does not start with fullsend/; refusing to push"
     WS_PR_URLS+=("")
     continue
   fi

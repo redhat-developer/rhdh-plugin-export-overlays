@@ -123,7 +123,7 @@ jobs:
           PROW_URL: ${PROW_URL}"
             # Re-apply label to re-trigger the agent
             gh issue edit "${EXISTING}" --repo "${REPO}" --remove-label "e2e-fix-agent" 2>/dev/null || true
-            sleep 2
+            sleep 5
             gh issue edit "${EXISTING}" --repo "${REPO}" --add-label "e2e-fix-agent"
             echo "Re-triggered agent on issue #${EXISTING}"
             exit 0
