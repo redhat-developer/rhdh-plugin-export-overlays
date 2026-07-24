@@ -33,7 +33,7 @@ You are a plugin owner if you:
 
 **If you have been approved by RHDH PM**, and a RHDHPLAN feature JIRA exists tracking the request, you will need additional metadata stored only in this repo.
 
-These files are only required (if approved by PM) for inclusion in the Community or Supported catalog. If you are not being advertised in one of the catalogs, you can skip this step.
+These files are only required (if approved by PM) for inclusion in the **Supported Plugins** catalog or the curated **Optional Extras** catalog. If you are not being advertised in one of the catalogs, you can skip this step.
 
 #### Plugin Metadata
 
@@ -47,12 +47,11 @@ If PM approval includes grouping your plugin in an Extensions Collection (featur
 
 #### Catalog Curation
 
-Additionally, your package(s) must be listed in the appropriate package-list file(s):
+Additionally, your package(s) must be listed in the package-list file for the **catalog tier** you are targeting. These files select which catalog index includes the package; they do **not** set the support level. Support level (for example `community`, tech-preview, or generally-available) is declared in Plugin and Package metadata YAML and can vary independently of which list a package appears in.
 
-* [`../rhdh-community-packages.txt`](../rhdh-community-packages.txt) — Community (including Developer Preview) catalog index
-* [`../rhdh-supported-packages.txt`](../rhdh-supported-packages.txt) — Supported (GA and TP) catalog index
-* [`../default.packages.yaml`](../default.packages.yaml) — **GA packages only**. Inclusion here also requires PM approval tracked in an RHDHPLAN feature JIRA. 
-
+* [`../rhdh-community-packages.txt`](../rhdh-community-packages.txt) — curated **Optional Extras** catalog index tier (Community and Developer Preview)
+* [`../rhdh-supported-packages.txt`](../rhdh-supported-packages.txt) — **Supported Plugins** catalog index tier (GA and TP)
+* [`../default.packages.yaml`](../default.packages.yaml) — **GA packages only** (`support: generally-available`), with PM approval tracked in an RHDHPLAN feature JIRA. List each package under `enabled:` (usable out of the box) or `disabled:` (requires configuration before use). Do not add non-GA packages to this file.
 ### 2. Keep Package Metadata Synchronized
 
 Your packages exist in **two places** that must stay in sync:
@@ -164,8 +163,8 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
 - [ ] Updated metadata links (source, issues, docs) if needed
 - [ ] Updated support level in metadata: `spec.support.level` in Plugin YAML (`catalog-entities/extensions/plugins/`), and `spec.support` in Package YAML (`workspaces/*/metadata/`)
-- [ ] Packages are listed in the correct catalog-tier file (`rhdh-community-packages.txt` or `rhdh-supported-packages.txt`) if PM-approved for catalog inclusion; support level in metadata matches the intended product status
-- [ ] If GA and PM-approved, packages are correctly included in `default.packages.yaml`; otherwise they must not be listed there
+- [ ] Packages are listed in the correct catalog-tier file (`rhdh-community-packages.txt` for curated Optional Extras, or `rhdh-supported-packages.txt` for Supported Plugins) if PM-approved for catalog inclusion; support level in metadata matches the intended product status
+- [ ] If GA and PM-approved, packages are listed in `default.packages.yaml` under `enabled:` or `disabled:` as appropriate; otherwise they must not be listed there
 - [ ] If applicable and PM-approved, Collection membership under `catalog-entities/extensions/collections/` is correct
 
 ### Patch Check
@@ -192,8 +191,8 @@ Offboarding takes one of two paths:
 
 | Path | Outcome |
 |------|---------|
-| **Full retirement** | Remove from all catalogs (Supported and Community / Optional Extras) and delete overlay workspace content |
-| **Downgrade catalog tier** | Move packages from the Supported catalog list to the Community catalog list (or remove curated listing entirely), and update support level in Plugin/Package metadata to match PM’s decision |
+| **Full retirement** | Remove from all catalogs (Supported Plugins and curated Optional Extras) and delete overlay workspace content |
+| **Downgrade catalog tier** | Move packages from the Supported Plugins list to the curated Optional Extras list (or remove Optional Extras listing entirely), and update support level in Plugin/Package metadata to match PM’s decision |
 
 Notify customers before deprecation or removal so they have time to adapt:
 
@@ -227,12 +226,12 @@ Submit a PR that updates or removes the same catalog artifacts added during onbo
 
 **Plugin / collection / package metadata** under `catalog-entities/extensions/` and `workspaces/<name>/metadata/`:
 
-| Path | Full retirement | Downgrade (Supported (TP or GA) → Community (including Dev Preview) tier) |
-|------|-----------------|----------------------------------------|
+| Path | Full retirement | Downgrade (Supported Plugins → curated Optional Extras) |
+|------|-----------------|----------------------------------------------------------|
 | Plugin YAML + `plugins/all.yaml` | Delete plugin file and drop from `all.yaml` | Update `spec.support.level` |
 | Collection YAML + `collections/all.yaml` | Remove from any collections | Update if collection membership changes |
 | Package metadata (`workspaces/*/metadata/*.yaml`) | Delete with the workspace | Update `spec.support` |
-| Package lists | Remove from all list files above | Move from `rhdh-supported-packages.txt` to `rhdh-community-packages.txt` (or remove if no longer in the Community catalog); remove from `default.packages.yaml` if present |
+| Package lists | Remove from all list files above | Move from `rhdh-supported-packages.txt` to `rhdh-community-packages.txt` (or remove if no longer in curated Optional Extras); remove from `default.packages.yaml` if present |
 
 **Full retirement — delete the workspace folder** (`source.json`, `plugins-list.yaml`, metadata, patches, overlays). Document removal in release notes via the RHDHPLAN feature JIRA.
 
@@ -244,7 +243,9 @@ After the PR merges, catalog-index pipelines rebuild the indexes. Verify on the 
 
 ### 4. Supported Midstream Clean-up (Outside This Repo)
 
-If the plugin was built for Technology Preview or GA via the RHDH Konflux tenant, separately disable Tekton pipeline resources and, only when prior releases are EOL, deprecate or unpublish mapped Pyxis images. That work lives outside this repo. Contact COPE team for details and links to guides. 
+If the plugin was built for Technology Preview or GA via the RHDH Konflux tenant, separately disable Tekton pipeline resources and, only when prior releases are EOL, deprecate or unpublish mapped Pyxis images. 
+
+That work lives outside this repo (RHDH plugin-catalog midstream). Contact the COPE team for details, and follow the offboarding guide (`docs/OFFBOARD_KONFLUX.adoc` in the plugin-catalog repo).
 
 ---
 
