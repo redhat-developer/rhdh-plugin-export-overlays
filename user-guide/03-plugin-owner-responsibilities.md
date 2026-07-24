@@ -58,6 +58,7 @@ Your packages exist in **two places** that must stay in sync:
 
 | Location | Files | Owner Updates |
 |----------|-------|---------------|
+
 | **Source Repo** | `package.json`, `src/` | When you release new versions |
 | **Overlay Repo** | `source.json`, `metadata/*.yaml` | When source changes |
 
