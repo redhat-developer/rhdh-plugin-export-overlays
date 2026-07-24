@@ -111,6 +111,30 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### Reviewing CVE / Dependency Patches
+
+This repo packages upstream plugins as dynamic plugin OCI images. Only a subset of the upstream source repo's dependency tree ends up in the shipped images — specifically, only the dependency subtrees of plugins listed in the workspace's `plugins-list.yaml`. Dependencies pulled in by other packages in the upstream workspace (scaffold apps like `app` or `app-legacy`, dev tools like `@graphiql/react`, documentation generators, or build infrastructure) are **not shipped** and do **not** need CVE patches.
+
+**Shipped vs scaffold distinction:**
+
+- **Shipped**: Dependencies in the transitive dependency tree of plugins listed in `plugins-list.yaml` (e.g., `plugins/lightspeed`, `plugins/lightspeed-backend`). These end up in the final OCI images and are deployed to production.
+- **Scaffold / dev-only**: Dependencies used only by non-exported packages — `app`, `app-legacy`, standalone dev tools, test harnesses, build scripts. These exist in the upstream repo's `yarn.lock` but are never packaged into the OCI images.
+
+**Review criteria for CVE patches:**
+
+When reviewing a PR that adds or modifies files in `patches/` to address a CVE (or changes dependency versions for security reasons):
+
+1. **Identify the vulnerable package** from the patch content or PR description.
+2. **Verify reachability**: Confirm that the vulnerable package is in the shipped dependency tree — not just present in the upstream `yarn.lock`. A dependency that only appears under non-exported packages is scaffold-only, and the CVE patch is unnecessary.
+3. **Do not approve CVE patches without addressing reachability.** If the vulnerable dependency is scaffold-only, flag it. If reachability cannot be determined, request human verification rather than approving by default.
+
+**How to check reachability:**
+
+1. Read `workspaces/<name>/plugins-list.yaml` to identify which plugins are exported (shipped).
+2. In the upstream source repo, check the `package.json` of each exported plugin to see if the vulnerable package is a direct or transitive dependency.
+3. If the vulnerable package only appears as a dependency of non-exported packages (e.g., `packages/app`, `packages/app-legacy`, or dev-only tooling), it is scaffold-only and not shipped.
+4. A dependency appearing in the root `yarn.lock` does **not** mean it is shipped — `yarn.lock` covers the entire upstream workspace, including scaffold and dev dependencies.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
