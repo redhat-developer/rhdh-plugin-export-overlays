@@ -131,6 +131,30 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Using `yarn-lockfile-surgeon` for CVE Patches
+
+This repo uses [`yarn-lockfile-surgeon`](https://www.npmjs.com/package/yarn-lockfile-surgeon) to bump specific dependency versions in `yarn.lock` without affecting unrelated transitive dependencies. When reviewing a CVE patch in `patches/0-cve-yarn-lock.patch`, check whether the patch was generated using surgeon or a broader resolution method (e.g., modifying a parent package like `@backstage/backend-defaults` and re-resolving, which pulls in unrelated transitive dependency updates).
+
+**Why surgeon matters:** A broad `yarn install` or package bump resolves the entire dependency tree, introducing changes to packages unrelated to the CVE fix. This creates unnecessary churn in lockfile patches, increases the risk of breaking exported plugins, and makes it harder to review whether the patch is minimal and correct. Surgeon targets only the specific package versions that need to change.
+
+**Detection signal — identifying non-surgical patches:**
+
+When reviewing a yarn.lock patch (`patches/0-cve-yarn-lock.patch` or similar), look for these indicators that the patch was NOT generated using surgeon:
+
+1. **Unrelated transitive dependency bumps.** The patch bumps packages that are not in the resolution chain of the CVE-affected dependency. For example, a patch fixing a `tar` CVE should not also bump `@microsoft/api-documenter` and its dependency tree.
+2. **Parent package bumps as a proxy.** The patch modifies a higher-level package (e.g., `@backstage/backend-defaults`) to indirectly pull in the fix for a transitive dependency, rather than targeting the vulnerable package directly.
+3. **Disproportionate scope.** The number of changed packages significantly exceeds what a targeted fix would require. A single-package CVE fix should touch only that package and its direct resolution chain in `yarn.lock`.
+
+**Actionable review feedback:**
+
+When flagging a non-surgical patch, provide specific guidance. Example review comment:
+
+> This patch bumps packages beyond the CVE-affected dependency (`<package>`). Consider using `yarn-lockfile-surgeon` to bump only `<package>` to `<version>` rather than bumping `<broader-package>`, which pulls in unrelated transitive dependency updates. This keeps the lockfile patch minimal and reduces the risk of breaking exported plugins.
+
+When a patch appears to have been generated with surgeon (targeted changes, no unrelated bumps), note this positively:
+
+> The patch scope looks targeted — only `<package>` and its direct resolution chain are affected. This is consistent with `yarn-lockfile-surgeon` usage.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
