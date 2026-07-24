@@ -16,5 +16,10 @@ export default defineConfig({
       testMatch: "bulk-import-orchestrator.spec.ts",
       timeout: 30 * 60 * 1000,
     },
+    {
+      name: "bulk-import-scaffolder-template",
+      testMatch: "bulk-import-scaffolder-template.spec.ts",
+      timeout: 30 * 60 * 1000,
+    },
   ],
 });
