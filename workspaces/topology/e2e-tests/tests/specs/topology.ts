@@ -40,7 +40,7 @@ export class Topology {
   }
 
   async verifyMissingTopologyPermission() {
-    await this.uiHelper.verifyHeading("Missing Permission");
+    await this.uiHelper.verifyText("Missing Permission");
     await this.uiHelper.verifyText("kubernetes.clusters.read");
     await this.uiHelper.verifyText("kubernetes.resources.read");
     await expect(this.page.getByLabel("Pod")).toBeHidden();
@@ -66,7 +66,7 @@ export class Topology {
 
     if (allowed) {
       const downloadLogsButton = this.page.getByRole("button", {
-        name: "download logs",
+        name: "download",
       });
       const fileContent = await downloadAndReadFile(
         this.page,
@@ -75,7 +75,7 @@ export class Topology {
       expect(fileContent).not.toBeUndefined();
       expect(fileContent).not.toBe("");
     } else {
-      await this.uiHelper.verifyHeading("Missing Permission");
+      await this.uiHelper.verifyText("Missing Permission");
       await this.uiHelper.verifyText("kubernetes.proxy");
     }
   }
