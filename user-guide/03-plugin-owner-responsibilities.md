@@ -29,7 +29,7 @@ You are a plugin owner if you:
 
 ## Core Responsibilities
 
-### 0. Keep Plugin Metadata and Catalog Curation Files Up To Date
+### 1. Keep Plugin Metadata and Catalog Curation Files Up To Date
 
 **If you have been approved by RHDH PM**, and a RHDHPLAN feature JIRA exists tracking the request, you will need additional metadata stored only in this repo.
 
@@ -41,14 +41,19 @@ Your file should be located here: https://github.com/redhat-developer/rhdh-plugi
 
 It should also be referenced from `catalog-entities/extensions/plugins/all.yaml`
 
+#### Collections (if applicable)
+
+If PM approval includes grouping your plugin in an Extensions Collection (featured, recommended, cicd, openshift, redhat, etc.), add or update the relevant file under https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main/catalog-entities/extensions/collections and ensure it is referenced from `catalog-entities/extensions/collections/all.yaml`. Skip this unless PM has approved inclusion in a Collection.
+
 #### Catalog Curation
 
-Additionally, your package(s) must be listed in one of these two files:
-* `rhdh-community-packages.txt` - for Community or Developer Preview support
-* `rhdh-supported-packages.txt` - for Technology Preview or Generally Available
+Additionally, your package(s) must be listed in the appropriate package-list file(s):
 
+* `rhdh-community-packages.txt` — Community or Developer Preview support
+* `rhdh-supported-packages.txt` — Technology Preview or Generally Available
+* `default.packages.yaml` — **GA packages only**. Inclusion here also requires PM approval tracked in an RHDHPLAN feature JIRA. Do not add Tech Preview, Developer Preview, or Community packages to this file.
 
-### 1. Keep Package Metadata Synchronized
+### 2. Keep Package Metadata Synchronized
 
 Your packages exist in **two places** that must stay in sync:
 
@@ -72,7 +77,7 @@ See [04 - Metadata Synchronization](./04-metadata-synchronization.md) for detail
 
 ---
 
-### 2. Keep Backstage Versions Compatible
+### 3. Keep Backstage Versions Compatible
 
 The target platform tracks Backstage releases. Your plugin must remain compatible with the version declared in `versions.json`.
 
@@ -97,7 +102,7 @@ See [05 - Version Updates](./05-version-updates.md) for detailed procedures.
 
 ---
 
-### 3. Maintain Patches and Overlays
+### 4. Maintain Patches and Overlays
 
 If your plugin requires patches:
 
@@ -114,7 +119,7 @@ See [06 - Patch Management](./06-patch-management.md) for detailed procedures.
 
 ---
 
-### 4. Respond to CI Failures
+### 5. Respond to CI Failures
 
 When automated workflows fail on your workspace:
 
@@ -128,7 +133,7 @@ When automated workflows fail on your workspace:
 
 ---
 
-### 5. Communicate Changes
+### 6. Communicate Changes
 
 Notify downstream users when:
 
@@ -159,7 +164,9 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
 - [ ] Updated metadata links (source, issues, docs) if needed
 - [ ] Updated `spec.support.level` or `spec.support` to the current correct level in both *plugin* and *package* metadata files.
-- [ ] Package is correctly included in `rhdh-community-packages.txt` or `rhdh-supported-packages.txt`, if approved for inclusion in a catalog, aligned to the correct support level in the metadata files.
+- [ ] Packages are correctly included in `rhdh-community-packages.txt` or `rhdh-supported-packages.txt`, if approved for inclusion in a catalog, aligned to the correct support level in the metadata files.
+- [ ] If GA and PM-approved, packages are correctly included in `default.packages.yaml`; otherwise it is NOT to be included listed there.
+- [ ] If applicable and PM-approved, Collection membership under `catalog-entities/extensions/collections/` is correct.
 
 ### Patch Check
 - [ ] Verified all patches apply cleanly to current source
@@ -177,9 +184,28 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 
 ## Handling Plugin Deprecation
 
-When deprecating a plugin:
+Offboarding reverses the PM-gated catalog onboarding steps in [Keep Plugin Metadata and Catalog Curation Files Up To Date](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date), then removes workspace Package and Collection metadata. Confirm the plan with Product Management before changing files.
 
-### 1. Mark as Deprecated in Metadata
+### 1. Determine the Offboarding Path and Notify Users
+
+Offboarding takes one of two paths:
+
+| Path | Outcome |
+|------|---------|
+| **Full retirement** | Remove from all catalogs (Supported and Community / Optional Extras) and delete overlay workspace content |
+| **Downgrade in support** | Remove from Supported (TP/GA) and move to Community / Developer Preview, or drop curated community listing entirely |
+
+Notify customers before deprecation or removal so they have time to adapt:
+
+| Support level | Notice guidance |
+|---------------|-----------------|
+| GA (supported) | 2 full y-stream releases |
+| Technology Preview | 1 full y-stream release recommended (not mandatory) |
+| Developer Preview / Community | No SLA; advance notice not required |
+
+For a GA supported plugin, coordinate via a RHDHPLAN Jira so PM can align on timeline, release-note warnings, and which y-stream release will include the change.
+
+During the notice window, mark metadata as deprecated:
 
 ```yaml
 spec:
@@ -187,20 +213,38 @@ spec:
   # Add deprecation notice
 ```
 
-### 2. Communicate to Users
+Document the migration path for users, using an RHDHPLAN feature to track the documentation update (if applicable).
 
-- Open an issue documenting the deprecation
-- Provide migration path to replacement plugin
-- Set a timeline for removal (typically 2 release cycles)
+### 2. Overlays Repository Clean-up
 
-### 3. Remove After Grace Period
+Submit a PR that updates or removes the same catalog artifacts added during onboarding ([Keep Plugin Metadata and Catalog Curation Files Up To Date](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date)), plus Plugin, Package, Collection, and workspace files as required.
 
-When the grace period ends, remove the workspace entirely:
+**Package lists** — remove or relocate entries in:
 
-- Delete the workspace folder (including `source.json`, `plugins-list.yaml`, metadata files, and any patches)
-- Document removal in release notes
+* `rhdh-supported-packages.txt`
+* `rhdh-community-packages.txt`
+* `default.packages.yaml` (GA only; remove on retirement or when leaving GA)
+
+**Plugin / collection / package metadata** under `catalog-entities/extensions/` and `workspaces/<name>/metadata/`:
+
+| Path | Full retirement | Downgrade (TP/GA → DP/Community) |
+|------|-----------------|----------------------------------|
+| Plugin YAML + `plugins/all.yaml` | Delete plugin file and drop from `all.yaml` | Update `spec.support` / support level fields |
+| Collection YAML + `collections/all.yaml` | Remove from any collections | Update if collection membership changes |
+| Package metadata (`workspaces/*/metadata/*.yaml`) | Delete with the workspace | Update support level to match the new tier |
+| Package lists | Remove from all list files above | Move from `rhdh-supported-packages.txt` to `rhdh-community-packages.txt` (or remove if no longer curated community); remove from `default.packages.yaml` if present |
+
+**Full retirement — delete the workspace folder** (`source.json`, `plugins-list.yaml`, metadata, patches, overlays). Document removal in release notes via the RHDHPLAN feature JIRA.
 
 > **Important:** Simply commenting out entries in `plugins-list.yaml` or removing metadata files while keeping the workspace folder is not sufficient. If the workspace folder and `source.json` remain, automatic discovery will detect the plugin again and propose re-adding it. To permanently remove a plugin, delete the entire workspace directory.
+
+### 3. Catalog Index Sync
+
+After the PR merges, catalog-index pipelines rebuild the indexes. Verify on the [Plugin Catalog Index Status](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Plugin-Catalog-Index-Status) page that the plugin no longer appears as active (retirement) or appears only under the intended tier (downgrade). See [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
+
+### 4. Supported Midstream Clean-up (Outside This Repo)
+
+If the plugin was built for Technology Preview or GA via the RHDH Konflux tenant, separately disable Tekton pipeline resources and, only when prior releases are EOL, deprecate or unpublish mapped Pyxis images. That work lives outside this repo. Contact COPE team for details and links to guides. 
 
 ---
 

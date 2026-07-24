@@ -2,7 +2,7 @@
 
 This guide covers keeping **Package** metadata (`workspaces/*/metadata/*.yaml`) and `source.json` synchronized with the upstream source repository.
 
-It does **not** cover Extensions **Plugin** entities or catalog package-list curation (`catalog-entities/extensions/plugins/`, `rhdh-community-packages.txt`, `rhdh-supported-packages.txt`). Those are optional, PM-approved steps — see [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#0-keep-plugin-metadata-and-catalog-curation-files-up-to-date) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
+It does **not** cover Extensions **Plugin** / **Collection** entities or catalog package-list curation (`catalog-entities/extensions/plugins/`, `catalog-entities/extensions/collections/`, `rhdh-community-packages.txt`, `rhdh-supported-packages.txt`, `default.packages.yaml`). Those are required only if PM approved (GA-only for `default.packages.yaml`) — see [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
 
 ---
 
