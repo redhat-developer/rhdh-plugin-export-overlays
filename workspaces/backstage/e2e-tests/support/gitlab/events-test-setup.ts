@@ -1,6 +1,7 @@
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
-import { GitLabApiHelper } from "./api/gitlab-api-helper.js";
+import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
+import { prepareGitLabParentGroup } from "./common-test-setup.js";
 
 export const GITLAB_EVENTS_CATALOG_TOKEN = "test-token";
 
@@ -56,24 +57,5 @@ export async function prepareGitLabEventsParentGroup(): Promise<{
   parentGroupId: number;
   parentGroupPath: string;
 }> {
-  const parentGroup = await GitLabApiHelper.getGroupByPath(
-    process.env.VAULT_EVENTS_GITLAB_PARENT_ORG,
-  );
-  await GitLabApiHelper.cleanupStaleResources(parentGroup.id, "e2e-", 1);
-  return {
-    parentGroupId: parentGroup.id,
-    parentGroupPath: parentGroup.full_path,
-  };
-}
-
-export async function runGitLabEventsCleanupSafely(
-  cleanup: () => Promise<void>,
-): Promise<void> {
-  try {
-    await cleanup();
-  } catch (error) {
-    console.warn(
-      `Cleanup error: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
+  return prepareGitLabParentGroup(process.env.VAULT_EVENTS_GITLAB_PARENT_ORG);
 }
