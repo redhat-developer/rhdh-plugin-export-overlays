@@ -2,9 +2,9 @@
 
 The **plugin catalog indexes** are the collection of **Supported Plugins** and curated **Optional Extras** packages from this repository. 
 
-Indexed can be fetched and used from the links at https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Plugin-Catalog-Status-main 
+Indexes can be fetched and used from the links at https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Plugin-Catalog-Status-main 
 
-They contain all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog indexes is built, what they contains, and where they are published.
+They contain all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog indexes are built, what they contain, and where they are published.
 
 ---
 
