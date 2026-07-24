@@ -13,13 +13,12 @@ test.describe("Test ACR plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test("Verify ACR Images are visible", async ({ uiHelper, rhdh }) => {
+  test("Verify ACR Images are visible", async ({ uiHelper }, testInfo) => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
     // Legacy uses the shared Image Registry tab; NFS uses the plugin entity-content title.
-    const tabName = rhdh.deploymentConfig.namespace.endsWith("-app-next")
-      ? "ACR IMAGES"
-      : "Image Registry";
+    const tabName =
+      testInfo.project.name === "acr-app-next" ? "ACR IMAGES" : "Image Registry";
     await uiHelper.clickTab(tabName);
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
