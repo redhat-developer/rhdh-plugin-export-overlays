@@ -10,6 +10,15 @@ test.describe("Test Tekton plugin", () => {
     process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
       [ghcrRegistry]: ["@backstage-community/plugin-tekton"],
     });
+    const project = rhdh.deploymentConfig.namespace;
+    const isNightlyMode =
+      process.env.E2E_NIGHTLY_MODE === "true" ||
+      process.env.E2E_NIGHTLY_MODE === "1" ||
+      (process.env.JOB_NAME?.includes("periodic-") ?? false);
+    test.skip(
+      project === "tekton-app-next" && isNightlyMode,
+      "tekton-app-next not ready for nightly",
+    );
     await rhdh.configure({
       auth: "keycloak",
     });
@@ -27,9 +36,9 @@ test.describe("Test Tekton plugin", () => {
     await loginHelper.loginAsKeycloakUser();
   });
 
-  test("Check Pipeline Run", async ({ page, uiHelper }) => {
+  test("Check Pipeline Run", async ({ page, uiHelper }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.ensurePipelineRunsTableIsNotEmpty();
     await uiHelper.verifyHeading("Pipeline Runs");
     await uiHelper.verifyTableHeadingAndRows(
@@ -37,18 +46,18 @@ test.describe("Test Tekton plugin", () => {
     );
   });
 
-  test("Check search functionality", async ({ page }) => {
+  test("Check search functionality", async ({ page }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.search("hello-world");
     await tekton.ensurePipelineRunsTableIsNotEmpty();
   });
 
   test("Check if modal is opened after click on the pipeline stage", async ({
     page,
-  }) => {
+  }, testInfo) => {
     const tekton = new TektonSupportHelper(page);
-    await tekton.goToBackstageJanusProjectCITab();
+    await tekton.goToBackstageJanusProjectCITab(testInfo);
     await tekton.clickOnExpandRowFromPipelineRunsTable(
       "hello-world-pipeline-run",
     );
