@@ -18,7 +18,8 @@ You are a plugin owner if you:
 
 | Area | Frequency | Criticality |
 |------|-----------|-------------|
-| Metadata synchronization | Every release | 🔴 High |
+| Plugin Metadata updates | As needed | 🟡 Medium |
+| Package Metadata synchronization | Every release | 🔴 High |
 | Backstage version updates | When compatibility signals appear | 🔴 High |
 | Patch maintenance | As needed | 🟡 Medium |
 | Test validation | Every PR | 🔴 High |
@@ -28,9 +29,28 @@ You are a plugin owner if you:
 
 ## Core Responsibilities
 
-### 1. Keep Metadata Synchronized
+### 0. Keep Plugin Metadata and Catalog Curation Files Up To Date
 
-Your plugin exists in **two places** that must stay in sync:
+**If you have been approved by RHDH PM**, and a RHDHPLAN feature JIRA exists tracking the request, you will need additional metadata stored only in this repo.
+
+These files are only required (if approved by PM) for inclusion in the Community or Supported catalog. If you are not being advertised in one of the catalogs, you can skip this step.
+
+#### Plugin Metadata
+
+Your file should be located here: https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main/catalog-entities/extensions/plugins
+
+It should also be referenced from `catalog-entities/extensions/plugins/all.yaml`
+
+#### Catalog Curation
+
+Additionally, your package(s) must be listed in one of these two files:
+* `rhdh-community-packages.txt` - for Community or Developer Preview support
+* `rhdh-supported-packages.txt` - for Technology Preview or Generally Available
+
+
+### 1. Keep Package Metadata Synchronized
+
+Your packages exist in **two places** that must stay in sync:
 
 | Location | Files | Owner Updates |
 |----------|-------|---------------|
@@ -138,6 +158,8 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Verified `spec.packageName` matches source `package.json:name`
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
 - [ ] Updated metadata links (source, issues, docs) if needed
+- [ ] Updated `spec.support.level` or `spec.support` to the current correct level in both *plugin* and *package* metadata files.
+- [ ] Package is correctly included in `rhdh-community-packages.txt` or `rhdh-supported-packages.txt`, if approved for inclusion in a catalog, aligned to the correct support level in the metadata files.
 
 ### Patch Check
 - [ ] Verified all patches apply cleanly to current source

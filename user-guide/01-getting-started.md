@@ -261,6 +261,8 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
 5. **Open PR against `main`**
 
+> **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the Community or Supported Extensions catalog. That requires RHDH PM approval (and a tracking RHDHPLAN feature JIRA), plus Plugin entity YAML under `catalog-entities/extensions/plugins/` (listed in `all.yaml`) and an entry in `rhdh-community-packages.txt` or `rhdh-supported-packages.txt`. See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#0-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
+
 ---
 
 ## Testing Your Plugin

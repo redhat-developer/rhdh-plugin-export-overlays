@@ -1,6 +1,8 @@
 # Metadata Synchronization
 
-This guide covers the process of keeping your plugin metadata synchronized between the source repository and the overlay repository.
+This guide covers keeping **Package** metadata (`workspaces/*/metadata/*.yaml`) and `source.json` synchronized with the upstream source repository.
+
+It does **not** cover Extensions **Plugin** entities or catalog package-list curation (`catalog-entities/extensions/plugins/`, `rhdh-community-packages.txt`, `rhdh-supported-packages.txt`). Those are optional, PM-approved steps — see [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#0-keep-plugin-metadata-and-catalog-curation-files-up-to-date) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
 
 ---
 

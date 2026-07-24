@@ -29,6 +29,8 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | `workspaces/[name]/metadata/*.yaml` | Package entity definitions |
 | `workspaces/[name]/patches/*.patch` | Unified diff patches |
 | `workspaces/[name]/plugins/[plugin]/` | Plugin-specific overlays |
+| `catalog-entities/extensions/plugins/*.yaml` | Plugin entities for Extensions catalog (required only if PM approved) |
+| `rhdh-community-packages.txt` / `rhdh-supported-packages.txt` | Catalog tier package lists (required only if PM approved) |
 
 ### Common Workflows
 

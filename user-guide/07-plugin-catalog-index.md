@@ -183,7 +183,9 @@ The generated `catalog-index/<tier>/` directory contains:
 
 ## Support Tiers
 
-The pipeline runs twice per build — once for each tier:
+The pipeline runs twice per build — once for each tier.
+
+Inclusion in either catalog is **optional** for plugin owners and requires RHDH PM approval. For the owner-facing files and checklist (Plugin entity YAML, `all.yaml`, and the package list files below), see [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#0-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
 
 ### Supported Catalog
 
