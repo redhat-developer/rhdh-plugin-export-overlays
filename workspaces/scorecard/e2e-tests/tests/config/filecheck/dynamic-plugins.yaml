@@ -2,7 +2,7 @@
 # Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
 # GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4
     disabled: false
     pluginConfig:
       dynamicPlugins:
@@ -32,9 +32,9 @@ plugins:
                   description: "Checks if the README file exists in the repository"
                   props:
                     metricId: "filecheck.readme"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4!red-hat-developer-hub-backstage-plugin-scorecard-backend
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4
     disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.10!red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.10
     disabled: false
     pluginConfig:
       scorecard:
@@ -49,7 +49,7 @@ plugins:
                 minutes: 10
               initialDelay:
                 seconds: 120
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1!red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1
     disabled: false
     pluginConfig:
       dynamicPlugins:
