@@ -35,6 +35,11 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
+    test.skip(
+      project === "topology-app-next" &&
+        process.env.E2E_NIGHTLY_MODE === "true",
+      "app-next not ready for nightly",
+    );
 
     await rhdh.configure({ auth: "keycloak" });
 

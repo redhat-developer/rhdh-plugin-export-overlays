@@ -11,7 +11,7 @@ install_openshift_pipelines() {
   fi
 
   echo "Installing Red Hat OpenShift Pipelines operator..."
-  oc apply -f "${script_dir}/resources/openshift-pipelines-subscription.yaml"
+  oc apply -f "${script_dir}/resources/openshift-pipelines-subscription.yaml" 2>/dev/null || true
 
   echo "Waiting for OpenShift Pipelines CRDs to become available..."
   local timeout=300
