@@ -131,6 +131,22 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Reviewing `default.packages.yaml` Changes
+
+`default.packages.yaml` is a curated list of core RHDH packages. Packages listed here have their default configuration available for `{{inherit}}` in dynamic plugin deployment YAML and are considered part of the core RHDH experience. Over time, this list will align with the GA plugins in the catalog.
+
+**Adding a new package to this file is a product-level decision requiring explicit PM or stakeholder approval — it is not a routine metadata change.** The file itself contains an inline comment: *"Do not add packages to this list without prior agreement from PM."*
+
+**Review criteria for `default.packages.yaml` changes:**
+
+When reviewing a PR that modifies `default.packages.yaml`:
+
+1. **Adding new entries.** Do not approve autonomously. Flag the change for human review and verify that the appropriate PM or stakeholder has explicitly signed off on including the package in core defaults. A well-formatted, alphabetically-placed insertion is not sufficient justification — inclusion in this file has product-level implications.
+2. **Removing or modifying existing entries.** Also requires human review, as it changes the default RHDH configuration surface available to all users.
+3. **Changing support levels.** Transitions between `generally-available`, `tech-preview`, and commenting/uncommenting entries affect what ships as part of the core experience. Verify that the support level change has been approved through the appropriate process.
+
+**Do not approve PRs that add entries to `default.packages.yaml` without evidence of stakeholder approval.** Request human review and note that the change affects core RHDH defaults.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
