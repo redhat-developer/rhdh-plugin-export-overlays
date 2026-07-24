@@ -288,6 +288,67 @@ export function collectInstallationPaths(npmLsJson: Json, packageName: string, v
   return paths;
 }
 
+/** Longest shared ancestor chain across all installation paths. */
+export function longestCommonPrefix(paths: string[][]): string[] {
+  if (!paths.length) return [];
+  let prefix = [...paths[0]];
+  for (const path of paths.slice(1)) {
+    while (prefix.length > 0 && (path.length < prefix.length || !prefix.every((seg, i) => path[i] === seg))) {
+      prefix.pop();
+    }
+  }
+  return prefix;
+}
+
+type DepTree = { children: Map<string, DepTree> };
+
+function emptyDepTree(): DepTree {
+  return { children: new Map() };
+}
+
+function insertIntoDepTree(tree: DepTree, segments: string[]): void {
+  let node = tree;
+  for (const segment of segments) {
+    let child = node.children.get(segment);
+    if (!child) {
+      child = emptyDepTree();
+      node.children.set(segment, child);
+    }
+    node = child;
+  }
+}
+
+function sortedDepTreeChildren(tree: DepTree): [string, DepTree][] {
+  return [...tree.children.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
+function renderDepTreeChildren(tree: DepTree, prefix: string): string[] {
+  const lines: string[] = [];
+  const children = sortedDepTreeChildren(tree);
+  children.forEach(([label, childTree], index) => {
+    const isLast = index === children.length - 1;
+    const hasChildren = childTree.children.size > 0;
+    const connector = isLast ? (hasChildren ? '└─┬' : '└──') : hasChildren ? '├─┬' : '├──';
+    lines.push(`${prefix}${connector} ${label}`);
+    if (hasChildren) {
+      lines.push(...renderDepTreeChildren(childTree, prefix + (isLast ? '  ' : '│ ')));
+    }
+  });
+  return lines;
+}
+
+/** Merge installation paths into one npm-ls-style tree from the root, branching where paths diverge. */
+export function formatMergedInstallationPaths(paths: string[][]): string {
+  if (!paths.length) return '';
+  if (paths.length === 1) return formatNpmLsSpine(paths[0]);
+
+  const tree = emptyDepTree();
+  for (const path of paths) {
+    insertIntoDepTree(tree, path);
+  }
+  return renderDepTreeChildren(tree, '').join('\n');
+}
+
 export function formatNpmLsSpine(path: string[]): string {
   if (!path.length) return '';
   if (path.length === 1) return `└── ${path[0]}`;
@@ -302,7 +363,7 @@ export function formatNpmLsSpine(path: string[]): string {
 }
 
 export function formatInstallationPathNotes(paths: string[][]): string {
-  return paths.map(path => formatNpmLsSpine(path)).filter(Boolean).join('\n\n');
+  return formatMergedInstallationPaths(paths);
 }
 
 export function vulnerablePatchVersions(

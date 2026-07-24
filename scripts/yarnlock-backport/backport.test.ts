@@ -11,6 +11,7 @@ import {
   formatInstallationPathNotes,
   formatNpmLsSpine,
   formatPatchVersions,
+  longestCommonPrefix,
   mergeManifestNotes,
   normalizeCveId,
   parseCveArg,
@@ -335,6 +336,51 @@ describe('vulnerabilityNoteForRow', () => {
     assert.equal(formatNpmLsSpine(paths[0]).includes('ws@8.18.0'), true);
   });
 
+  it('merges installation paths under their common ancestor', () => {
+    const npmLsDual = {
+      name: '@internal/orchestrator',
+      version: '1.0.0',
+      dependencies: {
+        '@backstage/cli': {
+          version: '0.36.0',
+          dependencies: {
+            '@backstage/cli-module-build': {
+              version: '0.1.0',
+              dependencies: {
+                '@module-federation/enhanced': {
+                  version: '0.21.6',
+                  dependencies: {
+                    '@module-federation/dts-plugin': {
+                      version: '0.21.6',
+                      dependencies: {
+                        'isomorphic-ws': { version: '5.0.0', dependencies: { ws: { version: '8.18.0' } } },
+                        ws: { version: '8.18.0' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+    const paths = collectInstallationPaths(npmLsDual, 'ws', '8.18.0');
+    assert.equal(paths.length, 2);
+    const prefix = longestCommonPrefix(paths);
+    assert.equal(prefix[prefix.length - 1], '@module-federation/dts-plugin@0.21.6');
+
+    const spines = formatInstallationPathNotes(paths);
+    assert.doesNotMatch(spines, /\n\n/);
+    assert.match(spines, /@internal\/orchestrator@1\.0\.0/);
+    assert.match(spines, /@backstage\/cli@0\.36\.0/);
+    assert.match(spines, /@module-federation\/dts-plugin@0\.21\.6/);
+    assert.match(spines, /isomorphic-ws@5\.0\.0/);
+    assert.match(spines, /ws@8\.18\.0/);
+    assert.match(spines, /├─┬ isomorphic-ws@5\.0\.0/);
+    assert.match(spines, /└── ws@8\.18\.0/);
+  });
+
   it('includes every installation path for a still-vulnerable version', () => {
     const npmLsMulti = {
       name: '@internal/orchestrator',
@@ -359,7 +405,7 @@ describe('vulnerabilityNoteForRow', () => {
     const spines = formatInstallationPathNotes(paths);
     assert.match(spines, /@backstage\/cli@0\.34\.5/);
     assert.match(spines, /@backstage\/repo-tools@0\.16\.0/);
-    assert.match(spines, /\n\n/);
+    assert.doesNotMatch(spines, /\n\n/);
 
     const row = {
       cve_ids: ['CVE-2026-12143'],
