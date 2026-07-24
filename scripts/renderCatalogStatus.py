@@ -32,7 +32,6 @@ STAGE_LABELS = {
 }
 
 REASON_ANCHORS = {
-    "Backstage version mismatch": "backstage-version-mismatch",
     "Image not found in registry": "image-not-found-in-registry",
 }
 
@@ -229,11 +228,17 @@ def render_tier(
         return lines
 
     failed = {k: v for k, v in plugins.items() if v.get("overall") == "fail"}
-    outdated = {k: v for k, v in plugins.items() if v.get("overall") == "outdated"}
     all_passed = {k: v for k, v in plugins.items() if v.get("overall") == "pass"}
     fallback = {k: v for k, v in all_passed.items()
                 if v.get("stages", {}).get("image-metadata-fetch", {}).get("fallback")}
-    passed = {k: v for k, v in all_passed.items() if k not in fallback}
+    bs_mismatch = {
+        k: v for k, v in all_passed.items()
+        if v.get("stages", {}).get("bootstrap", {}).get("bs_version_mismatch")
+    }
+    passed = {
+        k: v for k, v in all_passed.items()
+        if k not in fallback and k not in bs_mismatch
+    }
 
     lines.append(f"## {tier_name} Catalog")
     lines.append("")
@@ -254,27 +259,40 @@ def render_tier(
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {stage_label} | {reason_link} |")
         lines.append("")
 
-    if outdated:
+    if bs_mismatch:
         if troubleshooting_content:
-            lines.append(f"### ⚠️ [Backstage Version Mismatch](#backstage-version-mismatch) ({len(outdated)})")
+            lines.append(
+                f"### ⚠️ [Backstage Version Mismatch](#backstage-version-mismatch) ({len(bs_mismatch)})"
+            )
         else:
-            lines.append(f"### ⚠️ Backstage Version Mismatch ({len(outdated)})")
+            lines.append(f"### ⚠️ Backstage Version Mismatch ({len(bs_mismatch)})")
         lines.append("")
-        lines.append("> These plugins were excluded because their workspace targets an older Backstage minor version.")
-        lines.append("> To resolve, try running `/update-commit` on their workspace PR (if it exists) or add a `backstage.json` override if no commit exists that updates the version.")
+        lines.append(
+            "> These plugins are included in the catalog but their workspace targets an older "
+            "Backstage minor version than the branch expects. Community (ghcr.io) images use "
+            "the workspace's actual Backstage version in the tag."
+        )
+        lines.append(
+            "> To resolve, try running `/update-commit` on their workspace PR (if it exists) "
+            "or add a `backstage.json` override if no commit exists that updates the version."
+        )
         lines.append("")
-        lines.append("| Plugin | Package | Workspace | Expected | Found |")
-        lines.append("|--------|---------|-----------|----------|-------|")
-        for name in sorted(outdated):
-            p = outdated[name]
+        lines.append("| Plugin | Package | Workspace | Expected | Found | OCI Reference |")
+        lines.append("|--------|---------|-----------|----------|-------|---------------|")
+        for name in sorted(bs_mismatch):
+            p = bs_mismatch[name]
             ws = p.get("workspace", "")
             pkg = p.get("package", "")
             bootstrap = p.get("stages", {}).get("bootstrap", {})
             expected = bootstrap.get("expected_version", "")
             found = bootstrap.get("found_version", "")
+            oci_ref = bootstrap.get("oci_ref", "")
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             ws_link = workspace_link(source_repo, branch, ws) if ws else f"`{ws}`"
-            lines.append(f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {found} |")
+            oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
+            lines.append(
+                f"| {name_link} | `{pkg}` | {ws_link} | {expected} | {found} | {oci_link} |"
+            )
         lines.append("")
 
     if fallback:
@@ -342,11 +360,12 @@ def count_fallbacks(report: dict) -> int:
     )
 
 
-def count_outdated(report: dict) -> int:
-    """Count plugins excluded due to backstage version mismatch."""
+def count_bs_version_mismatch(report: dict) -> int:
+    """Count plugins included with a bootstrap Backstage version mismatch warning."""
     return sum(
         1 for p in report.get("plugins", {}).values()
-        if p.get("overall") == "outdated"
+        if p.get("overall") == "pass"
+        and p.get("stages", {}).get("bootstrap", {}).get("bs_version_mismatch")
     )
 
 
@@ -420,20 +439,20 @@ def render_status_page(
 
     lines.append("## Summary")
     lines.append("")
-    lines.append("| Tier | Total | Passed | Outdated | Excluded | Failed | Latest Catalog Index Image | Last Successful Publish |")
-    lines.append("|------|-------|--------|----------|----------|--------|----------------------------|-------------------------|")
+    lines.append("| Tier | Total | Passed | Outdated | BS Mismatch | Failed | Latest Catalog Index Image | Last Successful Publish |")
+    lines.append("|------|-------|--------|----------|-------------|--------|----------------------------|-------------------------|")
     if supported_report:
         sup_img = render_catalog_image(supported_report, ghcr_version_ids)
         sup_pub = render_last_publish(supported_report, source_repo)
         sup_fallback = count_fallbacks(supported_report)
-        sup_excluded = count_outdated(supported_report)
-        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_fallback} | {sup_excluded} | {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
+        sup_bs_mismatch = count_bs_version_mismatch(supported_report)
+        lines.append(f"| Supported | {sup_summary.get('total', 0)} | {sup_summary.get('succeeded', 0)} | {sup_fallback} | {sup_bs_mismatch} | {sup_summary.get('failed', 0)} | {sup_img} | {sup_pub} |")
     if community_report:
         com_img = render_catalog_image(community_report, ghcr_version_ids)
         com_pub = render_last_publish(community_report, source_repo)
         com_fallback = count_fallbacks(community_report)
-        com_excluded = count_outdated(community_report)
-        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_fallback} | {com_excluded} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
+        com_bs_mismatch = count_bs_version_mismatch(community_report)
+        lines.append(f"| Community | {com_summary.get('total', 0)} | {com_summary.get('succeeded', 0)} | {com_fallback} | {com_bs_mismatch} | {com_summary.get('failed', 0)} | {com_img} | {com_pub} |")
     lines.append("")
 
     # Tier details
