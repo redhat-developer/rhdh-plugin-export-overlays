@@ -28,13 +28,13 @@ Auxiliary pod logs are often under 200 lines and safe to read entirely.
 
 ```bash
 SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-ARTIFACTS=$(python3 "$SKILL_DIR/scripts/download-artifacts.py" "<PROW_OR_GCSWEB_URL>")
+ARTIFACTS=$(node --experimental-strip-types "$SKILL_DIR/scripts/download-artifacts.ts" "<PROW_OR_GCSWEB_URL>")
 ```
 
 The script parses both PR check and nightly (periodic) prow/gcsweb URLs, downloads
-artifacts via the public GCS JSON API (no gcloud dependency), caches them locally,
-and prints the `ARTIFACTS` path. Subsequent runs with the same URL skip the download
-(cache is validated for completeness, not just directory existence).
+artifacts via the public GCS JSON API (no gcloud dependency), and prints the
+`ARTIFACTS` path. Each run re-downloads artifacts fresh (any previous cache for the
+same URL is cleared first).
 
 ### Step 1: Diagnostic Summary
 
@@ -42,10 +42,10 @@ Run the diagnostics script from the skill's scripts directory:
 
 ```bash
 SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-python3 "$SKILL_DIR/scripts/diagnostics.py" "$ARTIFACTS"
+node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS"
 
 # Filter to a specific project:
-python3 "$SKILL_DIR/scripts/diagnostics.py" "$ARTIFACTS" --project techdocs
+node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS" --project techdocs
 ```
 
 This script gives you:

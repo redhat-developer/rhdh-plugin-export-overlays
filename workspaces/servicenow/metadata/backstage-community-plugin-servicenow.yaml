@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-servicenow"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow:bs_1.52.0__1.13.0
-  version: 1.13.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-servicenow:bs_1.52.0__1.13.2
+  version: 1.13.2
   backstage:
     role: frontend-plugin
     supportedVersions: 1.52.0
