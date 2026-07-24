@@ -131,6 +131,27 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Lockfile Entry Key Validation in Patches
+
+When a patch modifies `yarn.lock`, it may change the **entry key** (the descriptor portion) of a dependency — for example, from `"monaco-editor@npm:^0.55.0"` to `"monaco-editor@npm:0.56.0"`. This is separate from the major version bump concern above: even a minor version change can cause a deterministic build failure if the new lockfile entry key does not satisfy the specifier in the upstream `package.json`.
+
+**Why this matters for this repo:** During `/publish`, Yarn runs with `--immutable` (frozen lockfile). If the lockfile entry key specifies a version that does not satisfy the `package.json` specifier, Yarn will resolve the specifier to a different version than what the patch declares, and fail with `YN0028: The lockfile would have been modified by this install, which is explicitly forbidden`. This failure is deterministic — it will never pass, regardless of how many times `/publish` is retried.
+
+**Review criteria for lockfile entry key changes:**
+
+When reviewing a PR where a `yarn.lock` patch changes a lockfile entry key:
+
+1. **Detect lockfile entry key changes.** In the patch diff, look for changes to the descriptor portion of lockfile entries (the quoted key lines like `"package@npm:specifier"`). A change from a range specifier (e.g., `^0.55.0`) to a pinned version (e.g., `0.56.0`) is the most common pattern, but any specifier change requires verification.
+2. **Verify the new version satisfies the original specifier.** Find the dependency specifier in the upstream `package.json` (use `repo` and `repo-ref` from the workspace's `source.json` to locate the upstream source). Apply standard semver rules to check compatibility. Pay special attention to **0.x caret ranges**, which are stricter than most developers expect:
+   - `^0.y.z` means `>=0.y.z <0.(y+1).0` — the caret only allows patch-level changes for 0.x versions
+   - Example: `^0.55.0` allows `0.55.0` through `0.55.x` but does **not** allow `0.56.0`
+   - This differs from `^1.y.z` (which means `>=1.y.z <2.0.0`) because semver treats 0.x as unstable
+3. **Flag violations as high-severity.** If the resolved version in the patch does not satisfy the original specifier, this is a **blocking finding** — it will cause a deterministic `yarn install --immutable` failure during `/publish`. Do not approve the patch. The fix typically requires one of:
+   - Keeping the lockfile entry key as the original range specifier (e.g., `"package@npm:^0.55.0"`) and only updating the resolved version within that range
+   - Regenerating the patch against an updated upstream ref where `package.json` accepts the new version
+   - Updating the patch to also modify the upstream `package.json` specifier (rare, and increases patch complexity)
+4. **Note:** This check complements the major version bump guidance above. A patch can pass the major version review (no breaking API changes) but still fail this validation if the lockfile key does not match the `package.json` specifier. Both checks should be performed on every `yarn.lock` patch.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
