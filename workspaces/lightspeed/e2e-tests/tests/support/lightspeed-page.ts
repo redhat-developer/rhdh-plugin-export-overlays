@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 export type DisplayMode = "Overlay" | "Dock to window" | "Fullscreen";
 
 /** Default OpenAI model for conversation e2e tests (matches app-config queryDefaults). */
-export const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
+export const DEFAULT_CHAT_MODEL = "gpt-5.1";
 
 export function chatModelSelector(page: Page) {
   return page.getByRole("button", { name: "Chatbot selector" });
@@ -67,14 +67,24 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
+  // Fresh deployments can briefly show only a global progress bar before shell content.
+  const initialLoading = page.getByRole("progressbar").first();
+  await initialLoading
+    .waitFor({ state: "hidden", timeout: 30_000 })
+    .catch(() => {
+      /* no-op */
+    });
+
   const shell = page
     .getByText(/welcome back!/i)
-    .or(page.getByText("My Org Catalog"));
+    .or(page.getByText("My Org Catalog"))
+    .or(page.getByRole("heading", { name: /All components/i }))
+    .or(page.getByRole("button", { name: "Open Lightspeed" }));
 
   if (visible) {
-    await expect(shell).toBeVisible({ timeout: 30_000 });
+    await expect(shell.first()).toBeVisible({ timeout: 30_000 });
   } else {
-    await expect(shell).toBeHidden({ timeout: 30_000 });
+    await expect(shell.first()).toBeHidden({ timeout: 30_000 });
   }
 }
 

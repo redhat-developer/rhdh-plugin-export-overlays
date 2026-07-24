@@ -33,9 +33,9 @@ spec:
           # OPTIONAL: Port for lightspeed service (default: 8080)
           servicePort: 8080
           # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
-          # mcpServers:
-          #  - name: <mcp server name>
-          #    token: ${MCP_TOKEN}
+          mcpServers:
+            - name: mcp-integration-tools
+              token: ${MCP_TOKEN}
 
           # OPTIONAL: Override default RHDH system prompt
           # systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
