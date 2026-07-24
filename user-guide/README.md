@@ -31,7 +31,7 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | `workspaces/[name]/plugins/[plugin]/` | Plugin-specific overlays |
 | `catalog-entities/extensions/plugins/*.yaml` | Plugin entities for Extensions catalog (required only if PM approved) |
 | `catalog-entities/extensions/collections/*.yaml` | Collection groupings (required only if PM approved) |
-| `rhdh-community-packages.txt` / `rhdh-supported-packages.txt` | Catalog tier package lists (required only if PM approved) |
+| `rhdh-community-packages.txt` / `rhdh-supported-packages.txt` | Community / Supported catalog tier lists (required only if PM approved; support level is in metadata YAML) |
 | `default.packages.yaml` | GA packages enabled by default (required only if PM approved; GA only) |
 
 ### Common Workflows

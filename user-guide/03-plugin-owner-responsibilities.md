@@ -37,21 +37,21 @@ These files are only required (if approved by PM) for inclusion in the Community
 
 #### Plugin Metadata
 
-Your file should be located here: https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main/catalog-entities/extensions/plugins
+Your file should be under [`../catalog-entities/extensions/plugins`](../catalog-entities/extensions/plugins).
 
-It should also be referenced from `catalog-entities/extensions/plugins/all.yaml`
+It should also be referenced from `catalog-entities/extensions/plugins/all.yaml`.
 
 #### Collections (if applicable)
 
-If PM approval includes grouping your plugin in an Extensions Collection (featured, recommended, cicd, openshift, redhat, etc.), add or update the relevant file under https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main/catalog-entities/extensions/collections and ensure it is referenced from `catalog-entities/extensions/collections/all.yaml`. Skip this unless PM has approved inclusion in a Collection.
+If PM approval includes grouping your plugin in an Extensions Collection (featured, recommended, cicd, openshift, redhat, etc.), add or update the relevant file under [`../catalog-entities/extensions/collections`](../catalog-entities/extensions/collections) and ensure it is referenced from `catalog-entities/extensions/collections/all.yaml`. Skip this unless PM has approved inclusion in a Collection.
 
 #### Catalog Curation
 
 Additionally, your package(s) must be listed in the appropriate package-list file(s):
 
-* `rhdh-community-packages.txt` — Community or Developer Preview support
-* `rhdh-supported-packages.txt` — Technology Preview or Generally Available
-* `default.packages.yaml` — **GA packages only**. Inclusion here also requires PM approval tracked in an RHDHPLAN feature JIRA. Do not add Tech Preview, Developer Preview, or Community packages to this file.
+* [`../rhdh-community-packages.txt`](../rhdh-community-packages.txt) — Community (including Developer Preview) catalog index
+* [`../rhdh-supported-packages.txt`](../rhdh-supported-packages.txt) — Supported (GA and TP) catalog index
+* [`../default.packages.yaml`](../default.packages.yaml) — **GA packages only**. Inclusion here also requires PM approval tracked in an RHDHPLAN feature JIRA. 
 
 ### 2. Keep Package Metadata Synchronized
 
@@ -163,10 +163,10 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Verified `spec.packageName` matches source `package.json:name`
 - [ ] Reviewed and updated `appConfigExamples` if configuration changed
 - [ ] Updated metadata links (source, issues, docs) if needed
-- [ ] Updated `spec.support.level` or `spec.support` to the current correct level in both *plugin* and *package* metadata files.
-- [ ] Packages are correctly included in `rhdh-community-packages.txt` or `rhdh-supported-packages.txt`, if approved for inclusion in a catalog, aligned to the correct support level in the metadata files.
-- [ ] If GA and PM-approved, packages are correctly included in `default.packages.yaml`; otherwise it is NOT to be included listed there.
-- [ ] If applicable and PM-approved, Collection membership under `catalog-entities/extensions/collections/` is correct.
+- [ ] Updated support level in metadata: `spec.support.level` in Plugin YAML (`catalog-entities/extensions/plugins/`), and `spec.support` in Package YAML (`workspaces/*/metadata/`)
+- [ ] Packages are listed in the correct catalog-tier file (`rhdh-community-packages.txt` or `rhdh-supported-packages.txt`) if PM-approved for catalog inclusion; support level in metadata matches the intended product status
+- [ ] If GA and PM-approved, packages are correctly included in `default.packages.yaml`; otherwise they must not be listed there
+- [ ] If applicable and PM-approved, Collection membership under `catalog-entities/extensions/collections/` is correct
 
 ### Patch Check
 - [ ] Verified all patches apply cleanly to current source
@@ -193,7 +193,7 @@ Offboarding takes one of two paths:
 | Path | Outcome |
 |------|---------|
 | **Full retirement** | Remove from all catalogs (Supported and Community / Optional Extras) and delete overlay workspace content |
-| **Downgrade in support** | Remove from Supported (TP/GA) and move to Community / Developer Preview, or drop curated community listing entirely |
+| **Downgrade catalog tier** | Move packages from the Supported catalog list to the Community catalog list (or remove curated listing entirely), and update support level in Plugin/Package metadata to match PM’s decision |
 
 Notify customers before deprecation or removal so they have time to adapt:
 
@@ -227,12 +227,12 @@ Submit a PR that updates or removes the same catalog artifacts added during onbo
 
 **Plugin / collection / package metadata** under `catalog-entities/extensions/` and `workspaces/<name>/metadata/`:
 
-| Path | Full retirement | Downgrade (TP/GA → DP/Community) |
-|------|-----------------|----------------------------------|
-| Plugin YAML + `plugins/all.yaml` | Delete plugin file and drop from `all.yaml` | Update `spec.support` / support level fields |
+| Path | Full retirement | Downgrade (Supported (TP or GA) → Community (including Dev Preview) tier) |
+|------|-----------------|----------------------------------------|
+| Plugin YAML + `plugins/all.yaml` | Delete plugin file and drop from `all.yaml` | Update `spec.support.level` |
 | Collection YAML + `collections/all.yaml` | Remove from any collections | Update if collection membership changes |
-| Package metadata (`workspaces/*/metadata/*.yaml`) | Delete with the workspace | Update support level to match the new tier |
-| Package lists | Remove from all list files above | Move from `rhdh-supported-packages.txt` to `rhdh-community-packages.txt` (or remove if no longer curated community); remove from `default.packages.yaml` if present |
+| Package metadata (`workspaces/*/metadata/*.yaml`) | Delete with the workspace | Update `spec.support` |
+| Package lists | Remove from all list files above | Move from `rhdh-supported-packages.txt` to `rhdh-community-packages.txt` (or remove if no longer in the Community catalog); remove from `default.packages.yaml` if present |
 
 **Full retirement — delete the workspace folder** (`source.json`, `plugins-list.yaml`, metadata, patches, overlays). Document removal in release notes via the RHDHPLAN feature JIRA.
 
