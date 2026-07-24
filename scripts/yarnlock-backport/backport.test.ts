@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) Red Hat, Inc.
+ * This program and the accompanying materials are made
+ * available under the terms of the Eclipse Public License 2.0
+ * which is available at https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
@@ -7,6 +16,7 @@ import {
   canonicalBaseDir,
   canonicalRepoFromUrl,
   collectInstallationPaths,
+  compareSemver,
   formatManifestDocument,
   formatInstallationPathNotes,
   formatNpmLsSpine,
@@ -24,10 +34,12 @@ import {
   resolveGitRemote,
   resolvePackageInLock,
   semverInAnyAffected,
+  semverSortKey,
   stripAutoNotes,
   versionsInLock,
   vulnerabilityNoteForRow,
   vulnerablePatchVersions,
+  packageOverridesFromEntries,
 } from './backport.ts';
 
 describe('pathUnderBase', () => {
@@ -109,6 +121,33 @@ upstream\thttps://github.com/unrelated/other.git (fetch)`;
         resolveGitRemote(remotes, 'git@github.com:me/rhdh-plugins.git', 'redhat-developer/rhdh-plugins'),
       /no upstream remote/,
     );
+  });
+
+  it('does not match substring-overlapping repo slugs', () => {
+    const remotes = `origin\thttps://github.com/org/foobar.git (fetch)`;
+    assert.throws(
+      () => resolveGitRemote(remotes, 'https://github.com/org/foobar.git', 'org/foo'),
+      /no upstream remote/,
+    );
+  });
+});
+
+describe('semverSortKey / compareSemver', () => {
+  it('strips a leading v prefix', () => {
+    assert.deepEqual(semverSortKey('v1.2.3'), semverSortKey('1.2.3'));
+    assert.equal(compareSemver('v1.2.3', '1.2.3'), 0);
+  });
+
+  it('normalizes underscore separators like hyphen', () => {
+    assert.deepEqual(semverSortKey('1.0.0_beta'), semverSortKey('1.0.0-beta'));
+  });
+
+  it('orders pre-release suffixes after the numeric core consistently', () => {
+    // Simplified pre-release compare: suffix makes 1.0.0-alpha sort before 1.0.0
+    // because the extra key segment is compared against a missing (0) component as strings.
+    assert.equal(compareSemver('1.0.0-alpha', '1.0.0') < 0, true);
+    assert.equal(compareSemver('1.0.0-alpha', '1.0.0-beta') < 0, true);
+    assert.equal(compareSemver('1.2.9', '1.2.10') < 0, true);
   });
 });
 
@@ -274,6 +313,16 @@ describe('semverInAnyAffected', () => {
   it('flags versions below the fix bound as vulnerable', () => {
     assert.equal(semverInAnyAffected('8.18.0', wsRanges), true);
     assert.equal(semverInAnyAffected('8.21.0', wsRanges), false);
+  });
+
+  it('treats upper_inclusive true as still affected at the bound', () => {
+    const ranges = [{ from: '2.0.0', to: '2.5.5', upper_inclusive: true }];
+    assert.equal(semverInAnyAffected('2.5.5', ranges), true);
+    assert.equal(semverInAnyAffected('2.5.6', ranges), false);
+  });
+
+  it('returns false when no affected ranges are available', () => {
+    assert.equal(semverInAnyAffected('1.0.0', []), false);
   });
 });
 
@@ -474,12 +523,42 @@ describe('buildManifestRows', () => {
     assert.equal(rows[0].notes, 'MITRE fix >= 1.16.0');
   });
 
+  it('concatenates distinct notes when merging rows', () => {
+    const rows = buildManifestRows([
+      {
+        cveId: 'CVE-2026-44486',
+        package: 'axios',
+        patch_versions: ['1.18.1'],
+        notes: 'First note',
+      },
+      {
+        cveId: 'CVE-2026-44487',
+        package: 'axios',
+        patch_versions: ['1.18.1'],
+        notes: 'Second note',
+      },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.match(rows[0].notes!, /First note/);
+    assert.match(rows[0].notes!, /Second note/);
+  });
+
   it('omits notes when none are set', () => {
     const rows = buildManifestRows([
       { cveId: 'CVE-2026-12143', package: 'form-data', patch_versions: ['2.5.6', '4.0.6'] },
     ]);
     assert.equal(rows[0].patch_version, '2.5.6, 4.0.6');
     assert.equal(rows[0].notes, undefined);
+  });
+});
+
+describe('packageOverridesFromEntries', () => {
+  it('maps CVE ids to resolved package names from the manifest', () => {
+    const map = packageOverridesFromEntries([
+      { cveId: 'CVE-2026-41674', package: '@xmldom/xmldom', patch_versions: ['0.8.11'] },
+      { cveId: 'CVE-2026-41674', package: 'xmldom', patch_versions: ['0.8.11'] },
+    ]);
+    assert.deepEqual(map.get('CVE-2026-41674'), ['@xmldom/xmldom', 'xmldom']);
   });
 });
 

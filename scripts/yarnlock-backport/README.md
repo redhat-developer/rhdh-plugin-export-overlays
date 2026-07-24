@@ -15,7 +15,7 @@ npx yarnlock-backport prepare  --release 1.10 --overlay-workspace "$OVERLAY_WORK
 npx yarnlock-backport generate --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO" --cve 'CVE-…,CVE-…/package'
 ```
 
-`--cve`: comma-separated ids; optional `/npm-package` override (and comma-separated aliases) when MITRE product names differ from npm. Multiple CVEs may be listed together — commas before the next `CVE-` start a new token. Add `--verbose` on prepare for git output.
+`--cve`: comma-separated ids; optional `/npm-package` override (and comma-separated aliases) when MITRE product names differ from npm. Multiple CVEs may be listed together — commas before the next `CVE-` start a new token. Add `--verbose` on prepare for git output. Use `--skip-overlay-sync` to keep the current overlay checkout (e.g. testing a local `source.json:repo-ref` bump).
 
 Requires Node.js, `git`, `yarn`, `patch`, `diff`, `npm`. Paths must be absolute. Fork clones need `upstream` on the overlays repo.
 

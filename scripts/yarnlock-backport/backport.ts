@@ -1,3 +1,12 @@
+/*
+ * Copyright (c) Red Hat, Inc.
+ * This program and the accompanying materials are made
+ * available under the terms of the Eclipse Public License 2.0
+ * which is available at https://www.eclipse.org/legal/epl-2.0/
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+
 import { spawnSync, type SpawnSyncOptions } from 'node:child_process';
 import {
   existsSync,
@@ -34,10 +43,25 @@ function systemBin(name: string): string {
   }
   throw new Error(`command not found: ${name}`);
 }
-const BIN_DIFF = systemBin('diff');
-const BIN_PATCH = systemBin('patch');
 
-type Json = Record<string, unknown>;
+/** Lazy so importing this module in unit tests does not require diff/patch on PATH. */
+const binCache = new Map<string, string>();
+function lazySystemBin(name: string): string {
+  let path = binCache.get(name);
+  if (!path) {
+    path = systemBin(name);
+    binCache.set(name, path);
+  }
+  return path;
+}
+function binDiff(): string {
+  return lazySystemBin('diff');
+}
+function binPatch(): string {
+  return lazySystemBin('patch');
+}
+
+type JsonObject = Record<string, unknown>;
 type VersionRange = { from: string; to: string; upper_inclusive: boolean };
 type ManifestRow = { cve_ids: string[]; package: string; patch_version: string; notes?: string };
 type CveDetails = { name: string; names: string[]; patch_versions: string[]; affected_ranges: VersionRange[] };
@@ -45,7 +69,9 @@ type ManifestEntry = { cveId: string; package: string; patch_versions: string[];
 
 const INCOMPARABLE_VERSIONS = new Set(['0', '*', 'N/A', 'NA']);
 const AUTO_NOTE_PREFIX = '[auto] ';
-const EMPTY_CVE: CveDetails = { name: '', names: [], patch_versions: [], affected_ranges: [] };
+function emptyCve(): CveDetails {
+  return { name: '', names: [], patch_versions: [], affected_ranges: [] };
+}
 
 /** Coerce JSON values to string without `[object Object]` surprises. */
 function asString(value: unknown): string {
@@ -124,7 +150,7 @@ function rangesFromVersionText(lowRaw: string): { fixes: string[]; ranges: Versi
   return { fixes: [], ranges: [] };
 }
 
-function versionEntryToRanges(v: Json): { fixes: string[]; ranges: VersionRange[] } {
+function versionEntryToRanges(v: JsonObject): { fixes: string[]; ranges: VersionRange[] } {
   if (asString(v.status).toLowerCase() !== 'affected') return { fixes: [], ranges: [] };
 
   const lowRaw = asString(v.version).trim();
@@ -150,11 +176,11 @@ function versionEntryToRanges(v: Json): { fixes: string[]; ranges: VersionRange[
   return { fixes: unique([...fixes, ...fromText.fixes]), ranges: fromText.ranges };
 }
 
-function collectPackageCveData(affected: Json[]): { fixes: string[]; ranges: VersionRange[] } {
+function collectPackageCveData(affected: JsonObject[]): { fixes: string[]; ranges: VersionRange[] } {
   const fixes: string[] = [];
   const ranges: VersionRange[] = [];
   for (const entry of affected) {
-    for (const versionEntry of (entry.versions as Json[]) ?? []) {
+    for (const versionEntry of (entry.versions as JsonObject[]) ?? []) {
       const parsed = versionEntryToRanges(versionEntry);
       fixes.push(...parsed.fixes);
       ranges.push(...parsed.ranges);
@@ -163,49 +189,66 @@ function collectPackageCveData(affected: Json[]): { fixes: string[]; ranges: Ver
   return { fixes, ranges };
 }
 
-/** Package names + affected ranges from MITRE (or CLI overrides). Lockfile supplies installed versions. */
-export function parseCveDetails(record: Json, overrideNames?: string[]): CveDetails {
-  const meta = (record.cveMetadata as Json) ?? {};
-  if (asString(meta.state).toUpperCase() === 'REJECTED') return EMPTY_CVE;
+type PackageCveSlot = { fixes: string[]; ranges: VersionRange[] };
 
-  const affected = (((record.containers as Json)?.cna as Json)?.affected as Json[]) ?? [];
+function cveAffectedList(record: JsonObject): JsonObject[] {
+  const cna = ((record.containers as JsonObject)?.cna as JsonObject) ?? {};
+  return (cna.affected as JsonObject[]) ?? [];
+}
 
-  if (overrideNames?.length) {
-    const { fixes, ranges } = collectPackageCveData(affected);
-    return {
-      name: overrideNames[0],
-      names: [...overrideNames],
-      patch_versions: unique(fixes),
-      affected_ranges: ranges.filter(r => r.to),
-    };
+function affectedEntryName(entry: JsonObject): string {
+  for (const key of ['packageName', 'product', 'vendor'] as const) {
+    const name = asString(entry[key]).trim();
+    if (name) return name;
   }
+  return '';
+}
 
-  const byPackage = new Map<string, { fixes: string[]; ranges: VersionRange[] }>();
+function toCveDetails(name: string, names: string[], slot: PackageCveSlot): CveDetails {
+  return {
+    name,
+    names,
+    patch_versions: unique(slot.fixes),
+    affected_ranges: slot.ranges.filter(r => r.to),
+  };
+}
+
+function groupAffectedByPackage(affected: JsonObject[]): Map<string, PackageCveSlot> {
+  const byPackage = new Map<string, PackageCveSlot>();
   for (const entry of affected) {
-    for (const key of ['packageName', 'product', 'vendor'] as const) {
-      const name = asString(entry[key]).trim();
-      if (!name) continue;
-      const parsed = collectPackageCveData([entry]);
-      const slot = byPackage.get(name) ?? { fixes: [], ranges: [] };
-      slot.fixes.push(...parsed.fixes);
-      slot.ranges.push(...parsed.ranges);
-      byPackage.set(name, slot);
-      break;
-    }
+    const name = affectedEntryName(entry);
+    if (!name) continue;
+    const parsed = collectPackageCveData([entry]);
+    const slot = byPackage.get(name) ?? { fixes: [], ranges: [] };
+    slot.fixes.push(...parsed.fixes);
+    slot.ranges.push(...parsed.ranges);
+    byPackage.set(name, slot);
   }
-  if (!byPackage.size) return EMPTY_CVE;
+  return byPackage;
+}
 
-  const [name, slot] = [...byPackage.entries()].sort(
+function primaryPackageSlot(byPackage: Map<string, PackageCveSlot>): [string, PackageCveSlot] {
+  return [...byPackage.entries()].sort(
     (a, b) =>
       b[1].fixes.length + b[1].ranges.length - (a[1].fixes.length + a[1].ranges.length) ||
       a[0].localeCompare(b[0]),
   )[0];
-  return {
-    name,
-    names: [name],
-    patch_versions: unique(slot.fixes),
-    affected_ranges: slot.ranges.filter(r => r.to),
-  };
+}
+
+/** Package names + affected ranges from MITRE (or CLI overrides). Lockfile supplies installed versions. */
+export function parseCveDetails(record: JsonObject, overrideNames?: string[]): CveDetails {
+  const meta = (record.cveMetadata as JsonObject) ?? {};
+  if (asString(meta.state).toUpperCase() === 'REJECTED') return emptyCve();
+
+  const affected = cveAffectedList(record);
+  if (overrideNames?.length) {
+    return toCveDetails(overrideNames[0], [...overrideNames], collectPackageCveData(affected));
+  }
+
+  const byPackage = groupAffectedByPackage(affected);
+  if (!byPackage.size) return emptyCve();
+  const [name, slot] = primaryPackageSlot(byPackage);
+  return toCveDetails(name, [name], slot);
 }
 
 /** Semver-ish sort key for comparing version strings. */
@@ -225,14 +268,17 @@ export function semverSortKey(version: string): (number | string)[] {
   return key;
 }
 
-function compareSemver(a: string, b: string): number {
+export function compareSemver(a: string, b: string): number {
   const ka = semverSortKey(a);
   const kb = semverSortKey(b);
   for (let i = 0; i < Math.max(ka.length, kb.length); i++) {
     const va = ka[i] ?? 0;
     const vb = kb[i] ?? 0;
     if (va === vb) continue;
-    if (typeof va === 'number' && typeof vb === 'number') return va < vb ? -1 : 1;
+    if (typeof va === 'number' && typeof vb === 'number') {
+      if (va < vb) return -1;
+      return 1;
+    }
     return String(va).localeCompare(String(vb));
   }
   return 0;
@@ -250,7 +296,8 @@ export function semverInAffectedSegment(version: string, segment: VersionRange):
 }
 
 export function semverInAnyAffected(version: string, affectedRanges: VersionRange[]): boolean {
-  if (!affectedRanges.length) return true;
+  // No MITRE range data → cannot determine vulnerability; do not flag all versions.
+  if (!affectedRanges.length) return false;
   return affectedRanges.some(seg => semverInAffectedSegment(version, seg));
 }
 
@@ -260,17 +307,17 @@ function pkgAtVersion(name: string, version: string): string {
 }
 
 /** Ancestor paths from root to each installation of package@version. */
-export function collectInstallationPaths(npmLsJson: Json, packageName: string, version: string): string[][] {
+export function collectInstallationPaths(npmLsJson: JsonObject, packageName: string, version: string): string[][] {
   const paths: string[][] = [];
   const seen = new Set<string>();
   const rootName = asString(npmLsJson.name).trim();
   const root = rootName ? pkgAtVersion(rootName, asString(npmLsJson.version)) : undefined;
   const initialAncestors = root ? [root] : [];
 
-  const walk = (node: Json, ancestors: string[]): void => {
+  const walk = (node: JsonObject, ancestors: string[]): void => {
     for (const [depName, dep] of Object.entries(node.dependencies ?? {})) {
       if (!dep || typeof dep !== 'object') continue;
-      const depNode = dep as Json;
+      const depNode = dep as JsonObject;
       const label = pkgAtVersion(depName, asString(depNode.version));
       const path = [...ancestors, label];
       if (depName === packageName && asString(depNode.version).trim() === version) {
@@ -322,16 +369,27 @@ function sortedDepTreeChildren(tree: DepTree): [string, DepTree][] {
   return [...tree.children.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
+function depTreeConnector(isLast: boolean, hasChildren: boolean): string {
+  if (isLast && hasChildren) return '└─┬';
+  if (isLast) return '└──';
+  if (hasChildren) return '├─┬';
+  return '├──';
+}
+
+function depTreeChildPrefix(prefix: string, isLast: boolean): string {
+  if (isLast) return `${prefix}  `;
+  return `${prefix}│ `;
+}
+
 function renderDepTreeChildren(tree: DepTree, prefix: string): string[] {
   const lines: string[] = [];
   const children = sortedDepTreeChildren(tree);
   children.forEach(([label, childTree], index) => {
     const isLast = index === children.length - 1;
     const hasChildren = childTree.children.size > 0;
-    const connector = isLast ? (hasChildren ? '└─┬' : '└──') : hasChildren ? '├─┬' : '├──';
-    lines.push(`${prefix}${connector} ${label}`);
+    lines.push(`${prefix}${depTreeConnector(isLast, hasChildren)} ${label}`);
     if (hasChildren) {
-      lines.push(...renderDepTreeChildren(childTree, prefix + (isLast ? '  ' : '│ ')));
+      lines.push(...renderDepTreeChildren(childTree, depTreeChildPrefix(prefix, isLast)));
     }
   });
   return lines;
@@ -352,12 +410,13 @@ export function formatMergedInstallationPaths(paths: string[][]): string {
 export function formatNpmLsSpine(path: string[]): string {
   if (!path.length) return '';
   if (path.length === 1) return `└── ${path[0]}`;
+
   const lines: string[] = [];
   for (let i = 0; i < path.length; i++) {
     const indent = '  '.repeat(i);
-    if (i === 0) lines.push(`└─┬ ${path[i]}`);
-    else if (i === path.length - 1) lines.push(`${indent}└── ${path[i]}`);
-    else lines.push(`${indent}└─┬ ${path[i]}`);
+    const isLeaf = i === path.length - 1;
+    const connector = isLeaf ? '└──' : '└─┬';
+    lines.push(`${indent}${connector} ${path[i]}`);
   }
   return lines.join('\n');
 }
@@ -383,7 +442,7 @@ export function vulnerablePatchVersions(
 export function vulnerabilityNoteForRow(
   row: ManifestRow,
   cveDict: Record<string, CveDetails>,
-  npmLsJson: Json | undefined,
+  npmLsJson: JsonObject | undefined,
 ): string | undefined {
   const vulnerable = vulnerablePatchVersions(parsePatchVersions(row.patch_version), row.cve_ids, cveDict);
   if (!vulnerable.length) return undefined;
@@ -414,17 +473,17 @@ export function mergeManifestNotes(manual: string | undefined, auto: string | un
 function npmLsJsonForPackage(
   pluginsWorkspace: string,
   packageName: string,
-  cache: Map<string, Json | undefined>,
-): Json | undefined {
+  cache: Map<string, JsonObject | undefined>,
+): JsonObject | undefined {
   if (cache.has(packageName)) return cache.get(packageName);
-  let parsed: Json | undefined;
+  let parsed: JsonObject | undefined;
   try {
-    const raw = exec(['npm', 'ls', packageName, '--json'], {
+    const raw = exec(['npm', 'ls', '--json', '--', packageName], {
       cwd: pluginsWorkspace,
       quiet: true,
       ok: [0, 1],
     }).trim();
-    parsed = raw ? (JSON.parse(raw) as Json) : undefined;
+    parsed = raw ? (JSON.parse(raw) as JsonObject) : undefined;
   } catch {
     console.error(`warning: npm ls failed for ${packageName}`);
     parsed = undefined;
@@ -438,7 +497,7 @@ export function enrichManifestRowsWithVulnerabilityNotes(
   cveDict: Record<string, CveDetails>,
   pluginsWorkspace: string,
 ): ManifestRow[] {
-  const npmLsCache = new Map<string, Json | undefined>();
+  const npmLsCache = new Map<string, JsonObject | undefined>();
   return rows.map(row => {
     const auto = vulnerabilityNoteForRow(row, cveDict, npmLsJsonForPackage(pluginsWorkspace, row.package, npmLsCache));
     const notes = mergeManifestNotes(row.notes, auto);
@@ -448,22 +507,33 @@ export function enrichManifestRowsWithVulnerabilityNotes(
   });
 }
 
+async function fetchMitreCveRecord(cveId: string): Promise<JsonObject> {
+  const res = await fetch(CVE_API + encodeURIComponent(cveId), {
+    headers: { Accept: 'application/json' },
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!res.ok) throw new Error(`CVE lookup failed for ${cveId}: HTTP ${res.status}`);
+  const record = (await res.json()) as JsonObject;
+  if (record.dataType !== 'CVE_RECORD') {
+    throw new Error(`unexpected CVE Record response for ${cveId}`);
+  }
+  return record;
+}
+
 async function ensureCveDict(
   cveIds: string[],
   existing: Record<string, CveDetails>,
+  packageOverrides: Map<string, string[]> = new Map(),
 ): Promise<Record<string, CveDetails>> {
   const out = { ...existing };
   for (const cveId of cveIds) {
     const key = normalizeCveId(cveId);
     if (out[key]) continue;
-    const res = await fetch(CVE_API + encodeURIComponent(key), {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(45_000),
-    });
-    if (!res.ok) throw new Error(`CVE lookup failed: HTTP ${res.status}`);
-    const record = (await res.json()) as Json;
-    if (record.dataType !== 'CVE_RECORD') throw new Error('unexpected CVE Record response');
-    out[key] = parseCveDetails(record);
+    const overrides = packageOverrides.get(key);
+    out[key] = parseCveDetails(
+      await fetchMitreCveRecord(key),
+      overrides?.length ? overrides : undefined,
+    );
   }
   return out;
 }
@@ -473,14 +543,10 @@ async function fetchCveDetails(
 ): Promise<Record<string, CveDetails>> {
   const out: Record<string, CveDetails> = {};
   for (const [cveId, overrides] of tokens) {
-    const res = await fetch(CVE_API + encodeURIComponent(cveId), {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(45_000),
-    });
-    if (!res.ok) throw new Error(`CVE lookup failed: HTTP ${res.status}`);
-    const record = (await res.json()) as Json;
-    if (record.dataType !== 'CVE_RECORD') throw new Error('unexpected CVE Record response');
-    out[cveId] = parseCveDetails(record, overrides.length ? overrides : undefined);
+    out[cveId] = parseCveDetails(
+      await fetchMitreCveRecord(cveId),
+      overrides.length ? overrides : undefined,
+    );
   }
   return out;
 }
@@ -550,6 +616,10 @@ function validateGitRef(ref: string): string {
   throw new Error('invalid git ref');
 }
 
+function withTrailingSep(dir: string): string {
+  return dir.endsWith(sep) ? dir : `${dir}${sep}`;
+}
+
 /** Canonical trusted root with trailing separator (path-traversal mitigation). */
 export function canonicalBaseDir(raw: string, label: string): string {
   const trimmed = raw.trim();
@@ -557,14 +627,18 @@ export function canonicalBaseDir(raw: string, label: string): string {
   if (!isAbsolute(trimmed)) throw new Error(`${label} must be an absolute path`);
   const resolved = resolve(trimmed);
   const canonical = existsSync(resolved) ? realpathSync(resolved) : resolved;
-  return canonical.endsWith(sep) ? canonical : `${canonical}${sep}`;
+  return withTrailingSep(canonical);
 }
 
 /** Resolve a path under baseDir; reject if it escapes the base. */
 export function pathUnderBase(baseDir: string, ...parts: string[]): string {
   const filePath = join(baseDir, ...parts);
   const canonical = existsSync(filePath) ? realpathSync(filePath) : resolve(filePath);
-  if (!canonical.startsWith(baseDir)) throw new Error('Access denied');
+  const basePrefix = withTrailingSep(baseDir);
+  const baseExact = baseDir.endsWith(sep) ? baseDir.slice(0, -1) : baseDir;
+  if (canonical !== baseExact && !canonical.startsWith(basePrefix)) {
+    throw new Error('Access denied');
+  }
   return canonical;
 }
 
@@ -609,7 +683,7 @@ export function canonicalRepoFromUrl(repoUrl: string): string {
 
 function readSource(sourceJsonPath: string) {
   if (!existsSync(sourceJsonPath)) throw new Error('missing source.json in overlay workspace');
-  const data = JSON.parse(readFileSync(sourceJsonPath, 'utf-8')) as Json;
+  const data = JSON.parse(readFileSync(sourceJsonPath, 'utf-8')) as JsonObject;
   return {
     repoRef: validateGitRef(asString(data['repo-ref'])),
     sourceRepo: canonicalRepoFromUrl(asString(data.repo).trim()),
@@ -618,7 +692,7 @@ function readSource(sourceJsonPath: string) {
 
 function readManifest(manifestPath: string): ManifestRow[] {
   if (!existsSync(manifestPath)) return [];
-  const data = parseYaml(readFileSync(manifestPath, 'utf-8')) as Json;
+  const data = parseYaml(readFileSync(manifestPath, 'utf-8')) as JsonObject;
   const rows = data.backports;
   if (rows == null) return [];
   if (!Array.isArray(rows)) throw new Error('cve-backports.yaml: backports must be a list');
@@ -646,10 +720,19 @@ function gitRepoRoot(startPath: string): string {
   return root;
 }
 
+function remoteMatchesCanonicalRepo(remoteUrl: string, canonicalRepo: string): boolean {
+  if (!remoteUrl.trim()) return false;
+  try {
+    return canonicalRepoFromUrl(remoteUrl) === canonicalRepo;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveGitRemote(remotesListing: string, originUrl: string, canonicalRepo: string): string {
   const upstreamUrl = /^upstream\t([^\s]+)/m.exec(remotesListing)?.[1] ?? '';
-  if (upstreamUrl.includes(canonicalRepo)) return 'upstream';
-  if (originUrl.includes(canonicalRepo)) return 'origin';
+  if (remoteMatchesCanonicalRepo(upstreamUrl, canonicalRepo)) return 'upstream';
+  if (remoteMatchesCanonicalRepo(originUrl, canonicalRepo)) return 'origin';
   throw new Error('git repo has no upstream remote (fork setup)');
 }
 
@@ -681,8 +764,13 @@ function syncPluginsRepo(
 function ensureOverlayRelease(
   overlayWorkspace: string,
   release: string,
-  opts: { dryRun?: boolean; force?: boolean },
+  opts: { dryRun?: boolean; force?: boolean; skip?: boolean },
 ): void {
+  if (opts.skip) {
+    console.log(`Skipping overlay sync (--skip-overlay-sync); using current checkout`);
+    return;
+  }
+
   const branch = validateReleaseBranch(release);
   const root = gitRepoRoot(overlayWorkspace);
   const remote = gitRemote(root, OVERLAY_UPSTREAM_REPO);
@@ -757,36 +845,43 @@ export function requireLockfileChange(baseline: string, patched: string): void {
   }
 }
 
+function unifiedLockDiff(baseline: string, patched: string, workDir: string): string {
+  const a = join(workDir, 'a.lock');
+  const b = join(workDir, 'b.lock');
+  writeFileSync(a, baseline);
+  writeFileSync(b, patched);
+  const diff = spawnSync(binDiff(), ['-u', '--label', LOCKFILE, '--label', LOCKFILE, a, b], {
+    encoding: 'utf-8',
+    maxBuffer: SPAWN_MAX_BUFFER,
+  });
+  if (diff.error || (diff.status !== 0 && diff.status !== 1)) throw new Error('diff failed');
+  return diff.stdout ?? '';
+}
+
+function assertPatchApplies(baseline: string, patchBody: string, workDir: string): void {
+  const verify = join(workDir, 'verify');
+  mkdirSync(verify);
+  writeFileSync(join(verify, LOCKFILE), baseline);
+  const check = spawnSync(binPatch(), ['-p0', '--dry-run', '-l', '--no-backup-if-mismatch', '-f'], {
+    cwd: verify,
+    input: patchBody,
+    encoding: 'utf-8',
+    maxBuffer: SPAWN_MAX_BUFFER,
+  });
+  if (check.status !== 0) throw new Error('generated patch failed dry-run verification');
+}
+
 function writeLockPatch(baseline: string, patched: string, patchPath: string, dryRun: boolean): void {
   requireLockfileChange(baseline, patched);
   const tmp = mkdtempSync(join(tmpdir(), 'yarnlock-backport-'));
   try {
-    const a = join(tmp, 'a.lock');
-    const b = join(tmp, 'b.lock');
-    writeFileSync(a, baseline);
-    writeFileSync(b, patched);
-    const diff = spawnSync(BIN_DIFF, ['-u', '--label', LOCKFILE, '--label', LOCKFILE, a, b], {
-      encoding: 'utf-8',
-      maxBuffer: SPAWN_MAX_BUFFER,
-    });
-    if (diff.error || (diff.status !== 0 && diff.status !== 1)) throw new Error('diff failed');
-    let body = diff.stdout ?? '';
+    let body = unifiedLockDiff(baseline, patched, tmp);
     if (!body.trim()) {
       console.log('diff produced no output; no patch written');
       return;
     }
     if (!body.endsWith('\n')) body += '\n';
-
-    const verify = join(tmp, 'verify');
-    mkdirSync(verify);
-    writeFileSync(join(verify, LOCKFILE), baseline);
-    const check = spawnSync(BIN_PATCH, ['-p0', '--dry-run', '-l', '--no-backup-if-mismatch', '-f'], {
-      cwd: verify,
-      input: body,
-      encoding: 'utf-8',
-      maxBuffer: SPAWN_MAX_BUFFER,
-    });
-    if (check.status !== 0) throw new Error('generated patch failed dry-run verification');
+    assertPatchApplies(baseline, body, tmp);
 
     if (dryRun) {
       console.log(`[dry-run] would write ${PATCH_FILE} (${body.length} bytes)`);
@@ -835,32 +930,58 @@ function manifestEntries(manifestPath: string): ManifestEntry[] {
   return entries;
 }
 
+/** Package names already resolved in the manifest — used when re-fetching MITRE for prior CVEs. */
+export function packageOverridesFromEntries(entries: ManifestEntry[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const { cveId, package: pkg } of entries) {
+    const key = normalizeCveId(cveId);
+    const name = pkg.trim();
+    if (!name) continue;
+    const list = out.get(key) ?? [];
+    if (!list.includes(name)) list.push(name);
+    out.set(key, list);
+  }
+  return out;
+}
+
+function compareManifestEntries(a: ManifestEntry, b: ManifestEntry): number {
+  return (
+    a.cveId.localeCompare(b.cveId) ||
+    a.package.localeCompare(b.package) ||
+    formatPatchVersions(a.patch_versions).localeCompare(formatPatchVersions(b.patch_versions))
+  );
+}
+
+function mergeRowNotes(existing: string | undefined, next: string | undefined): string | undefined {
+  if (!next) return existing;
+  if (!existing) return next;
+  if (existing.includes(next)) return existing;
+  return `${existing}\n\n${next}`;
+}
+
+function finalizeManifestRow(row: ManifestRow): ManifestRow {
+  const out: ManifestRow = {
+    cve_ids: [...row.cve_ids].sort((a, b) => a.localeCompare(b)),
+    package: row.package,
+    patch_version: row.patch_version,
+  };
+  if (row.notes) out.notes = row.notes;
+  return out;
+}
+
 export function buildManifestRows(entries: ManifestEntry[]): ManifestRow[] {
   const groups = new Map<string, ManifestRow>();
-  for (const { cveId, package: pkg, patch_versions, notes } of [...entries].sort(
-    (a, b) =>
-      a.cveId.localeCompare(b.cveId) ||
-      a.package.localeCompare(b.package) ||
-      formatPatchVersions(a.patch_versions).localeCompare(formatPatchVersions(b.patch_versions)),
-  )) {
+  for (const { cveId, package: pkg, patch_versions, notes } of [...entries].sort(compareManifestEntries)) {
     const patch_version = formatPatchVersions(patch_versions);
     const key = `${pkg}\0${patch_version}`;
     const row = groups.get(key) ?? { cve_ids: [], package: pkg, patch_version };
     if (!row.cve_ids.includes(cveId)) row.cve_ids.push(cveId);
-    if (notes && !row.notes) row.notes = notes;
+    row.notes = mergeRowNotes(row.notes, notes);
     groups.set(key, row);
   }
   return [...groups.values()]
     .sort((a, b) => a.package.localeCompare(b.package) || a.patch_version.localeCompare(b.patch_version))
-    .map(r => {
-      const row: ManifestRow = {
-        cve_ids: [...r.cve_ids].sort((a, b) => a.localeCompare(b)),
-        package: r.package,
-        patch_version: r.patch_version,
-      };
-      if (r.notes) row.notes = r.notes;
-      return row;
-    });
+    .map(finalizeManifestRow);
 }
 
 export function formatManifestDocument(repoRef: string, rows: ManifestRow[]): string {
@@ -868,6 +989,37 @@ export function formatManifestDocument(repoRef: string, rows: ManifestRow[]): st
     MANIFEST_HEADER +
     stringifyYaml({ patch_file: PATCH_FILE, repo_ref: repoRef, backports: rows }, { lineWidth: 0 })
   );
+}
+
+function appendResolvedCveEntries(opts: {
+  cveIds: string[];
+  cveDict: Record<string, CveDetails>;
+  lockText: string;
+  preservedNotes: Map<string, string>;
+  entries: ManifestEntry[];
+}): { touched: Set<string>; skipped: string[] } {
+  const touched = new Set<string>();
+  const skipped: string[] = [];
+  for (const cveId of opts.cveIds) {
+    const key = normalizeCveId(cveId);
+    const cve = opts.cveDict[key];
+    if (!cve?.names?.length) throw new Error(`no npm package resolved for ${key}`);
+    const resolved = resolvePackageInLock(cve.names, opts.lockText);
+    if (!resolved) {
+      skipped.push(
+        `${key} (${cve.names.join(', ')}): not in yarn.lock — MITRE product name may differ from npm; re-run with --cve '${key}/<npm-package>'`,
+      );
+      continue;
+    }
+    opts.entries.push({
+      cveId: key,
+      package: resolved.package,
+      patch_versions: resolved.versions,
+      notes: opts.preservedNotes.get(key),
+    });
+    touched.add(key);
+  }
+  return { touched, skipped };
 }
 
 async function updateManifest(opts: {
@@ -882,30 +1034,18 @@ async function updateManifest(opts: {
   const updateIds = new Set(opts.cveIds.map(id => normalizeCveId(id)));
   const preservedNotes = notesByCveId(opts.manifestPath);
   const entries = manifestEntries(opts.manifestPath).filter(e => !updateIds.has(e.cveId));
-
-  const touched = new Set<string>();
-  const skipped: string[] = [];
-  for (const cveId of opts.cveIds) {
-    const key = normalizeCveId(cveId);
-    const cve = opts.cveDict[key];
-    if (!cve?.names?.length) throw new Error(`no npm package resolved for ${key}`);
-    const resolved = resolvePackageInLock(cve.names, opts.lockText);
-    if (!resolved) {
-      skipped.push(`${key} (${cve.names.join(', ')}): not in yarn.lock`);
-      continue;
-    }
-    entries.push({
-      cveId: key,
-      package: resolved.package,
-      patch_versions: resolved.versions,
-      notes: preservedNotes.get(key),
-    });
-    touched.add(key);
-  }
+  const { touched, skipped } = appendResolvedCveEntries({
+    cveIds: opts.cveIds,
+    cveDict: opts.cveDict,
+    lockText: opts.lockText,
+    preservedNotes,
+    entries,
+  });
 
   const fullCveDict = await ensureCveDict(
     [...new Set(entries.map(e => e.cveId))],
     opts.cveDict,
+    packageOverridesFromEntries(entries),
   );
   const rows = enrichManifestRowsWithVulnerabilityNotes(
     buildManifestRows(entries),
@@ -944,7 +1084,7 @@ function manifestBumpSpecs(manifestPath: string): string[] {
   return bumps;
 }
 
-function assertPluginsRepoClean(pluginsRepo: string, opts: { force?: boolean; dryRun?: boolean; verbose?: boolean }): void {
+function assertPluginsRepoClean(pluginsRepo: string, opts: { force?: boolean; dryRun?: boolean }): void {
   if (opts.force || opts.dryRun) return;
   // Always capture stdout — inherit would make dirty checks silently pass.
   const dirty = exec(['git', 'status', '--porcelain'], { cwd: pluginsRepo, quiet: true });
@@ -971,7 +1111,7 @@ function applyExistingCvePatch(ctx: WorkspacePaths, opts: { skipPatch?: boolean;
   console.log(`Step 1b: applying ${PATCH_FILE}`);
 
   if (opts.dryRun) {
-    exec([BIN_PATCH, ...strip, '--dry-run', '-l', '--no-backup-if-mismatch', '-f'], {
+    exec([binPatch(), ...strip, '--dry-run', '-l', '--no-backup-if-mismatch', '-f'], {
       cwd: ctx.pluginsWorkspace,
       input: patchData,
       quiet: true,
@@ -979,7 +1119,7 @@ function applyExistingCvePatch(ctx: WorkspacePaths, opts: { skipPatch?: boolean;
     return;
   }
 
-  const result = spawnSync(BIN_PATCH, [...strip, '-l', '--no-backup-if-mismatch', '-f'], {
+  const result = spawnSync(binPatch(), [...strip, '-l', '--no-backup-if-mismatch', '-f'], {
     cwd: ctx.pluginsWorkspace,
     input: patchData,
     encoding: 'utf-8',
@@ -993,6 +1133,31 @@ function applyExistingCvePatch(ctx: WorkspacePaths, opts: { skipPatch?: boolean;
   throw new Error(`failed to apply ${PATCH_FILE}`);
 }
 
+type CommandSetup = {
+  ctx: WorkspacePaths;
+  repoRef: string;
+  sourceRepo: string;
+};
+
+function setupWorkspaceCommand(opts: {
+  release: string;
+  overlayWorkspace: string;
+  pluginsRepo: string;
+  skipOverlaySync?: boolean;
+  force?: boolean;
+  dryRun?: boolean;
+}): CommandSetup {
+  const ctx = resolveWorkspacePaths(opts.overlayWorkspace, opts.pluginsRepo);
+  ensureOverlayRelease(ctx.overlayWorkspace, opts.release, {
+    dryRun: opts.dryRun,
+    force: opts.force,
+    skip: opts.skipOverlaySync,
+  });
+  const { repoRef, sourceRepo } = readSource(ctx.sourceJsonPath);
+  logContext(opts.release, ctx.name);
+  return { ctx, repoRef, sourceRepo };
+}
+
 // --- commands ---
 
 export async function prepareWorkspace(opts: {
@@ -1000,14 +1165,12 @@ export async function prepareWorkspace(opts: {
   overlayWorkspace: string;
   pluginsRepo: string;
   skipPatch?: boolean;
+  skipOverlaySync?: boolean;
   force?: boolean;
   dryRun?: boolean;
   verbose?: boolean;
 }): Promise<void> {
-  const ctx = resolveWorkspacePaths(opts.overlayWorkspace, opts.pluginsRepo);
-  ensureOverlayRelease(ctx.overlayWorkspace, opts.release, { dryRun: opts.dryRun, force: opts.force });
-  const { repoRef, sourceRepo } = readSource(ctx.sourceJsonPath);
-  logContext(opts.release, ctx.name);
+  const { ctx, repoRef, sourceRepo } = setupWorkspaceCommand(opts);
 
   assertPluginsRepoClean(ctx.pluginsRepo, opts);
   syncPluginsRepo(ctx.pluginsRepo, repoRef, sourceRepo, opts.dryRun, opts.verbose);
@@ -1023,13 +1186,12 @@ export async function generateBackport(opts: {
   overlayWorkspace: string;
   pluginsRepo: string;
   cve: string;
+  skipOverlaySync?: boolean;
+  force?: boolean;
   dryRun?: boolean;
   verbose?: boolean;
 }): Promise<void> {
-  const ctx = resolveWorkspacePaths(opts.overlayWorkspace, opts.pluginsRepo);
-  ensureOverlayRelease(ctx.overlayWorkspace, opts.release, { dryRun: opts.dryRun });
-  const { repoRef, sourceRepo } = readSource(ctx.sourceJsonPath);
-  logContext(opts.release, ctx.name);
+  const { ctx, repoRef, sourceRepo } = setupWorkspaceCommand(opts);
 
   if (!existsSync(ctx.localLockPath)) throw new Error(`missing local ${LOCKFILE}`);
   if (!opts.dryRun && !existsSync(ctx.pluginsWorkspace)) throw new Error('missing plugins workspace');
@@ -1060,7 +1222,9 @@ export async function generateBackport(opts: {
 
   const preview = await updateManifest({ ...manifestOpts, dryRun: true });
   if (!preview.touched.size && preview.skipped.length) {
-    throw new Error('no CVE packages from --cve are present in this workspace yarn.lock');
+    throw new Error(
+      'no CVE packages from --cve are present in this workspace yarn.lock (MITRE product names often differ from npm; use --cve CVE-…/<npm-package>)',
+    );
   }
 
   writeLockPatch(baseline, patched, ctx.patchPath, opts.dryRun ?? false);
