@@ -21,13 +21,15 @@ test.describe("Github Discovery Catalog", () => {
     await rhdh.deploy();
   });
 
-  test.beforeEach(async ({ loginHelper, page }, testInfo) => {
+  test.beforeEach(async ({ loginHelper, page, uiHelper }, testInfo) => {
     if (testInfo.retry > 0) {
       // Progressively increase timeout for retries.
       test.setTimeout(testInfo.timeout + testInfo.timeout * 0.25);
     }
 
     await loginHelper.loginAsGuest();
+    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
+    await uiHelper.dismissQuickstartIfVisible();
     catalogPage = new CatalogPage(page);
     await catalogPage.go();
   });
