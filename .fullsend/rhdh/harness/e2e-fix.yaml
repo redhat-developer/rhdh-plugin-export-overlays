@@ -1,0 +1,77 @@
+---
+# harness/e2e-fix.yaml — E2E nightly fix agent with post-script pipeline.
+#
+# Flow: sandbox (agent) → post_script
+#   agent       : analyzes nightly failures, classifies, fixes or skips tests, commits
+#   post_script : validates output, pushes branches, creates issues/PRs/JIRA bugs
+#
+# The agent NEVER pushes or creates PRs (disallowedTools enforces this).
+# Only the post-script, running on the runner with PUSH_TOKEN, can write.
+agent: rhdh/agents/e2e-fix.md
+model: opus
+image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
+policy: rhdh/policies/e2e-fix.yaml
+
+role: coder
+slug: rhdh-e2e-fix
+
+trigger: |
+  event.entity.kind == "work_item"
+  && event.transition.kind == "label_changed"
+  && event.transition.label.name == "e2e-fix-agent"
+
+host_files:
+  - src: env/gcp-vertex.env
+    dest: /sandbox/workspace/.env.d/gcp-vertex.env
+    expand: true
+  - src: ${GOOGLE_APPLICATION_CREDENTIALS}
+    dest: /tmp/.gcp-credentials.json
+  - src: ${GCP_OIDC_TOKEN_FILE}
+    dest: /tmp/.gcp-oidc-token
+    optional: true
+  - src: rhdh/env/rhdh-toolchain.env
+    dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
+  - src: rhdh/env/yarn-proxy.env
+    dest: /sandbox/workspace/.env.d/yarn-proxy.env
+
+skills:
+  - skills/e2e-failure-analysis
+  - skills/playwright-trace
+
+post_script: rhdh/scripts/post-e2e-fix.sh
+
+validation_loop:
+  script: rhdh/scripts/validate-output-schema.sh
+  max_iterations: 2
+
+env:
+  runner:
+    GH_TOKEN: ${GH_TOKEN}
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+    JIRA_URL: https://issues.redhat.com
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-fix-result.schema.json
+    TARGET_REPO_DIR: ${FULLSEND_TARGET_REPO}
+  sandbox:
+    SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
+    PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
+    GIT_AUTHOR_NAME: e2e-fix-agent
+    GIT_AUTHOR_EMAIL: noreply@github.com
+    GIT_COMMITTER_NAME: e2e-fix-agent
+    GIT_COMMITTER_EMAIL: noreply@github.com
+
+timeout_minutes: 30
+
+forge:
+  github:
+    env:
+      runner:
+        PUSH_TOKEN: "${PUSH_TOKEN}"
+        PUSH_TOKEN_SOURCE: "${PUSH_TOKEN_SOURCE}"
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        REPO_DIR: "${GITHUB_WORKSPACE}/target-repo"
+      sandbox:
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        GH_TOKEN: "${GH_TOKEN}"
+        GIT_AUTHOR_EMAIL: "${GIT_BOT_EMAIL}"
+        GIT_COMMITTER_EMAIL: "${GIT_BOT_EMAIL}"
+        GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"

@@ -218,15 +218,7 @@ build_plugin_entry() {
 
   local dynamic_artifact package_value
   dynamic_artifact=$(yq_raw '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
-
-  if [[ "$dynamic_artifact" == ./.* ]]; then
-    package_value=$dynamic_artifact
-  elif [[ "$dynamic_artifact" == *"oci://"*"!"* ]]; then
-    # Strip !fragment if present (e.g. oci://...!package-name)
-    package_value="${dynamic_artifact%%!*}"
-  else
-    package_value=$dynamic_artifact
-  fi
+  package_value=$dynamic_artifact
 
   local entry
   if [[ "${YQ_IS_MIKE_FARAH:-0}" -eq 1 ]]; then
