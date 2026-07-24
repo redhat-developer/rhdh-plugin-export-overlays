@@ -121,7 +121,7 @@ When a patch in `patches/*.patch` bumps a dependency across a major version (e.g
 
 When reviewing a PR where a patch bumps a dependency across a major version:
 
-1. **Detect the major version change.** Compare the old and new version numbers in the patch. A change where the first numeric component increases (e.g., `2.2.1` to `3.0.8`) is a major bump with potential breaking changes.
+1. **Detect the major version change.** First, enumerate all version changes in the patch using the procedure in "Enumerating All Version Changes in Lockfile Patches" below. Then, for each change, check whether the first numeric component increases (e.g., `2.2.1` to `3.0.8`) — that is a major bump with potential breaking changes. Do not limit this check to the package named in the PR title.
 2. **Check the dependency's changelog or migration guide** for breaking API changes. Common breakages include: removed or renamed functions, changed return types, removed configuration options, and altered default behavior.
 3. **Assess whether exported plugins use the affected APIs.** Check `plugins-list.yaml` to identify which plugins are exported. Since this repo does not contain plugin source code, use the `repo` URL and `repo-ref` from the workspace's `source.json` to browse or clone the upstream repository at the pinned ref. Search the upstream plugin source for imports and usage of the bumped dependency's changed APIs. If the dependency is only in the scaffold/dev tree (see "Reviewing CVE / Dependency Patches" if present), the risk is lower — but still flag it if the patch forces the version across the entire `yarn.lock`.
 4. **Flag the risk for human verification** when breaking changes exist and the dependency is in the shipped tree. Do not approve major version bump patches with only generic version-consistency checks. Explicitly acknowledge the major version change and either assess breaking API risk or request human review.
@@ -130,6 +130,26 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 **Do not approve major version bump patches without explicit risk assessment.** A patch that passes build does not guarantee runtime compatibility — the old API may still be called at runtime by plugin code that was not exercised during the build.
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
+
+### Enumerating All Version Changes in Lockfile Patches
+
+When a `patches/*.patch` file modifies `yarn.lock` entries, the reviewer must enumerate every package version change in the patch — not just the package named in the PR title or CVE advisory. Yarn's dependency resolution often bumps incidental packages when a patch is regenerated, and those incidental changes can include major version crossings that the PR title does not mention.
+
+**Why this matters:** PR titles and descriptions typically name only the target package (e.g., "bump tar to 7.5.20"). When the patch is regenerated, yarn may also bump transitive dependencies (e.g., `protobufjs`, `socks`, `undici`, `ws`) as part of normal resolution. If a reviewer anchors on the PR title, these incidental changes go unexamined. A major version bump hiding among minor incidental changes would bypass the "Major Version Bumps in Patches" review criteria above.
+
+**Review procedure for lockfile patches:**
+
+When reviewing a PR that modifies any `patches/*.patch` file containing `yarn.lock` changes:
+
+1. **Parse the full diff** of the patch file. Identify every package whose version changed by looking for `yarn.lock` resolution entries where the resolved version differs between the removed (`-`) and added (`+`) lines.
+2. **List every version change** with the package name, old version, and new version. Present this as a complete enumeration in the review summary (e.g., `tar 7.5.13 → 7.5.20`, `undici 7.31.0 → 7.32.5`).
+3. **Classify each change** as major, minor, or patch according to semver. A major bump is one where the first numeric component increases (e.g., `2.x.x` → `3.x.x`). For 0.x packages, a minor bump (`0.1.x` → `0.2.x`) carries major-version-level risk because `^0.y.z` ranges do not cross minor boundaries.
+4. **Cross-reference with the PR title and body.** Identify which version changes are explicitly mentioned and which are incidental. All incidental changes should be acknowledged in the review summary as expected side effects of patch regeneration.
+5. **Apply the "Major Version Bumps in Patches" criteria** (above) to any change classified as major. Do not limit this check to the package named in the PR title — apply it to every version change in the patch.
+
+**Review summary requirements:** The review output must include a complete list of all package version changes found in the patch, even when all changes are minor/patch-level bumps. This ensures that (a) the reviewer has actually examined the full diff rather than relying on the PR title, and (b) future readers can verify completeness without re-parsing the patch themselves.
+
+**Relationship to other patch review guidance:** This enumeration step is a prerequisite to the major version bump analysis above — you cannot assess whether any change crosses a major boundary without first knowing what changed. It is complementary to patch minimality verification (whether incidental changes *should* be there) and lockfile entry key validation (whether specifiers match upstream `package.json` ranges).
 
 ## Working with Catalog Entities
 
