@@ -1,12 +1,12 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { CatalogApiHelper } from "../../support/api/catalog-api-helper.js";
+import { CatalogApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
   prepareGitLabEventsParentGroup,
-  runGitLabEventsCleanupSafely,
-} from "../../support/gitlab-events-test-setup.js";
+} from "../../support/gitlab/events-test-setup.js";
+import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
   let testPrefix: string;
@@ -47,7 +47,7 @@ test.describe.serial("GitLab Events - Discovery", () => {
   });
 
   test.afterAll(async () => {
-    await runGitLabEventsCleanupSafely(async () => {
+    await runGitLabCleanupSafely(async () => {
       if (projectWebhookId && testProjectId) {
         await GitLabApiHelper.deleteProjectWebhook(
           testProjectId,

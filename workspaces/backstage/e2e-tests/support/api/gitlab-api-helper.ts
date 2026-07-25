@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 
 import { APIRequestContext, APIResponse, request } from "@playwright/test";
 
+import { bindGitLabClient } from "./gitlab-client.js";
+
 /* eslint-disable @typescript-eslint/naming-convention --
    GitLab REST request bodies, query params, and headers follow API names (snake_case, PRIVATE-TOKEN). */
 
@@ -54,6 +56,16 @@ export class GitLabApiHelper {
   static init(baseUrl: string, token: string) {
     this.baseUrl = baseUrl.replace(/\/$/, ""); // Remove trailing slash
     this.token = token;
+    bindGitLabClient({
+      request: (method, endpoint, body) =>
+        GitLabApiHelper.safeGitLabRequest(method, endpoint, body),
+      parseJson: <T>(response: APIResponse) =>
+        GitLabApiHelper.parseJson<T>(response),
+      assertJsonArray: <T>(value: unknown) =>
+        GitLabApiHelper.assertJsonArray<T>(value),
+      getGroupProjects: (groupId, prefix) =>
+        GitLabApiHelper.getGroupProjects(groupId, prefix),
+    });
   }
 
   private static async getContext(): Promise<APIRequestContext> {

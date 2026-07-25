@@ -309,3 +309,12 @@ fi
 echo -e "\n${green}=== Done ===${norm}"
 echo -e "${blue}Output: $OUTPUT_DIR${norm}"
 echo -e "${blue}Plugin builds: $PLUGIN_BUILDS_DIR${norm}"
+
+# Last thing logged: clear CTA to rebuild plugins still on older fallback tags
+python -c "
+import sys
+sys.path.insert(0, '$SCRIPT_DIR')
+from pathlib import Path
+from generatePluginBuildInfo import collect_fallback_entries, print_fallback_rebuild_cta
+print_fallback_rebuild_cta(collect_fallback_entries(Path('$PLUGIN_BUILDS_DIR')))
+"

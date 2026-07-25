@@ -142,6 +142,7 @@ spec:
    - [`@red-hat-developer-hub/`](https://github.com/redhat-developer/rhdh-plugins) – RHDH Plugins
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
+3. Plugin is licensed under **Apache License 2.0**. Plugins with incompatible licenses cannot be onboarded.
 
 ### How Automatic Updates and Discovery Work
 
@@ -307,7 +308,7 @@ Use the OCI references from the bot's comment to test in your own Backstage inst
 # dynamic-plugins.yaml
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-your-plugin:pr_123__1.0.0
-    disabled: false
+    enabled: true
 ```
 
 ---
