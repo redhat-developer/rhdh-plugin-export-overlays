@@ -3,8 +3,8 @@ import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   patchHttpbin,
-  restartAndWait,
   cleanupAfterTest,
+  reRunOnFailure,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -108,27 +108,25 @@ export function registerOrchestratorCoreWorkflowTests(
 
     // FIXME: This test is flaky, needs to be fixed. tracked here https://redhat.atlassian.net/browse/RHDHBUGS-3431
     // eslint-disable-next-line playwright/expect-expect
-    test.fixme("Rerun Failswitch from failure point", async ({}, testInfo) => {
-      // 4 minutes: pod restarts + 60s sleep + failure/recovery time
-      test.setTimeout(240_000);
+    test("Rerun Failswitch from failure point", async ({ page }, testInfo) => {
+      // HTTPBIN patch + 60s Wait timer + failure/recovery rerun
+      test.setTimeout(360_000);
       const ns = testInfo.project.name;
 
       test.skip(!ns, "NAME_SPACE not set");
 
       const originalHttpbin = "https://httpbin.org/";
       try {
-        patchHttpbin(ns!, "https://foobar.org/");
-        restartAndWait(ns!);
+        await patchHttpbin(ns!, "https://foobar.org/");
 
         await orchestratorPo.openFailswitchWorkflowFromSidebar();
         await orchestrator.runFailSwitchWorkflow("Wait");
         await orchestrator.validateCurrentWorkflowStatus("Failed");
 
-        patchHttpbin(ns!, originalHttpbin);
-        restartAndWait(ns!);
+        await patchHttpbin(ns!, originalHttpbin);
 
-        await orchestrator.reRunOnFailure("From failure point");
-        await orchestrator.validateCurrentWorkflowStatus("Completed");
+        await reRunOnFailure(page, "From failure point");
+        await orchestrator.validateCurrentWorkflowStatus("Completed", 180_000);
       } catch (e) {
         console.error(`[rerun-failure] Test failed: ${e}`);
         testInfo.annotations.push({
@@ -138,7 +136,7 @@ export function registerOrchestratorCoreWorkflowTests(
         throw e;
       } finally {
         try {
-          cleanupAfterTest(ns!, originalHttpbin);
+          await cleanupAfterTest(ns!, originalHttpbin);
         } catch (cleanupErr) {
           testInfo.annotations.push({
             type: "cleanup-error",
