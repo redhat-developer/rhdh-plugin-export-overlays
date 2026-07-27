@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-announcements"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-announcements:bs_1.52.0__2.11.1!backstage-community-plugin-announcements
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-announcements:bs_1.52.0__2.11.1
   version: 2.11.1
   backstage:
     role: frontend-plugin
