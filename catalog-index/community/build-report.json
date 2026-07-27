@@ -1057,7 +1057,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:932e748db534281902be756efd07c0d88dcb706a589aaab3406f0c24f5692b1d"
+          "digest": "sha256:932e748db534281902be756efd07c0d88dcb706a589aaab3406f0c24f5692b1d",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__3.40.0",
+          "resolvedTag": "bs_1.52.0__3.39.0"
         }
       },
       "package": "@backstage-community/plugin-tekton",

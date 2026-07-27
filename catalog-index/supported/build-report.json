@@ -44,7 +44,8 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.52.0__0.9.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -54,7 +55,7 @@
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
       "version": "0.9.0",
       "workspace": "adoption-insights",
-      "overall": "pass"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-adoption-insights": {
       "stages": {
@@ -668,18 +669,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend:bs_1.52.0__8.0.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b585c845cfa7bd18dbed22c2bfd962ed3cf5765bbbf7d6a8c69e7b5f29844f88"
+          "digest": "sha256:3c67311085af37c15be1dfed1ddaa005c1fe457953ed9104b1a9b25c463d98f7"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import-backend",
       "version": "8.0.0",
       "workspace": "bulk-import",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-bulk-import": {
       "stages": {
@@ -695,18 +695,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import:bs_1.52.0__8.0.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c8621816e6ad698b71f8d62bfff9035e5b9145be9659168113957f5e7145d16d"
+          "digest": "sha256:c95294f245f0d4a56be846f61e141c0a26f71f06b0bf3d550c1278bc737c3460"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import",
       "version": "8.0.0",
       "workspace": "bulk-import",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions": {
       "stages": {
@@ -1224,11 +1223,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.49.2__1.9.6",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.52.0",
-          "found_version": "1.49.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.52.0__1.12.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1239,7 +1234,7 @@
         },
         "catalog-index": {
           "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.49.2__1.9.6"
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.52.0__1.12.2"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -1247,7 +1242,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-quickstart",
-      "version": "1.9.6",
+      "version": "1.12.2",
       "workspace": "quickstart",
       "overall": "fail"
     },
@@ -1580,8 +1575,8 @@
   },
   "summary": {
     "total": 59,
-    "succeeded": 48,
-    "failed": 7
+    "succeeded": 49,
+    "failed": 6
   },
   "status": "partial"
 }
