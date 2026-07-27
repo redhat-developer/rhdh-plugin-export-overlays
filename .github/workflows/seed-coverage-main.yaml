@@ -1,0 +1,46 @@
+name: Seed E2E coverage to main
+
+# E2E coverage is generated only by the Prow PR e2e jobs (which deploy
+# instrumented plugin images built by /publish) and uploaded against PR-head
+# commits. Squash-merge creates a fresh main commit that never receives an
+# upload, and Codecov carryforward can't cross the squash — so the
+# default-branch view stays empty for rolled-out workspaces.
+#
+# This job re-attributes each committed coverage snapshot
+# (coverage-snapshots/<workspace>.lcov) to the current main commit (via the
+# Codecov CLI --sha), so the Codecov default-branch headline and per-flag trend
+# reflect the workspaces already rolled out. This is how the dashboard is fed —
+# see the E2E coverage section in README.md.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 06:00 UTC
+  push:
+    branches: [main]
+    paths:
+      - "coverage-snapshots/**"
+  workflow_dispatch:
+
+# A push to coverage-snapshots/** near the 06:00 schedule could run two seeds
+# against the same main SHA + flag; serialize them. Uploads are idempotent on
+# Codecov's side — this just avoids a wasted double-upload.
+concurrency:
+  group: seed-coverage-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Upload coverage snapshots to the current main commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Seed coverage snapshots
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: ./scripts/seed-main-coverage.sh

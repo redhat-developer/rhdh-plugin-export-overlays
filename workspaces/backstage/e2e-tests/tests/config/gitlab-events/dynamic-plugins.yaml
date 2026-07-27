@@ -6,8 +6,8 @@ plugins:
         providers:
           gitlab:
             default:
-              host: ${VAULT_EVENTS_GITLAB_HOST}
-              group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+              host: ${EVENTS_GITLAB_HOST}
+              group: ${EVENTS_GITLAB_PARENT_ORG}
               schedule:
                 initialDelay:
                   seconds: 15
@@ -22,8 +22,8 @@ plugins:
         providers:
           gitlab:
             orgProvider:
-              host: ${VAULT_EVENTS_GITLAB_HOST}
-              group: ${VAULT_EVENTS_GITLAB_PARENT_ORG}
+              host: ${EVENTS_GITLAB_HOST}
+              group: ${EVENTS_GITLAB_PARENT_ORG}
               orgEnabled: true
               schedule:
                 initialDelay:
@@ -41,4 +41,4 @@ plugins:
             - gitlab
         modules:
           gitlab:
-            webhookSecret: ${VAULT_GITLAB_WEBHOOK_SECRET}
+            webhookSecret: ${GITLAB_WEBHOOK_SECRET}

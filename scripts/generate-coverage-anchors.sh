@@ -116,23 +116,9 @@ while IFS= read -r plugin_path; do
   GENERATED=$((GENERATED + 1))
 done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed "s/:.*//; s/[\"']//g")
 
-cat > "$OUT_ROOT/README.md" <<EOF
-# Codecov coverage anchors (auto-generated — do not edit)
-
-One empty, static file per deployed plugin, named after its scalprum name.
-Codecov only keeps coverage for paths that exist in this repo's git tree, and
-the plugins' real sources live in the upstream repo — so
-\`scripts/remap-coverage.cjs\` concatenates each plugin's E2E coverage onto its
-anchor (line ranges shifted; the aggregated percentage is preserved exactly).
-Only the path's existence matters; content and length are never validated.
-
-These files never change with plugin versions. Re-run the generator only when
-a new plugin gains a metadata Package entity:
-
-\`\`\`bash
-./scripts/generate-coverage-anchors.sh $WORKSPACE
-\`\`\`
-EOF
+# No per-workspace README is written: the anchor mechanism is documented once
+# in this script's header, in codecov.yml, and in the "E2E coverage anchors"
+# section of the repository README.
 
 if [[ $GENERATED -eq 0 ]]; then
   echo "ERROR: no anchor file generated" >&2

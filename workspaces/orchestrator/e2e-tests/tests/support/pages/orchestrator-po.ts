@@ -220,6 +220,25 @@ export class OrchestratorPO {
     await this.uiHelper.goToPageUrl(`/orchestrator/instances/${instanceId}`);
   }
 
+  async getCurrentRunId(): Promise<string> {
+    const runIdCell = this.page
+      .getByRole("heading", { name: "Run ID" })
+      .locator("+ *");
+    await expect(runIdCell).toBeVisible();
+    const runId = (await runIdCell.innerText()).trim();
+    expect(runId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    return runId;
+  }
+
+  async openRunLogsDialog(): Promise<Locator> {
+    await this.page.getByRole("button", { name: "View logs" }).click();
+    const logsDialog = this.page.getByRole("dialog", { name: /Run logs/i });
+    await expect(logsDialog).toBeVisible();
+    return logsDialog;
+  }
+
   async isWorkflowCompletedStatusVisible(timeoutMs = 3_000): Promise<boolean> {
     return ORCHESTRATOR_COMPONENTS.completedStatus(this.page)
       .isVisible({ timeout: timeoutMs })

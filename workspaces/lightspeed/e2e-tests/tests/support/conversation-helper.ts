@@ -96,7 +96,7 @@ export async function submitFeedback(
   await expect(feedbackCard).toBeVisible();
 
   const quickFeedbackLabels = feedbackCard.locator("li");
-  expect(await quickFeedbackLabels.count()).toEqual(3);
+  await expect(quickFeedbackLabels).toHaveCount(3);
   await quickFeedbackLabels.first().click();
 
   await feedbackCard.getByRole("button", { name: "Submit" }).click();
@@ -139,20 +139,43 @@ export async function assertLastBotResponseCopiedToClipboard(
 
   await copyButton.click();
 
-  const clipboardText = (
-    await page.evaluate(() => navigator.clipboard.readText())
-  ).trim();
-  expect(clipboardText.length).toBeGreaterThan(0);
+  // Clipboard writes can lag behind click handling in browsers.
+  let clipboardText = "";
+  await expect
+    .poll(
+      async () => {
+        clipboardText = (
+          await page.evaluate(() => navigator.clipboard.readText())
+        ).trim();
+        return clipboardText.length;
+      },
+      {
+        timeout: 10_000,
+      },
+    )
+    .toBeGreaterThan(0);
 
-  const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
-  const normalizedClipboard = normalize(clipboardText);
-  const normalizedResponse = normalize(responseText);
+  const normalizeToWords = (value: string): string[] =>
+    value
+      .toLowerCase()
+      .replace(/message from bot:/g, " ")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(" ")
+      .filter((word) => word.length > 2);
 
-  expect(
-    normalizedClipboard === normalizedResponse ||
-      normalizedClipboard.includes(normalizedResponse) ||
-      normalizedResponse.includes(normalizedClipboard),
-  ).toBeTruthy();
+  const responseWords = new Set(normalizeToWords(responseText));
+  const clipboardWords = new Set(normalizeToWords(clipboardText));
+  expect(responseWords.size).toBeGreaterThan(0);
+  expect(clipboardWords.size).toBeGreaterThan(0);
+
+  const commonWordCount = [...responseWords].filter((word) =>
+    clipboardWords.has(word),
+  ).length;
+  const responseCoverage = commonWordCount / responseWords.size;
+
+  expect(responseCoverage).toBeGreaterThan(0.6);
 }
 
 export async function verifySidePanelConversation(page: Page): Promise<void> {

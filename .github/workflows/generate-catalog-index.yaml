@@ -99,7 +99,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests pyyaml
+          pip install -r scripts/requirements.txt
 
           # Install mikefarah yq (required by generateDynamicPluginsDefaultYaml.sh)
           mkdir -p "$HOME/.local/bin"
@@ -425,7 +425,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pyyaml requests
+        run: pip install -r scripts/requirements.txt
 
       - name: Update build reports with publish status
         env:

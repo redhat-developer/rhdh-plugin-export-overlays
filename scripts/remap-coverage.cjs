@@ -15,13 +15,13 @@
 //   `webpack://<remote>/...` paths, drops node_modules and bundler runtime, and
 //   writes lcov for Codecov.
 //
-//   When a workspace is given, each plugin's coverage is CONCATENATED onto a
-//   single committed anchor file (`workspaces/<ws>/coverage-anchors/<remote>`,
-//   created once by generate-coverage-anchors.sh): Codecov only keeps report
-//   entries whose paths exist in this repo's git tree at the uploaded commit,
-//   and the plugins' real sources live in the upstream repo. It validates the
-//   path's existence but not its content or length, so per-source-file line
-//   ranges are shifted onto consecutive ranges of the anchor — the aggregated
+//   Each plugin's coverage is CONCATENATED onto a single committed anchor file
+//   (`workspaces/<ws>/coverage-anchors/<remote>`, created once by
+//   generate-coverage-anchors.sh): Codecov only keeps report entries whose
+//   paths exist in this repo's git tree at the uploaded commit, and the
+//   plugins' real sources live in the upstream repo. It validates the path's
+//   existence but not its content or length, so per-source-file line ranges
+//   are shifted onto consecutive ranges of the anchor — the aggregated
 //   percentage is preserved exactly (sum of hits / sum of lines) without
 //   mirroring (and continually re-syncing) the upstream source tree here. The
 //   per-source-file breakdown is printed below so it still lands in CI logs.
@@ -30,11 +30,20 @@
 //   plugins in one workspace (e.g. two `src/index.ts`) from being merged into
 //   one bogus entry.
 //
+//   The owning workspace of each remote is DISCOVERED from the committed
+//   anchors themselves (`workspaces/*/coverage-anchors/<remote>`), so a single
+//   run covering several workspaces (the nightly) needs no external mapping.
+//   Besides the combined report in <report-dir>, a per-workspace
+//   `<report-dir>/<workspace>/lcov.info` is written for each workspace that
+//   contributed coverage — refresh-coverage-snapshot.sh keeps each as a
+//   committed `coverage-snapshots/<workspace>.lcov`, which the seed later
+//   uploads under its own `e2e-<workspace>` Codecov flag.
+//
 // Usage:
-//   node scripts/remap-coverage.cjs <nyc-output-json> [report-dir] [workspace]
+//   node scripts/remap-coverage.cjs <nyc-output-json> [report-dir]
 //
 // Requires istanbul-lib-coverage, istanbul-lib-source-maps, istanbul-lib-report,
-// istanbul-reports to be resolvable (installed by report-coverage.sh).
+// istanbul-reports to be resolvable (installed by remap-lcov.sh).
 
 const fs = require("node:fs");
 const libCoverage = require("istanbul-lib-coverage");
@@ -44,12 +53,9 @@ const reports = require("istanbul-reports");
 
 const inputJson = process.argv[2];
 const reportDir = process.argv[3] || "coverage";
-const workspace = process.argv[4] || "";
 
 if (!inputJson) {
-  console.error(
-    "Usage: remap-coverage.cjs <nyc-output-json> [report-dir] [workspace]",
-  );
+  console.error("Usage: remap-coverage.cjs <nyc-output-json> [report-dir]");
   process.exit(1);
 }
 
@@ -153,16 +159,25 @@ function groupByRemote(remappedCoverage) {
   return byRemote;
 }
 
-// No-anchor mode (multi-workspace runs, local inspection): keep real
-// per-source paths, prefixed by remote to avoid cross-plugin collisions.
-function addPlainEntries(finalMap, byRemote) {
-  for (const [remote, map] of byRemote) {
-    for (const file of map.files()) {
-      const data = structuredClone(map.fileCoverageFor(file).data);
-      data.path = `${remote}/${file}`;
-      finalMap.addFileCoverage(data);
-    }
+// Find which workspace owns a remote by locating its committed anchor file.
+// The anchor's location IS the remote->workspace mapping: each workspace
+// commits one anchor per deployed plugin, named by scalprum name.
+function findAnchorWorkspace(remote) {
+  const owners = fs
+    .readdirSync("workspaces", { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .filter((ws) => fs.existsSync(`workspaces/${ws}/coverage-anchors/${remote}`))
+    .sort(byName);
+  if (owners.length > 1) {
+    // Two workspaces deploying the same plugin — the coverage can't tell which
+    // deployment it came from. Attribute deterministically and say so.
+    console.warn(
+      `[remap] remote '${remote}' has anchors in multiple workspaces ` +
+        `(${owners.join(", ")}) — attributing to '${owners[0]}'`,
+    );
   }
+  return owners[0] || null;
 }
 
 // Concatenate one remote's per-file coverage onto its anchor FileCoverage,
@@ -190,22 +205,41 @@ function buildAnchor(map, remote, anchorPath) {
   return anchor;
 }
 
-// Anchor mode: one report entry per remote, on its committed anchor file.
-// Remotes with no committed anchor are dropped and reported: Codecov would
-// silently discard them anyway, and a non-empty list means a newly deployed
-// plugin needs generate-coverage-anchors.sh re-run.
-function addAnchorEntries(finalMap, byRemote) {
+// One report entry per remote, on its committed anchor file, grouped by the
+// owning workspace. Remotes with no committed anchor anywhere are dropped and
+// reported: Codecov would silently discard them anyway, and a non-empty list
+// means a newly deployed plugin needs generate-coverage-anchors.sh re-run.
+function buildWorkspaceMaps(byRemote) {
+  const byWorkspace = new Map();
   const missing = [];
   const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
   for (const [remote, map] of sorted) {
-    const anchorPath = `workspaces/${workspace}/coverage-anchors/${remote}`;
-    if (fs.existsSync(anchorPath)) {
-      finalMap.addFileCoverage(buildAnchor(map, remote, anchorPath));
-    } else {
-      missing.push(anchorPath);
+    const ws = findAnchorWorkspace(remote);
+    if (!ws) {
+      missing.push(remote);
+      continue;
     }
+    if (!byWorkspace.has(ws)) {
+      byWorkspace.set(ws, libCoverage.createCoverageMap({}));
+    }
+    const anchorPath = `workspaces/${ws}/coverage-anchors/${remote}`;
+    byWorkspace.get(ws).addFileCoverage(buildAnchor(map, remote, anchorPath));
   }
-  return missing;
+  return { byWorkspace, missing };
+}
+
+function writeReport(dir, coverageMap, formats) {
+  fs.mkdirSync(dir, { recursive: true });
+  const context = libReport.createContext({ dir, coverageMap });
+  formats.forEach((format) => reports.create(format).execute(context));
+}
+
+function linesSummary(coverageMap) {
+  const summary = libCoverage.createCoverageSummary();
+  coverageMap
+    .files()
+    .forEach((f) => summary.merge(coverageMap.fileCoverageFor(f).toSummary()));
+  return summary.data.lines;
 }
 
 (async () => {
@@ -215,53 +249,51 @@ function addAnchorEntries(finalMap, byRemote) {
     libCoverage.createCoverageMap(raw),
   );
   const byRemote = groupByRemote(transformed.map || transformed);
+  const { byWorkspace, missing } = buildWorkspaceMaps(byRemote);
 
-  const finalMap = libCoverage.createCoverageMap({});
-  let missingAnchors = [];
-  if (workspace) {
-    missingAnchors = addAnchorEntries(finalMap, byRemote);
-  } else {
-    addPlainEntries(finalMap, byRemote);
-  }
-
-  if (missingAnchors.length > 0) {
+  if (missing.length > 0) {
     console.warn(
-      `[remap] ${missingAnchors.length} plugin(s) have no committed anchor ` +
-        "file and were dropped — run ./scripts/generate-coverage-anchors.sh " +
-        `${workspace} and commit the result:`,
+      `[remap] ${missing.length} plugin(s) have no committed anchor file in ` +
+        "any workspace and were dropped — run " +
+        "./scripts/generate-coverage-anchors.sh <workspace> for the owning " +
+        "workspace and commit the result:",
     );
-    missingAnchors.forEach((p) => console.warn(`[remap]   missing: ${p}`));
+    missing.forEach((r) => console.warn(`[remap]   missing anchor for: ${r}`));
   }
 
-  // Fail loudly (and let report-coverage.sh skip the upload) rather than write an
-  // empty lcov: zero source files means the source maps or path normalization
-  // broke, and silently uploading nothing is the failure mode this whole pipeline
-  // exists to avoid.
-  if (finalMap.files().length === 0) {
+  // Fail loudly (refresh-coverage-snapshot.sh treats this as "nothing to
+  // snapshot") rather than write an empty lcov: zero source files means the
+  // source maps, path normalization or anchor discovery broke, and silently
+  // snapshotting nothing is the failure mode this whole pipeline exists to avoid.
+  if (byWorkspace.size === 0) {
     console.error(
       "[remap] no source files after remap — coverage is empty. " +
         "Check that the bundles were instrumented with --source-map, and " +
-        "that the workspace's coverage-anchors files are committed (see " +
+        "that the workspaces' coverage-anchors files are committed (see " +
         "warnings above).",
     );
     process.exit(1);
   }
 
-  fs.mkdirSync(reportDir, { recursive: true });
-  const context = libReport.createContext({
-    dir: reportDir,
-    coverageMap: finalMap,
-  });
-  reports.create("lcovonly").execute(context);
-  reports.create("text-summary").execute(context);
+  // Combined report (all workspaces) for humans + per-workspace lcov that
+  // refresh-coverage-snapshot.sh commits and the seed uploads per flag.
+  const combined = libCoverage.createCoverageMap({});
+  for (const [ws, map] of byWorkspace) {
+    writeReport(`${reportDir}/${ws}`, map, ["lcovonly"]);
+    map.files().forEach((f) =>
+      combined.addFileCoverage(map.fileCoverageFor(f)),
+    );
+    const lines = linesSummary(map);
+    console.log(
+      `[remap] workspace ${ws}: ${map.files().length} plugin(s), lines ` +
+        `${lines.covered}/${lines.total} (${lines.pct}%) -> ${reportDir}/${ws}/lcov.info`,
+    );
+  }
+  writeReport(reportDir, combined, ["lcovonly", "text-summary"]);
 
-  const summary = libCoverage.createCoverageSummary();
-  finalMap.files().forEach((f) =>
-    summary.merge(finalMap.fileCoverageFor(f).toSummary()),
-  );
-  const lines = summary.data.lines;
+  const lines = linesSummary(combined);
   console.log(
-    `[remap] ${finalMap.files().length} report entr(ies), lines ${lines.covered}/${lines.total} (${lines.pct}%)`,
+    `[remap] total: ${byWorkspace.size} workspace(s), lines ${lines.covered}/${lines.total} (${lines.pct}%)`,
   );
 })().catch((err) => {
   console.error("[remap] failed:", err?.stack ? err.stack : err);

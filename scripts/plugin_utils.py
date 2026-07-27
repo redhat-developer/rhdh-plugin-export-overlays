@@ -686,6 +686,18 @@ class BuildReport:
         stage_data.update(details)
         plugin.setdefault("stages", {})[stage] = stage_data
 
+    def get_stage(self, plugin_name: str, stage: str) -> dict | None:
+        """Return the mutable stage dict for a plugin, or None if not found."""
+        if not self.enabled:
+            return None
+        return (
+            self._data
+            .get("plugins", {})
+            .get(plugin_name, {})
+            .get("stages", {})
+            .get(stage)
+        )
+
     def set_stage_all(self, stage: str, status: str, **details) -> None:
         """Apply the same stage outcome to every plugin currently in the report."""
         if not self.enabled:
@@ -700,9 +712,7 @@ class BuildReport:
 
         for plugin in self._data.get("plugins", {}).values():
             stages = plugin.get("stages", {})
-            if any(s.get("status") == "outdated" for s in stages.values()):
-                plugin["overall"] = "outdated"
-            elif any(s.get("status") == "fail" for s in stages.values()):
+            if any(s.get("status") == "fail" for s in stages.values()):
                 plugin["overall"] = "fail"
             elif stages and all(
                 s.get("status") in ("pass", "skip") for s in stages.values()
@@ -715,18 +725,16 @@ class BuildReport:
         total = len(plugins)
         succeeded = sum(1 for p in plugins.values() if p.get("overall") == "pass")
         failed = sum(1 for p in plugins.values() if p.get("overall") == "fail")
-        outdated = sum(1 for p in plugins.values() if p.get("overall") == "outdated")
 
         self._data["summary"] = {
             "total": total,
             "succeeded": succeeded,
             "failed": failed,
-            "outdated": outdated,
         }
 
         if total == 0:
             self._data["status"] = "initial"
-        elif failed == 0 and outdated == 0:
+        elif failed == 0:
             self._data["status"] = "success"
         else:
             self._data["status"] = "partial"
