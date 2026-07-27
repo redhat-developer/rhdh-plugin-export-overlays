@@ -109,8 +109,8 @@ export function registerOrchestratorCoreWorkflowTests(
 
     // eslint-disable-next-line playwright/expect-expect
     test("Rerun Failswitch from failure point", async ({}, testInfo) => {
-      // 4 minutes: pod restarts + 60s sleep + failure/recovery time
-      test.setTimeout(240_000);
+      // 8 minutes: ensureE2eHttpbin (cold pull) + two patch/restart cycles + 60s sleep + UI
+      test.setTimeout(480_000);
       const ns = testInfo.project.name;
 
       test.skip(!ns, "NAME_SPACE not set");
