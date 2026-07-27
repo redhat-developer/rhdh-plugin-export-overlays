@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-homepage-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.3.0!red-hat-developer-hub-backstage-plugin-homepage-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.3.0
   version: 0.3.0
   backstage:
     role: backend-plugin
@@ -32,11 +32,14 @@ spec:
         homepage:
           defaultWidgets:
             - id: rhdh-onboarding-section
+              ref: onboarding-section
               props:
                 title: Onboarding section
             - id: rhdh-entity-section
+              ref: entity-section
               props:
                 title: Entity section
             - id: rhdh-template-section
+              ref: template-section
               props:
                 title: Template section
