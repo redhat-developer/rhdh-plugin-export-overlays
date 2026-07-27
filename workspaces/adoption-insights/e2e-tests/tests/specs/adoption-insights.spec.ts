@@ -40,7 +40,13 @@ test.describe.serial("Test Adoption Insights", () => {
     testHelper = new TestHelper(page);
 
     const loginHelper = new LoginHelper(page);
-    await loginHelper.loginAsKeycloakUser();
+    try {
+      await loginHelper.loginAsKeycloakUser();
+    } catch {
+      console.warn("Initial login attempt failed, retrying after page reload");
+      await page.reload();
+      await loginHelper.loginAsKeycloakUser();
+    }
   });
 
   test.afterAll(async () => {
