@@ -56,6 +56,20 @@ def get_image_name_from_package_yaml(yaml_path: Path) -> str | None:
         return yaml_path.stem
 
 
+def build_packages_dir_image_index(packages_dir: Path) -> dict[str, Path]:
+    """Map each package YAML file's content-derived image name to its path."""
+    index: dict[str, Path] = {}
+    if not packages_dir.exists():
+        return index
+    for f in packages_dir.glob("*.yaml"):
+        if f.name == "all.yaml":
+            continue
+        name = get_image_name_from_package_yaml(f)
+        if name:
+            index[name] = f
+    return index
+
+
 def is_registry_rarc() -> bool:
     """Check if REGISTRY_BASE is registry.access.redhat.com. Used to determine if queries should be routed through quay.io for unauthenticated access."""
     return REGISTRY_BASE.startswith("registry.access.redhat.com")
@@ -125,13 +139,41 @@ def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
 
 
 TAG_COMMENT_RE = re.compile(r'^\s*# Tag: ([^,]+), Build date: (\S+)\s*$')
+OCI_VALUE_LINE_RE = re.compile(
+    r'^(?P<indent>\s*)(?P<key>-\s+package|dynamicArtifact):\s*'
+    r'(?P<quote>[\'"]?)oci://(?P<value>[^\'"\s]+)(?P=quote)\s*$'
+)
 OCI_PACKAGE_DIGEST_RE = re.compile(
-    r'^\s*(#\s*)?-\s+package:\s+oci://[^\s]+@(sha256:[a-f0-9]+)\s*$'
+    r'^\s*(?:#\s*-\s+package|-\s+package|dynamicArtifact):\s*[\'"]?oci://[^\s\'"]+@(sha256:[a-f0-9]+)[\'"]?\s*$'
 )
 COMMENTED_OCI_PACKAGE_RE = re.compile(r'^\s*#\s*-\s+package:\s+oci://')
 MIGRATION_HINT_RE = re.compile(
     r'^\s*#\s*(new approach using oci images|the \'package\' line above|enabled: false)\b'
 )
+
+
+def oci_value_matches_plugin(
+    oci_value: str,
+    registry_reference_for_oci: str,
+    plugin_name: str,
+    plugin_name_alternative: str,
+    plugin_name_with_dynamic: str,
+    plugin_name_alternative_with_dynamic: str,
+) -> bool:
+    """Return True if an extracted oci:// value (without prefix) belongs to this plugin."""
+    if oci_value == registry_reference_for_oci:
+        return True
+    for pname in (
+        plugin_name,
+        plugin_name_alternative,
+        plugin_name_with_dynamic,
+        plugin_name_alternative_with_dynamic,
+    ):
+        if re.match(rf'.*!{re.escape(pname)}$', oci_value):
+            return True
+        if re.match(rf'.*/{re.escape(pname)}(:|@)', oci_value):
+            return True
+    return False
 
 
 def tag_comment_for_plugin(plugin_data: dict) -> str | None:
@@ -201,7 +243,7 @@ def trailing_tag_comment_matches(new_lines: list[str], expected_comment: str | N
 def digest_from_oci_package_line(line: str) -> str | None:
     """Extract the sha256 digest from an OCI package line, or None if not matched."""
     m = OCI_PACKAGE_DIGEST_RE.match(line)
-    return m.group(2) if m else None
+    return m.group(1) if m else None
 
 
 def peek_digest_after(lines: list[str], idx: int) -> str | None:
@@ -585,9 +627,10 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
     ``dynamic-plugins.default.yaml`` to inject OCI image references. Handles
     two distinct patterns:
 
-    1. **Replacing existing OCI lines**: When a ``- package: oci://...`` line
-       already exists for the plugin, it is replaced with the current digest
-       reference and its tag comment is updated.
+    1. **Replacing existing OCI lines**: When a ``- package: oci://...`` line (in
+       ``dynamic-plugins.default.yaml``) or ``dynamicArtifact: oci://...`` scalar
+       (in package entity YAML) already exists for the plugin, it is replaced
+       with the current digest reference and its tag comment is updated.
     2. **Adding commented OCI blocks**: When only a file-path entry exists
        (``- package: ./dynamic-plugins/dist/...``), a commented-out OCI
        block is added above it with migration hints, preserving the original
@@ -596,6 +639,9 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
     Plugin name matching accounts for alternatives: the
     ``red-hat-developer-hub-`` vs ``rhdh-`` prefix, and with/without the
     ``-dynamic`` suffix.
+
+    Package entity files are located by guessed filename and by
+    ``spec.packageName`` via ``build_packages_dir_image_index``.
 
     Also delegates to ``inject_dpdy_tag_comments`` to handle tag comments
     on lines that were not matched by the main loop (e.g., wrapper package
@@ -620,6 +666,7 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
     files_updated = 0
     plugins_matched_in_dynamic_yaml = 0
     digest_comment_map = build_digest_comment_map(index_data)
+    packages_dir_image_index = build_packages_dir_image_index(packages_dir)
 
     for plugin_name in found_plugins:
         plugin_data = index_data[plugin_name]
@@ -628,7 +675,6 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
         name_no_tag, _, parsed_digest = parse_image_reference(registry_reference)
         registry_reference_for_oci = f"{name_no_tag}@{parsed_digest}" if parsed_digest else registry_reference
         expected_comment = tag_comment_for_plugin(plugin_data)
-        expected_oci_line = f"  - package: oci://{registry_reference_for_oci}\n"
 
         plugin_name_alternative = plugin_name.replace("red-hat-developer-hub-", "rhdh-")
 
@@ -637,11 +683,20 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
 
         log_debug(f"Checking for matches: {plugin_name} (or {plugin_name_alternative}, {plugin_name_with_dynamic}, {plugin_name_alternative_with_dynamic})")
 
-        files_to_update = [
-            dynamic_plugins_yaml,
-            packages_dir / f"{plugin_name}.yaml",
-            packages_dir / f"{plugin_name_alternative}.yaml"
-        ]
+        files_to_update = [dynamic_plugins_yaml]
+        for pname in (plugin_name, plugin_name_alternative):
+            files_to_update.append(packages_dir / f"{pname}.yaml")
+            indexed_path = packages_dir_image_index.get(pname)
+            if indexed_path is not None:
+                files_to_update.append(indexed_path)
+
+        seen_paths: set[Path] = set()
+        deduped_files_to_update: list[Path] = []
+        for yaml_path in files_to_update:
+            if yaml_path not in seen_paths:
+                seen_paths.add(yaml_path)
+                deduped_files_to_update.append(yaml_path)
+        files_to_update = deduped_files_to_update
 
         for yaml_file in files_to_update:
             if not yaml_file.exists():
@@ -681,29 +736,30 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                         i += 1
                         continue
 
-                    matched_oci = re.match(
-                        rf'^  - package: oci://{re.escape(registry_reference_for_oci)}\s*$',
-                        line,
-                    ) is not None
-                    if not matched_oci:
-                        for pname in [
+                    oci_line_match = OCI_VALUE_LINE_RE.match(line)
+                    matched_oci = False
+                    expected_oci_line = ""
+                    oci_line_indent = "  "
+                    oci_line_key = "- package"
+                    oci_line_quote = ""
+                    if oci_line_match:
+                        oci_line_indent = oci_line_match.group("indent")
+                        oci_line_key = oci_line_match.group("key")
+                        oci_line_quote = oci_line_match.group("quote")
+                        oci_value = oci_line_match.group("value")
+                        matched_oci = oci_value_matches_plugin(
+                            oci_value,
+                            registry_reference_for_oci,
                             plugin_name,
                             plugin_name_alternative,
                             plugin_name_with_dynamic,
                             plugin_name_alternative_with_dynamic,
-                        ]:
-                            if re.match(
-                                rf'^  - package: oci://.*!{re.escape(pname)}\s*$',
-                                line,
-                            ):
-                                matched_oci = True
-                                break
-                            if re.match(
-                                rf'^  - package: oci://.*/{re.escape(pname)}(:|@)',
-                                line,
-                            ):
-                                matched_oci = True
-                                break
+                        )
+                        if matched_oci:
+                            expected_oci_line = (
+                                f"{oci_line_indent}{oci_line_key}: "
+                                f"{oci_line_quote}oci://{registry_reference_for_oci}{oci_line_quote}\n"
+                            )
 
                     if matched_oci:
                         pop_trailing_tag_comments(new_lines)
@@ -747,7 +803,10 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
                             break
 
                         if expected_comment:
-                            new_lines.append(tag_comment_line_text(expected_comment))
+                            if oci_line_key == "dynamicArtifact":
+                                new_lines.append(f"{oci_line_indent}{expected_comment}\n")
+                            else:
+                                new_lines.append(tag_comment_line_text(expected_comment))
                         new_lines.append(expected_oci_line)
                         for pl in preserved_lines:
                             new_lines.append(pl)
@@ -1003,11 +1062,7 @@ Examples:
     # match found_plugins keys (which use the same packageName→image-name derivation).
     packages_dir = output_dir / "catalog-entities" / "extensions" / "packages"
     if packages_dir.exists():
-        yaml_file_names = {
-            get_image_name_from_package_yaml(f)
-            for f in packages_dir.glob("*.yaml")
-            if f.name != "all.yaml"
-        }
+        yaml_file_names = set(build_packages_dir_image_index(packages_dir))
 
     # Compare YAML files vs plugins found
     if yaml_file_names:
