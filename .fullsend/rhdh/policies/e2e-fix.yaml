@@ -50,6 +50,7 @@ network_policies:
         enforcement: enforce
         access: read-only
     binaries:
+      - path: "**/curl"
       - path: "**/gh"
       - path: "**/git"
       - path: "**/node"
@@ -73,6 +74,7 @@ network_policies:
         enforcement: enforce
         access: read-only
     binaries:
+      - path: "**/curl"
       - path: "**/node"
       - path: "**/gcloud"
 
