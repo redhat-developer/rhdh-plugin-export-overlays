@@ -1,6 +1,6 @@
 plugins:
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-qe-theme
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -17,7 +17,7 @@ plugins:
                 variant: dark
                 importName: darkThemeProvider
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-theme
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:

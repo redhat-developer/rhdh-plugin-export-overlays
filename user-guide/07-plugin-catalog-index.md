@@ -138,7 +138,7 @@ Output structure (truncated):
 plugins:
   # Tag: 1.10--0.8.2, Build date: 2026-05-20T13:45:25Z
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights:1.10--0.8.2
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -146,7 +146,7 @@ plugins:
             # ... frontend wiring config
   # Tag: 1.10--1.2.0, Build date: 2026-05-19T09:12:00Z
   - package: oci://quay.io/rhdh/backstage-community-plugin-acr:1.10--1.2.0
-    disabled: true
+    enabled: false
 ```
 
 ### Step 4: Catalog Index Generation (`generateCatalogIndex.py`)
