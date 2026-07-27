@@ -26,9 +26,5 @@ spec:
   lifecycle: active
   partOf:
     - app-visualizer
-  appConfigExamples:
-    - title: Default configuration (NFS PageBlueprint registers /visualizer)
-      content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-app-visualizer: {}
+  appConfigNotRequired: true
+  appConfigExamples: []
