@@ -508,7 +508,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a1c99d3a655f31335f0890e37af707563143d140844cc1a1fa6733909c7b55bd"
+          "digest": "sha256:a1c99d3a655f31335f0890e37af707563143d140844cc1a1fa6733909c7b55bd",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.30.2",
+          "resolvedTag": "bs_1.52.0__1.30.0"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
@@ -560,7 +563,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9373a5d674ac706900d0621837739b98c390723cc5d2b00761f9595b6a4d4858"
+          "digest": "sha256:9373a5d674ac706900d0621837739b98c390723cc5d2b00761f9595b6a4d4858",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.25.1",
+          "resolvedTag": "bs_1.52.0__1.25.0"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
@@ -646,7 +652,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:95225b16e8fb27ad0eb0474d5ad19ac7e521ca184ecb369c7dca9d017d8f8f75"
+          "digest": "sha256:95225b16e8fb27ad0eb0474d5ad19ac7e521ca184ecb369c7dca9d017d8f8f75",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.37.1",
+          "resolvedTag": "bs_1.52.0__1.36.0"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -1043,7 +1052,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.39.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.40.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1057,14 +1066,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:932e748db534281902be756efd07c0d88dcb706a589aaab3406f0c24f5692b1d",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__3.40.0",
-          "resolvedTag": "bs_1.52.0__3.39.0"
+          "digest": "sha256:76bb170a587a49fd488bd5e45258fdb5c09dad9fd8cf78f54918ba5392856539"
         }
       },
       "package": "@backstage-community/plugin-tekton",
-      "version": "3.39.0",
+      "version": "3.40.0",
       "workspace": "tekton",
       "overall": "pass"
     },
@@ -1318,7 +1324,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:92691027488c7cdcc5fcdb4e1faccb44e3ee44652b59137bfbf534cf5f18fc10"
+          "digest": "sha256:88b4b1a18f57da77b8649285a26649b458d211af9ca50c765ecc1bb8fb24acb1"
         },
         "dpdy": {
           "status": "skip"

@@ -276,7 +276,7 @@ plugins:
                 config:
                   priority: 10
   # Tag: bs_1.52.0__1.12.2, Build date: 2026-06-03T21:14:06Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:29b668977fa089a444e293286b88353b3046b987af590405f70f0c4ce74a7ddd
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:76c2c12ad69de6541231eeb45a76e0c506a22ff1f8e2c0da09fb8c722203b9ba
     enabled: true
     pluginConfig:
       app:
