@@ -12,6 +12,7 @@ This guide covers the essential workflows for using the **rhdh-plugin-export-ove
 | [04 - Metadata Synchronization](./04-metadata-synchronization.md) | Keeping source and overlay metadata in sync |
 | [05 - Version Updates](./05-version-updates.md) | Updating Backstage target/minimum versions |
 | [06 - Patch Management](./06-patch-management.md) | Creating, updating, and retiring patches |
+| [07 - Plugin Catalog Index](./07-plugin-catalog-index.md) | How the catalog index is built, published, and monitored |
 
 ---
 

@@ -413,7 +413,8 @@ Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
-- `user-guide/` — 6-part contributor guide (getting started, export tools, ownership, metadata sync, versions, patches)
+- `user-guide/` — 6-part contributor guide (getting started, export tools, ownership, metadata sync, versions, patches) plus catalog index pipeline docs
+- `user-guide/troubleshooting-catalog-index.md` — Troubleshooting content embedded by `renderCatalogStatus.py` into each generated status page. Anchor slugs must stay in sync with `REASON_ANCHORS` in the renderer
 - `catalog-entities/extensions/README.md` — Extensions catalog metadata format
 - GitHub Wiki — Auto-synced from `user-guide/` with dynamic content injection (`{{AUTO:*}}` placeholders replaced from `versions.json`)
 - **E2E test utils docs** — https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs — latest API docs, changelogs, tutorials, and configuration reference for `@red-hat-developer-hub/e2e-test-utils`
