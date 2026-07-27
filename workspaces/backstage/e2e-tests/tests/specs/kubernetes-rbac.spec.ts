@@ -85,13 +85,11 @@ test.describe("Kubernetes", () => {
   });
 
   test.describe("Verify that a user with permissions is able to access the Kubernetes plugin", () => {
-    test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
+    test.beforeEach(async ({ page, loginHelper }) => {
       await loginHelper.loginAsKeycloakUser(
         KUBERNETES_USERS.kubernetesLogsReader.username,
         KUBERNETES_USERS.kubernetesLogsReader.password,
       );
-      // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-      await uiHelper.dismissQuickstartIfVisible();
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await page
@@ -121,14 +119,11 @@ test.describe("Kubernetes", () => {
     test("Verify pods are not visible in the Kubernetes tab", async ({
       page,
       loginHelper,
-      uiHelper,
     }) => {
       await loginHelper.loginAsKeycloakUser(
         KUBERNETES_USERS.noKubernetesAccess.username,
         KUBERNETES_USERS.noKubernetesAccess.password,
       );
-      // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-      await uiHelper.dismissQuickstartIfVisible();
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await expect(
@@ -142,14 +137,11 @@ test.describe("Kubernetes", () => {
     test("Verify pod logs are not visible in the Kubernetes tab", async ({
       page,
       loginHelper,
-      uiHelper,
     }) => {
       await loginHelper.loginAsKeycloakUser(
         KUBERNETES_USERS.kubernetesReader.username,
         KUBERNETES_USERS.kubernetesReader.password,
       );
-      // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-      await uiHelper.dismissQuickstartIfVisible();
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await page

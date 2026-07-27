@@ -22,8 +22,6 @@ test.describe("Backstage Notifications Plugin", () => {
   test.beforeEach(async ({ page, uiHelper, loginHelper }) => {
     notificationPage = new NotificationPage(page, uiHelper);
     await loginHelper.loginAsKeycloakUser();
-    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-    await uiHelper.dismissQuickstartIfVisible();
   });
 
   test.describe("Filter notifications", () => {

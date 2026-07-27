@@ -36,10 +36,8 @@ test.describe("GitHub Events Module", () => {
     rhdhBaseUrl = rhdh.rhdhUrl;
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
+  test.beforeEach(async ({ loginHelper }) => {
     await loginHelper.loginAsKeycloakUser();
-    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-    await uiHelper.dismissQuickstartIfVisible();
   });
 
   test("Events endpoint accepts signed GitHub webhook payloads", async () => {

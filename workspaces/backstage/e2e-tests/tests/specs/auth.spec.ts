@@ -14,10 +14,8 @@ test.describe("Auth plugin", () => {
     await rhdh.deploy();
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
+  test.beforeEach(async ({ loginHelper }) => {
     await loginHelper.loginAsGuest();
-    // Temporary: Quickstart drawer progressbar breaks waitForAppReady until OCI disable lands.
-    await uiHelper.dismissQuickstartIfVisible();
   });
 
   test("Verify auth plugin renders on /oauth2 route", async ({ page }) => {
