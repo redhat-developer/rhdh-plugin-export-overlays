@@ -262,7 +262,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.52.0__0.2.22"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -272,7 +273,7 @@
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
       "version": "0.2.22",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-gerrit": {
       "stages": {
@@ -494,7 +495,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.52.0__1.30.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.52.0__1.30.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -508,14 +509,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a1c99d3a655f31335f0890e37af707563143d140844cc1a1fa6733909c7b55bd",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.30.2",
-          "resolvedTag": "bs_1.52.0__1.30.0"
+          "digest": "sha256:e0843570c4a644a60288ba7d2c5fb72c9b34aa3358a4d1e9ebf1bc2aac3033a7"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
-      "version": "1.30.0",
+      "version": "1.30.2",
       "workspace": "jfrog-artifactory",
       "overall": "pass"
     },
@@ -549,7 +547,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.25.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.25.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -563,14 +561,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9373a5d674ac706900d0621837739b98c390723cc5d2b00761f9595b6a4d4858",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.25.1",
-          "resolvedTag": "bs_1.52.0__1.25.0"
+          "digest": "sha256:a37826c80931b69515237b9d6eb0c836eec943c7d550bac4c755a9249b8d7e56"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
-      "version": "1.25.0",
+      "version": "1.25.1",
       "workspace": "nexus-repository-manager",
       "overall": "pass"
     },
@@ -638,7 +633,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.36.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.52.0__1.37.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -652,14 +647,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:95225b16e8fb27ad0eb0474d5ad19ac7e521ca184ecb369c7dca9d017d8f8f75",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.37.1",
-          "resolvedTag": "bs_1.52.0__1.36.0"
+          "digest": "sha256:b5824dc7510a9fc53d14af1e7da7fcb43e782567a0a3a51ea3518d95299c2281"
         }
       },
       "package": "@backstage-community/plugin-quay",
-      "version": "1.36.0",
+      "version": "1.37.1",
       "workspace": "quay",
       "overall": "pass"
     },
@@ -681,7 +673,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9c669a3af16f3d16219a11885396e9e9cdd379a2ce6689381f63697d0661b637"
+          "digest": "sha256:95d66faafd23e9cc6c6fef5b6c4ae69d7c1740c178901279f295533d76f71547"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -1092,7 +1084,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:302d87812b78da1d36e20190f44b75e174d8840844a72801945de9a05e39c305"
+          "digest": "sha256:c3876384f251ea9f204dc58a7ae280f1fd6dcf165888f1df899143b78f4d7140"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1341,8 +1333,8 @@
   },
   "summary": {
     "total": 48,
-    "succeeded": 35,
-    "failed": 13
+    "succeeded": 34,
+    "failed": 14
   },
   "status": "partial"
 }
