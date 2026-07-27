@@ -1372,18 +1372,17 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.52.0__2.19.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:597001d187dfd3e193563825eabc6fc7b57a477e1f3aa1e63ba30e2eb9c9073b"
+          "digest": "sha256:666cb96117baf6973fd567fc5f65c6a339997ad43639c022fa1b38ca7eeea2bb"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-kubernetes",
       "version": "2.19.0",
       "workspace": "scaffolder-backend-module-kubernetes",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-scaffolder-backend-module-regex": {
       "stages": {
@@ -1569,8 +1568,8 @@
   },
   "summary": {
     "total": 59,
-    "succeeded": 51,
-    "failed": 4
+    "succeeded": 52,
+    "failed": 3
   },
   "status": "partial"
 }
