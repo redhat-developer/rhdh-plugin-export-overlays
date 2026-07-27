@@ -31,6 +31,7 @@ export function registerRetryWorkflowTests(): void {
       await page.unroute("**/api/retry-test/**");
     });
 
+    // RHDHBUGS-3399: nightly probe — verify retries with chart DPDY form-widgets ({{inherit}}).
     test("retryAllProps: 503 responses retry with delay 1500 and backoff 2 (three waits)", async ({
       page,
       uiHelper,
