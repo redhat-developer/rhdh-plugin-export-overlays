@@ -29,7 +29,7 @@ plugins/auth:
 plugins/catalog-backend-module-aws:
 plugins/catalog-backend-module-azure:
 plugins/catalog-backend-module-backstage-openapi:
-plugins/catalog-backend-module-bitbucket-cloud:
+plugins/catalog-backend-module-bitbucket-cloud: --embed-package @backstage/plugin-bitbucket-cloud-common
 plugins/catalog-backend-module-bitbucket-server:
 plugins/catalog-backend-module-gcp: --embed-package @backstage/plugin-kubernetes-common
 plugins/catalog-backend-module-gerrit:
@@ -82,7 +82,7 @@ plugins/proxy-backend:
 #plugins/scaffolder: ==> Added as a static plugin in RHDH
 #plugins/scaffolder-backend: ==> Added as a static plugin in RHDH
 plugins/scaffolder-backend-module-azure:
-plugins/scaffolder-backend-module-bitbucket-cloud:
+plugins/scaffolder-backend-module-bitbucket-cloud: --embed-package @backstage/plugin-bitbucket-cloud-common
 plugins/scaffolder-backend-module-bitbucket-server:
 plugins/scaffolder-backend-module-confluence-to-markdown:
 plugins/scaffolder-backend-module-cookiecutter:
@@ -110,3 +110,5 @@ plugins/techdocs-backend: --embed-package @backstage/plugin-search-backend-modul
 plugins/techdocs-module-addons-contrib:
 plugins/user-settings-backend:
 plugins/user-settings:
+plugins/catalog-backend-module-ai-model:
+plugins/catalog-backend-module-msgraph-incremental:
