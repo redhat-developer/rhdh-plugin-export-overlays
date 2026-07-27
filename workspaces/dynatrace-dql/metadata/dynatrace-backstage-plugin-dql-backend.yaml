@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@dynatrace/backstage-plugin-dql-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql-backend:bs_1.49.4__2.7.0!dynatrace-backstage-plugin-dql-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql-backend:bs_1.49.4__2.7.0
   version: 2.7.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.45.3
+    supportedVersions: 1.49.4
   author: Dynatrace
   support: generally-available
   lifecycle: active

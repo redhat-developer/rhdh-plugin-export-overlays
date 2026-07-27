@@ -17,7 +17,6 @@ test.describe("Admin > Extensions", () => {
   ];
   const supportTypeOptions = [
     "Generally available (GA)",
-    "Certified",
     "Tech preview (TP)",
     "Dev preview (DP)",
     "Community plugin",
@@ -125,48 +124,6 @@ test.describe("Admin > Extensions", () => {
       ).toBeEmpty();
     });
 
-    test("Verify certified badge in extensions", async ({ page, uiHelper }) => {
-      await extensions.selectDropdown("Support type");
-      await extensions.toggleOption("Certified");
-      await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("DynaTrace");
-      await expect(
-        page.getByLabel(`Certified by ${provider}`).first(),
-      ).toBeVisible();
-      await expect(extensions.badge.first()).toBeVisible();
-      await extensions.badge.first().hover();
-      await uiHelper.verifyTextInTooltip(`Certified by ${provider}`);
-      await uiHelper.verifyHeading("DynaTrace");
-      await page.getByRole("heading", { name: "DynaTrace" }).first().click();
-      await page
-        .getByRole("button", {
-          name: "close",
-        })
-        .click();
-      await uiHelper.clickLink("Read more");
-      await expect(
-        page
-          .getByLabel(`Stable and secured by ${provider}`)
-          .getByText("Certified"),
-      ).toBeVisible();
-      await uiHelper.verifyText("About");
-      await uiHelper.verifyHeading("Versions");
-      await uiHelper.verifyTableHeadingAndRows([
-        "Package name",
-        "Version",
-        "Role",
-        "Backstage compatibility version",
-        "Status",
-      ]);
-      await page
-        .getByRole("button", {
-          name: "close",
-        })
-        .click();
-      await extensions.selectDropdown("Support type");
-      await extensions.toggleOption("Certified");
-    });
-
     test("Verify Generally available badge in extensions", async ({
       page,
       uiHelper,
@@ -222,10 +179,10 @@ test.describe("Admin > Extensions", () => {
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
     test("Verify dev preview badge in extensions", async () => {
       await extensions.selectSupportTypeFilter("Dev preview (DP)");
-      await uiHelper.verifyHeading("Developer Lightspeed");
+      await uiHelper.verifyHeading("Konflux");
 
       await extensions.verifyPluginDetails({
-        pluginName: "Red Hat Developer Lightspeed for Red Hat Developer Hub",
+        pluginName: "Konflux",
         badgeLabel: "An early-stage, experimental plugin",
         badgeText: "Dev preview (DP)",
         headings: commonHeadings,

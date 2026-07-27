@@ -6,6 +6,16 @@ test.describe("Test Quay.io plugin", () => {
   const quayRepository = "rhdh-community/rhdh";
 
   test.beforeAll(async ({ rhdh }) => {
+    // Community plugins publish to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
+    // Remove when these community packages are no longer in default.packages.yaml in the rhdh repo.
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: [
+        "@backstage-community/plugin-quay",
+        "@backstage-community/plugin-quay-backend",
+        "@backstage-community/plugin-scaffolder-backend-module-quay",
+      ],
+    });
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();
   });
@@ -52,9 +62,8 @@ test.describe("Test Quay.io plugin", () => {
     const quayClient = new QuayClient();
 
     test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.clickLink({
-        ariaLabel: "Self-service",
-      });
+      await uiHelper.openCatalogSidebar("Component");
+      await uiHelper.clickButton("Self-service");
       await uiHelper.verifyHeading("Self-service");
     });
 
@@ -84,8 +93,8 @@ test.describe("Test Quay.io plugin", () => {
       await page.getByRole("button", { name: "Visibility​" }).click();
       await page.getByRole("option", { name: "public" }).click();
       await uiHelper.fillTextInputByLabel("Description", description);
-      await uiHelper.clickButton("Review");
-      await uiHelper.clickButton("Create");
+      await page.getByRole("button", { name: "Review" }).click();
+      await page.getByRole("button", { name: "Create" }).click();
       await expect(
         page.getByRole("link", { name: "Quay repository link" }),
       ).toBeVisible();

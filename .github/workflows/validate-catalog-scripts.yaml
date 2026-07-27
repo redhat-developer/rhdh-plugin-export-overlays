@@ -1,0 +1,40 @@
+name: Validate catalog index scripts
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'scripts/*.py'
+      - 'scripts/tests/**'
+      - 'scripts/requirements-dev.txt'
+      - '.github/workflows/validate-catalog-scripts.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: validate-catalog-scripts-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements-dev.txt
+
+      - name: Run tests
+        working-directory: scripts
+        run: python -m pytest tests/ -v

@@ -89,8 +89,8 @@ You can also create PRs manually. For adding a **new workspace**, your PR should
 To add a new workspace with plugins:
 
 1. Create a new workspace in the overlay repository.
-2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/plugins-list.yaml))
-3. Add a `source.json` file with the following fields ([See example](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/adoption-insights/source.json)):
+2. Add a `plugins-list.yaml` file that lists all plugins included in the target workspace of the source repository. ([See example](./workspaces/adoption-insights/plugins-list.yaml))
+3. Add a `source.json` file with the following fields ([See example](./workspaces/adoption-insights/source.json)):
    - `repo`: URL of the source repository (only `https://github.com/xxx` URLs are supported for now)
    - `repo-ref`: Specific tag or commit for the target plugin/workspace version
    - `repo-flat`:
@@ -103,13 +103,13 @@ To add a new workspace with plugins:
 Sometimes, additional configuration is required in the PR:
 
 - **Frontend plugins** may need:
-   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/release-1.5/workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
-   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
+   - `app-config.dynamic.yaml` (Eg: [techdocs plugin](./workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
+   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
 
 - **Any plugin** may need:
    - Overlay source files in an `overlay` directory
-  (e.g., [`api-docs-module-protoc-gen-doc`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/release-1.5/workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
-  - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/150c9d98830039315df6b4f23bf9f85b1cf5ae55/workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
+  (e.g., [`api-docs-module-protoc-gen-doc`](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/overlay))
+  - Patches (`*.patch`) in the `patches` directory of the workspace folder, to modify the workspace source code before the whole build and packaging process. (Example: [roadie backstage plugins](./workspaces/roadie-backstage-plugins/patches/1-avoid-double-wildcards.patch))
 
 > **Overlay vs. Patch**
 > - **Overlay**: Replaces or adds entire files during the packaging process.
@@ -130,17 +130,21 @@ The repository includes an automated smoke testing workflow that verifies plugin
 
 **Prerequisites:**
 - PR must touch exactly one workspace
-- Each plugin must have its own metadata file in `workspaces/<modified_workspace>/metadata/`
+- At least one published plugin in the workspace must have runnable metadata in `workspaces/<modified_workspace>/metadata/`
+- Published plugins without runnable metadata are skipped individually
 
 **Triggering smoke tests:**
 - After `/publish`: Smoke tests run automatically upon successful publish completion
-- Manual testing: Use `/smoketest` comment on the PR to rerun the smoke tests using the latest published artifacts
-  - For `/smoketest` command, a previous successful `/publish` run is required
+- Manual testing: Use one of these comments on the PR to rerun smoke tests using the latest published artifacts:
+  - `/smoketest` (default image derived from PR target branch)
+  - `/smoketest <tag>` (uses `quay.io/rhdh-community/rhdh:<tag>`)
+    - Allowed tags: `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, `next-8a0d43e7`
+  - A previous successful `/publish` run is required
 
 **Smoke testing workflow steps:**
 1. **Resolve metadata**: Retrieves published OCI references and PR metadata from the `published-exports` artifact
-2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from plugin metadata (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). The optional `app-config.test.yaml` is for test-only or shared workspace settings that should not appear in the user-facing `appConfigExamples` in metadata.
-3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin loads successfully
+2. **Prepare test config**: Generates `dynamic-plugins.test.yaml` from any runnable plugin metadata it finds (each plugin's `spec.appConfigExamples[0].content` is placed under `pluginConfig`) and copies other configuration files - base (`smoke-tests/app-config.yaml` and workspace-specific `app-config.test.yaml` app-config and `test.env`). Published plugins without runnable metadata are skipped; if none are runnable, smoke tests are skipped. Each generated `package` line uses `oci://…/image:<tag>` only (no `!package-id` suffix). If a published export tag still includes a legacy `!<plugin reference>` suffix matching the normalized `spec.packageName` (scope stripped, `/` → `-`), the workflow removes that suffix before writing the file.
+3. **Run smoke tests**: Starts RHDH container with layered configuration, installs dynamic plugins from OCI artifacts, and verifies each plugin included in the generated config loads successfully
 4. **Report results**: Posts test status as a commit status check and PR comment with pass/fail results and links to the workflow run
 
 **Environment Variables in Smoke Tests:**
@@ -149,6 +153,16 @@ If your plugin configuration (in `metadata/*.yaml`) uses environment variables (
 - If the `test.env` file exists but is missing variables, the workflow fails.
 
 - **Results** are reported via PR comment and in the status check. The complete container logs are also available, in the `smoke-tests/run` step.
+
+#### Overriding Backstage Compatibility
+
+When a workspace's upstream Backstage version (in `source.json`) differs from the RHDH target version (in `versions.json`), you need to override the compatibility before publishing. Comment on your PR:
+
+```
+/override-backstage
+```
+
+This creates `backstage.json` with the target version and updates all metadata OCI tags to match. After the override completes, run `/publish` to build the images.
 
 #### Manual Testing
 
@@ -160,3 +174,35 @@ If your plugin configuration (in `metadata/*.yaml`) uses environment variables (
 #### Once Testing Is Complete:
 - If the plugin works with RHDH (either via automatic or manual testing), **change the label** to `tested`
 - Once the PR is merged, the final OCI artifact will be published with the tag: `bs_<backstage_version>__<plugin_version>`
+
+## E2E coverage anchors
+
+Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
+
+Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+
+These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
+
+```bash
+./scripts/generate-coverage-anchors.sh <workspace>
+```
+
+See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechanism.
+
+### Populating the `main` branch
+
+Coverage is produced only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds. Those jobs emit per-test coverage **as run artifacts**; they do not upload to Codecov directly. (A PR-head upload would be pointless anyway: squash-merge creates a fresh `main` commit the upload never reaches, and Codecov's carryforward can't cross the squash.)
+
+Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (daily, on snapshot change, or manually). This is the **only** path that uploads to Codecov, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits.
+
+**Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes upstream. One intrinsic limit: coverage only exists after an e2e actually runs on the cluster, so a workspace's number updates when its e2e is triggered (`/test e2e-ocp-helm`) — the refresh then happens automatically.
+
+To refresh a snapshot by hand (e.g. from a run the workflow didn't pick up):
+
+```bash
+# point at the run's gcsweb .../artifacts/e2e-test-results/coverage/ directory
+./scripts/refresh-coverage-snapshot.sh <workspace> <coverage-dir-or-gcsweb-url>
+git add coverage-snapshots/<workspace>.lcov
+```
+
+A snapshot's number only moves when it's refreshed — which is also the only time the coverage itself changes, since a workspace's coverage is fixed until its plugin code changes (and code changes come through PRs that re-run e2e). This keeps the dashboard effectively current without a separate coverage run: the nightly stays entirely on the shipped `{{inherit}}`/Konflux builds and is not involved in coverage.

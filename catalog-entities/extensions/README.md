@@ -33,7 +33,7 @@ metadata:
   tags: []
 spec: # Custom information processed by the Extensions plugin
   packageName: '@backstage-community/plugin-3scale-backend'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0!backstage-community-plugin-3scale-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend:bs_1.45.3__3.10.0
   version: 3.2.0 # The plugin version
   backstage:
     role: backend-plugin
@@ -73,7 +73,6 @@ metadata:
   annotations:
     extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
     extensions.backstage.io/verified-by: Red Hat # Set the verified status
-    # extensions.backstage.io/certified-by: Red Hat # Set the certified status
   links: # Useful links for the plugin card when expanded
     - url: https://red.ht/rhdh
       title: Homepage
@@ -145,7 +144,7 @@ You **must** add your plugin yaml file to the list in the `plugins/all.yaml` fil
 
 # Using RHDH-local
 
-You need to reconfigure a few bits for the rhdh-1.5 image build, but when you do your local edits will show up within 15 secs...
+You need to reconfigure a few bits for a local RHDH image build, but when you do your local edits will show up within 15 secs...
 
 In `app-config.yaml` do this:
 

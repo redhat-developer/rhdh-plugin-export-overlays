@@ -142,6 +142,7 @@ spec:
    - [`@red-hat-developer-hub/`](https://github.com/redhat-developer/rhdh-plugins) – RHDH Plugins
    - [`@roadiehq/`](https://github.com/RoadieHQ/roadie-backstage-plugins) – Roadie Backstage Plugins
 2. Plugin is compatible with the target Backstage version
+3. Plugin is licensed under **Apache License 2.0**. Plugins with incompatible licenses cannot be onboarded.
 
 ### How Automatic Updates and Discovery Work
 
@@ -278,13 +279,24 @@ This builds and publishes test OCI artifacts tagged as `pr_<number>__<version>`.
 
 After `/publish` completes, smoke tests run automatically if:
 - PR touches exactly one workspace
-- Each plugin has a metadata file
+- At least one published plugin has runnable metadata
+
+Published plugins without runnable metadata are skipped individually. Smoke tests are skipped only when no published plugin in the workspace can produce runnable metadata, or when plugin config references environment variables and the workspace `smoke-tests/test.env` file is missing. If the file exists but required variables are missing from it, the workflow fails instead of skipping.
 
 To re-run smoke tests manually:
 
 ```
 /smoketest
 ```
+
+Use this to override the RHDH container image with a PR tag from `quay.io/rhdh-community/rhdh`:
+
+```
+/smoketest pr-4929-90eff067
+```
+
+`/smoketest <tag>` resolves to `quay.io/rhdh-community/rhdh:<tag>`.
+Allowed tags include `pr-4907`, `pr-4929-90eff067`, `next`, `next-1.10-244a2755`, and `next-8a0d43e7`.
 
 Plugin-specific configuration is extracted from `spec.appConfigExamples[0].content` in each plugin's metadata file and placed under `pluginConfig` in the generated config. The optional workspace-level `app-config.test.yaml` is for test-only or shared workspace settings. If a plugin's config references environment variables (e.g., `${API_TOKEN}`), provide them in `workspaces/<ws>/smoke-tests/test.env`.
 
@@ -296,7 +308,7 @@ Use the OCI references from the bot's comment to test in your own Backstage inst
 # dynamic-plugins.yaml
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-your-plugin:pr_123__1.0.0
-    disabled: false
+    enabled: true
 ```
 
 ---
