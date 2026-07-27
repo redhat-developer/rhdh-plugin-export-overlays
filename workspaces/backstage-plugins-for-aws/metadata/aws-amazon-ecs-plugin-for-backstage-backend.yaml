@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@aws/amazon-ecs-plugin-for-backstage-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-amazon-ecs-plugin-for-backstage-backend:bs_1.49.4__0.9.1!aws-amazon-ecs-plugin-for-backstage-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-amazon-ecs-plugin-for-backstage-backend:bs_1.49.4__0.9.1
   version: 0.9.1
   backstage:
     role: backend-plugin
