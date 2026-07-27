@@ -136,6 +136,10 @@ export function registerEntityWorkflowIntegrationTests(
       });
       await clickCreateAndWaitForScaffolderTerminalState(page);
 
+      await page
+        .getByRole("button", { name: "Administration" })
+        .first()
+        .click();
       await uiHelper.openSidebar("Orchestrator");
       await expect(
         page.getByRole("heading", { name: "Workflows" }),

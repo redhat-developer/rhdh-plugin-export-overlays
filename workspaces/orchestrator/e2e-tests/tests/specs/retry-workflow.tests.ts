@@ -149,6 +149,7 @@ export function registerRetryWorkflowTests(): void {
 }
 
 async function openSampleRetryTestRunForm(page: Page, uiHelper: UIhelper) {
+  await page.getByRole("button", { name: "Administration" }).first().click();
   await uiHelper.openSidebar("Orchestrator");
   const heading = page.getByRole("heading", { name: "Workflows" });
   await expect(heading).toBeVisible({ timeout: 60_000 });

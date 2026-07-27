@@ -18,6 +18,7 @@ export class OrchestratorPO {
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
+    await this.page.locator('nav a:has-text("Administration")').first().click();
     await this.uiHelper.openSidebar("Orchestrator");
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
