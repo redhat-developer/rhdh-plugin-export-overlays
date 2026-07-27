@@ -262,8 +262,7 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.52.0__0.2.22"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -273,7 +272,7 @@
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
       "version": "0.2.22",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-scaffolder-backend-module-gerrit": {
       "stages": {
@@ -1333,8 +1332,8 @@
   },
   "summary": {
     "total": 48,
-    "succeeded": 34,
-    "failed": 14
+    "succeeded": 35,
+    "failed": 13
   },
   "status": "partial"
 }
