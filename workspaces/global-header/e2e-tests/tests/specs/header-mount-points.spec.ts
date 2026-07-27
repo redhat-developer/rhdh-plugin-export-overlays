@@ -1,10 +1,25 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("Header mount points", () => {
   test.beforeAll(async ({ rhdh }) => {
+    const isAppNext = test.info().project.name.endsWith("-app-next");
+    const isNightlyMode =
+      process.env.E2E_NIGHTLY_MODE === "true" ||
+      process.env.E2E_NIGHTLY_MODE === "1" ||
+      (process.env.JOB_NAME?.includes("periodic-") ?? false);
+    test.skip(
+      isAppNext && isNightlyMode,
+      "global-header not ready for nightly",
+    );
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
+      ...(isAppNext && {
+        dynamicPlugins: WorkspacePaths.resolve(
+          "tests/config/dynamic-plugins-nfs.yaml",
+        ),
+      }),
     });
     await rhdh.deploy();
   });
