@@ -113,7 +113,7 @@ async function assertRbacScenario(
   }
 }
 
-async function loginAsKeycloakUserWithRetry(
+export async function loginAsKeycloakUserWithRetry(
   page: Page,
   loginHelper: LoginHelper,
   username?: string,

@@ -1,0 +1,11 @@
+permission:
+  enabled: true
+  rbac:
+    policies-csv-file: "./rbac/rbac-policy.csv"
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - homepage
+    admin:
+      users:
+        - name: user:default/homepage-admin

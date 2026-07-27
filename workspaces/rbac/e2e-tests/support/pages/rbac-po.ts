@@ -135,9 +135,10 @@ export class RbacPO {
     await this.page.click(optionSelector);
   }
 
-  private async clickOpenSidebar() {
+  private async clickOpenSidebar(index = 0) {
     await CONDITIONAL_RULE_COMPONENTS.getRulesSidebar(this.page)
       .getByLabel("Open")
+      .nth(index)
       .click();
   }
 
@@ -318,7 +319,7 @@ export class RbacPO {
         .getByPlaceholder("string, string")
         .fill("component,template,user,group");
       await CONDITIONAL_RULE_COMPONENTS.getAddRuleButton(this.page).click();
-      await this.page.getByLabel("Open").nth(2).click();
+      await this.clickOpenSidebar(1);
       await CONDITIONAL_RULE_COMPONENTS.getHasSpecButton(this.page).click();
       const keyInput = CONDITIONAL_RULE_COMPONENTS.getKeyInput(this.page);
       await keyInput.click();
@@ -326,7 +327,7 @@ export class RbacPO {
       await keyInput.press("Tab");
       await keyInput.fill("experimental");
       await CONDITIONAL_RULE_COMPONENTS.getAddRuleButton(this.page).click();
-      await this.page.getByLabel("Open").nth(3).click();
+      await this.clickOpenSidebar(2);
       await CONDITIONAL_RULE_COMPONENTS.getHasLabelButton(this.page).click();
       const labelInput = CONDITIONAL_RULE_COMPONENTS.getLabelInput(this.page);
       await labelInput.click();
@@ -335,7 +336,7 @@ export class RbacPO {
       await CONDITIONAL_RULE_COMPONENTS.getAddNestedConditionButton(
         this.page,
       ).click();
-      await this.page.getByLabel("Open").nth(4).click();
+      await this.clickOpenSidebar(3);
       await CONDITIONAL_RULE_COMPONENTS.getHasAnnotationButton(
         this.page,
       ).click();

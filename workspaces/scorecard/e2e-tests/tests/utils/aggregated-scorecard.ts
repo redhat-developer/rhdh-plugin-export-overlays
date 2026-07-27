@@ -1,11 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { DEFAULT_THRESHOLD_LABELS } from "./constants";
-
-export type AggregatedScorecardMetric = {
-  readonly title: string;
-  readonly description: string;
-  readonly thresholdLabels?: readonly string[];
-};
+import { DEFAULT_THRESHOLD_LABELS, DEFAULT_THRESHOLD_RULES } from "./constants";
+import type { ScorecardMetric, ThresholdRule } from "./types";
 
 /** URL pattern for `/scorecard/aggregations/:id/metrics/:id` (matches `metricId` from dynamic-plugins). */
 export function drilldownUrlPattern(metricId: string): RegExp {
@@ -27,23 +22,50 @@ export function aggregatedScorecardHelpers(page: Page) {
       await expect(homepageCard(metricId)).toBeVisible({ timeout: 30_000 });
     },
 
-    async expectHomepageCardDisplaysMetric(
+    /**
+     * Tolerates slow GitHub data fetches on overloaded CI clusters. Structural
+     * assertions (title, description) stay on a tight timeout; data-dependent
+     * threshold labels use `expect.poll` with increasing back-off and a full
+     * page reload between attempts to trigger a fresh data fetch.
+     */
+    async expectHomepageCardDisplaysMetricWithRetry(
       card: Locator,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
+      reload: () => Promise<void>,
     ) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
-      await expect(card.getByText(metric.title, { exact: true })).toBeVisible();
-      await expect(card).toContainText(metric.description);
-      await expect(card.getByText(labels[0], { exact: true })).toBeVisible({
-        timeout: 60_000,
+
+      await expect(card.getByText(metric.title, { exact: true })).toBeVisible({
+        timeout: 10_000,
       });
+      await expect(card).toContainText(metric.description, { timeout: 10_000 });
+
+      for (const thresholdLabel of labels) {
+        await expect
+          .poll(
+            async () => {
+              const visible = await card
+                .getByText(thresholdLabel, { exact: true })
+                .isVisible();
+              if (!visible) {
+                await reload();
+                await page.reload();
+                await expect(card).toBeVisible({ timeout: 30_000 });
+              }
+              return visible;
+            },
+            {
+              message: `Threshold label "${thresholdLabel}" never appeared on card "${metric.title}"`,
+              intervals: [10_000, 20_000, 30_000, 45_000, 60_000],
+              timeout: 5 * 60 * 1000,
+            },
+          )
+          .toBe(true);
+      }
     },
 
     /** Hovers each visible threshold color swatch and checks the chart tooltip text. */
-    async expectChartThresholdTooltips(
-      card: Locator,
-      metric: AggregatedScorecardMetric,
-    ) {
+    async expectChartThresholdTooltips(card: Locator, metric: ScorecardMetric) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       const chart = page.locator(".v5-MuiBox-root");
 
@@ -93,7 +115,7 @@ export function aggregatedScorecardHelpers(page: Page) {
 
     async expectDrilldownCardAriaSnapshot(
       metricId: string,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
     ) {
       const card = homepageCard(metricId);
       await expect(card).toBeVisible({ timeout: 120_000 });
@@ -142,6 +164,26 @@ ${thresholdLabelSnapshots}
       await expect(page.getByText(/\d-\d+ of \d+/)).toBeVisible();
     },
 
+    async expectDrilldownThresholdLegend(
+      metricId: string,
+      rules: readonly Pick<ThresholdRule, "key" | "color">[],
+    ) {
+      const card = homepageCard(metricId);
+      await expect(card).toBeVisible({ timeout: 120_000 });
+      for (const rule of rules) {
+        await expect(card).toContainText(
+          rule.key.charAt(0).toUpperCase() + rule.key.slice(1),
+        );
+        const swatch = card.getByTestId(
+          `legend-colorbox-${rule.key.toLowerCase()}`,
+        );
+        await expect(swatch).toBeVisible({ timeout: 60_000 });
+        if (rule.color) {
+          await expect(swatch).toHaveCSS("background-color", rule.color);
+        }
+      }
+    },
+
     /**
      * Homepage card when aggregation `total === 0`: {@link EmptyStatePanel} shows
      * "No data found", helper copy, and **no** `/scorecard/aggregations/...` drill-down link.
@@ -151,7 +193,7 @@ ${thresholdLabelSnapshots}
      */
     async runAggregatedScorecardNoDataHomepageScenario(
       navigateToHome: () => Promise<void>,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
       metricId: string,
       options?: { skipIfHasDrilldown?: boolean },
     ) {
@@ -186,16 +228,24 @@ ${thresholdLabelSnapshots}
 
     async runAggregatedScorecardDrilldownScenario(
       navigateToHome: () => Promise<void>,
-      metric: AggregatedScorecardMetric,
+      metric: ScorecardMetric,
       metricId: string,
+      options?: {
+        thresholdRules?: readonly Pick<ThresholdRule, "key" | "color">[];
+      },
     ) {
       await navigateToHome();
-      await page.reload();
       const card = impl.homepageCard(metricId);
 
       await test.step("Homepage card UI is present", async () => {
         await impl.expectHomepageCardVisible(metricId);
-        await impl.expectHomepageCardDisplaysMetric(card, metric);
+        await impl.expectHomepageCardDisplaysMetricWithRetry(
+          card,
+          metric,
+          async () => {
+            await navigateToHome();
+          },
+        );
       });
 
       await test.step("Threshold tooltips", async () => {
@@ -214,6 +264,13 @@ ${thresholdLabelSnapshots}
 
       await test.step("Drill-down page scorecard card snapshot", async () => {
         await impl.expectDrilldownCardAriaSnapshot(metricId, metric);
+      });
+
+      await test.step("Drill-down threshold legend", async () => {
+        await impl.expectDrilldownThresholdLegend(
+          metricId,
+          options?.thresholdRules ?? DEFAULT_THRESHOLD_RULES,
+        );
       });
 
       await test.step("Drill-down entity table columns and rows", async () => {

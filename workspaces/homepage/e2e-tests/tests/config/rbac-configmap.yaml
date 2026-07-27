@@ -1,0 +1,17 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: rbac-policy
+data:
+  rbac-policy.csv: |
+    g, user:default/homepage-admin, role:default/homepage-admin
+    p, role:default/homepage-admin, catalog-entity, read, allow
+    p, role:default/homepage-admin, homepage.default-widgets.read, read, allow
+
+    g, user:default/test1, role:default/homepage-user
+    p, role:default/homepage-user, catalog-entity, read, allow
+    p, role:default/homepage-user, homepage.default-widgets.read, read, allow
+
+    g, user:default/test2, role:default/homepage-user
+
+    g, user:default/test3, role:default/homepage-user

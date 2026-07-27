@@ -1,10 +1,14 @@
-import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { defineConfig as playwrightDefineConfig } from "@playwright/test";
 
 /**
  * Backstage workspace e2e test configuration.
  * Extends the base config from rhdh-e2e-test-utils.
  */
-export default defineConfig({
+export default playwrightDefineConfig({
+  ...baseConfig,
+  workers: 4,
+  timeout: 120000,
   projects: [
     {
       name: "backstage-github-org-discovery",
@@ -13,10 +17,21 @@ export default defineConfig({
     {
       name: "backstage-github-discovery",
       testMatch: /tests\/specs\/github-discovery\.spec\.ts/,
+      // GitHub discovery depends on a scheduled provider refresh and external API
+      // availability; allow one retry before failing the PR check.
+      retries: process.env.CI ? 1 : 0,
     },
     {
       name: "backstage-gitlab-discovery",
       testMatch: /tests\/specs\/gitlab-discovery\.spec\.ts/,
+    },
+    {
+      name: "backstage-gitlab-events-discovery",
+      testMatch: /tests\/specs\/gitlab-events-discovery\.spec\.ts/,
+    },
+    {
+      name: "backstage-gitlab-events-org",
+      testMatch: /tests\/specs\/gitlab-events-org\.spec\.ts/,
     },
     {
       name: "backstage-github-events",
@@ -31,8 +46,22 @@ export default defineConfig({
       testMatch: /tests\/specs\/notifications\.spec\.ts/,
     },
     {
+      name: "backstage-notifications-email",
+      testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
+    },
+    {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
+      // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.
+      retries: process.env.CI ? 1 : 0,
+    },
+    {
+      name: "backstage-gitlab-scaffolder-actions",
+      testMatch: /tests\/specs\/gitlab-scaffolder-actions\.spec\.ts/,
+    },
+    {
+      name: "backstage-auth",
+      testMatch: /tests\/specs\/auth\.spec\.ts/,
     },
   ],
 });

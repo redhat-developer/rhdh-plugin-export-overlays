@@ -1,0 +1,6 @@
+auth:
+  providers:
+    github:
+      production:
+        clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+        clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
