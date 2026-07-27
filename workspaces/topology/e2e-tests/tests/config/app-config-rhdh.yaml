@@ -14,6 +14,12 @@ auth:
           resolvers:
             - resolver: emailLocalPartMatchingUserEntityName
 
+extensions:
+  - entity-content:catalog/entity-content-topology:
+      config:
+        allowedFilters:
+          - type: service
+
 permission:
   enabled: true
   rbac:
