@@ -10,5 +10,13 @@ export default defineConfig({
       name: "global-header-header-mount-points",
       testMatch: "**/tests/specs/header-mount-points.spec.ts",
     },
+    {
+      name: "global-header-app-next",
+      testMatch: "**/tests/specs/default-global-header.spec.ts",
+    },
+    {
+      name: "global-header-header-mount-points-app-next",
+      testMatch: "**/tests/specs/header-mount-points.spec.ts",
+    },
   ],
 });
