@@ -37,6 +37,13 @@ spec:
               message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
         dynamicPlugins:
           frontend:
+            # Clears the default lightspeed frontend routes/mountPoints so they don't
+            # conflict with the renamed intelligent-assistant plugin.
+            # TODO: Remove after lightspeed is removed from the default catalog index
+            # (https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/2806).
+            red-hat-developer-hub.backstage-plugin-lightspeed:
+              dynamicRoutes: []
+              mountPoints: []
             red-hat-developer-hub.backstage-plugin-intelligent-assistant:
               translationResources:
                 - importName: lightspeedTranslations
