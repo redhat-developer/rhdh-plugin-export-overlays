@@ -34,7 +34,7 @@ export async function selectChatModel(
 
 export async function openChatbot(page: Page): Promise<void> {
   await page
-    .getByRole("button", { name: "Open Intelligent Assistant" })
+    .getByRole("button", { name: "Open intelligent assistant" })
     .click();
 }
 
@@ -42,7 +42,7 @@ export async function selectDisplayMode(
   page: Page,
   mode: DisplayMode,
 ): Promise<void> {
-  await page.getByRole("button", { name: "Chatbot options" }).click();
+  await page.getByRole("button", { name: "Options" }).click();
   await page.getByRole("menuitem", { name: mode }).click();
 }
 
@@ -73,8 +73,7 @@ export async function expectRhdhContentVisible(
   // header search box which is always visible when the RHDH shell is loaded.
   const shell = page
     .getByText(/welcome back!/i)
-    .or(page.getByText("My Org Catalog"))
-    .or(page.getByRole("combobox", { name: /search/i }));
+    .or(page.getByText("My Org Catalog"));
 
   if (visible) {
     await expect(shell).toBeVisible({ timeout: 30_000 });
@@ -101,13 +100,11 @@ export async function openChatbotFullscreenWithModel(
 
 export async function expectChatbotControlsVisible(page: Page): Promise<void> {
   await expect(page.locator(".pf-chatbot__header")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Chatbot options" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toBeVisible();
 }
 
 export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Chatbot options" }).click();
+  await page.getByRole("button", { name: "Options" }).click();
   const settingsMenu = page
     .getByRole("menu")
     .filter({
@@ -135,7 +132,7 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
   await expect(
     page.getByRole("textbox", {
-      name: "Enter a prompt for Intelligent Assistant",
+      name: "Send a message",
     }),
   ).toBeVisible();
 }
@@ -150,7 +147,7 @@ export async function expectEmptyChatHistory(page: Page): Promise<void> {
     ).toBeVisible();
   }
 
-  for (const name of ["No pinned chats", "No recent chats"]) {
+  for (const name of ["Pin chats to keep them on top", "No recent chats"]) {
     await expect(page.getByRole("menuitem", { name })).toBeVisible();
   }
 }

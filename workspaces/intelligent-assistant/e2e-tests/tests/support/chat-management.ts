@@ -76,15 +76,17 @@ export async function verifyChatExists(page: Page, chatName: string) {
   ).toBeVisible();
 }
 
+const EMPTY_PINNED_CHATS_MESSAGE = "Pin chats to keep them on top";
+
 export async function verifyEmptyPinnedChatsMessage(page: Page) {
   await expect(
-    page.getByRole("menuitem", { name: "No pinned chats" }),
+    page.getByRole("menuitem", { name: EMPTY_PINNED_CHATS_MESSAGE }),
   ).toBeVisible();
 }
 
 export async function verifyPinnedChatsNotEmpty(page: Page) {
   await expect(
-    page.getByRole("menuitem", { name: "No pinned chats" }),
+    page.getByRole("menuitem", { name: EMPTY_PINNED_CHATS_MESSAGE }),
   ).toBeHidden();
 }
 
@@ -126,10 +128,15 @@ export async function selectDeleteAction(page: Page) {
   await page.getByRole("menuitem", { name: "Delete" }).click();
 }
 
-export async function verifyDeleteConfirmation(page: Page) {
-  await expect(page.locator("#delete-modal")).toContainText("Delete chat?");
-  await expect(page.locator("#delete-modal-body-confirmation")).toContainText(
-    "You'll no longer see this chat here",
+function deleteChatTitle(chatName: string): string {
+  return `Delete "${chatName}"?`;
+}
+
+export async function verifyDeleteConfirmation(page: Page, chatName: string) {
+  const title = deleteChatTitle(chatName);
+  await expect(page.locator("#delete-modal")).toContainText(title);
+  await expect(page.locator("#delete-modal-confirmation")).toContainText(
+    "You'll no longer see this chat here. This will also delete related activity like prompts, responses, and feedback from your activity.",
   );
 }
 
@@ -137,9 +144,9 @@ export async function cancelChatDeletion(page: Page) {
   await page.getByRole("button", { name: "Cancel" }).click();
 }
 
-export async function confirmChatDeletion(page: Page) {
+export async function confirmChatDeletion(page: Page, chatName: string) {
   await page
-    .getByLabel("Delete chat?")
+    .getByLabel(deleteChatTitle(chatName))
     .getByRole("button", { name: "Delete" })
     .click();
 }
@@ -153,13 +160,11 @@ export async function verifyChatDeleted(page: Page, chatName: string) {
 }
 
 export async function openChatbotSettings(page: Page) {
-  await page.getByRole("button", { name: "Chatbot options" }).click();
+  await page.getByRole("button", { name: "Options" }).click();
 }
 
 export async function verifyChatbotSettingsVisible(page: Page) {
-  await expect(
-    page.getByRole("button", { name: "Chatbot options" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toBeVisible();
 }
 
 export async function verifyPinnedSectionVisible(page: Page) {
@@ -207,7 +212,7 @@ export async function verifyEmptySearchResults(page: Page) {
     .toMatchAriaSnapshot(`
     - heading "Pinned chats"
     - menu:
-      - menuitem "No pinned chats"
+      - menuitem "Pin chats to keep them on top"
     - heading "Chats"
     - menu:
       - menuitem "No result matches the search"
@@ -263,7 +268,7 @@ export async function getConversationNames(page: Page): Promise<string[]> {
       const normalized = text.replace(/\s+/g, " ").trim();
       if (
         normalized.length > 0 &&
-        normalized !== "No pinned chats" &&
+        normalized !== EMPTY_PINNED_CHATS_MESSAGE &&
         normalized !== "No result matches the search"
       ) {
         names.push(normalized);

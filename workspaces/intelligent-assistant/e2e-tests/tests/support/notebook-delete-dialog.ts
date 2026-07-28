@@ -25,7 +25,7 @@ export class NotebookDeleteDialogPage {
 
   async expectPermanentDeletionWarningText(): Promise<void> {
     await expect(this.dialog()).toContainText(
-      "You'll no longer see this notebook here. This will also delete related activity like prompts, responses, and feedback from your Lightspeed Activity.",
+      "You'll no longer see this notebook here. This will also delete related activity like prompts, responses, and feedback from your activity.",
     );
   }
 

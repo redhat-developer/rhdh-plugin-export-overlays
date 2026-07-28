@@ -110,7 +110,12 @@ export async function openLightspeed(page: Page): Promise<void> {
 
   const chatUi = page
     .locator(".pf-chatbot__messagebox")
-    .or(page.getByRole("heading", { name: "Intelligent Assistant" }))
+    .or(page.getByRole("heading", { name: "Intelligent assistant" }))
+    .or(
+      page.getByRole("heading", {
+        name: "Developer Hub Intelligent Assistant",
+      }),
+    )
     .or(page.getByTestId("lightspeed-lcore-not-configured"));
 
   await chatUi.first().waitFor({ state: "visible", timeout: 120_000 });
