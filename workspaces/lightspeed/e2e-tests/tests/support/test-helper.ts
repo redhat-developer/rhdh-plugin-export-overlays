@@ -23,6 +23,13 @@ function isNightlyMode(): boolean {
   return process.env.JOB_NAME?.includes("periodic-") ?? false;
 }
 
+function isMcpNightlyDisabled(): boolean {
+  return (
+    process.env.DISABLE_MCP_NIGHTLY === "true" ||
+    process.env.DISABLE_MCP_NIGHTLY === "1"
+  );
+}
+
 export const lightspeedDeployConfig = {
   auth: "keycloak" as const,
   version: process.env.RHDH_VERSION ?? "1.11",
@@ -30,9 +37,10 @@ export const lightspeedDeployConfig = {
   appConfig: "tests/config/app-config-rhdh.yaml",
   secrets: "tests/config/rhdh-secrets.yaml",
   valueFile: "tests/config/value_file.yaml",
-  ...(isNightlyMode()
-    ? { dynamicPlugins: "tests/config/dynamic-plugins-nightly.yaml" }
-    : {}),
+  dynamicPlugins:
+    isNightlyMode() && isMcpNightlyDisabled()
+      ? "tests/config/dynamic-plugins-nightly.yaml"
+      : "tests/config/dynamic-plugins-mcp.yaml",
 };
 
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
