@@ -1,3 +1,10 @@
+app:
+  extensions:
+    - entity-content:catalog/entity-content-topology:
+        config:
+          allowedFilters:
+            - type: service
+
 auth:
   environment: development
   providers:
@@ -13,12 +20,6 @@ auth:
         signIn:
           resolvers:
             - resolver: emailLocalPartMatchingUserEntityName
-
-extensions:
-  - entity-content:catalog/entity-content-topology:
-      config:
-        allowedFilters:
-          - type: service
 
 permission:
   enabled: true
