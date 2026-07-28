@@ -110,7 +110,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.verifyCardsDeleted();
 
       await home.addWidget("Entity Section");
-      await home.addWidget("Recently visited");
+      await home.addWidget("Recently Visited");
       await home.exitEditMode();
 
       await home.verifySpecificCardsDisplayed([
