@@ -13,7 +13,7 @@ image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/e2e-fix.yaml
 
 role: coder
-slug: rhdh-e2e-fix
+slug: fullsend-ai-coder
 
 trigger: |
   event.entity.kind == "work_item"
