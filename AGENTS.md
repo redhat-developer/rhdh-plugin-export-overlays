@@ -131,6 +131,20 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Metadata Validation in /publish
+
+The `/publish` workflow includes a metadata validation step that compares each built plugin's actual version and Backstage compatibility version against the corresponding fields in `workspaces/*/metadata/*.yaml`. Specifically, it checks:
+
+- **`spec.version`** — must match the plugin version built from the upstream source ref in `source.json`
+- **`spec.dynamicArtifact`** OCI tag — must contain the correct plugin version and Backstage version (e.g., `bs_1.52.0__0.12.0`)
+- **`spec.backstage.supportedVersions`** — must match the Backstage compatibility version
+
+Any mismatch between these fields and the actual build output causes `/publish` to fail. This is a **hard gate**, not a warning — the workflow posts the validation errors as a PR comment and the publish is blocked until all metadata files are corrected.
+
+**Review implications:** When reviewing workspace update PRs (where `source.json` is updated to a new upstream ref), verify that **all** metadata YAML files in the workspace are updated consistently. A workspace may contain multiple metadata files (e.g., a main plugin and a theme variant). If any metadata file still references old versions or OCI tags, flag this as a **blocking finding** — it will cause `/publish` to fail with metadata validation errors.
+
+In particular, check that every package listed in `plugins-list.yaml` has its corresponding `metadata/*.yaml` file updated when the workspace's `source.json` changes. Missing or stale metadata for any exported package is a hard error in the publish pipeline.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
