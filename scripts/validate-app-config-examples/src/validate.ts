@@ -15,6 +15,7 @@
 //      schema, read from the published package (RHIDP-13509). Off by default;
 //      enable with --check-schemas.
 
+import { realpathSync } from 'node:fs';
 import { glob } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,7 +62,6 @@ export type SchemaTally = {
   noSchema: number;
   unavailable: number;
 };
-
 
 /** Table rule width beyond the status column — inherited from the Python table. */
 const RULE_PADDING = 75;
@@ -248,6 +248,19 @@ const execFileAsync = promisify(execFile);
  * in several locales, so it would reorder the report and break the
  * byte-identical parity with the script this replaced.
  */
+/** True when this module is the script node was asked to run. */
+function isInvokedDirectly(): boolean {
+  const invoked = process.argv[1];
+  if (invoked === undefined) {
+    return false;
+  }
+  try {
+    return realpathSync(invoked) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
 function byCodepoint(a: string, b: string): number {
   if (a < b) {
     return -1;
@@ -345,7 +358,9 @@ export function printReport(
 
 // Only run the CLI when invoked directly, so tests can import main() and report()
 // without the module executing on import.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Node resolves a module's own path through realpath, but leaves argv[1] as
+// given — so comparing them directly skips the CLI when invoked via a symlink.
+if (isInvokedDirectly()) {
   try {
     process.exitCode = await main();
   } catch (error) {

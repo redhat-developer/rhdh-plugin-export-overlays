@@ -45,7 +45,6 @@ export function isEmptyContent(content: unknown): boolean {
   return false;
 }
 
-
 /** Evaluates one metadata document. Pure — takes text, so it is easy to test. */
 export function evaluateDocument(text: string): StructuralResult {
   let doc: unknown;

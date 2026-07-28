@@ -170,7 +170,14 @@ async function extractPackage(spec: string, dir: string): Promise<string> {
   if (!tarball) {
     throw new Error(`npm pack produced no tarball for ${spec}`);
   }
-  await execFileAsync('tar', ['-xzf', tarball, '-C', dir], { cwd: dir });
+  // --no-same-owner: on a runner executing as root, tar would otherwise honour
+  // ownership recorded in the archive, letting a crafted tarball drop files
+  // owned by an arbitrary uid.
+  await execFileAsync(
+    'tar',
+    ['-xzf', tarball, '--no-same-owner', '-C', dir],
+    { cwd: dir },
+  );
   return findPackageRoot(dir, spec);
 }
 
