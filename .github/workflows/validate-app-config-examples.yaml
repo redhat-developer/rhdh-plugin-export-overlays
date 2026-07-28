@@ -30,6 +30,9 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: scripts/validate-app-config-examples
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -37,31 +40,47 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Before setup-node, so its yarn-cache detection resolves Yarn 4 through
+      # corepack rather than the bundled Yarn 1.
+      - name: Enable corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
+          cache: yarn
+          cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
 
       - name: Install dependencies
-        working-directory: scripts/validate-app-config-examples
-        run: |
-          corepack enable
-          yarn install --immutable
+        run: yarn install --immutable
 
       - name: Build
-        working-directory: scripts/validate-app-config-examples
         run: yarn build
 
       - name: Check types and unit tests
-        working-directory: scripts/validate-app-config-examples
         run: yarn check
+
+      # The PR step below runs `--since`, which by construction sees no metadata
+      # when a PR only touches this directory — so a change to the validator
+      # itself would otherwise ship without the semantic path executing once.
+      # This exercises it against a known workspace whose package publishes a
+      # compiled config.schema.json. Warn-only: it is a smoke check of the tool,
+      # not a verdict on metadata the author did not touch.
+      - name: Smoke-check the schema path against known metadata
+        if: github.event_name == 'pull_request'
+        env:
+          SAMPLE: workspaces/adoption-insights/metadata
+        run: |
+          base="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")~1"
+          echo "Exercising the schema path against $SAMPLE since $base"
+          node dist/validate.mjs --check-schemas --warn-only --since "$base"
 
       # A full-tree sweep reports schema mismatches without failing: the tree
       # carries metadata written long before this check existed, and the sweep
       # is meant to surface that backlog rather than block on it.
       - name: Validate (full tree)
         if: github.event_name == 'workflow_dispatch'
-        working-directory: scripts/validate-app-config-examples
         env:
           CHECK_SCHEMAS: ${{ inputs.check-schemas }}
         run: |
@@ -69,14 +88,13 @@ jobs:
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
             args+=(--check-schemas --warn-only)
           fi
-          yarn node dist/validate.mjs "${args[@]}"
+          node dist/validate.mjs "${args[@]}"
 
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
       # fair, and keeps the check from being advisory-only forever.
       - name: Validate (PR — changed metadata only)
         if: github.event_name == 'pull_request'
-        working-directory: scripts/validate-app-config-examples
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
+        run: node dist/validate.mjs --since "$BASE_SHA" --check-schemas

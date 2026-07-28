@@ -1,17 +1,8 @@
 /*
- * Copyright Red Hat, Inc.
+ * Copyright (c) Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 // Structural checks on Package metadata. This is a behaviour-preserving port of
@@ -24,6 +15,7 @@ import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parse as parseYaml } from 'yaml';
+import { isPlainObject } from './json.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -32,7 +24,7 @@ export type Status = 'PASS' | 'FAIL' | 'SKIP';
 export type StructuralResult = {
   status: Status;
   detail: string;
-  /** Parsed document, present whenever the YAML itself was readable. */
+  /** Parsed document, present only for a mapping root. */
   doc?: Record<string, unknown>;
 };
 
@@ -57,9 +49,6 @@ export function isEmptyContent(content: unknown): boolean {
   return false;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 /** Evaluates one metadata document. Pure — takes text, so it is easy to test. */
 export function evaluateDocument(text: string): StructuralResult {
@@ -67,7 +56,10 @@ export function evaluateDocument(text: string): StructuralResult {
   try {
     doc = parseYaml(text);
   } catch (error) {
-    return { status: 'FAIL', detail: `YAML error: ${error}` };
+    // Parse errors carry a multi-line caret frame; the table has one line per
+    // file, so keep the headline only.
+    const headline = String(error).split('\n')[0].trim();
+    return { status: 'FAIL', detail: `YAML error: ${headline}` };
   }
 
   if (!isPlainObject(doc)) {
@@ -126,6 +118,12 @@ export async function evaluateFile(path: string): Promise<StructuralResult> {
   try {
     text = await readFile(path, 'utf8');
   } catch (error) {
+    // A path in the diff that is not on disk is skipped, not failed — the
+    // Python original guarded this with `p.is_file()`. It happens when running
+    // --since locally over a range that deleted a file without committing.
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return { status: 'SKIP', detail: 'file not present in the working tree' };
+    }
     return { status: 'FAIL', detail: `YAML error: ${error}` };
   }
   return evaluateDocument(text);
@@ -196,14 +194,17 @@ export function configExamples(
   if (!Array.isArray(examples)) {
     return [];
   }
-  return examples
-    .filter(isPlainObject)
-    .filter(example => !isEmptyContent(example.content))
-    .map((example, index) => ({
-      title:
-        typeof example.title === 'string' && example.title !== ''
-          ? example.title
-          : `appConfigExamples[${index}]`,
-      content: example.content,
-    }));
+  // flatMap rather than filter-then-map so `index` stays the position in the
+  // source list: the label points a maintainer at an entry to go and edit, so
+  // it has to survive earlier entries being dropped.
+  return examples.flatMap((example, index) => {
+    if (!isPlainObject(example) || isEmptyContent(example.content)) {
+      return [];
+    }
+    const title =
+      typeof example.title === 'string' && example.title !== ''
+        ? example.title
+        : `appConfigExamples[${index}]`;
+    return [{ title, content: example.content }];
+  });
 }

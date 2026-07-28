@@ -47,7 +47,7 @@ this catalogue that field points at one of two things:
 - `config.schema.json` — a compiled JSON schema, usable as-is
 - `config.d.ts` — a raw TypeScript declaration, which has to be compiled first
 
-The second form is the majority, so a validator has to run the TypeScript
+The second form is the more common, so a validator has to run the TypeScript
 compiler. `@backstage/config-loader` already does that, and applies Backstage's
 `@visibility` conventions on the way — reusing it means the CI gate enforces the
 same semantics Backstage enforces at runtime, rather than an approximation of
@@ -57,34 +57,54 @@ Schemas are read from the **published package**, resolved from the
 `spec.packageName` and `spec.version` the metadata already pins. That is the
 artifact users actually install, and it avoids resolving upstream repo SHAs.
 
-## What the semantic check does and does not catch
+## What the semantic check catches — and what it does not
 
-It **does** catch wrong types, wrong nesting, and malformed values on any key
-the plugin's schema declares — for example a `maxBufferSize` given as a string
-where the schema declares a number.
+Verified against the real compiler, not assumed.
 
-It **does not** flag unknown keys. Examples legitimately carry RHDH wiring that
-is not part of any plugin's schema — 72 of 178 metadata files include a
-`dynamicPlugins` block, and 65 of them contain nothing else. Turning on
-`noUndeclaredProperties` would fail all of those, so undeclared keys are
-tolerated. The trade-off is that a typo in a key name passes silently.
+**Caught:**
 
-Three outcomes are reported as notes rather than failures, because none of them
-is a defect in the metadata:
+- a scalar that cannot be coerced to the declared type (`retries: "many"` where a
+  number is declared)
+- wrong nesting — a scalar where an object or array is declared
+- a value outside a declared enum
+- a missing required property
 
-- the package declares no `configSchema`, so there is nothing to validate against
-- the package/version is not on the registry
-- the schema could not be compiled
+**Not caught:**
+
+- **coercible scalars.** `@backstage/config-loader` builds Ajv with
+  `coerceTypes: true`, so `port: "8080"` against a declared number passes. This
+  is one of the more common real app-config mistakes, and this check does not
+  see it.
+- **undeclared keys.** Examples legitimately carry RHDH wiring that belongs to
+  no plugin schema — 72 of 178 metadata files include a `dynamicPlugins` block
+  and 65 contain nothing else. Rejecting undeclared keys would fail all of them,
+  so a typo'd key name passes silently.
+- **packages whose `config.d.ts` imports from their dependencies.** `npm pack`
+  fetches the package alone with no `node_modules`, and config-loader compiles
+  with `skipLibCheck: false`, so those fail to compile and report as
+  `unavailable`. On a 29-package sample, 6 were affected. Installing each
+  package's dependency tree would fix it at a cost this check cannot justify.
+
+Three outcomes are reported as notes rather than failures, because none is a
+defect in the metadata: the package declares no `configSchema`, it is not on the
+registry, or its schema could not be compiled. **Every run that checks schemas
+prints a tally** of validated / mismatched / no-schema / unavailable, and says so
+explicitly when nothing was validated — otherwise an offline runner reports
+`PASS: 178  FAIL: 0` having checked nothing, and the gate looks green because it
+is inert.
+
 
 ## Layout
 
 | Path | Role |
 |---|---|
+| `src/json.ts` | the shared mapping guard, so the two layers cannot drift |
 | `src/metadata.ts` | YAML reading and the structural verdicts |
 | `src/schema.ts` | package download, schema loading, example validation |
 | `src/validate.ts` | CLI, reporting, exit codes |
-| `src/metadata.test.ts` | locks in the structural verdicts and their wording |
+| `src/*.test.ts` | 62 tests |
 
-`yarn check` runs the type check and the unit tests. The tests are pure — they
-never touch the network — so the suite stays fast and deterministic; the
-schema path is exercised in CI against real packages instead.
+`yarn check` runs the type check and the unit tests. The tests never touch the
+network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
+which builds a real Backstage schema in memory, so the suite stays fast and
+deterministic while still testing the actual validator.

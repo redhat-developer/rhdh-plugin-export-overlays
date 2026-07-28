@@ -1,17 +1,8 @@
 /*
- * Copyright Red Hat, Inc.
+ * Copyright (c) Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 // These lock in the verdicts and wording inherited from the Python script this
@@ -101,9 +92,16 @@ describe('evaluateDocument', () => {
     assert.equal(result.detail, 'appConfigExamples[0] must be a mapping');
   });
 
-  it('fails a missing or non-mapping spec', () => {
-    assert.equal(evaluateDocument(PACKAGE_HEAD).status, 'FAIL');
-    assert.equal(evaluateDocument(`${PACKAGE_HEAD}spec: nope\n`).detail, 'missing or invalid spec');
+  it('fails a missing spec', () => {
+    const result = evaluateDocument(PACKAGE_HEAD);
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.detail, 'missing or invalid spec');
+  });
+
+  it('fails a spec that is not a mapping', () => {
+    const result = evaluateDocument(`${PACKAGE_HEAD}spec: nope\n`);
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.detail, 'missing or invalid spec');
   });
 
   it('skips documents that are not Packages', () => {
@@ -112,9 +110,16 @@ describe('evaluateDocument', () => {
     assert.equal(result.detail, 'kind is not Package');
   });
 
-  it('fails a document whose root is not a mapping', () => {
-    assert.equal(evaluateDocument('- a\n- b\n').status, 'FAIL');
-    assert.equal(evaluateDocument('').status, 'FAIL');
+  it('fails a document whose root is a sequence', () => {
+    const result = evaluateDocument('- a\n- b\n');
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.detail, 'YAML error: root must be a mapping');
+  });
+
+  it('fails an empty document, which parses to null rather than a mapping', () => {
+    const result = evaluateDocument('');
+    assert.equal(result.status, 'FAIL');
+    assert.equal(result.detail, 'YAML error: root must be a mapping');
   });
 
   it('fails unparseable YAML rather than throwing', () => {
@@ -170,5 +175,52 @@ describe('configExamples', () => {
       configExamples(doc).map(example => example.title),
       ['Real'],
     );
+  });
+});
+
+describe('packageCoordinates edge cases', () => {
+  it('rejects an empty packageName', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  packageName: ""\n  version: "1.0.0"\n  appConfigNotRequired: true\n  appConfigExamples: []\n`,
+    );
+    assert.equal(packageCoordinates(doc), undefined);
+  });
+
+  it('rejects a version YAML parsed as a number — a "1.0" bump would silently exempt the plugin', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  packageName: "@scope/thing"\n  version: 1.0\n  appConfigNotRequired: true\n  appConfigExamples: []\n`,
+    );
+    assert.equal(packageCoordinates(doc), undefined);
+  });
+});
+
+describe('configExamples edge cases', () => {
+  it('labels an untitled example by its position in the source list, not after filtering', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Empty\n      content: {}\n    - content:\n        b: 2\n`,
+    );
+    assert.deepEqual(configExamples(doc), [
+      { title: 'appConfigExamples[1]', content: { b: 2 } },
+    ]);
+  });
+
+  it('falls back to the index label for a blank title', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: ""\n      content:\n        a: 1\n`,
+    );
+    assert.equal(configExamples(doc)[0].title, 'appConfigExamples[0]');
+  });
+
+  it('drops entries that are not mappings', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - just-a-string\n    - content:\n        a: 1\n`,
+    );
+    assert.deepEqual(configExamples(doc).map(e => e.title), ['appConfigExamples[1]']);
+  });
+
+  it('returns nothing for documents it cannot read', () => {
+    assert.deepEqual(configExamples(undefined), []);
+    const { doc } = evaluateDocument(`${PACKAGE_HEAD}spec: nope\n`);
+    assert.deepEqual(configExamples(doc), []);
   });
 });

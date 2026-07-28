@@ -1,17 +1,8 @@
 /*
- * Copyright Red Hat, Inc.
+ * Copyright (c) Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 // Semantic validation of appConfigExamples against the plugin's own config
@@ -21,32 +12,27 @@
 // metadata already pins `packageName` + `version`, that tarball is the artifact
 // users actually install, and it needs no cross-repo SHA resolution.
 //
-// @backstage/config-loader does the heavy lifting. It reads `configSchema` from
-// package.json and handles both forms found across this catalogue — a compiled
-// `config.schema.json`, or a raw `config.d.ts` that it compiles with the
-// TypeScript compiler — while applying Backstage's @visibility conventions. So
-// the gate enforces what Backstage enforces at runtime, not an approximation.
+// @backstage/config-loader reads `configSchema` from package.json and handles
+// both forms found across this catalogue — a compiled `config.schema.json`, and
+// a raw `config.d.ts` it compiles with the TypeScript compiler.
+//
+// Known gap: a `config.d.ts` that imports types from the plugin's dependencies
+// cannot compile, because `npm pack` fetches the package alone with no
+// node_modules. config-loader compiles with `skipLibCheck: false` and rejects
+// on any semantic diagnostic, so those packages resolve to `unavailable`. On a
+// 29-package sample, 6 were affected. Installing each package's dependency tree
+// would fix it at a cost this check cannot justify, so the gap is reported
+// rather than hidden — see the outcome tally in validate.ts.
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { loadConfigSchema } from '@backstage/config-loader';
-import type { JsonObject } from '@backstage/types';
+import { isPlainObject } from './json.js';
 
 const execFileAsync = promisify(execFile);
-
-/**
- * Narrows parsed YAML to the shape `ConfigSchema.process` accepts.
- *
- * The values come from `yaml.parse`, so they are structurally JSON already —
- * this only rules out the non-object roots (arrays, scalars, null) that an
- * app-config fragment can never be.
- */
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export type SchemaOutcome =
   | { kind: 'ok' }
@@ -54,27 +40,70 @@ export type SchemaOutcome =
   | { kind: 'no-schema' }
   | { kind: 'unavailable'; reason: string };
 
-type ResolvedSchema =
+export type ResolvedSchema =
   | { kind: 'schema'; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
   | { kind: 'no-schema' }
   | { kind: 'unavailable'; reason: string };
 
 /**
+ * Where `validateExample` gets a schema from.
+ *
+ * Declared structurally rather than as the concrete class so tests can supply
+ * an in-memory schema built with `loadConfigSchema({ serialized })` — the class
+ * has private fields, which would make a fake fail to type-check.
+ */
+export type SchemaSource = {
+  resolve(name: string, version: string): Promise<ResolvedSchema>;
+};
+
+// The leading character is deliberately narrower than npm's own grammar: it
+// must not be `-`, or the value reaches `npm pack` as a flag. Note the dash sits
+// last inside each class — `[a-z0-9-~]` would read `9-~` as a range covering
+// most of printable ASCII, which is how the first version of this let `--foo`
+// through.
+const PACKAGE_NAME = /^(?:@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*$/;
+const PACKAGE_VERSION = /^[0-9][0-9a-zA-Z.+-]*$/;
+
+/**
+ * True when the pair is safe to hand to `npm pack` as a package spec.
+ *
+ * Both halves come from a metadata YAML that a fork's pull request controls.
+ * `execFile` rules out a shell, but not npm's own argument parsing: a name
+ * beginning with `-` would be read as a flag, so `--registry=…` could redirect
+ * the fetch to a registry of the author's choosing.
+ */
+export function isSafePackageSpec(name: string, version: string): boolean {
+  return PACKAGE_NAME.test(name) && PACKAGE_VERSION.test(version);
+}
+
+/**
  * Downloads a published package and loads its config schema.
  *
- * Results are cached by `name@version`. That key is immutable on the registry,
- * so caching is safe and stops a full-tree run re-fetching the same tarball
- * once per metadata file that references it.
+ * Results are cached by `name@version`, a key the registry treats as immutable,
+ * so a full-tree run fetches each tarball once rather than once per metadata
+ * file referencing it.
  */
-export class SchemaResolver {
+export class SchemaResolver implements SchemaSource {
   private readonly cache = new Map<string, Promise<ResolvedSchema>>();
   private readonly tempDirs: string[] = [];
 
   async resolve(name: string, version: string): Promise<ResolvedSchema> {
+    if (!isSafePackageSpec(name, version)) {
+      return {
+        kind: 'unavailable',
+        reason: `refusing to fetch unsafe package spec ${name}@${version}`,
+      };
+    }
     const key = `${name}@${version}`;
     let pending = this.cache.get(key);
     if (!pending) {
-      pending = this.load(key);
+      // Catch before caching: a rejected promise stored here would be re-thrown
+      // for every later file with the same package, escaping validateExample
+      // and aborting the whole run instead of failing one row.
+      pending = this.load(key).catch(error => ({
+        kind: 'unavailable' as const,
+        reason: describeError(error),
+      }));
       this.cache.set(key, pending);
     }
     return pending;
@@ -139,16 +168,44 @@ async function extractPackage(spec: string, dir: string): Promise<string> {
     throw new Error(`npm pack produced no tarball for ${spec}`);
   }
   await execFileAsync('tar', ['-xzf', tarball, '-C', dir], { cwd: dir });
+  return findPackageRoot(dir, spec);
+}
 
-  // npm tarballs conventionally unpack into `package/`, but that is not
-  // guaranteed. Find the directory rather than assume it, so a surprising
-  // layout reports clearly instead of failing on a missing path.
+/**
+ * Picks the unpacked package directory out of `dir`.
+ *
+ * npm tarballs conventionally unpack into `package/`, but readdir order is
+ * filesystem-dependent, so picking "the first directory" could silently choose
+ * wrong — and choosing wrong is invisible: config-loader skips a missing path
+ * and returns an empty schema, which reads downstream as "declares no
+ * configSchema", a vacuous pass. Requiring a package.json makes a surprising
+ * layout fail loudly instead.
+ */
+export async function findPackageRoot(
+  dir: string,
+  spec: string,
+): Promise<string> {
   const entries = await readdir(dir, { withFileTypes: true });
-  const root = entries.find(entry => entry.isDirectory());
-  if (!root) {
-    throw new Error(`no package directory in the tarball for ${spec}`);
+  const candidates = entries
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort((a, b) => (a === 'package' ? -1 : b === 'package' ? 1 : 0));
+
+  for (const candidate of candidates) {
+    const root = join(dir, candidate);
+    if (await isFile(join(root, 'package.json'))) {
+      return root;
+    }
   }
-  return join(dir, root.name);
+  throw new Error(`no unpacked package directory for ${spec}`);
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -158,47 +215,68 @@ async function extractPackage(spec: string, dir: string): Promise<string> {
  * `configSchema` the wrapper carries no per-package schemas. Treating that as
  * a pass would let every example through regardless of content.
  */
-function hasConstraints(serialized: unknown): boolean {
-  if (!isJsonObject(serialized)) {
+export function hasConstraints(serialized: unknown): boolean {
+  if (!isPlainObject(serialized)) {
     return false;
   }
   const { schemas } = serialized;
   return Array.isArray(schemas) && schemas.length > 0;
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message.split('\n')[0].trim();
+/**
+ * Reduces an error to a line worth printing.
+ *
+ * Not just the first line: config-loader's TypeScript failures open with the
+ * bare header "Invalid TypeScript configuration schema:" and carry the actual
+ * diagnostic on the lines after it, and `execFile` failures keep npm's real
+ * complaint on `stderr`. Taking only line one turned both into content-free
+ * notes, which is what kept the config.d.ts gap invisible.
+ */
+export function describeError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
   }
-  return String(error);
+  const stderr = (error as { stderr?: unknown }).stderr;
+  const parts = [
+    ...error.message.split('\n'),
+    ...(typeof stderr === 'string' ? stderr.split('\n') : []),
+  ]
+    .map(line => line.trim())
+    .filter(line => line !== '');
+  return parts.slice(0, 3).join('; ') || String(error);
 }
 
 /**
  * Validates one example's content against a package's schema.
  *
- * Note what this does *not* do: undeclared keys are tolerated. Examples
- * legitimately carry RHDH wiring that belongs to no plugin schema — most of
- * this catalogue's examples contain a `dynamicPlugins` block, and many contain
- * nothing else — so `noUndeclaredProperties` would fail them en masse. The
- * trade-off is that a typo in a key name passes silently, while wrong types and
- * wrong nesting on declared keys are caught.
+ * Two limits worth knowing, both verified against the real compiler:
+ *
+ * - Undeclared keys are tolerated. Examples legitimately carry RHDH wiring that
+ *   belongs to no plugin schema — most of this catalogue's examples contain a
+ *   `dynamicPlugins` block and many contain nothing else — so rejecting
+ *   undeclared keys would fail them en masse.
+ * - config-loader builds Ajv with `coerceTypes: true`, so a scalar that *can*
+ *   be coerced passes: `port: "8080"` against a declared number is accepted.
+ *   What is caught is non-coercible scalars (`port: "high"`), wrong nesting
+ *   (a scalar where an object or array is declared), bad enum values, and
+ *   missing required properties.
  *
  * Errors are returned rather than thrown so one bad example cannot abort a run.
  */
 export async function validateExample(
-  resolver: SchemaResolver,
+  source: SchemaSource,
   pkg: { name: string; version: string },
-  context: string,
+  label: string,
   content: unknown,
 ): Promise<SchemaOutcome> {
-  const resolved = await resolver.resolve(pkg.name, pkg.version);
+  const resolved = await source.resolve(pkg.name, pkg.version);
   if (resolved.kind !== 'schema') {
     return resolved.kind === 'no-schema'
       ? { kind: 'no-schema' }
       : { kind: 'unavailable', reason: resolved.reason };
   }
 
-  if (!isJsonObject(content)) {
+  if (!isPlainObject(content)) {
     return {
       kind: 'invalid',
       errors: ['app-config content must be a mapping'],
@@ -207,7 +285,7 @@ export async function validateExample(
 
   try {
     resolved.schema.process(
-      [{ data: content, context }],
+      [{ data: content, context: label }],
       // No visibility filter: an example documents a full app-config, so
       // frontend and backend keys are both legitimate.
       { ignoreSchemaErrors: false },
@@ -219,14 +297,27 @@ export async function validateExample(
 }
 
 /**
- * config-loader reports every violation in one multi-line message. Splitting it
- * keeps CI output to one finding per line instead of a wall of text.
+ * One finding per line.
+ *
+ * config-loader attaches the individual violations to `error.messages` and also
+ * flattens them into a single `message` joined with "; " — so splitting on
+ * newlines, as this once did, always yielded one long line. Prefer the
+ * structured array and fall back to splitting the flattened form.
  */
-function splitSchemaErrors(error: unknown): string[] {
-  const message = error instanceof Error ? error.message : String(error);
-  const lines = message
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line !== '');
-  return lines.length > 0 ? lines : [String(error)];
+export function splitSchemaErrors(error: unknown): string[] {
+  if (error instanceof Error) {
+    const messages = (error as { messages?: unknown }).messages;
+    if (Array.isArray(messages) && messages.length > 0) {
+      return messages.map(String);
+    }
+    const flattened = error.message.replace(/^Config validation failed,\s*/, '');
+    const parts = flattened
+      .split(/[;\n]/)
+      .map(part => part.trim())
+      .filter(part => part !== '');
+    if (parts.length > 0) {
+      return parts;
+    }
+  }
+  return [String(error)];
 }
