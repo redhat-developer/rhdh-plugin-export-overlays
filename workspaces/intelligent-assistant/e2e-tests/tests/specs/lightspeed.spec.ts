@@ -146,6 +146,7 @@ test.describe("Lightspeed UI", () => {
       await selectDisplayMode(page, "Dock to window");
 
       await expectConversationArea(page, "Dock to window");
+      await page.keyboard.press("Escape");
       await expectRhdhContentVisible(page);
       await expectChatInputAreaVisible(page);
       await expectChatbotControlsVisible(page);
