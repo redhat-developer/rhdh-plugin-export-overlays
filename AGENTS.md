@@ -133,7 +133,7 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 ### Using `yarn-lockfile-surgeon` for CVE Patches
 
-This repo uses [`yarn-lockfile-surgeon`](https://www.npmjs.com/package/yarn-lockfile-surgeon) to bump specific dependency versions in `yarn.lock` without affecting unrelated transitive dependencies. When reviewing a CVE patch in `patches/0-cve-yarn-lock.patch`, check whether the patch was generated using surgeon or a broader resolution method (e.g., modifying a parent package like `@backstage/backend-defaults` and re-resolving, which pulls in unrelated transitive dependency updates).
+This repo uses [`yarn-lockfile-surgeon`](https://github.com/redhat-developer/rhdh/tree/main/scripts/yarn-lockfile-surgeon) to bump specific dependency versions in `yarn.lock` without affecting unrelated transitive dependencies. The tool lives in the `redhat-developer/rhdh` repo; run it against a workspace's `yarn.lock` with `yarn-lockfile-surgeon <pkg>@<version>`, then `yarn install --mode=update-lockfile` to re-resolve. When reviewing a CVE patch in `patches/0-cve-yarn-lock.patch`, check whether the patch was generated using surgeon or a broader resolution method (e.g., modifying a parent package like `@backstage/backend-defaults` and re-resolving, which pulls in unrelated transitive dependency updates).
 
 **Why surgeon matters:** A broad `yarn install` or package bump resolves the entire dependency tree, introducing changes to packages unrelated to the CVE fix. This creates unnecessary churn in lockfile patches, increases the risk of breaking exported plugins, and makes it harder to review whether the patch is minimal and correct. Surgeon targets only the specific package versions that need to change.
 
@@ -141,15 +141,15 @@ This repo uses [`yarn-lockfile-surgeon`](https://www.npmjs.com/package/yarn-lock
 
 When reviewing a yarn.lock patch (`patches/0-cve-yarn-lock.patch` or similar), look for these indicators that the patch was NOT generated using surgeon:
 
-1. **Unrelated transitive dependency bumps.** The patch bumps packages that are not in the resolution chain of the CVE-affected dependency. For example, a patch fixing a `tar` CVE should not also bump `@microsoft/api-documenter` and its dependency tree.
+1. **Unrelated transitive dependency bumps.** The patch bumps packages that are not in the resolution chain of the CVE-affected dependency. For example, a patch fixing a `js-yaml` CVE should not also bump `@microsoft/api-documenter` and its dependency tree.
 2. **Parent package bumps as a proxy.** The patch modifies a higher-level package (e.g., `@backstage/backend-defaults`) to indirectly pull in the fix for a transitive dependency, rather than targeting the vulnerable package directly.
-3. **Disproportionate scope.** The number of changed packages significantly exceeds what a targeted fix would require. A single-package CVE fix should touch only that package and its direct resolution chain in `yarn.lock`.
+3. **Disproportionate scope.** The number of changed packages significantly exceeds what a targeted fix would require. A single-package CVE fix should touch only that package and its direct resolution chain in `yarn.lock`. Note: running `yarn install --mode=update-lockfile` after surgeon can still pull in a small number of second-order entries resolved to their latest versions, so a few extra packages alone are not proof surgeon was skipped — look for the other signals above as well.
 
 **Actionable review feedback:**
 
 When flagging a non-surgical patch, provide specific guidance. Example review comment:
 
-> This patch bumps packages beyond the CVE-affected dependency (`<package>`). Consider using `yarn-lockfile-surgeon` to bump only `<package>` to `<version>` rather than bumping `<broader-package>`, which pulls in unrelated transitive dependency updates. This keeps the lockfile patch minimal and reduces the risk of breaking exported plugins.
+> This patch bumps packages beyond the CVE-affected dependency (`<package>`). Consider using [`yarn-lockfile-surgeon`](https://github.com/redhat-developer/rhdh/tree/main/scripts/yarn-lockfile-surgeon) to bump only `<package>` to `<version>` (run `yarn-lockfile-surgeon <package>@<version>`, then `yarn install --mode=update-lockfile`), rather than bumping `<broader-package>`, which pulls in unrelated transitive dependency updates. This keeps the lockfile patch minimal and reduces the risk of breaking exported plugins.
 
 When a patch appears to have been generated with surgeon (targeted changes, no unrelated bumps), note this positively:
 
