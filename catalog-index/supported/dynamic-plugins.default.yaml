@@ -142,9 +142,9 @@ plugins:
           red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
             analyticsApiExtensions:
               - importName: AdoptionInsightsAnalyticsApi
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:4311b227cb9465683144b4dfb6798783870c267ff4ad891d619d0ae4eea8d49b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:45fa13c14b654a34f403711647be479e1a006c3d859b64e6fcccbb2e023114ee
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:0e42b5d0450c7d6d467a1ceb8e57df3af1847ae96c4377db2e0df0f07ee6f7c5
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:8d54e201e76cc4d4953886661cd44626e6a2be903f990cbc560bf18dd3e7bccb
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:9db6538330dbb5a51f233760f9ace9cdc397da3d125b8b83678cc327655e5566
     enabled: true
@@ -720,51 +720,6 @@ plugins:
     pluginConfig:
       intelligent-assistant:
         # OPTIONAL: Port for intelligent-assistant service (default: 8080)
-        servicePort: 8080
-        # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
-        # mcpServers:
-        #  - name: <mcp server name>
-        #    token: ${MCP_TOKEN}
-  # Tag: bs_1.49.2__2.9.0, Build date: 2026-06-03T21:21:04Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f
-    enabled: false
-    pluginConfig:
-      lightspeed:
-        # OPTIONAL: Custom users prompts displayed to users
-        # If not provided, the plugin uses built-in default prompts
-        prompts:
-          - title: 'Getting Started with Red Hat Developer Hub'
-            message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-lightspeed:
-            translationResources:
-              - importName: lightspeedTranslations
-                module: Alpha
-                ref: lightspeedTranslationRef
-            dynamicRoutes:
-              - path: /lightspeed
-                importName: LightspeedPage
-            mountPoints:
-              - mountPoint: application/listener
-                importName: LightspeedFAB
-              - mountPoint: application/provider
-                importName: LightspeedDrawerProvider
-              - mountPoint: application/internal/drawer-state
-                importName: LightspeedDrawerStateExposer
-                config:
-                  id: lightspeed
-              - mountPoint: application/internal/drawer-content
-                importName: LightspeedChatContainer
-                config:
-                  id: lightspeed
-                  priority: 100
-  # Tag: bs_1.49.2__2.9.0, Build date: 2026-05-22T15:08:30Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c
-    enabled: false
-    pluginConfig:
-      lightspeed:
-        # OPTIONAL: Port for lightspeed service (default: 8080)
         servicePort: 8080
         # OPTIONAL: MCP server name and token for MCP servers defined in LCORE config
         # mcpServers:
