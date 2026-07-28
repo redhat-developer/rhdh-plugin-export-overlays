@@ -261,6 +261,16 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
 5. **Open PR against `main`**
 
+   **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the **Supported Plugins** catalog or the curated **Optional Extras** catalog. 
+   
+   That requires RHDH PM approval (and a tracking RHDHPLAN feature JIRA), plus Plugin entity YAML under `catalog-entities/extensions/plugins/` (listed in `all.yaml`), the matching package-list file (`rhdh-community-packages.txt` for Optional Extras, or `rhdh-supported-packages.txt` for Supported Plugins).
+   
+   For GA only with PM approval, an `enabled:` or `disabled:` entry in `default.packages.yaml` is also required. 
+   
+   Collection membership under `catalog-entities/extensions/collections/` is a further optional step when PM approves it. 
+   
+   See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
+
 ---
 
 ## Testing Your Plugin
