@@ -29,7 +29,7 @@ packages:
     support: "generally-available"
   # - package: '@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions'
   #   support: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
+  - package: '@red-hat-developer-hub/backstage-plugin-homepage'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-global-header'
     support: "generally-available"
@@ -96,6 +96,10 @@ packages:
   #   support: "tech-preview"
   # - package: '@red-hat-developer-hub/backstage-plugin-homepage-backend'
   #   support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-intelligent-assistant'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-lightspeed'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-lightspeed-backend'

@@ -65,16 +65,14 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Coverage collection (Istanbul) — enabled by default
 #
-# For PR checks: Works now. The auto-publish-pr.yaml workflow builds -coverage
-# images (plugin:tag__coverage) that e2e-test-utils will load when available.
-#
-# For nightly/local: Depends on e2e-test-utils automatic image swap logic
-# (PR #95, merged 2026-06-04). Until that lands, coverage collection will be
-# skipped silently (no -coverage images exist).
+# PR checks: auto-publish-pr.yaml builds __coverage images
+# (plugin:tag__coverage) that e2e-test-utils automatically swaps in for
+# frontend plugins. Zip bomb detection (RHDHBUGS-3470) is handled at
+# image-build time: instrument-plugin.sh restores the original file for any
+# chunk whose instrumented output would exceed RHDH's per-entry size limit.
 #
 # To disable (faster local dev): E2E_COLLECT_COVERAGE=false
-# Disabled by default due to zip bomb detection failures — see RHDHBUGS-3470
-export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-false}"
+export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-true}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
