@@ -106,7 +106,9 @@ export function registerUiPropsTestWorkflowTests(): void {
       ).toBeVisible();
       const runId = await orchestratorPo.getCurrentRunId();
       await waitForLokiWorkflowLogs(runId);
-      const logsDialog = await orchestratorPo.openRunLogsDialog();
+      const logsDialog = await orchestratorPo.openRunLogsDialog(
+        "Test Object Type Support in ui:props",
+      );
       await expect(
         logsDialog.getByText(/No logs available for this workflow run/i),
       ).toBeHidden();
