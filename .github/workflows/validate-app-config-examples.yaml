@@ -72,9 +72,17 @@ jobs:
         env:
           SAMPLE: workspaces/adoption-insights/metadata
         run: |
-          base="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")~1"
-          echo "Exercising the schema path against $SAMPLE since $base"
-          node dist/validate.mjs --check-schemas --warn-only --since "$base"
+          sha="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")"
+          if [[ -z "$sha" ]]; then
+            # Empty means the sample path has no reachable history — it was
+            # renamed or removed, or the clone is too shallow to reach it.
+            # Failing here beats passing a bare "~1" to git, which aborts with
+            # an error that says nothing about the real cause.
+            echo "No history for $SAMPLE — update the sample path in this step." >&2
+            exit 1
+          fi
+          echo "Exercising the schema path against $SAMPLE since ${sha}~1"
+          node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
 
       # A full-tree sweep reports schema mismatches without failing: the tree
       # carries metadata written long before this check existed, and the sweep

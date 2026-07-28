@@ -12,12 +12,8 @@
 // on top of these verdicts rather than replacing them.
 
 import { readFile } from 'node:fs/promises';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { parse as parseYaml } from 'yaml';
-import { isPlainObject } from './json.js';
-
-const execFileAsync = promisify(execFile);
+import { errorProperty, isPlainObject } from './json.js';
 
 export type Status = 'PASS' | 'FAIL' | 'SKIP';
 
@@ -121,7 +117,7 @@ export async function evaluateFile(path: string): Promise<StructuralResult> {
     // A path in the diff that is not on disk is skipped, not failed — the
     // Python original guarded this with `p.is_file()`. It happens when running
     // --since locally over a range that deleted a file without committing.
-    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+    if (errorProperty(error, 'code') === 'ENOENT') {
       return { status: 'SKIP', detail: 'file not present in the working tree' };
     }
     return { status: 'FAIL', detail: `YAML error: ${error}` };
@@ -138,27 +134,6 @@ export function isMetadataPath(path: string): boolean {
     parts[2] === 'metadata' &&
     path.endsWith('.yaml')
   );
-}
-
-/**
- * Metadata paths added/copied/modified/renamed between `since` and HEAD,
- * relative to `repoRoot`. Deleted files are excluded by the diff filter,
- * matching the Python script.
- */
-export async function changedMetadataPaths(
-  since: string,
-  repoRoot: string,
-): Promise<string[]> {
-  const { stdout } = await execFileAsync(
-    'git',
-    ['diff', '--name-only', '--diff-filter=ACMR', `${since}...HEAD`],
-    { cwd: repoRoot },
-  );
-  return stdout
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line !== '' && isMetadataPath(line))
-    .sort();
 }
 
 /**
@@ -183,8 +158,13 @@ export function packageCoordinates(
   return { name: packageName, version };
 }
 
-/** Every `appConfigExamples[]` entry that carries content worth validating. */
-export function configExamples(
+/**
+ * Every `appConfigExamples[]` entry that carries content worth validating.
+ *
+ * The filtering is load-bearing, hence the name: callers rely on empty entries
+ * being gone before they try to validate anything.
+ */
+export function examplesWithContent(
   doc: Record<string, unknown> | undefined,
 ): { title: string; content: unknown }[] {
   if (!doc || !isPlainObject(doc.spec)) {

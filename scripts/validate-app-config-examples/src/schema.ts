@@ -30,9 +30,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { loadConfigSchema } from '@backstage/config-loader';
-import { isPlainObject } from './json.js';
+import { errorProperty, isPlainObject } from './json.js';
 
 const execFileAsync = promisify(execFile);
+
+/** How many lines of a multi-line diagnostic reach the report. */
+const DIAGNOSTIC_LINES = 3;
 
 export type SchemaOutcome =
   | { kind: 'ok' }
@@ -236,14 +239,23 @@ export function describeError(error: unknown): string {
   if (!(error instanceof Error)) {
     return String(error);
   }
-  const stderr = (error as { stderr?: unknown }).stderr;
+  const stderr = errorProperty(error, 'stderr');
   const parts = [
     ...error.message.split('\n'),
     ...(typeof stderr === 'string' ? stderr.split('\n') : []),
   ]
     .map(line => line.trim())
     .filter(line => line !== '');
-  return parts.slice(0, 3).join('; ') || String(error);
+  if (parts.length === 0) {
+    return String(error);
+  }
+  // Enough to identify the failure without pasting a compiler transcript into
+  // the table — but say when there is more, rather than truncating silently.
+  const shown = parts.slice(0, DIAGNOSTIC_LINES);
+  const dropped = parts.length - shown.length;
+  return dropped > 0
+    ? `${shown.join('; ')} (+${dropped} more)`
+    : shown.join('; ');
 }
 
 /**
@@ -306,7 +318,7 @@ export async function validateExample(
  */
 export function splitSchemaErrors(error: unknown): string[] {
   if (error instanceof Error) {
-    const messages = (error as { messages?: unknown }).messages;
+    const messages = errorProperty(error, 'messages');
     if (Array.isArray(messages) && messages.length > 0) {
       return messages.map(String);
     }

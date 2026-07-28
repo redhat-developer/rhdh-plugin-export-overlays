@@ -19,10 +19,12 @@ import { glob } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
-  changedMetadataPaths,
-  configExamples,
+  examplesWithContent,
   evaluateFile,
+  isMetadataPath,
   packageCoordinates,
   type Status,
 } from './metadata.js';
@@ -48,6 +50,11 @@ export type Row = {
  * nothing else. Without a tally an offline runner reports "PASS: 178, FAIL: 0"
  * having validated nothing at all, and the gate looks green because it is
  * inert.
+ *
+ * All four count *files*, not examples. Mixing units made the row meaningless:
+ * a file with three good examples would add 3 to `validated` while a file whose
+ * package has no schema added 1 to `noSchema`, printed side by side as if
+ * comparable. Individual mismatches are already listed under their row.
  */
 export type SchemaTally = {
   validated: number;
@@ -55,6 +62,10 @@ export type SchemaTally = {
   noSchema: number;
   unavailable: number;
 };
+
+
+/** Table rule width beyond the status column — inherited from the Python table. */
+const RULE_PADDING = 75;
 
 const USAGE = `Usage: validate-app-config-examples [options]
 
@@ -144,7 +155,8 @@ export async function main(
     await resolver.cleanup();
   }
 
-  return report(rows, tally, values['check-schemas'] ?? false, write, writeError);
+  printReport(rows, tally, values['check-schemas'] ?? false, write, writeError);
+  return exitCodeFor(rows);
 }
 
 /** Validates every example on one row, recording outcomes into `tally`. */
@@ -156,7 +168,7 @@ async function checkSchemas(
   tally: SchemaTally,
 ): Promise<void> {
   const pkg = packageCoordinates(doc);
-  const examples = configExamples(doc);
+  const examples = examplesWithContent(doc);
   if (examples.length === 0) {
     return;
   }
@@ -166,6 +178,9 @@ async function checkSchemas(
     return;
   }
 
+  let sawMismatch = false;
+  let sawValidated = false;
+
   for (const example of examples) {
     const outcome = await validateExample(
       source,
@@ -174,7 +189,7 @@ async function checkSchemas(
       example.content,
     );
     if (outcome.kind === 'invalid') {
-      tally.mismatched += 1;
+      sawMismatch = true;
       if (!warnOnly) {
         row.status = 'FAIL';
         // Without this the row keeps the structural verdict and prints
@@ -187,19 +202,51 @@ async function checkSchemas(
         row.notes.push(`${label} in "${example.title}": ${error}`);
       }
     } else if (outcome.kind === 'ok') {
-      tally.validated += 1;
+      sawValidated = true;
     } else if (outcome.kind === 'no-schema') {
+      // Same package for every example on this file, so one verdict settles it.
       tally.noSchema += 1;
       row.notes.push(
         `${pkg.name} declares no configSchema — nothing to validate against`,
       );
-      break;
+      return;
     } else {
       tally.unavailable += 1;
       row.notes.push(`schema unavailable: ${outcome.reason}`);
-      break;
+      return;
     }
   }
+
+  if (sawMismatch) {
+    tally.mismatched += 1;
+  } else if (sawValidated) {
+    tally.validated += 1;
+  }
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Metadata paths added/copied/modified/renamed between `since` and HEAD.
+ *
+ * Lives next to collectAllMetadata because the two answer the same question —
+ * which files does this run look at — rather than in metadata.ts, which is
+ * about what a document means.
+ */
+async function changedMetadataPaths(
+  since: string,
+  repoRoot: string,
+): Promise<string[]> {
+  const { stdout } = await execFileAsync(
+    'git',
+    ['diff', '--name-only', '--diff-filter=ACMR', `${since}...HEAD`],
+    { cwd: repoRoot },
+  );
+  return stdout
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line !== '' && isMetadataPath(line))
+    .sort();
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
@@ -212,20 +259,25 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   return found.sort();
 }
 
-export function report(
+/** The run's exit code: 1 when any row failed, 0 otherwise. */
+export function exitCodeFor(rows: Row[]): number {
+  return rows.some(row => row.status === 'FAIL') ? 1 : 0;
+}
+
+export function printReport(
   rows: Row[],
   tally: SchemaTally,
   checkedSchemas: boolean,
   write: (text: string) => void,
   writeError: (text: string) => void,
-): number {
+): void {
   const statusWidth = Math.max(
     'STATUS'.length,
     ...rows.map(row => row.status.length),
   );
 
   write(`${'STATUS'.padEnd(statusWidth)}  FILE\n`);
-  write(`${'-'.repeat(statusWidth + 3 + 72)}\n`);
+  write(`${'-'.repeat(statusWidth + RULE_PADDING)}\n`);
   for (const row of rows) {
     let line = `${row.status.padEnd(statusWidth)}  ${row.path}`;
     if (row.status !== 'PASS') {
@@ -259,9 +311,7 @@ export function report(
 
   if (failures > 0) {
     writeError('\nValidation failed.\n');
-    return 1;
   }
-  return 0;
 }
 
 // Only run the CLI when invoked directly, so tests can import main() and report()

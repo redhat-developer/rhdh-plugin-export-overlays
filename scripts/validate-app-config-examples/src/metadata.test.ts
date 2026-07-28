@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  configExamples,
+  examplesWithContent,
   evaluateDocument,
   isEmptyContent,
   isMetadataPath,
@@ -156,12 +156,12 @@ describe('packageCoordinates', () => {
   });
 });
 
-describe('configExamples', () => {
+describe('examplesWithContent', () => {
   it('returns every example with content, titled or indexed', () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: First\n      content:\n        a: 1\n    - content:\n        b: 2\n`,
     );
-    const examples = configExamples(doc);
+    const examples = examplesWithContent(doc);
     assert.equal(examples.length, 2);
     assert.equal(examples[0].title, 'First');
     assert.equal(examples[1].title, 'appConfigExamples[1]');
@@ -172,7 +172,7 @@ describe('configExamples', () => {
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Real\n      content:\n        a: 1\n    - title: Empty\n      content: {}\n`,
     );
     assert.deepEqual(
-      configExamples(doc).map(example => example.title),
+      examplesWithContent(doc).map(example => example.title),
       ['Real'],
     );
   });
@@ -194,12 +194,12 @@ describe('packageCoordinates edge cases', () => {
   });
 });
 
-describe('configExamples edge cases', () => {
+describe('examplesWithContent edge cases', () => {
   it('labels an untitled example by its position in the source list, not after filtering', () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Empty\n      content: {}\n    - content:\n        b: 2\n`,
     );
-    assert.deepEqual(configExamples(doc), [
+    assert.deepEqual(examplesWithContent(doc), [
       { title: 'appConfigExamples[1]', content: { b: 2 } },
     ]);
   });
@@ -208,19 +208,19 @@ describe('configExamples edge cases', () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: ""\n      content:\n        a: 1\n`,
     );
-    assert.equal(configExamples(doc)[0].title, 'appConfigExamples[0]');
+    assert.equal(examplesWithContent(doc)[0].title, 'appConfigExamples[0]');
   });
 
   it('drops entries that are not mappings', () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - just-a-string\n    - content:\n        a: 1\n`,
     );
-    assert.deepEqual(configExamples(doc).map(e => e.title), ['appConfigExamples[1]']);
+    assert.deepEqual(examplesWithContent(doc).map(e => e.title), ['appConfigExamples[1]']);
   });
 
   it('returns nothing for documents it cannot read', () => {
-    assert.deepEqual(configExamples(undefined), []);
+    assert.deepEqual(examplesWithContent(undefined), []);
     const { doc } = evaluateDocument(`${PACKAGE_HEAD}spec: nope\n`);
-    assert.deepEqual(configExamples(doc), []);
+    assert.deepEqual(examplesWithContent(doc), []);
   });
 });

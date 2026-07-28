@@ -98,11 +98,11 @@ is inert.
 
 | Path | Role |
 |---|---|
-| `src/json.ts` | the shared mapping guard, so the two layers cannot drift |
+| `src/json.ts` | the shared mapping guard and error-property reader |
 | `src/metadata.ts` | YAML reading and the structural verdicts |
 | `src/schema.ts` | package download, schema loading, example validation |
 | `src/validate.ts` | CLI, reporting, exit codes |
-| `src/*.test.ts` | 62 tests |
+| `src/*.test.ts` | 64 tests |
 
 `yarn check` runs the type check and the unit tests. The tests never touch the
 network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,

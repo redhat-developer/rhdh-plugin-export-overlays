@@ -10,7 +10,13 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { main, report, type Row, type SchemaTally } from './validate.js';
+import {
+  exitCodeFor,
+  main,
+  printReport,
+  type Row,
+  type SchemaTally,
+} from './validate.js';
 
 const NO_SCHEMAS: SchemaTally = {
   validated: 0,
@@ -43,35 +49,46 @@ const passing: Row = {
   notes: [],
 };
 
-describe('report exit codes', () => {
-  it('returns 0 when nothing failed', () => {
-    const io = capture();
-    assert.equal(report([passing], NO_SCHEMAS, false, io.write, io.writeError), 0);
-    assert.equal(io.stderr, '');
+describe('exitCodeFor', () => {
+  it('is 0 when nothing failed', () => {
+    assert.equal(exitCodeFor([passing]), 0);
   });
 
-  it('returns 1 and says so on stderr when a row failed', () => {
+  it('is 1 when any row failed', () => {
+    assert.equal(exitCodeFor([passing, { ...passing, status: 'FAIL' }]), 1);
+  });
+
+  it('ignores a mismatch tally — only a failed row sets the code', () => {
+    // The workflow_dispatch sweep runs --warn-only precisely so the pre-existing
+    // backlog reports without wedging the run. Mismatches must not reach here.
+    assert.equal(exitCodeFor([passing]), 0);
+  });
+});
+
+describe('printReport', () => {
+  it('says on stderr when a row failed', () => {
     const io = capture();
-    const failing: Row = { ...passing, status: 'FAIL', detail: 'boom' };
-    assert.equal(report([failing], NO_SCHEMAS, false, io.write, io.writeError), 1);
+    printReport(
+      [{ ...passing, status: 'FAIL', detail: 'boom' }],
+      NO_SCHEMAS,
+      false,
+      io.write,
+      io.writeError,
+    );
     assert.match(io.stderr, /Validation failed/);
   });
 
-  it('stays 0 when mismatches were only counted, never applied to a row', () => {
-    // The workflow_dispatch sweep runs --warn-only precisely so the pre-existing
-    // backlog reports without wedging the run. If mismatches ever fed the exit
-    // code, that sweep would start red.
+  it('stays quiet on stderr when everything passed', () => {
     const io = capture();
-    const tally: SchemaTally = { ...NO_SCHEMAS, validated: 4, mismatched: 3 };
-    assert.equal(report([passing], tally, true, io.write, io.writeError), 0);
-    assert.match(io.stdout, /mismatched: 3/);
+    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    assert.equal(io.stderr, '');
   });
 });
 
 describe('report output', () => {
   it('appends the detail only to non-passing rows', () => {
     const io = capture();
-    report(
+    printReport(
       [passing, { ...passing, status: 'FAIL', path: 'b.yaml', detail: 'why' }],
       NO_SCHEMAS,
       false,
@@ -84,7 +101,7 @@ describe('report output', () => {
 
   it('indents notes beneath their row', () => {
     const io = capture();
-    report(
+    printReport(
       [{ ...passing, notes: ['schema unavailable: HTTP 404'] }],
       NO_SCHEMAS,
       true,
@@ -96,7 +113,7 @@ describe('report output', () => {
 
   it('omits the schema line entirely when schemas were not checked', () => {
     const io = capture();
-    report([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
     assert.ok(!io.stdout.includes('Schemas —'));
   });
 
@@ -105,20 +122,20 @@ describe('report output', () => {
     // "PASS: 1  FAIL: 0" and reads as a green gate, having checked nothing.
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, noSchema: 1, unavailable: 5 };
-    report([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, true, io.write, io.writeError);
     assert.match(io.stdout, /no example was checked against a schema/);
   });
 
   it('does not warn when at least one example was validated', () => {
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, validated: 1 };
-    report([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, true, io.write, io.writeError);
     assert.ok(!io.stdout.includes('no example was checked'));
   });
 
   it('prints a header even with no rows at all', () => {
     const io = capture();
-    assert.equal(report([], NO_SCHEMAS, false, io.write, io.writeError), 0);
+    printReport([], NO_SCHEMAS, false, io.write, io.writeError);
     assert.match(io.stdout, /^STATUS {2}FILE\n/);
     assert.match(io.stdout, /Total: 0 {2}PASS: 0 {2}FAIL: 0/);
   });
