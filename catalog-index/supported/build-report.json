@@ -869,7 +869,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.2.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.4.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -883,14 +883,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:684e05b6cf68186091eca31ce946be25af62a283b970ed09e1071d7ea25bd554",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.4.0",
-          "resolvedTag": "bs_1.52.0__0.2.1"
+          "digest": "sha256:076a60ba340c5cf7d3396f0ee7ed24c37a8bf386f273eefca7f17c17fa9fdbce"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
-      "version": "0.2.1",
+      "version": "0.4.0",
       "workspace": "homepage",
       "overall": "pass"
     },
@@ -1265,7 +1262,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6504516397d76b1d30db934e2800ee998c2de31723cfb963b7c020a6c70523ae"
+          "digest": "sha256:6504516397d76b1d30db934e2800ee998c2de31723cfb963b7c020a6c70523ae",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.55.2",
+          "resolvedTag": "bs_1.52.0__1.55.1"
         }
       },
       "package": "@backstage-community/plugin-rbac",
@@ -1550,14 +1550,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.15.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:09a4887a8b44d137fe65941784fa644df525fd09eb3a71d8317661c8e41a81ee",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.17.0",
-          "resolvedTag": "bs_1.52.0__1.15.0"
+          "digest": "sha256:90b3ad4fe1d4b8fec3ab9df2ab757587d0ac6cd551bb3db6a38899853c5c34b2"
         },
         "dpdy": {
           "status": "pass"
@@ -1567,15 +1564,61 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage",
-      "version": "1.15.0",
+      "version": "1.17.0",
       "workspace": "homepage",
       "overall": "pass"
+    },
+    "red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.3"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.3"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.3"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend",
+      "version": "3.0.3",
+      "workspace": "intelligent-assistant",
+      "overall": "fail"
+    },
+    "red-hat-developer-hub-backstage-plugin-intelligent-assistant": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.3"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.3"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.3"
+        }
+      },
+      "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant",
+      "version": "3.0.3",
+      "workspace": "intelligent-assistant",
+      "overall": "fail"
     }
   },
   "summary": {
-    "total": 59,
+    "total": 61,
     "succeeded": 52,
-    "failed": 3
+    "failed": 5
   },
   "status": "partial"
 }
