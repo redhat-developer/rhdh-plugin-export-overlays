@@ -69,9 +69,12 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
+  // The homepage plugin may be absent in some CI images, so also check for the
+  // header search box which is always visible when the RHDH shell is loaded.
   const shell = page
     .getByText(/welcome back!/i)
-    .or(page.getByText("My Org Catalog"));
+    .or(page.getByText("My Org Catalog"))
+    .or(page.getByRole("combobox", { name: /search/i }));
 
   if (visible) {
     await expect(shell).toBeVisible({ timeout: 30_000 });
