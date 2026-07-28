@@ -2,6 +2,10 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
+const isNightlyMode =
+  !!process.env.E2E_NIGHTLY_MODE ||
+  (process.env.JOB_NAME?.includes("periodic-") ?? false);
+
 test.describe("Admin > Extensions", () => {
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
@@ -18,8 +22,8 @@ test.describe("Admin > Extensions", () => {
   const supportTypeOptions = [
     "Generally available (GA)",
     "Certified",
+    "Custom plugin",
     "Tech preview (TP)",
-    "Dev preview (DP)",
     "Community plugin",
   ];
   const provider = "Red Hat";
@@ -72,9 +76,11 @@ test.describe("Admin > Extensions", () => {
       await extensions.selectDropdown("Author");
       await extensions.toggleOption("Red Hat");
       await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("Argo CD");
+      await uiHelper.verifyHeading("Pipelines With Tekton");
       await uiHelper.verifyText(" by " + "Red Hat");
-      await page.getByRole("heading", { name: "Argo CD" }).click();
+      await page
+        .getByRole("heading", { name: "Pipelines With Tekton" })
+        .click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
         "Version",
@@ -221,6 +227,10 @@ test.describe("Admin > Extensions", () => {
 
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
     test("Verify dev preview badge in extensions", async () => {
+      test.skip(
+        isNightlyMode,
+        "No dev-preview plugins exist in the 1.10 catalog index",
+      );
       await extensions.selectSupportTypeFilter("Dev preview (DP)");
       await uiHelper.verifyHeading("Konflux");
 
@@ -243,7 +253,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.selectSupportTypeFilter("Community plugin");
 
       await extensions.clickReadMoreByPluginTitle(
-        "ServiceNow Integration for Red Hat Developer Hub",
+        "Container Image Registry for Quay",
         "Community plugin",
       );
       await expect(
