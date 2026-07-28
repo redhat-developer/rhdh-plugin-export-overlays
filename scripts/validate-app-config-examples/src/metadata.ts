@@ -48,8 +48,8 @@ export function isEmptyContent(content: unknown): boolean {
   if (Array.isArray(content)) {
     return content.length === 0;
   }
-  if (typeof content === 'object') {
-    return Object.keys(content as object).length === 0;
+  if (isPlainObject(content)) {
+    return Object.keys(content).length === 0;
   }
   if (typeof content === 'string') {
     return content.trim() === '';
@@ -58,9 +58,7 @@ export function isEmptyContent(content: unknown): boolean {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return (
-    typeof value === 'object' && value !== null && !Array.isArray(value)
-  );
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Evaluates one metadata document. Pure — takes text, so it is easy to test. */

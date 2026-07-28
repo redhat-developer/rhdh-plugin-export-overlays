@@ -59,7 +59,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/types@npm:^1.2.2":
+"@backstage/types@npm:1.2.2, @backstage/types@npm:^1.2.2":
   version: 1.2.2
   resolution: "@backstage/types@npm:1.2.2"
   checksum: 10c0/3c947cf83c058a56b0cfd90d91483e9a5c1c913f7978a0d5a3c0fd9b502d08e9bdf279afba626826eee84159e698ee4cdaa70040789ac47fc8a25df9f1925612
@@ -1007,6 +1007,7 @@ __metadata:
   resolution: "validate-app-config-examples@workspace:."
   dependencies:
     "@backstage/config-loader": "npm:1.11.0"
+    "@backstage/types": "npm:1.2.2"
     "@types/node": "npm:24.13.2"
     esbuild: "npm:0.28.1"
     typescript: "npm:6.0.3"

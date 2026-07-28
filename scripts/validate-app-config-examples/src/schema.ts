@@ -33,8 +33,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { loadConfigSchema } from '@backstage/config-loader';
+import type { JsonObject } from '@backstage/types';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Narrows parsed YAML to the shape `ConfigSchema.process` accepts.
+ *
+ * The values come from `yaml.parse`, so they are structurally JSON already —
+ * this only rules out the non-object roots (arrays, scalars, null) that an
+ * app-config fragment can never be.
+ */
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 export type SchemaOutcome =
   | { kind: 'ok' }
@@ -147,10 +159,10 @@ async function extractPackage(spec: string, dir: string): Promise<string> {
  * a pass would let every example through regardless of content.
  */
 function hasConstraints(serialized: unknown): boolean {
-  if (typeof serialized !== 'object' || serialized === null) {
+  if (!isJsonObject(serialized)) {
     return false;
   }
-  const schemas = (serialized as { schemas?: unknown }).schemas;
+  const { schemas } = serialized;
   return Array.isArray(schemas) && schemas.length > 0;
 }
 
@@ -186,7 +198,7 @@ export async function validateExample(
       : { kind: 'unavailable', reason: resolved.reason };
   }
 
-  if (typeof content !== 'object' || content === null || Array.isArray(content)) {
+  if (!isJsonObject(content)) {
     return {
       kind: 'invalid',
       errors: ['app-config content must be a mapping'],
@@ -195,7 +207,7 @@ export async function validateExample(
 
   try {
     resolved.schema.process(
-      [{ data: content as Record<string, never>, context }],
+      [{ data: content, context }],
       // No visibility filter: an example documents a full app-config, so
       // frontend and backend keys are both legitimate.
       { ignoreSchemaErrors: false },

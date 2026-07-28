@@ -201,8 +201,12 @@ main().then(
   code => {
     process.exitCode = code;
   },
-  error => {
-    process.stderr.write(`${error?.stack ?? error}\n`);
+  (error: unknown) => {
+    // Exit 2 marks a tool failure, distinct from exit 1 for a validation
+    // failure — CI can tell "the metadata is wrong" from "the check broke".
+    process.stderr.write(
+      `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+    );
     process.exitCode = 2;
   },
 );
