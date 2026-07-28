@@ -52,8 +52,12 @@ jobs:
           cache: yarn
           cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
 
+      # skip-build keeps dependency lifecycle scripts from running at install
+      # time. Nothing here needs them — esbuild ships its platform binary as an
+      # optional dependency rather than fetching one in a postinstall — and
+      # .yarnrc.yml sets enableScripts: false so local installs match.
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install --immutable --mode=skip-build
 
       - name: Build
         run: yarn build
