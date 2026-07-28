@@ -2,7 +2,6 @@ import { expect, type Page, type Locator } from "@playwright/test";
 
 /** Minimal UI helper interface used by populateMissingPanelData (matches e2e-test-utils fixture). */
 export interface AdoptionInsightsUiHelperForPanel {
-  openSidebarButton(name: string): Promise<void>;
   clickLink(name: string): Promise<void>;
   fillTextInputByLabel(label: string, text: string): Promise<void>;
   clickButton(
@@ -135,7 +134,7 @@ export class TestHelper {
         - button "DOCS , Opens in a new window"
         - img "no Build"
         `);
-      await uiHelper.openSidebarButton("Administration");
+      await uiHelper.clickButton("Administration");
     }
   }
 
@@ -194,12 +193,12 @@ async function waitUntilApiCallSucceeds(
 /** Navigate to Adoption Insights page and wait for panels. */
 export async function goToAdoptionInsights(
   uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
+    clickButton: (n: string | RegExp) => Promise<unknown>;
     clickLink: (n: string) => Promise<void>;
   },
   page: Page,
 ): Promise<void> {
-  await uiHelper.openSidebarButton("Administration");
+  await uiHelper.clickButton("Administration");
   await uiHelper.clickLink("Adoption Insights");
   await waitForPanelApiCalls(page);
 }
@@ -207,7 +206,7 @@ export async function goToAdoptionInsights(
 /** Navigate to Adoption Insights and select "Today" date range. */
 export async function goToAdoptionInsightsWithToday(
   uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
+    clickButton: (n: string | RegExp) => Promise<unknown>;
     clickLink: (n: string) => Promise<void>;
   },
   page: Page,

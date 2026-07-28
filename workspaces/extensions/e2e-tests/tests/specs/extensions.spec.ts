@@ -40,7 +40,7 @@ test.describe("Admin > Extensions", () => {
     uiHelper = u;
     extensions = new ExtensionsPage(page, uiHelper);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebarButton("Administration");
+    await uiHelper.clickButton("Administration");
     await uiHelper.openSidebar("Extensions");
     await uiHelper.verifyHeading("Extensions");
   });
