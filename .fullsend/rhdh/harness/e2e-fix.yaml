@@ -50,7 +50,6 @@ env:
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
     JIRA_URL: https://issues.redhat.com
     FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-fix-result.schema.json
-    TARGET_REPO_DIR: ${FULLSEND_TARGET_REPO}
   sandbox:
     SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
     PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
