@@ -29,13 +29,14 @@ test.describe.serial("Dynamic home page customization", () => {
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
 
-    await test.runOnce("homepage-setup", async () => {
+    const namespace = rhdh.deploymentConfig.namespace;
+    // Key must be unique per Playwright project — each project deploys its own namespace.
+    await test.runOnce(`homepage-setup-${namespace}`, async () => {
       await setupKeycloakGroups();
 
       const rbacConfigmapPath = WorkspacePaths.resolve(
         "tests/config/rbac-configmap.yaml",
       );
-      const namespace = rhdh.deploymentConfig.namespace;
       await $`oc apply -f ${rbacConfigmapPath} -n ${namespace}`;
 
       await rhdh.configure({
