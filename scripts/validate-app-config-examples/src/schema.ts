@@ -65,7 +65,7 @@ export type SchemaSource = {
 // most of printable ASCII, which is how the first version of this let `--foo`
 // through.
 const PACKAGE_NAME = /^(?:@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*$/;
-const PACKAGE_VERSION = /^[0-9][0-9a-zA-Z.+-]*$/;
+const PACKAGE_VERSION = /^\d[\da-zA-Z.+-]*$/;
 
 /**
  * True when the pair is safe to hand to `npm pack` as a package spec.
@@ -192,7 +192,7 @@ export async function findPackageRoot(
   const candidates = entries
     .filter(entry => entry.isDirectory())
     .map(entry => entry.name)
-    .sort((a, b) => (a === 'package' ? -1 : b === 'package' ? 1 : 0));
+    .sort(conventionalFirst);
 
   for (const candidate of candidates) {
     const root = join(dir, candidate);
@@ -201,6 +201,17 @@ export async function findPackageRoot(
     }
   }
   throw new Error(`no unpacked package directory for ${spec}`);
+}
+
+/** Orders the conventional `package/` directory ahead of anything else. */
+function conventionalFirst(a: string, b: string): number {
+  if (a === b) {
+    return 0;
+  }
+  if (a === 'package') {
+    return -1;
+  }
+  return b === 'package' ? 1 : 0;
 }
 
 async function isFile(path: string): Promise<boolean> {

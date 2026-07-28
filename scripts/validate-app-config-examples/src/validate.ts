@@ -16,11 +16,10 @@
 //      enable with --check-schemas.
 
 import { glob } from 'node:fs/promises';
-import { parseArgs } from 'node:util';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { parseArgs, promisify } from 'node:util';
 import {
   examplesWithContent,
   evaluateFile,
@@ -159,7 +158,7 @@ export async function main(
   return exitCodeFor(rows);
 }
 
-/** Validates every example on one row, recording outcomes into `tally`. */
+/** Validates every example on one row, recording the file's outcome in `tally`. */
 async function checkSchemas(
   row: Row,
   doc: Record<string, unknown> | undefined,
@@ -167,19 +166,20 @@ async function checkSchemas(
   warnOnly: boolean,
   tally: SchemaTally,
 ): Promise<void> {
-  const pkg = packageCoordinates(doc);
   const examples = examplesWithContent(doc);
   if (examples.length === 0) {
     return;
   }
+
+  const pkg = packageCoordinates(doc);
   if (!pkg) {
     row.notes.push('no packageName/version — schema check skipped');
     tally.unavailable += 1;
     return;
   }
 
-  let sawMismatch = false;
-  let sawValidated = false;
+  let validatedAny = false;
+  let mismatchedAny = false;
 
   for (const example of examples) {
     const outcome = await validateExample(
@@ -188,43 +188,72 @@ async function checkSchemas(
       `${row.path} (${example.title})`,
       example.content,
     );
-    if (outcome.kind === 'invalid') {
-      sawMismatch = true;
-      if (!warnOnly) {
-        row.status = 'FAIL';
-        // Without this the row keeps the structural verdict and prints
-        // "FAIL ... # has non-empty first example content", which reads as a
-        // broken tool rather than a failed example.
-        row.detail = 'example does not match the plugin config schema';
-      }
-      const label = warnOnly ? 'schema warning' : 'schema error';
-      for (const error of outcome.errors) {
-        row.notes.push(`${label} in "${example.title}": ${error}`);
-      }
-    } else if (outcome.kind === 'ok') {
-      sawValidated = true;
-    } else if (outcome.kind === 'no-schema') {
-      // Same package for every example on this file, so one verdict settles it.
+
+    // no-schema and unavailable are properties of the package, not the example,
+    // so the first one settles the whole file.
+    if (outcome.kind === 'no-schema') {
       tally.noSchema += 1;
       row.notes.push(
         `${pkg.name} declares no configSchema — nothing to validate against`,
       );
       return;
-    } else {
+    }
+    if (outcome.kind === 'unavailable') {
       tally.unavailable += 1;
       row.notes.push(`schema unavailable: ${outcome.reason}`);
       return;
     }
+
+    if (outcome.kind === 'ok') {
+      validatedAny = true;
+    } else {
+      mismatchedAny = true;
+      recordMismatch(row, example.title, outcome.errors, warnOnly);
+    }
   }
 
-  if (sawMismatch) {
+  if (mismatchedAny) {
     tally.mismatched += 1;
-  } else if (sawValidated) {
+  } else if (validatedAny) {
     tally.validated += 1;
   }
 }
 
+/** Annotates a row with one example's schema errors. */
+function recordMismatch(
+  row: Row,
+  title: string,
+  errors: string[],
+  warnOnly: boolean,
+): void {
+  if (!warnOnly) {
+    row.status = 'FAIL';
+    // Without this the row keeps the structural verdict and prints
+    // "FAIL ... # has non-empty first example content", which reads as a broken
+    // tool rather than a failed example.
+    row.detail = 'example does not match the plugin config schema';
+  }
+  const label = warnOnly ? 'schema warning' : 'schema error';
+  for (const error of errors) {
+    row.notes.push(`${label} in "${title}": ${error}`);
+  }
+}
+
 const execFileAsync = promisify(execFile);
+
+/**
+ * Codepoint order, matching Python's `sorted()`.
+ *
+ * Deliberately not `localeCompare`: it is locale-dependent and case-insensitive
+ * in several locales, so it would reorder the report and break the
+ * byte-identical parity with the script this replaced.
+ */
+function byCodepoint(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
 
 /**
  * Metadata paths added/copied/modified/renamed between `since` and HEAD.
@@ -246,7 +275,7 @@ async function changedMetadataPaths(
     .split('\n')
     .map(line => line.trim())
     .filter(line => line !== '' && isMetadataPath(line))
-    .sort();
+    .sort(byCodepoint);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
@@ -256,7 +285,7 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   })) {
     found.push(entry);
   }
-  return found.sort();
+  return found.sort(byCodepoint);
 }
 
 /** The run's exit code: 1 when any row failed, 0 otherwise. */
@@ -317,17 +346,15 @@ export function printReport(
 // Only run the CLI when invoked directly, so tests can import main() and report()
 // without the module executing on import.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().then(
-    code => {
-      process.exitCode = code;
-    },
-    (error: unknown) => {
-      // Exit 2 marks a tool failure, distinct from exit 1 for a validation
-      // failure — CI can tell "the metadata is wrong" from "the check broke".
-      process.stderr.write(
-        `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
-      );
-      process.exitCode = 2;
-    },
-  );
+  try {
+    process.exitCode = await main();
+  } catch (error) {
+    // Exit 2 marks a tool failure, distinct from exit 1 for a validation
+    // failure — CI can tell "the metadata is wrong" from "the check broke".
+    process.stderr.write(
+      `${error instanceof Error ? (error.stack ?? error.message) : String(error)}
+`,
+    );
+    process.exitCode = 2;
+  }
 }
