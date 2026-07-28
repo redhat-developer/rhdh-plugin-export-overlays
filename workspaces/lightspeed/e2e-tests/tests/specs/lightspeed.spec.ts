@@ -117,7 +117,7 @@ test.describe("Lightspeed UI", () => {
 
   test.describe("Chatbot display modes", () => {
     test.beforeEach(async () => {
-      await page.goto("/");
+      await page.goto("/catalog");
     });
 
     test("overlay mode keeps RHDH visible with chat controls", async () => {
