@@ -17,7 +17,8 @@
 // Structural checks on Package metadata. This is a behaviour-preserving port of
 // scripts/validate-app-config-examples.py (RHIDP-12590) — the verdicts and
 // messages here are deliberately identical to that script's, so the CI gate
-// behaves exactly as it did before.
+// behaves exactly as it did before. The semantic layer in schema.ts is layered
+// on top of these verdicts rather than replacing them.
 
 import { readFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
@@ -164,3 +165,47 @@ export async function changedMetadataPaths(
     .sort();
 }
 
+/**
+ * The npm coordinates a Package metadata document points at, when it has them.
+ * Both halves are required: the name alone leaves the version floating, and
+ * validating against a different version than the one shipped is worse than
+ * not validating at all.
+ */
+export function packageCoordinates(
+  doc: Record<string, unknown> | undefined,
+): { name: string; version: string } | undefined {
+  if (!doc || !isPlainObject(doc.spec)) {
+    return undefined;
+  }
+  const { packageName, version } = doc.spec;
+  if (typeof packageName !== 'string' || typeof version !== 'string') {
+    return undefined;
+  }
+  if (packageName === '' || version === '') {
+    return undefined;
+  }
+  return { name: packageName, version };
+}
+
+/** Every `appConfigExamples[]` entry that carries content worth validating. */
+export function configExamples(
+  doc: Record<string, unknown> | undefined,
+): { title: string; content: unknown }[] {
+  if (!doc || !isPlainObject(doc.spec)) {
+    return [];
+  }
+  const examples = doc.spec.appConfigExamples;
+  if (!Array.isArray(examples)) {
+    return [];
+  }
+  return examples
+    .filter(isPlainObject)
+    .filter(example => !isEmptyContent(example.content))
+    .map((example, index) => ({
+      title:
+        typeof example.title === 'string' && example.title !== ''
+          ? example.title
+          : `appConfigExamples[${index}]`,
+      content: example.content,
+    }));
+}

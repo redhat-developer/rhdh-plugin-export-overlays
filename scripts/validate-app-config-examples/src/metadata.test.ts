@@ -21,9 +21,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  configExamples,
   evaluateDocument,
   isEmptyContent,
   isMetadataPath,
+  packageCoordinates,
 } from './metadata.js';
 
 const PACKAGE_HEAD = 'apiVersion: extensions.backstage.io/v1alpha1\nkind: Package\n';
@@ -129,5 +131,44 @@ describe('isMetadataPath', () => {
     assert.equal(isMetadataPath('workspaces/acr/other/thing.yaml'), false);
     assert.equal(isMetadataPath('scripts/thing.yaml'), false);
     assert.equal(isMetadataPath('workspaces/acr/metadata'), false);
+  });
+});
+
+describe('packageCoordinates', () => {
+  it('returns name and version when both are present', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  packageName: "@scope/thing"\n  version: "1.2.3"\n  appConfigNotRequired: true\n  appConfigExamples: []\n`,
+    );
+    assert.deepEqual(packageCoordinates(doc), { name: '@scope/thing', version: '1.2.3' });
+  });
+
+  it('returns nothing when either half is missing — a floating version is worse than no check', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  packageName: "@scope/thing"\n  appConfigNotRequired: true\n  appConfigExamples: []\n`,
+    );
+    assert.equal(packageCoordinates(doc), undefined);
+    assert.equal(packageCoordinates(undefined), undefined);
+  });
+});
+
+describe('configExamples', () => {
+  it('returns every example with content, titled or indexed', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: First\n      content:\n        a: 1\n    - content:\n        b: 2\n`,
+    );
+    const examples = configExamples(doc);
+    assert.equal(examples.length, 2);
+    assert.equal(examples[0].title, 'First');
+    assert.equal(examples[1].title, 'appConfigExamples[1]');
+  });
+
+  it('drops examples with no usable content', () => {
+    const { doc } = evaluateDocument(
+      `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: Real\n      content:\n        a: 1\n    - title: Empty\n      content: {}\n`,
+    );
+    assert.deepEqual(
+      configExamples(doc).map(example => example.title),
+      ['Real'],
+    );
   });
 });

@@ -10,6 +10,11 @@ on:
       - 'scripts/validate-app-config-examples/**'
       - '.github/workflows/validate-app-config-examples.yaml'
   workflow_dispatch:
+    inputs:
+      check-schemas:
+        description: 'Also validate examples against each plugin config schema'
+        type: boolean
+        default: true
 
 concurrency:
   group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,7 +24,10 @@ jobs:
   validate:
     name: appConfigExamples coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Schema validation downloads one published tarball per distinct
+    # packageName@version, so a full-tree run is far slower than the
+    # structural-only check this workflow used to run.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -48,14 +56,27 @@ jobs:
         working-directory: scripts/validate-app-config-examples
         run: yarn check
 
+      # A full-tree sweep reports schema mismatches without failing: the tree
+      # carries metadata written long before this check existed, and the sweep
+      # is meant to surface that backlog rather than block on it.
       - name: Validate (full tree)
         if: github.event_name == 'workflow_dispatch'
         working-directory: scripts/validate-app-config-examples
-        run: node dist/validate.mjs
+        env:
+          CHECK_SCHEMAS: ${{ inputs.check-schemas }}
+        run: |
+          args=()
+          if [[ "$CHECK_SCHEMAS" == "true" ]]; then
+            args+=(--check-schemas --warn-only)
+          fi
+          yarn node dist/validate.mjs "${args[@]}"
 
+      # On a PR only the metadata the author just touched is validated, so a
+      # mismatch here is something they introduced and can act on. Blocking is
+      # fair, and keeps the check from being advisory-only forever.
       - name: Validate (PR — changed metadata only)
         if: github.event_name == 'pull_request'
         working-directory: scripts/validate-app-config-examples
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node dist/validate.mjs --since "$BASE_SHA"
+        run: yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas

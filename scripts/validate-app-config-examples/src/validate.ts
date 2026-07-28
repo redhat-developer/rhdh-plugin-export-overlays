@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-// Validates Package metadata under workspaces/*/metadata/*.yaml: every Package
-// must carry a non-empty first appConfigExamples[].content, or opt out via
-// spec.appConfigNotRequired.
+// Validates Package metadata under workspaces/*/metadata/*.yaml.
 //
-// Behaviour-preserving port of scripts/validate-app-config-examples.py
-// (RHIDP-12590) — same verdicts, same wording, same exit codes.
+// Two layers:
+//   1. structural — every Package must carry a non-empty first
+//      appConfigExamples[].content, or opt out via spec.appConfigNotRequired.
+//      Ported unchanged from the previous Python script (RHIDP-12590).
+//   2. semantic — each example's content must satisfy the plugin's own config
+//      schema, read from the published package (RHIDP-13509). Off by default;
+//      enable with --check-schemas.
 
 import { glob } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
@@ -27,20 +30,29 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   changedMetadataPaths,
+  configExamples,
   evaluateFile,
+  packageCoordinates,
   type Status,
 } from './metadata.js';
+import { SchemaResolver, validateExample } from './schema.js';
 
 type Row = {
   status: Status;
   path: string;
   detail: string;
+  /** Non-fatal notes (missing schema, registry hiccup) shown under the row. */
+  notes: string[];
 };
 
 const USAGE = `Usage: validate-app-config-examples [options]
 
   --since <SHA>      Only validate metadata YAML changed in SHA...HEAD.
                      Exits 0 when the range touches no metadata.
+  --check-schemas    Also validate each example against the plugin's config
+                     schema, resolved from the published package.
+  --warn-only        Report schema mismatches without failing. Structural
+                     failures still fail the run.
   --help             Show this message.
 `;
 
@@ -48,6 +60,8 @@ async function main(): Promise<number> {
   const { values } = parseArgs({
     options: {
       since: { type: 'string' },
+      'check-schemas': { type: 'boolean', default: false },
+      'warn-only': { type: 'boolean', default: false },
       help: { type: 'boolean', default: false },
     },
   });
@@ -73,13 +87,65 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  const resolver = new SchemaResolver();
   const rows: Row[] = [];
-  for (const path of paths) {
-    const result = await evaluateFile(join(repoRoot, path));
-    rows.push({ status: result.status, path, detail: result.detail });
+  let schemaFailures = 0;
+
+  try {
+    for (const path of paths) {
+      const result = await evaluateFile(join(repoRoot, path));
+      const row: Row = {
+        status: result.status,
+        path,
+        detail: result.detail,
+        notes: [],
+      };
+      rows.push(row);
+
+      // Only structurally sound Packages are worth schema-checking: a file that
+      // failed above has nothing meaningful to validate.
+      if (!values['check-schemas'] || result.status !== 'PASS') {
+        continue;
+      }
+
+      const pkg = packageCoordinates(result.doc);
+      if (!pkg) {
+        row.notes.push('no packageName/version — schema check skipped');
+        continue;
+      }
+
+      for (const example of configExamples(result.doc)) {
+        const outcome = await validateExample(
+          resolver,
+          pkg,
+          `${path} (${example.title})`,
+          example.content,
+        );
+        if (outcome.kind === 'invalid') {
+          schemaFailures += 1;
+          if (!values['warn-only']) {
+            row.status = 'FAIL';
+          }
+          const label = values['warn-only'] ? 'schema warning' : 'schema error';
+          for (const error of outcome.errors) {
+            row.notes.push(`${label} in "${example.title}": ${error}`);
+          }
+        } else if (outcome.kind === 'no-schema') {
+          row.notes.push(
+            `${pkg.name} declares no configSchema — nothing to validate against`,
+          );
+          break;
+        } else if (outcome.kind === 'unavailable') {
+          row.notes.push(`schema unavailable: ${outcome.reason}`);
+          break;
+        }
+      }
+    }
+  } finally {
+    await resolver.cleanup();
   }
 
-  return report(rows);
+  return report(rows, schemaFailures, values['warn-only'] ?? false);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
@@ -92,7 +158,7 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   return found.sort();
 }
 
-function report(rows: Row[]): number {
+function report(rows: Row[], schemaFailures: number, warnOnly: boolean): number {
   const statusWidth = Math.max(
     'STATUS'.length,
     ...rows.map(row => row.status.length),
@@ -106,6 +172,9 @@ function report(rows: Row[]): number {
       line += `  # ${row.detail}`;
     }
     process.stdout.write(`${line}\n`);
+    for (const note of row.notes) {
+      process.stdout.write(`${' '.repeat(statusWidth + 2)}  - ${note}\n`);
+    }
   }
 
   const failures = rows.filter(row => row.status === 'FAIL').length;
@@ -114,6 +183,13 @@ function report(rows: Row[]): number {
   process.stdout.write(
     `Total: ${rows.length}  PASS: ${passes}  FAIL: ${failures}\n`,
   );
+  if (schemaFailures > 0) {
+    const noun = schemaFailures === 1 ? 'mismatch' : 'mismatches';
+    process.stdout.write(
+      `Schema ${noun}: ${schemaFailures}${warnOnly ? ' (warn-only)' : ''}\n`,
+    );
+  }
+
   if (failures > 0) {
     process.stderr.write('\nValidation failed.\n');
     return 1;
