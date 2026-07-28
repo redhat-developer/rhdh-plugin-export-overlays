@@ -227,6 +227,11 @@ jobs:
                 continue
               fi
 
+              # npm-style package name with scope/path → image-style id (matches OCI image basename)
+              STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
+              # Published export tags may still include a legacy `!<stripped package id>` suffix; drop it when present
+              OCI_TAG="${NEW_TAG%"!${STRIPPED}"}"
+
               # First appConfigExamples item is used for testing
               CONFIG_CONTENT=$(yq -o=yaml '.spec.appConfigExamples[0].content' "$METADATA_FILE" 2>/dev/null || echo "")
               if [ -z "$CONFIG_CONTENT" ] || [ "$CONFIG_CONTENT" = "null" ]; then
@@ -262,8 +267,7 @@ jobs:
               fi
               # If no ENVs in config, continue regardless of env file existence
 
-              STRIPPED=$(echo "$PACKAGE_NAME" | sed 's|^@||; s|/|-|')
-              echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${NEW_TAG}!${STRIPPED}\"" >> "$OUT_FILE"
+              echo "- package: \"oci://ghcr.io/${IMAGE_PATH_AND_PLUGIN}:${OCI_TAG}\"" >> "$OUT_FILE"
               echo "  enabled: true" >> "$OUT_FILE"
               if [ -n "$CONFIG_CONTENT" ]; then
                 echo "  pluginConfig:" >> "$OUT_FILE"
@@ -311,6 +315,7 @@ jobs:
     with:
       target-branch: ${{ needs.resolve.outputs.target-branch }}
       rhdh-tag: ${{ needs.resolve.outputs.rhdh-tag }}
+      workspace: ${{ needs.resolve.outputs.workspace }}
 
   add-skipped-test-comment:
     if: ${{ always() && needs.resolve.outputs.pr-number != 'null' && needs.resolve.outputs.pr-number != '' && (needs.resolve.outputs.workspace == '' || (needs.prepare-test-config.result != 'skipped' && (needs.prepare-test-config.outputs.has-runnable-plugins != 'true' || needs.prepare-test-config.outputs.skip-tests-missing-env == 'true'))) }}
@@ -412,6 +417,7 @@ jobs:
         env:
           SMOKE_TESTS_RESULT: ${{ needs.run-smoke-tests.result }}
           SUCCESS: ${{ needs.run-smoke-tests.outputs.success }}
+          NATIVE_RESULT: ${{ needs.run-smoke-tests.outputs.native-result }}
           FAILED_PLUGINS: ${{ needs.run-smoke-tests.outputs.failed-plugins }}
           ERROR_LOGS: ${{ needs.run-smoke-tests.outputs.error-logs }}
           MISSING_METADATA_PLUGINS: ${{ needs.prepare-test-config.outputs.missing-metadata-plugins || '' }}
@@ -428,13 +434,25 @@ jobs:
             const pr = Number(process.env.PR_NUMBER);
             const overlayCommit = process.env.OVERLAY_COMMIT;
             
+            const nativeResult = process.env.NATIVE_RESULT || '';
             const success = smokeTestsResult === 'success' && successOutput === 'true';
             let failureReason = '';
-            
+
             if (!success) {
               switch (smokeTestsResult) {
                 case 'failure':
-                  failureReason = 'Smoke tests failed. Check the workflow logs for details.';
+                  // For allowlisted workspaces both smokes run; name the divergences
+                  // instead of reporting a generic failure — each direction points the
+                  // triage somewhere different.
+                  if (successOutput === 'true' && nativeResult === 'failure') {
+                    failureReason = 'The container smoke passed but the native (in-process) smoke failed — check the native-smoke job logs and its results artifact.';
+                  } else if (nativeResult === 'success') {
+                    failureReason = 'The container smoke failed but the native (in-process) smoke passed — the plugin loads and boots, so look for an environment/image issue in the container job logs.';
+                  } else if (nativeResult === 'failure') {
+                    failureReason = 'Both the container and the native (in-process) smoke failed — the plugin itself is the likely cause. Check both jobs\' logs.';
+                  } else {
+                    failureReason = 'Smoke tests failed. Check the workflow logs for details.';
+                  }
                   break;
                 case 'cancelled':
                   failureReason = 'Smoke tests were cancelled.';
