@@ -14,11 +14,16 @@ export class OrchestratorPO {
 
   async openWorkflowsPage(): Promise<void> {
     await this.uiHelper.goToPageUrl("/orchestrator");
-    await this.uiHelper.verifyHeading("Workflows");
+    await expect(
+      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
+    ).toBeVisible();
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    await this.page.locator('nav a:has-text("Administration")').first().click();
+    await this.page
+      .getByRole("button", { name: "Administration" })
+      .first()
+      .click();
     await this.uiHelper.openSidebar("Orchestrator");
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),

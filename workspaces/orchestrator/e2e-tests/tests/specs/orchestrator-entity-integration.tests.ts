@@ -141,9 +141,7 @@ export function registerEntityWorkflowIntegrationTests(
         .first()
         .click();
       await uiHelper.openSidebar("Orchestrator");
-      await expect(
-        page.getByRole("heading", { name: "Workflows" }),
-      ).toBeVisible();
+      await expect(page.getByText(/Workflows \(\d+\)/).last()).toBeVisible();
 
       const greetingWorkflow = page.getByRole("link", {
         name: /Greeting workflow/i,

@@ -60,7 +60,10 @@ export function registerUiPropsTestWorkflowTests(): void {
     test("ui:props test workflow", async ({ page, uiHelper }) => {
       test.setTimeout(300_000);
       const orchestratorPo = new OrchestratorPO(page, uiHelper);
-      await page.locator('nav a:has-text("Administration")').first().click();
+      await page
+        .getByRole("button", { name: "Administration" })
+        .first()
+        .click();
       await uiHelper.openSidebar("Orchestrator");
       await expect(
         page.getByRole("cell", { name: "Test Object Type Support" }),
