@@ -7,7 +7,7 @@ permission:
     pluginsWithPermission:
       - catalog
       - permission
-      - lightspeed
+      - intelligent-assistant
     admin:
       superUsers:
         - name: user:default/test1
@@ -25,7 +25,17 @@ backend:
       - "'unsafe-eval'"
       - https://cdn.jsdelivr.net
 
-lightspeed:
+# Clears the default lightspeed frontend routes/mountPoints so they don't conflict
+# with the renamed intelligent-assistant plugin (same import names, different routes).
+# TODO: Remove after https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/2806
+# removes lightspeed from the default catalog index.
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-lightspeed:
+      dynamicRoutes: []
+      mountPoints: []
+
+intelligent-assistant:
   notebooks:
     enabled: true
     queryDefaults:

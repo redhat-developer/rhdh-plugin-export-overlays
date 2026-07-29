@@ -217,8 +217,8 @@ test.describe("Lightspeed notebooks", () => {
     await verifyFeedbackButtons(page);
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(2000);
-    await submitFeedback(page, "Good response");
-    await submitFeedback(page, "Bad response");
+    await submitFeedback(page, "Good Response");
+    await submitFeedback(page, "Bad Response");
     await assertLastBotResponseCopiedToClipboard(page);
 
     await notebooks.clickCloseNotebookEditor();

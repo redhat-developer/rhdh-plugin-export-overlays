@@ -7,8 +7,9 @@ import yaml from "js-yaml";
 import os from "os";
 import path from "path";
 
-/** Single namespace for all Lightspeed Playwright projects (see playwright.config.ts). */
-export const lightspeedNamespace = process.env.RHDH_NAMESPACE ?? "lightspeed";
+/** Single namespace for all Intelligent Assistant Playwright projects (see playwright.config.ts). */
+export const lightspeedNamespace =
+  process.env.RHDH_NAMESPACE ?? "intelligent-assistant";
 
 function isNightlyMode(): boolean {
   if (process.env.GIT_PR_NUMBER) {
@@ -82,31 +83,39 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  await test.runOnce(`lightspeed-deploy-${lightspeedNamespace}`, async () => {
-    await rhdh.configure(lightspeedDeployConfig);
+  await test.runOnce(
+    `intelligent-assistant-deploy-${lightspeedNamespace}`,
+    async () => {
+      await rhdh.configure(lightspeedDeployConfig);
 
-    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-    const ns = rhdh.deploymentConfig.namespace;
-    try {
-      await $`oc get deployment redhat-developer-hub -n ${ns}`;
-      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-    } catch {
-      /* fresh install */
-    }
+      // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+      const ns = rhdh.deploymentConfig.namespace;
+      try {
+        await $`oc get deployment redhat-developer-hub -n ${ns}`;
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* fresh install */
+      }
 
-    await rhdh.deploy();
-    await patchOpenAiAllowedModels(rhdh);
-  });
+      await rhdh.deploy();
+      await patchOpenAiAllowedModels(rhdh);
+    },
+  );
 }
 
-/** Opens /lightspeed and waits for any recognizable Lightspeed shell (chat, heading, or empty state). */
+/** Opens /intelligent-assistant and waits for any recognizable Intelligent Assistant shell (chat, heading, or empty state). */
 export async function openLightspeed(page: Page): Promise<void> {
-  await page.goto("/lightspeed", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/lightspeed/, { timeout: 60_000 });
+  await page.goto("/intelligent-assistant", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/intelligent-assistant/, { timeout: 60_000 });
 
   const chatUi = page
     .locator(".pf-chatbot__messagebox")
-    .or(page.getByRole("heading", { name: "Developer Lightspeed" }))
+    .or(page.getByRole("heading", { name: "Intelligent assistant" }))
+    .or(
+      page.getByRole("heading", {
+        name: "Developer Hub Intelligent Assistant",
+      }),
+    )
     .or(page.getByTestId("lightspeed-lcore-not-configured"));
 
   await chatUi.first().waitFor({ state: "visible", timeout: 120_000 });

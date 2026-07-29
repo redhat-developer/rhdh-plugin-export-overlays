@@ -14,7 +14,7 @@ name: E2E Fix Agent
 
 on:
   schedule:
-    - cron: "0 13 * * *" # 13:00 UTC — after the main nightly (~11:15 UTC)
+    - cron: "15 6 * * *" # 06:15 UTC (11:45 IST) — after the main nightly
   workflow_dispatch:
     inputs:
       prow_url:
@@ -110,23 +110,17 @@ jobs:
           set -euo pipefail
           TODAY=$(date -u '+%Y-%m-%d')
 
-          # Skip if an open issue already exists for today's failure
+          # Close any stale open issue for this branch so the agent always
+          # reads today's prow URL from the issue body (not a comment).
           EXISTING=$(gh issue list --repo "${REPO}" \
             --label "e2e-fix-agent" --state open \
             --search "[fullsend] E2E nightly failure: ${BRANCH}" \
             --json number,title --jq ".[].number" | head -1) || true
 
           if [[ -n "${EXISTING}" ]]; then
-            echo "Issue #${EXISTING} already open — adding comment with new prow URL"
-            gh issue comment "${EXISTING}" --repo "${REPO}" \
-              --body "New failure detected:
-          PROW_URL: ${PROW_URL}"
-            # Re-apply label to re-trigger the agent
-            gh issue edit "${EXISTING}" --repo "${REPO}" --remove-label "e2e-fix-agent" 2>/dev/null || true
-            sleep 5
-            gh issue edit "${EXISTING}" --repo "${REPO}" --add-label "e2e-fix-agent"
-            echo "Re-triggered agent on issue #${EXISTING}"
-            exit 0
+            gh issue close "${EXISTING}" --repo "${REPO}" \
+              --comment "Superseded by today's run — creating a fresh issue."
+            echo "Closed stale issue #${EXISTING}"
           fi
 
           # Create the label if it doesn't exist
@@ -136,13 +130,17 @@ jobs:
 
           ISSUE_URL=$(gh issue create --repo "${REPO}" \
             --title "[fullsend] E2E nightly failure: ${BRANCH} (${TODAY})" \
-            --label "e2e-fix-agent" \
             --body "Nightly E2E run failed on \`${BRANCH}\`.
 
           PROW_URL: ${PROW_URL}
 
           The e2e-fix agent will analyze this failure, classify the root cause, and either implement a fix or skip the failing test with a JIRA bug.")
           echo "Created issue: ${ISSUE_URL}"
+
+          # Add label separately so GitHub fires an issues:labeled event
+          # (gh issue create --label does NOT emit a separate labeled event)
+          ISSUE_NUMBER="${ISSUE_URL##*/}"
+          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-fix-agent"
 
       - name: Dry run summary
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') == 'true'

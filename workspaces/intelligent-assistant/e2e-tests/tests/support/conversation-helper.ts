@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { selectChatModel } from "./lightspeed-page";
 
-export const CHAT_PROMPT_PLACEHOLDER = "Enter a prompt for Lightspeed";
+export const CHAT_PROMPT_PLACEHOLDER = "Send a message";
 const BOT_RESPONSE_TIMEOUT_MS = 180_000;
 
 export async function sendMessage(
@@ -17,7 +17,7 @@ export async function sendMessage(
     const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
     await expect(sidePanel).toBeVisible();
     await expect(
-      sidePanel.getByRole("button", { name: "New Chat" }),
+      sidePanel.getByRole("button", { name: "New chat" }),
     ).toBeEnabled({ timeout: 60_000 });
   }
 }
@@ -52,7 +52,7 @@ export async function expectChatInputValue(
 }
 
 export async function startNewChat(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "New Chat" }).click();
+  await page.getByRole("button", { name: "New chat" }).click();
   await expect(
     page.getByRole("textbox", { name: CHAT_PROMPT_PLACEHOLDER }),
   ).toBeVisible();
@@ -81,14 +81,14 @@ export async function sendMessageInNewChat(
 export async function verifyFeedbackButtons(page: Page): Promise<void> {
   const responseActions = page.locator(".pf-chatbot__response-actions");
   await expect(responseActions).toBeVisible();
-  for (const name of ["Good response", "Bad response", "Copy", "Listen"]) {
+  for (const name of ["Good Response", "Bad Response", "Copy", "Listen"]) {
     await expect(responseActions.getByRole("button", { name })).toBeVisible();
   }
 }
 
 export async function submitFeedback(
   page: Page,
-  ratingButtonName: "Good response" | "Bad response",
+  ratingButtonName: "Good Response" | "Bad Response",
 ): Promise<void> {
   await page.getByRole("button", { name: ratingButtonName }).click();
 
@@ -181,7 +181,7 @@ export async function assertLastBotResponseCopiedToClipboard(
 export async function verifySidePanelConversation(page: Page): Promise<void> {
   const sidePanel = page.locator(".pf-v6-c-drawer__panel-main");
   await expect(sidePanel).toBeVisible();
-  await expect(sidePanel.getByRole("button", { name: "New Chat" })).toBeEnabled(
+  await expect(sidePanel.getByRole("button", { name: "New chat" })).toBeEnabled(
     { timeout: 60_000 },
   );
   await expect(

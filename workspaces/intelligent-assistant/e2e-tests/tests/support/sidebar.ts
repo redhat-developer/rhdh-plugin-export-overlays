@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 export async function assertChatDialogInitialState(page: Page): Promise<void> {
   await expect(page.getByLabel("Chatbot", { exact: true })).toContainText(
-    "Developer Lightspeed",
+    "Developer Hub Intelligent Assistant",
   );
 
   const chatHistoryMenu = page.getByRole("button", {
@@ -24,7 +24,7 @@ export async function assertChatDialogInitialState(page: Page): Promise<void> {
     .toMatchAriaSnapshot(`
       - heading "Pinned chats"
       - menu:
-        - menuitem "No pinned chats"
+        - menuitem "Pin chats to keep them on top"
       - heading "Chats"
       - menu:
         - menuitem "No recent chats"

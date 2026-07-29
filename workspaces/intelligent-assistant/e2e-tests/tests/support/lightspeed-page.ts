@@ -33,14 +33,16 @@ export async function selectChatModel(
 }
 
 export async function openChatbot(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Open Lightspeed" }).click();
+  await page
+    .getByRole("button", { name: "Open intelligent assistant" })
+    .click();
 }
 
 export async function selectDisplayMode(
   page: Page,
   mode: DisplayMode,
 ): Promise<void> {
-  await page.getByRole("button", { name: "Chatbot options" }).click();
+  await page.getByRole("button", { name: "Options" }).click();
   await page.getByRole("menuitem", { name: mode }).click();
 }
 
@@ -67,6 +69,8 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
+  // The homepage plugin may be absent in some CI images, so also check for the
+  // header search box which is always visible when the RHDH shell is loaded.
   const shell = page
     .getByText(/welcome back!/i)
     .or(page.getByText("My Org Catalog"));
@@ -78,7 +82,7 @@ export async function expectRhdhContentVisible(
   }
 }
 
-/** Opens Lightspeed chatbot in fullscreen from the RHDH shell (avoids /lightspeed route). */
+/** Opens Intelligent Assistant chatbot in fullscreen from the RHDH shell (avoids /intelligent-assistant route). */
 export async function openChatbotFullscreen(page: Page): Promise<void> {
   await expectRhdhContentVisible(page);
   await openChatbot(page);
@@ -96,13 +100,11 @@ export async function openChatbotFullscreenWithModel(
 
 export async function expectChatbotControlsVisible(page: Page): Promise<void> {
   await expect(page.locator(".pf-chatbot__header")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Chatbot options" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Options" })).toBeVisible();
 }
 
 export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Chatbot options" }).click();
+  await page.getByRole("button", { name: "Options" }).click();
   const settingsMenu = page
     .getByRole("menu")
     .filter({
@@ -129,7 +131,9 @@ export async function verifyDisplayModeMenuOptions(page: Page): Promise<void> {
 
 export async function expectChatInputAreaVisible(page: Page): Promise<void> {
   await expect(
-    page.getByRole("textbox", { name: "Enter a prompt for Lightspeed" }),
+    page.getByRole("textbox", {
+      name: "Send a message",
+    }),
   ).toBeVisible();
 }
 
@@ -143,7 +147,7 @@ export async function expectEmptyChatHistory(page: Page): Promise<void> {
     ).toBeVisible();
   }
 
-  for (const name of ["No pinned chats", "No recent chats"]) {
+  for (const name of ["Pin chats to keep them on top", "No recent chats"]) {
     await expect(page.getByRole("menuitem", { name })).toBeVisible();
   }
 }

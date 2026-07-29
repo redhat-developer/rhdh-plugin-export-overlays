@@ -109,6 +109,11 @@ test.describe("Lightspeed UI", () => {
     });
     page = await context.newPage();
     await new LoginHelper(page).loginAsKeycloakUser();
+
+    const hideButton = page.getByRole("button", { name: "Hide" });
+    if (await hideButton.isVisible()) {
+      await hideButton.click();
+    }
   });
 
   test.afterAll(async () => {
@@ -117,7 +122,7 @@ test.describe("Lightspeed UI", () => {
 
   test.describe("Chatbot display modes", () => {
     test.beforeEach(async () => {
-      await page.goto("/");
+      await page.goto("/catalog");
     });
 
     test("overlay mode keeps RHDH visible with chat controls", async () => {
@@ -141,6 +146,7 @@ test.describe("Lightspeed UI", () => {
       await selectDisplayMode(page, "Dock to window");
 
       await expectConversationArea(page, "Dock to window");
+      await page.keyboard.press("Escape");
       await expectRhdhContentVisible(page);
       await expectChatInputAreaVisible(page);
       await expectChatbotControlsVisible(page);
@@ -166,9 +172,9 @@ test.describe("Lightspeed UI", () => {
     });
 
     test("page is available", async () => {
-      await expect(page).toHaveURL(/\/lightspeed/);
+      await expect(page).toHaveURL(/\/intelligent-assistant/);
       await expect(
-        page.getByRole("heading", { name: "Developer Lightspeed" }),
+        page.getByRole("heading", { name: "Intelligent assistant" }),
       ).toBeVisible();
       await expect(page.getByText("How can I help you today?")).toBeVisible();
     });
@@ -290,8 +296,8 @@ test.describe("Lightspeed UI", () => {
       await getLastBotResponseText(page);
 
       await verifyFeedbackButtons(page);
-      await submitFeedback(page, "Good response");
-      await submitFeedback(page, "Bad response");
+      await submitFeedback(page, "Good Response");
+      await submitFeedback(page, "Bad Response");
 
       await assertLastBotResponseCopiedToClipboard(page);
     });
@@ -423,7 +429,9 @@ test.describe("Lightspeed UI", () => {
         await verifyUnpinActionAvailable(page);
         await selectUnpinAction(page);
         await expect(
-          page.getByRole("menu").filter({ hasText: "No pinned chats" }),
+          page
+            .getByRole("menu")
+            .filter({ hasText: "Pin chats to keep them on top" }),
         ).toBeVisible();
         await verifyChatExists(page, testChatName);
       });
@@ -432,13 +440,13 @@ test.describe("Lightspeed UI", () => {
         await verifyChatExists(page, testChatName);
         await openChatContextMenuByName(page, testChatName);
         await selectDeleteAction(page);
-        await verifyDeleteConfirmation(page);
+        await verifyDeleteConfirmation(page, testChatName);
         await cancelChatDeletion(page);
         await verifyChatExists(page, testChatName);
 
         await openChatContextMenuByName(page, testChatName);
         await selectDeleteAction(page);
-        await confirmChatDeletion(page);
+        await confirmChatDeletion(page, testChatName);
         await verifyChatDeleted(page, testChatName);
       });
 

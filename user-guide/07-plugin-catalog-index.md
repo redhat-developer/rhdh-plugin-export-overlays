@@ -1,6 +1,10 @@
 # Plugin Catalog Index
 
-The **plugin catalog index** is the collection of community and supported plugins of this repository. It contains all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog index is built, what it contains, and where it is published.
+The **plugin catalog indexes** are the collection of **Supported Plugins** and curated **Optional Extras** packages from this repository. 
+
+Indexes can be fetched and used from the links at https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Plugin-Catalog-Status-main 
+
+They contain all the metadata, OCI image references, and default configuration needed for RHDH to discover and load dynamic plugins. This page explains how the catalog indexes are built, what they contain, and where they are published.
 
 ---
 
@@ -183,21 +187,23 @@ The generated `catalog-index/<tier>/` directory contains:
 
 ## Support Tiers
 
-The pipeline runs twice per build — once for each tier:
+The pipeline runs twice per build — once for each tier.
 
-### Supported Catalog
+Inclusion in either catalog is **optional** for plugin owners and requires RHDH PM approval. For the owner-facing files and checklist (Plugin entity YAML, collections if applicable, `all.yaml`, package list files, and GA-only `default.packages.yaml` with `enabled:` / `disabled:`), see [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
+
+### Supported Plugins Catalog
 
 Plugins with Red Hat support (GA or Tech Preview heading to GA).
 
-- **Filter**: Union of `default.packages.yaml` + `rhdh-supported-packages.txt`
+- **Filter**: Union of `default.packages.yaml` (GA only) + `rhdh-supported-packages.txt` (GA + TP)
 - **Registry**: `quay.io/rhdh` (plugins registry) / `quay.io/rhdh-community` (catalog index image registry)
 - **Published to**: `quay.io/rhdh-community/plugin-catalog-index`
 - **Tags**: `bs_{backstage_version}-{short_sha}`, `bs_{backstage_version}`, `latest`
 - **Includes DPDY**: Yes
 
-### Community Catalog
+### Curated Optional Extras Catalog
 
-Community-supported plugins.
+Curated Optional Extras (community, developer preview, and non-core) plugins. The package-list file selects this **catalog tier**; support level remains in Plugin/Package metadata YAML.
 
 - **Filter**: `rhdh-community-packages.txt`
 - **Registry**: `ghcr.io/redhat-developer/rhdh-plugin-export-overlays`
