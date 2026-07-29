@@ -354,6 +354,8 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
+**Navigate to stable content routes.** In `beforeEach` or test setup, prefer navigating to a content-loaded route like `/catalog` rather than `/` (root). The root route may involve redirects, dynamic loading states, or plugin initialization delays that cause flaky timeouts. Only navigate to `/` if the test specifically validates root-route behavior. This applies to any `page.goto()` call that serves as a setup step rather than the action under test.
+
 ### Unified Test Runner (run-e2e.sh)
 
 `run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
