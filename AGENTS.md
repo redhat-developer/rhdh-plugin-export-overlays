@@ -443,6 +443,16 @@ Two Claude Code skills are available at `.claude/skills/` for investigating E2E 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
 - **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
 
+### Reviewing E2E Test Changes
+
+When a PR modifies E2E test selectors, page assertions, or test setup (`beforeEach`/`beforeAll`), cross-reference the imported test utilities before approving.
+
+**1. Read imported utility files.** When a changed test file imports workspace-specific helpers (`*Verifier`, `*Helper` classes, or files under `e2e-tests/utils/`, `e2e-tests/support/`), read those files. Verify that selector patterns are consistent between the test code and the utilities it uses. For example, if a test navigates using `nav[aria-label="sidebar nav"]` but the imported verifier class navigates using `nav[id='global-header']`, those selectors target different elements — flag the inconsistency.
+
+**2. Verify new selectors against existing test code.** When a test fix replaces one selector with another, check how other test code in the same workspace handles the same UI element. Selectors that exist in the DOM but are CSS-hidden (e.g., `display: none`, `visibility: hidden`) will pass existence checks but fail visibility assertions. If a selector is not used anywhere else in the workspace's test code, treat it with suspicion — it may target an element that is hidden or removed in the current RHDH version.
+
+**3. Prefer removing broken assertions over replacing them.** When a test assertion fails because the UI changed (e.g., a welcome heading was removed), removing the assertion is safer than replacing it with a new selector that may also be wrong. This is especially true when the assertion is in test setup (`beforeEach`) and the test body already navigates to specific pages where it performs its real assertions. A simpler `beforeEach` that just logs in and waits for the page to load is more resilient than one that asserts specific UI elements.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
