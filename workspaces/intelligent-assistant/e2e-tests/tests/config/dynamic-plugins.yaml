@@ -1,0 +1,10 @@
+# Disable Segment telemetry (avoids outbound analytics requests that slow RHDH).
+# Intelligent Assistant packages are listed so PR/local still get metadata injection + OCI resolution
+# (providing only this file would skip auto-generation from metadata).
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-analytics-provider-segment
+    disabled: true
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
+    disabled: false
