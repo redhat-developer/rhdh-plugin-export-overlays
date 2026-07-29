@@ -15,24 +15,24 @@
 //      schema, read from the published package (RHIDP-13509). Off by default;
 //      enable with --check-schemas.
 
-import { realpathSync } from 'node:fs';
-import { glob } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { execFile } from 'node:child_process';
-import { parseArgs, promisify } from 'node:util';
+import { realpathSync } from "node:fs";
+import { glob } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { parseArgs, promisify } from "node:util";
 import {
   examplesWithContent,
   evaluateFile,
   isMetadataPath,
   packageCoordinates,
   type Status,
-} from './metadata.js';
+} from "./metadata.js";
 import {
   SchemaResolver,
   validateExample,
   type SchemaSource,
-} from './schema.js';
+} from "./schema.js";
 
 export type Row = {
   status: Status;
@@ -79,16 +79,16 @@ const USAGE = `Usage: validate-app-config-examples [options]
 
 export async function main(
   argv: string[] = process.argv.slice(2),
-  write: (text: string) => void = text => process.stdout.write(text),
-  writeError: (text: string) => void = text => process.stderr.write(text),
+  write: (text: string) => void = (text) => process.stdout.write(text),
+  writeError: (text: string) => void = (text) => process.stderr.write(text),
 ): Promise<number> {
   const { values } = parseArgs({
     args: argv,
     options: {
-      since: { type: 'string' },
-      'check-schemas': { type: 'boolean', default: false },
-      'warn-only': { type: 'boolean', default: false },
-      help: { type: 'boolean', default: false },
+      since: { type: "string" },
+      "check-schemas": { type: "boolean", default: false },
+      "warn-only": { type: "boolean", default: false },
+      help: { type: "boolean", default: false },
     },
   });
 
@@ -100,12 +100,12 @@ export async function main(
   // Reported paths are repo-relative, so everything is resolved against the
   // repo root explicitly rather than by moving the process there — the tool can
   // then be invoked from any directory without its behaviour changing.
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
   // `--since ''` is a caller mistake, not a request to scan everything: with
   // --check-schemas that would silently become a full-tree download.
-  if (values.since !== undefined && values.since.trim() === '') {
-    writeError('--since needs a commit-ish\n');
+  if (values.since !== undefined && values.since.trim() === "") {
+    writeError("--since needs a commit-ish\n");
     return 2;
   }
 
@@ -114,7 +114,9 @@ export async function main(
     : await collectAllMetadata(repoRoot);
 
   if (values.since && paths.length === 0) {
-    write('No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n');
+    write(
+      "No workspaces/*/metadata/*.yaml changes in range; nothing to validate.\n",
+    );
     return 0;
   }
 
@@ -140,12 +142,12 @@ export async function main(
 
       // Only structurally sound Packages are worth schema-checking: a file that
       // failed above has nothing meaningful to validate.
-      if (values['check-schemas'] && result.status === 'PASS') {
+      if (values["check-schemas"] && result.status === "PASS") {
         await checkSchemas(
           row,
           result.doc,
           resolver,
-          values['warn-only'] ?? false,
+          values["warn-only"] ?? false,
           tally,
         );
       }
@@ -154,7 +156,7 @@ export async function main(
     await resolver.cleanup();
   }
 
-  printReport(rows, tally, values['check-schemas'] ?? false, write, writeError);
+  printReport(rows, tally, values["check-schemas"] ?? false, write, writeError);
   return exitCodeFor(rows);
 }
 
@@ -173,7 +175,7 @@ async function checkSchemas(
 
   const pkg = packageCoordinates(doc);
   if (!pkg) {
-    row.notes.push('no packageName/version — schema check skipped');
+    row.notes.push("no packageName/version — schema check skipped");
     tally.unavailable += 1;
     return;
   }
@@ -191,20 +193,20 @@ async function checkSchemas(
 
     // no-schema and unavailable are properties of the package, not the example,
     // so the first one settles the whole file.
-    if (outcome.kind === 'no-schema') {
+    if (outcome.kind === "no-schema") {
       tally.noSchema += 1;
       row.notes.push(
         `${pkg.name} declares no configSchema — nothing to validate against`,
       );
       return;
     }
-    if (outcome.kind === 'unavailable') {
+    if (outcome.kind === "unavailable") {
       tally.unavailable += 1;
       row.notes.push(`schema unavailable: ${outcome.reason}`);
       return;
     }
 
-    if (outcome.kind === 'ok') {
+    if (outcome.kind === "ok") {
       validatedAny = true;
     } else {
       mismatchedAny = true;
@@ -227,13 +229,13 @@ function recordMismatch(
   warnOnly: boolean,
 ): void {
   if (!warnOnly) {
-    row.status = 'FAIL';
+    row.status = "FAIL";
     // Without this the row keeps the structural verdict and prints
     // "FAIL ... # has non-empty first example content", which reads as a broken
     // tool rather than a failed example.
-    row.detail = 'example does not match the plugin config schema';
+    row.detail = "example does not match the plugin config schema";
   }
-  const label = warnOnly ? 'schema warning' : 'schema error';
+  const label = warnOnly ? "schema warning" : "schema error";
   for (const error of errors) {
     row.notes.push(`${label} in "${title}": ${error}`);
   }
@@ -280,20 +282,20 @@ async function changedMetadataPaths(
   repoRoot: string,
 ): Promise<string[]> {
   const { stdout } = await execFileAsync(
-    'git',
-    ['diff', '--name-only', '--diff-filter=ACMR', `${since}...HEAD`],
+    "git",
+    ["diff", "--name-only", "--diff-filter=ACMR", `${since}...HEAD`],
     { cwd: repoRoot },
   );
   return stdout
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line !== '' && isMetadataPath(line))
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && isMetadataPath(line))
     .sort(byCodepoint);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   const found: string[] = [];
-  for await (const entry of glob('workspaces/*/metadata/*.yaml', {
+  for await (const entry of glob("workspaces/*/metadata/*.yaml", {
     cwd: repoRoot,
   })) {
     found.push(entry);
@@ -303,7 +305,7 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
 
 /** The run's exit code: 1 when any row failed, 0 otherwise. */
 export function exitCodeFor(rows: Row[]): number {
-  return rows.some(row => row.status === 'FAIL') ? 1 : 0;
+  return rows.some((row) => row.status === "FAIL") ? 1 : 0;
 }
 
 export function printReport(
@@ -314,26 +316,26 @@ export function printReport(
   writeError: (text: string) => void,
 ): void {
   const statusWidth = Math.max(
-    'STATUS'.length,
-    ...rows.map(row => row.status.length),
+    "STATUS".length,
+    ...rows.map((row) => row.status.length),
   );
 
-  write(`${'STATUS'.padEnd(statusWidth)}  FILE\n`);
-  write(`${'-'.repeat(statusWidth + RULE_PADDING)}\n`);
+  write(`${"STATUS".padEnd(statusWidth)}  FILE\n`);
+  write(`${"-".repeat(statusWidth + RULE_PADDING)}\n`);
   for (const row of rows) {
     let line = `${row.status.padEnd(statusWidth)}  ${row.path}`;
-    if (row.status !== 'PASS') {
+    if (row.status !== "PASS") {
       line += `  # ${row.detail}`;
     }
     write(`${line}\n`);
     for (const note of row.notes) {
-      write(`${' '.repeat(statusWidth + 2)}  - ${note}\n`);
+      write(`${" ".repeat(statusWidth + 2)}  - ${note}\n`);
     }
   }
 
-  const failures = rows.filter(row => row.status === 'FAIL').length;
-  const passes = rows.filter(row => row.status === 'PASS').length;
-  write('\n');
+  const failures = rows.filter((row) => row.status === "FAIL").length;
+  const passes = rows.filter((row) => row.status === "PASS").length;
+  write("\n");
   write(`Total: ${rows.length}  PASS: ${passes}  FAIL: ${failures}\n`);
 
   if (checkedSchemas) {
@@ -345,14 +347,14 @@ export function printReport(
     );
     if (tally.validated === 0) {
       write(
-        'NOTE: no example was checked against a schema. The result above says ' +
-          'nothing about whether the examples are correct.\n',
+        "NOTE: no example was checked against a schema. The result above says " +
+          "nothing about whether the examples are correct.\n",
       );
     }
   }
 
   if (failures > 0) {
-    writeError('\nValidation failed.\n');
+    writeError("\nValidation failed.\n");
   }
 }
 

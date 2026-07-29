@@ -11,11 +11,11 @@
 // behaves exactly as it did before. The semantic layer in schema.ts is layered
 // on top of these verdicts rather than replacing them.
 
-import { readFile } from 'node:fs/promises';
-import { parse as parseYaml } from 'yaml';
-import { errorProperty, isPlainObject } from './json.js';
+import { readFile } from "node:fs/promises";
+import { parse as parseYaml } from "yaml";
+import { errorProperty, isPlainObject } from "./json.js";
 
-export type Status = 'PASS' | 'FAIL' | 'SKIP';
+export type Status = "PASS" | "FAIL" | "SKIP";
 
 export type StructuralResult = {
   status: Status;
@@ -39,8 +39,8 @@ export function isEmptyContent(content: unknown): boolean {
   if (isPlainObject(content)) {
     return Object.keys(content).length === 0;
   }
-  if (typeof content === 'string') {
-    return content.trim() === '';
+  if (typeof content === "string") {
+    return content.trim() === "";
   }
   return false;
 }
@@ -53,37 +53,37 @@ export function evaluateDocument(text: string): StructuralResult {
   } catch (error) {
     // Parse errors carry a multi-line caret frame; the table has one line per
     // file, so keep the headline only.
-    const headline = String(error).split('\n')[0].trim();
-    return { status: 'FAIL', detail: `YAML error: ${headline}` };
+    const headline = String(error).split("\n")[0].trim();
+    return { status: "FAIL", detail: `YAML error: ${headline}` };
   }
 
   if (!isPlainObject(doc)) {
-    return { status: 'FAIL', detail: 'YAML error: root must be a mapping' };
+    return { status: "FAIL", detail: "YAML error: root must be a mapping" };
   }
 
-  if (doc.kind !== 'Package') {
-    return { status: 'SKIP', detail: 'kind is not Package', doc };
+  if (doc.kind !== "Package") {
+    return { status: "SKIP", detail: "kind is not Package", doc };
   }
 
   const spec = doc.spec;
   if (!isPlainObject(spec)) {
-    return { status: 'FAIL', detail: 'missing or invalid spec', doc };
+    return { status: "FAIL", detail: "missing or invalid spec", doc };
   }
 
   const notRequired = spec.appConfigNotRequired === true;
   const examples = spec.appConfigExamples ?? [];
 
   if (!Array.isArray(examples)) {
-    return { status: 'FAIL', detail: 'appConfigExamples must be a list', doc };
+    return { status: "FAIL", detail: "appConfigExamples must be a list", doc };
   }
 
   if (examples.length === 0) {
     return notRequired
-      ? { status: 'PASS', detail: 'opt-out (appConfigNotRequired)', doc }
+      ? { status: "PASS", detail: "opt-out (appConfigNotRequired)", doc }
       : {
-          status: 'FAIL',
+          status: "FAIL",
           detail:
-            'empty appConfigExamples without spec.appConfigNotRequired: true',
+            "empty appConfigExamples without spec.appConfigNotRequired: true",
           doc,
         };
   }
@@ -91,47 +91,47 @@ export function evaluateDocument(text: string): StructuralResult {
   const first = examples[0];
   if (!isPlainObject(first)) {
     return {
-      status: 'FAIL',
-      detail: 'appConfigExamples[0] must be a mapping',
+      status: "FAIL",
+      detail: "appConfigExamples[0] must be a mapping",
       doc,
     };
   }
 
   if (isEmptyContent(first.content)) {
     return {
-      status: 'FAIL',
-      detail: 'appConfigExamples[0].content is empty or {}',
+      status: "FAIL",
+      detail: "appConfigExamples[0].content is empty or {}",
       doc,
     };
   }
 
-  return { status: 'PASS', detail: 'has non-empty first example content', doc };
+  return { status: "PASS", detail: "has non-empty first example content", doc };
 }
 
 export async function evaluateFile(path: string): Promise<StructuralResult> {
   let text: string;
   try {
-    text = await readFile(path, 'utf8');
+    text = await readFile(path, "utf8");
   } catch (error) {
     // A path in the diff that is not on disk is skipped, not failed — the
     // Python original guarded this with `p.is_file()`. It happens when running
     // --since locally over a range that deleted a file without committing.
-    if (errorProperty(error, 'code') === 'ENOENT') {
-      return { status: 'SKIP', detail: 'file not present in the working tree' };
+    if (errorProperty(error, "code") === "ENOENT") {
+      return { status: "SKIP", detail: "file not present in the working tree" };
     }
-    return { status: 'FAIL', detail: `YAML error: ${error}` };
+    return { status: "FAIL", detail: `YAML error: ${error}` };
   }
   return evaluateDocument(text);
 }
 
 /** True for paths shaped like `workspaces/<ws>/metadata/<name>.yaml`. */
 export function isMetadataPath(path: string): boolean {
-  const parts = path.split('/');
+  const parts = path.split("/");
   return (
     parts.length >= 4 &&
-    parts[0] === 'workspaces' &&
-    parts[2] === 'metadata' &&
-    path.endsWith('.yaml')
+    parts[0] === "workspaces" &&
+    parts[2] === "metadata" &&
+    path.endsWith(".yaml")
   );
 }
 
@@ -148,10 +148,10 @@ export function packageCoordinates(
     return undefined;
   }
   const { packageName, version } = doc.spec;
-  if (typeof packageName !== 'string' || typeof version !== 'string') {
+  if (typeof packageName !== "string" || typeof version !== "string") {
     return undefined;
   }
-  if (packageName === '' || version === '') {
+  if (packageName === "" || version === "") {
     return undefined;
   }
   return { name: packageName, version };
@@ -181,7 +181,7 @@ export function examplesWithContent(
       return [];
     }
     const title =
-      typeof example.title === 'string' && example.title !== ''
+      typeof example.title === "string" && example.title !== ""
         ? example.title
         : `appConfigExamples[${index}]`;
     return [{ title, content: example.content }];

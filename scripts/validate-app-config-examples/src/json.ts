@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  */
 
-import type { JsonObject } from '@backstage/types';
+import type { JsonObject } from "@backstage/types";
 
 /**
  * Narrows a parsed-YAML value to a plain mapping.
@@ -15,7 +15,7 @@ import type { JsonObject } from '@backstage/types';
  * drift apart while still being applied to identical input.
  */
 export function isPlainObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -28,7 +28,7 @@ export function isPlainObject(value: unknown): value is JsonObject {
  * rather than one per call site.
  */
 export function errorProperty(error: unknown, key: string): unknown {
-  if (typeof error !== 'object' || error === null || !(key in error)) {
+  if (typeof error !== "object" || error === null || !(key in error)) {
     return undefined;
   }
   return (error as Record<string, unknown>)[key];

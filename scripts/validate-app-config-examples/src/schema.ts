@@ -24,13 +24,13 @@
 // would fix it at a cost this check cannot justify, so the gap is reported
 // rather than hidden — see the outcome tally in validate.ts.
 
-import { execFile } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
-import { loadConfigSchema } from '@backstage/config-loader';
-import { errorProperty, isPlainObject } from './json.js';
+import { execFile } from "node:child_process";
+import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
+import { loadConfigSchema } from "@backstage/config-loader";
+import { errorProperty, isPlainObject } from "./json.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,15 +38,15 @@ const execFileAsync = promisify(execFile);
 const DIAGNOSTIC_LINES = 3;
 
 export type SchemaOutcome =
-  | { kind: 'ok' }
-  | { kind: 'invalid'; errors: string[] }
-  | { kind: 'no-schema' }
-  | { kind: 'unavailable'; reason: string };
+  | { kind: "ok" }
+  | { kind: "invalid"; errors: string[] }
+  | { kind: "no-schema" }
+  | { kind: "unavailable"; reason: string };
 
 export type ResolvedSchema =
-  | { kind: 'schema'; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
-  | { kind: 'no-schema' }
-  | { kind: 'unavailable'; reason: string };
+  | { kind: "schema"; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
+  | { kind: "no-schema" }
+  | { kind: "unavailable"; reason: string };
 
 /**
  * Where `validateExample` gets a schema from.
@@ -93,7 +93,7 @@ export class SchemaResolver implements SchemaSource {
   async resolve(name: string, version: string): Promise<ResolvedSchema> {
     if (!isSafePackageSpec(name, version)) {
       return {
-        kind: 'unavailable',
+        kind: "unavailable",
         reason: `refusing to fetch unsafe package spec ${name}@${version}`,
       };
     }
@@ -103,8 +103,8 @@ export class SchemaResolver implements SchemaSource {
       // Catch before caching: a rejected promise stored here would be re-thrown
       // for every later file with the same package, escaping validateExample
       // and aborting the whole run instead of failing one row.
-      pending = this.load(key).catch(error => ({
-        kind: 'unavailable' as const,
+      pending = this.load(key).catch((error) => ({
+        kind: "unavailable" as const,
         reason: describeError(error),
       }));
       this.cache.set(key, pending);
@@ -115,7 +115,7 @@ export class SchemaResolver implements SchemaSource {
   /** Removes every temp directory this resolver created. */
   async cleanup(): Promise<void> {
     await Promise.all(
-      this.tempDirs.map(dir => rm(dir, { recursive: true, force: true })),
+      this.tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
     );
     this.tempDirs.length = 0;
   }
@@ -123,10 +123,10 @@ export class SchemaResolver implements SchemaSource {
   private async load(spec: string): Promise<ResolvedSchema> {
     let dir: string;
     try {
-      dir = await mkdtemp(join(tmpdir(), 'app-config-schema-'));
+      dir = await mkdtemp(join(tmpdir(), "app-config-schema-"));
       this.tempDirs.push(dir);
     } catch (error) {
-      return { kind: 'unavailable', reason: `temp dir failed: ${error}` };
+      return { kind: "unavailable", reason: `temp dir failed: ${error}` };
     }
 
     let packageDir: string;
@@ -135,12 +135,12 @@ export class SchemaResolver implements SchemaSource {
     } catch (error) {
       // Plenty of packages in this catalogue are not on the public registry.
       // That is not a metadata defect, so it is reported rather than failed.
-      return { kind: 'unavailable', reason: describeError(error) };
+      return { kind: "unavailable", reason: describeError(error) };
     }
 
     try {
       const schema = await loadConfigSchema({
-        packagePaths: [join(packageDir, 'package.json')],
+        packagePaths: [join(packageDir, "package.json")],
         // Only this package's own schema matters; pulling in its dependency
         // tree would validate the example against unrelated plugins' keys.
         dependencies: [],
@@ -150,11 +150,11 @@ export class SchemaResolver implements SchemaSource {
       // empty one that accepts anything. Detect that so the result is reported
       // honestly instead of as a vacuous pass.
       if (!hasConstraints(schema.serialize())) {
-        return { kind: 'no-schema' };
+        return { kind: "no-schema" };
       }
-      return { kind: 'schema', schema };
+      return { kind: "schema", schema };
     } catch (error) {
-      return { kind: 'unavailable', reason: describeError(error) };
+      return { kind: "unavailable", reason: describeError(error) };
     }
   }
 }
@@ -162,22 +162,20 @@ export class SchemaResolver implements SchemaSource {
 /** `npm pack` the spec into `dir` and unpack it. Returns the package root. */
 async function extractPackage(spec: string, dir: string): Promise<string> {
   const { stdout } = await execFileAsync(
-    'npm',
-    ['pack', spec, '--pack-destination', dir, '--loglevel', 'error'],
+    "npm",
+    ["pack", spec, "--pack-destination", dir, "--loglevel", "error"],
     { cwd: dir },
   );
-  const tarball = stdout.trim().split('\n').pop()?.trim();
+  const tarball = stdout.trim().split("\n").pop()?.trim();
   if (!tarball) {
     throw new Error(`npm pack produced no tarball for ${spec}`);
   }
   // --no-same-owner: on a runner executing as root, tar would otherwise honour
   // ownership recorded in the archive, letting a crafted tarball drop files
   // owned by an arbitrary uid.
-  await execFileAsync(
-    'tar',
-    ['-xzf', tarball, '--no-same-owner', '-C', dir],
-    { cwd: dir },
-  );
+  await execFileAsync("tar", ["-xzf", tarball, "--no-same-owner", "-C", dir], {
+    cwd: dir,
+  });
   return findPackageRoot(dir, spec);
 }
 
@@ -197,13 +195,13 @@ export async function findPackageRoot(
 ): Promise<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   const candidates = entries
-    .filter(entry => entry.isDirectory())
-    .map(entry => entry.name)
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
     .sort(conventionalFirst);
 
   for (const candidate of candidates) {
     const root = join(dir, candidate);
-    if (await isFile(join(root, 'package.json'))) {
+    if (await isFile(join(root, "package.json"))) {
       return root;
     }
   }
@@ -215,10 +213,10 @@ function conventionalFirst(a: string, b: string): number {
   if (a === b) {
     return 0;
   }
-  if (a === 'package') {
+  if (a === "package") {
     return -1;
   }
-  return b === 'package' ? 1 : 0;
+  return b === "package" ? 1 : 0;
 }
 
 async function isFile(path: string): Promise<boolean> {
@@ -257,13 +255,13 @@ export function describeError(error: unknown): string {
   if (!(error instanceof Error)) {
     return String(error);
   }
-  const stderr = errorProperty(error, 'stderr');
+  const stderr = errorProperty(error, "stderr");
   const parts = [
-    ...error.message.split('\n'),
-    ...(typeof stderr === 'string' ? stderr.split('\n') : []),
+    ...error.message.split("\n"),
+    ...(typeof stderr === "string" ? stderr.split("\n") : []),
   ]
-    .map(line => line.trim())
-    .filter(line => line !== '');
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
   if (parts.length === 0) {
     return String(error);
   }
@@ -272,8 +270,8 @@ export function describeError(error: unknown): string {
   const shown = parts.slice(0, DIAGNOSTIC_LINES);
   const dropped = parts.length - shown.length;
   return dropped > 0
-    ? `${shown.join('; ')} (+${dropped} more)`
-    : shown.join('; ');
+    ? `${shown.join("; ")} (+${dropped} more)`
+    : shown.join("; ");
 }
 
 /**
@@ -300,16 +298,16 @@ export async function validateExample(
   content: unknown,
 ): Promise<SchemaOutcome> {
   const resolved = await source.resolve(pkg.name, pkg.version);
-  if (resolved.kind !== 'schema') {
-    return resolved.kind === 'no-schema'
-      ? { kind: 'no-schema' }
-      : { kind: 'unavailable', reason: resolved.reason };
+  if (resolved.kind !== "schema") {
+    return resolved.kind === "no-schema"
+      ? { kind: "no-schema" }
+      : { kind: "unavailable", reason: resolved.reason };
   }
 
   if (!isPlainObject(content)) {
     return {
-      kind: 'invalid',
-      errors: ['app-config content must be a mapping'],
+      kind: "invalid",
+      errors: ["app-config content must be a mapping"],
     };
   }
 
@@ -320,9 +318,9 @@ export async function validateExample(
       // frontend and backend keys are both legitimate.
       { ignoreSchemaErrors: false },
     );
-    return { kind: 'ok' };
+    return { kind: "ok" };
   } catch (error) {
-    return { kind: 'invalid', errors: splitSchemaErrors(error) };
+    return { kind: "invalid", errors: splitSchemaErrors(error) };
   }
 }
 
@@ -336,15 +334,18 @@ export async function validateExample(
  */
 export function splitSchemaErrors(error: unknown): string[] {
   if (error instanceof Error) {
-    const messages = errorProperty(error, 'messages');
+    const messages = errorProperty(error, "messages");
     if (Array.isArray(messages) && messages.length > 0) {
       return messages.map(String);
     }
-    const flattened = error.message.replace(/^Config validation failed,\s*/, '');
+    const flattened = error.message.replace(
+      /^Config validation failed,\s*/,
+      "",
+    );
     const parts = flattened
       .split(/[;\n]/)
-      .map(part => part.trim())
-      .filter(part => part !== '');
+      .map((part) => part.trim())
+      .filter((part) => part !== "");
     if (parts.length > 0) {
       return parts;
     }

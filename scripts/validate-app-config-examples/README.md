@@ -5,10 +5,10 @@ Validates the `appConfigExamples` carried by Package metadata under
 
 Two independent layers:
 
-| Layer | What it checks | Jira |
-|---|---|---|
+| Layer      | What it checks                                                                                                       | Jira        |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
 | Structural | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
-| Semantic | each example's content satisfies the plugin's own config schema | RHIDP-13509 |
+| Semantic   | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
 
 The structural layer runs always. The semantic layer is opt-in via
 `--check-schemas`.
@@ -40,7 +40,7 @@ The previous implementation was `scripts/validate-app-config-examples.py`. It
 only checked that example content existed, which needs nothing more than a YAML
 parser.
 
-Validating that content *against the plugin's schema* is a different problem. A
+Validating that content _against the plugin's schema_ is a different problem. A
 plugin declares its schema through `configSchema` in `package.json`, and across
 this catalogue that field points at one of two things:
 
@@ -93,16 +93,15 @@ explicitly when nothing was validated — otherwise an offline runner reports
 `PASS: 178  FAIL: 0` having checked nothing, and the gate looks green because it
 is inert.
 
-
 ## Layout
 
-| Path | Role |
-|---|---|
-| `src/json.ts` | the shared mapping guard and error-property reader |
-| `src/metadata.ts` | YAML reading and the structural verdicts |
-| `src/schema.ts` | package download, schema loading, example validation |
-| `src/validate.ts` | CLI, reporting, exit codes |
-| `src/*.test.ts` | 64 tests |
+| Path              | Role                                                 |
+| ----------------- | ---------------------------------------------------- |
+| `src/json.ts`     | the shared mapping guard and error-property reader   |
+| `src/metadata.ts` | YAML reading and the structural verdicts             |
+| `src/schema.ts`   | package download, schema loading, example validation |
+| `src/validate.ts` | CLI, reporting, exit codes                           |
+| `src/*.test.ts`   | 64 tests                                             |
 
 `yarn check` runs the type check and the unit tests. The tests never touch the
 network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
