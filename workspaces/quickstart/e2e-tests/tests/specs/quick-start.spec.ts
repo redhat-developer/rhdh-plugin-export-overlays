@@ -14,10 +14,6 @@ test.describe("Test Quick Start plugin", () => {
     page,
     uiHelper,
   }) => {
-    // TODO(RHDHBUGS): Re-enable after this PR merges. loginAsGuest() times
-    // out on a cold pod when signInPage is set to oidc by auth: "keycloak".
-    test.skip(true, "Guest login unreliable on cold pod with signInPage: oidc");
-
     await loginHelper.loginAsGuest();
     await uiHelper.verifyText("Let's get you started with Developer Hub");
     await uiHelper.verifyText("We'll guide you through a few quick steps");
