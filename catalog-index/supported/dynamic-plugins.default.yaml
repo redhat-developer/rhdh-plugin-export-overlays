@@ -142,9 +142,9 @@ plugins:
           red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
             analyticsApiExtensions:
               - importName: AdoptionInsightsAnalyticsApi
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:45fa13c14b654a34f403711647be479e1a006c3d859b64e6fcccbb2e023114ee
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:d28e847c763ff18f5866a37a8cbfa00f46265aed5548f46bb3311b8ef0fabf63
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:8d54e201e76cc4d4953886661cd44626e6a2be903f990cbc560bf18dd3e7bccb
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:89ac5a29deda70a932b5c48b6874af600dc4acdb90420405df3ffff529187082
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:9db6538330dbb5a51f233760f9ace9cdc397da3d125b8b83678cc327655e5566
     enabled: true
@@ -409,16 +409,16 @@ plugins:
             cta:
               text: View Learning Paths
               link: /learning-paths
-          - title: Set up Lightspeed
+          - title: Set up Intelligent Assistant
             titleKey: steps.setupLightspeed.title
             icon: Lightspeed
-            description: Connect Lightspeed to a supported large language model (LLM) and configure permissions to provide your AI-powered assistance to your developers.
+            description: Connect Intelligent Assistant to a supported large language model (LLM) and configure permissions to provide your AI-powered assistance to your developers.
             descriptionKey: steps.setupLightspeed.description
             cta:
               text: Learn more
               textKey: steps.setupLightspeed.ctaTitle
               link: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/
-          - title: Get started with Lightspeed
+          - title: Get started with Intelligent Assistant
             titleKey: steps.getStartedWithLightspeed.title
             icon: Lightspeed
             roles:
