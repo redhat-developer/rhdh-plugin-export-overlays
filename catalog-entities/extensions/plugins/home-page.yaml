@@ -77,7 +77,7 @@ spec:
       includes:
         - dynamic-plugins.default.yaml
       plugins:
-         # Frontend plugin
+        # Frontend plugin
         - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__0.4.0
           enabled: true
           pluginConfig:
