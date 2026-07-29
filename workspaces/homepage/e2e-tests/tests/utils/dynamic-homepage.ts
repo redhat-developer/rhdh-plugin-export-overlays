@@ -20,8 +20,8 @@ const EXPECTED_CARD_TEXTS = [
 export const AVAILABLE_WIDGETS = [
   "Onboarding Section",
   "Entity Section",
-  "Recently visited",
-  "Top visited",
+  "Recently Visited",
+  "Top Visited",
 ] as const;
 
 const COMMON = ["Explore Your Software Catalog"];
@@ -176,8 +176,8 @@ export class DynamicHomePagePo {
     await this.deleteAllCards();
     await this.addWidget("Entity Section");
     await this.addWidget("Onboarding Section");
-    await this.addWidget("Recently visited");
-    await this.addWidget("Top visited");
+    await this.addWidget("Recently Visited");
+    await this.addWidget("Top Visited");
     await this.exitEditMode();
   }
 
