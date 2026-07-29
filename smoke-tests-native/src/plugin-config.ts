@@ -31,7 +31,11 @@ export const KNOWN_FAILURES = new Set<string>([
 // validation at startup so the backend can boot.
 const configOverrides: Record<string, JsonObject> = {
   "backstage-community-plugin-jenkins-backend": {
-    jenkins: { baseUrl: "http://localhost:8080", username: "test", apiKey: "test" },
+    jenkins: {
+      baseUrl: "http://localhost:8080",
+      username: "test",
+      apiKey: "test",
+    },
   },
   "backstage-community-plugin-quay-backend": {
     quay: { uiUrl: "https://quay.io", apiUrl: "https://quay.io/api/v1" },

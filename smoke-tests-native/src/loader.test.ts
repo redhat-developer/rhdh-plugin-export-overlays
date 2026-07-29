@@ -19,7 +19,13 @@ function makePlugin(files: string[]): PluginEntry {
     mkdirSync(join(full, ".."), { recursive: true });
     writeFileSync(full, "{}");
   }
-  return { name: "test", version: "1.0.0", dirName: "test", path: dir, role: "frontend" };
+  return {
+    name: "test",
+    version: "1.0.0",
+    dirName: "test",
+    path: dir,
+    role: "frontend",
+  };
 }
 
 const LEGACY = ["package.json", "dist-scalprum/plugin-manifest.json"];
@@ -58,7 +64,9 @@ test("incomplete new-FE layout fails even when the legacy layout is valid", () =
 });
 
 test("no bundle at all names both expected layouts in the error", () => {
-  const { systems, error } = validateFrontendBundle(makePlugin(["package.json"]));
+  const { systems, error } = validateFrontendBundle(
+    makePlugin(["package.json"]),
+  );
   assert.deepEqual(systems, []);
   assert.match(error ?? "", /dist-scalprum/);
   assert.match(error ?? "", /remoteEntry\.js/);

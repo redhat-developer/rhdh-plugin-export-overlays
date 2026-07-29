@@ -32,11 +32,11 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
 The presence check recognizes both packagings and records which one(s) each plugin
 ships in `results.json` (`frontend.bundles[].systems`):
 
-| System | Required artifacts | Example plugin |
-|---|---|---|
-| Legacy (Scalprum) | `dist-scalprum/` + `plugin-manifest.json` | most current plugins |
+| System                                  | Required artifacts                              | Example plugin           |
+| --------------------------------------- | ----------------------------------------------- | ------------------------ |
+| Legacy (Scalprum)                       | `dist-scalprum/` + `plugin-manifest.json`       | most current plugins     |
 | New frontend system (module federation) | `dist/remoteEntry.js` + `dist/mf-manifest.json` | `app-auth` (new-FE only) |
-| Dual | both layouts | `tech-radar` |
+| Dual                                    | both layouts                                    | `tech-radar`             |
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
 
@@ -138,7 +138,7 @@ Of the 12 pure-backend workspaces, validated empirically:
   `scaffolder-backend-module-{servicenow,sonarqube}` — load + backend start via their
   published OCI refs.
 - **Catalog-gated (6)**: `3scale, ai-integrations, apiconnect, keycloak, pingidentity,
-  scaffolder-relation-processor` — blocked by the upstream catalog-backend boot issue
+scaffolder-relation-processor` — blocked by the upstream catalog-backend boot issue
   (see the caveat at the bottom); they stay on the Docker smoke for now.
 - **No published OCI artifact (2)**: `scaffolder-backend-module-{kubernetes,regex}` —
   their released `dynamicArtifact` is a local `./dynamic-plugins/dist/…` path (plugin
@@ -180,10 +180,10 @@ Same plugin both ways: `roadiehq-scaffolder-backend-module-http-request`
 6.55 GB) was pre-pulled and is excluded from the Docker timing (one-time infra, amortized
 across all workspaces in a CI run).
 
-| Approach | What it does | Wall-clock |
-|----------|--------------|------------|
-| **Native (this harness)** | skopeo pull plugin → load → `startTestBackend` boot | **5 s cold, 3–4 s warm** |
-| **Docker smoke** (`run-workspace-smoke-tests.yaml`) | container start → in-container `install-dynamic-plugins` (pulls same plugin) → full `node packages/backend` boot → `/healthcheck` 200 | **104 s** |
+| Approach                                            | What it does                                                                                                                          | Wall-clock               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **Native (this harness)**                           | skopeo pull plugin → load → `startTestBackend` boot                                                                                   | **5 s cold, 3–4 s warm** |
+| **Docker smoke** (`run-workspace-smoke-tests.yaml`) | container start → in-container `install-dynamic-plugins` (pulls same plugin) → full `node packages/backend` boot → `/healthcheck` 200 | **104 s**                |
 
 Roughly **20× faster cold, ~25–35× warm.** Both confirm the plugin loads; the Docker run
 additionally boots the entire RHDH backend (that extra work is exactly the overhead the
