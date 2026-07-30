@@ -10,6 +10,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { byCodepoint } from "./json.js";
 import {
   exitCodeFor,
   main,
@@ -160,5 +161,23 @@ describe("main argument handling", () => {
     const io = capture();
     assert.equal(await main(["--since", "HEAD"], io.write, io.writeError), 0);
     assert.match(io.stdout, /nothing to validate/);
+  });
+});
+
+describe("byCodepoint", () => {
+  it("orders uppercase before lowercase, as Python's sorted() does", () => {
+    // The property localeCompare would break: several locales sort
+    // case-insensitively, which would reorder the report and break the
+    // byte-identical parity with the script this replaced.
+    assert.deepEqual(["b", "A", "a", "B"].sort(byCodepoint), [
+      "A",
+      "B",
+      "a",
+      "b",
+    ]);
+  });
+
+  it("is 0 for equal strings, so sorts stay stable", () => {
+    assert.equal(byCodepoint("x", "x"), 0);
   });
 });

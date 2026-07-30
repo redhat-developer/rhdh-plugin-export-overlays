@@ -45,7 +45,7 @@ import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
 import type { JsonObject } from "@backstage/types";
-import { errorProperty, isPlainObject } from "./json.js";
+import { byCodepoint, errorProperty, isPlainObject } from "./json.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -308,7 +308,7 @@ export async function applyConfigSchemaPatches(
 
   // Sorted because the numbered filename prefix is how this repo orders patch
   // application, and a later patch may build on an earlier one's result.
-  for (const patchPath of [...patches].sort()) {
+  for (const patchPath of [...patches].sort(byCodepoint)) {
     let patch: string;
     try {
       patch = await readFile(patchPath, "utf8");

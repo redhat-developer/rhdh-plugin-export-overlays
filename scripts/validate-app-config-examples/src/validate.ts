@@ -28,6 +28,7 @@ import {
   packageCoordinates,
   type Status,
 } from "./metadata.js";
+import { byCodepoint } from "./json.js";
 import {
   SchemaResolver,
   validateExample,
@@ -246,13 +247,6 @@ function recordMismatch(
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Codepoint order, matching Python's `sorted()`.
- *
- * Deliberately not `localeCompare`: it is locale-dependent and case-insensitive
- * in several locales, so it would reorder the report and break the
- * byte-identical parity with the script this replaced.
- */
 /** True when this module is the script node was asked to run. */
 function isInvokedDirectly(): boolean {
   const invoked = process.argv[1];
@@ -264,13 +258,6 @@ function isInvokedDirectly(): boolean {
   } catch {
     return false;
   }
-}
-
-function byCodepoint(a: string, b: string): number {
-  if (a < b) {
-    return -1;
-  }
-  return a > b ? 1 : 0;
 }
 
 /**
