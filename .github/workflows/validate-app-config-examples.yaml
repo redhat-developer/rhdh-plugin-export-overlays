@@ -88,9 +88,14 @@ jobs:
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
           node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
 
-      # A full-tree sweep reports schema mismatches without failing: the tree
-      # carries metadata written long before this check existed, and the sweep
-      # is meant to surface that backlog rather than block on it.
+      # The sweep used to run --warn-only because the tree carried metadata
+      # written before this check existed. That backlog is now clear
+      # (RHIDP-15903), so it fails instead: warn-only past the point of a clean
+      # tree just lets the next mismatch land unnoticed.
+      #
+      # This runs on workflow_dispatch only, so a failure here reports on the
+      # whole catalogue — including schemas an upstream release changed under
+      # us — without standing between anyone and a merge.
       - name: Validate (full tree)
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -98,7 +103,7 @@ jobs:
         run: |
           args=()
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
-            args+=(--check-schemas --warn-only)
+            args+=(--check-schemas)
           fi
           node dist/validate.mjs "${args[@]}"
 

@@ -29,7 +29,14 @@ yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
 
 # add schema validation, reporting without failing
 yarn node dist/validate.mjs --check-schemas --warn-only
+
+# the full-tree sweep CI runs on workflow_dispatch
+yarn node dist/validate.mjs --check-schemas
 ```
+
+The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
+mismatch rather than warning. `--warn-only` remains for surveying a tree you have
+not cleaned up yet — a release branch, say.
 
 Exit codes match the Python script this replaced: `0` clean, `1` validation
 failed, `2` the tool itself failed.
@@ -76,21 +83,48 @@ Verified against the real compiler, not assumed.
   is one of the more common real app-config mistakes, and this check does not
   see it.
 - **undeclared keys.** Examples legitimately carry RHDH wiring that belongs to
-  no plugin schema — 72 of 178 metadata files include a `dynamicPlugins` block
+  no plugin schema — 72 of 180 metadata files include a `dynamicPlugins` block
   and 65 contain nothing else. Rejecting undeclared keys would fail all of them,
   so a typo'd key name passes silently.
+- **anything behind an environment placeholder.** See below.
 - **packages whose `config.d.ts` imports from their dependencies.** `npm pack`
   fetches the package alone with no `node_modules`, and config-loader compiles
   with `skipLibCheck: false`, so those fail to compile and report as
   `unavailable`. On a 29-package sample, 6 were affected. Installing each
   package's dependency tree would fix it at a cost this check cannot justify.
 
+### Environment placeholders
+
+Examples write values the deployer supplies as `${SEGMENT_TEST_MODE}`, and
+Backstage substitutes those **before** it validates anything. Checking the
+literal `${...}` text against a declared boolean would therefore reject a value
+that never reaches a schema in that form — which is exactly what happened to
+`analytics-provider-segment` (RHIDP-15903).
+
+Substitution can only ever produce a _string_, so an example is accepted when
+some string assignment to its placeholders satisfies the schema. Concretely the
+validator retries with every placeholder set to `placeholder`, `true`, `false`,
+and `0` in turn, and accepts if any of those validates. The errors it reports
+are always the ones from the untouched document, so paths and values match what
+is on disk.
+
+This deliberately does not weaken structural checks: a placeholder where an
+object or an array is declared is still reported, because no string can satisfy
+that however the variable is set.
+
+One limit: placeholders are substituted uniformly, one candidate at a time,
+rather than searching every combination. An example whose placeholders sit on
+fields of _different_ declared types — one boolean, one number — can still be
+reported. No example in this catalogue does that, and the message names the
+exact path, so the failure direction is a visible false positive rather than a
+silent pass.
+
 Three outcomes are reported as notes rather than failures, because none is a
 defect in the metadata: the package declares no `configSchema`, it is not on the
 registry, or its schema could not be compiled. **Every run that checks schemas
 prints a tally** of validated / mismatched / no-schema / unavailable, and says so
 explicitly when nothing was validated — otherwise an offline runner reports
-`PASS: 178  FAIL: 0` having checked nothing, and the gate looks green because it
+`PASS: 180  FAIL: 0` having checked nothing, and the gate looks green because it
 is inert.
 
 ## Layout
@@ -101,7 +135,7 @@ is inert.
 | `src/metadata.ts` | YAML reading and the structural verdicts             |
 | `src/schema.ts`   | package download, schema loading, example validation |
 | `src/validate.ts` | CLI, reporting, exit codes                           |
-| `src/*.test.ts`   | 64 tests                                             |
+| `src/*.test.ts`   | 77 tests                                             |
 
 `yarn check` runs the type check and the unit tests. The tests never touch the
 network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
