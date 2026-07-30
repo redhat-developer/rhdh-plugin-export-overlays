@@ -65,6 +65,18 @@ export type SchemaOutcome =
   | { kind: "no-schema" }
   | { kind: "unavailable"; reason: string; patchFailure?: boolean };
 
+/**
+ * What the undeclared-key layer made of one example.
+ *
+ * `inspected` is not derivable from `findings`: an empty list means "clean" for
+ * an example the plugin owns part of, and "there was nothing to look at" for one
+ * it does not. Reporting those as the same number would overstate coverage.
+ */
+export type UndeclaredOutcome = {
+  inspected: boolean;
+  findings: string[];
+};
+
 export type ResolvedSchema =
   | { kind: "schema"; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
   | { kind: "no-schema" }
@@ -747,6 +759,117 @@ export async function validateExample(
   }
 
   return { kind: "invalid", errors };
+}
+
+/**
+ * The strict twin of a loaded schema, built once per schema.
+ *
+ * Derived from the serialized form rather than loaded again from the package:
+ * `noUndeclaredProperties` is a post-processing option, and re-reading the
+ * package would re-run the TypeScript compiler — by far the most expensive part
+ * of a sweep — to arrive at the same document.
+ */
+const strictSchemas = new WeakMap<
+  Awaited<ReturnType<typeof loadConfigSchema>>,
+  Promise<Awaited<ReturnType<typeof loadConfigSchema>>>
+>();
+
+function strictVariant(
+  schema: Awaited<ReturnType<typeof loadConfigSchema>>,
+): Promise<Awaited<ReturnType<typeof loadConfigSchema>>> {
+  let pending = strictSchemas.get(schema);
+  if (!pending) {
+    pending = loadConfigSchema({
+      // Cloned because loadConfigSchema takes ownership of what it is handed,
+      // and this document is the live schema's own serialization.
+      serialized: structuredClone(schema.serialize()),
+      noUndeclaredProperties: true,
+    });
+    strictSchemas.set(schema, pending);
+  }
+  return pending;
+}
+
+/**
+ * The top-level keys a plugin's own schema declares.
+ *
+ * config-loader's serialized form is a wrapper carrying one entry per package;
+ * only this package's is present, because the resolver loads it with
+ * `dependencies: []`.
+ */
+export function declaredTopLevelKeys(serialized: unknown): string[] {
+  if (!isPlainObject(serialized) || !Array.isArray(serialized.schemas)) {
+    return [];
+  }
+  const keys = new Set<string>();
+  for (const entry of serialized.schemas) {
+    if (!isPlainObject(entry) || !isPlainObject(entry.value)) {
+      continue;
+    }
+    const { properties } = entry.value;
+    if (isPlainObject(properties)) {
+      for (const key of Object.keys(properties)) {
+        keys.add(key);
+      }
+    }
+  }
+  return [...keys].sort();
+}
+
+/** The part of `content` whose top-level keys the plugin declares. */
+export function projectOntoKeys(
+  content: JsonObject,
+  keys: readonly string[],
+): JsonObject {
+  const wanted = new Set(keys);
+  return Object.fromEntries(
+    Object.entries(content).filter(([key]) => wanted.has(key)),
+  );
+}
+
+/**
+ * Keys an example sets that the plugin's schema does not declare, reported only
+ * within the subtrees that schema owns (RHIDP-15902).
+ *
+ * Turning config-loader's `noUndeclaredProperties` on wholesale does not work
+ * here. It rejects *every* undeclared top-level key, and an example legitimately
+ * carries keys belonging to no plugin schema — the `dynamicPlugins` wrapper, and
+ * core Backstage blocks like `catalog`, `backend` and `proxy`. So the example is
+ * first projected onto the keys this plugin actually declares; whatever remains
+ * is the plugin's own territory, where a key it does not declare is a typo.
+ *
+ * Findings are the difference between what the strict schema rejects and what
+ * the lenient one already rejected on the same document. Taking the difference
+ * rather than matching Ajv's wording keeps this independent of message format,
+ * and means a type error is reported once, by `validateExample`, rather than
+ * again here under the wrong heading.
+ */
+export async function findUndeclaredKeys(
+  source: SchemaSource,
+  pkg: SchemaRequest,
+  label: string,
+  content: unknown,
+): Promise<UndeclaredOutcome> {
+  const resolved = await source.resolve(pkg);
+  if (resolved.kind !== "schema" || !isPlainObject(content)) {
+    return { inspected: false, findings: [] };
+  }
+
+  const declared = declaredTopLevelKeys(resolved.schema.serialize());
+  const projected = projectOntoKeys(content, declared);
+  if (Object.keys(projected).length === 0) {
+    return { inspected: false, findings: [] };
+  }
+
+  const strict = await strictVariant(resolved.schema);
+  const lenientErrors = new Set(
+    runSchema(resolved.schema, projected, label) ?? [],
+  );
+  const strictErrors = runSchema(strict, projected, label) ?? [];
+  return {
+    inspected: true,
+    findings: strictErrors.filter((error) => !lenientErrors.has(error)),
+  };
 }
 
 /**

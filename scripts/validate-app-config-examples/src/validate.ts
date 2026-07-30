@@ -14,6 +14,9 @@
 //   2. semantic — each example's content must satisfy the plugin's own config
 //      schema, read from the published package (RHIDP-13509). Off by default;
 //      enable with --check-schemas.
+//   3. undeclared keys — within the subtrees a plugin's schema owns, a key it
+//      does not declare is a typo (RHIDP-15902). Off by default; enable with
+//      --check-undeclared-keys. Reports, never fails.
 
 import { realpathSync } from "node:fs";
 import { glob } from "node:fs/promises";
@@ -31,6 +34,7 @@ import {
 import { byCodepoint } from "./json.js";
 import {
   SchemaResolver,
+  findUndeclaredKeys,
   validateExample,
   type SchemaOutcome,
   type SchemaSource,
@@ -65,6 +69,21 @@ export type SchemaTally = {
   unavailable: number;
 };
 
+/**
+ * How the undeclared-key layer fared, printed when it runs.
+ *
+ * Separate from SchemaTally because the two answer different questions and
+ * cover different files: a package can be validated against its schema while
+ * declaring no top-level key the example touches, which leaves nothing for this
+ * layer to inspect. Counting files, like SchemaTally, so the two read the same.
+ */
+export type UndeclaredTally = {
+  /** Files with at least one subtree the plugin's schema owns. */
+  inspected: number;
+  /** Files where a key inside such a subtree is not declared. */
+  withFindings: number;
+};
+
 /** Table rule width beyond the status column — inherited from the Python table. */
 const RULE_PADDING = 75;
 
@@ -74,6 +93,10 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      Exits 0 when the range touches no metadata.
   --check-schemas    Also validate each example against the plugin's config
                      schema, resolved from the published package.
+  --check-undeclared-keys
+                     Also report keys the plugin's schema does not declare,
+                     within the subtrees it owns. Implies --check-schemas.
+                     Reports without failing.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
@@ -89,6 +112,7 @@ export async function main(
     options: {
       since: { type: "string" },
       "check-schemas": { type: "boolean", default: false },
+      "check-undeclared-keys": { type: "boolean", default: false },
       "warn-only": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -122,6 +146,12 @@ export async function main(
     return 0;
   }
 
+  // Undeclared keys are found by comparing a strict schema against the lenient
+  // one, so the schema layer has to be running for this to mean anything.
+  const checkUndeclared = values["check-undeclared-keys"] ?? false;
+  const checkSchemasFlag =
+    (values["check-schemas"] ?? false) || checkUndeclared;
+
   const resolver = new SchemaResolver();
   const rows: Row[] = [];
   const tally: SchemaTally = {
@@ -130,6 +160,9 @@ export async function main(
     noSchema: 0,
     unavailable: 0,
   };
+  const undeclared: UndeclaredTally | undefined = checkUndeclared
+    ? { inspected: 0, withFindings: 0 }
+    : undefined;
 
   try {
     for (const path of paths) {
@@ -144,7 +177,7 @@ export async function main(
 
       // Only structurally sound Packages are worth schema-checking: a file that
       // failed above has nothing meaningful to validate.
-      if (values["check-schemas"] && result.status === "PASS") {
+      if (checkSchemasFlag && result.status === "PASS") {
         await checkSchemas(
           row,
           result.doc,
@@ -152,6 +185,7 @@ export async function main(
           values["warn-only"] ?? false,
           tally,
           await workspacePatches(repoRoot, path),
+          undeclared,
         );
       }
     }
@@ -159,7 +193,13 @@ export async function main(
     await resolver.cleanup();
   }
 
-  printReport(rows, tally, values["check-schemas"] ?? false, write, writeError);
+  printReport(
+    rows,
+    tally,
+    { checked: checkSchemasFlag, undeclared },
+    write,
+    writeError,
+  );
   return exitCodeFor(rows);
 }
 
@@ -171,6 +211,7 @@ async function checkSchemas(
   warnOnly: boolean,
   tally: SchemaTally,
   patches: readonly string[],
+  undeclared: UndeclaredTally | undefined,
 ): Promise<void> {
   const examples = examplesWithContent(doc);
   if (examples.length === 0) {
@@ -187,14 +228,12 @@ async function checkSchemas(
 
   let validatedAny = false;
   let mismatchedAny = false;
+  let inspectedAny = false;
+  let undeclaredAny = false;
 
   for (const example of examples) {
-    const outcome = await validateExample(
-      source,
-      pkg,
-      `${row.path} (${example.title})`,
-      example.content,
-    );
+    const label = `${row.path} (${example.title})`;
+    const outcome = await validateExample(source, pkg, label, example.content);
 
     // no-schema and unavailable are properties of the package, not the example,
     // so the first one settles the whole file.
@@ -209,12 +248,35 @@ async function checkSchemas(
       mismatchedAny = true;
       recordMismatch(row, example.title, outcome.errors, warnOnly);
     }
+
+    if (undeclared) {
+      const outcome = await findUndeclaredKeys(
+        source,
+        pkg,
+        label,
+        example.content,
+      );
+      inspectedAny ||= outcome.inspected;
+      undeclaredAny ||= outcome.findings.length > 0;
+      for (const finding of outcome.findings) {
+        row.notes.push(`undeclared key in "${example.title}": ${finding}`);
+      }
+    }
   }
 
   if (mismatchedAny) {
     tally.mismatched += 1;
   } else if (validatedAny) {
     tally.validated += 1;
+  }
+
+  if (undeclared) {
+    if (inspectedAny) {
+      undeclared.inspected += 1;
+    }
+    if (undeclaredAny) {
+      undeclared.withFindings += 1;
+    }
   }
 }
 
@@ -367,10 +429,11 @@ export function exitCodeFor(rows: Row[]): number {
 export function printReport(
   rows: Row[],
   tally: SchemaTally,
-  checkedSchemas: boolean,
+  schemas: { checked: boolean; undeclared?: UndeclaredTally },
   write: (text: string) => void,
   writeError: (text: string) => void,
 ): void {
+  const { checked: checkedSchemas, undeclared } = schemas;
   const statusWidth = Math.max(
     "STATUS".length,
     ...rows.map((row) => row.status.length),
@@ -407,6 +470,23 @@ export function printReport(
           "nothing about whether the examples are correct.\n",
       );
     }
+  }
+
+  if (undeclared) {
+    write(
+      `Undeclared keys — inspected: ${undeclared.inspected}  ` +
+        `with findings: ${undeclared.withFindings}\n`,
+    );
+    if (undeclared.inspected === 0) {
+      write(
+        "NOTE: no example had a subtree its plugin's schema declares, so no " +
+          "undeclared key could have been found.\n",
+      );
+    }
+    write(
+      "NOTE: undeclared keys are reported, never failed. They are advisory " +
+        "until the backlog above is clear.\n",
+    );
   }
 
   if (failures > 0) {

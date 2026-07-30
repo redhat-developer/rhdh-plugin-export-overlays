@@ -20,12 +20,15 @@ import {
   applyConfigSchemaPatches,
   containsPlaceholder,
   declaredConfigSchemaPath,
+  declaredTopLevelKeys,
   describeError,
   findPackageRoot,
+  findUndeclaredKeys,
   hasConstraints,
   hasPlaceholder,
   isInside,
   isSafePackageSpec,
+  projectOntoKeys,
   splitDiffByFile,
   splitSchemaErrors,
   stripLevelFor,
@@ -479,6 +482,100 @@ describe("validateExample with environment placeholders", () => {
       acme: { url: "https://${HOST}/api" },
     });
     assert.deepEqual(outcome, { kind: "ok" });
+  });
+});
+
+describe("declaredTopLevelKeys", () => {
+  it("collects the properties a schema declares", async () => {
+    const source = await sourceWithSchema();
+    const resolved = await source.resolve(PKG);
+    assert.equal(resolved.kind, "schema");
+    assert.deepEqual(
+      resolved.kind === "schema"
+        ? declaredTopLevelKeys(resolved.schema.serialize())
+        : [],
+      ["acme"],
+    );
+  });
+
+  it("is empty for anything that is not a serialized schema", () => {
+    assert.deepEqual(declaredTopLevelKeys(undefined), []);
+    assert.deepEqual(declaredTopLevelKeys({ schemas: "nope" }), []);
+    assert.deepEqual(declaredTopLevelKeys({ schemas: [] }), []);
+  });
+});
+
+describe("projectOntoKeys", () => {
+  it("keeps only the declared keys", () => {
+    assert.deepEqual(
+      projectOntoKeys({ acme: { a: 1 }, dynamicPlugins: {}, proxy: {} }, [
+        "acme",
+      ]),
+      { acme: { a: 1 } },
+    );
+  });
+
+  it("is empty when the example touches nothing the plugin declares", () => {
+    assert.deepEqual(projectOntoKeys({ dynamicPlugins: {} }, ["acme"]), {});
+  });
+});
+
+describe("findUndeclaredKeys", () => {
+  it("reports a typo inside a subtree the plugin owns", async () => {
+    const outcome = await findUndeclaredKeys(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "x", retires: 3 } },
+    );
+    assert.equal(outcome.inspected, true);
+    assert.equal(outcome.findings.length, 1);
+    assert.match(outcome.findings[0], /retires/);
+  });
+
+  it("ignores keys outside the subtrees the plugin owns", async () => {
+    // The whole reason noUndeclaredProperties cannot be switched on wholesale:
+    // examples carry the dynamicPlugins wrapper and core Backstage blocks that
+    // belong to no plugin schema.
+    const outcome = await findUndeclaredKeys(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "x" }, dynamicPlugins: { frontend: {} }, proxy: {} },
+    );
+    assert.deepEqual(outcome, { inspected: true, findings: [] });
+  });
+
+  it("reports nothing to inspect when the plugin owns none of the example", async () => {
+    const outcome = await findUndeclaredKeys(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { dynamicPlugins: { frontend: {} } },
+    );
+    assert.deepEqual(outcome, { inspected: false, findings: [] });
+  });
+
+  it("does not repeat a type error validateExample already reports", async () => {
+    // Findings are the difference between the strict and lenient runs, so an
+    // error both produce belongs to the schema layer and not to this one.
+    const outcome = await findUndeclaredKeys(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "x", hosts: "not-a-list" } },
+    );
+    assert.deepEqual(outcome.findings, []);
+  });
+
+  it("reports nothing when the schema could not be resolved", async () => {
+    const source: SchemaSource = {
+      resolve: async () => ({ kind: "unavailable", reason: "HTTP 404" }),
+    };
+    assert.deepEqual(await findUndeclaredKeys(source, PKG, "label", {}), {
+      inspected: false,
+      findings: [],
+    });
   });
 });
 

@@ -72,7 +72,7 @@ describe("printReport", () => {
     printReport(
       [{ ...passing, status: "FAIL", detail: "boom" }],
       NO_SCHEMAS,
-      false,
+      { checked: false },
       io.write,
       io.writeError,
     );
@@ -81,7 +81,13 @@ describe("printReport", () => {
 
   it("stays quiet on stderr when everything passed", () => {
     const io = capture();
-    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: false },
+      io.write,
+      io.writeError,
+    );
     assert.equal(io.stderr, "");
   });
 });
@@ -92,7 +98,7 @@ describe("report output", () => {
     printReport(
       [passing, { ...passing, status: "FAIL", path: "b.yaml", detail: "why" }],
       NO_SCHEMAS,
-      false,
+      { checked: false },
       io.write,
       io.writeError,
     );
@@ -105,7 +111,7 @@ describe("report output", () => {
     printReport(
       [{ ...passing, notes: ["schema unavailable: HTTP 404"] }],
       NO_SCHEMAS,
-      true,
+      { checked: true },
       io.write,
       io.writeError,
     );
@@ -114,7 +120,13 @@ describe("report output", () => {
 
   it("omits the schema line entirely when schemas were not checked", () => {
     const io = capture();
-    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: false },
+      io.write,
+      io.writeError,
+    );
     assert.ok(!io.stdout.includes("Schemas —"));
   });
 
@@ -123,20 +135,20 @@ describe("report output", () => {
     // "PASS: 1  FAIL: 0" and reads as a green gate, having checked nothing.
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, noSchema: 1, unavailable: 5 };
-    printReport([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, { checked: true }, io.write, io.writeError);
     assert.match(io.stdout, /no example was checked against a schema/);
   });
 
   it("does not warn when at least one example was validated", () => {
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, validated: 1 };
-    printReport([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, { checked: true }, io.write, io.writeError);
     assert.ok(!io.stdout.includes("no example was checked"));
   });
 
   it("prints a header even with no rows at all", () => {
     const io = capture();
-    printReport([], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport([], NO_SCHEMAS, { checked: false }, io.write, io.writeError);
     assert.match(io.stdout, /^STATUS {2}FILE\n/);
     assert.match(io.stdout, /Total: 0 {2}PASS: 0 {2}FAIL: 0/);
   });
