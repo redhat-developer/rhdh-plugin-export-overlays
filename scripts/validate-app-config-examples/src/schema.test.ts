@@ -29,6 +29,7 @@ import {
   isInside,
   isSafePackageSpec,
   projectOntoKeys,
+  rejectUndeclaredKeys,
   splitDiffByFile,
   splitSchemaErrors,
   stripLevelFor,
@@ -528,7 +529,7 @@ describe("findUndeclaredKeys", () => {
       "label",
       { acme: { baseUrl: "x", retires: 3 } },
     );
-    assert.equal(outcome.inspected, true);
+    assert.equal(outcome.ownsSubtree, true);
     assert.equal(outcome.findings.length, 1);
     assert.match(outcome.findings[0], /retires/);
   });
@@ -543,7 +544,7 @@ describe("findUndeclaredKeys", () => {
       "label",
       { acme: { baseUrl: "x" }, dynamicPlugins: { frontend: {} }, proxy: {} },
     );
-    assert.deepEqual(outcome, { inspected: true, findings: [] });
+    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
   });
 
   it("reports nothing to inspect when the plugin owns none of the example", async () => {
@@ -553,7 +554,7 @@ describe("findUndeclaredKeys", () => {
       "label",
       { dynamicPlugins: { frontend: {} } },
     );
-    assert.deepEqual(outcome, { inspected: false, findings: [] });
+    assert.deepEqual(outcome, { ownsSubtree: false, findings: [] });
   });
 
   it("does not repeat a type error validateExample already reports", async () => {
@@ -565,7 +566,16 @@ describe("findUndeclaredKeys", () => {
       "label",
       { acme: { baseUrl: "x", hosts: "not-a-list" } },
     );
-    assert.deepEqual(outcome.findings, []);
+    // Full shape, not just an empty list: asserting only `findings` would also
+    // pass if the projection broke and nothing was ever inspected.
+    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+  });
+
+  it("reports nothing to inspect when the content is not a mapping", async () => {
+    assert.deepEqual(
+      await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", ["a"]),
+      { ownsSubtree: false, findings: [] },
+    );
   });
 
   it("reports nothing when the schema could not be resolved", async () => {
@@ -573,7 +583,7 @@ describe("findUndeclaredKeys", () => {
       resolve: async () => ({ kind: "unavailable", reason: "HTTP 404" }),
     };
     assert.deepEqual(await findUndeclaredKeys(source, PKG, "label", {}), {
-      inspected: false,
+      ownsSubtree: false,
       findings: [],
     });
   });
@@ -1128,5 +1138,317 @@ describe("the placeholder pattern tracks config-loader's own", () => {
     // schema violation on a value that is never substituted.
     assert.equal(hasPlaceholder("${A{B}"), false);
     assert.equal(hasPlaceholder("${AB}"), true);
+  });
+});
+
+/**
+ * A schema whose `oneOf` branches are object-typed, like several real Backstage
+ * schemas. config-loader injects `additionalProperties: false` into every such
+ * branch, which changes which branch a document satisfies.
+ */
+async function sourceWithObjectUnion(): Promise<SchemaSource> {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: {
+            type: "object",
+            properties: {
+              acme: {
+                type: "object",
+                properties: { a: { type: "string" }, b: { type: "string" } },
+                oneOf: [
+                  { type: "object", required: ["a"] },
+                  { type: "object", required: ["b"] },
+                ],
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema", schema }) };
+}
+
+describe("findUndeclaredKeys and union branches", () => {
+  it("reports nothing for a valid document whose schema uses oneOf", async () => {
+    // Strictness rewrites the branches, so the strict run emits `required` and
+    // `oneOf` errors about a document that is fine. Reporting those as
+    // undeclared keys would be a flatly false statement.
+    const outcome = await findUndeclaredKeys(
+      await sourceWithObjectUnion(),
+      PKG,
+      "label",
+      { acme: { a: "x" } },
+    );
+    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+  });
+
+  it("reports a real undeclared key once, not once per union branch", async () => {
+    const outcome = await findUndeclaredKeys(
+      await sourceWithObjectUnion(),
+      PKG,
+      "label",
+      { acme: { a: "x", tpyo: 1 } },
+    );
+    assert.equal(outcome.ownsSubtree, true);
+    // Exactly one: the raw strict run repeats the key once per branch it was
+    // reached through, and only the dedup keeps that out of the report.
+    assert.equal(outcome.findings.length, 1);
+    assert.match(outcome.findings[0], /additionalProperty=tpyo/);
+  });
+});
+
+describe("config-loader's undeclared-property message format", () => {
+  it("still names the offending key as additionalProperty=", async () => {
+    // findUndeclaredKeys filters on this wording. If config-loader changes it
+    // the layer silently reports nothing, so pin it here rather than discover
+    // it from an empty report.
+    const strict = await loadConfigSchema({
+      serialized: {
+        backstageConfigSchemaVersion: 1,
+        schemas: [
+          {
+            path: "plugin/config.d.ts",
+            value: {
+              type: "object",
+              properties: {
+                acme: { type: "object", properties: { a: { type: "string" } } },
+              },
+            },
+          },
+        ],
+      },
+      noUndeclaredProperties: true,
+    });
+    assert.throws(
+      () =>
+        strict.process([{ data: { acme: { tpyo: 1 } }, context: "label" }], {
+          ignoreSchemaErrors: false,
+        }),
+      /additionalProperty=tpyo/,
+    );
+  });
+});
+
+describe("declaredTopLevelKeys across several schema entries", () => {
+  it("merges, deduplicates and sorts", () => {
+    assert.deepEqual(
+      declaredTopLevelKeys({
+        backstageConfigSchemaVersion: 1,
+        schemas: [
+          {
+            path: "a",
+            value: { type: "object", properties: { b: {}, a: {} } },
+          },
+          {
+            path: "b",
+            value: { type: "object", properties: { a: {}, c: {} } },
+          },
+        ],
+      }),
+      ["a", "b", "c"],
+    );
+  });
+
+  it("skips entries with no usable properties rather than throwing", () => {
+    assert.deepEqual(
+      declaredTopLevelKeys({
+        schemas: [{}, { value: {} }, { value: { properties: "nope" } }],
+      }),
+      [],
+    );
+  });
+});
+
+describe("rejectUndeclaredKeys", () => {
+  it("closes a node that enumerates its properties", () => {
+    assert.deepEqual(
+      rejectUndeclaredKeys({ type: "object", properties: { a: {} } }),
+      { type: "object", properties: { a: {} }, additionalProperties: false },
+    );
+  });
+
+  it("leaves union branches that enumerate nothing open", () => {
+    // Closing them is what made config-loader's own option report valid
+    // documents: each branch would reject the other branch's key.
+    assert.deepEqual(
+      rejectUndeclaredKeys({
+        type: "object",
+        properties: { a: {}, b: {} },
+        oneOf: [
+          { type: "object", required: ["a"] },
+          { type: "object", required: ["b"] },
+        ],
+      }),
+      {
+        type: "object",
+        properties: { a: {}, b: {} },
+        additionalProperties: false,
+        oneOf: [
+          { type: "object", required: ["a"] },
+          { type: "object", required: ["b"] },
+        ],
+      },
+    );
+  });
+
+  it("keeps whatever the plugin already chose", () => {
+    assert.deepEqual(
+      rejectUndeclaredKeys({
+        type: "object",
+        properties: { a: {} },
+        additionalProperties: { type: "string" },
+      }),
+      {
+        type: "object",
+        properties: { a: {} },
+        additionalProperties: { type: "string" },
+      },
+    );
+  });
+
+  it("closes nested schemas reached through properties and items", () => {
+    const closed = rejectUndeclaredKeys({
+      type: "object",
+      properties: {
+        outer: {
+          type: "object",
+          properties: {
+            inner: { type: "array", items: { properties: { x: {} } } },
+          },
+        },
+      },
+    });
+    assert.equal(
+      // @ts-expect-error — walking a literal for the assertion
+      closed.properties.outer.properties.inner.items.additionalProperties,
+      false,
+    );
+  });
+
+  it("does not mistake a config key named `properties` for a schema node", () => {
+    // The walk follows JSON Schema keywords rather than descending into every
+    // object, so a plugin with a `properties` config key keeps its shape.
+    const closed = rejectUndeclaredKeys({
+      type: "object",
+      properties: { properties: { type: "string" } },
+    });
+    assert.deepEqual(closed, {
+      type: "object",
+      properties: { properties: { type: "string" } },
+      additionalProperties: false,
+    });
+  });
+
+  it("walks the serialized wrapper config-loader hands back", () => {
+    const closed = rejectUndeclaredKeys({
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        { path: "a", value: { type: "object", properties: { a: {} } } },
+      ],
+    });
+    assert.equal(
+      // @ts-expect-error — walking a literal for the assertion
+      closed.schemas[0].value.additionalProperties,
+      false,
+    );
+  });
+});
+
+describe("findUndeclaredKeys and alternative-shape unions", () => {
+  /** The dynatrace shape: array items are a union of *complete* alternatives. */
+  async function sourceWithAlternatives(): Promise<SchemaSource> {
+    const schema = await loadConfigSchema({
+      serialized: {
+        backstageConfigSchemaVersion: 1,
+        schemas: [
+          {
+            path: "plugin/config.d.ts",
+            value: {
+              type: "object",
+              properties: {
+                acme: {
+                  type: "object",
+                  properties: {
+                    envs: {
+                      type: "array",
+                      items: {
+                        anyOf: [
+                          {
+                            type: "object",
+                            required: ["url", "clientId"],
+                            properties: {
+                              url: { type: "string" },
+                              clientId: { type: "string" },
+                            },
+                          },
+                          {
+                            type: "object",
+                            required: ["url", "token"],
+                            properties: {
+                              url: { type: "string" },
+                              token: { type: "string" },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    return { resolve: async () => ({ kind: "schema", schema }) };
+  }
+
+  it("accepts a document matching one alternative", async () => {
+    // Each branch enumerates its own complete key set, so closing them is safe —
+    // unlike branches that enumerate nothing and lean on a shared parent.
+    const outcome = await findUndeclaredKeys(
+      await sourceWithAlternatives(),
+      PKG,
+      "label",
+      { acme: { envs: [{ url: "u", clientId: "c" }] } },
+    );
+    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+  });
+
+  it("reports a typo inside the chosen alternative", async () => {
+    const outcome = await findUndeclaredKeys(
+      await sourceWithAlternatives(),
+      PKG,
+      "label",
+      { acme: { envs: [{ url: "u", clientId: "c", tpyo: 1 }] } },
+    );
+    assert.match(outcome.findings.join(" "), /tpyo/);
+  });
+});
+
+describe("rejectUndeclaredKeys and keywords it deliberately skips", () => {
+  it("leaves a node under `not` open", () => {
+    // Tightening inside a negation loosens the negation, so closing here could
+    // manufacture a finding rather than catch one.
+    assert.deepEqual(
+      rejectUndeclaredKeys({ not: { type: "object", properties: { a: {} } } }),
+      { not: { type: "object", properties: { a: {} } } },
+    );
+  });
+
+  it("leaves nodes under unhandled keywords open, under-reporting rather than over-", () => {
+    const closed = rejectUndeclaredKeys({
+      if: { type: "object", properties: { a: {} } },
+      contains: { type: "object", properties: { b: {} } },
+    });
+    assert.deepEqual(closed, {
+      if: { type: "object", properties: { a: {} } },
+      contains: { type: "object", properties: { b: {} } },
+    });
   });
 });

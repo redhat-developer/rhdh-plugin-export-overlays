@@ -56,6 +56,9 @@ import { byCodepoint, errorProperty, isPlainObject } from "./json.js";
 
 const execFileAsync = promisify(execFile);
 
+/** What `loadConfigSchema` hands back — named to keep the signatures readable. */
+type LoadedSchema = Awaited<ReturnType<typeof loadConfigSchema>>;
+
 /** How many lines of a multi-line diagnostic reach the report. */
 const DIAGNOSTIC_LINES = 3;
 
@@ -68,17 +71,33 @@ export type SchemaOutcome =
 /**
  * What the undeclared-key layer made of one example.
  *
- * `inspected` is not derivable from `findings`: an empty list means "clean" for
- * an example the plugin owns part of, and "there was nothing to look at" for one
- * it does not. Reporting those as the same number would overstate coverage.
+ * `ownsSubtree` is not derivable from `findings`: an empty list means "clean"
+ * for an example the plugin owns part of, and "there was nothing to look at"
+ * for one it does not. Reporting those as the same number would overstate
+ * coverage.
+ *
+ * It says the plugin declares at least one top-level key this example sets —
+ * deliberately not "a typo here would have been caught". Strictness only closes
+ * nodes that enumerate their properties, so a schema declaring a free-form
+ * object, or describing its shape entirely through `$ref`, owns a subtree in
+ * which nothing can be found.
  */
 export type UndeclaredOutcome = {
-  inspected: boolean;
+  ownsSubtree: boolean;
   findings: string[];
 };
 
+/**
+ * Marks the one Ajv error class this layer is about.
+ *
+ * config-loader renders an additional-properties violation with the offending
+ * key in its params — `… { additionalProperty=hosst } at /acme`. Pinned by a
+ * test, because the whole layer goes quiet if this stops matching.
+ */
+const UNDECLARED_PROPERTY = /additionalProperty=/;
+
 export type ResolvedSchema =
-  | { kind: "schema"; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
+  | { kind: "schema"; schema: LoadedSchema }
   | { kind: "no-schema" }
   /**
    * `patchFailure` separates a defect in this repo from a fact about the
@@ -663,7 +682,7 @@ export function substitutePlaceholders(
 
 /** Runs the schema over one document. Returns the errors, or undefined if clean. */
 function runSchema(
-  schema: Awaited<ReturnType<typeof loadConfigSchema>>,
+  schema: LoadedSchema,
   data: JsonObject,
   label: string,
 ): string[] | undefined {
@@ -770,24 +789,121 @@ export async function validateExample(
  * of a sweep — to arrive at the same document.
  */
 const strictSchemas = new WeakMap<
-  Awaited<ReturnType<typeof loadConfigSchema>>,
-  Promise<Awaited<ReturnType<typeof loadConfigSchema>>>
+  LoadedSchema,
+  Promise<LoadedSchema | undefined>
 >();
 
 function strictVariant(
-  schema: Awaited<ReturnType<typeof loadConfigSchema>>,
-): Promise<Awaited<ReturnType<typeof loadConfigSchema>>> {
+  schema: LoadedSchema,
+): Promise<LoadedSchema | undefined> {
   let pending = strictSchemas.get(schema);
   if (!pending) {
+    // Cloned because `serialize()` hands out the live `schemas` array rather
+    // than a copy, and loadConfigSchema keeps a reference to what it is given —
+    // without this the lenient and strict schemas would share one mutable
+    // document.
+    const document = structuredClone(schema.serialize());
     pending = loadConfigSchema({
-      // Cloned because loadConfigSchema takes ownership of what it is handed,
-      // and this document is the live schema's own serialization.
-      serialized: structuredClone(schema.serialize()),
-      noUndeclaredProperties: true,
-    });
+      serialized: rejectUndeclaredKeys(document),
+      // Undefined rather than a rejection: this layer is advisory, and an
+      // unhandled rejection here would escape checkSchemas and lose the
+      // structural verdict for every file in the run.
+    }).catch(() => undefined);
     strictSchemas.set(schema, pending);
   }
   return pending;
+}
+
+/**
+ * JSON Schema keywords whose values are themselves schemas.
+ *
+ * `not` is deliberately absent: tightening a schema inside a negation *loosens*
+ * the negation, so closing a node under `not` could manufacture a finding
+ * instead of catching one. `if`/`then`/`else`, `contains`, `propertyNames`,
+ * `dependentSchemas` and `prefixItems` are absent too — nodes under those are
+ * simply never closed, so the layer under-reports there. Under-reporting is the
+ * safe direction for an advisory check, and `ts-json-schema-generator` emits
+ * none of them from the `config.d.ts` files this catalogue uses.
+ */
+const SCHEMA_VALUED = ["items", "additionalProperties"] as const;
+/** Keywords holding a map of name to schema. */
+const SCHEMA_MAPS = [
+  "properties",
+  "patternProperties",
+  "definitions",
+  "$defs",
+] as const;
+/** Keywords holding a list of schemas. */
+const SCHEMA_LISTS = ["anyOf", "oneOf", "allOf"] as const;
+
+/**
+ * Marks every node that enumerates its properties as closed.
+ *
+ * Deliberately not config-loader's `noUndeclaredProperties`, which closes every
+ * subschema stating `type: "object"` whether or not it lists any properties.
+ * That breaks unions: given `oneOf: [{required:[a]}, {required:[b]}]` with the
+ * properties declared on the parent, closing the branches makes each reject the
+ * other's key, and the strict run then reports valid documents as carrying
+ * undeclared properties.
+ *
+ * Closing only nodes that actually enumerate properties leaves union branches
+ * alone and still catches a typo among the keys a node does list. Nodes that
+ * already declare `additionalProperties` keep whatever the plugin chose.
+ *
+ * The walk follows JSON Schema keywords rather than descending into every
+ * object, so a config key that happens to be named `properties` is not mistaken
+ * for a schema node.
+ */
+export function rejectUndeclaredKeys<T>(document: T): T {
+  if (Array.isArray(document)) {
+    return document.map(rejectUndeclaredKeys) as T;
+  }
+  if (!isPlainObject(document)) {
+    return document;
+  }
+
+  const node: JsonObject = { ...document };
+
+  for (const keyword of SCHEMA_MAPS) {
+    const value = node[keyword];
+    if (isPlainObject(value)) {
+      node[keyword] = Object.fromEntries(
+        Object.entries(value).map(([name, sub]) => [
+          name,
+          rejectUndeclaredKeys(sub),
+        ]),
+      );
+    }
+  }
+  for (const keyword of SCHEMA_LISTS) {
+    const value = node[keyword];
+    if (Array.isArray(value)) {
+      node[keyword] = value.map(rejectUndeclaredKeys);
+    }
+  }
+  for (const keyword of SCHEMA_VALUED) {
+    if (keyword in node) {
+      node[keyword] = rejectUndeclaredKeys(node[keyword]);
+    }
+  }
+  // The wrapper config-loader serializes into: each entry's `value` is a schema.
+  if (Array.isArray(node.schemas)) {
+    node.schemas = node.schemas.map((entry) =>
+      isPlainObject(entry) && "value" in entry
+        ? { ...entry, value: rejectUndeclaredKeys(entry.value) }
+        : entry,
+    );
+  }
+
+  const { properties } = node;
+  if (
+    isPlainObject(properties) &&
+    Object.keys(properties).length > 0 &&
+    !("additionalProperties" in node)
+  ) {
+    node.additionalProperties = false;
+  }
+  return node as T;
 }
 
 /**
@@ -813,7 +929,7 @@ export function declaredTopLevelKeys(serialized: unknown): string[] {
       }
     }
   }
-  return [...keys].sort();
+  return [...keys].sort(byCodepoint);
 }
 
 /** The part of `content` whose top-level keys the plugin declares. */
@@ -838,11 +954,21 @@ export function projectOntoKeys(
  * first projected onto the keys this plugin actually declares; whatever remains
  * is the plugin's own territory, where a key it does not declare is a typo.
  *
- * Findings are the difference between what the strict schema rejects and what
- * the lenient one already rejected on the same document. Taking the difference
- * rather than matching Ajv's wording keeps this independent of message format,
- * and means a type error is reported once, by `validateExample`, rather than
- * again here under the wrong heading.
+ * Findings are the undeclared-property errors the strict schema reports and the
+ * lenient one did not. Both halves are needed. Filtering to
+ * `additionalProperty=` is what keeps the *label* honest: config-loader injects
+ * `additionalProperties: false` into every object-typed subschema, including
+ * `anyOf`/`oneOf` branches, which changes which branch a document satisfies —
+ * so the strict run also emits `required` and `oneOf` errors about documents
+ * that are perfectly valid. Reporting those as undeclared keys would be a
+ * flatly false statement. Differencing against the lenient run is what stops a
+ * genuine `additionalProperties` violation the plugin's own schema already
+ * declares from being counted twice.
+ *
+ * That filter is a dependency on config-loader's message format, which
+ * `splitSchemaErrors` has been caught getting wrong before — so a test pins the
+ * wording. If it drifts, that test fails loudly rather than this layer quietly
+ * reporting nothing.
  */
 export async function findUndeclaredKeys(
   source: SchemaSource,
@@ -852,23 +978,32 @@ export async function findUndeclaredKeys(
 ): Promise<UndeclaredOutcome> {
   const resolved = await source.resolve(pkg);
   if (resolved.kind !== "schema" || !isPlainObject(content)) {
-    return { inspected: false, findings: [] };
+    return { ownsSubtree: false, findings: [] };
   }
 
   const declared = declaredTopLevelKeys(resolved.schema.serialize());
   const projected = projectOntoKeys(content, declared);
   if (Object.keys(projected).length === 0) {
-    return { inspected: false, findings: [] };
+    return { ownsSubtree: false, findings: [] };
   }
 
   const strict = await strictVariant(resolved.schema);
+  if (strict === undefined) {
+    // The strict compile failed on a document the lenient one accepted. Nothing
+    // can be found here, and saying otherwise would overstate the coverage.
+    return { ownsSubtree: false, findings: [] };
+  }
   const lenientErrors = new Set(
     runSchema(resolved.schema, projected, label) ?? [],
   );
-  const strictErrors = runSchema(strict, projected, label) ?? [];
+  // Deduplicated: one undeclared key reached through several union branches is
+  // one finding, and the raw list repeats it once per branch.
+  const strictErrors = new Set(runSchema(strict, projected, label) ?? []);
   return {
-    inspected: true,
-    findings: strictErrors.filter((error) => !lenientErrors.has(error)),
+    ownsSubtree: true,
+    findings: [...strictErrors].filter(
+      (error) => UNDECLARED_PROPERTY.test(error) && !lenientErrors.has(error),
+    ),
   };
 }
 

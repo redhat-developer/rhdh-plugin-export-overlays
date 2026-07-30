@@ -78,8 +78,8 @@ export type SchemaTally = {
  * layer to inspect. Counting files, like SchemaTally, so the two read the same.
  */
 export type UndeclaredTally = {
-  /** Files with at least one subtree the plugin's schema owns. */
-  inspected: number;
+  /** Files where the plugin's schema declares a top-level key the example sets. */
+  withOwnedSubtree: number;
   /** Files where a key inside such a subtree is not declared. */
   withFindings: number;
 };
@@ -95,8 +95,9 @@ const USAGE = `Usage: validate-app-config-examples [options]
                      schema, resolved from the published package.
   --check-undeclared-keys
                      Also report keys the plugin's schema does not declare,
-                     within the subtrees it owns. Implies --check-schemas.
-                     Reports without failing.
+                     within the subtrees it owns. Its own findings never fail
+                     the run, but it implies --check-schemas, which does fail
+                     on a mismatch unless --warn-only is also given.
   --warn-only        Report schema mismatches without failing. Structural
                      failures still fail the run.
   --help             Show this message.
@@ -161,7 +162,7 @@ export async function main(
     unavailable: 0,
   };
   const undeclared: UndeclaredTally | undefined = checkUndeclared
-    ? { inspected: 0, withFindings: 0 }
+    ? { withOwnedSubtree: 0, withFindings: 0 }
     : undefined;
 
   try {
@@ -228,7 +229,7 @@ async function checkSchemas(
 
   let validatedAny = false;
   let mismatchedAny = false;
-  let inspectedAny = false;
+  let ownsSubtreeAny = false;
   let undeclaredAny = false;
 
   for (const example of examples) {
@@ -250,15 +251,15 @@ async function checkSchemas(
     }
 
     if (undeclared) {
-      const outcome = await findUndeclaredKeys(
+      const undeclaredOutcome = await findUndeclaredKeys(
         source,
         pkg,
         label,
         example.content,
       );
-      inspectedAny ||= outcome.inspected;
-      undeclaredAny ||= outcome.findings.length > 0;
-      for (const finding of outcome.findings) {
+      ownsSubtreeAny ||= undeclaredOutcome.ownsSubtree;
+      undeclaredAny ||= undeclaredOutcome.findings.length > 0;
+      for (const finding of undeclaredOutcome.findings) {
         row.notes.push(`undeclared key in "${example.title}": ${finding}`);
       }
     }
@@ -271,8 +272,8 @@ async function checkSchemas(
   }
 
   if (undeclared) {
-    if (inspectedAny) {
-      undeclared.inspected += 1;
+    if (ownsSubtreeAny) {
+      undeclared.withOwnedSubtree += 1;
     }
     if (undeclaredAny) {
       undeclared.withFindings += 1;
@@ -474,19 +475,23 @@ export function printReport(
 
   if (undeclared) {
     write(
-      `Undeclared keys — inspected: ${undeclared.inspected}  ` +
+      `Undeclared keys — plugin-owned subtrees: ${undeclared.withOwnedSubtree}  ` +
         `with findings: ${undeclared.withFindings}\n`,
     );
-    if (undeclared.inspected === 0) {
+    if (undeclared.withOwnedSubtree === 0) {
       write(
         "NOTE: no example had a subtree its plugin's schema declares, so no " +
           "undeclared key could have been found.\n",
       );
+    } else if (undeclared.withFindings > 0) {
+      // Only worth saying when there is something to be advisory about — after
+      // the line above it would read as "we found nothing, and nothing we found
+      // would have failed".
+      write(
+        "NOTE: undeclared keys are reported, never failed. Not every finding " +
+          "is a typo; see the README.\n",
+      );
     }
-    write(
-      "NOTE: undeclared keys are reported, never failed. They are advisory " +
-        "until the backlog above is clear.\n",
-    );
   }
 
   if (failures > 0) {
