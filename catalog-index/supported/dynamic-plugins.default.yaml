@@ -8,7 +8,7 @@
 # https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
 plugins:
   # Tag: bs_1.52.0__1.30.0, Build date: 2026-06-03T21:17:18Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:208287db2824a0e6a42877a4fe446382354f2155a7f3164c63c7707b8b15105b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:a04de95790e884986b5facdb129195adc544afbf5ca364ed86d607b8065f65f4
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -142,9 +142,9 @@ plugins:
           red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
             analyticsApiExtensions:
               - importName: AdoptionInsightsAnalyticsApi
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:fdcefa40894282edbdfad2f3c3ea1eedccaaf1f22dcaa94c5665dc7abdb9fe5e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:5dd35735baeb7ab071dc5ec6b49ec6af3ab97adc0a6ce98db7ebbe8ff79afa58
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:61277678d91f49be89f557b2608078d7376fb51dd8e89649118e164fc2e6be2c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:67303c27843a19569c6bb79777bd76f35c02dfd47aff73cc0f2b2b7fdf01a618
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:ac1746ea8cf446a82c2a2607af72591e70a668963f70ad114920bd9ba36c5f7a
     enabled: true
@@ -213,7 +213,7 @@ plugins:
                     xs: {w: 12, h: 3}
                     xxs: {w: 12, h: 3}
   # Tag: bs_1.52.0__1.22.0, Build date: 2026-06-03T21:16:21Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:99b8a4e1fc7f2579956a052725d1808c1f1ca4b0c6bfdc40c29123437de9b0ab
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:3b83bd2cad7ec6f9ab4376b7e878d48ce804b50e6ea702458396cc9383156927
     enabled: true
     pluginConfig:
       app:

@@ -132,8 +132,7 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -143,7 +142,7 @@
       "package": "@backstage-community/plugin-azure-devops",
       "version": "0.32.0",
       "workspace": "azure-devops",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-catalog-backend-module-bitbucket-cloud": {
       "stages": {
@@ -453,8 +452,7 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -464,7 +462,7 @@
       "package": "@backstage-community/plugin-jenkins-backend",
       "version": "0.29.0",
       "workspace": "jenkins",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-jenkins": {
       "stages": {
@@ -1329,8 +1327,8 @@
   },
   "summary": {
     "total": 48,
-    "succeeded": 34,
-    "failed": 14
+    "succeeded": 36,
+    "failed": 12
   },
   "status": "partial"
 }
