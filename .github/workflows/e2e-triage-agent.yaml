@@ -1,16 +1,21 @@
-# E2E nightly fix agent — discovers failed nightly runs and creates a
-# labeled GitHub issue. The existing fullsend.yaml dispatch picks up the
-# label event and routes it to the e2e-fix agent via CEL trigger.
+# E2E nightly triage — discovers failed nightly runs and creates a labeled
+# GitHub issue. The fullsend dispatch picks up the label event and routes
+# it to the e2e-triage agent, which classifies failures per workspace and
+# creates issues for the code agent to fix.
 #
 # Flow:
 #   schedule/manual → discover failed nightly → create issue + label
 #                                                     ↓
 #                           fullsend.yaml (issues: [labeled]) → dispatch
 #                                                     ↓
-#                           CEL trigger matches → e2e-fix agent runs
+#                           CEL trigger matches → e2e-triage agent runs
+#                                                     ↓
+#                           triage creates per-workspace issues + ready-to-code
+#                                                     ↓
+#                           code agent picks up each issue → fix → PR
 #
-# The e2e-fix agent is NOT reachable from /fs-* comments.
-name: E2E Fix Agent
+# The e2e-triage agent is NOT reachable from /fs-* comments.
+name: E2E Triage Agent
 
 on:
   schedule:
@@ -113,7 +118,7 @@ jobs:
           # Close any stale open issue for this branch so the agent always
           # reads today's prow URL from the issue body (not a comment).
           EXISTING=$(gh issue list --repo "${REPO}" \
-            --label "e2e-fix-agent" --state open \
+            --label "e2e-triage" --state open \
             --search "[fullsend] E2E nightly failure: ${BRANCH}" \
             --json number,title --jq ".[].number" | head -1) || true
 
@@ -124,8 +129,8 @@ jobs:
           fi
 
           # Create the label if it doesn't exist
-          gh label create "e2e-fix-agent" --repo "${REPO}" \
-            --description "Triggers the fullsend e2e-fix agent" --color "7057ff" \
+          gh label create "e2e-triage" --repo "${REPO}" \
+            --description "Triggers the fullsend e2e-triage agent" --color "7057ff" \
             --force 2>/dev/null || true
 
           ISSUE_URL=$(gh issue create --repo "${REPO}" \
@@ -134,13 +139,13 @@ jobs:
 
           PROW_URL: ${PROW_URL}
 
-          The e2e-fix agent will analyze this failure, classify the root cause, and either implement a fix or skip the failing test with a JIRA bug.")
+          The e2e-triage agent will analyze this failure, classify root causes per workspace, and create issues for the code agent to fix.")
           echo "Created issue: ${ISSUE_URL}"
 
           # Add label separately so GitHub fires an issues:labeled event
           # (gh issue create --label does NOT emit a separate labeled event)
           ISSUE_NUMBER="${ISSUE_URL##*/}"
-          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-fix-agent"
+          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-triage"
 
       - name: Dry run summary
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') == 'true'

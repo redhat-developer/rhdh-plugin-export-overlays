@@ -443,6 +443,31 @@ Two Claude Code skills are available at `.claude/skills/` for investigating E2E 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
 - **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
 
+## E2E Nightly Fix Conventions
+
+When fixing E2E test failures from `[fullsend] E2E:` issues:
+
+### Allowed modifications
+- `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+
+### Prohibited modifications
+- Plugin source code (`workspaces/*/plugins/`)
+- CI configuration (`.github/`)
+- Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
+
+### Skipping tests (product_bug classification)
+When the issue says `fix_category: product_bug`, add `test.skip` instead
+of fixing the test:
+
+    test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+
+### Verification
+After changes, run from the workspace's e2e-tests directory:
+
+    npx tsc --noEmit
+    npx eslint <changed-files>
+    npx prettier --check <changed-files>
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
