@@ -9,8 +9,15 @@
 // schema (RHIDP-13509).
 //
 // Schemas come from the *published* package rather than the source repo: the
-// metadata already pins `packageName` + `version`, that tarball is the artifact
-// users actually install, and it needs no cross-repo SHA resolution.
+// metadata already pins `packageName` + `version`, and it needs no cross-repo
+// SHA resolution.
+//
+// That tarball is not quite what RHDH installs, though. This repo exports a
+// patched build — `workspaces/<ws>/patches/*.patch` is applied to the source
+// before packaging — and one of those patches rewrites a plugin's `config.d.ts`.
+// So the resolver replays the config schema patches onto the extracted tarball
+// before loading it; without that, `dynatrace-dql` reports a mismatch against a
+// schema its own overlay already fixed. See applyConfigSchemaPatches.
 //
 // @backstage/config-loader reads `configSchema` from package.json and handles
 // both forms found across this catalogue — a compiled `config.schema.json`, and
@@ -25,9 +32,16 @@
 // rather than hidden — see the outcome tally in validate.ts.
 
 import { execFile } from "node:child_process";
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
 import type { JsonObject } from "@backstage/types";
@@ -50,6 +64,20 @@ export type ResolvedSchema =
   | { kind: "unavailable"; reason: string };
 
 /**
+ * Which schema to load, and what this repo does to it before shipping.
+ *
+ * `patches` carries the workspace's `patches/*.patch` files. They matter
+ * because a few of them rewrite the plugin's own `config.d.ts`, so the schema
+ * in the published tarball is not the schema in the artifact RHDH installs —
+ * see applyConfigSchemaPatches.
+ */
+export type SchemaRequest = {
+  name: string;
+  version: string;
+  patches?: readonly string[];
+};
+
+/**
  * Where `validateExample` gets a schema from.
  *
  * Declared structurally rather than as the concrete class so tests can supply
@@ -57,7 +85,7 @@ export type ResolvedSchema =
  * has private fields, which would make a fake fail to type-check.
  */
 export type SchemaSource = {
-  resolve(name: string, version: string): Promise<ResolvedSchema>;
+  resolve(request: SchemaRequest): Promise<ResolvedSchema>;
 };
 
 // The leading character is deliberately narrower than npm's own grammar: it
@@ -91,20 +119,27 @@ export class SchemaResolver implements SchemaSource {
   private readonly cache = new Map<string, Promise<ResolvedSchema>>();
   private readonly tempDirs: string[] = [];
 
-  async resolve(name: string, version: string): Promise<ResolvedSchema> {
+  async resolve({
+    name,
+    version,
+    patches = [],
+  }: SchemaRequest): Promise<ResolvedSchema> {
     if (!isSafePackageSpec(name, version)) {
       return {
         kind: "unavailable",
         reason: `refusing to fetch unsafe package spec ${name}@${version}`,
       };
     }
-    const key = `${name}@${version}`;
+    const spec = `${name}@${version}`;
+    // The patch list joins the key because it changes the schema that comes
+    // out: two workspaces pinning the same package can patch it differently.
+    const key = [spec, ...patches].join("|");
     let pending = this.cache.get(key);
     if (!pending) {
       // Catch before caching: a rejected promise stored here would be re-thrown
       // for every later file with the same package, escaping validateExample
       // and aborting the whole run instead of failing one row.
-      pending = this.load(key).catch((error) => ({
+      pending = this.load(spec, patches).catch((error) => ({
         kind: "unavailable" as const,
         reason: describeError(error),
       }));
@@ -121,7 +156,10 @@ export class SchemaResolver implements SchemaSource {
     this.tempDirs.length = 0;
   }
 
-  private async load(spec: string): Promise<ResolvedSchema> {
+  private async load(
+    spec: string,
+    patches: readonly string[],
+  ): Promise<ResolvedSchema> {
     let dir: string;
     try {
       dir = await mkdtemp(join(tmpdir(), "app-config-schema-"));
@@ -136,6 +174,15 @@ export class SchemaResolver implements SchemaSource {
     } catch (error) {
       // Plenty of packages in this catalogue are not on the public registry.
       // That is not a metadata defect, so it is reported rather than failed.
+      return { kind: "unavailable", reason: describeError(error) };
+    }
+
+    try {
+      await applyConfigSchemaPatches(packageDir, patches);
+    } catch (error) {
+      // Reported rather than validated against the unpatched schema: this repo
+      // patches config.d.ts precisely where the published one is wrong, so
+      // falling back to it would resurrect the mismatch the patch exists to fix.
       return { kind: "unavailable", reason: describeError(error) };
     }
 
@@ -157,6 +204,180 @@ export class SchemaResolver implements SchemaSource {
     } catch (error) {
       return { kind: "unavailable", reason: describeError(error) };
     }
+  }
+}
+
+/** Config schema files a workspace patch is worth applying to a tarball. */
+const CONFIG_SCHEMA_FILES = new Set(["config.d.ts", "config.schema.json"]);
+
+/** What a unified diff writes in place of a path when a file is added or removed. */
+const DEV_NULL = "/dev/null";
+
+/**
+ * One target file's slice of a unified diff.
+ *
+ * `target` is the post-image path exactly as the diff writes it, `b/` prefix
+ * and all, because the strip level is derived from counting its components.
+ */
+export type DiffSection = { target: string; body: string };
+
+/**
+ * Splits a git-style unified diff into one section per target file.
+ *
+ * Only `diff --git` headers start a section. Patches in this repo are all
+ * git-generated, and a headerless diff would leave the strip level a guess —
+ * better to see no config-schema sections and leave the tarball alone than to
+ * apply a hunk at a level nobody verified.
+ */
+export function splitDiffByFile(patch: string): DiffSection[] {
+  const sections: DiffSection[] = [];
+  let lines: string[] = [];
+  let source: string | undefined;
+  let target: string | undefined;
+
+  const flush = (): void => {
+    // A deletion writes `+++ /dev/null`, so the pre-image path is the only
+    // place the filename survives. Falling back to it keeps a patch that
+    // removes a config schema from being silently skipped — and skipping it
+    // would leave the validator reading a file the export does not ship.
+    const path = target === DEV_NULL ? source : target;
+    if (path !== undefined && path !== DEV_NULL && lines.length > 0) {
+      sections.push({ target: path, body: `${lines.join("\n")}\n` });
+    }
+  };
+
+  for (const line of patch.split("\n")) {
+    if (line.startsWith("diff --git ")) {
+      flush();
+      lines = [line];
+      source = undefined;
+      target = undefined;
+      continue;
+    }
+    if (lines.length === 0) {
+      continue;
+    }
+    lines.push(line);
+    if (line.startsWith("--- ") && source === undefined) {
+      source = line.slice("--- ".length).trim();
+    }
+    if (line.startsWith("+++ ") && target === undefined) {
+      target = line.slice("+++ ".length).trim();
+    }
+  }
+  flush();
+  return sections;
+}
+
+/**
+ * How many leading path components `git apply` must strip to leave a bare
+ * filename, so a hunk written against the upstream repo layout
+ * (`b/plugins/dql-backend/config.d.ts`) lands on the tarball's `config.d.ts`.
+ */
+export function stripLevelFor(target: string): number {
+  return target.split("/").length - 1;
+}
+
+/**
+ * Rewrites the extracted package with the workspace's config schema patches.
+ *
+ * The validator reads the *published* tarball, but this repo exports a patched
+ * build: a workspace's `patches` directory is applied to the source before
+ * packaging. Where a patch touches `config.d.ts`, the published schema is not
+ * the schema RHDH ends up enforcing — `workspaces/dynatrace-dql` patches a
+ * union-precedence bug that makes the published schema reject a config the
+ * exported artifact accepts. Validating against the published copy would report
+ * a mismatch in metadata that is correct.
+ *
+ * Throws when a config schema patch does not apply, so the caller reports the
+ * package as unavailable rather than silently falling back to a schema known to
+ * differ from what ships.
+ */
+export async function applyConfigSchemaPatches(
+  packageDir: string,
+  patches: readonly string[],
+): Promise<void> {
+  const schemaPath = await declaredConfigSchemaPath(packageDir);
+  // No `configSchema` file means nothing here can be patched, and a workspace's
+  // patches cover its whole upstream monorepo — most of them belong to sibling
+  // packages. Without this, `dynatrace-dql`'s frontend package went from
+  // "declares no configSchema" to "unavailable" because its sibling's patch
+  // named a file it does not contain.
+  if (schemaPath === undefined) {
+    return;
+  }
+  const schemaDir = join(packageDir, dirname(schemaPath));
+  const schemaFile = basename(schemaPath);
+
+  // Sorted because the numbered filename prefix is how this repo orders patch
+  // application, and a later patch may build on an earlier one's result.
+  for (const patchPath of [...patches].sort()) {
+    let patch: string;
+    try {
+      patch = await readFile(patchPath, "utf8");
+    } catch (error) {
+      throw new Error(`cannot read patch ${patchPath}`, { cause: error });
+    }
+
+    for (const section of splitDiffByFile(patch)) {
+      if ((section.target.split("/").pop() ?? "") !== schemaFile) {
+        continue;
+      }
+      await applySection(schemaDir, patchPath, section);
+    }
+  }
+}
+
+/**
+ * The `configSchema` file a package declares, relative to its root.
+ *
+ * Undefined when the field is missing, or when it holds an inline schema object
+ * rather than a path — in both cases there is no file for a patch to rewrite.
+ */
+export async function declaredConfigSchemaPath(
+  packageDir: string,
+): Promise<string | undefined> {
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(
+      await readFile(join(packageDir, "package.json"), "utf8"),
+    );
+  } catch {
+    return undefined;
+  }
+  if (!isPlainObject(manifest)) {
+    return undefined;
+  }
+  const { configSchema } = manifest;
+  return typeof configSchema === "string" &&
+    CONFIG_SCHEMA_FILES.has(basename(configSchema))
+    ? configSchema
+    : undefined;
+}
+
+/** Applies one diff section to the directory holding the schema file. */
+async function applySection(
+  schemaDir: string,
+  patchPath: string,
+  section: DiffSection,
+): Promise<void> {
+  const sectionFile = join(schemaDir, ".config-schema-patch.diff");
+  try {
+    await writeFile(sectionFile, section.body, "utf8");
+    await execFileAsync(
+      "git",
+      ["apply", `-p${stripLevelFor(section.target)}`, sectionFile],
+      { cwd: schemaDir },
+    );
+  } catch (error) {
+    throw new Error(
+      `workspace patch ${basename(patchPath)} does not apply to ${section.target}: ${describeError(error)}`,
+      { cause: error },
+    );
+  } finally {
+    // config-loader walks the package directory, so the scratch file does not
+    // outlive the one apply it exists for.
+    await rm(sectionFile, { force: true });
   }
 }
 
@@ -285,6 +506,14 @@ export function describeError(error: unknown): string {
 const PLACEHOLDER = /(?<!\$)\$\{[^}]*\}/;
 
 /**
+ * The same pattern, global, for rewriting every occurrence in one string.
+ *
+ * Separate from PLACEHOLDER because a global regex carries `lastIndex` state
+ * across calls, which `test()` would advance and then start skipping matches.
+ */
+const PLACEHOLDER_SPANS = /(?<!\$)\$\{[^}]*\}/g;
+
+/**
  * Values a placeholder might hold once substituted, as far as a schema can tell.
  *
  * Substitution yields a *string* — the environment has no other type — so these
@@ -300,7 +529,14 @@ export function hasPlaceholder(value: string): boolean {
   return PLACEHOLDER.test(value);
 }
 
-/** True when any leaf anywhere under `value` is a placeholder string. */
+/**
+ * True when any leaf anywhere under `value` is a placeholder string.
+ *
+ * Deliberately a second walk rather than something `substitutePlaceholders`
+ * could report on the way past: this one short-circuits on the first hit, and
+ * it runs on every failing example to decide whether retrying is worth it at
+ * all. Worth collapsing only if a third traversal ever appears.
+ */
 export function containsPlaceholder(value: unknown): boolean {
   if (typeof value === "string") {
     return hasPlaceholder(value);
@@ -315,18 +551,29 @@ export function containsPlaceholder(value: unknown): boolean {
 }
 
 /**
- * Deep copy of `value` with every placeholder leaf replaced by `replacement`.
+ * Deep copy of `value` with every placeholder *span* replaced by `replacement`.
  *
- * The copy is not incidental: config-loader builds Ajv with `coerceTypes`, which
- * rewrites the data it validates, so each attempt has to start from unmodified
- * input rather than whatever the previous attempt left behind.
+ * Spans, not whole strings: `url: "https://${HOST}/api"` substitutes to
+ * `https://<something>/api`, so replacing the whole value would hand the schema
+ * a bare `placeholder` and lose the shape a `pattern` or `format` constrains.
+ *
+ * Returns a copy rather than editing in place so a caller's example is never
+ * left rewritten.
  */
+export function substitutePlaceholders(
+  value: JsonObject,
+  replacement: string,
+): JsonObject;
+export function substitutePlaceholders(
+  value: unknown,
+  replacement: string,
+): unknown;
 export function substitutePlaceholders(
   value: unknown,
   replacement: string,
 ): unknown {
   if (typeof value === "string") {
-    return hasPlaceholder(value) ? replacement : value;
+    return value.replace(PLACEHOLDER_SPANS, replacement);
   }
   if (Array.isArray(value)) {
     return value.map((item) => substitutePlaceholders(item, replacement));
@@ -350,8 +597,9 @@ function runSchema(
 ): string[] | undefined {
   try {
     schema.process(
-      // Cloned for the same reason substitutePlaceholders copies: Ajv coerces in
-      // place, and a caller's example must not come back rewritten.
+      // Cloned because config-loader builds Ajv with `coerceTypes`, which
+      // rewrites the data it validates — so every attempt starts from the
+      // document as written rather than from what the last one left behind.
       [{ data: structuredClone(data), context: label }],
       // No visibility filter: an example documents a full app-config, so
       // frontend and backend keys are both legitimate.
@@ -385,22 +633,26 @@ function runSchema(
  *   What is caught is non-coercible scalars (`port: "high"`), wrong nesting
  *   (a scalar where an object or array is declared), bad enum values, and
  *   missing required properties.
- * - Placeholders are substituted uniformly, one candidate at a time, rather
- *   than searching every combination. An example whose placeholders sit on
- *   fields of *different* declared types — one boolean, one number — can still
- *   be reported. No example in this catalogue does that, and the message names
- *   the exact path, so the failure direction is a visible false positive rather
- *   than a silent pass.
+ * - The placeholder leniency is candidate-based, not schema-directed, so it
+ *   only stretches as far as PLACEHOLDER_VALUES reaches. Four kinds of field
+ *   still report despite some real environment value satisfying them: a
+ *   declared `enum` (no candidate is a member), a numeric `minimum`/`maximum`
+ *   that "0" falls outside, a `pattern` the candidate text does not match, and
+ *   placeholders sitting on fields of *different* declared types at once, since
+ *   substitution is uniform per attempt rather than a search over combinations.
+ *   No example in this catalogue hits any of them today. The failure direction
+ *   is a visible false positive naming the exact path, never a silent pass —
+ *   and closing them means seeding candidates from the failing path's schema.
  *
  * Errors are returned rather than thrown so one bad example cannot abort a run.
  */
 export async function validateExample(
   source: SchemaSource,
-  pkg: { name: string; version: string },
+  pkg: SchemaRequest,
   label: string,
   content: unknown,
 ): Promise<SchemaOutcome> {
-  const resolved = await source.resolve(pkg.name, pkg.version);
+  const resolved = await source.resolve(pkg);
   if (resolved.kind !== "schema") {
     return resolved.kind === "no-schema"
       ? { kind: "no-schema" }
@@ -422,12 +674,7 @@ export async function validateExample(
   if (containsPlaceholder(content)) {
     for (const value of PLACEHOLDER_VALUES) {
       const substituted = substitutePlaceholders(content, value);
-      // Substituting leaves never turns a mapping into anything else, so this
-      // guard is a formality — but it re-narrows the type without an assertion.
-      if (
-        isPlainObject(substituted) &&
-        runSchema(resolved.schema, substituted, label) === undefined
-      ) {
+      if (runSchema(resolved.schema, substituted, label) === undefined) {
         return { kind: "ok" };
       }
     }

@@ -30,13 +30,15 @@ yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
 # add schema validation, reporting without failing
 yarn node dist/validate.mjs --check-schemas --warn-only
 
-# the full-tree sweep CI runs on workflow_dispatch
+# the full-tree sweep CI runs weekly and on workflow_dispatch
 yarn node dist/validate.mjs --check-schemas
 ```
 
 The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
-mismatch rather than warning. `--warn-only` remains for surveying a tree you have
-not cleaned up yet — a release branch, say.
+mismatch rather than warning — the weekly schedule is what gives that verdict
+somewhere to land, since a PR only ever sees the metadata it touched.
+`--warn-only` remains for surveying a tree you have not cleaned up yet — a
+release branch, say.
 
 Exit codes match the Python script this replaced: `0` clean, `1` validation
 failed, `2` the tool itself failed.
@@ -61,8 +63,18 @@ same semantics Backstage enforces at runtime, rather than an approximation of
 them.
 
 Schemas are read from the **published package**, resolved from the
-`spec.packageName` and `spec.version` the metadata already pins. That is the
-artifact users actually install, and it avoids resolving upstream repo SHAs.
+`spec.packageName` and `spec.version` the metadata already pins. That avoids
+resolving upstream repo SHAs.
+
+The published tarball is not quite what RHDH installs, though: this repo exports
+a _patched_ build, and `workspaces/<ws>/patches/*.patch` can rewrite the plugin's
+own `config.d.ts`. So the resolver replays those config schema patches onto the
+extracted tarball before loading it. `workspaces/dynatrace-dql` is the case that
+forced this — its patch fixes a union-precedence bug, and without replaying it
+the validator reports a mismatch against a schema the overlay already corrected.
+A patch that no longer applies makes the package `unavailable` rather than
+falling back to the unpatched schema, since that fallback would resurrect
+exactly the mismatch the patch exists to fix.
 
 ## What the semantic check catches — and what it does not
 
@@ -112,12 +124,20 @@ This deliberately does not weaken structural checks: a placeholder where an
 object or an array is declared is still reported, because no string can satisfy
 that however the variable is set.
 
-One limit: placeholders are substituted uniformly, one candidate at a time,
-rather than searching every combination. An example whose placeholders sit on
-fields of _different_ declared types — one boolean, one number — can still be
-reported. No example in this catalogue does that, and the message names the
-exact path, so the failure direction is a visible false positive rather than a
-silent pass.
+The leniency is candidate-based rather than schema-directed, so it reaches only
+as far as those four values. Four kinds of field still report even though some
+real environment value would satisfy them:
+
+| field                                    | why the candidates miss it                                          |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| `enum: [fast, slow]`                     | no candidate is a member                                            |
+| `type: number, minimum: 1`               | `"0"` falls outside the bound                                       |
+| `pattern`                                | the substituted text need not match                                 |
+| placeholders on differently-typed fields | substitution is uniform per attempt, not a search over combinations |
+
+None of these occurs in the catalogue today. The failure direction is a visible
+false positive naming the exact path, never a silent pass — and closing them
+means seeding the candidates from the failing path's own schema.
 
 Three outcomes are reported as notes rather than failures, because none is a
 defect in the metadata: the package declares no `configSchema`, it is not on the

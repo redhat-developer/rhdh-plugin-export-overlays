@@ -149,6 +149,7 @@ export async function main(
           resolver,
           values["warn-only"] ?? false,
           tally,
+          await workspacePatches(repoRoot, path),
         );
       }
     }
@@ -167,18 +168,20 @@ async function checkSchemas(
   source: SchemaSource,
   warnOnly: boolean,
   tally: SchemaTally,
+  patches: readonly string[],
 ): Promise<void> {
   const examples = examplesWithContent(doc);
   if (examples.length === 0) {
     return;
   }
 
-  const pkg = packageCoordinates(doc);
-  if (!pkg) {
+  const coordinates = packageCoordinates(doc);
+  if (!coordinates) {
     row.notes.push("no packageName/version — schema check skipped");
     tally.unavailable += 1;
     return;
   }
+  const pkg = { ...coordinates, patches };
 
   let validatedAny = false;
   let mismatchedAny = false;
@@ -291,6 +294,31 @@ async function changedMetadataPaths(
     .map((line) => line.trim())
     .filter((line) => line !== "" && isMetadataPath(line))
     .sort(byCodepoint);
+}
+
+/**
+ * The workspace patches that apply to a metadata file's package.
+ *
+ * This repo exports a *patched* build — `workspaces/<ws>/patches/*.patch` is
+ * applied to the source before packaging — so a patch touching `config.d.ts`
+ * makes the published schema differ from the one the artifact enforces. The
+ * resolver needs them to reconstruct what actually ships.
+ */
+async function workspacePatches(
+  repoRoot: string,
+  metadataPath: string,
+): Promise<string[]> {
+  const workspace = metadataPath.split("/")[1];
+  if (!workspace) {
+    return [];
+  }
+  const found: string[] = [];
+  for await (const entry of glob(`workspaces/${workspace}/patches/*.patch`, {
+    cwd: repoRoot,
+  })) {
+    found.push(join(repoRoot, entry));
+  }
+  return found.sort(byCodepoint);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {

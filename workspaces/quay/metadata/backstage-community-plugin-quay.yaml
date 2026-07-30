@@ -42,9 +42,10 @@ spec:
                       anyOf:
                         - isQuayAvailable
         proxy:
+          skipInvalidProxies: true
           endpoints:
             "/quay/api":
-              target: https://quay.io
+              target: https://quay.io/
               headers:
                 X-Requested-With: "XMLHttpRequest"
               changeOrigin: true

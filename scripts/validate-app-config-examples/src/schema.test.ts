@@ -10,19 +10,22 @@
 // exercise the actual Backstage validator rather than a stand-in for it.
 
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { loadConfigSchema } from "@backstage/config-loader";
 import {
+  applyConfigSchemaPatches,
   containsPlaceholder,
   describeError,
   findPackageRoot,
   hasConstraints,
   hasPlaceholder,
   isSafePackageSpec,
+  splitDiffByFile,
   splitSchemaErrors,
+  stripLevelFor,
   substitutePlaceholders,
   validateExample,
   type SchemaSource,
@@ -228,6 +231,22 @@ describe("substitutePlaceholders", () => {
     );
   });
 
+  it("replaces only the placeholder span within a longer string", () => {
+    assert.deepEqual(
+      substitutePlaceholders(
+        { url: "https://${HOST}/api", both: "${A}-${B}" },
+        "x",
+      ),
+      { url: "https://x/api", both: "x-x" },
+    );
+  });
+
+  it("leaves an escaped $${ alone", () => {
+    assert.deepEqual(substitutePlaceholders({ a: "$${KEEP}" }, "x"), {
+      a: "$${KEEP}",
+    });
+  });
+
   it("does not modify the input", () => {
     const original = { swap: "${A}" };
     substitutePlaceholders(original, "true");
@@ -274,6 +293,32 @@ async function sourceWithBooleanLiteralUnion(): Promise<SchemaSource> {
                     ],
                   },
                   home: { type: "object", properties: {} },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema", schema }) };
+}
+
+/** A schema whose one field constrains the *shape* of the string, not just its type. */
+async function sourceWithPattern(): Promise<SchemaSource> {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: {
+            type: "object",
+            properties: {
+              acme: {
+                type: "object",
+                properties: {
+                  url: { type: "string", pattern: "^https://[a-z.]+/api$" },
                 },
               },
             },
@@ -362,9 +407,23 @@ describe("validateExample with environment placeholders", () => {
       { acme: { baseUrl: "x", retries: "${RETRIES}", hosts: "nope" } },
     );
     assert.equal(outcome.kind, "invalid");
-    const errors = outcome.kind === "invalid" ? outcome.errors.join(" ") : "";
-    assert.match(errors, /at \/acme\/retries/);
-    assert.match(errors, /at \/acme\/hosts/);
+    // As-is yields two errors; the "0" retry would yield only /acme/hosts, so
+    // the count is what makes this fail on the regression it guards.
+    assert.equal(outcome.kind === "invalid" && outcome.errors.length, 2);
+    assert.match(
+      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+      /at \/acme\/retries/,
+    );
+  });
+
+  it("substitutes the placeholder span, keeping the rest of the string", async () => {
+    // Replacing the whole value would hand the schema a bare "placeholder" and
+    // lose the shape a pattern constrains.
+    const source = await sourceWithPattern();
+    const outcome = await validateExample(source, PKG, "label", {
+      acme: { url: "https://${HOST}/api" },
+    });
+    assert.deepEqual(outcome, { kind: "ok" });
   });
 });
 
@@ -378,7 +437,7 @@ describe("hasConstraints", () => {
 
   it("is true once a schema is present", async () => {
     const schema = await sourceWithSchema();
-    const resolved = await schema.resolve(PKG.name, PKG.version);
+    const resolved = await schema.resolve(PKG);
     assert.equal(resolved.kind, "schema");
     assert.equal(
       hasConstraints(
@@ -493,5 +552,212 @@ describe("findPackageRoot", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("splitDiffByFile", () => {
+  const patch = [
+    "diff --git a/plugins/dql-backend/config.d.ts b/plugins/dql-backend/config.d.ts",
+    "index 403d30a..1334dc1 100644",
+    "--- a/plugins/dql-backend/config.d.ts",
+    "+++ b/plugins/dql-backend/config.d.ts",
+    "@@ -1 +1 @@",
+    "-old",
+    "+new",
+    "diff --git a/plugins/dql-backend/index.ts b/plugins/dql-backend/index.ts",
+    "--- a/plugins/dql-backend/index.ts",
+    "+++ b/plugins/dql-backend/index.ts",
+    "@@ -1 +1 @@",
+    "-a",
+    "+b",
+  ].join("\n");
+
+  it("returns one section per target file, with the post-image path", () => {
+    const sections = splitDiffByFile(patch);
+    assert.deepEqual(
+      sections.map((section) => section.target),
+      ["b/plugins/dql-backend/config.d.ts", "b/plugins/dql-backend/index.ts"],
+    );
+  });
+
+  it("keeps each section's hunks with it", () => {
+    const [first] = splitDiffByFile(patch);
+    assert.match(first.body, /\+new/);
+    assert.ok(!first.body.includes("+b\n"));
+  });
+
+  it("returns nothing for a diff with no git header, rather than guessing", () => {
+    // A headerless diff leaves the strip level unknowable, and applying a hunk
+    // at a guessed level is worse than not applying it.
+    assert.deepEqual(
+      splitDiffByFile("--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n"),
+      [],
+    );
+  });
+});
+
+describe("stripLevelFor", () => {
+  it("strips down to the bare filename", () => {
+    assert.equal(stripLevelFor("b/plugins/dql-backend/config.d.ts"), 3);
+    assert.equal(stripLevelFor("b/config.d.ts"), 1);
+  });
+});
+
+describe("applyConfigSchemaPatches", () => {
+  /** A package directory holding one config.d.ts with `body`. */
+  async function packageWith(
+    body: string,
+    // Null rather than undefined: passing `undefined` explicitly would trigger
+    // the default and quietly test the opposite of what the caller asked for.
+    configSchema: string | null = "config.d.ts",
+  ): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), "patch-apply-"));
+    await writeFile(join(dir, "config.d.ts"), body);
+    await writeFile(
+      join(dir, "package.json"),
+      JSON.stringify(configSchema === null ? {} : { configSchema }),
+    );
+    return dir;
+  }
+
+  /** A patch file rewriting config.d.ts from `from` to `to`. */
+  async function patchFile(
+    dir: string,
+    target: string,
+    from: string,
+    to: string,
+  ): Promise<string> {
+    const path = join(dir, "1-rewrite.patch");
+    await writeFile(
+      path,
+      [
+        `diff --git a/${target} b/${target}`,
+        `--- a/${target}`,
+        `+++ b/${target}`,
+        "@@ -1 +1 @@",
+        `-${from}`,
+        `+${to}`,
+        "",
+      ].join("\n"),
+    );
+    return path;
+  }
+
+  it("rewrites the package's config.d.ts the way the export does", async () => {
+    const dir = await packageWith("export type Config = { a: string };\n");
+    try {
+      const patch = await patchFile(
+        dir,
+        "plugins/dql-backend/config.d.ts",
+        "export type Config = { a: string };",
+        "export type Config = { a: number };",
+      );
+      await applyConfigSchemaPatches(dir, [patch]);
+      assert.equal(
+        await readFile(join(dir, "config.d.ts"), "utf8"),
+        "export type Config = { a: number };\n",
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves a package that declares no configSchema alone", async () => {
+    // A workspace's patches cover its whole upstream monorepo, so most of them
+    // name files a given package does not contain. Treating that as a failure
+    // turned dynatrace-dql's frontend from "no configSchema" into "unavailable".
+    const original = "export type Config = { a: string };\n";
+    const dir = await packageWith(original, null);
+    try {
+      const patch = await patchFile(
+        dir,
+        "plugins/dql-backend/config.d.ts",
+        "export type Config = { a: string };",
+        "export type Config = { a: number };",
+      );
+      await applyConfigSchemaPatches(dir, [patch]);
+      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves the package alone for a patch that touches no config schema", async () => {
+    const original = "export type Config = { a: string };\n";
+    const dir = await packageWith(original);
+    try {
+      const patch = await patchFile(dir, "plugins/x/index.ts", "a", "b");
+      await applyConfigSchemaPatches(dir, [patch]);
+      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("throws when a config schema patch does not apply", async () => {
+    // The caller turns this into `unavailable`. Falling back to the unpatched
+    // schema would resurrect exactly the mismatch the patch exists to fix.
+    const dir = await packageWith("something else entirely\n");
+    try {
+      const patch = await patchFile(
+        dir,
+        "plugins/dql-backend/config.d.ts",
+        "export type Config = { a: string };",
+        "export type Config = { a: number };",
+      );
+      await assert.rejects(
+        () => applyConfigSchemaPatches(dir, [patch]),
+        /does not apply/,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does nothing when the workspace has no patches", async () => {
+    const original = "export type Config = { a: string };\n";
+    const dir = await packageWith(original);
+    try {
+      await applyConfigSchemaPatches(dir, []);
+      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("splitDiffByFile with added and removed files", () => {
+  it("uses the pre-image path when the file is deleted", () => {
+    // `+++ /dev/null` would otherwise read as a target named "null" and be
+    // skipped, leaving the validator reading a file the export removes.
+    const sections = splitDiffByFile(
+      [
+        "diff --git a/plugins/x/config.d.ts b/plugins/x/config.d.ts",
+        "--- a/plugins/x/config.d.ts",
+        "+++ /dev/null",
+        "@@ -1 +0,0 @@",
+        "-gone",
+      ].join("\n"),
+    );
+    assert.deepEqual(
+      sections.map((section) => section.target),
+      ["a/plugins/x/config.d.ts"],
+    );
+  });
+
+  it("uses the post-image path when the file is added", () => {
+    const sections = splitDiffByFile(
+      [
+        "diff --git a/plugins/x/config.d.ts b/plugins/x/config.d.ts",
+        "--- /dev/null",
+        "+++ b/plugins/x/config.d.ts",
+        "@@ -0,0 +1 @@",
+        "+added",
+      ].join("\n"),
+    );
+    assert.deepEqual(
+      sections.map((section) => section.target),
+      ["b/plugins/x/config.d.ts"],
+    );
   });
 });
