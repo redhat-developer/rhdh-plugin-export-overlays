@@ -207,9 +207,6 @@ export class SchemaResolver implements SchemaSource {
   }
 }
 
-/** Config schema files a workspace patch is worth applying to a tarball. */
-const CONFIG_SCHEMA_FILES = new Set(["config.d.ts", "config.schema.json"]);
-
 /** What a unified diff writes in place of a path when a file is added or removed. */
 const DEV_NULL = "/dev/null";
 
@@ -349,8 +346,10 @@ export async function declaredConfigSchemaPath(
     return undefined;
   }
   const { configSchema } = manifest;
-  return typeof configSchema === "string" &&
-    CONFIG_SCHEMA_FILES.has(basename(configSchema))
+  // Any path the package names, not a fixed list: config.d.ts and
+  // config.schema.json are the two forms in this catalogue today, but the file
+  // worth patching is whichever one config-loader will read.
+  return typeof configSchema === "string" && configSchema !== ""
     ? configSchema
     : undefined;
 }
