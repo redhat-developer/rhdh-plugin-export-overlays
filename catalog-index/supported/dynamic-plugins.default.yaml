@@ -549,7 +549,7 @@ plugins:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
   # Tag: bs_1.52.0__0.13.3, Build date: 2026-05-21T21:07:49Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:6e2e9aaa7ea1a6099ab564986da58ff89438991dfbdfdcacaa321ff0375f4bf1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:7ddb3211a78eb467621e402305646c88370d605891d4b8b18aae3beee0b078b8
     enabled: false
     pluginConfig:
       catalog:
@@ -558,7 +558,7 @@ plugins:
             providerId:
               organization: ${GITHUB_ORG}
   # Tag: bs_1.52.0__0.3.23, Build date: 2026-05-21T21:48:12Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:0abda99a5a646504da3e98524980389727b4fef3705d435f614bde0f7b1066d3
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:537b6882fdf3bcc48d12071ccb74616005e10b0275d2106c290989d514eae538
     enabled: false
     pluginConfig:
       catalog:
@@ -576,7 +576,7 @@ plugins:
               timeout:
                 minutes: 15
   # Tag: bs_1.52.0__0.8.4, Build date: 2026-05-21T21:33:39Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:467cdcf82bbe4baa3759fa622a613b595b47a651db166b3bd267a7398473d7ee
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:c3ace1cabfa8bc0450fc41b34a8b1dbd4bc148b1f1c8045c5a64e10290420967
     enabled: false
     pluginConfig:
       catalog:
@@ -593,7 +593,7 @@ plugins:
                 initialDelay:
                   seconds: 15
   # Tag: bs_1.52.0__0.2.22, Build date: 2026-05-21T21:07:19Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:1a5b547bfb33ed9fb24733cbfc01802ef58306833113202e7f7b21cabc17b452
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:06900e97c740988194bb8e28d0ec43db36949810724a031a4528444a0b560a96
     enabled: false
     pluginConfig:
       catalog:
@@ -611,7 +611,7 @@ plugins:
                 initialDelay:
                   seconds: 15
   # Tag: bs_1.52.0__0.12.6, Build date: 2026-05-21T21:26:30Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:2b1a160de8e7ee74c15945b4eeeb49bfcfcc31667132c1b3ebec0df5e6afb12d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:54c8171d358b5c352545dccd30779e6251f05d2e4db451d2a4708b1937a9740d
     enabled: false
     pluginConfig:
       catalog:
@@ -638,7 +638,7 @@ plugins:
                 timeout:
                   minutes: 15
   # Tag: bs_1.52.0__0.10.3, Build date: 2026-05-21T21:02:22Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:f75e82812d66b1c8d9685704f9102000f310787a04c8b06e191976d684f3de2d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:52938edf58bfc76943ccc2255698b97745d160c9190ed7b01856f46de0438845
     enabled: false
     pluginConfig:
       catalog:
@@ -657,7 +657,7 @@ plugins:
                 timeout:
                   minutes: 15
   # Tag: bs_1.52.0__0.21.5, Build date: 2026-05-21T21:07:46Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:5ca8a51a057d5a9fc7eb2504831fa7cdfc9dc45634b7f8fd36dcbdf3165fc996
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:5ba9c96c1eaeedba8dcfd7721d097a138e18774d52bb0cb308d3d4c95c3f99c6
     enabled: false
     pluginConfig:
       kubernetes:
