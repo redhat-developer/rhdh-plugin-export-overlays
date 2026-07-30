@@ -41,3 +41,13 @@ spec:
                     if:
                       anyOf:
                         - isQuayAvailable
+        proxy:
+          endpoints:
+            "/quay/api":
+              target: https://quay.io
+              headers:
+                X-Requested-With: "XMLHttpRequest"
+              changeOrigin: true
+              secure: true
+        quay:
+          uiUrl: https://quay.io
