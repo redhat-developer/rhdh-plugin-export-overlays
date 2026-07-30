@@ -305,6 +305,10 @@ test.describe("Admin > Extensions", () => {
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
       await expect(page.getByTestId("enable-plugin")).toBeVisible();
+
+      await expect(page.getByRole("alert")).toContainText(
+        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+      );
     });
   });
 
