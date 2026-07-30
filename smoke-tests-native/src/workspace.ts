@@ -114,6 +114,9 @@ export async function writeDynamicPluginsConfig(
   destDir: string,
 ): Promise<string> {
   const path = join(destDir, "dynamic-plugins.workspace.yaml");
-  await writeFile(path, stringify({ plugins: refs.map((pkg) => ({ package: pkg })) }));
+  await writeFile(
+    path,
+    stringify({ plugins: refs.map((pkg) => ({ package: pkg })) }),
+  );
   return path;
 }

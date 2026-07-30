@@ -96,14 +96,22 @@ type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
 type BackendStartResult = { ok: boolean; skipped?: boolean; error?: string };
 // Which frontend system(s) each bundle ships — the signal for tracking migration to
 // the new frontend system across the catalog.
-type FrontendBundleInfo = { name: string; version: string; systems: FrontendSystem[] };
+type FrontendBundleInfo = {
+  name: string;
+  version: string;
+  systems: FrontendSystem[];
+};
 // Bump when the results.json shape changes — downstream tooling (e.g. the parity
 // runs comparing native vs Docker verdicts) parses this file.
 const REPORT_SCHEMA_VERSION = 1;
 
 // Workspace-mode provenance: which metadata files were skipped (non-oci artifacts),
 // so a "pass" can't silently hide that part of the workspace was never validated.
-type WorkspaceInfo = { name: string; refCount: number; skippedMetadata: string[] };
+type WorkspaceInfo = {
+  name: string;
+  refCount: number;
+  skippedMetadata: string[];
+};
 type Report = {
   schemaVersion: number;
   cliVersion: string;
@@ -153,7 +161,9 @@ function resolveTestConfig(
   }
   if (inputs.envFile) {
     const applied = loadEnvFile(inputs.envFile);
-    console.log(`▶ test-env: ${inputs.envFile} (${applied.length} var(s) applied)`);
+    console.log(
+      `▶ test-env: ${inputs.envFile} (${applied.length} var(s) applied)`,
+    );
   }
   if (inputs.appConfig) console.log(`▶ app-config: ${inputs.appConfig}`);
   return inputs.appConfig ? loadAppConfig(inputs.appConfig) : undefined;
@@ -211,8 +221,7 @@ async function writeErrorReport(
 }
 
 type SmokeSource =
-  | { kind: "file"; path: string }
-  | { kind: "workspace"; name: string };
+  { kind: "file"; path: string } | { kind: "workspace"; name: string };
 
 type CliInputs = {
   out: string | null;
@@ -239,7 +248,10 @@ function parseCliInputs(): CliInputs {
   const outArg = values.out ?? "results.json";
   const out = resolveOutPath(outArg);
   if (!out) {
-    return { out: null, usageError: `--out must resolve inside the working directory: ${outArg}` };
+    return {
+      out: null,
+      usageError: `--out must resolve inside the working directory: ${outArg}`,
+    };
   }
 
   const optionalFiles: Array<[flag: string, file: string | undefined]> = [
@@ -260,7 +272,10 @@ function parseCliInputs(): CliInputs {
   const file = values["dynamic-plugins"];
   const workspace = values.workspace;
   if (file && workspace) {
-    return { out, usageError: "Provide only one of --dynamic-plugins or --workspace." };
+    return {
+      out,
+      usageError: "Provide only one of --dynamic-plugins or --workspace.",
+    };
   }
   if (workspace) {
     // Validated here, before ANY filesystem consumer (auto-discovery runs early).
@@ -270,7 +285,11 @@ function parseCliInputs(): CliInputs {
     return { ...common, source: { kind: "workspace", name: workspace } };
   }
   if (!file) {
-    return { out, usageError: "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>." };
+    return {
+      out,
+      usageError:
+        "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>.",
+    };
   }
   if (!existsSync(file)) {
     return { out, usageError: `dynamic-plugins file not found: ${file}` };
@@ -292,7 +311,10 @@ function computeStatus(
 
 // Copy the dynamic-plugins.yaml the CLI consumes, then extract (the part PR #2231
 // hand-rolled in 694 lines — now one CLI call).
-async function extractPlugins(root: string, dynamicPlugins: string): Promise<void> {
+async function extractPlugins(
+  root: string,
+  dynamicPlugins: string,
+): Promise<void> {
   await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
   console.log("▶ extracting plugins via CLI…");
   // The CLI reads dynamic-plugins.yaml from its CWD, so run it inside `root`
@@ -325,7 +347,10 @@ async function startBackend(
     await backend.stop();
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -360,7 +385,11 @@ async function main(): Promise<number> {
   }
   const { out, source } = inputs;
   if (inputs.usageError || !source) {
-    await writeErrorReport(out, "unknown", inputs.usageError ?? "invalid arguments");
+    await writeErrorReport(
+      out,
+      "unknown",
+      inputs.usageError ?? "invalid arguments",
+    );
     return 2;
   }
 
@@ -394,7 +423,9 @@ async function main(): Promise<number> {
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    const { skipped, backendPlugins } = partitionKnownFailures(manifest.backend);
+    const { skipped, backendPlugins } = partitionKnownFailures(
+      manifest.backend,
+    );
     if (skipped.length > 0) {
       console.warn(
         `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
@@ -431,7 +462,12 @@ async function main(): Promise<number> {
         errors: frontend.errors,
         bundles: frontend.bundles,
       },
-      status: computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
+      status: computeStatus(
+        loadErrors,
+        start.ok,
+        loaded.length,
+        frontend.errors,
+      ),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));
@@ -447,7 +483,11 @@ async function main(): Promise<number> {
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
     // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(out, cliVersion, err instanceof Error ? err.message : String(err));
+    await writeErrorReport(
+      out,
+      cliVersion,
+      err instanceof Error ? err.message : String(err),
+    );
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });

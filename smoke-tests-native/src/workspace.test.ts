@@ -78,7 +78,10 @@ test("collectWorkspaceRefs throws on unknown workspace and invalid names", () =>
     () => collectWorkspaceRefs(repoRoot, "does-not-exist"),
     /metadata not found/,
   );
-  assert.throws(() => collectWorkspaceRefs(repoRoot, ".."), /invalid workspace name/);
+  assert.throws(
+    () => collectWorkspaceRefs(repoRoot, ".."),
+    /invalid workspace name/,
+  );
 });
 
 test("discoverSmokeTestConfig finds only the files that exist", () => {
