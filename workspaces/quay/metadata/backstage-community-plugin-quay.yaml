@@ -41,14 +41,24 @@ spec:
                     if:
                       anyOf:
                         - isQuayAvailable
+        # Proxy-only setup: used when the quay *backend* plugin is not installed.
+        # Installing @backstage-community/plugin-quay-backend sets quay.apiUrl,
+        # which takes precedence and bypasses this endpoint entirely.
+        #
+        # Kept byte-identical to e2e-tests/tests/config/app-config-rhdh.yaml: the
+        # two are deep-merged in PR and local-dev modes, and nightly mode injects
+        # no metadata at all, so neither copy can be dropped — but they must not
+        # disagree, or merge order silently decides the target.
         proxy:
           skipInvalidProxies: true
           endpoints:
             "/quay/api":
-              target: https://quay.io/
+              target: "https://quay.io/"
               headers:
                 X-Requested-With: "XMLHttpRequest"
               changeOrigin: true
               secure: true
+        # `quay` itself is required by the plugin's schema; every property under
+        # it is optional. uiUrl is what upstream's README shows.
         quay:
-          uiUrl: https://quay.io
+          uiUrl: "https://quay.io"

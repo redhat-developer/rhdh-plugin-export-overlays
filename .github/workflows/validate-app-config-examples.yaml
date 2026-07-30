@@ -15,6 +15,10 @@ on:
         description: 'Also validate examples against each plugin config schema'
         type: boolean
         default: true
+      warn-only:
+        description: 'Report schema mismatches without failing (surveying a release branch)'
+        type: boolean
+        default: false
   # The full-tree sweep is only worth failing if something runs it. On a PR the
   # check sees just the metadata that PR touched, so a schema an upstream
   # release changed under us — or a workspace whose patches stopped applying —
@@ -25,9 +29,13 @@ on:
   schedule:
     - cron: '0 6 * * 1'
 
+# Superseding a PR's run is the point; superseding a full-tree sweep is not —
+# it takes one tarball per distinct packageName@version across 180 files, so a
+# second dispatch would throw away real work. Keyed by run_id off a PR, which
+# never collides, and cancellation limited to pull_request.
 concurrency:
-  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -118,10 +126,17 @@ jobs:
           # 0 against NaN — which is never equal. The toggle would have been
           # permanently stuck on.
           CHECK_SCHEMAS: ${{ github.event_name != 'workflow_dispatch' || inputs.check-schemas }}
+          # The schedule is the gate, so it never warns; a dispatch can, which is
+          # how a release branch carrying its own backlog gets surveyed without
+          # editing this file.
+          WARN_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.warn-only }}
         run: |
           args=()
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
             args+=(--check-schemas)
+            if [[ "$WARN_ONLY" == "true" ]]; then
+              args+=(--warn-only)
+            fi
           fi
           node dist/validate.mjs "${args[@]}"
 
