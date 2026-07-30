@@ -32,6 +32,7 @@ import { byCodepoint } from "./json.js";
 import {
   SchemaResolver,
   validateExample,
+  type SchemaOutcome,
   type SchemaSource,
 } from "./schema.js";
 
@@ -197,24 +198,8 @@ async function checkSchemas(
 
     // no-schema and unavailable are properties of the package, not the example,
     // so the first one settles the whole file.
-    if (outcome.kind === "no-schema") {
-      tally.noSchema += 1;
-      row.notes.push(
-        `${pkg.name} declares no configSchema — nothing to validate against`,
-      );
-      return;
-    }
-    if (outcome.kind === "unavailable") {
-      tally.unavailable += 1;
-      row.notes.push(`schema unavailable: ${outcome.reason}`);
-      // A patch that has stopped applying is a defect in this repo, not a fact
-      // about the registry, and it silently removes a package from validation.
-      // Failing is the only way the weekly sweep can surface it: every other
-      // unavailable reason leaves the row PASS, and exitCodeFor reads status.
-      if (outcome.patchFailure && !warnOnly) {
-        row.status = "FAIL";
-        row.detail = "a workspace patch no longer applies to this package";
-      }
+    if (outcome.kind === "no-schema" || outcome.kind === "unavailable") {
+      recordPackageOutcome(row, pkg.name, outcome, warnOnly, tally);
       return;
     }
 
@@ -230,6 +215,37 @@ async function checkSchemas(
     tally.mismatched += 1;
   } else if (validatedAny) {
     tally.validated += 1;
+  }
+}
+
+/**
+ * Annotates a row with an outcome that belongs to the package rather than to
+ * one example — no schema to check against, or none that could be loaded.
+ */
+function recordPackageOutcome(
+  row: Row,
+  packageName: string,
+  outcome: Extract<SchemaOutcome, { kind: "no-schema" | "unavailable" }>,
+  warnOnly: boolean,
+  tally: SchemaTally,
+): void {
+  if (outcome.kind === "no-schema") {
+    tally.noSchema += 1;
+    row.notes.push(
+      `${packageName} declares no configSchema — nothing to validate against`,
+    );
+    return;
+  }
+
+  tally.unavailable += 1;
+  row.notes.push(`schema unavailable: ${outcome.reason}`);
+  // A patch that has stopped applying is a defect in this repo, not a fact
+  // about the registry, and it silently removes a package from validation.
+  // Failing is the only way the weekly sweep can surface it: every other
+  // unavailable reason leaves the row PASS, and exitCodeFor reads status.
+  if (outcome.patchFailure && !warnOnly) {
+    row.status = "FAIL";
+    row.detail = "a workspace patch no longer applies to this package";
   }
 }
 
