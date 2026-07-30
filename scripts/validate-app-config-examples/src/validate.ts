@@ -37,6 +37,7 @@ import {
   findUndeclaredKeys,
   validateExample,
   type SchemaOutcome,
+  type SchemaRequest,
   type SchemaSource,
 } from "./schema.js";
 
@@ -229,15 +230,14 @@ async function checkSchemas(
 
   let validatedAny = false;
   let mismatchedAny = false;
-  let ownsSubtreeAny = false;
-  let undeclaredAny = false;
 
   for (const example of examples) {
     const label = `${row.path} (${example.title})`;
     const outcome = await validateExample(source, pkg, label, example.content);
 
     // no-schema and unavailable are properties of the package, not the example,
-    // so the first one settles the whole file.
+    // so the first one settles the whole file — and leave before the undeclared
+    // pass below, which has no schema to be strict about either.
     if (outcome.kind === "no-schema" || outcome.kind === "unavailable") {
       recordPackageOutcome(row, pkg.name, outcome, warnOnly, tally);
       return;
@@ -249,20 +249,6 @@ async function checkSchemas(
       mismatchedAny = true;
       recordMismatch(row, example.title, outcome.errors, warnOnly);
     }
-
-    if (undeclared) {
-      const undeclaredOutcome = await findUndeclaredKeys(
-        source,
-        pkg,
-        label,
-        example.content,
-      );
-      ownsSubtreeAny ||= undeclaredOutcome.ownsSubtree;
-      undeclaredAny ||= undeclaredOutcome.findings.length > 0;
-      for (const finding of undeclaredOutcome.findings) {
-        row.notes.push(`undeclared key in "${example.title}": ${finding}`);
-      }
-    }
   }
 
   if (mismatchedAny) {
@@ -272,12 +258,47 @@ async function checkSchemas(
   }
 
   if (undeclared) {
-    if (ownsSubtreeAny) {
-      undeclared.withOwnedSubtree += 1;
+    await checkUndeclaredKeys(row, source, pkg, examples, undeclared);
+  }
+}
+
+/**
+ * Annotates a row with the undeclared keys in every example, and counts the file.
+ *
+ * A separate pass rather than another arm inside the schema loop: the two
+ * answer different questions and keep separate tallies, and interleaving them
+ * left one function carrying four accumulators. The schema resolution it needs
+ * is already cached by the time this runs.
+ */
+async function checkUndeclaredKeys(
+  row: Row,
+  source: SchemaSource,
+  pkg: SchemaRequest,
+  examples: { title: string; content: unknown }[],
+  undeclared: UndeclaredTally,
+): Promise<void> {
+  let ownsSubtreeAny = false;
+  let findingAny = false;
+
+  for (const example of examples) {
+    const outcome = await findUndeclaredKeys(
+      source,
+      pkg,
+      `${row.path} (${example.title})`,
+      example.content,
+    );
+    ownsSubtreeAny ||= outcome.ownsSubtree;
+    findingAny ||= outcome.findings.length > 0;
+    for (const finding of outcome.findings) {
+      row.notes.push(`undeclared key in "${example.title}": ${finding}`);
     }
-    if (undeclaredAny) {
-      undeclared.withFindings += 1;
-    }
+  }
+
+  if (ownsSubtreeAny) {
+    undeclared.withOwnedSubtree += 1;
+  }
+  if (findingAny) {
+    undeclared.withFindings += 1;
   }
 }
 
