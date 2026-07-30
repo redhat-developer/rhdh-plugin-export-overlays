@@ -133,7 +133,11 @@ jobs:
         run: |
           args=()
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
-            args+=(--check-schemas)
+            # Undeclared keys ride along on the sweep rather than getting their
+            # own toggle: they are reported and never failed, and the sweep is
+            # the one run that looks at the whole catalogue, so this is where
+            # the backlog is worth seeing.
+            args+=(--check-schemas --check-undeclared-keys)
             if [[ "$WARN_ONLY" == "true" ]]; then
               args+=(--warn-only)
             fi

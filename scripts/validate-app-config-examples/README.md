@@ -3,15 +3,17 @@
 Validates the `appConfigExamples` carried by Package metadata under
 `workspaces/*/metadata/*.yaml`.
 
-Two independent layers:
+Three independent layers:
 
-| Layer      | What it checks                                                                                                       | Jira        |
-| ---------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
-| Structural | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
-| Semantic   | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
+| Layer           | What it checks                                                                                                       | Jira        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- | ----------- |
+| Structural      | every Package has a non-empty first `appConfigExamples[].content`, or opts out via `spec.appConfigNotRequired: true` | RHIDP-12590 |
+| Semantic        | each example's content satisfies the plugin's own config schema                                                      | RHIDP-13509 |
+| Undeclared keys | within the subtrees a plugin's schema owns, every key is one it declares                                             | RHIDP-15902 |
 
-The structural layer runs always. The semantic layer is opt-in via
-`--check-schemas`.
+The structural layer runs always and fails the run. The semantic layer is opt-in
+via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
+opt-in via `--check-undeclared-keys` and only ever reports.
 
 ## Usage
 
@@ -31,7 +33,7 @@ yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
 yarn node dist/validate.mjs --check-schemas --warn-only
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-yarn node dist/validate.mjs --check-schemas
+yarn node dist/validate.mjs --check-schemas --check-undeclared-keys
 ```
 
 The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
@@ -104,16 +106,23 @@ Verified against the real compiler, not assumed.
   `coerceTypes: true`, so `port: "8080"` against a declared number passes. This
   is one of the more common real app-config mistakes, and this check does not
   see it.
-- **undeclared keys.** Examples legitimately carry RHDH wiring that belongs to
-  no plugin schema — 72 of 180 metadata files include a `dynamicPlugins` block
-  and 64 contain nothing else. Rejecting undeclared keys would fail all of them,
-  so a typo'd key name passes silently.
+- **undeclared keys outside the plugin's own subtrees.** See
+  [Undeclared keys](#undeclared-keys) — inside them they are reported, but
+  advisory.
 - **anything behind an environment placeholder.** See below.
 - **packages whose `config.d.ts` imports from their dependencies.** `npm pack`
   fetches the package alone with no `node_modules`, and config-loader compiles
   with `skipLibCheck: false`, so those fail to compile and report as
   `unavailable`. On a 29-package sample, 6 were affected. Installing each
   package's dependency tree would fix it at a cost this check cannot justify.
+
+Three outcomes are reported as notes rather than failures, because none is a
+defect in the metadata: the package declares no `configSchema`, it is not on the
+registry, or its schema could not be compiled. **Every run that checks schemas
+prints a tally** of validated / mismatched / no-schema / unavailable, and says so
+explicitly when nothing was validated — otherwise an offline runner reports
+`PASS: 180  FAIL: 0` having checked nothing, and the gate looks green because it
+is inert.
 
 ### Environment placeholders
 
@@ -154,13 +163,76 @@ None of these occurs in the catalogue today. The failure direction is a visible
 false positive naming the exact path, never a silent pass — and closing them
 means seeding the candidates from the failing path's own schema.
 
-Three outcomes are reported as notes rather than failures, because none is a
-defect in the metadata: the package declares no `configSchema`, it is not on the
-registry, or its schema could not be compiled. **Every run that checks schemas
-prints a tally** of validated / mismatched / no-schema / unavailable, and says so
-explicitly when nothing was validated — otherwise an offline runner reports
-`PASS: 180  FAIL: 0` having checked nothing, and the gate looks green because it
-is inert.
+## Undeclared keys
+
+Enabled with `--check-undeclared-keys` (which implies `--check-schemas`).
+Reported, never failed (RHIDP-15902).
+
+config-loader has a `noUndeclaredProperties` option, and neither half of it
+works here.
+
+**It is too broad about documents.** It rejects _every_ undeclared top-level
+key, and examples legitimately carry keys belonging to no plugin schema — the
+`dynamicPlugins` wrapper that 72 of 180 files use, and core Backstage blocks
+like `catalog`, `backend` and `proxy`. So the example is first projected onto
+the top-level keys the plugin's own schema declares; whatever remains is that
+plugin's territory, and a key it does not declare there is a typo.
+
+**It is too broad about schemas.** It closes every subschema stating
+`type: "object"`, whether or not that subschema lists any properties. Given
+`oneOf: [{required: [a]}, {required: [b]}]` with the properties declared on the
+parent, closing the branches makes each reject the other's key — so the strict
+run reports valid documents as carrying undeclared properties. This package
+therefore builds its own strict variant (`rejectUndeclaredKeys`), closing only
+nodes that actually enumerate properties, and leaving union branches alone.
+
+Findings are the undeclared-property errors the strict run reports and the
+lenient one did not. Restricting to that one error class keeps the label honest;
+differencing against the lenient run stops a violation the plugin's own schema
+already declares from being counted twice. A test pins config-loader's wording
+for that error class, so a format change fails loudly rather than quietly
+emptying this layer.
+
+### The backlog, measured
+
+A full-tree sweep today:
+
+```
+Undeclared keys — plugin-owned subtrees: 32  with findings: 7
+```
+
+32 of the 54 files with a resolvable schema set a top-level key their plugin
+declares; the other 22 give this layer nothing to look at. Eight findings across
+seven files, and they are not all typos:
+
+- **Real.** `gitlab.host` / `gitlab.token` — neither the `@immobiliarelabs`
+  gitlab frontend nor its backend declares either; GitLab credentials belong
+  under `integrations.gitlab`.
+- **Artefacts of validating one package in isolation.** `app.sidebar` under
+  `global-header` and `events.http` under `events-backend-module-github` are
+  core keys, declared by RHDH and by `@backstage/plugin-events-backend`
+  respectively. A plugin that declares part of a shared top-level key does not
+  own its siblings, and this layer cannot currently tell the difference.
+
+That is why the layer is advisory. Blocking on it would mean fixing the
+artefacts first — either by resolving sibling packages' schemas, or by narrowing
+ownership below the top level.
+
+Strictness closes only nodes that enumerate their properties, and only through
+`properties`, `patternProperties`, `definitions`, `$defs`, `items`,
+`additionalProperties` and the `anyOf`/`oneOf`/`allOf` lists. Nodes reached
+through `not`, `if`/`then`/`else`, `contains`, `propertyNames`,
+`dependentSchemas` or `prefixItems` are left open — `not` because tightening
+inside a negation loosens it, the rest because under-reporting is the safe
+direction for an advisory check.
+
+Two things `plugin-owned subtrees` deliberately does not claim. It counts files
+where the plugin declares a key the example sets — not files where a typo would
+have been caught, since strictness only closes nodes that enumerate their
+properties, and a schema describing a free-form object or leaning on `$ref` owns
+a subtree in which nothing can be found. And a schema declaring its top-level
+keys through `allOf`/`$ref` rather than a literal `properties` map yields no
+declared keys at all, so its files are skipped silently.
 
 ## Layout
 
