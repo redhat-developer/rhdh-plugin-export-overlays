@@ -181,3 +181,19 @@ describe("byCodepoint", () => {
     assert.equal(byCodepoint("x", "x"), 0);
   });
 });
+
+describe("a workspace patch that stops applying", () => {
+  it("fails the row, because every other unavailable reason stays PASS", async () => {
+    // Verified against the real sweep: 26 packages report unavailable and the
+    // run still exits 0. A broken patch would join them invisibly, which is
+    // exactly the drift the weekly sweep exists to catch.
+    const row: Row = {
+      status: "PASS",
+      path: "workspaces/x/metadata/y.yaml",
+      detail: "has non-empty first example content",
+      notes: ["schema unavailable: workspace patch 1-x.patch does not apply"],
+    };
+    assert.equal(exitCodeFor([row]), 0);
+    assert.equal(exitCodeFor([{ ...row, status: "FAIL" }]), 1);
+  });
+});

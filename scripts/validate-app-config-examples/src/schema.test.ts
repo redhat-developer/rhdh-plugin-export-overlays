@@ -18,10 +18,12 @@ import { loadConfigSchema } from "@backstage/config-loader";
 import {
   applyConfigSchemaPatches,
   containsPlaceholder,
+  declaredConfigSchemaPath,
   describeError,
   findPackageRoot,
   hasConstraints,
   hasPlaceholder,
+  isInside,
   isSafePackageSpec,
   splitDiffByFile,
   splitSchemaErrors,
@@ -186,6 +188,24 @@ describe("validateExample", () => {
     assert.deepEqual(await validateExample(source, PKG, "label", "garbage"), {
       kind: "unavailable",
       reason: "HTTP 404",
+      patchFailure: undefined,
+    });
+  });
+
+  it("carries the patch-failure flag through, so the caller can fail on it", async () => {
+    // A registry miss is nobody's bug; a workspace patch that stopped applying
+    // is this repo's, and is the one unavailable reason worth failing over.
+    const source: SchemaSource = {
+      resolve: async () => ({
+        kind: "unavailable",
+        reason: "patch does not apply",
+        patchFailure: true,
+      }),
+    };
+    assert.deepEqual(await validateExample(source, PKG, "label", {}), {
+      kind: "unavailable",
+      reason: "patch does not apply",
+      patchFailure: true,
     });
   });
 });
@@ -758,6 +778,138 @@ describe("splitDiffByFile with added and removed files", () => {
     assert.deepEqual(
       sections.map((section) => section.target),
       ["b/plugins/x/config.d.ts"],
+    );
+  });
+});
+
+describe("declaredConfigSchemaPath", () => {
+  async function packageJson(contents: string): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), "declared-schema-"));
+    await writeFile(join(dir, "package.json"), contents);
+    return dir;
+  }
+
+  it("returns a nested path as declared", async () => {
+    const dir = await packageJson('{"configSchema":"dist/config.schema.json"}');
+    try {
+      assert.equal(
+        await declaredConfigSchemaPath(dir),
+        "dist/config.schema.json",
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("is undefined for an inline schema object", async () => {
+    // config-loader accepts one, but there is no file for a patch to rewrite.
+    const dir = await packageJson('{"configSchema":{"type":"object"}}');
+    try {
+      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("is undefined when the field is missing or the manifest unreadable", async () => {
+    const dir = await packageJson("{}");
+    try {
+      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+    const broken = await packageJson("{not json");
+    try {
+      assert.equal(await declaredConfigSchemaPath(broken), undefined);
+    } finally {
+      await rm(broken, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a path escaping the package", async () => {
+    // The value comes from a third-party tarball, and `join` resolves `../`
+    // rather than rejecting it — so an unchecked path would steer the scratch
+    // file write and delete in applySection anywhere on the runner.
+    const dir = await packageJson(
+      '{"configSchema":"../../../../etc/config.d.ts"}',
+    );
+    try {
+      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("isInside", () => {
+  it("accepts a path under the root", () => {
+    assert.equal(isInside("/a/b", "config.d.ts"), true);
+    assert.equal(isInside("/a/b", "dist/config.schema.json"), true);
+  });
+
+  it("rejects traversal, absolute paths and the root itself", () => {
+    assert.equal(isInside("/a/b", "../c"), false);
+    assert.equal(isInside("/a/b", "/etc/passwd"), false);
+    assert.equal(isInside("/a/b", "."), false);
+  });
+});
+
+describe("applyConfigSchemaPatches with an ambiguous patch", () => {
+  it("refuses when one patch rewrites the same-named schema for two plugins", async () => {
+    // Only the filename ties a hunk to this package — the directory that would
+    // say which plugin it belongs to is what the strip level discards. Applying
+    // a sibling's hunk would validate against a schema that is not what ships.
+    const dir = await mkdtemp(join(tmpdir(), "ambiguous-patch-"));
+    try {
+      await writeFile(join(dir, "config.d.ts"), "export type Config = {};\n");
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({ configSchema: "config.d.ts" }),
+      );
+      const patch = join(dir, "1-two-plugins.patch");
+      await writeFile(
+        patch,
+        [
+          "diff --git a/plugins/foo/config.d.ts b/plugins/foo/config.d.ts",
+          "--- a/plugins/foo/config.d.ts",
+          "+++ b/plugins/foo/config.d.ts",
+          "@@ -1 +1 @@",
+          "-export type Config = {};",
+          "+export type Config = { a: string };",
+          "diff --git a/plugins/bar/config.d.ts b/plugins/bar/config.d.ts",
+          "--- a/plugins/bar/config.d.ts",
+          "+++ b/plugins/bar/config.d.ts",
+          "@@ -1 +1 @@",
+          "-export type Config = {};",
+          "+export type Config = { b: string };",
+          "",
+        ].join("\n"),
+      );
+      await assert.rejects(
+        () => applyConfigSchemaPatches(dir, [patch]),
+        /cannot tell which belongs to this package/,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("splitDiffByFile and sections with no hunks", () => {
+  it("drops a rename-only section rather than guessing a target", () => {
+    // Deliberate: a rename carries no `---`/`+++` lines, so there is nothing to
+    // derive a strip level from. No workspace patch renames a config schema; if
+    // one ever does, it will be skipped rather than misapplied.
+    assert.deepEqual(
+      splitDiffByFile(
+        [
+          "diff --git a/plugins/x/config.d.ts b/plugins/y/config.d.ts",
+          "similarity index 100%",
+          "rename from plugins/x/config.d.ts",
+          "rename to plugins/y/config.d.ts",
+        ].join("\n"),
+      ),
+      [],
     );
   });
 });

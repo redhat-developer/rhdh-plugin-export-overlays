@@ -207,6 +207,14 @@ async function checkSchemas(
     if (outcome.kind === "unavailable") {
       tally.unavailable += 1;
       row.notes.push(`schema unavailable: ${outcome.reason}`);
+      // A patch that has stopped applying is a defect in this repo, not a fact
+      // about the registry, and it silently removes a package from validation.
+      // Failing is the only way the weekly sweep can surface it: every other
+      // unavailable reason leaves the row PASS, and exitCodeFor reads status.
+      if (outcome.patchFailure && !warnOnly) {
+        row.status = "FAIL";
+        row.detail = "a workspace patch no longer applies to this package";
+      }
       return;
     }
 
@@ -291,6 +299,8 @@ async function changedMetadataPaths(
  * makes the published schema differ from the one the artifact enforces. The
  * resolver needs them to reconstruct what actually ships.
  */
+const patchesByWorkspace = new Map<string, Promise<string[]>>();
+
 async function workspacePatches(
   repoRoot: string,
   metadataPath: string,
@@ -299,6 +309,21 @@ async function workspacePatches(
   if (!workspace) {
     return [];
   }
+  // Memoised: a workspace holds many metadata files and the answer is the same
+  // for all of them, so without this a full-tree run globs 180 times to answer
+  // ~40 distinct questions.
+  let pending = patchesByWorkspace.get(workspace);
+  if (!pending) {
+    pending = globPatches(repoRoot, workspace);
+    patchesByWorkspace.set(workspace, pending);
+  }
+  return pending;
+}
+
+async function globPatches(
+  repoRoot: string,
+  workspace: string,
+): Promise<string[]> {
   const found: string[] = [];
   for await (const entry of glob(`workspaces/${workspace}/patches/*.patch`, {
     cwd: repoRoot,

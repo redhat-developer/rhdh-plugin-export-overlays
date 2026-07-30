@@ -19,6 +19,9 @@ on:
   # check sees just the metadata that PR touched, so a schema an upstream
   # release changed under us — or a workspace whose patches stopped applying —
   # would otherwise surface only when someone happened to dispatch this by hand.
+  # Only the default branch is swept on a schedule; a release branch carrying
+  # its own backlog is surveyed by dispatching this workflow from that branch
+  # with --warn-only semantics in mind.
   schedule:
     - cron: '0 6 * * 1'
 
@@ -33,7 +36,7 @@ jobs:
     # Schema validation downloads one published tarball per distinct
     # packageName@version, so a full-tree run is far slower than the
     # structural-only check this workflow used to run.
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
     defaults:
@@ -104,11 +107,17 @@ jobs:
       # a workspace patch that stopped applying — has no other way to surface.
       # Neither event blocks a merge.
       - name: Validate (full tree)
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
-          # Scheduled runs get no inputs, and the sweep is the point of the
-          # schedule, so absent means on.
-          CHECK_SCHEMAS: ${{ inputs.check-schemas != 'false' }}
+          # Scheduled runs get no inputs and the sweep is the point of the
+          # schedule, so absent means on; a dispatch gets whatever was ticked.
+          #
+          # Not `inputs.check-schemas != 'false'`: the input is declared
+          # `type: boolean`, so unticking it yields the boolean false, and
+          # comparing that to the string 'false' coerces both to numbers —
+          # 0 against NaN — which is never equal. The toggle would have been
+          # permanently stuck on.
+          CHECK_SCHEMAS: ${{ github.event_name != 'workflow_dispatch' || inputs.check-schemas }}
         run: |
           args=()
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then

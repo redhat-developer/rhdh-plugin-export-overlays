@@ -41,7 +41,14 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
 import type { JsonObject } from "@backstage/types";
@@ -56,12 +63,18 @@ export type SchemaOutcome =
   | { kind: "ok" }
   | { kind: "invalid"; errors: string[] }
   | { kind: "no-schema" }
-  | { kind: "unavailable"; reason: string };
+  | { kind: "unavailable"; reason: string; patchFailure?: boolean };
 
 export type ResolvedSchema =
   | { kind: "schema"; schema: Awaited<ReturnType<typeof loadConfigSchema>> }
   | { kind: "no-schema" }
-  | { kind: "unavailable"; reason: string };
+  /**
+   * `patchFailure` separates a defect in this repo from a fact about the
+   * registry. A package that is unpublished or whose config.d.ts needs its
+   * dependencies is nobody's bug; a workspace patch that has stopped applying
+   * is ours, and is the one thing here worth failing a run over.
+   */
+  | { kind: "unavailable"; reason: string; patchFailure?: boolean };
 
 /**
  * Which schema to load, and what this repo does to it before shipping.
@@ -183,7 +196,11 @@ export class SchemaResolver implements SchemaSource {
       // Reported rather than validated against the unpatched schema: this repo
       // patches config.d.ts precisely where the published one is wrong, so
       // falling back to it would resurrect the mismatch the patch exists to fix.
-      return { kind: "unavailable", reason: describeError(error) };
+      return {
+        kind: "unavailable",
+        reason: describeError(error),
+        patchFailure: true,
+      };
     }
 
     try {
@@ -213,8 +230,9 @@ const DEV_NULL = "/dev/null";
 /**
  * One target file's slice of a unified diff.
  *
- * `target` is the post-image path exactly as the diff writes it, `b/` prefix
- * and all, because the strip level is derived from counting its components.
+ * `target` is the path the diff writes, prefix and all — `b/…` normally, or the
+ * `a/…` pre-image when the post-image is `/dev/null` because the file is being
+ * deleted. The prefix stays because the strip level counts its components.
  */
 export type DiffSection = { target: string; body: string };
 
@@ -316,10 +334,23 @@ export async function applyConfigSchemaPatches(
       throw new Error(`cannot read patch ${patchPath}`, { cause: error });
     }
 
-    for (const section of splitDiffByFile(patch)) {
-      if ((section.target.split("/").pop() ?? "") !== schemaFile) {
-        continue;
-      }
+    const candidates = splitDiffByFile(patch).filter(
+      (section) => (section.target.split("/").pop() ?? "") === schemaFile,
+    );
+    // The filename is all that ties a section to this package: the directory
+    // that would say *which* plugin it belongs to is exactly what the strip
+    // level discards. One candidate is unambiguous. Two means the patch touches
+    // the same-named schema in two plugins of the same upstream monorepo, and
+    // guessing would validate this package against a sibling's schema — so say
+    // so instead, and let the caller report it as unavailable.
+    if (candidates.length > 1) {
+      throw new Error(
+        `workspace patch ${basename(patchPath)} rewrites ${schemaFile} for ` +
+          `${candidates.length} plugins (${candidates.map((c) => c.target).join(", ")}); ` +
+          "cannot tell which belongs to this package",
+      );
+    }
+    for (const section of candidates) {
       await applySection(schemaDir, patchPath, section);
     }
   }
@@ -328,8 +359,11 @@ export async function applyConfigSchemaPatches(
 /**
  * The `configSchema` file a package declares, relative to its root.
  *
- * Undefined when the field is missing, or when it holds an inline schema object
- * rather than a path — in both cases there is no file for a patch to rewrite.
+ * Undefined when the field is missing, when it holds an inline schema object
+ * rather than a path, or when the path points outside the package. The last one
+ * matters because this value comes out of a third-party tarball: `join` resolves
+ * `../` rather than rejecting it, so an unchecked `configSchema` would let a
+ * published package steer a file write and delete anywhere on the runner.
  */
 export async function declaredConfigSchemaPath(
   packageDir: string,
@@ -349,9 +383,16 @@ export async function declaredConfigSchemaPath(
   // Any path the package names, not a fixed list: config.d.ts and
   // config.schema.json are the two forms in this catalogue today, but the file
   // worth patching is whichever one config-loader will read.
-  return typeof configSchema === "string" && configSchema !== ""
-    ? configSchema
-    : undefined;
+  if (typeof configSchema !== "string" || configSchema === "") {
+    return undefined;
+  }
+  return isInside(packageDir, configSchema) ? configSchema : undefined;
+}
+
+/** True when `candidate`, resolved against `root`, stays under it. */
+export function isInside(root: string, candidate: string): boolean {
+  const target = relative(root, resolve(root, candidate));
+  return target !== "" && !target.startsWith("..") && !isAbsolute(target);
 }
 
 /** Applies one diff section to the directory holding the schema file. */
@@ -655,7 +696,11 @@ export async function validateExample(
   if (resolved.kind !== "schema") {
     return resolved.kind === "no-schema"
       ? { kind: "no-schema" }
-      : { kind: "unavailable", reason: resolved.reason };
+      : {
+          kind: "unavailable",
+          reason: resolved.reason,
+          patchFailure: resolved.patchFailure,
+        };
   }
 
   if (!isPlainObject(content)) {

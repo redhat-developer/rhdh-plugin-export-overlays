@@ -74,7 +74,17 @@ forced this — its patch fixes a union-precedence bug, and without replaying it
 the validator reports a mismatch against a schema the overlay already corrected.
 A patch that no longer applies makes the package `unavailable` rather than
 falling back to the unpatched schema, since that fallback would resurrect
-exactly the mismatch the patch exists to fix.
+exactly the mismatch the patch exists to fix — and, unlike every other
+`unavailable` reason, it **fails the run**. A package missing from the registry
+is nobody's defect; a patch that has stopped applying is this repo's, and it
+silently removes a package from validation. Failing is the only way the weekly
+sweep can surface it, because an `unavailable` row otherwise stays `PASS`.
+
+If a workspace patch rewrites the same-named config schema for two plugins of
+one upstream monorepo, the package reports `unavailable` too: the directory that
+would say which plugin a hunk belongs to is exactly what the strip level
+discards, and validating against a sibling's schema is worse than not
+validating.
 
 ## What the semantic check catches — and what it does not
 
@@ -155,7 +165,7 @@ is inert.
 | `src/metadata.ts` | YAML reading and the structural verdicts             |
 | `src/schema.ts`   | package download, schema loading, example validation |
 | `src/validate.ts` | CLI, reporting, exit codes                           |
-| `src/*.test.ts`   | 77 tests                                             |
+| `src/*.test.ts`   | the unit tests                                       |
 
 `yarn check` runs the type check and the unit tests. The tests never touch the
 network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
