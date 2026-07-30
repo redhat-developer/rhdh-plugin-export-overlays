@@ -131,6 +131,22 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Reviewing Workspace Version Updates
+
+Workspace version updates are the most common PR type in this repo, generated daily by the `update-plugins-repo-refs.yaml` workflow. These PRs update `source.json` to point to a new upstream commit and bump metadata to reflect the new plugin versions. They are identifiable by the `workspace-update` label.
+
+**Why targeted review matters:** Version update PRs are mechanical changes, but version consistency errors — a metadata version that doesn't match the upstream release, an OCI tag with the wrong Backstage version, or a stale metadata file for an unchanged plugin — cause build failures or publish incorrect artifacts. Generic code review heuristics miss these domain-specific consistency checks.
+
+**Review checklist for workspace version update PRs:**
+
+1. **Ref-to-version consistency.** Verify that `repo-ref` in `source.json` corresponds to a tagged release or merged version-bump commit in the upstream repo. Use the `repo` URL from `source.json` to check. Confirm that each updated `spec.version` in `metadata/*.yaml` matches the upstream package version at that ref.
+2. **OCI tag format.** Verify that `spec.dynamicArtifact` OCI tags in metadata follow the pattern `bs_<backstage-version>__<plugin-version>`. The `<backstage-version>` must match `backstage.supportedVersions` in the same file, and `<plugin-version>` must match `spec.version`.
+3. **Selective metadata updates.** Only plugins whose versions changed in the upstream release should have updated metadata files. Plugins not modified upstream should have unchanged metadata. Cross-reference with the upstream changelog or PR linked in the issue or PR description to verify which plugins were released.
+4. **Backstage compatibility.** If `repo-backstage-version` in `source.json` changed, flag it for extra scrutiny — a Backstage framework version jump may require E2E test verification (see #2978). Check whether `backstage.supportedVersions` in metadata files was updated consistently with the new `repo-backstage-version`.
+5. **File scope.** Workspace version update PRs should only touch `source.json` and `metadata/*.yaml` within the target workspace. Any changes outside this scope — overlays, patches, `plugins-list.yaml`, or files in other workspaces — warrant explanation in the PR description. Approve version-only changes without requiring justification for the mechanical update itself.
+
+**Do not apply generic code style review to version strings or OCI tags.** These are machine-generated values that follow a fixed format. Focus review effort on consistency checks (items 1–3 above) rather than formatting opinions.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
