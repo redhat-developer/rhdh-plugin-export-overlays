@@ -43,14 +43,18 @@ permissions:
 
 jobs:
   discover-and-file:
-    name: Discover & file issue
+    name: Discover & file issue (${{ matrix.branch }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
     steps:
       - name: Discover latest failed nightly
         id: discover
         env:
           INPUT_PROW_URL: ${{ inputs.prow_url }}
-          INPUT_BRANCH: ${{ inputs.branch || 'main' }}
+          INPUT_BRANCH: ${{ matrix.branch }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           set -euo pipefail
@@ -58,7 +62,6 @@ jobs:
           if [[ -n "${INPUT_PROW_URL}" ]]; then
             echo "prow_url=${INPUT_PROW_URL}" >> "${GITHUB_OUTPUT}"
             echo "should_file=true" >> "${GITHUB_OUTPUT}"
-            echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
@@ -102,14 +105,13 @@ jobs:
 
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
-          echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
 
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
-          BRANCH: ${{ steps.discover.outputs.branch }}
+          BRANCH: ${{ matrix.branch }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail

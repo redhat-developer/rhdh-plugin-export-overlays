@@ -62,7 +62,6 @@ forge:
   github:
     env:
       runner:
-        PUSH_TOKEN: "${PUSH_TOKEN}"
         REPO_FULL_NAME: "${REPO_FULL_NAME}"
         GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
       sandbox:
