@@ -351,19 +351,20 @@ describe("validateExample with environment placeholders", () => {
   });
 
   it("reports the as-is errors, naming the text the maintainer will edit", async () => {
+    // `retries` holds a placeholder, so every retry clears its error while
+    // `hosts` keeps failing. Reporting a retry's errors would therefore lose
+    // the /acme/retries line — its presence is what proves the untouched
+    // document is the one being reported.
     const outcome = await validateExample(
       await sourceWithSchema(),
       PKG,
       "label",
-      { acme: { baseUrl: "x", mode: "${MODE}", hosts: "nope" } },
+      { acme: { baseUrl: "x", retries: "${RETRIES}", hosts: "nope" } },
     );
     assert.equal(outcome.kind, "invalid");
-    // Not "placeholder"/"true"/"0" from a retry: the errors come from the
-    // untouched document, so paths and values match what is on disk.
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
-      /at \/acme\/hosts/,
-    );
+    const errors = outcome.kind === "invalid" ? outcome.errors.join(" ") : "";
+    assert.match(errors, /at \/acme\/retries/);
+    assert.match(errors, /at \/acme\/hosts/);
   });
 });
 
