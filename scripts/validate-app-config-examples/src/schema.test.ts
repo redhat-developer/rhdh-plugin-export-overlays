@@ -16,11 +16,14 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { loadConfigSchema } from "@backstage/config-loader";
 import {
+  containsPlaceholder,
   describeError,
   findPackageRoot,
   hasConstraints,
+  hasPlaceholder,
   isSafePackageSpec,
   splitSchemaErrors,
+  substitutePlaceholders,
   validateExample,
   type SchemaSource,
 } from "./schema.js";
@@ -181,6 +184,186 @@ describe("validateExample", () => {
       kind: "unavailable",
       reason: "HTTP 404",
     });
+  });
+});
+
+describe("hasPlaceholder", () => {
+  it("matches a substitution", () => {
+    assert.equal(hasPlaceholder("${SEGMENT_TEST_MODE}"), true);
+    assert.equal(hasPlaceholder("https://${HOST}/api"), true);
+  });
+
+  it("does not match plain text or a bare dollar", () => {
+    assert.equal(hasPlaceholder("true"), false);
+    assert.equal(hasPlaceholder("$HOME"), false);
+    assert.equal(hasPlaceholder("costs $5 {maybe}"), false);
+  });
+
+  it("does not match Backstage's $${ escape for a literal brace", () => {
+    assert.equal(hasPlaceholder("$${NOT_SUBSTITUTED}"), false);
+  });
+});
+
+describe("containsPlaceholder", () => {
+  it("finds a placeholder at any depth, including inside arrays", () => {
+    assert.equal(containsPlaceholder({ a: { b: ["x", "${TOKEN}"] } }), true);
+  });
+
+  it("is false for a document with no placeholder", () => {
+    assert.equal(
+      containsPlaceholder({ a: { b: ["x"] }, n: 1, t: true }),
+      false,
+    );
+  });
+});
+
+describe("substitutePlaceholders", () => {
+  it("replaces placeholder leaves and leaves everything else alone", () => {
+    assert.deepEqual(
+      substitutePlaceholders(
+        { keep: "plain", swap: "${A}", nested: { list: ["${B}", 7, false] } },
+        "true",
+      ),
+      { keep: "plain", swap: "true", nested: { list: ["true", 7, false] } },
+    );
+  });
+
+  it("does not modify the input", () => {
+    const original = { swap: "${A}" };
+    substitutePlaceholders(original, "true");
+    assert.deepEqual(original, { swap: "${A}" });
+  });
+});
+
+/**
+ * A schema shaped like `@backstage-community/plugin-analytics-provider-segment`:
+ * a union discriminated on a *literal* boolean, which no `${...}` text can
+ * satisfy before substitution.
+ */
+async function sourceWithBooleanLiteralUnion(): Promise<SchemaSource> {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: {
+            type: "object",
+            properties: {
+              acme: {
+                type: "object",
+                properties: {
+                  segment: {
+                    anyOf: [
+                      {
+                        type: "object",
+                        required: ["testMode"],
+                        properties: {
+                          writeKey: { type: "string" },
+                          testMode: { type: "boolean", enum: [true] },
+                        },
+                      },
+                      {
+                        type: "object",
+                        required: ["writeKey"],
+                        properties: {
+                          writeKey: { type: "string" },
+                          testMode: { type: "boolean", enum: [false] },
+                        },
+                      },
+                    ],
+                  },
+                  home: { type: "object", properties: {} },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema", schema }) };
+}
+
+describe("validateExample with environment placeholders", () => {
+  it("accepts a placeholder on a field declaring a boolean literal", async () => {
+    // The RHIDP-15903 segment finding. Backstage substitutes before it
+    // validates, so the raw `${...}` text never reaches a schema at runtime.
+    const outcome = await validateExample(
+      await sourceWithBooleanLiteralUnion(),
+      PKG,
+      "label",
+      { acme: { segment: { writeKey: "${KEY}", testMode: "${TEST_MODE}" } } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it("accepts a placeholder on a declared string", async () => {
+    const outcome = await validateExample(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "${BASE_URL}" } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it("accepts a placeholder on a declared number", async () => {
+    const outcome = await validateExample(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "x", retries: "${RETRIES}" } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it("still reports a placeholder where an object is declared", async () => {
+    // Substitution can only ever yield a string, so this one is a genuine
+    // defect however the variable is set — the leniency must not swallow it.
+    const outcome = await validateExample(
+      await sourceWithBooleanLiteralUnion(),
+      PKG,
+      "label",
+      { acme: { segment: { writeKey: "k" }, home: "${HOME_PAGE}" } },
+    );
+    assert.equal(outcome.kind, "invalid");
+    assert.match(
+      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+      /must be object .* at \/acme\/home/,
+    );
+  });
+
+  it("still reports a structural mismatch that has nothing to do with placeholders", async () => {
+    // The RHIDP-15903 dynatrace finding in miniature: every leaf is a
+    // placeholder, but the shape is wrong whatever they hold.
+    const outcome = await validateExample(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "${URL}", hosts: "${HOSTS}" } },
+    );
+    assert.equal(outcome.kind, "invalid");
+    assert.match(
+      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+      /must be array .* at \/acme\/hosts/,
+    );
+  });
+
+  it("reports the as-is errors, naming the text the maintainer will edit", async () => {
+    const outcome = await validateExample(
+      await sourceWithSchema(),
+      PKG,
+      "label",
+      { acme: { baseUrl: "x", mode: "${MODE}", hosts: "nope" } },
+    );
+    assert.equal(outcome.kind, "invalid");
+    // Not "placeholder"/"true"/"0" from a retry: the errors come from the
+    // untouched document, so paths and values match what is on disk.
+    assert.match(
+      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+      /at \/acme\/hosts/,
+    );
   });
 });
 

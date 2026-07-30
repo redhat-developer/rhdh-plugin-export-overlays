@@ -30,6 +30,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
+import type { JsonObject } from "@backstage/types";
 import { errorProperty, isPlainObject } from "./json.js";
 
 const execFileAsync = promisify(execFile);
@@ -275,9 +276,105 @@ export function describeError(error: unknown): string {
 }
 
 /**
+ * Matches an environment placeholder Backstage would have substituted away
+ * before any schema saw the value.
+ *
+ * `$${` is Backstage's escape for a literal `${`, so a `$` immediately before
+ * the brace means the author wanted the text and not a substitution.
+ */
+const PLACEHOLDER = /(?<!\$)\$\{[^}]*\}/;
+
+/**
+ * Values a placeholder might hold once substituted, as far as a schema can tell.
+ *
+ * Substitution yields a *string* — the environment has no other type — so these
+ * are all strings, and Ajv's `coerceTypes` decides whether one satisfies a
+ * declared boolean or number. "placeholder" stands for the overwhelmingly
+ * common case of a plain string field; the rest exist because a declared
+ * boolean accepts only "true"/"false" and a declared number only digits.
+ */
+const PLACEHOLDER_VALUES = ["placeholder", "true", "false", "0"];
+
+/** True when substitution would rewrite this string. */
+export function hasPlaceholder(value: string): boolean {
+  return PLACEHOLDER.test(value);
+}
+
+/** True when any leaf anywhere under `value` is a placeholder string. */
+export function containsPlaceholder(value: unknown): boolean {
+  if (typeof value === "string") {
+    return hasPlaceholder(value);
+  }
+  if (Array.isArray(value)) {
+    return value.some(containsPlaceholder);
+  }
+  if (isPlainObject(value)) {
+    return Object.values(value).some(containsPlaceholder);
+  }
+  return false;
+}
+
+/**
+ * Deep copy of `value` with every placeholder leaf replaced by `replacement`.
+ *
+ * The copy is not incidental: config-loader builds Ajv with `coerceTypes`, which
+ * rewrites the data it validates, so each attempt has to start from unmodified
+ * input rather than whatever the previous attempt left behind.
+ */
+export function substitutePlaceholders(
+  value: unknown,
+  replacement: string,
+): unknown {
+  if (typeof value === "string") {
+    return hasPlaceholder(value) ? replacement : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => substitutePlaceholders(item, replacement));
+  }
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        substitutePlaceholders(item, replacement),
+      ]),
+    );
+  }
+  return value;
+}
+
+/** Runs the schema over one document. Returns the errors, or undefined if clean. */
+function runSchema(
+  schema: Awaited<ReturnType<typeof loadConfigSchema>>,
+  data: JsonObject,
+  label: string,
+): string[] | undefined {
+  try {
+    schema.process(
+      // Cloned for the same reason substitutePlaceholders copies: Ajv coerces in
+      // place, and a caller's example must not come back rewritten.
+      [{ data: structuredClone(data), context: label }],
+      // No visibility filter: an example documents a full app-config, so
+      // frontend and backend keys are both legitimate.
+      { ignoreSchemaErrors: false },
+    );
+    return undefined;
+  } catch (error) {
+    return splitSchemaErrors(error);
+  }
+}
+
+/**
  * Validates one example's content against a package's schema.
  *
- * Two limits worth knowing, both verified against the real compiler:
+ * Environment placeholders are the wrinkle. An example writes
+ * `testMode: ${SEGMENT_TEST_MODE}`, and Backstage substitutes that before it
+ * validates anything — so checking the literal `${...}` text against a declared
+ * boolean rejects a value that never reaches a schema in that form. What
+ * substitution produces is always a *string*, so an example is accepted when
+ * some string assignment to its placeholders satisfies the schema. Only the
+ * as-is errors are reported, since those name the text a maintainer will edit.
+ *
+ * Three limits worth knowing, all verified against the real compiler:
  *
  * - Undeclared keys are tolerated. Examples legitimately carry RHDH wiring that
  *   belongs to no plugin schema — most of this catalogue's examples contain a
@@ -288,6 +385,12 @@ export function describeError(error: unknown): string {
  *   What is caught is non-coercible scalars (`port: "high"`), wrong nesting
  *   (a scalar where an object or array is declared), bad enum values, and
  *   missing required properties.
+ * - Placeholders are substituted uniformly, one candidate at a time, rather
+ *   than searching every combination. An example whose placeholders sit on
+ *   fields of *different* declared types — one boolean, one number — can still
+ *   be reported. No example in this catalogue does that, and the message names
+ *   the exact path, so the failure direction is a visible false positive rather
+ *   than a silent pass.
  *
  * Errors are returned rather than thrown so one bad example cannot abort a run.
  */
@@ -311,17 +414,26 @@ export async function validateExample(
     };
   }
 
-  try {
-    resolved.schema.process(
-      [{ data: content, context: label }],
-      // No visibility filter: an example documents a full app-config, so
-      // frontend and backend keys are both legitimate.
-      { ignoreSchemaErrors: false },
-    );
+  const errors = runSchema(resolved.schema, content, label);
+  if (errors === undefined) {
     return { kind: "ok" };
-  } catch (error) {
-    return { kind: "invalid", errors: splitSchemaErrors(error) };
   }
+
+  if (containsPlaceholder(content)) {
+    for (const value of PLACEHOLDER_VALUES) {
+      const substituted = substitutePlaceholders(content, value);
+      // Substituting leaves never turns a mapping into anything else, so this
+      // guard is a formality — but it re-narrows the type without an assertion.
+      if (
+        isPlainObject(substituted) &&
+        runSchema(resolved.schema, substituted, label) === undefined
+      ) {
+        return { kind: "ok" };
+      }
+    }
+  }
+
+  return { kind: "invalid", errors };
 }
 
 /**
