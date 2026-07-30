@@ -132,7 +132,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-azure-devops:bs_1.52.0__0.32.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -142,7 +143,7 @@
       "package": "@backstage-community/plugin-azure-devops",
       "version": "0.32.0",
       "workspace": "azure-devops",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-catalog-backend-module-bitbucket-cloud": {
       "stages": {
@@ -162,7 +163,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7ebb2e5cd76b7040acba5b4dab04ef771e8783d8450d0f32c5a70ca054c01469"
+          "digest": "sha256:0c312e3b173a3fe4a7d96403059fbc9bf70c7f66634d22432f7b785ab8b924ba"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-cloud",
@@ -188,7 +189,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:64952c61e49847130fb6fce23120d1e2d754f1a296ed23476202d88b804eed03"
+          "digest": "sha256:4373d5bc92706ea62594053fc4167aef9c004f9d088d72dad1e131824e422199"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-server",
@@ -214,7 +215,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:72006dbaca26e522ebdc6af55f6e95bbdcef7b83a92c6ef3a8d04b745dfe03d0"
+          "digest": "sha256:fbf4297c3ed33ac9ec0d739aba262f104fae6ea6607e595daef27fc6e3e042a5"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-azure",
@@ -240,7 +241,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ab4d4014b8a509f02a107295e6047578a16c524699385ba2267d223c8304881b"
+          "digest": "sha256:4dea3a6ae6e524f003560c2a24ba71889646067ac5e0a58c275f2b05f2475af3"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud",
@@ -266,7 +267,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0b27ef861015cea9fc7d6ea6389caa11cb24199a88597fb701136e4501c8f7df"
+          "digest": "sha256:180c19503f592e749454537c86b1df43b9debdfbb896d9b994158d3418332acf"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
@@ -292,7 +293,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:74098323d9b003b6e0db672e1a9105e9b2d508089144e718da29a432df780c33"
+          "digest": "sha256:f287f7fe22d015977b51a30308068ef960d6f1a737f70da47b518828b7678fd1"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-gerrit",
@@ -344,7 +345,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fc9759947cfc57a46653e6777c6be7577726e230839e742e89d0e4635f3e5bd1"
+          "digest": "sha256:dd934c55739c2eace28f66443114cbd2fa01ca4063a937759ae1cb7fdca4b792"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
@@ -370,7 +371,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a737195e9720fc088b83cd08edd9ff4157205ed9b97ec046829f09e4a336a297"
+          "digest": "sha256:6f292393227aa807376ed1530a1c88409b43b1cff848d77cdb137d11c867273f"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
@@ -452,7 +453,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend:bs_1.52.0__0.29.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -462,7 +464,7 @@
       "package": "@backstage-community/plugin-jenkins-backend",
       "version": "0.29.0",
       "workspace": "jenkins",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-jenkins": {
       "stages": {
@@ -646,7 +648,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:28a8e00e07bd9518177fee72ffc5a1a74ec2678d498a7af2612ab82cc199d900"
+          "digest": "sha256:9dd04cbd00a29d5013c453ad7b6c42c188a1168e24fcf6a2bb59032856c4fc99"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -672,7 +674,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:080ff0c94ccff014a678cbcd940d287cb87140c1ee5eb79514383ce4ae0157e7"
+          "digest": "sha256:01b1a64b3ad42ded478a6cdab58a591fa6809aa97cd76510665abfd94099dde6"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -1052,7 +1054,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:74c5873b8243fb9aecfb9f2e943472f1979d364d1171c8dcce608a86968a9da5"
+          "digest": "sha256:5db2d3b33d9414920e5a8c1be7094391f787878fa8b1ff15ea842ed15553d251"
         }
       },
       "package": "@backstage-community/plugin-tekton",
@@ -1078,7 +1080,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1c9dc6261fa23e1445b43b6000280deaca9d8151914ccc825b20cc4813b2f95d"
+          "digest": "sha256:774f837d279316fa30453467fdf9928fc182d844600fcf6915a975e5b83b9772"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1310,7 +1312,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a2cc00d467b24a49f1f8ae71a35789f27493ca0660f3f38c1d8241a50d87ee65"
+          "digest": "sha256:1f739bde1f14be84b1cbecec6100ef38ef4a70997bc97acf198b8c7b6bbda349"
         },
         "dpdy": {
           "status": "skip"
@@ -1327,8 +1329,8 @@
   },
   "summary": {
     "total": 48,
-    "succeeded": 36,
-    "failed": 12
+    "succeeded": 34,
+    "failed": 14
   },
   "status": "partial"
 }
