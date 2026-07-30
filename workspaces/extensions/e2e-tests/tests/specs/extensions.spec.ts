@@ -424,7 +424,7 @@ test.describe("Admin > Extensions", () => {
       });
 
       test("Edit package through side menu", async ({ page, uiHelper }) => {
-        const link = page.getByRole("cell", { name: plugin });
+        const link = page.getByRole("link", { name: plugin });
         await expect(link).toBeVisible();
         await link.click();
 
