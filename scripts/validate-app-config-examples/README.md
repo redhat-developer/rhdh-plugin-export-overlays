@@ -106,7 +106,7 @@ Verified against the real compiler, not assumed.
   see it.
 - **undeclared keys.** Examples legitimately carry RHDH wiring that belongs to
   no plugin schema — 72 of 180 metadata files include a `dynamicPlugins` block
-  and 65 contain nothing else. Rejecting undeclared keys would fail all of them,
+  and 64 contain nothing else. Rejecting undeclared keys would fail all of them,
   so a typo'd key name passes silently.
 - **anything behind an environment placeholder.** See below.
 - **packages whose `config.d.ts` imports from their dependencies.** `npm pack`
@@ -123,8 +123,13 @@ literal `${...}` text against a declared boolean would therefore reject a value
 that never reaches a schema in that form — which is exactly what happened to
 `analytics-provider-segment` (RHIDP-15903).
 
-Substitution can only ever produce a _string_, so an example is accepted when
-some string assignment to its placeholders satisfies the schema. Concretely the
+Substitution yields a _string_ when the variable is set, and **removes the key**
+when it is not — verified against config-loader's own `createSubstitutionTransform`
+and `applyConfigTransforms`. This validator models only the set case, so an
+example is accepted when some string assignment to its placeholders satisfies the
+schema; a required property behind a placeholder is accepted here and would still
+fail at startup with the variable unset. Modelling absence too would mask genuine
+missing-required-property findings, which is why it is left out. Concretely the
 validator retries with every placeholder set to `placeholder`, `true`, `false`,
 and `0` in turn, and accepts if any of those validates. The errors it reports
 are always the ones from the untouched document, so paths and values match what

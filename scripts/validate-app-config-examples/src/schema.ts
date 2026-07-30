@@ -542,8 +542,17 @@ export function describeError(error: unknown): string {
  *
  * `$${` is Backstage's escape for a literal `${`, so a `$` immediately before
  * the brace means the author wanted the text and not a substitution.
+ *
+ * The character class is upstream's verbatim — `[^{}]`, not `[^}]`. It excludes
+ * `{` too, so `${A{B}` is *not* a placeholder to Backstage; a looser class here
+ * would excuse a schema violation on a value that never gets substituted.
+ *
+ * Hand-rolled because config-loader keeps `createSubstitutionTransform` out of
+ * its public exports (`dist/index.cjs.js` ships only the loaders and sources),
+ * and the one public route to it — `FileConfigSource.create({substitutionFunc})`
+ * — needs the example on disk. Kept in sync by hand; a test pins the escape.
  */
-const PLACEHOLDER = /(?<!\$)\$\{[^}]*\}/;
+const PLACEHOLDER = /(?<!\$)\$\{[^{}]*\}/;
 
 /**
  * The same pattern, global, for rewriting every occurrence in one string.
@@ -551,16 +560,24 @@ const PLACEHOLDER = /(?<!\$)\$\{[^}]*\}/;
  * Separate from PLACEHOLDER because a global regex carries `lastIndex` state
  * across calls, which `test()` would advance and then start skipping matches.
  */
-const PLACEHOLDER_SPANS = /(?<!\$)\$\{[^}]*\}/g;
+const PLACEHOLDER_SPANS = /(?<!\$)\$\{[^{}]*\}/g;
 
 /**
  * Values a placeholder might hold once substituted, as far as a schema can tell.
  *
- * Substitution yields a *string* — the environment has no other type — so these
- * are all strings, and Ajv's `coerceTypes` decides whether one satisfies a
- * declared boolean or number. "placeholder" stands for the overwhelmingly
- * common case of a plain string field; the rest exist because a declared
- * boolean accepts only "true"/"false" and a declared number only digits.
+ * Substitution yields a *string* when the variable is set. When it is unset,
+ * config-loader's transform returns undefined and applyConfigTransforms drops
+ * the key entirely — a fourth runtime shape this list deliberately does not
+ * model, because adding "absent" as a candidate would mask genuine
+ * missing-required-property findings. The consequence is stated where it bites:
+ * a required property behind a placeholder is accepted here and still fails at
+ * Backstage startup with the variable unset.
+ *
+ * Given a string, Ajv's `coerceTypes` decides whether it satisfies a declared
+ * boolean or number. "placeholder" stands for the overwhelmingly common case of
+ * a plain string field; the rest exist because a declared boolean accepts only
+ * "true"/"false" and a declared number only digits. Each is pinned by a test —
+ * deleting one used to leave the suite green.
  */
 const PLACEHOLDER_VALUES = ["placeholder", "true", "false", "0"];
 
@@ -597,8 +614,8 @@ export function containsPlaceholder(value: unknown): boolean {
  * `https://<something>/api`, so replacing the whole value would hand the schema
  * a bare `placeholder` and lose the shape a `pattern` or `format` constrains.
  *
- * Returns a copy rather than editing in place so a caller's example is never
- * left rewritten.
+ * Returns a copy because it is a pure transform, not because anything downstream
+ * mutates — config-loader deep-clones before validating.
  */
 export function substitutePlaceholders(
   value: JsonObject,
@@ -613,7 +630,10 @@ export function substitutePlaceholders(
   replacement: string,
 ): unknown {
   if (typeof value === "string") {
-    return value.replace(PLACEHOLDER_SPANS, replacement);
+    // Function form: a `$` in the replacement would otherwise be read as a
+    // capture reference. No candidate contains one today; this keeps that from
+    // becoming a trap for whoever adds the next.
+    return value.replace(PLACEHOLDER_SPANS, () => replacement);
   }
   if (Array.isArray(value)) {
     return value.map((item) => substitutePlaceholders(item, replacement));
@@ -637,9 +657,11 @@ function runSchema(
 ): string[] | undefined {
   try {
     schema.process(
-      // Cloned because config-loader builds Ajv with `coerceTypes`, which
-      // rewrites the data it validates — so every attempt starts from the
-      // document as written rather than from what the last one left behind.
+      // Cloned defensively, not because Ajv mutates: config-loader reads through
+      // `Config.getOptional`, which deep-clones first, so the caller's object is
+      // never reached. The retry loop below is only correct if every attempt
+      // starts from unmodified input, and this is cheap insurance against
+      // config-loader ever dropping that clone.
       [{ data: structuredClone(data), context: label }],
       // No visibility filter: an example documents a full app-config, so
       // frontend and backend keys are both legitimate.
