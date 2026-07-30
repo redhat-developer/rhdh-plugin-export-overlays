@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 import { loadConfigSchema } from "@backstage/config-loader";
+import type { JsonObject } from "@backstage/types";
 import {
   applyConfigSchemaPatches,
   containsPlaceholder,
@@ -34,6 +35,27 @@ import {
 } from "./schema.js";
 
 const PKG = { name: "@scope/plugin", version: "1.0.0" };
+
+/** A source backed by a real in-memory schema built from `properties`. */
+async function sourceFor(properties: JsonObject) {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: { type: "object", properties },
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema" as const, schema }) };
+}
+
+/** The errors of an invalid outcome, or [] — keeps the narrowing out of assertions. */
+function errorsOf(outcome: { kind: string; errors?: string[] }): string[] {
+  return outcome.kind === "invalid" ? (outcome.errors ?? []) : [];
+}
 
 /** A source backed by a real in-memory schema — no registry, no tarball. */
 async function sourceWithSchema(): Promise<SchemaSource> {
@@ -415,25 +437,38 @@ describe("validateExample with environment placeholders", () => {
     );
   });
 
-  it("reports the as-is errors, naming the text the maintainer will edit", async () => {
-    // `retries` holds a placeholder, so every retry clears its error while
-    // `hosts` keeps failing. Reporting a retry's errors would therefore lose
-    // the /acme/retries line — its presence is what proves the untouched
-    // document is the one being reported.
+  it("reports the as-is errors, not a retry's", async () => {
+    // Three defects, each cleared by a different subset of the candidates:
+    // baseUrl's pattern rejects "0", retries accepts only "0", hosts is wrong
+    // whatever the variables hold. Every retry therefore yields two errors and
+    // only the as-is run yields three, so the count is what discriminates —
+    // no assertion on error *text* can, since config-loader never echoes the
+    // offending value.
     const outcome = await validateExample(
-      await sourceWithSchema(),
+      await sourceFor({
+        acme: {
+          type: "object",
+          properties: {
+            baseUrl: { type: "string", pattern: "^[a-z]+$" },
+            retries: { type: "number" },
+            hosts: { type: "array", items: { type: "string" } },
+          },
+        },
+      }),
       PKG,
       "label",
-      { acme: { baseUrl: "x", retries: "${RETRIES}", hosts: "nope" } },
+      {
+        acme: { baseUrl: "${BASE_URL}", retries: "${RETRIES}", hosts: "nope" },
+      },
     );
-    assert.equal(outcome.kind, "invalid");
-    // As-is yields two errors; the "0" retry would yield only /acme/hosts, so
-    // the count is what makes this fail on the regression it guards.
-    assert.equal(outcome.kind === "invalid" && outcome.errors.length, 2);
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
-      /at \/acme\/retries/,
-    );
+    const errors = errorsOf(outcome);
+    assert.equal(errors.length, 3, `got: ${errors.join(" | ")}`);
+    for (const path of ["/acme/baseUrl", "/acme/retries", "/acme/hosts"]) {
+      assert.ok(
+        errors.some((error) => error.includes(`at ${path}`)),
+        `expected an error at ${path}, got: ${errors.join(" | ")}`,
+      );
+    }
   });
 
   it("substitutes the placeholder span, keeping the rest of the string", async () => {
@@ -911,5 +946,90 @@ describe("splitDiffByFile and sections with no hunks", () => {
       ),
       [],
     );
+  });
+});
+
+describe("each placeholder candidate earns its place", () => {
+  // Mutation showed three of the four could be deleted with the suite still
+  // green: "true" and "false" covered for each other through an anyOf fixture
+  // carrying both literals, and nothing reached for "placeholder" at all.
+  // Anyone trimming the list would have got a pass and silently reintroduced
+  // the RHIDP-15903 false positives.
+
+  it('pins "placeholder": long enough for a minLength no other candidate meets', async () => {
+    const outcome = await validateExample(
+      await sourceFor({
+        acme: {
+          type: "object",
+          properties: { token: { type: "string", minLength: 9 } },
+        },
+      }),
+      PKG,
+      "label",
+      { acme: { token: "${TOKEN}" } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it('pins "true": a field declaring the literal true, which "false" cannot rescue', async () => {
+    const outcome = await validateExample(
+      await sourceFor({
+        acme: {
+          type: "object",
+          properties: {
+            segment: {
+              type: "object",
+              required: ["testMode"],
+              properties: { testMode: { type: "boolean", enum: [true] } },
+            },
+          },
+        },
+      }),
+      PKG,
+      "label",
+      { acme: { segment: { testMode: "${TEST_MODE}" } } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it('pins "false": a field declaring the literal false', async () => {
+    const outcome = await validateExample(
+      await sourceFor({
+        acme: {
+          type: "object",
+          properties: {
+            segment: {
+              type: "object",
+              properties: { testMode: { type: "boolean", enum: [false] } },
+            },
+          },
+        },
+      }),
+      PKG,
+      "label",
+      { acme: { segment: { testMode: "${TEST_MODE}" } } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+
+  it('pins "0": a declared number, which no word-shaped candidate coerces to', async () => {
+    const outcome = await validateExample(
+      await sourceFor({
+        acme: { type: "object", properties: { retries: { type: "number" } } },
+      }),
+      PKG,
+      "label",
+      { acme: { retries: "${RETRIES}" } },
+    );
+    assert.deepEqual(outcome, { kind: "ok" });
+  });
+});
+
+describe("the placeholder pattern tracks config-loader's own", () => {
+  it("excludes a nested brace, as upstream's [^{}] does", () => {
+    // Upstream leaves `${A{B}` untouched. A looser class here would excuse a
+    // schema violation on a value that is never substituted.
+    assert.equal(hasPlaceholder("${A{B}"), false);
+    assert.equal(hasPlaceholder("${AB}"), true);
   });
 });
