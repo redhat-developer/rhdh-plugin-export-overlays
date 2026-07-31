@@ -11,9 +11,11 @@ plugins:
             appIcons:
               - name: bulkImportIcon
                 importName: BulkImportIcon
+                module: Legacy
             dynamicRoutes:
               - path: /bulk-import
                 importName: BulkImportPage
+                module: Legacy
                 menuItem:
                   icon: bulkImportIcon
                   text: Bulk import
