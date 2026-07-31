@@ -1,16 +1,21 @@
-# E2E nightly fix agent — discovers failed nightly runs and creates a
-# labeled GitHub issue. The existing fullsend.yaml dispatch picks up the
-# label event and routes it to the e2e-fix agent via CEL trigger.
+# E2E nightly triage — discovers failed nightly runs and creates a labeled
+# GitHub issue. The fullsend dispatch picks up the label event and routes
+# it to the e2e-triage agent, which classifies failures per workspace and
+# creates issues for the code agent to fix.
 #
 # Flow:
 #   schedule/manual → discover failed nightly → create issue + label
 #                                                     ↓
 #                           fullsend.yaml (issues: [labeled]) → dispatch
 #                                                     ↓
-#                           CEL trigger matches → e2e-fix agent runs
+#                           CEL trigger matches → e2e-triage agent runs
+#                                                     ↓
+#                           triage creates per-workspace issues + ready-to-code
+#                                                     ↓
+#                           code agent picks up each issue → fix → PR
 #
-# The e2e-fix agent is NOT reachable from /fs-* comments.
-name: E2E Fix Agent
+# The e2e-triage agent is NOT reachable from /fs-* comments.
+name: E2E Triage Agent
 
 on:
   schedule:
@@ -34,18 +39,23 @@ on:
 
 permissions:
   contents: read
+  id-token: write
   issues: write
 
 jobs:
   discover-and-file:
-    name: Discover & file issue
+    name: Discover & file issue (${{ matrix.branch }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
     steps:
       - name: Discover latest failed nightly
         id: discover
         env:
           INPUT_PROW_URL: ${{ inputs.prow_url }}
-          INPUT_BRANCH: ${{ inputs.branch || 'main' }}
+          INPUT_BRANCH: ${{ matrix.branch }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           set -euo pipefail
@@ -53,7 +63,6 @@ jobs:
           if [[ -n "${INPUT_PROW_URL}" ]]; then
             echo "prow_url=${INPUT_PROW_URL}" >> "${GITHUB_OUTPUT}"
             echo "should_file=true" >> "${GITHUB_OUTPUT}"
-            echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
             exit 0
           fi
 
@@ -97,14 +106,25 @@ jobs:
 
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
-          echo "branch=${INPUT_BRANCH}" >> "${GITHUB_OUTPUT}"
+
+      # Mint a triage-role token so the issues:labeled event triggers
+      # fullsend.yaml. GITHUB_TOKEN events are suppressed by GitHub's
+      # anti-recursion safety (see fullsend ADR 0033).
+      - name: Mint triage token
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
+        id: mint
+        uses: fullsend-ai/fullsend/.github/actions/mint-token@3cfa255ab4cc8190670585ea42da529119251632 # v0.32.0
+        with:
+          role: triage
+          repos: rhdh-plugin-export-overlays
+          mint_url: ${{ vars.FULLSEND_MINT_URL }}
 
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.mint.outputs.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
-          BRANCH: ${{ steps.discover.outputs.branch }}
+          BRANCH: ${{ matrix.branch }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -113,7 +133,7 @@ jobs:
           # Close any stale open issue for this branch so the agent always
           # reads today's prow URL from the issue body (not a comment).
           EXISTING=$(gh issue list --repo "${REPO}" \
-            --label "e2e-fix-agent" --state open \
+            --label "e2e-triage" --state open \
             --search "[fullsend] E2E nightly failure: ${BRANCH}" \
             --json number,title --jq ".[].number" | head -1) || true
 
@@ -124,8 +144,8 @@ jobs:
           fi
 
           # Create the label if it doesn't exist
-          gh label create "e2e-fix-agent" --repo "${REPO}" \
-            --description "Triggers the fullsend e2e-fix agent" --color "7057ff" \
+          gh label create "e2e-triage" --repo "${REPO}" \
+            --description "Triggers the fullsend e2e-triage agent" --color "7057ff" \
             --force 2>/dev/null || true
 
           ISSUE_URL=$(gh issue create --repo "${REPO}" \
@@ -134,13 +154,13 @@ jobs:
 
           PROW_URL: ${PROW_URL}
 
-          The e2e-fix agent will analyze this failure, classify the root cause, and either implement a fix or skip the failing test with a JIRA bug.")
+          The e2e-triage agent will analyze this failure, classify root causes per workspace, and create issues for the code agent to fix.")
           echo "Created issue: ${ISSUE_URL}"
 
           # Add label separately so GitHub fires an issues:labeled event
           # (gh issue create --label does NOT emit a separate labeled event)
           ISSUE_NUMBER="${ISSUE_URL##*/}"
-          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-fix-agent"
+          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-triage"
 
       - name: Dry run summary
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') == 'true'

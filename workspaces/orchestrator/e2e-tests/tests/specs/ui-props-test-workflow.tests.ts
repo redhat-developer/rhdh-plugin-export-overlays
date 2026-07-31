@@ -60,6 +60,10 @@ export function registerUiPropsTestWorkflowTests(): void {
     test("ui:props test workflow", async ({ page, uiHelper }) => {
       test.setTimeout(300_000);
       const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      await page
+        .getByRole("button", { name: "Administration" })
+        .first()
+        .click();
       await uiHelper.openSidebar("Orchestrator");
       await expect(
         page.getByRole("cell", { name: "Test Object Type Support" }),
@@ -102,7 +106,9 @@ export function registerUiPropsTestWorkflowTests(): void {
       ).toBeVisible();
       const runId = await orchestratorPo.getCurrentRunId();
       await waitForLokiWorkflowLogs(runId);
-      const logsDialog = await orchestratorPo.openRunLogsDialog();
+      const logsDialog = await orchestratorPo.openRunLogsDialog(
+        "Test Object Type Support in ui:props",
+      );
       await expect(
         logsDialog.getByText(/No logs available for this workflow run/i),
       ).toBeHidden();
