@@ -15,10 +15,27 @@ on:
         description: 'Also validate examples against each plugin config schema'
         type: boolean
         default: true
+      warn-only:
+        description: 'Report schema mismatches without failing (surveying a release branch)'
+        type: boolean
+        default: false
+  # The full-tree sweep is only worth failing if something runs it. On a PR the
+  # check sees just the metadata that PR touched, so a schema an upstream
+  # release changed under us — or a workspace whose patches stopped applying —
+  # would otherwise surface only when someone happened to dispatch this by hand.
+  # Only the default branch is swept on a schedule; a release branch carrying
+  # its own backlog is surveyed by dispatching this workflow from that branch
+  # with --warn-only semantics in mind.
+  schedule:
+    - cron: '0 6 * * 1'
 
+# Superseding a PR's run is the point; superseding a full-tree sweep is not —
+# it takes one tarball per distinct packageName@version across 180 files, so a
+# second dispatch would throw away real work. Keyed by run_id off a PR, which
+# never collides, and cancellation limited to pull_request.
 concurrency:
-  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
@@ -27,7 +44,7 @@ jobs:
     # Schema validation downloads one published tarball per distinct
     # packageName@version, so a full-tree run is far slower than the
     # structural-only check this workflow used to run.
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
     defaults:
@@ -88,17 +105,42 @@ jobs:
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
           node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
 
-      # A full-tree sweep reports schema mismatches without failing: the tree
-      # carries metadata written long before this check existed, and the sweep
-      # is meant to surface that backlog rather than block on it.
+      # The sweep used to run --warn-only because the tree carried metadata
+      # written before this check existed. That backlog is now clear
+      # (RHIDP-15903), so it fails instead.
+      #
+      # It fails rather than warns because the weekly schedule gives the verdict
+      # somewhere to land: the PR step below sees only the metadata that PR
+      # touched, so drift nobody edited — an upstream release changing a schema,
+      # a workspace patch that stopped applying — has no other way to surface.
+      # Neither event blocks a merge.
       - name: Validate (full tree)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         env:
-          CHECK_SCHEMAS: ${{ inputs.check-schemas }}
+          # Scheduled runs get no inputs and the sweep is the point of the
+          # schedule, so absent means on; a dispatch gets whatever was ticked.
+          #
+          # Not `inputs.check-schemas != 'false'`: the input is declared
+          # `type: boolean`, so unticking it yields the boolean false, and
+          # comparing that to the string 'false' coerces both to numbers —
+          # 0 against NaN — which is never equal. The toggle would have been
+          # permanently stuck on.
+          CHECK_SCHEMAS: ${{ github.event_name != 'workflow_dispatch' || inputs.check-schemas }}
+          # The schedule is the gate, so it never warns; a dispatch can, which is
+          # how a release branch carrying its own backlog gets surveyed without
+          # editing this file.
+          WARN_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.warn-only }}
         run: |
           args=()
           if [[ "$CHECK_SCHEMAS" == "true" ]]; then
-            args+=(--check-schemas --warn-only)
+            # Undeclared keys ride along on the sweep rather than getting their
+            # own toggle: they are reported and never failed, and the sweep is
+            # the one run that looks at the whole catalogue, so this is where
+            # the backlog is worth seeing.
+            args+=(--check-schemas --check-undeclared-keys)
+            if [[ "$WARN_ONLY" == "true" ]]; then
+              args+=(--warn-only)
+            fi
           fi
           node dist/validate.mjs "${args[@]}"
 
