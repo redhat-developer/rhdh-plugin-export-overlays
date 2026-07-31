@@ -226,6 +226,7 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] Confirmed OCI images are still built and published by the external pipeline
 - [ ] Updated `catalog-entities/extensions/plugins/<plugin>.yaml` (title, description, support level, links, tags)
 - [ ] Reviewed configuration / install guidance in the Plugin YAML against current external docs
+- [ ] If PM-approved for curated catalogs, package-list / collection / `default.packages.yaml` entries are still correct
 - [ ] Opened PR against this repository; no `workspaces/` changes required
 ```
 
