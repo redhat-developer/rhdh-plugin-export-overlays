@@ -16,9 +16,9 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-topology'
-  # Tag: bs_1.52.0__2.15.0, Build date: 2026-06-03T21:11:38Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:7e4c99046fa25753514a069f117b546e227b5aaafda22eca83eb1c1127317f7f"
-  version: 2.15.0
+  # Tag: bs_1.52.0__2.16.0, Build date: 2026-06-03T21:11:38Z
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:bc02bbbd18ce8fae3bc1a8c1ebcfdd21b9ae39081fb8e1a7b0e1e653bd2587e3"
+  version: 2.16.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.52.0

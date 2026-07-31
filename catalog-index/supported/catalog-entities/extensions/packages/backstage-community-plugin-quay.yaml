@@ -42,3 +42,34 @@ spec:
                     if:
                       anyOf:
                         - isQuayAvailable
+        # Proxy-only setup: used when the quay *backend* plugin is not installed.
+        # Installing @backstage-community/plugin-quay-backend sets quay.apiUrl,
+        # which takes precedence and bypasses this endpoint entirely.
+        #
+        # Kept equivalent to the `proxy` block in
+        # e2e-tests/tests/config/app-config-rhdh.yaml — equivalent, not
+        # byte-identical: that copy is written at the document root and quotes
+        # differently. The two are deep-merged in PR and local-dev modes, and
+        # nightly mode injects no metadata at all, so neither copy can be
+        # dropped — but for this endpoint they must not disagree, or merge order
+        # silently decides the target.
+        #
+        # Only this endpoint. An e2e config overriding metadata is normal and
+        # deliberate elsewhere in the tree — analytics swaps env placeholders for
+        # fixed test keys, tech-radar and orchestrator repoint URLs at
+        # cluster-deployed services — so there is no repo-wide parity rule to
+        # enforce this against, and a checker asserting one would be wrong five
+        # workspaces out of twenty.
+        proxy:
+          skipInvalidProxies: true
+          endpoints:
+            "/quay/api":
+              target: "https://quay.io/"
+              headers:
+                X-Requested-With: "XMLHttpRequest"
+              changeOrigin: true
+              secure: true
+        # `quay` itself is required by the plugin's schema; every property under
+        # it is optional. uiUrl is what upstream's README shows.
+        quay:
+          uiUrl: "https://quay.io"
