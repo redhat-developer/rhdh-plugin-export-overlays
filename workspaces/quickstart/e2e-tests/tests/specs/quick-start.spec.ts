@@ -2,9 +2,12 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test Quick Start plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
+    const isNightly = !!process.env.E2E_NIGHTLY_MODE;
     await rhdh.configure({
       auth: "keycloak",
-      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+      ...(!isNightly && {
+        dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+      }),
     });
     await rhdh.deploy();
   });
