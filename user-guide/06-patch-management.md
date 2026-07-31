@@ -117,7 +117,7 @@ Export applies all `*.patch` files in **lexicographic (alphabetical) order** by 
 
 | Class | Pattern | Examples |
 |-------|---------|----------|
-| **CVE yarn.lock** | `0-cve-yarn-lock.patch` | At most **one** per workspace — dependency CVE fixes in `yarn.lock` only |
+| **CVE yarn.lock** | `0-cve-yarn-lock.patch` | At most **one** per workspace — transitive CVE fixes in `yarn.lock` only (community-plugins / Backstage; see [CVE yarn.lock Backports](#cve-yarnlock-backports)) |
 | **Code / build** | `[1-9][0-9]*-[description].patch` | `1-fix-typescript-errors.patch`, `2-add-missing-export.patch` |
 
 The `0-` prefix ensures CVE lockfile patches run **before** numbered code patches (`1-`, `2-`, …).
@@ -448,24 +448,40 @@ dos2unix my-patch.patch
 
 ## CVE yarn.lock Backports
 
-For **transitive-only** (i.e. `yarn.lock` change only) fixes, use `yarnlock-backport` — one `0-cve-yarn-lock.patch` per
-workspace plus auto-generated `cve-backports.yaml`, without bumping `repo-ref`. For code
-fixes, use numbered patches or overlays. When CVEs also require **direct** dependency
-bumps in the upstream `package.json`, follow the sequence below first, then run the tooling to create the patch to fix the transitive dependencies.
+### When to use this tooling
+
+`yarnlock-backport` (and `0-cve-yarn-lock.patch`) is for **transitive-only** lockfile CVE
+fixes in upstreams where we **cannot** easily change the workspace `yarn.lock` and publish
+on demand — primarily [community-plugins](https://github.com/backstage/community-plugins)
+and other Backstage upstreams.
+
+| Upstream | Transitive CVE fix |
+|----------|--------------------|
+| **[rhdh-plugins](https://github.com/redhat-developer/rhdh-plugins)** | Fix in the plugin workspace `yarn.lock` **upstream**, merge, and publish. Then bump `source.json:repo-ref` (and metadata) here. **Do not** add or extend `0-cve-yarn-lock.patch` for rhdh-plugins workspaces. |
+| **community-plugins / Backstage** | Prefer an upstream lockfile fix when practical. When a timely publish is not available, use `yarnlock-backport` below to ship a lockfile-only overlay patch without waiting on upstream. |
+
+For **code** fixes, use numbered patches or overlays. Direct dependency bumps always belong
+in the upstream `package.json` (then a new `repo-ref`), regardless of source repo.
+
+### community-plugins / Backstage sequence
 
 CVE fixes for one workspace can include both **direct** dependencies (pinned in a
-plugin's `package.json`) and **transitive** ones (lockfile-only). Use both upstream
-releases and `yarnlock-backport` — in this order:
+plugin's `package.json`) and **transitive** ones (lockfile-only). For community-plugins
+(and similar), use upstream releases and `yarnlock-backport` in this order:
 
 | Step | Where | Action |
 |------|--------|--------|
-| **1** | Upstream source repo (e.g. [rhdh-plugins](https://github.com/redhat-developer/rhdh-plugins) or [community-plugins](https://github.com/backstage/community-plugins)) | Bump affected **direct** dependencies in the plugin workspace `package.json`, merge, and publish new plugin npm versions (Release with changesets). |
+| **1** | Upstream source repo (e.g. [community-plugins](https://github.com/backstage/community-plugins)) | Bump affected **direct** dependencies in the plugin workspace `package.json`, merge, and publish new plugin npm versions (Release with changesets) when you can. |
 | **2** | Overlays (`source.json` + metadata) | Update `repo-ref` to the upstream commit or tag that contains those releases. Sync `metadata/*.yaml` package versions. See [04 - Metadata Synchronization](./04-metadata-synchronization.md). |
-| **3** | Overlays (`yarnlock-backport`) | At the **new** `repo-ref`, fix any remaining **transitive** CVEs with `0-cve-yarn-lock.patch` + `cve-backports.yaml` (steps below). |
+| **3** | Overlays (`yarnlock-backport`) | At the **new** `repo-ref`, fix any remaining **transitive** CVEs that could not ship upstream with `0-cve-yarn-lock.patch` + `cve-backports.yaml` (steps below). |
 
 Step 3 only covers what step 1–2 did not — lockfile bumps without another upstream release.
 Re-run `generate` with the full CVE list after step 2 so `repo_ref` in the manifest matches
 the updated baseline.
+
+For **rhdh-plugins**, stop after step 2: fold transitive lockfile bumps into the upstream
+workspace `yarn.lock` in that same (or a follow-up) upstream change, then point `repo-ref`
+at the fixed commit.
 
 ```
 workspaces/[ws]/patches/
@@ -482,12 +498,13 @@ patch -p0 -l --no-backup-if-mismatch -f < "$OVERLAY_WORKSPACE/patches/0-cve-yarn
 
 Tooling: `scripts/yarnlock-backport/` (`npm install` once). Requires Node.js
 (see `versions.json`), `git`, `yarn`, `patch`, `diff`, `npm`. Use after step 2 above
-when transitive bumps are still required at the current `repo-ref`.
+when transitive bumps are still required at the current `repo-ref` for a
+community-plugins / Backstage workspace.
 
 | Path / remote | Requirement |
 |---------------|-------------|
 | `--overlay-workspace` | Absolute path; fork needs `upstream` on rhdh-plugin-export-overlays (prepare syncs `release-{version}`) |
-| `--plugins-repo` | Absolute path to a local clone of **`source.json:repo`** (e.g. rhdh-plugins, [community-plugins](https://github.com/backstage/community-plugins)); git remote is resolved from that URL |
+| `--plugins-repo` | Absolute path to a local clone of **`source.json:repo`** (typically [community-plugins](https://github.com/backstage/community-plugins)); git remote is resolved from that URL |
 
 Use a [git worktree](https://git-scm.com/docs/git-worktree) on the overlay release branch when patch files are not on your current branch.
 
@@ -501,8 +518,8 @@ git worktree add ../rhdh-overlays-scripts lockfile-patch-scripts
 ```bash
 cd scripts/yarnlock-backport && npm install   # local tool — not published to npm
 
-export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/orchestrator
-export PLUGINS_REPO=<absolute-path>   # clone matching source.json:repo
+export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/tech-radar
+export PLUGINS_REPO=<absolute-path-to-community-plugins>   # clone matching source.json:repo
 
 npx yarnlock-backport prepare --release 1.10 \
   --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO"
@@ -536,8 +553,8 @@ use your current overlay checkout (and its `source.json:repo-ref`) instead of re
 1. **Set paths** (absolute; overlay workspace = `…/workspaces/<ws>`):
 
    ```bash
-   export OVERLAY_WORKSPACE=<absolute-path>/workspaces/lightspeed # e.g. path to release-1.10 worktree
-   export PLUGINS_REPO=<absolute-path-to-source-repo>   # e.g. rhdh-plugins clone
+   export OVERLAY_WORKSPACE=<absolute-path>/workspaces/tech-radar # e.g. path to release-1.10 worktree
+   export PLUGINS_REPO=<absolute-path-to-community-plugins>
    ```
 
 2. **On the current overlay branch** (with `--skip-overlay-sync` you keep this checkout):
@@ -582,6 +599,10 @@ use your current overlay checkout (and its `source.json:repo-ref`) instead of re
 **Do not** hand-append hunks onto a stale patch, and do not run `generate` against an unpatched
 `repo-ref` lockfile with only the newest bump — that drops older CVE fixes from `0-cve-yarn-lock.patch`.
 
+**Retire when fixed upstream:** Once community-plugins (or Backstage) ships the lockfile
+fix in a `repo-ref` you consume, delete `0-cve-yarn-lock.patch` and `cve-backports.yaml`
+for that workspace (or re-roll until the patch is empty and remove it).
+
 **Verify (future):** Planned `yarnlock-backport verify` against OCI images after `/publish`.
 
 ### Manifest (`cve-backports.yaml`)
@@ -609,10 +630,11 @@ backports:
 
 | Event | Action |
 |-------|--------|
-| First backport | generate → commit patch + manifest |
+| First backport (community-plugins / Backstage) | generate → commit patch + manifest |
 | Add CVEs (same `repo-ref`) | prepare → bump deps → generate with full `--cve` list |
 | Patch conflict / `repo-ref` bump | Re-roll flow above (delete stale patch → prepare `--skip-overlay-sync` → restore bumps → generate) |
 | Retire | Delete patch + manifest when fixed upstream in `repo-ref` |
+| rhdh-plugins transitive CVE | Fix upstream workspace `yarn.lock` in rhdh-plugins; bump `repo-ref` here — no overlay lockfile patch |
 
 ---
 

@@ -2,13 +2,17 @@
 
 Generate `0-cve-yarn-lock.patch` and `cve-backports.yaml` without bumping `source.json:repo-ref`.
 
-Details: [user-guide/06-patch-management.md](../../user-guide/06-patch-management.md).
+**Use for:** transitive CVE lockfile backports on [community-plugins](https://github.com/backstage/community-plugins) / Backstage workspaces when an on-demand upstream `yarn.lock` fix and publish is not practical.
+
+**Do not use for:** [rhdh-plugins](https://github.com/redhat-developer/rhdh-plugins) — fix transitive CVEs in the plugin workspace `yarn.lock` upstream, then bump `repo-ref` in overlays.
+
+Details: [user-guide/06-patch-management.md](../../user-guide/06-patch-management.md) (CVE yarn.lock Backports).
 
 ```bash
 cd scripts/yarnlock-backport && npm install   # not on npm — install locally first
 
-export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/orchestrator
-export PLUGINS_REPO=<absolute-path>   # clone of source.json:repo (e.g. rhdh-plugins or community-plugins)
+export OVERLAY_WORKSPACE=<absolute-git-worktree-path>/workspaces/tech-radar
+export PLUGINS_REPO=<absolute-path-to-community-plugins>   # clone of source.json:repo
 
 npx yarnlock-backport prepare  --release 1.10 --overlay-workspace "$OVERLAY_WORKSPACE" --plugins-repo "$PLUGINS_REPO"
 # Manual step: update dependencies in plugins workspace (Instructions TBD)
