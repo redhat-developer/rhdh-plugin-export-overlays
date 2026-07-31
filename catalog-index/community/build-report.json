@@ -1038,7 +1038,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.40.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.40.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1052,14 +1052,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1f6663d98ee93365656373277cf1c2350f542681861c6af0b51d6a6ae49510f3",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__3.40.1",
-          "resolvedTag": "bs_1.52.0__3.40.0"
+          "digest": "sha256:4fdbe2e633dfd0e21d1d5b127712f5841b12859e7b06e45437768e2b5a7b5a6e"
         }
       },
       "package": "@backstage-community/plugin-tekton",
-      "version": "3.40.0",
+      "version": "3.40.1",
       "workspace": "tekton",
       "overall": "pass"
     },
