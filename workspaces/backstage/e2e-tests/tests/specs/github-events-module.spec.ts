@@ -1,13 +1,15 @@
-import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   expect,
   request,
   test,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { createHmac } from "node:crypto";
-import { CatalogApiHelper } from "../../support/api/catalog-api-helper";
-import { GitHubEventsHelper } from "../../support/api/github-events";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { createHmac } from "node:crypto";
+import {
+  CatalogApiHelper,
+  getSessionAuthToken,
+} from "../../support/api/catalog-api-helper";
+import { GitHubEventsHelper } from "../../support/api/github-events";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
@@ -78,6 +80,9 @@ test.describe("GitHub Events Module", () => {
   });
 
   test.describe.serial("GitHub Discovery", () => {
+    // run-e2e.sh uses baseConfig (90s default); catalog ingest can exceed that.
+    test.describe.configure({ timeout: 180_000 });
+
     const catalogRepoName = `janus-test-github-events-test-${Date.now()}`;
     const catalogRepoDetails = {
       name: catalogRepoName,
@@ -85,8 +90,15 @@ test.describe("GitHub Events Module", () => {
       org: `github.com/janus-qe`,
       owner: "janus-qe",
     };
+    let discoveryToken: string;
 
-    test("Adding a new entity to the catalog", async ({ page, uiHelper }) => {
+    test.beforeEach(async ({ page, uiHelper }) => {
+      if (!discoveryToken) {
+        discoveryToken = await getSessionAuthToken(page, uiHelper, rhdhBaseUrl);
+      }
+    });
+
+    test("Adding a new entity to the catalog", async () => {
       const catalogInfoYamlContent = `apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
@@ -113,26 +125,23 @@ spec:
 
       await expect
         .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.waitForLoad();
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(catalogRepoName);
-            return await page
-              .getByRole("link", { name: catalogRepoName })
-              .isVisible();
-          },
+          () =>
+            CatalogApiHelper.entityExists(
+              rhdhBaseUrl,
+              discoveryToken,
+              "component",
+              catalogRepoName,
+            ),
           {
             message: `Component ${catalogRepoName} should appear in catalog`,
-            timeout: 60000,
-            intervals: [10000],
+            timeout: 150_000,
+            intervals: [3_000],
           },
         )
         .toBe(true);
     });
 
-    test("Updating an entity in the catalog", async ({ page, uiHelper }) => {
+    test("Updating an entity in the catalog", async () => {
       const updatedDescription = "updated description";
       const updatedCatalogInfoYaml = `apiVersion: backstage.io/v1alpha1
 kind: Component
@@ -160,27 +169,28 @@ spec:
       await expect
         .poll(
           async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.waitForLoad();
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(catalogRepoName);
-
-            await page.getByRole("link", { name: catalogRepoName }).click();
-            // wait for page to load
-            await uiHelper.verifyHeading("description");
-            return await page.getByText(updatedDescription).isVisible();
+            try {
+              const description = await CatalogApiHelper.getEntityDescription(
+                rhdhBaseUrl,
+                discoveryToken,
+                "component",
+                catalogRepoName,
+              );
+              return description === updatedDescription;
+            } catch {
+              return false;
+            }
           },
           {
             message: `Component ${catalogRepoName} should be updated with new description`,
-            timeout: 60000,
-            intervals: [10000],
+            timeout: 150_000,
+            intervals: [3_000],
           },
         )
         .toBe(true);
     });
 
-    test("Deleting an entity from the catalog", async ({ page, uiHelper }) => {
+    test("Deleting an entity from the catalog", async () => {
       await GitHubApiHelper.deleteFileInRepo(
         catalogRepoDetails.owner,
         catalogRepoDetails.name,
@@ -194,20 +204,17 @@ spec:
 
       await expect
         .poll(
-          async () => {
-            await page.reload();
-            await uiHelper.openSidebar("Catalog");
-            await uiHelper.waitForLoad();
-            await uiHelper.selectMuiBox("Kind", "Component");
-            await uiHelper.searchInputPlaceholder(catalogRepoName);
-            return await page
-              .getByRole("link", { name: catalogRepoName })
-              .isVisible();
-          },
+          () =>
+            CatalogApiHelper.entityExists(
+              rhdhBaseUrl,
+              discoveryToken,
+              "component",
+              catalogRepoName,
+            ),
           {
             message: `Component ${catalogRepoName} should be removed from catalog`,
-            timeout: 60000,
-            intervals: [10000],
+            timeout: 150_000,
+            intervals: [3_000],
           },
         )
         .toBe(false);
@@ -223,58 +230,75 @@ spec:
 
   test.describe("GitHub Organizational Data", () => {
     // eslint-disable-next-line playwright/max-nested-describe
-    test.describe("Teams", () => {
+    test.describe.serial("Teams", () => {
       const teamName = "test-team-" + Date.now();
 
-      test("Adding a new group", async ({ page, uiHelper }) => {
+      test.beforeEach(async ({ page, uiHelper }) => {
+        if (!staticToken) {
+          staticToken = await getSessionAuthToken(page, uiHelper, rhdhBaseUrl);
+        }
+      });
+
+      test("Adding a new group", async () => {
         await GitHubApiHelper.createTeamInOrg("janus-qe", teamName);
         await githubEventsHelper.sendTeamEvent("created", teamName, "janus-qe");
 
         await expect
           .poll(
-            async () => {
-              await page.reload();
-              await uiHelper.openSidebar("Catalog");
-              await uiHelper.waitForLoad();
-              await uiHelper.selectMuiBox("Kind", "Group");
-              await uiHelper.searchInputPlaceholder(teamName);
-              return await page
-                .getByRole("link", { name: teamName })
-                .isVisible();
-            },
+            async () =>
+              await CatalogApiHelper.entityExists(
+                rhdhBaseUrl,
+                staticToken,
+                "Group",
+                teamName,
+              ),
             {
               message: `Team ${teamName} should appear in catalog`,
-              timeout: 60000,
-              intervals: [10000],
+              timeout: 120_000,
+              intervals: [3_000],
             },
           )
           .toBe(true);
+
+        const entity = await CatalogApiHelper.getEntity(
+          rhdhBaseUrl,
+          staticToken,
+          "Group",
+          teamName,
+        );
+        expect(entity.metadata.name).toBe(teamName);
       });
 
-      test("Deleting a group", async ({ page, uiHelper }) => {
+      test("Deleting a group", async () => {
         await GitHubApiHelper.deleteTeamFromOrg("janus-qe", teamName);
 
         await githubEventsHelper.sendTeamEvent("deleted", teamName, "janus-qe");
 
         await expect
           .poll(
-            async () => {
-              await page.reload();
-              await uiHelper.openSidebar("Catalog");
-              await uiHelper.waitForLoad();
-              await uiHelper.selectMuiBox("Kind", "Group");
-              await uiHelper.searchInputPlaceholder(teamName);
-              return await page
-                .getByRole("link", { name: teamName })
-                .isVisible();
-            },
+            async () =>
+              !(await CatalogApiHelper.entityExists(
+                rhdhBaseUrl,
+                staticToken,
+                "Group",
+                teamName,
+              )),
             {
               message: `Team ${teamName} should be removed from catalog`,
-              timeout: 60000,
-              intervals: [10000],
+              timeout: 120_000,
+              intervals: [3_000],
             },
           )
-          .toBe(false);
+          .toBe(true);
+
+        expect(
+          await CatalogApiHelper.entityExists(
+            rhdhBaseUrl,
+            staticToken,
+            "Group",
+            teamName,
+          ),
+        ).toBe(false);
       });
     });
 
@@ -286,45 +310,7 @@ spec:
 
       test.beforeEach(async ({ page, uiHelper }) => {
         if (!staticToken) {
-          const authApiHelper = new AuthApiHelper(page);
-          await page.goto(rhdhBaseUrl);
-
-          // Wait for page to be ready and user to be logged in
-          await uiHelper.waitForLoad();
-          await page.locator("nav").first().waitFor({ state: "visible" });
-
-          // Wait for user settings or profile button to appear
-          await page
-            .locator(
-              'button[data-testid="user-settings-menu"], [aria-label*="user"]',
-            )
-            .first()
-            .waitFor({ state: "visible", timeout: 10000 })
-            .catch(() => {});
-
-          // Retry getting token until session is ready
-          await expect
-            .poll(
-              async () => {
-                try {
-                  const token = await authApiHelper.getToken();
-                  if (token && token.length > 0) {
-                    staticToken = token;
-                    return true;
-                  }
-                  return false;
-                } catch {
-                  return false;
-                }
-              },
-              {
-                message:
-                  "Token should be retrieved after session is established",
-                timeout: 30000,
-                intervals: [2000],
-              },
-            )
-            .toBe(true);
+          staticToken = await getSessionAuthToken(page, uiHelper, rhdhBaseUrl);
         }
 
         teamName = "test-team-" + Date.now();
@@ -364,7 +350,7 @@ spec:
           "janus-qe",
         );
 
-        await uiHelper.waitForLoad(10000);
+        await uiHelper.waitForLoad(10_000);
 
         await expect
           .poll(
@@ -424,7 +410,7 @@ spec:
           "janus-qe",
         );
 
-        await uiHelper.waitForLoad(10000);
+        await uiHelper.waitForLoad(10_000);
 
         await expect
           .poll(
