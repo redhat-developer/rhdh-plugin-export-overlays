@@ -34,7 +34,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.52.0__0.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.52.0__0.9.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -48,14 +48,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f5987236692d8eed18fbddbec6e27b81486ef39fceb0559bbbd10bf881eecf1d",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.9.1",
-          "resolvedTag": "bs_1.52.0__0.9.0"
+          "digest": "sha256:23752e056d1a9e9af17573816669d896b077a28c826a8077f2862b71006ebaf9"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
@@ -63,7 +60,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights:bs_1.52.0__0.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights:bs_1.52.0__0.9.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -77,14 +74,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:51bd0e3390d18b4088b45b5073bcdfed5a5f7a6fa67450224fe0996c9639d4cd",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.9.1",
-          "resolvedTag": "bs_1.52.0__0.9.0"
+          "digest": "sha256:e6dd8e13b40c762ac04a56183171cfb6c9254d1390d915837b42dcf8e36c837c"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
@@ -92,7 +86,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:bs_1.52.0__0.9.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights:bs_1.52.0__0.9.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -106,14 +100,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:be3c49237aa2bbee0b3cef8ebe6b62cd4d5606fe740554775977465b0c5e2693",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.9.1",
-          "resolvedTag": "bs_1.52.0__0.9.0"
+          "digest": "sha256:5cedaf6e72f8d91ceafcdd82472f5b7ad3c3ad0e8fc42a090c982ba143832b9e"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "workspace": "adoption-insights",
       "overall": "pass"
     },
@@ -892,7 +883,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:dc48b11b3dff1475abec373d555bc13f2df495e76292f3fd437a29cc57327a49"
+          "digest": "sha256:c674a7d561eed774435b99159b00178523afcd62180e5d00255e554f35265ccd"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1245,7 +1236,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9f3ec532d2447ac4bcde4798954c86bf574edfea6a163886e67e568f26d1ed02"
+          "digest": "sha256:9f3ec532d2447ac4bcde4798954c86bf574edfea6a163886e67e568f26d1ed02",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__2.0.0",
+          "resolvedTag": "bs_1.52.0__1.12.2"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-quickstart",
@@ -1560,7 +1554,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3b1f9de090fe7d774865eee1ddda9fd3a953c9fccc248e9d21d8d1797c64be6e"
+          "digest": "sha256:4ee31b0261101f49145fa65947e7bce12f1de37c20e17bf6405969bdd0b4eae8"
         },
         "dpdy": {
           "status": "pass"
