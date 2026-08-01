@@ -1158,7 +1158,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:22957c0cacef892df2c91f3a9e8dfb98c71cfd9cedeb76eddb5b8be31e94fc08"
+          "digest": "sha256:d106541e83c6ae671980ab6d84ea9134f3a7ffa28d63d9de5bbd3127d94b7659"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1210,7 +1210,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:030eef4366ba6ab5d12686038cf4ccc974df706729c06adc054d97544eb437c3"
+          "digest": "sha256:89f7e8c9cfb4f20117b5359d58968cb8ed7496d50bc407e3dbce404221cef284"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -1551,7 +1551,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:43e852a61885c6eaabf9d179a54707dcdb45a6301d9e15460d7df3dffec584eb"
+          "digest": "sha256:43e852a61885c6eaabf9d179a54707dcdb45a6301d9e15460d7df3dffec584eb",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.17.1",
+          "resolvedTag": "bs_1.52.0__1.17.0"
         },
         "dpdy": {
           "status": "pass"
