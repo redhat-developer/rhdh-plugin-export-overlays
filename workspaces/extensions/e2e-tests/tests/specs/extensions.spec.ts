@@ -15,12 +15,12 @@ test.describe("Admin > Extensions", () => {
     "Publisher",
     "Support Provider",
   ];
+  // only GA plugins available for now
   const supportTypeOptions = [
     "Generally available (GA)",
-    "Certified",
-    "Tech preview (TP)",
-    "Dev preview (DP)",
-    "Community plugin",
+    // "Tech preview (TP)",
+    // "Dev preview (DP)",
+    // "Community plugin",
   ];
   const provider = "Red Hat";
 
@@ -62,19 +62,23 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
+      const category = "Analytics";
+      const plugin = "Adoption Insights for Red Hat Developer Hub";
+      const author = "Red Hat";
+
       await uiHelper.verifyHeading(new RegExp(`^${"Plugins"} \\(\\d+\\)$`));
 
       await uiHelper.clickTab("Catalog");
       await extensions.selectDropdown("Category");
-      await extensions.toggleOption("CI/CD");
-      await page.getByRole("option", { name: "CI/CD" }).isChecked();
+      await extensions.toggleOption(category);
+      await page.getByRole("option", { name: category }).isChecked();
       await page.keyboard.press(`Escape`);
       await extensions.selectDropdown("Author");
-      await extensions.toggleOption("Red Hat");
+      await extensions.toggleOption(author);
       await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("Argo CD");
-      await uiHelper.verifyText(" by " + "Red Hat");
-      await page.getByRole("heading", { name: "Argo CD" }).click();
+      await uiHelper.verifyHeading(plugin);
+      await uiHelper.verifyText(` by ${author}`);
+      await page.getByRole("heading", { name: plugin }).click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
         "Version",
@@ -95,11 +99,11 @@ test.describe("Admin > Extensions", () => {
         })
         .click();
       await extensions.selectDropdown("Author");
-      await extensions.toggleOption("Red Hat");
+      await extensions.toggleOption(author);
       await expect(
-        page.getByRole("option", { name: "Red Hat" }).getByRole("checkbox"),
+        page.getByRole("option", { name: author }).getByRole("checkbox"),
       ).not.toBeChecked();
-      await expect(page.getByRole("button", { name: "Red Hat" })).toBeHidden();
+      await expect(page.getByRole("button", { name: author })).toBeHidden();
       await page.keyboard.press(`Escape`);
       await expect(
         page.getByLabel("Category").getByRole("combobox"),
@@ -220,7 +224,7 @@ test.describe("Admin > Extensions", () => {
     });
 
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
-    test("Verify dev preview badge in extensions", async () => {
+    test.skip("Verify dev preview badge in extensions", async () => {
       await extensions.selectSupportTypeFilter("Dev preview (DP)");
       await uiHelper.verifyHeading("Konflux");
 
@@ -236,7 +240,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.resetSupportTypeFilter("Dev preview (DP)");
     });
 
-    test("Verify community plugin badge in extensions", async ({
+    test.skip("Verify community plugin badge in extensions", async ({
       page,
       uiHelper,
     }) => {
