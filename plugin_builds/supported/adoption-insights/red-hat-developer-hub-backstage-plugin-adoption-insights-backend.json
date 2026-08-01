@@ -2,6 +2,8 @@
   "red-hat-developer-hub-backstage-plugin-adoption-insights-backend": {
     "workspacePath": "adoption-insights/plugins/adoption-insights-backend",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.52.0__0.9.0",
+    "fallback": true,
+    "requestedTag": "bs_1.52.0__0.9.1",
     "digest": "sha256:f5987236692d8eed18fbddbec6e27b81486ef39fceb0559bbbd10bf881eecf1d",
     "build-date": "2026-05-22T15:13:50Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",

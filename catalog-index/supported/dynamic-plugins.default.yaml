@@ -146,7 +146,7 @@ plugins:
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:162d9b28adc5be64854e92493942c60031fdcdc417b463c7391d9aca7ede643b
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:43e852a61885c6eaabf9d179a54707dcdb45a6301d9e15460d7df3dffec584eb
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:3b1f9de090fe7d774865eee1ddda9fd3a953c9fccc248e9d21d8d1797c64be6e
     enabled: true
     pluginConfig:
       dynamicPlugins:

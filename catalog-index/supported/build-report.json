@@ -48,7 +48,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f5987236692d8eed18fbddbec6e27b81486ef39fceb0559bbbd10bf881eecf1d"
+          "digest": "sha256:f5987236692d8eed18fbddbec6e27b81486ef39fceb0559bbbd10bf881eecf1d",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__0.9.1",
+          "resolvedTag": "bs_1.52.0__0.9.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
@@ -74,7 +77,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:51bd0e3390d18b4088b45b5073bcdfed5a5f7a6fa67450224fe0996c9639d4cd"
+          "digest": "sha256:51bd0e3390d18b4088b45b5073bcdfed5a5f7a6fa67450224fe0996c9639d4cd",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__0.9.1",
+          "resolvedTag": "bs_1.52.0__0.9.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
@@ -100,7 +106,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:be3c49237aa2bbee0b3cef8ebe6b62cd4d5606fe740554775977465b0c5e2693"
+          "digest": "sha256:be3c49237aa2bbee0b3cef8ebe6b62cd4d5606fe740554775977465b0c5e2693",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__0.9.1",
+          "resolvedTag": "bs_1.52.0__0.9.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
@@ -883,7 +892,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:770b3e072cb0d80f069f54dda6b556ca6d4b0ffbccb972ebf11ab809b4de7c97"
+          "digest": "sha256:dc48b11b3dff1475abec373d555bc13f2df495e76292f3fd437a29cc57327a49"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1547,14 +1556,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:43e852a61885c6eaabf9d179a54707dcdb45a6301d9e15460d7df3dffec584eb",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__1.17.1",
-          "resolvedTag": "bs_1.52.0__1.17.0"
+          "digest": "sha256:3b1f9de090fe7d774865eee1ddda9fd3a953c9fccc248e9d21d8d1797c64be6e"
         },
         "dpdy": {
           "status": "pass"
@@ -1564,7 +1570,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage",
-      "version": "1.17.0",
+      "version": "1.17.1",
       "workspace": "homepage",
       "overall": "pass"
     },
