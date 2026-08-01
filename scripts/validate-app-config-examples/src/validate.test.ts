@@ -10,6 +10,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { byCodepoint } from "./json.js";
 import {
   exitCodeFor,
   main,
@@ -71,7 +72,7 @@ describe("printReport", () => {
     printReport(
       [{ ...passing, status: "FAIL", detail: "boom" }],
       NO_SCHEMAS,
-      false,
+      { checked: false },
       io.write,
       io.writeError,
     );
@@ -80,7 +81,13 @@ describe("printReport", () => {
 
   it("stays quiet on stderr when everything passed", () => {
     const io = capture();
-    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: false },
+      io.write,
+      io.writeError,
+    );
     assert.equal(io.stderr, "");
   });
 });
@@ -91,7 +98,7 @@ describe("report output", () => {
     printReport(
       [passing, { ...passing, status: "FAIL", path: "b.yaml", detail: "why" }],
       NO_SCHEMAS,
-      false,
+      { checked: false },
       io.write,
       io.writeError,
     );
@@ -104,7 +111,7 @@ describe("report output", () => {
     printReport(
       [{ ...passing, notes: ["schema unavailable: HTTP 404"] }],
       NO_SCHEMAS,
-      true,
+      { checked: true },
       io.write,
       io.writeError,
     );
@@ -113,7 +120,13 @@ describe("report output", () => {
 
   it("omits the schema line entirely when schemas were not checked", () => {
     const io = capture();
-    printReport([passing], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: false },
+      io.write,
+      io.writeError,
+    );
     assert.ok(!io.stdout.includes("Schemas —"));
   });
 
@@ -122,20 +135,20 @@ describe("report output", () => {
     // "PASS: 1  FAIL: 0" and reads as a green gate, having checked nothing.
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, noSchema: 1, unavailable: 5 };
-    printReport([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, { checked: true }, io.write, io.writeError);
     assert.match(io.stdout, /no example was checked against a schema/);
   });
 
   it("does not warn when at least one example was validated", () => {
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, validated: 1 };
-    printReport([passing], tally, true, io.write, io.writeError);
+    printReport([passing], tally, { checked: true }, io.write, io.writeError);
     assert.ok(!io.stdout.includes("no example was checked"));
   });
 
   it("prints a header even with no rows at all", () => {
     const io = capture();
-    printReport([], NO_SCHEMAS, false, io.write, io.writeError);
+    printReport([], NO_SCHEMAS, { checked: false }, io.write, io.writeError);
     assert.match(io.stdout, /^STATUS {2}FILE\n/);
     assert.match(io.stdout, /Total: 0 {2}PASS: 0 {2}FAIL: 0/);
   });
@@ -160,5 +173,122 @@ describe("main argument handling", () => {
     const io = capture();
     assert.equal(await main(["--since", "HEAD"], io.write, io.writeError), 0);
     assert.match(io.stdout, /nothing to validate/);
+  });
+});
+
+describe("undeclared-key reporting", () => {
+  const TALLY = { withOwnedSubtree: 0, withFindings: 0 };
+
+  it("omits the undeclared line entirely when the layer did not run", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: true },
+      io.write,
+      io.writeError,
+    );
+    assert.ok(!io.stdout.includes("Undeclared keys"));
+  });
+
+  it("prints the tally when the layer ran", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: true, undeclared: { withOwnedSubtree: 32, withFindings: 7 } },
+      io.write,
+      io.writeError,
+    );
+    assert.match(
+      io.stdout,
+      /Undeclared keys — plugin-owned subtrees: 32 {2}with findings: 7/,
+    );
+  });
+
+  it("says so when no example had a subtree its plugin owns", () => {
+    // Same reasoning as the "no example was checked against a schema" warning:
+    // 0 findings out of 0 inspected reads as a clean bill of health otherwise.
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: true, undeclared: TALLY },
+      io.write,
+      io.writeError,
+    );
+    assert.match(io.stdout, /no undeclared key could have been found/);
+  });
+
+  it("stays quiet about advisories when there is nothing to advise on", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: true, undeclared: { withOwnedSubtree: 5, withFindings: 0 } },
+      io.write,
+      io.writeError,
+    );
+    assert.ok(!io.stdout.includes("reported, never failed"));
+    assert.ok(!io.stdout.includes("could have been found"));
+  });
+
+  it("explains that findings are advisory once there are any", () => {
+    const io = capture();
+    printReport(
+      [passing],
+      NO_SCHEMAS,
+      { checked: true, undeclared: { withOwnedSubtree: 5, withFindings: 2 } },
+      io.write,
+      io.writeError,
+    );
+    assert.match(io.stdout, /reported, never failed/);
+  });
+
+  it("never sets a failing exit code, however many findings a row carries", () => {
+    // The layer is advisory by construction: findings land in row notes, and
+    // exitCodeFor reads status. A row loaded with findings must still exit 0.
+    const withFindings: Row = {
+      ...passing,
+      notes: [
+        'undeclared key in "Default configuration": Config must NOT have additional properties { additionalProperty=tpyo } at /acme',
+        'undeclared key in "Default configuration": Config must NOT have additional properties { additionalProperty=oops } at /acme',
+      ],
+    };
+    assert.equal(exitCodeFor([withFindings]), 0);
+  });
+});
+
+describe("byCodepoint", () => {
+  it("orders uppercase before lowercase, as Python's sorted() does", () => {
+    // The property localeCompare would break: several locales sort
+    // case-insensitively, which would reorder the report and break the
+    // byte-identical parity with the script this replaced.
+    assert.deepEqual(["b", "A", "a", "B"].sort(byCodepoint), [
+      "A",
+      "B",
+      "a",
+      "b",
+    ]);
+  });
+
+  it("is 0 for equal strings, so sorts stay stable", () => {
+    assert.equal(byCodepoint("x", "x"), 0);
+  });
+});
+
+describe("a workspace patch that stops applying", () => {
+  it("fails the row, because every other unavailable reason stays PASS", async () => {
+    // Verified against the real sweep: 26 packages report unavailable and the
+    // run still exits 0. A broken patch would join them invisibly, which is
+    // exactly the drift the weekly sweep exists to catch.
+    const row: Row = {
+      status: "PASS",
+      path: "workspaces/x/metadata/y.yaml",
+      detail: "has non-empty first example content",
+      notes: ["schema unavailable: workspace patch 1-x.patch does not apply"],
+    };
+    assert.equal(exitCodeFor([row]), 0);
+    assert.equal(exitCodeFor([{ ...row, status: "FAIL" }]), 1);
   });
 });
