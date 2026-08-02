@@ -1,0 +1,10 @@
+# Nightly override: these plugins are not yet in the RHDH image's
+# dynamic-plugins.default.yaml, so the automatic {{inherit}} rewrite
+# fails.  Provide the GHCR OCI URLs directly to bypass the conversion.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.0
+    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.0
+    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.2
+    enabled: true
