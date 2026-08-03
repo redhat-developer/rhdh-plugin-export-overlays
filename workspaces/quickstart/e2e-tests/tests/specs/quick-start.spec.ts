@@ -4,7 +4,8 @@ test.describe("Test Quick Start plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+      // @ts-expect-error disablePlugins is from e2e-test-utils PR #140 (not yet published)
+      disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
   });
