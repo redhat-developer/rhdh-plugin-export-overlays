@@ -25,8 +25,10 @@ catalog:
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/no-scorecards.yaml
     - type: url
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/metrics-unavailable.yaml
+    # TODO: revert to janus-qe/.../main once https://github.com/janus-qe/overlay-scorecard-plugin-test/pull/6 merges
+    # (scorecard 4.0 requires camelCase metric id github.openPRs in the threshold annotation)
     - type: url
-      target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/invalid-threshold.yaml
+      target: https://github.com/ciiay/overlay-scorecard-plugin-test/blob/fix/github-openPRs-threshold-annotation/invalid-threshold.yaml
     - type: url
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/openssf-scorecard-only.yaml
     - type: url
