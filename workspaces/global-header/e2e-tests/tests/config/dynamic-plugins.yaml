@@ -1,6 +1,4 @@
 plugins:
-  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
-    disabled: true
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
     disabled: false
     pluginConfig:
