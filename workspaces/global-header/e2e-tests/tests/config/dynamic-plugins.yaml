@@ -15,6 +15,7 @@ plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-signals
     disabled: false
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header
+    module: Legacy
     pluginConfig:
       app:
         sidebar:
