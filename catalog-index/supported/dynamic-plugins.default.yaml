@@ -335,8 +335,8 @@ plugins:
                 importName: LogoutButton
                 config:
                   priority: 10
-  # Tag: bs_1.52.0__1.12.2, Build date: 2026-06-03T21:14:06Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:9f3ec532d2447ac4bcde4798954c86bf574edfea6a163886e67e568f26d1ed02
+  # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-03T21:14:06Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart@sha256:843cfa5871bd73905cf9324ee81e121914cb45194e0b9fd4cab47488627fda0a
     enabled: true
     pluginConfig:
       app:
@@ -479,13 +479,14 @@ plugins:
             translationResources:
               - importName: rbacTranslations
                 ref: rbacTranslationRef
-                module: Alpha
             appIcons:
               - name: rbacIcon
                 importName: RbacIcon
+                module: Legacy
             dynamicRoutes:
               - path: /rbac
                 importName: RbacPage
+                module: Legacy
                 menuItem:
                   icon: rbacIcon
                   text: RBAC
