@@ -234,30 +234,36 @@ plugins:
           red-hat-developer-hub.backstage-plugin-global-header:
             translationResources:
               - importName: globalHeaderTranslations
+                module: Legacy
                 ref: globalHeaderTranslationRef
             mountPoints:
               - mountPoint: application/header
                 importName: GlobalHeader
+                module: Legacy
                 config:
                   position: above-sidebar
               - mountPoint: global.header/component
                 importName: CompanyLogo
+                module: Legacy
                 config:
                   priority: 200
                   props:
                     to: /
               - mountPoint: global.header/component
                 importName: SearchComponent
+                module: Legacy
                 config:
                   priority: 100
               - mountPoint: global.header/component
                 importName: Spacer
+                module: Legacy
                 config:
                   priority: 99
                   props:
                     growFactor: 0
               - mountPoint: global.header/component
                 importName: HeaderIconButton
+                module: Legacy
                 config:
                   priority: 90
                   props:
@@ -267,14 +273,17 @@ plugins:
                     to: create
               - mountPoint: global.header/component
                 importName: StarredDropdown
+                module: Legacy
                 config:
                   priority: 85
               - mountPoint: global.header/component
                 importName: ApplicationLauncherDropdown
+                module: Legacy
                 config:
                   priority: 82
               - mountPoint: global.header/application-launcher
                 importName: MenuItemLink
+                module: Legacy
                 config:
                   section: Documentation
                   priority: 150
@@ -285,6 +294,7 @@ plugins:
                     link: https://docs.redhat.com/en/documentation/red_hat_developer_hub
               - mountPoint: global.header/application-launcher
                 importName: MenuItemLink
+                module: Legacy
                 config:
                   section: Developer Tools
                   priority: 100
@@ -295,26 +305,32 @@ plugins:
                     link: https://github.com/redhat-developer/rhdh-local
               - mountPoint: global.header/component
                 importName: HelpDropdown
+                module: Legacy
                 config:
                   priority: 80
               - mountPoint: global.header/help
                 importName: SupportButton
+                module: Legacy
                 config:
                   priority: 10
               - mountPoint: global.header/component
                 importName: NotificationButton
+                module: Legacy
                 config:
                   priority: 70
               - mountPoint: global.header/component
                 importName: Divider
+                module: Legacy
                 config:
                   priority: 50
               - mountPoint: global.header/component
                 importName: ProfileDropdown
+                module: Legacy
                 config:
                   priority: 10
               - mountPoint: global.header/profile
                 importName: MenuItemLink
+                module: Legacy
                 config:
                   priority: 100
                   props:
@@ -324,6 +340,7 @@ plugins:
                     icon: manageAccounts
               - mountPoint: global.header/profile
                 importName: MenuItemLink
+                module: Legacy
                 config:
                   priority: 90
                   props:
@@ -333,6 +350,7 @@ plugins:
                     icon: account
               - mountPoint: global.header/profile
                 importName: LogoutButton
+                module: Legacy
                 config:
                   priority: 10
   # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-03T21:14:06Z
@@ -469,8 +487,8 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 50
-  # Tag: bs_1.52.0__1.55.2, Build date: 2026-06-03T21:19:15Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:85aef4902ef629c1cde2ca6e12925bec4833971cee086360a91b58803183958f
+  # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-03T21:19:15Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:d0369e8496eb5470eae75ed1285870ed6568345b5050375663d4bca0b43f78dc
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -727,7 +745,7 @@ plugins:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
   # Tag: bs_1.52.0__5.10.0, Build date: 2026-06-02T17:21:47Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:ddbe057837dae93cdb1a3e0f7a5f8b7fd2c08a3705f065d193637a67ca0ea4b2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:e34a4dc69488a675ff05abadbf44021ac78161b9cf2a04fe82416b7f67e6b08a
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -766,14 +784,14 @@ plugins:
                     anyOf:
                       - hasAnnotation: orchestrator.io/workflows
   # Tag: bs_1.52.0__8.11.0, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:39d1c634eef236bcc36c513e43baeca305935d544da432d61d7073c3b584806b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:fabcae91dafed34cf28b0d42a25301a6c81fadf31b988990c0750310d8c5ed72
     enabled: false
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
   # Tag: bs_1.52.0__1.4.0, Build date: 2026-05-22T15:15:55Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:0f7500a174c7693d4004ec69f6a0a10ec7389ce38d479b47cc9f368143003baf
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:dae830c2d8900fc6fd84cf7c67033e99146d62c5bd8dbdc0359a80817400ef33
     enabled: false
     pluginConfig:
       orchestrator:
@@ -782,14 +800,14 @@ plugins:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
   # Tag: bs_1.52.0__1.12.0, Build date: 2026-06-02T17:28:54Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:82cbb0f8f8e76f267f913108a0f436e5e03881d14d173428caa218cb731eca6c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:5cd80bdbee05a5d66bb9ae826e35d2b504a4091a53d909f0ddbe3cae31e48d3a
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
   # Tag: bs_1.52.0__1.7.0, Build date: 2026-05-26T12:41:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:3687cbe98aa05016497d697eabf357c56eb1607027e8960876ff0fef73c25193
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:06dfdc3315593d53aa504b3b282bc56ef741119f32a298e0168dc9e4a863e652
     enabled: false
     pluginConfig:
       orchestrator:
