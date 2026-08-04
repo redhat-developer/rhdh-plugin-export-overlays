@@ -1,0 +1,28 @@
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-module-email-dynamic
+    disabled: false
+    pluginConfig:
+      notifications:
+        processors:
+          email:
+            transportConfig:
+              transport: smtp
+              hostname: ${MAILPIT_SMTP_HOST}
+              port: 1025
+              secure: false
+            sender: backstage-e2e@example.com
+            broadcastConfig:
+              receiver: users
+            denylistEmailAddresses:
+              - ${MAILPIT_DENYLIST_EMAIL}
+            concurrencyLimit: 5
+            throttleInterval:
+              milliseconds: 10
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals
+    disabled: false
