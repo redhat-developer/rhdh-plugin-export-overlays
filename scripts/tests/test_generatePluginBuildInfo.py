@@ -588,7 +588,7 @@ class TestFallbackRegexFragment:
         assert generatePluginBuildInfo._fallback_regex_fragment(container) == expected
 
     def test_cta_regex_includes_fetched_version(self, capsys):
-        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-2-rhel-9"), \
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
              patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
                 [
@@ -619,7 +619,6 @@ class TestRhdhBranchAndVersion:
         [
             ("main", "main"),
             ("rhdh-1-rhel-9", "main"),
-            ("rhdh-2-rhel-9", "main"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),

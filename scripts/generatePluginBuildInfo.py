@@ -642,11 +642,11 @@ def _fallback_regex_fragment(container: str) -> str:
 def rhdh_git_branch_for_midstream(midstream_branch: str) -> str:
     """Map a midstream catalog branch to the matching ``redhat-developer/rhdh`` git branch.
 
-    - ``main`` / ``rhdh-1-rhel-9`` / ``rhdh-2-rhel-9`` (next) → ``main``
+    - ``main`` / ``rhdh-1-rhel-9`` (next) → ``main``
     - ``rhdh-1.10-rhel-9`` → ``release-1.10``
     """
     branch = (midstream_branch or "").strip()
-    if branch in ("main", "rhdh-1-rhel-9", "rhdh-2-rhel-9", ""):
+    if branch in ("main", "rhdh-1-rhel-9", ""):
         return "main"
     match = re.fullmatch(r"rhdh-([0-9]+(?:\.[0-9]+)+)-rhel-9", branch)
     if match:
