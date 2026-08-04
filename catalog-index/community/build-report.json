@@ -162,7 +162,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c25f64352ac7dd0445f4210693d1de84ffdc6ff86fef3d5c051a4c17460f74a8"
+          "digest": "sha256:3fbaa5c70ca5fc918e3a19f57205f7abac101f11ac1bc99367a844ed1ec69c0d"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-cloud",
@@ -188,7 +188,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:53cae8ccfb229e55a04a8fee995a5e434be8e01edf777c03771ca06554f448f7"
+          "digest": "sha256:11ddc969addb616fdc32c1d55b0823eb857a6e25c4970b2d9d5c162e172b1ec5"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-server",
@@ -344,7 +344,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:efed09d27711020848a403a01943fa568d34948bcfc1030bc4661fa810b29eea"
+          "digest": "sha256:decc2dc48d45e78cbf268957d889db358e376e0928e0d13af8474a96c36bdeac"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
@@ -370,7 +370,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:55febe7bf1b955895f5b36cb9c734d5fc1c06f10d5f92d392b6f49e5dd591680"
+          "digest": "sha256:e92fa832752e8c9382e59edbc1e271d1304979eb2e9da3f2e253134769992207"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
@@ -560,7 +560,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:19453ced78685055a0e6a5f40a70fe57666ccb83f4031fe6ba9b182686eabd63"
+          "digest": "sha256:43e1b1d3f1116c1107f280b23cc6558b4afd4c8bcd92e6eee2cf0269bb6e63a6"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
@@ -646,7 +646,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f1a2be5a1398642024055af2f3a39ceff066f1008b912e0c7594109717926551"
+          "digest": "sha256:6003564180866c79ed69abf8a3b3f987943cf18b758374249ec65638bd41875b"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -672,7 +672,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:557cf80936c992d4f34062232f60ad83af2fe995717109800dfb6bbf7bc58979"
+          "digest": "sha256:c703aa969de3721e2ebbc9825e16f230dff35216d671591c1fcfadafe9e90c1f"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -1038,7 +1038,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.40.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.41.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1052,14 +1052,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b89396dd9e35d7f69f7b3b11dc2d75b0e9c7602bbdd08b15088269c283baa52b",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__3.41.0",
-          "resolvedTag": "bs_1.52.0__3.40.1"
+          "digest": "sha256:d7b8e53a65c697df4ebfa461a3614d74b56e561f3adcbfedb6f286b78da85e51"
         }
       },
       "package": "@backstage-community/plugin-tekton",
-      "version": "3.40.1",
+      "version": "3.41.0",
       "workspace": "tekton",
       "overall": "pass"
     },
@@ -1081,7 +1078,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5f736b91a8daff18be37fea88f995e039b3dd5c44a2c679f46d5a892a554b335"
+          "digest": "sha256:d7d64c58ff6b495bd41b4c78700f74f8c1cdd73e238d6c3536a2ea0f5ec2a41e"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1100,7 +1097,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:40ccc53b423b52f1ca8793899518626279b4f305774821f7d62f56696da4691d"
+          "digest": "sha256:ca4b93891829967df13b308fad47587ac511147eccbf671690d924c06f9a8adb"
         },
         "catalog-index": {
           "status": "pass"
@@ -1122,7 +1119,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0caae6837bb80b59667356bb1d23def6d72d9171e7e2c0fd3475260ee0e94d15"
+          "digest": "sha256:190d67b1a0bfc73dc8ccdc18cb6fefb2a0556783417601ff29ba362ef7ada851"
         },
         "catalog-index": {
           "status": "pass"
@@ -1144,7 +1141,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cf81300c129a013fbd0f4359febb33d55238cb501068eb3fd6f76edfa9bd2065"
+          "digest": "sha256:83e2364c1940d5d8e37db948734b8f93e54d3a21fab5a89a40f255cfb3ad7fe5"
         },
         "catalog-index": {
           "status": "pass"
@@ -1166,7 +1163,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:804aeaf21daab24e378975334826478928c4c0c5cb16e632cb3fab776d56fa9a"
+          "digest": "sha256:b169e1bb1a9681f9a47593874382220206192824bc5dbe5d1e4f29f38f9329eb"
         },
         "catalog-index": {
           "status": "pass"
@@ -1188,7 +1185,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a1dc850601165eaa3a9b6d74bd3eb9a97c5c4da76cf14793ddc36b9407cf75f0"
+          "digest": "sha256:2fe9289827f3f4a712cd4266aeca2a70d30d76680c8f690bb4b138ef4af2eb1c"
         },
         "catalog-index": {
           "status": "pass"
@@ -1210,7 +1207,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f6602cab6f610d412c18eb50d73428b1d8a60200d098406acd74dc59266e8f45"
+          "digest": "sha256:a1cfcf10484f77c0551f10877caa5177f27221bec9e313ee1cd9cc261a493c18"
         },
         "catalog-index": {
           "status": "pass"
@@ -1232,7 +1229,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a396e9d6aa8dd24afc2c82dd9d4c9b59287aac4bc0b5deb2d9881dcb310223bd"
+          "digest": "sha256:b157c0009c6ab6c480f9e0f81dd21ddd3d3fca547aeceda60b5eb2ff5f9e911f"
         },
         "catalog-index": {
           "status": "pass"
@@ -1254,7 +1251,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e5e229eaceb552c48f01de110a33964f7f84679f47430e16395d4d2449a1b8e0"
+          "digest": "sha256:29e578ccf54cc0f4d01e658bd71e5822eda54e4a862147f0257af9a67c2f0cab"
         },
         "catalog-index": {
           "status": "pass"
@@ -1273,7 +1270,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:158b708053b75788b724706bf6c22e9580cfc2b6a570c46f66fb6980a968c51f"
+          "digest": "sha256:649d7b05649d91afe66ef56e82bf634b22f99aecf365e9b91149f7ee03141b7f"
         },
         "dpdy": {
           "status": "skip"
