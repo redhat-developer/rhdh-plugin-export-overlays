@@ -38,6 +38,8 @@ import { parseArgs } from "node:util";
 import { excluderFor, loadExclusions, type Exclusion } from "./exclusions";
 import { requireContained, resolveContained } from "./paths";
 import {
+  isReport,
+  REPORT_SCHEMA_VERSION,
   SWEEP_SCHEMA_VERSION,
   type Report,
   type SweepSummary,
@@ -107,6 +109,27 @@ function parseCount(
   return value;
 }
 
+/**
+ * Resolve and parse `--exclusions`, if given. Kept separate from parseCliInputs so the
+ * three ways it can fail — escaping the working directory, missing, malformed — read
+ * as one concern rather than padding the argument parser.
+ */
+function readExclusions(arg: string | undefined): {
+  exclusions: Exclusion[];
+  exclusionsFile?: string;
+} {
+  if (!arg) return { exclusions: [] };
+  try {
+    const exclusionsFile = requireContained("--exclusions", arg);
+    if (!existsSync(exclusionsFile)) {
+      fail(`--exclusions file not found: ${arg}`);
+    }
+    return { exclusions: loadExclusions(exclusionsFile), exclusionsFile };
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+}
+
 function parseCliInputs(): CliInputs {
   const { values } = parseArgs({
     options: {
@@ -137,23 +160,7 @@ function parseCliInputs(): CliInputs {
     fail(`--shard ${shard} is out of range for --shards ${shards}`);
   }
 
-  let exclusions: Exclusion[] = [];
-  let exclusionsFile: string | undefined;
-  if (values.exclusions) {
-    try {
-      exclusionsFile = requireContained("--exclusions", values.exclusions);
-    } catch (err) {
-      fail(err instanceof Error ? err.message : String(err));
-    }
-    if (!existsSync(exclusionsFile)) {
-      fail(`--exclusions file not found: ${values.exclusions}`);
-    }
-    try {
-      exclusions = loadExclusions(exclusionsFile);
-    } catch (err) {
-      fail(err instanceof Error ? err.message : String(err));
-    }
-  }
+  const { exclusions, exclusionsFile } = readExclusions(values.exclusions);
 
   // Results are written by the harness, which constrains its own --out to its CWD;
   // keep --out-dir under the same roof so the two agree.
@@ -271,7 +278,15 @@ function runWorkspace(
   let report: Report | null = null;
   if (existsSync(outFile)) {
     try {
-      report = JSON.parse(readFileSync(outFile, "utf8")) as Report;
+      const parsed: unknown = JSON.parse(readFileSync(outFile, "utf8"));
+      if (isReport(parsed)) {
+        report = parsed;
+      } else {
+        console.error(
+          `⚠ ${group.workspace}: results file is not a report at schemaVersion ` +
+            `${REPORT_SCHEMA_VERSION} — treating the run as an error.`,
+        );
+      }
     } catch (err) {
       console.error(
         `⚠ ${group.workspace}: results file is unreadable (${err instanceof Error ? err.message : String(err)})`,

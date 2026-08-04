@@ -107,3 +107,38 @@ export type SweepSummary = {
   /** `fail` when any workspace did not pass. */
   status: "pass" | "fail";
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Narrow a parsed report, checking the schema version it declares.
+ *
+ * These files cross a process boundary (the harness writes, the sweep reads) and a
+ * job boundary (a shard writes, the aggregator reads), so asserting the type would
+ * let a stale, foreign or older-schema file through as if it were valid — and the
+ * consumer would then read `undefined` counts and report them as zeros. The version
+ * field exists to be checked; this is what checks it.
+ */
+export function isReport(value: unknown): value is Report {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === REPORT_SCHEMA_VERSION &&
+    isRecord(value.backend) &&
+    isRecord(value.frontend) &&
+    isRecord(value.backendStart) &&
+    typeof value.status === "string"
+  );
+}
+
+export function isSweepSummary(value: unknown): value is SweepSummary {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === SWEEP_SCHEMA_VERSION &&
+    typeof value.support === "string" &&
+    isRecord(value.shard) &&
+    typeof value.shard.index === "number" &&
+    Array.isArray(value.workspaces)
+  );
+}

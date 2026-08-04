@@ -110,10 +110,9 @@ export function buildMergedConfig(
   plugins: LoadedPlugin[],
   extra?: JsonObject,
 ): JsonObject {
-  const merged: Record<string, unknown> = structuredClone(baseConfig) as Record<
-    string,
-    unknown
-  >;
+  const merged: Record<string, unknown> = structuredClone(
+    baseConfig as Record<string, unknown>,
+  );
   for (const { plugin } of plugins) {
     const overrides = configOverrides[plugin.dirName];
     if (overrides) deepMerge(merged, overrides);

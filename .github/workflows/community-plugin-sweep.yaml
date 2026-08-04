@@ -165,12 +165,14 @@ jobs:
         run: echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
 
       - name: Install dependencies
-        # NOT --mode=skip-build, unlike the plan and aggregate jobs: booting plugins
-        # through startTestBackend needs better-sqlite3, which compiles its native
-        # binding during install. Skipping build scripts makes every boot fail with
-        # "Could not locate the bindings file" (verified). Same constraint as
-        # native-smoke.yaml. Sonar S6505 here needs dismissing, not fixing.
-        run: yarn install --immutable
+        # Booting plugins through startTestBackend needs better-sqlite3, which compiles
+        # a native binding during install — with build scripts off, every boot fails
+        # with "Could not locate the bindings file" (verified). Rather than enable
+        # lifecycle scripts for the whole tree (Sonar S6505), install with them off and
+        # rebuild only the one dependency that genuinely needs it.
+        run: |
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
 
       - name: Run sweep shard
         # Non-zero on any failing workspace. The shard summary is written either way,

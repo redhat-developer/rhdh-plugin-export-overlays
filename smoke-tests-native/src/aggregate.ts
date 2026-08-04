@@ -28,7 +28,13 @@ import { parseArgs } from "node:util";
 import type { ExclusionRecord } from "./exclusions";
 import type { FrontendSystem } from "./loader";
 import { requireContained, resolveContained } from "./paths";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import {
+  isSweepSummary,
+  SWEEP_SCHEMA_VERSION,
+  type Report,
+  type SweepSummary,
+  type SweepWorkspaceResult,
+} from "./report";
 
 /** Ascending string comparison, stable across environments (no locale collation). */
 function byString(a: string, b: string): number {
@@ -313,9 +319,16 @@ function main(): number {
     fail(`no sweep-shard-*.json found under ${inputs.join(", ")}`);
   }
 
-  const summaries = files.map(
-    (file) => JSON.parse(readFileSync(file, "utf8")) as SweepSummary,
-  );
+  const summaries = files.map((file) => {
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (!isSweepSummary(parsed)) {
+      fail(
+        `${file}: not a sweep summary at schemaVersion ${SWEEP_SCHEMA_VERSION} — ` +
+          `refusing to aggregate a file whose shape cannot be trusted.`,
+      );
+    }
+    return parsed;
+  });
 
   // A shard whose artifact never uploaded (job cancelled, runner lost, upload failed)
   // would otherwise just vanish from the totals and let the run report a clean pass

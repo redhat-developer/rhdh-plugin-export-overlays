@@ -112,13 +112,15 @@ test("groupByWorkspace sorts workspaces and their packages deterministically", (
 });
 
 function group(workspace: string, count: number): WorkspaceGroup {
-  return {
+  const packages: PackageEntry[] = Array.from({ length: count }, (_, i) => ({
     workspace,
-    packages: Array.from(
-      { length: count },
-      (_, i) => ({ workspace, file: `${i}.yaml` }) as PackageEntry,
-    ),
-  };
+    file: `${i}.yaml`,
+    packageName: `@scope/${workspace}-${i}`,
+    support: "community",
+    role: "backend-plugin",
+    artifact: `oci://ghcr.io/example/${workspace}-${i}:tag`,
+  }));
+  return { workspace, packages };
 }
 
 test("planShards balances on package count and keeps every workspace exactly once", () => {

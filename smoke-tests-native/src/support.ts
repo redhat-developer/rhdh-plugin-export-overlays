@@ -128,9 +128,10 @@ export function planShards(
       `shard count must be a positive integer, got ${shardCount}`,
     );
   }
-  const shards = Array.from({ length: shardCount }, () => ({
+  type Shard = { load: number; groups: WorkspaceGroup[] };
+  const shards: Shard[] = Array.from({ length: shardCount }, () => ({
     load: 0,
-    groups: [] as WorkspaceGroup[],
+    groups: [],
   }));
 
   const heaviestFirst = [...groups].sort(

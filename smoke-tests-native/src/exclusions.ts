@@ -37,7 +37,9 @@ import { requireContained } from "./paths";
 
 export type ExclusionScope = "install" | "boot";
 
-export const EXCLUSION_SCOPES: readonly ExclusionScope[] = ["install", "boot"];
+// Module-private: the scope vocabulary is enforced through parseExclusions' errors,
+// not consumed directly by callers.
+const EXCLUSION_SCOPES: readonly ExclusionScope[] = ["install", "boot"];
 
 export type Exclusion = {
   scope: ExclusionScope;
