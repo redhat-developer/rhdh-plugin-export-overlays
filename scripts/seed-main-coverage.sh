@@ -37,6 +37,7 @@ set -euo pipefail
 # Without a token, upload-coverage.sh warns and exits 0 for every workspace, so
 # the job would go green while uploading nothing. Fail fast on the
 # misconfiguration instead — for this upload-only job a missing token is a red X.
+# (CODECOV_UPLOAD_STRICT below closes the same hole for a failed upload.)
 if [[ -z "${CODECOV_TOKEN:-}" && -z "${VAULT_CODECOV_TOKEN:-}" ]]; then
   echo "ERROR: no Codecov token (CODECOV_TOKEN / VAULT_CODECOV_TOKEN) — the seed would upload nothing. Set the CODECOV_TOKEN secret." >&2
   exit 1
@@ -56,7 +57,13 @@ if [[ ${#snapshots[@]} -eq 0 ]]; then
 fi
 
 echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
-FAILED=0
+# Uploading IS this job — a Codecov-side failure is a real failure here, not the
+# incidental side-effect it is for a caller that also does something else. Without
+# this, upload-coverage.sh returns 0 on a failed upload and every snapshot reports
+# as seeded while Codecov received nothing.
+export CODECOV_UPLOAD_STRICT=true
+# Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
+FAILED_WS=()
 for snapshot in "${snapshots[@]}"; do
   # The snapshot basename must equal a workspaces/<dir> name — it becomes the
   # Codecov flag (e2e-<ws>) and upload-coverage.sh validates the directory.
@@ -64,15 +71,21 @@ for snapshot in "${snapshots[@]}"; do
   echo ""
   echo "--- $ws (e2e-$ws) ---"
   if ! "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
-    echo "[WARN] Seed failed for $ws (non-fatal)"
-    FAILED=$((FAILED + 1))
+    echo "[ERROR] Seed failed for $ws"
+    FAILED_WS+=("$ws")
   fi
 done
 
+FAILED="${#FAILED_WS[@]}"
 echo ""
 echo "=== Done: $(( ${#snapshots[@]} - FAILED ))/${#snapshots[@]} seeded ==="
-# A green run here means "dashboard updated". If every seed failed (e.g. all
-# snapshots point at renamed/removed workspaces), that's a misconfiguration
-# worth a red X, not a buried WARN.
-[[ "$FAILED" -eq "${#snapshots[@]}" ]] && exit 1
+# A green run here means "dashboard updated" — so ANY failed seed is a red X, not
+# just an all-fail. Each workspace is an independent flag: 6/7 green would leave
+# the 7th showing a stale carried-forward number with nothing to indicate it was
+# never refreshed, which is precisely the silent staleness this job exists to
+# prevent. The seed is idempotent and re-runs on schedule, so a re-run is the fix.
+if [[ "$FAILED" -gt 0 ]]; then
+  echo "[ERROR] Not seeded: ${FAILED_WS[*]}" >&2
+  exit 1
+fi
 exit 0

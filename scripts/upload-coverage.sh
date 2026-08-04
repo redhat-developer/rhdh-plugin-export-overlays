@@ -30,17 +30,21 @@
 # and its trend, which is the metric we want from E2E runs.
 #
 # Required environment:
-#   CODECOV_TOKEN       - Codecov upload token for this repo's project.
-#                         Falls back to VAULT_CODECOV_TOKEN (see below).
+#   CODECOV_TOKEN         - Codecov upload token for this repo's project.
+#                           Falls back to VAULT_CODECOV_TOKEN (see below).
 # Optional environment:
-#   CODECOV_UPLOAD_SLUG - GitHub slug of the Codecov project to upload to.
-#                         Default: redhat-developer/rhdh-plugin-export-overlays.
-#   PULL_PULL_SHA       - PR head SHA (set by Prow presubmits).
-#   PULL_NUMBER         - PR number (set by Prow presubmits).
-#   PULL_BASE_REF       - Base branch (set by Prow postsubmits) — used as the
-#                         upload branch when there is no PR number.
-#   GITHUB_SHA          - Commit SHA (set by GitHub Actions).
-#   GIT_PR_NUMBER       - PR number fallback (exported by the E2E CI step).
+#   CODECOV_UPLOAD_SLUG   - GitHub slug of the Codecov project to upload to.
+#                           Default: redhat-developer/rhdh-plugin-export-overlays.
+#   CODECOV_UPLOAD_STRICT - "true" to exit non-zero when the Codecov upload
+#                           itself fails. Default (unset) keeps the historical
+#                           non-blocking behaviour — see the exit-code contract
+#                           at the upload call below.
+#   PULL_PULL_SHA         - PR head SHA (set by Prow presubmits).
+#   PULL_NUMBER           - PR number (set by Prow presubmits).
+#   PULL_BASE_REF         - Base branch (set by Prow postsubmits) — used as the
+#                           upload branch when there is no PR number.
+#   GITHUB_SHA            - Commit SHA (set by GitHub Actions).
+#   GIT_PR_NUMBER         - PR number fallback (exported by the E2E CI step).
 
 set -euo pipefail
 
@@ -189,11 +193,20 @@ CODECOV_ARGS=(
 [[ -n "$UPLOAD_BRANCH" ]] && CODECOV_ARGS+=(--branch "$UPLOAD_BRANCH")
 
 echo ""
-# Codecov upload failures are intentionally non-blocking (exit 0).
-# Coverage is informational — CI jobs should not fail if Codecov is down or
-# has transient errors. The lcov report is still available locally for review.
-# This approach prioritizes CI stability while ensuring coverage visibility when
-# Codecov is available.
+# Exit-code contract for a failed upload, selected by CODECOV_UPLOAD_STRICT:
+#
+#   unset/false (default) - exit 0. For a caller whose real job is something else
+#     and merely uploads coverage on the side (the Prow e2e run used to do this):
+#     coverage is informational, so Codecov being down must not fail that job.
+#     The lcov is still on disk, and a human reading the log sees the banner.
+#
+#   true - exit non-zero. For a caller whose ONLY job is the upload — today
+#     scripts/seed-main-coverage.sh, the sole automated caller. There, swallowing
+#     the failure makes the job report "seeded" while Codecov received nothing,
+#     so the dashboard silently goes stale with a green check. That is the exact
+#     failure mode seed-main-coverage.sh already guards against for a missing
+#     token ("the job would go green while uploading nothing"); this closes the
+#     same hole for the upload itself.
 if "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"; then
   echo ""
   echo "=== Upload complete ==="
@@ -209,6 +222,10 @@ else
   echo "  Target repo: $UPLOAD_SLUG"
   echo "  Target SHA:  $UPLOAD_SHA"
   echo "=================================================="
+  if [[ "${CODECOV_UPLOAD_STRICT:-}" == "true" ]]; then
+    echo "  CODECOV_UPLOAD_STRICT=true — failing so this doesn't pass silently." >&2
+    exit 1
+  fi
   # Exit 0 (success) — upload failure should not fail the CI job
   exit 0
 fi
