@@ -1,7 +1,7 @@
 # Enable Scorecard plugin for e2e tests (main scorecard project).
 # Filecheck backend module is intentionally excluded — it lives in filecheck/dynamic-plugins.yaml.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.52.0__4.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.52.0__4.1.0
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -43,9 +43,9 @@ plugins:
                   title: "GitHub open PRs"
                   props:
                     aggregationId: "github.openPRs"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.52.0__4.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.52.0__4.1.0
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.52.0__4.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github:bs_1.52.0__4.1.0
     enabled: true
     pluginConfig:
       scorecard:
@@ -74,7 +74,7 @@ plugins:
                     expression: ">70"
                     icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" style="color:#FAA0A0"><rect x="4" y="4" width="16" height="16" rx="2" stroke="#FAA0A0" stroke-width="2"/><path d="M9 9l6 6M15 9l-6 6" stroke="#FAA0A0" stroke-width="2" stroke-linecap="round"/></svg>
                     color: "#faa0a0"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.52.0__4.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.52.0__4.1.0
     enabled: true
     pluginConfig:
       jira:
@@ -92,7 +92,7 @@ plugins:
                   minutes: 5
                 initialDelay:
                   seconds: 15
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.52.0__1.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot:bs_1.52.0__1.0.1
     enabled: true
     pluginConfig:
       scorecard:
@@ -152,7 +152,7 @@ plugins:
                   title: "Entity section"
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
     enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.52.0__1.0.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.52.0__1.0.1
     enabled: true
     pluginConfig:
       scorecard:
