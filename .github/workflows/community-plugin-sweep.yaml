@@ -25,8 +25,10 @@ name: Community Plugin Sweep
 
 on:
   schedule:
-    # Daily, an hour after update-plugins-repo-refs.yaml's window, so a version bump
-    # merged overnight is swept the same night.
+    # Daily at 03:00 UTC. Deliberately clear of the repo's 06:00-06:15 cluster
+    # (label-mandatory-workspace-prs, seed-coverage-main, e2e-triage-agent) so six
+    # long-running shards do not compete with them for runners. update-plugins-repo-refs
+    # runs at 12:00 and 19:00 UTC, so a bump merged during the day is swept that night.
     - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
@@ -48,12 +50,13 @@ on:
 
 concurrency:
   # A sweep takes a while; never stack two of them.
-  group: ${{ github.workflow }}-${{ inputs.support || 'community' }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.support || 'community' }}
   cancel-in-progress: false
 
+# Least privilege at the top; only the sweep job talks to a registry, so it takes
+# packages: read for itself.
 permissions:
   contents: read
-  packages: read
 
 env:
   SUPPORT: ${{ inputs.support || 'community' }}
@@ -96,17 +99,33 @@ jobs:
       - name: Resolve shard plan
         id: plan
         run: |
+          set -euo pipefail
+          # A fat-fingered dispatch input would otherwise launch that many 60-minute
+          # runners, or blow past GitHub's 256-job matrix cap and die in strategy
+          # evaluation with no pointer at the cause.
+          if ! [ "$SHARDS" -ge 1 ] 2>/dev/null || [ "$SHARDS" -gt 20 ]; then
+            echo "::error::--shards must be between 1 and 20, got '$SHARDS'"
+            exit 1
+          fi
           # Build separately, then run the bundle directly: `yarn sweep` would also
           # run the build, and anything it ever prints on stdout would land in plan.json.
           yarn build
           node dist/sweep.mjs --support "$SUPPORT" --shards "$SHARDS" --exclusions "$EXCLUDES" --plan > plan.json
           cat plan.json
+          # Assign first: `set -e` keys off echo's status, so a failing command
+          # substitution inside `echo` would write an empty output and only surface a
+          # job later as `fromJSON('')` during strategy evaluation.
+          shards="$(jq -c '[.shards[].index]' plan.json)"
+          count="$(jq -r '.shards | length' plan.json)"
+          # An empty matrix is a hard strategy error ("does not contain any values"),
+          # which reads as a workflow bug rather than "this level has no packages".
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no packages found at support level '$SUPPORT'"
+            exit 1
+          fi
           # The matrix carries only the shard indices; each job recomputes the same
           # deterministic plan locally, so the workspace lists never travel as data.
-          {
-            echo "shards=$(jq -c '[.shards[].index]' plan.json)"
-            echo "shard-count=$(jq -r '.shards | length' plan.json)"
-          } >> "$GITHUB_OUTPUT"
+          { echo "shards=$shards"; echo "shard-count=$count"; } >> "$GITHUB_OUTPUT"
 
       - name: Report plan
         run: |
@@ -123,6 +142,11 @@ jobs:
   sweep:
     needs: plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # skopeo login ghcr.io with GITHUB_TOKEN. Artifact up/download authenticate with
+      # ACTIONS_RUNTIME_TOKEN, so they need no scope here.
+      packages: read
     # One shard installs ~18 packages and boots each workspace's backends. Generous:
     # a hung startTestBackend should surface as a timeout, not as a cancelled sweep.
     timeout-minutes: 60
@@ -162,7 +186,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_ACTOR: ${{ github.actor }}
-        run: echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin
+        run: |
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin \
+            || echo "::warning::ghcr.io login failed — pulling anonymously; rate-limit \
+                     failures may appear as per-plugin install errors in the report"
 
       - name: Install dependencies
         # Booting plugins through startTestBackend needs better-sqlite3, which compiles
@@ -197,13 +224,14 @@ jobs:
           # aggregate job's --expect-shards, and failing here too would just add a
           # second red step on top of the real one.
           if-no-files-found: warn
+          retention-days: 14
 
   aggregate:
     needs: [plan, sweep]
     # Runs even when shards failed — the aggregate report is most useful precisely
     # then, and it is what turns N red jobs into one readable list. It does need the
     # plan, though: without shard-count there is nothing to hold the results against.
-    if: always() && needs.plan.result == 'success'
+    if: '!cancelled() && needs.plan.result == ''success'''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -255,7 +283,7 @@ jobs:
             --expect-shards "$SHARD_COUNT"
           status=$?
           set -e
-          [ -f summary.md ] && cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -f summary.md ]; then cat summary.md >> "$GITHUB_STEP_SUMMARY"; fi
           exit $status
 
       - name: Upload aggregate
@@ -267,3 +295,4 @@ jobs:
             smoke-tests-native/aggregate.json
             smoke-tests-native/summary.md
           if-no-files-found: warn
+          retention-days: 14

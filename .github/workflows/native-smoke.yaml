@@ -22,6 +22,10 @@ on:
     paths:
       - "smoke-tests-native/**"
       - ".github/workflows/native-smoke.yaml"
+      # The sweep workflow has no pull_request trigger of its own (it is a scheduled,
+      # ~100-artifact run). Listing it here at least exercises the harness it drives on
+      # the PR that changes it, instead of first running at 03:00 on main.
+      - ".github/workflows/community-plugin-sweep.yaml"
   workflow_dispatch:
     inputs:
       plugin_ref:
@@ -108,6 +112,11 @@ jobs:
         # (community-plugin-sweep.yaml) is caught on the PR that makes it. Pulls
         # nothing — metadata only.
         run: |
+          # pipefail matters here: GitHub's default shell is `bash -e` WITHOUT it, so
+          # the step's status would be jq's. jq exits 0 on empty stdin, meaning a
+          # crashing sweep.mjs would pass this step green — the exact failure the step
+          # exists to catch.
+          set -euo pipefail
           yarn build
           node dist/sweep.mjs --support community --shards 6 --exclusions plugin-sweep-excludes.txt --plan \
             | jq '{support, shardCount, totals, shardLoads: [.shards[].packageCount]}'
