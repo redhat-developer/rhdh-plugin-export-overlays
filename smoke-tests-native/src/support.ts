@@ -27,6 +27,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { compareStrings } from "./util";
 import {
   isValidWorkspaceName,
   readWorkspacePackages,
@@ -52,14 +53,6 @@ export function isSupportLevel(value: string): value is SupportLevel {
   return (SUPPORT_LEVELS as readonly string[]).includes(value);
 }
 
-// Plain code-unit comparison rather than localeCompare: locale-sensitive collation
-// can order differently across environments, and the whole point of sorting here is
-// that the plan is identical everywhere.
-function byName(a: string, b: string): number {
-  if (a < b) return -1;
-  return a > b ? 1 : 0;
-}
-
 /** Every `workspaces/<name>/` that has a `metadata/` directory, sorted by name. */
 export function listWorkspaces(repoRoot: string): string[] {
   const root = join(repoRoot, "workspaces");
@@ -74,7 +67,7 @@ export function listWorkspaces(repoRoot: string): string[] {
         existsSync(join(root, entry.name, "metadata")),
     )
     .map((entry) => entry.name)
-    .sort(byName);
+    .sort(compareStrings);
 }
 
 /** Flatten every Package entity in the repo, workspace by workspace. */
@@ -102,9 +95,9 @@ export function groupByWorkspace(packages: PackageEntry[]): WorkspaceGroup[] {
   return [...grouped.entries()]
     .map(([workspace, entries]) => ({
       workspace,
-      packages: [...entries].sort((a, b) => byName(a.file, b.file)),
+      packages: [...entries].sort((a, b) => compareStrings(a.file, b.file)),
     }))
-    .sort((a, b) => byName(a.workspace, b.workspace));
+    .sort((a, b) => compareStrings(a.workspace, b.workspace));
 }
 
 /**
@@ -136,7 +129,8 @@ export function planShards(
 
   const heaviestFirst = [...groups].sort(
     (a, b) =>
-      b.packages.length - a.packages.length || byName(a.workspace, b.workspace),
+      b.packages.length - a.packages.length ||
+      compareStrings(a.workspace, b.workspace),
   );
   for (const group of heaviestFirst) {
     // First minimum wins, so equal loads always resolve to the lowest shard index.
@@ -152,6 +146,6 @@ export function planShards(
   // objects are local, but returning a sorted copy keeps this a pure function of its
   // input, which is what the determinism guarantee above rests on.
   return shards.map((shard) =>
-    [...shard.groups].sort((a, b) => byName(a.workspace, b.workspace)),
+    [...shard.groups].sort((a, b) => compareStrings(a.workspace, b.workspace)),
   );
 }
