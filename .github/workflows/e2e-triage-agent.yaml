@@ -113,7 +113,7 @@ jobs:
       - name: Mint triage token
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         id: mint
-        uses: fullsend-ai/fullsend/.github/actions/mint-token@3cfa255ab4cc8190670585ea42da529119251632 # v0.32.0
+        uses: fullsend-ai/fullsend/.github/actions/mint-token@6df635a109f4951505ae2d7399e7d52fe15f4518 # v0.33.0
         with:
           role: triage
           repos: rhdh-plugin-export-overlays
