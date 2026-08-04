@@ -1,6 +1,6 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-    enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.52.0__0.12.20
+    disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
