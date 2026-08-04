@@ -49,4 +49,10 @@ jobs:
       - name: Seed coverage snapshots
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          # Only the periodic backstop skips an already-seeded commit — Codecov
+          # appends a session per upload rather than replacing, so re-seeding an
+          # unmoved HEAD every 6h would pile up duplicates for no new data. A push
+          # (the snapshot just changed) and a manual dispatch (someone is fixing a
+          # stale flag) must always upload.
+          SEED_SKIP_IF_ALREADY_SEEDED: ${{ github.event_name == 'schedule' }}
         run: ./scripts/seed-main-coverage.sh
