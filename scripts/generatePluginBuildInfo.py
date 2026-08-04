@@ -655,7 +655,7 @@ def rhdh_git_branch_for_midstream(midstream_branch: str) -> str:
 
 
 def current_midstream_branch() -> str:
-    """Return the current git branch name, or ``rhdh-1-rhel-9`` if unavailable."""
+    """Return the current git branch name, or ``main`` if unavailable."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -668,7 +668,7 @@ def current_midstream_branch() -> str:
             return result.stdout.strip()
     except (OSError, subprocess.SubprocessError):
         pass
-    return "rhdh-1-rhel-9"
+    return "main"
 
 
 def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
@@ -716,17 +716,15 @@ def print_fallback_rebuild_cta(fallbacks: list[tuple[str, str, str]]) -> None:
         parts.append(_fallback_regex_fragment(container))
 
     regex = "|".join(parts)
-    # next midstream (main / rhdh-1-rhel-9) uses the 1.next alias; release
-    # branches use the concrete x.y.z from redhat-developer/rhdh package.json
+    # Prefer -v x.y.z --next on the next stream (matches generatePipelineRunsForPlugins.sh /
+    # RELEASE_GUIDE). Release branches use plain -v x.y.z from rhdh package.json.
+    # (-v main also works once package.json major matches the next stream.)
     rhdh_branch = rhdh_git_branch_for_midstream(current_midstream_branch())
-    if rhdh_branch == "main":
-        # TODO switch to 2.next when we move to the main branch downstream
-        version = "1.next"
-    else:
-        version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
+    version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
+    version_args = f"-v {version} --next" if rhdh_branch == "main" else f"-v {version}"
     print(
         f"\n{Colors.YELLOW}Re-export with:{Colors.NORM}\n"
-        f".tekton/generatePipelineRunsForPlugins.sh --trigger --regex '{regex}' -v {version}\n"
+        f".tekton/generatePipelineRunsForPlugins.sh --trigger --regex '{regex}' {version_args}\n"
         f"\n{Colors.YELLOW}Then re-run ./build/ci/update-index.sh{Colors.NORM}\n"
     )
 
