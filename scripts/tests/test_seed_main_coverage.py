@@ -106,8 +106,14 @@ class TestOrphanedSnapshot:
         buried in one workspace's log. It should fail once, up front, naming the
         fix.
 
-        The snapshot is created in the real directory because the script derives
-        it from its own location; it is removed again in teardown.
+        The snapshot has to be created in the real coverage-snapshots/ directory:
+        the script resolves that path from its own location, so there is nowhere
+        else it would look. The `finally` removes it.
+
+        Worst case if the process is killed between the two: the file is left
+        behind untracked. CI is unaffected — every job runs on a fresh checkout —
+        and a local seed run would fail immediately naming the exact file to
+        delete, which is the behaviour this test is asserting in the first place.
         """
         orphan = SNAPSHOT_DIR / "no-such-workspace-xyz.lcov"
         orphan.write_text("TN:\nend_of_record\n")

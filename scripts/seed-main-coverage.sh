@@ -80,12 +80,15 @@ if [[ ${#ORPHANED[@]} -gt 0 ]]; then
   exit 1
 fi
 
-echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
+echo "=== Seeding ${#WORKSPACES[@]} coverage snapshot(s) to the current main commit ==="
 # Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
 FAILED_WS=()
-for i in "${!WORKSPACES[@]}"; do
-  ws="${WORKSPACES[$i]}"
-  snapshot="${snapshots[$i]}"
+for ws in "${WORKSPACES[@]}"; do
+  # Derived from the workspace name rather than read from a parallel array. Index
+  # alignment between two lists would hold only as long as the orphan check above
+  # stays fatal — make it a skip-and-warn and the arrays silently diverge, sending
+  # one workspace's lcov up under another's flag. Deriving the path cannot drift.
+  snapshot="$SNAPSHOT_DIR/$ws.lcov"
   echo ""
   echo "--- $ws (e2e-$ws) ---"
   # Uploading IS this job — a Codecov-side failure is a real failure here, not the
@@ -101,7 +104,7 @@ done
 
 FAILED="${#FAILED_WS[@]}"
 echo ""
-echo "=== Done: $(( ${#snapshots[@]} - FAILED ))/${#snapshots[@]} seeded ==="
+echo "=== Done: $(( ${#WORKSPACES[@]} - FAILED ))/${#WORKSPACES[@]} seeded ==="
 # A green run here means "dashboard updated" — so ANY failed seed is a red X, not
 # just an all-fail. Each workspace is an independent flag: 6/7 green would leave
 # the 7th showing a stale carried-forward number with nothing to indicate it was
