@@ -147,7 +147,10 @@ export function planShards(
     target.load += group.packages.length;
   }
 
+  // Copy before sorting rather than sorting in place (Sonar S4043): the accumulator
+  // objects are local, but returning a sorted copy keeps this a pure function of its
+  // input, which is what the determinism guarantee above rests on.
   return shards.map((shard) =>
-    shard.groups.sort((a, b) => byName(a.workspace, b.workspace)),
+    [...shard.groups].sort((a, b) => byName(a.workspace, b.workspace)),
   );
 }

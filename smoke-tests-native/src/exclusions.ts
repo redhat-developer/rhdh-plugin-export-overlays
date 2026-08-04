@@ -33,6 +33,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { requireContained } from "./paths";
 
 export type ExclusionScope = "install" | "boot";
 
@@ -77,57 +78,71 @@ export function parseExclusions(text: string, source: string): Exclusion[] {
   // does exactly that for its three unpublished refs) while a stray pattern after a
   // blank line cannot inherit a ticket it has nothing to do with.
   let ticket: string | undefined;
-  const lines = text.split("\n");
 
-  for (const [index, raw] of lines.entries()) {
-    const line = index + 1;
+  for (const [index, raw] of text.split("\n").entries()) {
     const trimmed = raw.trim();
     if (trimmed === "") {
       ticket = undefined;
-      continue;
+    } else if (trimmed.startsWith("#")) {
+      ticket = TICKET_COMMENT.exec(trimmed)?.[1] ?? ticket;
+    } else {
+      exclusions.push(parseEntry(trimmed, ticket, source, index + 1));
     }
-    if (trimmed.startsWith("#")) {
-      const match = TICKET_COMMENT.exec(trimmed);
-      if (match) ticket = match[1];
-      continue;
-    }
-
-    const [scope, ...rest] = trimmed.split(/\s+/);
-    if (!isExclusionScope(scope)) {
-      throw new Error(
-        `${source}:${line}: unknown scope '${scope}' — expected one of ${EXCLUSION_SCOPES.join(", ")}`,
-      );
-    }
-    if (rest.length !== 1) {
-      throw new Error(
-        `${source}:${line}: expected '<scope> <regex>', got '${trimmed}'`,
-      );
-    }
-    if (!ticket) {
-      throw new Error(
-        `${source}:${line}: '${trimmed}' has no tracking ticket — precede it with ` +
-          `'# TODO(TICKET-123): <why, and what unblocks it>'. Exclusions without a ` +
-          `ticket never get removed.`,
-      );
-    }
-    const [pattern] = rest;
-    let regex: RegExp;
-    try {
-      regex = new RegExp(pattern);
-    } catch (err) {
-      throw new Error(
-        `${source}:${line}: invalid regex '${pattern}': ${err instanceof Error ? err.message : String(err)}`,
-        { cause: err },
-      );
-    }
-    exclusions.push({ scope, pattern: regex, ticket, source: pattern, line });
   }
 
   return exclusions;
 }
 
+/** Parse one `<scope> <regex>` line. Throws with file:line on anything malformed. */
+function parseEntry(
+  trimmed: string,
+  ticket: string | undefined,
+  source: string,
+  line: number,
+): Exclusion {
+  const [scope, ...rest] = trimmed.split(/\s+/);
+  if (!isExclusionScope(scope)) {
+    throw new Error(
+      `${source}:${line}: unknown scope '${scope}' — expected one of ${EXCLUSION_SCOPES.join(", ")}`,
+    );
+  }
+  if (rest.length !== 1) {
+    throw new Error(
+      `${source}:${line}: expected '<scope> <regex>', got '${trimmed}'`,
+    );
+  }
+  if (!ticket) {
+    throw new Error(
+      `${source}:${line}: '${trimmed}' has no tracking ticket — precede it with ` +
+        `'# TODO(TICKET-123): <why, and what unblocks it>'. Exclusions without a ` +
+        `ticket never get removed.`,
+    );
+  }
+  const [pattern] = rest;
+  try {
+    return {
+      scope,
+      pattern: new RegExp(pattern),
+      ticket,
+      source: pattern,
+      line,
+    };
+  } catch (err) {
+    throw new Error(
+      `${source}:${line}: invalid regex '${pattern}': ${err instanceof Error ? err.message : String(err)}`,
+      { cause: err },
+    );
+  }
+}
+
+/**
+ * Read and parse an exclusions file. The path reaches here from a CLI flag, so it is
+ * contained to the working directory before the read (Sonar S8707) — callers validate
+ * too, but this is the function that actually touches the filesystem.
+ */
 export function loadExclusions(path: string): Exclusion[] {
-  return parseExclusions(readFileSync(path, "utf8"), path);
+  const contained = requireContained("--exclusions", path);
+  return parseExclusions(readFileSync(contained, "utf8"), path);
 }
 
 /**

@@ -164,18 +164,40 @@ export function collectWorkspaceRefs(
   }
 
   if (refs.length === 0) {
-    const filters = [
-      options.support ? `${outOfScope} at another support level` : undefined,
-      excluded.length ? `${excluded.length} excluded` : undefined,
-    ].filter(Boolean);
     throw new Error(
-      `workspace '${workspace}' has no oci:// dynamicArtifact refs ` +
-        `(${packages.length} metadata file(s), ${skipped.length} skipped` +
-        (filters.length ? `, ${filters.join(", ")}` : "") +
-        `) — nothing to validate`,
+      emptyRefsMessage(workspace, packages.length, {
+        refs,
+        skipped,
+        excluded,
+        outOfScope,
+      }),
     );
   }
   return { refs, skipped, excluded, outOfScope };
+}
+
+/**
+ * Say WHICH filter emptied the set. "No oci refs" and "the support filter matched
+ * nothing" have completely different fixes, and a single generic message sends the
+ * reader looking in the wrong place.
+ */
+function emptyRefsMessage(
+  workspace: string,
+  metadataCount: number,
+  result: WorkspaceRefs,
+): string {
+  const filters = [
+    result.outOfScope
+      ? `${result.outOfScope} at another support level`
+      : undefined,
+    result.excluded.length ? `${result.excluded.length} excluded` : undefined,
+  ].filter(Boolean);
+  return (
+    `workspace '${workspace}' has no oci:// dynamicArtifact refs ` +
+    `(${metadataCount} metadata file(s), ${result.skipped.length} skipped` +
+    (filters.length ? `, ${filters.join(", ")}` : "") +
+    `) — nothing to validate`
+  );
 }
 
 /**

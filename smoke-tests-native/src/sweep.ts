@@ -32,10 +32,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { excluderFor, loadExclusions, type Exclusion } from "./exclusions";
+import { requireContained, resolveContained } from "./paths";
 import {
   SWEEP_SCHEMA_VERSION,
   type Report,
@@ -136,13 +137,19 @@ function parseCliInputs(): CliInputs {
     fail(`--shard ${shard} is out of range for --shards ${shards}`);
   }
 
-  if (values.exclusions && !existsSync(values.exclusions)) {
-    fail(`--exclusions file not found: ${values.exclusions}`);
-  }
   let exclusions: Exclusion[] = [];
+  let exclusionsFile: string | undefined;
   if (values.exclusions) {
     try {
-      exclusions = loadExclusions(values.exclusions);
+      exclusionsFile = requireContained("--exclusions", values.exclusions);
+    } catch (err) {
+      fail(err instanceof Error ? err.message : String(err));
+    }
+    if (!existsSync(exclusionsFile)) {
+      fail(`--exclusions file not found: ${values.exclusions}`);
+    }
+    try {
+      exclusions = loadExclusions(exclusionsFile);
     } catch (err) {
       fail(err instanceof Error ? err.message : String(err));
     }
@@ -151,8 +158,8 @@ function parseCliInputs(): CliInputs {
   // Results are written by the harness, which constrains its own --out to its CWD;
   // keep --out-dir under the same roof so the two agree.
   const outDirArg = values["out-dir"] ?? join("results", support);
-  const outDir = resolve(outDirArg);
-  if (!outDir.startsWith(process.cwd() + sep)) {
+  const outDir = resolveContained(outDirArg);
+  if (!outDir) {
     fail(`--out-dir must resolve inside the working directory: ${outDirArg}`);
   }
 
@@ -161,7 +168,7 @@ function parseCliInputs(): CliInputs {
     shards,
     shard,
     exclusions,
-    exclusionsFile: values.exclusions,
+    exclusionsFile,
     outDir,
     plan: values.plan ?? false,
   };
@@ -285,6 +292,11 @@ function runWorkspace(
   };
 }
 
+function statusGlyph(status: SweepWorkspaceResult["status"]): string {
+  if (status === "pass") return "✓";
+  return status === "skipped" ? "–" : "✗";
+}
+
 function main(): number {
   const inputs = parseCliInputs();
 
@@ -324,7 +336,7 @@ function main(): number {
   console.log(`\n▶ shard summary → ${summaryPath} (status: ${summary.status})`);
   for (const result of results) {
     console.log(
-      `  ${result.status === "pass" ? "✓" : result.status === "skipped" ? "–" : "✗"} ` +
+      `  ${statusGlyph(result.status)} ` +
         `${result.workspace}: ${result.status} (${Math.round(result.durationMs / 1000)}s)`,
     );
   }

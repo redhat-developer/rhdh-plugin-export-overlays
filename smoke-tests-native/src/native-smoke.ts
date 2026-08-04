@@ -43,7 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
-import { join, dirname, resolve, sep } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
@@ -61,6 +61,7 @@ import {
   type PluginError,
 } from "./loader";
 import { patchModuleResolution } from "./module-resolution";
+import { resolveContained } from "./paths";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -121,11 +122,10 @@ function run(file: string, args: string[]): string {
 }
 
 // --out comes from the CLI; constrain it to the working directory so a faulty
-// argument can never write outside it (Sonar S8707). Returns the resolved absolute
-// path, or null when the argument escapes the working directory.
+// argument can never write outside it (Sonar S8707). resolveContained (src/paths.ts)
+// is the shared rule — sweep.ts and aggregate.ts enforce the same one.
 function resolveOutPath(outArg: string): string | null {
-  const resolved = resolve(outArg);
-  return resolved.startsWith(process.cwd() + sep) ? resolved : null;
+  return resolveContained(outArg);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -309,48 +309,53 @@ function parseCliInputs(): CliInputs {
     envFile: values["test-env"],
   };
 
-  const file = values["dynamic-plugins"];
-  const workspace = values.workspace;
+  return {
+    ...common,
+    ...resolveSource(
+      values["dynamic-plugins"],
+      values.workspace,
+      values.support,
+    ),
+  };
+}
+
+/**
+ * Pick the plugin source from the mutually exclusive `--dynamic-plugins` /
+ * `--workspace` pair, and validate the flags that only apply to one of them.
+ */
+function resolveSource(
+  file: string | undefined,
+  workspace: string | undefined,
+  support: string | undefined,
+): { source: SmokeSource; support?: string } | { usageError: string } {
   if (file && workspace) {
     return {
-      ...common,
       usageError: "Provide only one of --dynamic-plugins or --workspace.",
     };
   }
   // --support filters metadata by spec.support, which only workspace mode reads; an
   // explicit dynamic-plugins.yaml has no metadata to filter, so silently ignoring it
   // would produce a run that looks scoped but is not.
-  if (values.support && !workspace) {
-    return {
-      ...common,
-      usageError: "--support requires --workspace.",
-    };
+  if (support && !workspace) {
+    return { usageError: "--support requires --workspace." };
   }
   if (workspace) {
     // Validated here, before ANY filesystem consumer (auto-discovery runs early).
     if (!isValidWorkspaceName(workspace)) {
-      return {
-        ...common,
-        usageError: `invalid workspace name: '${workspace}'`,
-      };
+      return { usageError: `invalid workspace name: '${workspace}'` };
     }
-    return {
-      ...common,
-      support: values.support,
-      source: { kind: "workspace", name: workspace },
-    };
+    return { support, source: { kind: "workspace", name: workspace } };
   }
   if (!file) {
     return {
-      ...common,
       usageError:
         "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>.",
     };
   }
   if (!existsSync(file)) {
-    return { ...common, usageError: `dynamic-plugins file not found: ${file}` };
+    return { usageError: `dynamic-plugins file not found: ${file}` };
   }
-  return { ...common, source: { kind: "file", path: file } };
+  return { source: { kind: "file", path: file } };
 }
 
 function computeStatus(

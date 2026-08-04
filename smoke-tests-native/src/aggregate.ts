@@ -27,7 +27,14 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { ExclusionRecord } from "./exclusions";
 import type { FrontendSystem } from "./loader";
+import { requireContained, resolveContained } from "./paths";
 import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+
+/** Ascending string comparison, stable across environments (no locale collation). */
+function byString(a: string, b: string): number {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
 
 /** How a frontend bundle is packaged, from the systems its layout advertises. */
 type Packaging = "legacy-only" | "new-frontend-system-only" | "dual" | "none";
@@ -82,7 +89,7 @@ function findSummaries(dir: string): string[] {
   const found: string[] = [];
   const walk = (current: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true }).sort(
-      (a, b) => (a.name < b.name ? -1 : 1),
+      (a, b) => byString(a.name, b.name),
     )) {
       const path = join(current, entry.name);
       if (entry.isDirectory()) walk(path);
@@ -107,7 +114,10 @@ function packagingOf(systems: FrontendSystem[]): Packaging {
  * and backend-start errors are multi-line, either of which would break the row apart.
  */
 function oneLine(text: string, limit = 220): string {
-  const flat = text.replace(/\s+/g, " ").trim().replaceAll("|", "\\|");
+  const flat = text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replaceAll("|", String.raw`\|`);
   return flat.length > limit ? `${flat.slice(0, limit - 1)}…` : flat;
 }
 
@@ -194,9 +204,9 @@ function buildAggregate(summaries: SweepSummary[]): Aggregate {
   }
 
   aggregate.frontendSystems.packages.sort((a, b) =>
-    a.packageName < b.packageName ? -1 : a.packageName > b.packageName ? 1 : 0,
+    byString(a.packageName, b.packageName),
   );
-  aggregate.failures.sort((a, b) => (a.workspace < b.workspace ? -1 : 1));
+  aggregate.failures.sort((a, b) => byString(a.workspace, b.workspace));
   return aggregate;
 }
 
@@ -256,7 +266,7 @@ function renderMarkdown(aggregate: Aggregate): string {
     // One row per package even if several share a ticket; duplicates across shards
     // cannot happen (a package belongs to exactly one workspace).
     for (const exclusion of [...aggregate.exclusions].sort((a, b) =>
-      a.packageName < b.packageName ? -1 : 1,
+      byString(a.packageName, b.packageName),
     )) {
       lines.push(
         `| \`${exclusion.packageName}\` | ${exclusion.scope} | ${exclusion.ticket} |`,
@@ -278,15 +288,26 @@ function main(): number {
     },
   });
 
+  // Every path below comes from argv, so contain each one to the working directory
+  // before it reaches the filesystem (Sonar S8707).
   const inputs = values.in ?? ["results"];
-  const files = inputs.flatMap((dir) => {
+  const roots = inputs.map((dir) => {
+    const resolved = resolveContained(dir);
+    if (!resolved) {
+      fail(`--in must resolve inside the working directory: ${dir}`);
+    }
     try {
-      if (!statSync(dir).isDirectory()) fail(`--in is not a directory: ${dir}`);
+      if (!statSync(resolved).isDirectory()) {
+        fail(`--in is not a directory: ${dir}`);
+      }
     } catch {
       fail(`--in directory not found: ${dir}`);
     }
-    return findSummaries(dir);
+    return resolved;
   });
+  // findSummaries only ever descends from a contained root, so its results are
+  // contained too.
+  const files = roots.flatMap((root) => findSummaries(root));
   if (files.length === 0) {
     // Not an empty pass: a sweep that produced no summaries did not run.
     fail(`no sweep-shard-*.json found under ${inputs.join(", ")}`);
@@ -320,14 +341,27 @@ function main(): number {
 
   const aggregate = buildAggregate(summaries);
 
-  const outPath = values.out ?? "aggregate.json";
+  let outPath: string;
+  let summaryPath: string | undefined;
+  try {
+    outPath = requireContained("--out", values.out ?? "aggregate.json");
+    summaryPath = values.summary
+      ? requireContained("--summary", values.summary)
+      : undefined;
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
+
   writeFileSync(outPath, JSON.stringify(aggregate, null, 2));
   const markdown = renderMarkdown(aggregate);
-  if (values.summary) writeFileSync(values.summary, markdown);
+  if (summaryPath) writeFileSync(summaryPath, markdown);
 
+  // Report the caller's own argument rather than the absolute resolved path: the
+  // resolved form adds nothing here and puts the runner's directory layout into CI
+  // logs (Sonar S8689).
   console.log(markdown);
   console.log(
-    `▶ aggregate → ${outPath} (${files.length} shard summary file(s))`,
+    `▶ aggregate → ${values.out ?? "aggregate.json"} (${files.length} shard summary file(s))`,
   );
   return aggregate.workspaces.failed > 0 ? 1 : 0;
 }
