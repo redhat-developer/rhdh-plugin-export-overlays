@@ -40,7 +40,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
       await rhdh.configure({
         auth: "keycloak",
-        disableWrappers: HOMEPAGE_WRAPPER_DIST_NAMES,
+        disablePlugins: HOMEPAGE_WRAPPER_DIST_NAMES,
       });
       await rhdh.deploy();
     });
@@ -110,7 +110,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.verifyCardsDeleted();
 
       await home.addWidget("Entity Section");
-      await home.addWidget("Recently visited");
+      await home.addWidget("Recently Visited");
       await home.exitEditMode();
 
       await home.verifySpecificCardsDisplayed([

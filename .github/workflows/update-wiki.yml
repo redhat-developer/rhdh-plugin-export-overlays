@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm install js-yaml
+          npm install --ignore-scripts js-yaml
 
       - name: Get branch name
         id: branch

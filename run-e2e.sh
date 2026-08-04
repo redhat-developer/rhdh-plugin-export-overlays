@@ -43,7 +43,8 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.11}"             # RHDH version to deploy (e.g., "1.10", "next")
+# Revert back to 1.11 when https://redhat.atlassian.net/browse/RHDHBUGS-3515 is fixed
+export RHDH_VERSION="1.11-57-CI"             # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
@@ -185,7 +186,7 @@ RESOLUTIONS="\"@playwright/test\": \"${PLAYWRIGHT_VERSION}\""
 if [[ -n "$E2E_TEST_UTILS_PATH" ]]; then
     echo "[INFO] Using local e2e-test-utils: $E2E_TEST_UTILS_PATH"
     echo "[INFO] Building local e2e-test-utils..."
-    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable && yarn build)
+    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable --mode=skip-build && yarn build)
     RESOLUTIONS+=", \"@red-hat-developer-hub/e2e-test-utils\": \"file:${E2E_TEST_UTILS_PATH}\""
 elif [[ -n "$E2E_TEST_UTILS_VERSION" ]]; then
     echo "[INFO] Pinning e2e-test-utils to version: $E2E_TEST_UTILS_VERSION"
@@ -214,7 +215,7 @@ for ws in "${E2E_WORKSPACES[@]}"; do
 done
 
 echo "[INFO] Installing dependencies (@playwright/test pinned to $PLAYWRIGHT_VERSION)..."
-YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=skip-build
 
 # ── Generate root playwright.config.ts ────────────────────────────────────────
 # Extracts project definitions directly from workspace configs via sed instead of

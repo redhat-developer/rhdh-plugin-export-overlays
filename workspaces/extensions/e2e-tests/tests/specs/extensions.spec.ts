@@ -15,11 +15,12 @@ test.describe("Admin > Extensions", () => {
     "Publisher",
     "Support Provider",
   ];
+  // only GA plugins available for now
   const supportTypeOptions = [
     "Generally available (GA)",
-    "Tech preview (TP)",
-    "Dev preview (DP)",
-    "Community plugin",
+    // "Tech preview (TP)",
+    // "Dev preview (DP)",
+    // "Community plugin",
   ];
   const provider = "Red Hat";
 
@@ -27,11 +28,6 @@ test.describe("Admin > Extensions", () => {
     test.setTimeout(300_000);
     await rhdh.configure({
       auth: "keycloak",
-      disableWrappers: [
-        "red-hat-developer-hub-backstage-plugin-extensions",
-        "red-hat-developer-hub-backstage-plugin-extensions-backend-dynamic",
-        "red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions-dynamic",
-      ],
     });
     await rhdh.deploy();
   });
@@ -61,19 +57,23 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
+      const category = "Analytics";
+      const plugin = "Adoption Insights for Red Hat Developer Hub";
+      const author = "Red Hat";
+
       await uiHelper.verifyHeading(new RegExp(`^${"Plugins"} \\(\\d+\\)$`));
 
       await uiHelper.clickTab("Catalog");
       await extensions.selectDropdown("Category");
-      await extensions.toggleOption("CI/CD");
-      await page.getByRole("option", { name: "CI/CD" }).isChecked();
+      await extensions.toggleOption(category);
+      await page.getByRole("option", { name: category }).isChecked();
       await page.keyboard.press(`Escape`);
       await extensions.selectDropdown("Author");
-      await extensions.toggleOption("Red Hat");
+      await extensions.toggleOption(author);
       await page.keyboard.press(`Escape`);
-      await uiHelper.verifyHeading("Argo CD");
-      await uiHelper.verifyText(" by " + "Red Hat");
-      await page.getByRole("heading", { name: "Argo CD" }).click();
+      await uiHelper.verifyHeading(plugin);
+      await uiHelper.verifyText(` by ${author}`);
+      await page.getByRole("heading", { name: plugin }).click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
         "Version",
@@ -94,11 +94,11 @@ test.describe("Admin > Extensions", () => {
         })
         .click();
       await extensions.selectDropdown("Author");
-      await extensions.toggleOption("Red Hat");
+      await extensions.toggleOption(author);
       await expect(
-        page.getByRole("option", { name: "Red Hat" }).getByRole("checkbox"),
+        page.getByRole("option", { name: author }).getByRole("checkbox"),
       ).not.toBeChecked();
-      await expect(page.getByRole("button", { name: "Red Hat" })).toBeHidden();
+      await expect(page.getByRole("button", { name: author })).toBeHidden();
       await page.keyboard.press(`Escape`);
       await expect(
         page.getByLabel("Category").getByRole("combobox"),
@@ -162,7 +162,7 @@ test.describe("Admin > Extensions", () => {
     });
 
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage.verifySupportTypeBadge
-    test("Verify tech preview badge in extensions", async () => {
+    test.skip("Verify tech preview badge in extensions", async () => {
       await extensions.verifySupportTypeBadge({
         supportType: "Tech preview (TP)",
         pluginName: "Bulk Import",
@@ -177,7 +177,7 @@ test.describe("Admin > Extensions", () => {
     });
 
     // eslint-disable-next-line playwright/expect-expect -- assertions inside ExtensionsPage helpers
-    test("Verify dev preview badge in extensions", async () => {
+    test.skip("Verify dev preview badge in extensions", async () => {
       await extensions.selectSupportTypeFilter("Dev preview (DP)");
       await uiHelper.verifyHeading("Konflux");
 
@@ -193,7 +193,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.resetSupportTypeFilter("Dev preview (DP)");
     });
 
-    test("Verify community plugin badge in extensions", async ({
+    test.skip("Verify community plugin badge in extensions", async ({
       page,
       uiHelper,
     }) => {
@@ -232,79 +232,91 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
-      await extensions.searchExtensions("Topology");
-      await extensions.waitForSearchResults("Topology");
+      const plugin = "Adoption Insights for Red Hat Developer Hub";
+      const packageName =
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+
+      await extensions.searchExtensions(plugin);
+      await extensions.waitForSearchResults(plugin);
       await extensions.clickReadMoreByPluginTitle(
-        "Application Topology for Kubernetes",
+        plugin,
         "Generally available (GA)",
       );
+
       await uiHelper.clickButton("Actions");
       await page.getByText("Edit").click();
-      await uiHelper.verifyHeading("Application Topology for Kubernetes");
-      await uiHelper.verifyText(
-        "- package: ./dynamic-plugins/dist/backstage-community-plugin-topology",
-      );
-      await uiHelper.verifyText("disabled: false");
+      await uiHelper.verifyHeading(plugin);
+      await uiHelper.verifyText(`- package: ${packageName}`, false);
+
+      await uiHelper.verifyText(/^\s+(disabled:\sfalse|enabled:\strue)/);
       await uiHelper.verifyText("Apply");
       await uiHelper.verifyHeading("Default configuration");
       await uiHelper.clickButton("Apply");
       await uiHelper.verifyText("pluginConfig:");
       await uiHelper.verifyText("dynamicPlugins:");
+
       await uiHelper.clickTab("About the plugin");
       await uiHelper.verifyHeading("Configuring The Plugin");
       await uiHelper.clickTab("Examples");
+
       await uiHelper.clickByDataTestId("ContentCopyRoundedIcon");
       await expect(page.getByRole("button", { name: "✔" })).toBeVisible();
       await uiHelper.clickButton("Reset");
       await expect(page.getByText("pluginConfig:")).toBeHidden();
+
       // eslint-disable-next-line playwright/no-conditional-in-test
       const modifier = isMac ? "Meta" : "Control";
       await page.keyboard.press(`${modifier}+KeyA`);
       await page.keyboard.press(`${modifier}+KeyV`);
       await uiHelper.verifyText("pluginConfig:");
-      await page
-        .getByText(
-          "backstage-community-plugin-topologyDefault configurationApplydynamicPlugins:",
-        )
-        .locator("pre > .copy-button")
-        .click();
-      await expect(
-        page.getByRole("button", { name: "✔" }).nth(0),
-      ).toBeVisible();
+      await uiHelper.clickByDataTestId("ContentCopyRoundedIcon");
+      await expect(page.getByRole("button", { name: "✔" })).toBeVisible();
+
       const clipboardContent = await page.evaluate(() =>
         navigator.clipboard.readText(),
       );
-      expect(clipboardContent).not.toContain("pluginConfig:");
+      expect(clipboardContent).toContain("pluginConfig:");
       expect(clipboardContent).toContain(
-        "backstage-community.plugin-topology:",
+        "red-hat-developer-hub.backstage-plugin-adoption-insights:",
       );
+
       await uiHelper.clickButton("Cancel");
       await expect(
         page.getByRole("button", {
           name: new RegExp(`^${"Actions"}$`),
         }),
       ).toBeVisible();
-      await uiHelper.verifyHeading("Application Topology for Kubernetes");
+      await uiHelper.verifyHeading(plugin);
     });
 
     test("Enable plugin from catalog extension page", async ({
       page,
       uiHelper,
     }) => {
+      const plugin = "Adoption Insights for Red Hat Developer Hub";
+
       await uiHelper.clickByDataTestId("header-tab-0");
       await extensions.clickReadMoreByPluginTitle(
-        "Adoption Insights for Red Hat Developer Hub",
+        plugin,
         "Generally available (GA)",
       );
-      await uiHelper.verifyHeading("Adoption Insights for Red Hat");
+      await uiHelper.verifyHeading(plugin);
       await page.getByTestId("plugin-actions").click();
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
       await expect(page.getByTestId("enable-plugin")).toBeVisible();
+
+      await expect(page.getByRole("alert")).toContainText(
+        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+      );
     });
   });
 
   test.describe("Extensions > Installed Plugin", () => {
+    const plugin = "TechDocs Add-ons Contrib";
+    const npmPackage =
+      /@backstage\/plugin-techdocs-module-addons-contrib-dynamic/;
+
     test.beforeEach(async ({ uiHelper }) => {
       await uiHelper.clickByDataTestId("header-tab-1");
       await uiHelper.verifyHeading(
@@ -327,17 +339,16 @@ test.describe("Admin > Extensions", () => {
           exact: true,
         })
         .click();
-      await uiHelper.verifyRowInTableByUniqueText("TechDocs Add-ons Contrib", [
-        /backstage-plugin-techdocs-module-addons-contrib/,
+      await uiHelper.verifyRowInTableByUniqueText(plugin, [
+        npmPackage,
         /Frontend plugin module/,
         /\d{1,10}\.\d{1,10}\.\d{1,10}/,
       ]);
+
       const techdocsRow = page.getByRole("row", {
-        name: "backstage-plugin-techdocs-module-addons-contrib",
+        name: npmPackage,
       });
-
       await expect(techdocsRow).toBeVisible();
-
       await expect(
         techdocsRow.getByLabel("Edit package configuration"),
       ).toBeVisible();
@@ -345,6 +356,7 @@ test.describe("Admin > Extensions", () => {
         techdocsRow.getByLabel("Download package configuration"),
       ).toBeVisible();
       await expect(techdocsRow.getByLabel("Disable package")).toBeVisible();
+
       await page
         .getByRole("button", {
           name: new RegExp(`5 rows`),
@@ -361,6 +373,7 @@ test.describe("Admin > Extensions", () => {
           name: new RegExp(`10 rows`),
         }),
       ).toBeVisible();
+
       await expect(
         page.getByRole("button", { name: "Next Page" }),
       ).toBeVisible();
@@ -369,53 +382,26 @@ test.describe("Admin > Extensions", () => {
       ).toBeVisible();
     });
 
-    test("TechDocs Add-ons Contrib package sidebar for CI", async ({
-      page,
-    }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("TechDocs Add-ons Contrib");
+    test("Package sidebar", async ({ page }) => {
+      await extensions.searchPackages(plugin);
+
+      const row = page.getByRole("row", { name: plugin });
+      await expect(row.getByLabel("Edit package configuration")).toBeVisible();
       await expect(
-        page.getByRole("cell", {
-          name: "backstage-plugin-techdocs-module-addons-contrib",
-        }),
+        row.getByLabel("Download package configuration"),
       ).toBeVisible();
-      await expect(
-        page
-          .getByRole("row", { name: "TechDocs Add-ons Contrib" })
-          .getByLabel("Edit package configuration"),
-      ).toBeVisible();
-      await expect(
-        page
-          .getByRole("row", {
-            name: "TechDocs Add-ons Contrib",
-          })
-          .getByLabel("Download package configuration"),
-      ).toBeVisible();
-      await expect(
-        page
-          .getByRole("row", {
-            name: "TechDocs Add-ons Contrib",
-          })
-          .getByRole("checkbox"),
-      ).toBeVisible();
+      await expect(row.getByRole("checkbox")).toBeVisible();
       await page
         .getByRole("link", {
-          name: "TechDocs Add-ons Contrib",
+          name: plugin,
         })
         .click();
       await expect(
         page.getByRole("heading", {
-          name: "TechDocs Add-ons Contrib",
+          name: plugin,
         }),
       ).toBeVisible();
+
       await expect(page.getByRole("button", { name: "Action" })).toBeVisible();
       await page.getByTestId("plugin-actions").hover();
       await page.getByRole("button", { name: "close" }).click();
@@ -428,143 +414,110 @@ test.describe("Admin > Extensions", () => {
       ).toBeVisible();
     });
 
-    test("Edit Analytics provider segment package through side menu", async ({
-      page,
-      uiHelper,
-    }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Analytics provider segment");
-      await page
-        .getByRole("heading", { name: "Installed packages (1)" })
-        .waitFor({ state: "visible" });
-      await expect(
-        page.getByRole("cell", { name: "Analytics Provider Segment" }),
-      ).toBeVisible();
-      await page
-        .getByRole("link", { name: "Analytics Provider Segment" })
-        .click();
-      await page.getByTestId("plugin-actions").click();
-      await page.getByTestId("edit-configuration").click();
-      await expect(
-        page.getByRole("heading", { name: "Instructions" }),
-      ).toBeVisible();
-      await uiHelper.verifyHeading(
-        "backstage-community-plugin-analytics-provider-segment",
-      );
-      await expect(page.getByText("SaveCancelReset")).toBeVisible();
-      await expect(page.getByText('plugins: - package: "./')).toBeVisible();
-      await page
-        .getByRole("button", {
-          name: "Apply",
-        })
-        .click();
-      await expect(page.getByRole("code").first()).toContainText(
-        "testMode: ${SEGMENT_TEST_MODE}",
-      );
-      await page
-        .getByRole("button", {
-          name: "Reset",
-        })
-        .click();
-      await expect(page.getByRole("code").first()).not.toContainText(
-        "testMode: ${SEGMENT_TEST_MODE}",
-      );
-      await page
-        .getByRole("button", {
-          name: "Cancel",
-        })
-        .click();
-      await expect(
-        page.getByText("Analytics Provider Segment by"),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "close" }).click();
-    });
+    test.describe("Edit package", () => {
+      const plugin = "Analytics provider segment";
+      const npmPackage = /plugin-analytics-provider-segment/;
+      const configLine = "testMode: ${SEGMENT_TEST_MODE}";
 
-    test("Edit Analytics provider segment package through action cell in the installed package row", async ({
-      page,
-      uiHelper,
-    }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Analytics provider segment");
-      await expect(
-        page.getByRole("cell", { name: "Analytics Provider Segment" }),
-      ).toBeVisible();
-      await page
-        .getByRole("button", {
-          name: "Edit package configuration",
-        })
-        .click();
-      await expect(
-        page.getByRole("heading", { name: "Edit Analytics Provider Segment" }),
-      ).toBeVisible();
-      await expect(page.getByText("SaveCancelReset")).toBeVisible();
-      await expect(page.getByText('plugins: - package: "./')).toBeVisible();
-      await page.getByRole("button", { name: "Apply" }).click();
-      await expect(page.getByRole("code").first()).toContainText(
-        "testMode: ${SEGMENT_TEST_MODE}",
-      );
-      await page
-        .getByRole("button", {
-          name: "Save",
-        })
-        .click();
-      await uiHelper.verifyHeading(
-        new RegExp(`^${"Installed packages"} \\(\\d+\\)$`),
-        10000,
-      );
-      await expect(page.getByRole("alert").first()).toContainText(
-        "The Analytics Provider Segment package requires a restart of the backend system to finish installing, updating, enabling or disabling.",
-        { timeout: 10000 },
-      );
+      test.beforeEach(async () => {
+        await extensions.searchPackages(plugin);
+      });
+
+      test("Edit package through side menu", async ({ page, uiHelper }) => {
+        const link = page.getByRole("link", { name: plugin });
+        await expect(link).toBeVisible();
+        await link.click();
+
+        await page.getByTestId("plugin-actions").click();
+        await page.getByTestId("edit-configuration").click();
+        await expect(
+          page.getByRole("heading", { name: "Instructions" }),
+        ).toBeVisible();
+        await uiHelper.verifyHeading(npmPackage);
+        await expect(page.getByText("SaveCancelReset")).toBeVisible();
+        await expect(
+          page.getByText('plugins: - package: "oci://'),
+        ).toBeVisible();
+        await page
+          .getByRole("button", {
+            name: "Apply",
+          })
+          .click();
+        await expect(page.getByRole("code").first()).toContainText(configLine);
+        await page
+          .getByRole("button", {
+            name: "Reset",
+          })
+          .click();
+        await expect(page.getByRole("code").first()).not.toContainText(
+          configLine,
+        );
+        await page
+          .getByRole("button", {
+            name: "Cancel",
+          })
+          .click();
+        await expect(page.getByRole("heading", { name: plugin })).toBeVisible();
+        await page.getByRole("button", { name: "close" }).click();
+      });
+
+      test("Edit package through action cell in the installed package row", async ({
+        page,
+        uiHelper,
+      }) => {
+        await extensions.searchPackages(plugin);
+
+        await page
+          .getByRole("button", {
+            name: "Edit package configuration",
+          })
+          .click();
+        await expect(
+          page.getByRole("heading", { name: `Edit ${plugin}` }),
+        ).toBeVisible();
+        await expect(page.getByText("SaveCancelReset")).toBeVisible();
+        await expect(
+          page.getByText('plugins: - package: "oci://'),
+        ).toBeVisible();
+
+        await page.getByRole("button", { name: "Apply" }).click();
+        await expect(page.getByRole("code").first()).toContainText(configLine);
+        await page
+          .getByRole("button", {
+            name: "Save",
+          })
+          .click();
+        await uiHelper.verifyHeading(
+          new RegExp(`^${"Installed packages"} \\(\\d+\\)$`),
+          10000,
+        );
+        await expect(page.getByRole("alert").first()).toContainText(
+          `The ${plugin} package requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+          { timeout: 10000, ignoreCase: true },
+        );
+      });
     });
 
     test("Plugin enable-disable toggle in action cell in the installed package row", async ({
       page,
     }) => {
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .click();
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Dynamic Home Page");
-      await expect(
-        page.getByRole("cell", { name: "Dynamic Home Page" }),
-      ).toBeVisible();
+      const scaffolderPlugin = "Scaffolder Backend Module Regex";
+      const scaffolderPackage =
+        "@backstage-community/plugin-scaffolder-backend-module-regex-dynamic";
+      const headerPlugin = "Global Header";
+      const headerPackage =
+        "@red-hat-developer-hub/backstage-plugin-global-header-dynamic";
+
+      await extensions.searchPackages(scaffolderPlugin);
       await page.getByRole("checkbox").hover();
       await expect(page.getByLabel("Disable package")).toBeVisible();
       await page.getByRole("checkbox").click();
       await expect(page.getByRole("alert").first()).toContainText(
-        "The red-hat-developer-hub-backstage-plugin-dynamic-home-page package requires a restart of the backend system to finish installing, updating, enabling or disabling.",
+        `The ${scaffolderPackage} package requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
         { timeout: 15000 },
       );
-      await page
-        .getByRole("textbox", {
-          name: "Search",
-        })
-        .fill("Global Header");
-      await expect(
-        page.getByRole("cell", { name: "Global Header" }),
-      ).toBeVisible();
+
+      await extensions.searchPackages(headerPlugin);
       await page.getByRole("checkbox").hover();
       await expect(page.getByLabel("Disable package")).toBeVisible();
       await page.getByRole("checkbox").click();
@@ -583,11 +536,11 @@ test.describe("Admin > Extensions", () => {
       const packageVerifications = [
         { rowTitle: "Name", rowValue: "Action" },
         {
-          rowTitle: "red-hat-developer-hub-backstage-plugin-dynamic-home-page",
+          rowTitle: scaffolderPackage,
           rowValue: "Package disabled",
         },
         {
-          rowTitle: "red-hat-developer-hub-backstage-plugin-global-header",
+          rowTitle: headerPackage,
           rowValue: "Package disabled",
         },
       ];
