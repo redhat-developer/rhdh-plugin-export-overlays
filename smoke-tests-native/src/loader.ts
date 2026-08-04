@@ -120,7 +120,6 @@ export function loadBackendPlugins(plugins: PluginEntry[]): {
   for (const plugin of plugins) {
     try {
       const entryPoint = resolveEntryPoint(plugin.path);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- OCI plugins are CJS
       const mod = require(entryPoint) as { default?: BackendFeature };
       if (!mod.default) {
         errors.push({ plugin, error: "No default export" });
@@ -156,14 +155,20 @@ export type FrontendBundleResult = {
  * layout is an error even when the other system's layout is valid — the artifact
  * advertises a system it can't deliver.
  */
-export function validateFrontendBundle(plugin: PluginEntry): FrontendBundleResult {
+export function validateFrontendBundle(
+  plugin: PluginEntry,
+): FrontendBundleResult {
   const has = (rel: string) => existsSync(join(plugin.path, rel));
-  if (!has("package.json")) return { systems: [], error: "missing package.json" };
+  if (!has("package.json"))
+    return { systems: [], error: "missing package.json" };
 
   const systems: FrontendSystem[] = [];
   if (has("dist-scalprum")) {
     if (!has("dist-scalprum/plugin-manifest.json")) {
-      return { systems, error: "dist-scalprum/ found but missing plugin-manifest.json" };
+      return {
+        systems,
+        error: "dist-scalprum/ found but missing plugin-manifest.json",
+      };
     }
     systems.push("legacy");
   }

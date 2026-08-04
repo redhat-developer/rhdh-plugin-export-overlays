@@ -2,14 +2,16 @@
 # Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
 # GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__2.7.4
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.52.0__4.1.0
     disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-scorecard:
+            # Legacy exports require `module: Legacy` — they are not available on the default module.
             translationResources:
               - importName: scorecardTranslations
+                module: Legacy
                 ref: scorecardTranslationRef
             entityTabs:
               - path: "/scorecard"
@@ -18,37 +20,42 @@ plugins:
             dynamicRoutes:
               - path: /scorecard/aggregations/:aggregationId/metrics/:metricId
                 importName: ScorecardPage
+                module: Legacy
             mountPoints:
               - mountPoint: entity.page.scorecard/cards
                 importName: EntityScorecardContent
+                module: Legacy
                 config:
                   layout:
                     gridColumn: 1 / -1
               - mountPoint: home.page/cards
                 importName: ScorecardHomepageCard
+                module: Legacy
                 config:
                   id: "scorecard-filecheck.readme"
                   title: "README file exists"
                   description: "Checks if the README file exists in the repository"
                   props:
-                    metricId: "filecheck.readme"
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.49.4__2.7.4
+                    aggregationId: "filecheck.readme"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.52.0__4.1.0
     disabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.49.4__0.1.10
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.52.0__1.0.1
     disabled: false
     pluginConfig:
       scorecard:
-        plugins:
+        metricProviders:
           filecheck:
-            files:
-              readme: "README.md"
-            schedule:
-              frequency:
-                minutes: 10
-              timeout:
-                minutes: 10
-              initialDelay:
-                seconds: 120
+            fileExistence:
+              options:
+                files:
+                  readme: "README.md"
+              schedule:
+                frequency:
+                  minutes: 10
+                timeout:
+                  minutes: 10
+                initialDelay:
+                  seconds: 120
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1
     disabled: false
     pluginConfig:
