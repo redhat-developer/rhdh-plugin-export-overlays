@@ -344,7 +344,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:02ade05fd12d4df494b5e45e805bc3e67d35a0fe1306627e40c2aac86e07c3b4"
+          "digest": "sha256:efed09d27711020848a403a01943fa568d34948bcfc1030bc4661fa810b29eea"
         }
       },
       "package": "@backstage-community/plugin-github-actions",
@@ -370,7 +370,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:312267ab2283ffbc1a600e4d7db243d448fea962d08bcf268134d154ea02fe96"
+          "digest": "sha256:55febe7bf1b955895f5b36cb9c734d5fc1c06f10d5f92d392b6f49e5dd591680"
         }
       },
       "package": "@backstage-community/plugin-github-issues",
@@ -560,7 +560,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7b47a88c374627e6fd344209655035c9664ead816455dc945cd0a6ac22770700"
+          "digest": "sha256:19453ced78685055a0e6a5f40a70fe57666ccb83f4031fe6ba9b182686eabd63"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
@@ -646,7 +646,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ca50659563a4f01296841e680f18aeff61fafc84bc1dfd54c64548f68231ed0c"
+          "digest": "sha256:f1a2be5a1398642024055af2f3a39ceff066f1008b912e0c7594109717926551"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -672,7 +672,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cbb80d0e93bdf205caf8ffee26dc2d957ebbdd24d7635644ba447234273f8f5b"
+          "digest": "sha256:557cf80936c992d4f34062232f60ad83af2fe995717109800dfb6bbf7bc58979"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -1052,7 +1052,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b89396dd9e35d7f69f7b3b11dc2d75b0e9c7602bbdd08b15088269c283baa52b"
+          "digest": "sha256:b89396dd9e35d7f69f7b3b11dc2d75b0e9c7602bbdd08b15088269c283baa52b",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__3.41.0",
+          "resolvedTag": "bs_1.52.0__3.40.1"
         }
       },
       "package": "@backstage-community/plugin-tekton",
@@ -1078,7 +1081,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:971c7e4ca566466b29e075184ed7331b5e879561dcac86e4c2d165286536c37a"
+          "digest": "sha256:5f736b91a8daff18be37fea88f995e039b3dd5c44a2c679f46d5a892a554b335"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1097,7 +1100,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:37bed88126510a5647c5a620ef2f2301eda43c1101949430a0bf0455e8e5b6f7"
+          "digest": "sha256:40ccc53b423b52f1ca8793899518626279b4f305774821f7d62f56696da4691d"
         },
         "catalog-index": {
           "status": "pass"
@@ -1119,7 +1122,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:40a5a2bc45c97f424a0f30d49410bd584a4b1859f3b442653cd274fcb0e1d2c7"
+          "digest": "sha256:0caae6837bb80b59667356bb1d23def6d72d9171e7e2c0fd3475260ee0e94d15"
         },
         "catalog-index": {
           "status": "pass"
@@ -1141,7 +1144,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c9b558d2b3ac5665e4257fb91136e5845acae4c4cff1199bf9aa972678cbc368"
+          "digest": "sha256:cf81300c129a013fbd0f4359febb33d55238cb501068eb3fd6f76edfa9bd2065"
         },
         "catalog-index": {
           "status": "pass"
@@ -1163,7 +1166,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2b23c1df654872ba8a0bc84478f8a8246205fdcc1a05261a1fc317442007135b"
+          "digest": "sha256:804aeaf21daab24e378975334826478928c4c0c5cb16e632cb3fab776d56fa9a"
         },
         "catalog-index": {
           "status": "pass"
@@ -1185,7 +1188,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a12ec2d8c581851bfab46bc53343eea7ae9b66b917483ef51eb0d8273e8fdce0"
+          "digest": "sha256:a1dc850601165eaa3a9b6d74bd3eb9a97c5c4da76cf14793ddc36b9407cf75f0"
         },
         "catalog-index": {
           "status": "pass"
@@ -1207,7 +1210,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e50410320f7e3e7d47fc6e069b46e1bddea8a5e046296656ed9a7459d9b2071e"
+          "digest": "sha256:f6602cab6f610d412c18eb50d73428b1d8a60200d098406acd74dc59266e8f45"
         },
         "catalog-index": {
           "status": "pass"
@@ -1229,7 +1232,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f38c45156812649b85309be571a59db1a62d516cc322c025d71375e0ec8f6b9e"
+          "digest": "sha256:a396e9d6aa8dd24afc2c82dd9d4c9b59287aac4bc0b5deb2d9881dcb310223bd"
         },
         "catalog-index": {
           "status": "pass"
@@ -1251,7 +1254,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3c15b6ebc6fc8a9ccb5f5d506824ce5ba45454e64ee0b4e8586f3bd694e46a5c"
+          "digest": "sha256:e5e229eaceb552c48f01de110a33964f7f84679f47430e16395d4d2449a1b8e0"
         },
         "catalog-index": {
           "status": "pass"
@@ -1270,7 +1273,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:928f6e3a3c1ec746fe7811daa79555154bb368f7e841aeb40b7163dad2300b62"
+          "digest": "sha256:158b708053b75788b724706bf6c22e9580cfc2b6a570c46f66fb6980a968c51f"
         },
         "dpdy": {
           "status": "skip"
