@@ -385,13 +385,24 @@ def copy_workspace_metadata_files(overlays_dir: Path, output_dir: Path) -> tuple
 
     yaml_file_names = set()
     yaml_file_paths = {}
+    kept_names = set()
     for yaml_file in yaml_files:
         target_file = target_packages_dir / yaml_file.name
         log_debug(f"Copy\n  {yaml_file.relative_to(overlay_workspaces)} to\n  {target_file.relative_to(output_dir)}")
         shutil.copy2(str(yaml_file), str(target_file))
+        kept_names.add(yaml_file.name)
         base_name = yaml_file.stem
         yaml_file_names.add(base_name)
         yaml_file_paths[base_name] = Path("workspaces/" + str(yaml_file.relative_to(overlay_workspaces)))
+
+    # Drop Package entities left behind after workspace renames/removals
+    # (e.g. rhdh-bsp-lightspeed.yaml after rename to intelligent-assistant).
+    for existing in sorted(target_packages_dir.glob("*.yaml")):
+        if existing.name == "all.yaml":
+            continue
+        if existing.name not in kept_names:
+            log_info(f"Removed stale package entity {existing.name}")
+            existing.unlink()
 
     return yaml_file_names, yaml_file_paths
 
