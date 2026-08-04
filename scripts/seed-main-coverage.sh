@@ -31,11 +31,6 @@
 # Required environment:
 #   CODECOV_TOKEN  - Codecov upload token (forwarded to upload-coverage.sh).
 #   GITHUB_SHA     - Set by GitHub Actions to the default-branch HEAD.
-#
-# Optional environment:
-#   SEED_SKIP_IF_ALREADY_SEEDED - "true" to no-op when the target commit already
-#                    carries every workspace this would upload. Set only for the
-#                    scheduled backstop; see the rationale at the check below.
 
 set -euo pipefail
 
@@ -61,66 +56,36 @@ if [[ ${#snapshots[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Each snapshot's basename is the workspace name and becomes the Codecov flag.
+#
+# upload-coverage.sh rejects a workspace with no workspaces/<ws>/ directory, so a
+# snapshot left behind by a renamed or deleted workspace would fail its upload —
+# and under the any-failure-is-red rule below that means this job goes
+# permanently red with the real cause buried in one workspace's log. Catch it
+# here instead: once, up front, naming the fix.
 WORKSPACES=()
+ORPHANED=()
 for snapshot in "${snapshots[@]}"; do
-  WORKSPACES+=("$(basename "$snapshot" .lcov)")
+  ws="$(basename "$snapshot" .lcov)"
+  if [[ -d "$REPO_ROOT/workspaces/$ws" ]]; then
+    WORKSPACES+=("$ws")
+  else
+    ORPHANED+=("$ws")
+  fi
 done
 
-SEED_SHA="${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD)}"
-
-# Same default as upload-coverage.sh, split because the Codecov API path puts the
-# owner and the repo in different segments.
-SEED_SLUG="${CODECOV_UPLOAD_SLUG:-redhat-developer/rhdh-plugin-export-overlays}"
-SEED_OWNER="${SEED_SLUG%%/*}"
-SEED_REPO="${SEED_SLUG##*/}"
-
-# Codecov APPENDS an upload session per upload — re-seeding a commit that already
-# carries the data does not replace those sessions. Measured on this repo:
-# 129f9ac5 was seeded by the schedule on two consecutive days with 6 snapshots
-# each and carries 12 sessions, against 6 for fc27ff56 (seeded once, 6 snapshots)
-# — identical 49.27% coverage either way. So the number stays right but the
-# sessions grow without bound on a main HEAD that nothing has moved, and a 6h
-# schedule accumulates 4x faster than a daily one did.
-#
-# Hence: the scheduled backstop skips a commit that already carries every
-# workspace it would upload. Push and manual dispatch never set this — "re-run
-# the workflow" has to stay the fix for a stale flag.
-#
-# Returns 0 (skip) only on a positive answer. Any doubt — API down, jq missing,
-# report still processing, one workspace absent — falls through to uploading,
-# because a redundant upload is cheap and a skipped one strands a flag.
-already_fully_seeded() {
-  local json have ws
-  command -v jq >/dev/null 2>&1 || return 1
-  json="$(curl -sf --max-time 30 \
-    "https://api.codecov.io/api/v2/github/${SEED_OWNER}/repos/${SEED_REPO}/commits/${SEED_SHA}/")" || return 1
-  [[ "$(jq -r '.state // empty' <<<"$json")" == "complete" ]] || return 1
-
-  # Every anchor path is workspaces/<ws>/coverage-anchors/<plugin>, so the set of
-  # workspaces already on the commit falls out of the report's file list.
-  have="$(jq -r '.report.files[]?.name' <<<"$json" |
-    sed -n 's#^workspaces/\([^/]*\)/coverage-anchors/.*#\1#p' | sort -u)"
-  for ws in "${WORKSPACES[@]}"; do
-    grep -qxF "$ws" <<<"$have" || return 1
-  done
-  return 0
-}
-
-if [[ "${SEED_SKIP_IF_ALREADY_SEEDED:-false}" == "true" ]]; then
-  if already_fully_seeded; then
-    echo "[INFO] ${SEED_SHA:0:8} already carries all ${#WORKSPACES[@]} workspace(s) — skipping to avoid piling up duplicate Codecov sessions."
-    exit 0
-  fi
-  echo "[INFO] ${SEED_SHA:0:8} is missing coverage for at least one workspace — seeding."
+if [[ ${#ORPHANED[@]} -gt 0 ]]; then
+  echo "ERROR: snapshot(s) with no matching workspaces/<name>/ directory: ${ORPHANED[*]}" >&2
+  echo "       The workspace was renamed or removed — delete or rename the matching coverage-snapshots/<name>.lcov." >&2
+  exit 1
 fi
 
 echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
 # Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
 FAILED_WS=()
-for snapshot in "${snapshots[@]}"; do
-  # The snapshot basename must equal a workspaces/<dir> name — it becomes the
-  # Codecov flag (e2e-<ws>) and upload-coverage.sh validates the directory.
-  ws="$(basename "$snapshot" .lcov)"
+for i in "${!WORKSPACES[@]}"; do
+  ws="${WORKSPACES[$i]}"
+  snapshot="${snapshots[$i]}"
   echo ""
   echo "--- $ws (e2e-$ws) ---"
   # Uploading IS this job — a Codecov-side failure is a real failure here, not the
@@ -129,7 +94,7 @@ for snapshot in "${snapshots[@]}"; do
   # reports as seeded while Codecov received nothing. Set per call rather than
   # exported so the scope is visible right where it applies.
   if ! CODECOV_UPLOAD_STRICT=true "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
-    echo "[ERROR] Seed failed for $ws"
+    echo "ERROR: Seed failed for $ws" >&2
     FAILED_WS+=("$ws")
   fi
 done
@@ -143,7 +108,7 @@ echo "=== Done: $(( ${#snapshots[@]} - FAILED ))/${#snapshots[@]} seeded ==="
 # never refreshed, which is precisely the silent staleness this job exists to
 # prevent. The seed is idempotent and re-runs on schedule, so a re-run is the fix.
 if [[ "$FAILED" -gt 0 ]]; then
-  echo "[ERROR] Not seeded: ${FAILED_WS[*]}" >&2
+  echo "ERROR: Not seeded: ${FAILED_WS[*]}" >&2
   exit 1
 fi
 exit 0
