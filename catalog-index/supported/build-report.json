@@ -126,7 +126,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:33b966794aa83f4d6f26f56aa36619dac9592005aea25caac4b41d9c3fab28bd"
+          "digest": "sha256:dd4c74f226db6ec65ad6df98341acdbbe430cda9bc4544e5e71e72e07225d5c0"
         }
       },
       "package": "@backstage-community/plugin-analytics-provider-segment",
@@ -724,7 +724,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9a2fdcf73228caaf8eb9a7ef1cb6eac6ea3964a4a758cf21694288a13d9fd7b3"
+          "digest": "sha256:aa9cc82fed6a2ce383807a1dfb6f0a223da959486a4848312218c0868014acc7"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions",
@@ -750,7 +750,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:715bf9c6f7f6ebea99d15db16591f198f615f739e1f20af00e96f1ec60f32840"
+          "digest": "sha256:9d40fb02a3a7492f9a0f65df64d815bd19ef7153d5aa4879c78b4f9ac019f777"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-extensions-backend",
@@ -776,7 +776,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:124fa333dee30ccf882a461db94ae8e5840ec864338ca6494e783b74970f9d80"
+          "digest": "sha256:d972a5fd15822eb73c103cc72ffd9f0a8bee03d3a8dc90fd676ab550cbb07a3f"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-extensions",
@@ -883,7 +883,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f7999c399425ff9619c0bba4eef83d8288efd859210988c520e2c31faa0366b1"
+          "digest": "sha256:965fe7a2a81ee4e9d94d182744b329a4143ee07343ca439a1f60757b99cad3f6"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1002,7 +1002,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4add5e95201aecdc64d60b89580f26d27202fb8720bd869b43293153ea7e615e"
+          "digest": "sha256:9dc781cde5db3c4f8b0e37d0453c81b3701dafb117d1fd4f2371eddb8acdcbd0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
@@ -1028,7 +1028,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d6b16e2361bc012773f25147d0fe672c7c6da8a91451ce56aaf03fb34c9403d4"
+          "digest": "sha256:7e9f623a62722f501c6f404b18721e104eee2509dc6a44d5f2de90768cad2201"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1054,7 +1054,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:94408ad807ab53e7b385331d1961eea6c79c0bdc9535f42ad0fa77e2fb53d0f2"
+          "digest": "sha256:256894d4a58a0d82829fefaebf8d48938b627b73500c28bd4aaf0b2320a91c7c"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1080,7 +1080,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:615a969935b57a43b087557c5017573fb591e04b94230f7a53d3097d4fa14259"
+          "digest": "sha256:88c66f031c24f85a6f429b5e375947853a3fca520709f6c96d931d6f50be2a47"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -1106,7 +1106,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a67669ae56ed923ef97dcffeefddb72157a27cad23ef1bb1e83364727c64f1d1"
+          "digest": "sha256:1c021e3df45a2735e3d3cb2cb8bbb9c17654601a48829d7e4d0a075a0a9387dd"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
@@ -1236,7 +1236,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f255bb5f26dbcc84f5686b2641e729914678c3e0e23df369b1e3ca6d9c4b9d46"
+          "digest": "sha256:f255bb5f26dbcc84f5686b2641e729914678c3e0e23df369b1e3ca6d9c4b9d46",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__2.0.1",
+          "resolvedTag": "bs_1.52.0__2.0.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-quickstart",
@@ -1262,7 +1265,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1aa9c5257c6a0f4b2e8629915f65b99bd9e26f8d18b363bb24e1bcf36c1d10f2"
+          "digest": "sha256:a03ded0db527ab2d7d6db2a33bacc3605ee0c4e0057cd259b43bf8308c71df10"
         }
       },
       "package": "@backstage-community/plugin-rbac",
@@ -1376,7 +1379,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9512a1eff8f360ad884744f26612a2af7166f1b667a9f9794894b8bcdf9d6a44"
+          "digest": "sha256:b99a09af6bbdb959cb4e91448087b50880a439795b73c14fb20644df00743c7a"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-kubernetes",
@@ -1551,7 +1554,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3e17095be837bdd4af34cf290be10ff4bc19c3a8eae557a096ada2beb63cc095"
+          "digest": "sha256:0c5322c62436fd1d69abb72592b24f8d4b0769b83231ae05e7dadbbc8a2580ad"
         },
         "dpdy": {
           "status": "pass"
@@ -1573,7 +1576,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:79158dca07719bea5914f021e97e1d35faa15c4a0f53b26238cdf4102136f367"
+          "digest": "sha256:2dca7ca4abd501ad972fb49d741f345298496c326707799aea62c353a647efc2"
         },
         "dpdy": {
           "status": "pass"
@@ -1595,7 +1598,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f7fc717bc70df1d2d3b1e7e568381009653520c2f311339139a69079240ccf9a"
+          "digest": "sha256:07bc0bcca3cb884bda6a868c8373b46f5fded1fcb6b54158091d470252ed1499"
         },
         "dpdy": {
           "status": "pass"
@@ -1617,7 +1620,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ce2a8ca451201167f5c5e339625693bad172c93261bda3c3acdfad7508f55a98"
+          "digest": "sha256:717c31b66c8b32d83a96ef4b8de90d13c6108a7205b5ad0c59d6d77eaffcaff9"
         },
         "dpdy": {
           "status": "pass"
@@ -1639,7 +1642,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d64510afb721f3a849c35e4aa4aeb1a32aebdebcc08a141df37b7e6b61d4ad5d"
+          "digest": "sha256:04f236682d8886e4a777b5929cc106956a1aa5db5473b6a3f58bb0b2351eecd5"
         },
         "dpdy": {
           "status": "pass"

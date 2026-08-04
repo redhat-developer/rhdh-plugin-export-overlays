@@ -8,7 +8,7 @@
 # https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
 plugins:
   # Tag: bs_1.52.0__1.30.0, Build date: 2026-06-03T21:17:18Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:33b966794aa83f4d6f26f56aa36619dac9592005aea25caac4b41d9c3fab28bd
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:dd4c74f226db6ec65ad6df98341acdbbe430cda9bc4544e5e71e72e07225d5c0
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -142,11 +142,11 @@ plugins:
           red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
             analyticsApiExtensions:
               - importName: AdoptionInsightsAnalyticsApi
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:ce2a8ca451201167f5c5e339625693bad172c93261bda3c3acdfad7508f55a98
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:717c31b66c8b32d83a96ef4b8de90d13c6108a7205b5ad0c59d6d77eaffcaff9
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:d64510afb721f3a849c35e4aa4aeb1a32aebdebcc08a141df37b7e6b61d4ad5d
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:04f236682d8886e4a777b5929cc106956a1aa5db5473b6a3f58bb0b2351eecd5
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:3e17095be837bdd4af34cf290be10ff4bc19c3a8eae557a096ada2beb63cc095
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:0c5322c62436fd1d69abb72592b24f8d4b0769b83231ae05e7dadbbc8a2580ad
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -454,17 +454,22 @@ plugins:
               - importName: quickstartTranslations
                 module: Alpha
                 ref: quickstartTranslationRef
+            # Legacy exports require `module: Legacy` — they are not available on the default module.
             mountPoints:
               - mountPoint: application/provider
                 importName: QuickstartDrawerProvider
+                module: Legacy
               - mountPoint: application/internal/drawer-state
                 importName: QuickstartDrawerStateExposer
+                module: Legacy
               - mountPoint: application/internal/drawer-content
                 importName: QuickstartDrawerContent
+                module: Legacy
                 config:
                   id: quickstart
               - mountPoint: global.header/help
                 importName: QuickstartButton
+                module: Legacy
                 config:
                   priority: 100
   # Tag: bs_1.49.3__3.19.2, Build date: 2026-05-22T14:59:57Z
@@ -488,7 +493,7 @@ plugins:
                 timeout:
                   minutes: 50
   # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-03T21:19:15Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:1aa9c5257c6a0f4b2e8629915f65b99bd9e26f8d18b363bb24e1bcf36c1d10f2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:a03ded0db527ab2d7d6db2a33bacc3605ee0c4e0057cd259b43bf8308c71df10
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -514,7 +519,7 @@ plugins:
                 parent: default.admin
                 icon: rbacIcon
   # Tag: bs_1.52.0__2.19.0, Build date: 2026-05-26T12:41:25Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:9512a1eff8f360ad884744f26612a2af7166f1b667a9f9794894b8bcdf9d6a44
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:b99a09af6bbdb959cb4e91448087b50880a439795b73c14fb20644df00743c7a
     enabled: false
   # Tag: bs_1.52.0__1.20.0, Build date: 2026-06-03T21:08:19Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:778f04e4d8abd8a9ae2369caeb3b03265f3d04a6e3706d8429af10013b124a14
@@ -696,7 +701,7 @@ plugins:
   # Tag: bs_1.52.0__0.3.16, Build date: 2026-05-21T21:25:10Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:8d785143881a820e138a9e77ae52ba8789d135d8ee1f2a3e8613c5de11c63d37
     enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:f7fc717bc70df1d2d3b1e7e568381009653520c2f311339139a69079240ccf9a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:07bc0bcca3cb884bda6a868c8373b46f5fded1fcb6b54158091d470252ed1499
     enabled: false
     pluginConfig:
       intelligent-assistant:
@@ -734,7 +739,7 @@ plugins:
                 config:
                   id: intelligent-assistant
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:79158dca07719bea5914f021e97e1d35faa15c4a0f53b26238cdf4102136f367
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:2dca7ca4abd501ad972fb49d741f345298496c326707799aea62c353a647efc2
     enabled: false
     pluginConfig:
       intelligent-assistant:
@@ -745,7 +750,7 @@ plugins:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
   # Tag: bs_1.52.0__5.10.0, Build date: 2026-06-02T17:21:47Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:615a969935b57a43b087557c5017573fb591e04b94230f7a53d3097d4fa14259
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:88c66f031c24f85a6f429b5e375947853a3fca520709f6c96d931d6f50be2a47
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -784,14 +789,14 @@ plugins:
                     anyOf:
                       - hasAnnotation: orchestrator.io/workflows
   # Tag: bs_1.52.0__8.11.0, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:d6b16e2361bc012773f25147d0fe672c7c6da8a91451ce56aaf03fb34c9403d4
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:7e9f623a62722f501c6f404b18721e104eee2509dc6a44d5f2de90768cad2201
     enabled: false
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
   # Tag: bs_1.52.0__1.4.0, Build date: 2026-05-22T15:15:55Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:4add5e95201aecdc64d60b89580f26d27202fb8720bd869b43293153ea7e615e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:9dc781cde5db3c4f8b0e37d0453c81b3701dafb117d1fd4f2371eddb8acdcbd0
     enabled: false
     pluginConfig:
       orchestrator:
@@ -800,14 +805,14 @@ plugins:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
   # Tag: bs_1.52.0__1.12.0, Build date: 2026-06-02T17:28:54Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:94408ad807ab53e7b385331d1961eea6c79c0bdc9535f42ad0fa77e2fb53d0f2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:256894d4a58a0d82829fefaebf8d48938b627b73500c28bd4aaf0b2320a91c7c
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets: {}
   # Tag: bs_1.52.0__1.7.0, Build date: 2026-05-26T12:41:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:a67669ae56ed923ef97dcffeefddb72157a27cad23ef1bb1e83364727c64f1d1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:1c021e3df45a2735e3d3cb2cb8bbb9c17654601a48829d7e4d0a075a0a9387dd
     enabled: false
     pluginConfig:
       orchestrator:
