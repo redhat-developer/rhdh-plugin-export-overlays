@@ -14,7 +14,11 @@
     "smoke": "yarn build && node dist/native-smoke.mjs",
     "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-tests --out-extension:.js=.mjs && node --test \"dist-tests/*.test.mjs\"",
     "tsc:check": "tsc --noEmit",
-    "check": "yarn tsc:check && yarn test"
+    "check": "yarn tsc:check && yarn lint:check && yarn prettier:check && yarn test",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prettier:check": "prettier --check .",
+    "prettier:fix": "prettier --write ."
   },
   "dependencies": {
     "@backstage/backend-plugin-api": "1.9.2",
@@ -23,9 +27,13 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "0.3.0",
     "@types/node": "24.13.2",
     "esbuild": "0.28.1",
-    "typescript": "6.0.3"
+    "eslint": "10.8.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0"
   }
 }

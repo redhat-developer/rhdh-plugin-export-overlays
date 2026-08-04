@@ -1,0 +1,169 @@
+# E2E nightly triage — discovers failed nightly runs and creates a labeled
+# GitHub issue. The fullsend dispatch picks up the label event and routes
+# it to the e2e-triage agent, which classifies failures per workspace and
+# creates issues for the code agent to fix.
+#
+# Flow:
+#   schedule/manual → discover failed nightly → create issue + label
+#                                                     ↓
+#                           fullsend.yaml (issues: [labeled]) → dispatch
+#                                                     ↓
+#                           CEL trigger matches → e2e-triage agent runs
+#                                                     ↓
+#                           triage creates per-workspace issues + ready-to-code
+#                                                     ↓
+#                           code agent picks up each issue → fix → PR
+#
+# The e2e-triage agent is NOT reachable from /fs-* comments.
+name: E2E Triage Agent
+
+on:
+  schedule:
+    - cron: "15 6 * * *" # 06:15 UTC (11:45 IST) — after the main nightly
+  workflow_dispatch:
+    inputs:
+      prow_url:
+        description: "Prow/GCSWeb URL of a failed run. Leave empty to auto-discover."
+        required: false
+        type: string
+      branch:
+        description: "Branch to check nightly results for"
+        required: false
+        type: string
+        default: "main"
+      dry_run:
+        description: "Print discovered URL without creating an issue"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+jobs:
+  discover-and-file:
+    name: Discover & file issue (${{ matrix.branch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ github.event_name == 'schedule' && fromJSON('["main","release-1.10"]') || fromJSON(format('["{0}"]', inputs.branch || 'main')) }}
+    steps:
+      - name: Discover latest failed nightly
+        id: discover
+        env:
+          INPUT_PROW_URL: ${{ inputs.prow_url }}
+          INPUT_BRANCH: ${{ matrix.branch }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${INPUT_PROW_URL}" ]]; then
+            echo "prow_url=${INPUT_PROW_URL}" >> "${GITHUB_OUTPUT}"
+            echo "should_file=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          PERIODIC="periodic-ci-redhat-developer-rhdh-plugin-export-overlays-${INPUT_BRANCH}-e2e-ocp-helm-nightly"
+          GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/${PERIODIC}"
+          PROW="https://prow.ci.openshift.org/view/gs/test-platform-results/logs/${PERIODIC}"
+
+          RUN_ID=$(curl -fsSL --proto =https "${GCS}/" | grep -oE '[0-9]{19,}' | sort -u -r | head -1) || true
+          if [[ -z "${RUN_ID}" ]]; then
+            echo "::notice::No runs found"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          TS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/started.json" | jq -r '.timestamp') || true
+          if [[ -z "${TS}" ]]; then
+            echo "::notice::No started.json"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+          RUN_DATE=$(date -u -d "@${TS}" '+%Y-%m-%d' 2>/dev/null || date -u -r "${TS}" '+%Y-%m-%d')
+          TODAY=$(date -u '+%Y-%m-%d')
+          if [[ "${RUN_DATE}" != "${TODAY}" ]]; then
+            echo "::notice::Latest run from ${RUN_DATE}, not today"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          RESULT=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/finished.json" | jq -r '.result // .passed') || true
+          if [[ "${RESULT}" == "SUCCESS" || "${RESULT}" == "true" ]]; then
+            echo "::notice::Nightly passed"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+          if [[ -z "${RESULT}" ]]; then
+            echo "::notice::No finished.json — still running?"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+          fi
+
+          STEP="redhat-developer-rhdh-plugin-export-overlays-ocp-helm"
+          STATS=$(curl -fsSL --proto =https "${GCS}/${RUN_ID}/artifacts/e2e-ocp-helm-nightly/${STEP}/artifacts/playwright-report/results.json" 2>/dev/null | jq -r '.stats') || true
+          if [[ -n "${STATS}" ]]; then
+            FAILED=$(echo "${STATS}" | jq -r '.unexpected // 0')
+            PASSED=$(echo "${STATS}" | jq -r '.expected // 0')
+            echo "Stats — passed: ${PASSED}, failed: ${FAILED}"
+            if [[ "${FAILED}" -eq 0 && "${PASSED}" -gt 0 ]]; then
+              echo "::notice::Tests passed, job failed — infra issue"; echo "should_file=false" >> "${GITHUB_OUTPUT}"; exit 0
+            fi
+          fi
+
+          echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "should_file=true" >> "${GITHUB_OUTPUT}"
+
+      # Mint a triage-role token so the issues:labeled event triggers
+      # fullsend.yaml. GITHUB_TOKEN events are suppressed by GitHub's
+      # anti-recursion safety (see fullsend ADR 0033).
+      - name: Mint triage token
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
+        id: mint
+        uses: fullsend-ai/fullsend/.github/actions/mint-token@3cfa255ab4cc8190670585ea42da529119251632 # v0.32.0
+        with:
+          role: triage
+          repos: rhdh-plugin-export-overlays
+          mint_url: ${{ vars.FULLSEND_MINT_URL }}
+
+      - name: Create issue and trigger agent
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
+        env:
+          GH_TOKEN: ${{ steps.mint.outputs.token }}
+          PROW_URL: ${{ steps.discover.outputs.prow_url }}
+          BRANCH: ${{ matrix.branch }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TODAY=$(date -u '+%Y-%m-%d')
+
+          # Close any stale open issue for this branch so the agent always
+          # reads today's prow URL from the issue body (not a comment).
+          EXISTING=$(gh issue list --repo "${REPO}" \
+            --label "e2e-triage" --state open \
+            --search "[fullsend] E2E nightly failure: ${BRANCH}" \
+            --json number,title --jq ".[].number" | head -1) || true
+
+          if [[ -n "${EXISTING}" ]]; then
+            gh issue close "${EXISTING}" --repo "${REPO}" \
+              --comment "Superseded by today's run — creating a fresh issue."
+            echo "Closed stale issue #${EXISTING}"
+          fi
+
+          # Create the label if it doesn't exist
+          gh label create "e2e-triage" --repo "${REPO}" \
+            --description "Triggers the fullsend e2e-triage agent" --color "7057ff" \
+            --force 2>/dev/null || true
+
+          ISSUE_URL=$(gh issue create --repo "${REPO}" \
+            --title "[fullsend] E2E nightly failure: ${BRANCH} (${TODAY})" \
+            --body "Nightly E2E run failed on \`${BRANCH}\`.
+
+          PROW_URL: ${PROW_URL}
+
+          The e2e-triage agent will analyze this failure, classify root causes per workspace, and create issues for the code agent to fix.")
+          echo "Created issue: ${ISSUE_URL}"
+
+          # Add label separately so GitHub fires an issues:labeled event
+          # (gh issue create --label does NOT emit a separate labeled event)
+          ISSUE_NUMBER="${ISSUE_URL##*/}"
+          gh issue edit "${ISSUE_NUMBER}" --repo "${REPO}" --add-label "e2e-triage"
+
+      - name: Dry run summary
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') == 'true'
+        env:
+          PROW_URL: ${{ steps.discover.outputs.prow_url }}
+        run: echo "Dry run — would create issue for ${PROW_URL}"

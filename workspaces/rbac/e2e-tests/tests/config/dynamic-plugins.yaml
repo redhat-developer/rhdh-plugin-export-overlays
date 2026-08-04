@@ -8,13 +8,14 @@ plugins:
             translationResources:
               - importName: rbacTranslations
                 ref: rbacTranslationRef
-                module: Alpha
             appIcons:
               - name: rbacIcon
                 importName: RbacIcon
+                module: Legacy
             dynamicRoutes:
               - path: /rbac
                 importName: RbacPage
+                module: Legacy
                 menuItem:
                   icon: rbacIcon
                   text: RBAC

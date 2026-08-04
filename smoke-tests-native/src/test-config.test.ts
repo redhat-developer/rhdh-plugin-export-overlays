@@ -22,7 +22,7 @@ function file(name: string, content: string): string {
 test("loadEnvFile applies KEY=VALUE lines, strips quotes, skips comments", () => {
   const path = file(
     "basic.env",
-    '# comment\nTC_FOO=bar\nTC_QUOTED="q v"\n\nTC_SINGLE=\'s v\'\n',
+    "# comment\nTC_FOO=bar\nTC_QUOTED=\"q v\"\n\nTC_SINGLE='s v'\n",
   );
   const applied = loadEnvFile(path);
   assert.deepEqual(applied.sort(), ["TC_FOO", "TC_QUOTED", "TC_SINGLE"]);

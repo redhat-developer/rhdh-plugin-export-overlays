@@ -4,7 +4,7 @@ Common issues reported on the status page and how to resolve them.
 
 ### Backstage version mismatch
 
-**What it means:** The plugin's workspace targets an older Backstage minor version than the one expected by the current branch.
+**What it means:** The plugin's workspace targets an older Backstage minor version than the one expected by the current branch. The plugin is still included in the catalog index: community (ghcr.io) builds use the workspace's actual Backstage version in the image tag so the image can resolve. The status page flags this as a warning so you can update the workspace when a compatible upstream version is available.
 
 **Common cause:** The upstream plugin repository has not yet released a version compatible with the latest Backstage version, or the workspace's `source.json` `repo-ref` points to an older tag.
 

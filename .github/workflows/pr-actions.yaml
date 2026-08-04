@@ -464,7 +464,7 @@ jobs:
             });
             const success = jobs.data.jobs
               .filter(j => j.name.startsWith('Update versions on PR'))
-              .every(j => j.conclusion === 'success');
+              .every(j => j.conclusion === 'success' || j.conclusion === 'skipped');
 
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
