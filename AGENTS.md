@@ -311,6 +311,25 @@ MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY
 
 `envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
 
+### Baked-in Plugins (dynamic-plugins.default.yaml)
+
+Some plugins ship baked into the RHDH image via `dynamic-plugins.default.yaml` (e.g., quickstart). These plugins are loaded by default without any dynamic plugin configuration. E2E tests for these workspaces require mode-aware configuration:
+
+- **PR mode** (`GIT_PR_NUMBER` set): Pass `dynamicPlugins: "tests/config/dynamic-plugins.yaml"` with `plugins: []` to prevent auto-generation from metadata, which would create duplicate config key conflicts with the baked-in entry.
+- **Nightly mode** (`E2E_NIGHTLY_MODE` set): Do NOT pass the `dynamicPlugins` option. The framework processes metadata and generates `disabled: true` for baked-in plugins, which disables them entirely.
+- **Local dev** (neither set): The baked-in plugin loads from defaults. Omit `dynamicPlugins` unless you need to override specific settings.
+
+Use a conditional pattern in `beforeAll`:
+```typescript
+const isNightly = !!process.env.E2E_NIGHTLY_MODE;
+await rhdh.configure({
+  auth: "keycloak",
+  ...(!isNightly && { dynamicPlugins: "tests/config/dynamic-plugins.yaml" }),
+});
+```
+
+When reviewing changes to `dynamicPlugins` configuration or `dynamic-plugins.yaml` files for baked-in plugin workspaces, verify the change works correctly in all three modes.
+
 ### WorkspacePaths
 
 Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
