@@ -29,7 +29,7 @@ import {
 } from "./aggregate-report";
 import { requireContained, resolveContained } from "./paths";
 import { isSweepSummary, SWEEP_SCHEMA_VERSION } from "./report";
-import { errorMessage } from "./util";
+import { compareStrings, errorMessage } from "./util";
 
 function fail(message: string): never {
   console.error(message);
@@ -109,7 +109,8 @@ function main(): number {
   // would silently file one tier's results under another's heading.
   if (levels.size > 1) {
     fail(
-      `summaries span more than one support level (${[...levels].sort().join(", ")}) — ` +
+      `summaries span more than one support level ` +
+        `(${[...levels].sort(compareStrings).join(", ")}) — ` +
         `they belong to different sweeps and must not be aggregated together.`,
     );
   }

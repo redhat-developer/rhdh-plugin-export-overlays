@@ -230,6 +230,40 @@ function emptyAggregate(support: string): Aggregate {
   };
 }
 
+/** Fold one workspace result into the running totals. */
+function accumulateWorkspaceResult(
+  result: SweepSummary["workspaces"][number],
+  aggregate: Aggregate,
+): void {
+  aggregate.workspaces.total += 1;
+  if (result.status === "pass") aggregate.workspaces.passed += 1;
+  else if (result.status === "skipped") aggregate.workspaces.skipped += 1;
+  else {
+    aggregate.workspaces.failed += 1;
+    aggregate.failures.push({
+      workspace: result.workspace,
+      status: result.status,
+      detail: failureDetail(result),
+    });
+  }
+  // Tolerate a workspace entry without exclusions/report: isSweepSummary only
+  // validates that `workspaces` is an array, so a hollow element reaches here and
+  // must not crash the job that exists to report on everything else.
+  aggregate.exclusions.push(...(result.exclusions ?? []));
+  if (!result.report) return;
+  accumulatePackageCounts(result.report, aggregate);
+  for (const bundle of result.report.frontend.bundles ?? []) {
+    const packaging = packagingOf(bundle.systems);
+    aggregate.frontendSystems.counts[packaging] += 1;
+    aggregate.frontendSystems.packages.push({
+      packageName: bundle.name,
+      workspace: result.workspace,
+      version: bundle.version,
+      packaging,
+    });
+  }
+}
+
 export function buildAggregate(summaries: SweepSummary[]): Aggregate {
   const aggregate = emptyAggregate(summaries[0]?.support ?? "unknown");
   // Distinct shard indices, not the number of files read: the same shard reachable
@@ -249,33 +283,7 @@ export function buildAggregate(summaries: SweepSummary[]): Aggregate {
       });
     }
     for (const result of summary.workspaces) {
-      aggregate.workspaces.total += 1;
-      if (result.status === "pass") aggregate.workspaces.passed += 1;
-      else if (result.status === "skipped") aggregate.workspaces.skipped += 1;
-      else {
-        aggregate.workspaces.failed += 1;
-        aggregate.failures.push({
-          workspace: result.workspace,
-          status: result.status,
-          detail: failureDetail(result),
-        });
-      }
-      // Tolerate a workspace entry without exclusions/report: isSweepSummary only
-      // validates that `workspaces` is an array, so a hollow element reaches here and
-      // must not crash the job that exists to report on everything else.
-      aggregate.exclusions.push(...(result.exclusions ?? []));
-      if (!result.report) continue;
-      accumulatePackageCounts(result.report, aggregate);
-      for (const bundle of result.report.frontend.bundles ?? []) {
-        const packaging = packagingOf(bundle.systems);
-        aggregate.frontendSystems.counts[packaging] += 1;
-        aggregate.frontendSystems.packages.push({
-          packageName: bundle.name,
-          workspace: result.workspace,
-          version: bundle.version,
-          packaging,
-        });
-      }
+      accumulateWorkspaceResult(result, aggregate);
     }
   }
 

@@ -78,6 +78,11 @@ export function isValidWorkspaceName(name: string): boolean {
   return /^(?!\.+$)[A-Za-z0-9._-]+$/.test(name);
 }
 
+/** The first argument that is actually a string, or undefined. */
+function firstString(...values: unknown[]): string | undefined {
+  return values.find((v): v is string => typeof v === "string");
+}
+
 /** Read and flatten every `kind: Package` entity under `workspaces/<name>/metadata/`. */
 export function readWorkspacePackages(
   repoRoot: string,
@@ -116,12 +121,11 @@ export function readWorkspacePackages(
     return {
       workspace,
       file,
-      packageName:
-        typeof spec?.packageName === "string"
-          ? spec.packageName
-          : // Fall back to the entity name so an exclusion pattern still has
-            // something to match rather than silently matching "".
-            String(doc?.metadata?.name ?? file),
+      // Fall back to the entity name, then the file name, so an exclusion pattern
+      // always has something real to match. Both fallbacks are type-checked: metadata
+      // is `unknown`, and String()-ing an object would yield the literal
+      // "[object Object]" — a name that matches nothing and reads as nonsense.
+      packageName: firstString(spec?.packageName, doc?.metadata?.name) ?? file,
       support: typeof spec?.support === "string" ? spec.support : "",
       role:
         typeof spec?.backstage?.role === "string" ? spec.backstage.role : "",
