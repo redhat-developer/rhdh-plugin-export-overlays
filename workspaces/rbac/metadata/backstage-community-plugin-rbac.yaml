@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-rbac'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__1.55.2
-  version: 1.55.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__2.0.0
+  version: 2.0.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.52.0
@@ -35,13 +35,14 @@ spec:
               translationResources:
                 - importName: rbacTranslations
                   ref: rbacTranslationRef
-                  module: Alpha
               appIcons:
                 - name: rbacIcon
                   importName: RbacIcon
+                  module: Legacy
               dynamicRoutes:
                 - path: /rbac
                   importName: RbacPage
+                  module: Legacy
                   menuItem:
                     icon: rbacIcon
                     text: RBAC
