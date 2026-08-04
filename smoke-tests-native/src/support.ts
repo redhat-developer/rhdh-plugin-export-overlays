@@ -54,19 +54,24 @@ export function isSupportLevel(value: string): value is SupportLevel {
 }
 
 /** Every `workspaces/<name>/` that has a `metadata/` directory, sorted by name. */
-export function listWorkspaces(repoRoot: string): string[] {
+export function listWorkspaces(
+  repoRoot: string,
+  // Same seam as readWorkspacePackages: pin the ordering without depending on the
+  // filesystem's own.
+  listEntries: (dir: string) => string[] = (dir) =>
+    readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name),
+): string[] {
   const root = join(repoRoot, "workspaces");
   if (!existsSync(root)) {
     throw new Error(`workspaces directory not found: ${root}`);
   }
-  return readdirSync(root, { withFileTypes: true })
+  return listEntries(root)
     .filter(
-      (entry) =>
-        entry.isDirectory() &&
-        isValidWorkspaceName(entry.name) &&
-        existsSync(join(root, entry.name, "metadata")),
+      (name) =>
+        isValidWorkspaceName(name) && existsSync(join(root, name, "metadata")),
     )
-    .map((entry) => entry.name)
     .sort(compareStrings);
 }
 

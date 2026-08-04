@@ -4,9 +4,15 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parse } from "yaml";
@@ -19,13 +25,25 @@ import {
   writeDynamicPluginsConfig,
 } from "./workspace";
 
+// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
+// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
+const TEMP_DIRS: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(prefix);
+  TEMP_DIRS.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
+});
+
 /**
  * One repo root per test. A shared root plus fixtures created inside tests made these
  * order-dependent: a test could read a workspace another test had written, so one
  * passed only in file order and another passed with no fixture at all.
  */
 function freshRepo(): string {
-  return mkdtempSync(join(tmpdir(), "workspace-test-"));
+  return tempDir(join(tmpdir(), "workspace-test-"));
 }
 
 function makeWorkspace(
@@ -269,10 +287,27 @@ test("collectWorkspaceRefs says which filter emptied the set", () => {
 });
 
 test("writeDynamicPluginsConfig produces the yaml the install CLI consumes", async () => {
-  const dest = mkdtempSync(join(tmpdir(), "dp-out-"));
+  const dest = tempDir(join(tmpdir(), "dp-out-"));
   const path = await writeDynamicPluginsConfig([OCI_REF], dest);
   const doc = parse(readFileSync(path, "utf8")) as {
     plugins: Array<{ package: string }>;
   };
   assert.deepEqual(doc.plugins, [{ package: OCI_REF }]);
+});
+
+test("readWorkspacePackages sorts metadata files whatever order readdir returns", () => {
+  // Same reason as listWorkspaces: the filesystem's own ordering hides this.
+  const root = makeWorkspace(freshRepo(), "ordered", {
+    "a.yaml": `spec:\n  packageName: "@scope/a"\n  dynamicArtifact: ${OCI_REF}\n`,
+    "m.yml": `spec:\n  packageName: "@scope/m"\n  dynamicArtifact: ${OCI_REF}\n`,
+    "z.yaml": `spec:\n  packageName: "@scope/z"\n  dynamicArtifact: ${OCI_REF}\n`,
+  });
+  assert.deepEqual(
+    readWorkspacePackages(root, "ordered", () => [
+      "z.yaml",
+      "a.yaml",
+      "m.yml",
+    ]).map((p) => p.file),
+    ["a.yaml", "m.yml", "z.yaml"],
+  );
 });

@@ -45,12 +45,18 @@ import {
   type SweepSummary,
   type SweepWorkspaceResult,
 } from "./report";
-import { buildPlan, resolvePlan, statusGlyph, summarize } from "./sweep-plan";
+import {
+  buildPlan,
+  deriveStatus,
+  resolvePlan,
+  statusGlyph,
+  summarize,
+} from "./sweep-plan";
 import { isSupportLevel, SUPPORT_LEVELS, type WorkspaceGroup } from "./support";
 import { errorMessage } from "./util";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// Both entry points are bundled into dist/, so the harness sits next to this file.
+// All three entry points are bundled into dist/, so the harness sits next to this file.
 const HARNESS = join(HERE, "native-smoke.mjs");
 const HARNESS_ROOT = dirname(HERE);
 const REPO_ROOT = dirname(HARNESS_ROOT);
@@ -101,7 +107,7 @@ function readExclusions(arg: string | undefined): {
     }
     return { exclusions: loadExclusions(exclusionsFile), exclusionsFile };
   } catch (err) {
-    fail(err instanceof Error ? err.message : String(err));
+    fail(errorMessage(err));
   }
 }
 
@@ -217,28 +223,22 @@ function runWorkspace(
         report = parsed;
       } else {
         console.error(
-          `⚠ ${group.workspace}: results file is not a report at schemaVersion ` +
+          `✗ ${group.workspace}: results file is not a report at schemaVersion ` +
             `${REPORT_SCHEMA_VERSION} — treating the run as an error.`,
         );
       }
     } catch (err) {
       console.error(
-        `⚠ ${group.workspace}: results file is unreadable (${errorMessage(err)})`,
+        `✗ ${group.workspace}: results file is unreadable (${errorMessage(err)})`,
       );
     }
   }
 
-  // A harness that died without writing a report (signal, OOM) leaves no status. One
-  // that wrote `pass` and THEN died — the rm above only defends against a previous
-  // run's file — would otherwise hand back a green verdict on a crashed process.
   const exitCode = result.status ?? 1;
-  const status =
-    report && (exitCode === 0 || report.status !== "pass")
-      ? report.status
-      : "error";
+  const status = deriveStatus(report, exitCode);
   if (report?.status === "pass" && exitCode !== 0) {
     console.error(
-      `⚠ ${group.workspace}: harness wrote a passing report but exited ${exitCode} — treating as an error.`,
+      `✗ ${group.workspace}: harness wrote a passing report but exited ${exitCode} — treating as an error.`,
     );
   }
 
@@ -249,10 +249,12 @@ function runWorkspace(
     exitCode,
     durationMs,
     report,
-    // The harness applies the same install-scope excluder to the same package set and
-    // records it, so taking both copies duplicated every record in the aggregate's
-    // exclusions table. Its report wins when there is one.
-    exclusions: report ? report.exclusions : excluded,
+    // The harness applies the same install-scope excluder to the same package set, so
+    // taking both copies duplicated every record. Its report is a superset on success
+    // (it also carries boot-scope records) — but writeErrorReport hardcodes an empty
+    // list, so on an error report the driver's own records are all that survive.
+    exclusions:
+      report && report.status !== "error" ? report.exclusions : excluded,
   };
 }
 
@@ -301,4 +303,11 @@ function main(): number {
   return summary.status === "pass" ? 0 : 1;
 }
 
-process.exit(main());
+try {
+  process.exit(main());
+} catch (err) {
+  // Anything that escapes fail() — a missing workspaces/ dir, an exclusions parse
+  // error, EACCES on the out dir — would otherwise print a raw stack trace in CI.
+  console.error(errorMessage(err));
+  process.exit(1);
+}

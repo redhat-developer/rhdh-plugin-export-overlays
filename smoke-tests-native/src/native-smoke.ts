@@ -46,6 +46,7 @@ import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
@@ -60,6 +61,11 @@ import {
   type LoadedPlugin,
   type PluginError,
 } from "./loader";
+import {
+  computeStatus,
+  describeInstallShortfall,
+  partitionBootable,
+} from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
 import { resolveContained } from "./paths";
 import { errorMessage } from "./util";
@@ -76,7 +82,6 @@ import {
   type BackendStartResult,
   type FrontendBundleInfo,
   type Report,
-  type Status,
   type WorkspaceInfo,
 } from "./report";
 import {
@@ -93,6 +98,11 @@ const HARNESS_NODE_MODULES = join(HARNESS_ROOT, "node_modules");
 const REPO_ROOT = dirname(HARNESS_ROOT);
 
 const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
+
+// Bounded so a genuinely broken artifact still fails the sweep promptly rather than
+// costing three pulls per workspace.
+const INSTALL_ATTEMPTS = 3;
+const INSTALL_RETRY_BASE_MS = 2000;
 
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
 // binary (process.execPath), so the executable is never looked up via PATH (Sonar
@@ -175,34 +185,6 @@ async function materializeWorkspaceConfig(
     },
     excluded,
   };
-}
-
-// Partition backend entries into skips and loadable plugins in one pass, so the two
-// lists stay complementary. Two sources of skip, both meaning "installed and its
-// artifact validated, but never loaded into startTestBackend":
-//   - KNOWN_FAILURES, the dirName list ported from RHDH PR #4967;
-//   - boot-scope entries in the exclusions file, matched on npm package name, each
-//     carrying a tracking ticket (see src/exclusions.ts).
-function partitionUnbootable(
-  entries: PluginEntry[],
-  exclusions: Exclusion[],
-): {
-  skipped: string[];
-  excluded: ExclusionRecord[];
-  backendPlugins: PluginEntry[];
-} {
-  const bootExcluded = excluderFor(exclusions, "boot");
-  const skipped: string[] = [];
-  const excluded: ExclusionRecord[] = [];
-  const backendPlugins: PluginEntry[] = [];
-  for (const entry of entries) {
-    const exclusion = bootExcluded(entry.name);
-    if (exclusion) excluded.push(exclusion);
-    if (exclusion || KNOWN_FAILURES.has(entry.dirName))
-      skipped.push(entry.dirName);
-    else backendPlugins.push(entry);
-  }
-  return { skipped, excluded, backendPlugins };
 }
 
 // Any failure — bad args, install CLI crash, boot error before the report is built —
@@ -293,7 +275,7 @@ function parseCliInputs(): CliInputs {
       return {
         out,
         exclusions: [],
-        usageError: err instanceof Error ? err.message : String(err),
+        usageError: errorMessage(err),
       };
     }
   }
@@ -354,18 +336,6 @@ function resolveSource(
   return { source: { kind: "file", path: file } };
 }
 
-function computeStatus(
-  loadErrors: PluginError[],
-  startOk: boolean,
-  loadedCount: number,
-  frontendErrors: PluginError[],
-): Status {
-  if (loadErrors.length > 0) return "fail-load";
-  if (!startOk && loadedCount > 0) return "fail-start";
-  if (frontendErrors.length > 0) return "fail-bundle";
-  return "pass";
-}
-
 // Copy the dynamic-plugins.yaml the CLI consumes, then extract (the part PR #2231
 // hand-rolled in 694 lines — now one CLI call).
 async function extractPlugins(
@@ -374,12 +344,29 @@ async function extractPlugins(
 ): Promise<void> {
   await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
   console.log("▶ extracting plugins via CLI…");
-  // The CLI reads dynamic-plugins.yaml from its CWD, so run it inside `root`
-  // (where we just wrote the config) and extract into the same dir.
-  execFileSync(process.execPath, [CLI_BIN, "install", root], {
-    stdio: "inherit",
-    cwd: root,
-  });
+  // Retry the pull: a scheduled sweep makes ~100 registry requests, and a transient
+  // ghcr throttle or reset otherwise lands as a red workspace that reads exactly like
+  // a broken plugin. Observed on a full local run — three workspaces failed and all
+  // three passed on retry. A job that cries wolf daily stops being read.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      // The CLI reads dynamic-plugins.yaml from its CWD, so run it inside `root`
+      // (where we just wrote the config) and extract into the same dir.
+      execFileSync(process.execPath, [CLI_BIN, "install", root], {
+        stdio: "inherit",
+        cwd: root,
+      });
+      return;
+    } catch (err) {
+      if (attempt >= INSTALL_ATTEMPTS) throw err;
+      const backoffMs = INSTALL_RETRY_BASE_MS * 2 ** (attempt - 1);
+      console.warn(
+        `⚠ install failed (attempt ${attempt}/${INSTALL_ATTEMPTS}): ${errorMessage(err)}\n` +
+          `  retrying in ${backoffMs / 1000}s`,
+      );
+      await setTimeout(backoffMs);
+    }
+  }
 }
 
 // Boot the loaded backend features in-process to confirm they integrate.
@@ -406,7 +393,7 @@ async function startBackend(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     };
   }
 }
@@ -482,12 +469,25 @@ async function main(): Promise<number> {
       `▶ manifest: ${manifest.backend.length} backend, ${manifest.frontend.length} frontend`,
     );
 
+    // The install CLI can exit 0 having laid out fewer plugins than asked for, and
+    // discoverPlugins drops any directory without a backstage.role. Left unchecked, a
+    // workspace whose artifacts half-materialized reports a clean pass over packages
+    // nothing looked at. Recorded rather than thrown: a throw lands in writeErrorReport,
+    // which zeroes every count and would discard the per-plugin errors, the frontend
+    // bundle systems and the exclusions this run did establish.
+    const installShortfall = describeInstallShortfall(
+      manifest.backend.length + manifest.frontend.length,
+      materialized.info?.refCount,
+    );
+    if (installShortfall) console.error(`✗ ${installShortfall}`);
+
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    const { skipped, excluded, backendPlugins } = partitionUnbootable(
+    const { skipped, excluded, bootable } = partitionBootable(
       manifest.backend,
-      inputs.exclusions,
+      excluderFor(inputs.exclusions, "boot"),
+      (dirName) => KNOWN_FAILURES.has(dirName),
     );
     if (skipped.length > 0) {
       console.warn(
@@ -499,28 +499,9 @@ async function main(): Promise<number> {
         `  ${record.packageName}: boot excluded by ${record.patternSource} (${record.ticket})`,
       );
     }
-    const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
+    const { loaded, errors: loadErrors } = loadBackendPlugins(bootable);
     const start = await startBackend(loaded, appConfig);
     const frontend = validateFrontends(manifest.frontend);
-
-    // The install CLI can exit 0 having laid out fewer plugins than we asked for, and
-    // discoverPlugins silently drops any directory without a backstage.role. Without
-    // this, a workspace whose artifacts half-materialized reports a clean pass over
-    // packages nothing ever looked at — the silent green this sweep exists to prevent.
-    const discovered = manifest.backend.length + manifest.frontend.length;
-    const expected = materialized.info?.refCount;
-    if (expected !== undefined && discovered !== expected) {
-      throw new Error(
-        `installed ${discovered} plugin(s) but the workspace declared ${expected} ` +
-          `oci:// ref(s) — the install produced fewer plugins than requested, so part ` +
-          `of the workspace was never validated.`,
-      );
-    }
-    if (discovered === 0) {
-      throw new Error(
-        "nothing validated: the install produced no plugins at all",
-      );
-    }
 
     const report: Report = {
       schemaVersion: REPORT_SCHEMA_VERSION,
@@ -541,12 +522,10 @@ async function main(): Promise<number> {
         bundles: frontend.bundles,
       },
       exclusions: [...materialized.excluded, ...excluded],
-      status: computeStatus(
-        loadErrors,
-        start.ok,
-        loaded.length,
-        frontend.errors,
-      ),
+      installShortfall: installShortfall ?? undefined,
+      status: installShortfall
+        ? "fail-install"
+        : computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));

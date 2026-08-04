@@ -104,8 +104,9 @@ function deepMerge(
 }
 
 // `extra` is a caller-supplied app-config layer (e.g. a workspace's
-// smoke-tests/app-config.test.yaml) merged last, so it wins over the built-in dummies —
-// same precedence the Docker smoke gives its extra `--config` mount.
+// smoke-tests/app-config.test.yaml) merged last. Scalars in it override the built-in
+// dummies; ARRAYS concatenate (see deepMerge), so a workspace supplying
+// `integrations.gitlab` appends to the dummy rather than replacing it.
 export function buildMergedConfig(
   plugins: LoadedPlugin[],
   extra?: JsonObject,

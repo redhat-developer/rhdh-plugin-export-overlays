@@ -138,10 +138,10 @@ test("matchExclusion sees through the -dynamic suffix in both directions", () =>
   );
 });
 
-test("parseExclusions rejects a TODO marker with a malformed ticket key", () => {
-  // Falling back to the previous block's ticket filed these entries under an unrelated
-  // ticket — and they would then be deleted when that ticket closed. The committed file
-  // separates its rationales with `#` lines, not blank lines, so this is the live shape.
+test("a malformed TODO marker is ignored, not inherited and not fatal", () => {
+  // This parses in the plan job before anything is pulled, so throwing meant a typo in
+  // a comment took down the whole scheduled sweep. Clearing the ticket instead makes
+  // the pattern below fail with the far clearer "no tracking ticket" error.
   for (const bad of ["# TODO(X-1): too short", "# TODO(RHIDP16018): no dash"]) {
     assert.throws(
       () =>
@@ -154,9 +154,29 @@ test("parseExclusions rejects a TODO marker with a malformed ticket key", () => 
           ].join("\n"),
           "test",
         ),
-      /looks like a TODO marker but has no well-formed ticket key/,
+      /no tracking ticket/,
+      `'${bad}' must not let the pattern below inherit the previous ticket`,
     );
   }
+  // With no pattern under it, a malformed marker is harmless documentation.
+  assert.deepEqual(
+    parseExclusions(
+      ["# TODO(TICKET): describes the format", ""].join("\n"),
+      "test",
+    ),
+    [],
+  );
+});
+
+test("one exclusion can cite more than one blocking ticket", () => {
+  const parsed = parseExclusions(
+    "# TODO(RHIDP-1, RHDHBUGS-2): blocked by both.\nboot ^@scope/a$\n",
+    "test",
+  );
+  assert.deepEqual(
+    parsed.map((e) => e.ticket),
+    ["RHIDP-1, RHDHBUGS-2"],
+  );
 });
 
 test("a plain comment between the ticket and its patterns keeps the ticket", () => {
@@ -212,8 +232,11 @@ test("every committed exclusion still matches a package in the repo", () => {
   const parsed = loadExclusions(EXCLUDES_FILE);
   assert.ok(parsed.length > 0, "expected at least one tracked exclusion");
   const names = collectPackages(REPO_ROOT).map((p) => p.packageName);
+  // Route through matchExclusion, not the raw pattern: candidateNames also matches the
+  // -dynamic form, so testing patterns directly would report a valid exclusion written
+  // in that form as stale debt.
   const stale = parsed
-    .filter((e) => !names.some((n) => e.pattern.test(n)))
+    .filter((e) => !names.some((n) => matchExclusion([e], e.scope, n)))
     .map((e) => `${e.patternSource} (${e.ticket}, line ${e.line})`);
   assert.deepEqual(stale, [], "exclusions matching no package in the repo");
 });

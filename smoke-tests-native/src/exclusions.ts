@@ -14,7 +14,7 @@
  * Format (one entry per line, `#` comments, blank line ends a block):
  *
  *   # TODO(RHIDP-1234): why this package cannot be validated, and what unblocks it.
- *   <scope> <extended-regex>
+ *   <scope> <javascript-regex>
  *
  * `scope` says how much validation the package loses, because the two failure modes
  * are genuinely different and conflating them would throw away real coverage:
@@ -34,6 +34,7 @@
 
 import { readFileSync } from "node:fs";
 import { requireContained } from "./paths";
+import { errorMessage } from "./util";
 
 export type ExclusionScope = "install" | "boot";
 
@@ -63,9 +64,12 @@ export type ExclusionRecord = {
 };
 
 // A ticket reference inside a comment, e.g. `# TODO(RHIDP-16017): reason`.
-const TICKET_COMMENT = /^#\s*TODO\(([A-Z][A-Z0-9]+-\d+)\)/;
-// Any TODO marker, well-formed key or not — used to reject the malformed ones rather
-// than let them fall through to the previous block's ticket.
+// One or more ticket keys, comma- or space-separated: a single exclusion can genuinely
+// be blocked by two Jiras.
+const TICKET_COMMENT =
+  /^#\s*TODO\(([A-Z][A-Z0-9]+-\d+(?:[,\s]+[A-Z][A-Z0-9]+-\d+)*)\)/;
+// Any TODO marker, well-formed keys or not — used to warn about the malformed ones
+// rather than let them fall through to the previous block's ticket.
 const TODO_COMMENT = /^#\s*TODO\(/;
 
 function isExclusionScope(value: string): value is ExclusionScope {
@@ -96,12 +100,19 @@ export function parseExclusions(text: string, filePath: string): Exclusion[] {
       // entries below it under an unrelated ticket — and they would then be deleted
       // when that ticket closes. Refuse it instead.
       if (!matched && TODO_COMMENT.test(trimmed)) {
-        throw new Error(
-          `${filePath}:${index + 1}: '${trimmed}' looks like a TODO marker but has no ` +
-            `well-formed ticket key (expected e.g. TODO(RHIDP-1234)).`,
+        // Warn, don't throw. This runs in the plan job before anything is pulled, so
+        // throwing meant a typo in a comment took down the whole scheduled sweep. The
+        // ticket is cleared instead, and any pattern below it then fails with the far
+        // clearer "has no tracking ticket" error — while a doc line with no pattern
+        // under it stays harmless.
+        console.warn(
+          `⚠ ${filePath}:${index + 1}: '${trimmed}' looks like a TODO marker but has ` +
+            `no well-formed ticket key (expected e.g. TODO(RHIDP-1234)) — ignored.`,
         );
+        ticket = undefined;
+      } else {
+        ticket = matched ?? ticket;
       }
-      ticket = matched ?? ticket;
     } else {
       exclusions.push(parseEntry(trimmed, ticket, filePath, index + 1));
     }
@@ -146,7 +157,7 @@ function parseEntry(
     };
   } catch (err) {
     throw new Error(
-      `${filePath}:${line}: invalid regex '${pattern}': ${err instanceof Error ? err.message : String(err)}`,
+      `${filePath}:${line}: invalid regex '${pattern}': ${errorMessage(err)}`,
       { cause: err },
     );
   }
@@ -178,8 +189,9 @@ function candidateNames(packageName: string): string[] {
   // matched at boot scope (installed name) but not at install scope (metadata name) —
   // the very "matches at one scope and not the other" failure this normalization is
   // here to prevent.
-  const names = new Set([packageName, base, `${base}-dynamic`]);
-  return [...names];
+  // `packageName` is already one of these two: it either ends in -dynamic (so it
+  // equals the second) or it does not (so it equals the first).
+  return [...new Set([base, `${base}-dynamic`])];
 }
 
 /** First exclusion of `scope` matching the package name, if any. */

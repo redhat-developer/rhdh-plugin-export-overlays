@@ -23,6 +23,7 @@ import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
   buildAggregate,
+  describeShardCoverage,
   findSummaries,
   renderMarkdown,
 } from "./aggregate-report";
@@ -53,30 +54,6 @@ function resolveInputDirs(dirs: string[]): string[] {
   });
 }
 
-/**
- * A shard whose artifact never uploaded (job cancelled, runner lost, upload failed)
- * would otherwise vanish from the totals and let the run report a clean pass over a
- * subset. The caller knows how many shards it launched; hold it to that.
- *
- * The plan drops empty shards but keeps each shard's original index, and LPT fills
- * from index 0 without gaps, so the launched indices are always `0..expected-1`.
- */
-function checkShardCount(seen: Set<number>, raw: string): void {
-  const expected = Number(raw);
-  if (!Number.isInteger(expected) || expected < 1) {
-    fail(`--expect-shards must be a positive integer, got '${raw}'`);
-  }
-  if (seen.size === expected) return;
-  const missing = Array.from({ length: expected }, (_, i) => i).filter(
-    (i) => !seen.has(i),
-  );
-  fail(
-    `expected ${expected} shard summaries, found ${seen.size}` +
-      (missing.length ? ` — missing shard(s): ${missing.join(", ")}` : "") +
-      `. Results would cover only part of the sweep.`,
-  );
-}
-
 function main(): number {
   const { values } = parseArgs({
     options: {
@@ -97,7 +74,14 @@ function main(): number {
   }
 
   const summaries = files.map((file) => {
-    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(file, "utf8"));
+    } catch (err) {
+      // A truncated or zero-byte artifact is exactly the "upload failed" case this job
+      // guards against; a bare SyntaxError names no file.
+      fail(`${file}: unreadable JSON (${errorMessage(err)})`);
+    }
     if (!isSweepSummary(parsed)) {
       fail(
         `${file}: not a sweep summary at schemaVersion ${SWEEP_SCHEMA_VERSION} — ` +
@@ -110,6 +94,7 @@ function main(): number {
   // Two files for one shard (overlapping --in roots, a merged download) would double
   // every total while --expect-shards, which counts distinct indices, still passed.
   const seen = new Set<number>();
+  const levels = new Set<string>();
   for (const summary of summaries) {
     if (seen.has(summary.shard.index)) {
       fail(
@@ -118,10 +103,20 @@ function main(): number {
       );
     }
     seen.add(summary.shard.index);
+    levels.add(summary.support);
+  }
+  // buildAggregate labels the report with the first summary's level, so mixing two
+  // would silently file one tier's results under another's heading.
+  if (levels.size > 1) {
+    fail(
+      `summaries span more than one support level (${[...levels].sort().join(", ")}) — ` +
+        `they belong to different sweeps and must not be aggregated together.`,
+    );
   }
 
   if (values["expect-shards"] !== undefined) {
-    checkShardCount(seen, values["expect-shards"]);
+    const problem = describeShardCoverage(seen, values["expect-shards"]);
+    if (problem) fail(problem);
   }
 
   const aggregate = buildAggregate(summaries);
@@ -141,14 +136,19 @@ function main(): number {
   const markdown = renderMarkdown(aggregate);
   if (summaryPath) writeFileSync(summaryPath, markdown);
 
+  console.log(markdown);
   // Report the caller's own argument rather than the absolute resolved path: the
   // resolved form adds nothing and puts the runner's directory layout into CI logs
   // (Sonar S8689).
-  console.log(markdown);
   console.log(
     `▶ aggregate → ${values.out ?? "aggregate.json"} (${files.length} shard summary file(s))`,
   );
   return aggregate.workspaces.failed > 0 ? 1 : 0;
 }
 
-process.exit(main());
+try {
+  process.exit(main());
+} catch (err) {
+  console.error(errorMessage(err));
+  process.exit(1);
+}

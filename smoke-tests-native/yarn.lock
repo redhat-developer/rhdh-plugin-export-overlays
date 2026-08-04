@@ -918,7 +918,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/backend-openapi-utils@npm:^0.6.7":
+"@backstage/backend-openapi-utils@npm:^0.6.10, @backstage/backend-openapi-utils@npm:^0.6.7":
   version: 0.6.10
   resolution: "@backstage/backend-openapi-utils@npm:0.6.10"
   dependencies:
@@ -939,30 +939,6 @@ __metadata:
     openapi-merge: "npm:^1.3.2"
     openapi3-ts: "npm:^3.1.2"
   checksum: 10c0/d3e503f2fdaee2ead3e2ab5bb7563688f34df49c7cfab26eb65bc50f5c7662e2c3d89008d09d6dedb7e9c147196915860945ff474783bb396480d08b75f38c8a
-  languageName: node
-  linkType: hard
-
-"@backstage/backend-openapi-utils@npm:^0.7.0":
-  version: 0.7.0
-  resolution: "@backstage/backend-openapi-utils@npm:0.7.0"
-  dependencies:
-    "@apidevtools/swagger-parser": "npm:^10.1.0"
-    "@backstage/backend-plugin-api": "npm:^1.9.3"
-    "@backstage/errors": "npm:^1.3.1"
-    "@backstage/types": "npm:^1.2.2"
-    "@types/express": "npm:^4.17.6"
-    "@types/express-serve-static-core": "npm:^4.17.5"
-    ajv: "npm:^8.16.0"
-    express: "npm:^4.22.0"
-    express-openapi-validator: "npm:^5.5.8"
-    express-promise-router: "npm:^4.1.0"
-    get-port: "npm:^5.1.1"
-    json-schema-to-ts: "npm:^3.0.0"
-    lodash: "npm:^4.17.21"
-    mockttp: "npm:^3.13.0"
-    openapi-merge: "npm:^1.3.2"
-    openapi3-ts: "npm:^3.1.2"
-  checksum: 10c0/e64cbaee1bab945407e8db3776e0cef240e88135fdc2433e6fbc3d959d59e85a6f8d631ca758c2d4dbaff1deba0ae185ca0175b7efca187b545b54c25ac283d2
   languageName: node
   linkType: hard
 
@@ -1525,7 +1501,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-search-backend-node@npm:^1.4.6":
+"@backstage/plugin-search-backend-node@npm:^1.4.5":
   version: 1.4.6
   resolution: "@backstage/plugin-search-backend-node@npm:1.4.6"
   dependencies:
@@ -1542,17 +1518,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@backstage/plugin-search-backend@npm:2.1.4":
-  version: 2.1.4
-  resolution: "@backstage/plugin-search-backend@npm:2.1.4"
+"@backstage/plugin-search-backend@npm:2.1.3":
+  version: 2.1.3
+  resolution: "@backstage/plugin-search-backend@npm:2.1.3"
   dependencies:
-    "@backstage/backend-openapi-utils": "npm:^0.7.0"
-    "@backstage/backend-plugin-api": "npm:^1.9.3"
+    "@backstage/backend-openapi-utils": "npm:^0.6.10"
+    "@backstage/backend-plugin-api": "npm:^1.9.2"
     "@backstage/config": "npm:^1.3.8"
     "@backstage/errors": "npm:^1.3.1"
     "@backstage/plugin-permission-common": "npm:^0.9.9"
-    "@backstage/plugin-permission-node": "npm:^0.11.2"
-    "@backstage/plugin-search-backend-node": "npm:^1.4.6"
+    "@backstage/plugin-permission-node": "npm:^0.11.1"
+    "@backstage/plugin-search-backend-node": "npm:^1.4.5"
     "@backstage/plugin-search-common": "npm:^1.2.24"
     "@backstage/types": "npm:^1.2.2"
     dataloader: "npm:^2.0.0"
@@ -1560,7 +1536,7 @@ __metadata:
     lodash: "npm:^4.17.21"
     qs: "npm:^6.15.2"
     zod: "npm:^3.25.76 || ^4.0.0"
-  checksum: 10c0/c5334503c8eb715b46a7bbbccc268f5adeca45704835a431ab803b1f0aab55e0121cdbaa7c344c491f65a4de93e9632f7f0bfdaea1746f7a5f8f9a5689a0a9d3
+  checksum: 10c0/78535cd2715420c23758a3cc19724cdd45d19acdc1d44bf59255fc33c4b64f6226972c77b2c76a8b2b7f46f634d21a53d0dd9c00350e035e2ba729c49112ec2d
   languageName: node
   linkType: hard
 
@@ -7594,7 +7570,7 @@ __metadata:
     "@backstage/backend-plugin-api": "npm:1.9.2"
     "@backstage/backend-test-utils": "npm:1.11.4"
     "@backstage/plugin-scaffolder-backend": "npm:3.3.0"
-    "@backstage/plugin-search-backend": "npm:2.1.4"
+    "@backstage/plugin-search-backend": "npm:2.1.3"
     "@eslint/js": "npm:10.0.1"
     "@red-hat-developer-hub/cli-module-install-dynamic-plugins": "npm:0.3.0"
     "@types/node": "npm:24.13.2"

@@ -2,7 +2,7 @@
 #
 # Format, one entry per line:
 #
-#   <scope> <extended-regex>
+#   <scope> <javascript-regex>
 #
 # The regex is matched against the npm PACKAGE NAME — `spec.packageName` in
 # workspaces/*/metadata/*.yaml, and `name` in the installed package.json. Anchor with

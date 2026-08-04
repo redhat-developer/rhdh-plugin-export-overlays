@@ -24,6 +24,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
+import { compareStrings } from "./util";
 
 type PackageMetadata = {
   metadata?: { name?: unknown };
@@ -81,6 +82,9 @@ export function isValidWorkspaceName(name: string): boolean {
 export function readWorkspacePackages(
   repoRoot: string,
   workspace: string,
+  // Seam: readdir order is filesystem-dependent (sorted on APFS, hash order on ext4),
+  // so a fixture built on disk cannot prove the sort below happens.
+  listFiles: (dir: string) => string[] = readdirSync,
 ): PackageEntry[] {
   // Callers validate too; kept as defense-in-depth since this function is exported.
   if (!isValidWorkspaceName(workspace)) {
@@ -93,11 +97,12 @@ export function readWorkspacePackages(
     );
   }
 
-  const files = readdirSync(metadataDir)
+  const files = listFiles(metadataDir)
     .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"))
     // readdir order is filesystem-dependent; sort so every consumer (ref lists,
     // shard plans, reports) is byte-identical run to run and runner to runner.
-    .sort();
+    // compareStrings, not the default comparator, for the reason given in src/util.ts.
+    .sort(compareStrings);
 
   return files.map((file) => {
     // Metadata files are repo-controlled; a malformed one deliberately throws and

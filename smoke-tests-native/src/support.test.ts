@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -20,7 +20,19 @@ import {
 } from "./support";
 import type { PackageEntry } from "./workspace";
 
-const repoRoot = mkdtempSync(join(tmpdir(), "support-test-"));
+// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
+// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
+const TEMP_DIRS: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(prefix);
+  TEMP_DIRS.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
+});
+
+const repoRoot = tempDir(join(tmpdir(), "support-test-"));
 
 function metadata(name: string, support: string, role: string): string {
   return [
@@ -207,4 +219,13 @@ test("planShards is deterministic and returns exactly shardCount shards", () => 
 test("planShards rejects a nonsensical shard count", () => {
   assert.throws(() => planShards([], 0), /positive integer/);
   assert.throws(() => planShards([], 1.5), /positive integer/);
+});
+
+test("listWorkspaces sorts whatever order the filesystem returns", () => {
+  // readdir returns sorted entries on APFS and hash order on ext4, so a fixture built
+  // on disk cannot prove this sort happens — it would pass locally and flake in CI.
+  assert.deepEqual(
+    listWorkspaces(repoRoot, () => ["zebra", "alpha", "mixed", "ga-only"]),
+    ["alpha", "ga-only", "mixed", "zebra"],
+  );
 });

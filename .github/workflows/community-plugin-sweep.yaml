@@ -224,7 +224,7 @@ jobs:
           # aggregate job's --expect-shards, and failing here too would just add a
           # second red step on top of the real one.
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 7
 
   aggregate:
     needs: [plan, sweep]
@@ -295,4 +295,4 @@ jobs:
             smoke-tests-native/aggregate.json
             smoke-tests-native/summary.md
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 7

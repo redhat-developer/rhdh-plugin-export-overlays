@@ -103,8 +103,14 @@ once per workspace:
 yarn sweep --support community --shards 6 --plan      # print the shard plan, run nothing
 yarn sweep --support community --shards 6 --shard 0   # run one shard
 yarn sweep --support community                        # run everything in one shard
-yarn aggregate --in results --summary summary.md      # merge shard summaries
+yarn aggregate --in results --summary summary.md \
+  --expect-shards 6                                   # merge; fail if a shard is missing
 ```
+
+The selection reads `spec.support` from the workspace metadata rather than the
+repo-root `rhdh-community-packages.txt` that AGENTS.md describes: the metadata is what
+the build actually publishes from, and the two disagree today (41 workspaces carry a
+community package; the txt file names 20).
 
 **`spec.support` is the classifier, not the npm scope.** `@backstage-community/plugin-topology`
 and `-tech-radar` are generally-available; `quay`, `tekton` and `3scale` are community.
@@ -122,16 +128,16 @@ the planning job and each sharded job compute the same plan without passing list
 #### What this sweep can and cannot assert
 
 The operative requirement for this tier is **"the published artifact installs and boots"**
-(`docs/testing-requirements-matrix.md`, reworded in rhdh#5212 — the old phrasing, "loads
+(rhdh's `docs/testing-requirements-matrix.md`, reworded in rhdh#5212 — the old phrasing, "loads
 without error in a default RHDH instance", was orphaned when community plugins left the
 image).
 
-| Scope                             | Coverage                                                     |
-| --------------------------------- | ------------------------------------------------------------ |
-| All community packages            | OCI install + dynamic-plugin layout validation               |
-| Community backend packages        | real boot via `startTestBackend`                             |
-| Catalog-extending backend modules | install only — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
-| Community frontend packages       | bundle-layout validation only                                |
+| Scope                             | Coverage                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| All community packages            | OCI install + dynamic-plugin layout validation                                   |
+| Community backend packages        | real boot via `startTestBackend`                                                 |
+| Catalog-extending backend modules | install + bundle layout, no boot — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
+| Community frontend packages       | bundle-layout validation only                                                    |
 
 **This is breadth, not depth.** Frontend plugins get no UI render — that is RHIDP-16009,
 blocked on RHIDP-15082. The layout check stays because it costs nothing extra (the install
@@ -214,8 +220,8 @@ a non-passing plugin.
 demand, with a `support` / `shards` choice). Three jobs: `plan` resolves the shard matrix
 from metadata and pulls nothing, `sweep` runs the shards with `fail-fast: false` so one bad
 plugin cannot hide the verdict on the rest, and `aggregate` merges the shard summaries into
-one step summary — it runs `if: always()`, since the aggregate report is most useful
-exactly when shards failed.
+one step summary — it runs unless the run was cancelled (`!cancelled()`), since the aggregate report is
+most useful exactly when shards failed — but a cancelled sweep is not a failed one.
 
 Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail-start` /
 `fail-bundle`.

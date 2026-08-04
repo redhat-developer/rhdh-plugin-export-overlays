@@ -54,8 +54,10 @@ export type Aggregate = {
     backendLoaded: number;
     /** Loaded AND part of a backend that actually started. */
     backendBooted: number;
-    /** Installed and layout-validated, but not booted — see `exclusions`. */
-    backendNotBooted: number;
+    /** Installed and layout-validated, but deliberately not booted — see `exclusions`. */
+    backendExcludedFromBoot: number;
+    /** Loaded into a backend that then failed to start. */
+    backendBootFailed: number;
     frontendTotal: number;
     frontendValidBundle: number;
   };
@@ -71,20 +73,76 @@ export type Aggregate = {
 const DETAIL_LIMIT = 220;
 
 /** Every `sweep-shard-*.json` under `dir`, recursively, in sorted order. */
-export function findSummaries(dir: string): string[] {
+export type DirEntry = { name: string; isDirectory: boolean };
+
+export function findSummaries(
+  dir: string,
+  // Seam: see readWorkspacePackages — readdir order is filesystem-dependent.
+  listEntries: (path: string) => DirEntry[] = (path) =>
+    readdirSync(path, { withFileTypes: true }).map((e) => ({
+      name: e.name,
+      isDirectory: e.isDirectory(),
+    })),
+): string[] {
   const found: string[] = [];
   const walk = (current: string): void => {
-    const entries = readdirSync(current, { withFileTypes: true });
-    for (const entry of [...entries].sort((a, b) =>
+    for (const entry of [...listEntries(current)].sort((a, b) =>
       compareStrings(a.name, b.name),
     )) {
       const path = join(current, entry.name);
-      if (entry.isDirectory()) walk(path);
+      if (entry.isDirectory) walk(path);
       else if (/^sweep-shard-.*\.json$/.test(entry.name)) found.push(path);
     }
   };
   walk(dir);
   return found;
+}
+
+function compareNumbers(a: number, b: number): number {
+  return a - b;
+}
+
+/**
+ * Check that the shard summaries actually cover the sweep that was launched.
+ *
+ * A shard whose artifact never uploaded (job cancelled, runner lost, upload failed)
+ * would otherwise vanish from the totals and let the run report a clean pass over a
+ * subset. The caller knows how many shards it launched; hold it to that.
+ *
+ * Compares the index SET, not its size: {0, 2} against an expected 2 has the same
+ * size as {0, 1} while missing shard 1 and carrying a shard 2 from a different run.
+ *
+ * The plan drops empty shards but keeps each shard's original index, and LPT fills
+ * from index 0 without gaps, so the launched indices are always `0..expected-1`.
+ *
+ * Returns null when the coverage is complete, or a message describing what is wrong.
+ */
+export function describeShardCoverage(
+  seen: Set<number>,
+  rawExpected: string,
+): string | null {
+  const expected = Number(rawExpected);
+  if (!Number.isInteger(expected) || expected < 1) {
+    return `--expect-shards must be a positive integer, got '${rawExpected}'`;
+  }
+  const missing = Array.from({ length: expected }, (_, i) => i).filter(
+    (i) => !seen.has(i),
+  );
+  const spurious = [...seen].filter((i) => i >= expected).sort(compareNumbers);
+  if (missing.length === 0 && spurious.length === 0) return null;
+
+  const problems = [
+    missing.length
+      ? `missing shard(s): ${missing.join(", ")} — results would cover only part of the sweep`
+      : undefined,
+    spurious.length
+      ? `unexpected shard(s): ${spurious.join(", ")} — summaries from a different run are mixed in`
+      : undefined,
+  ].filter(Boolean);
+  return (
+    `expected shards 0..${expected - 1}, found ` +
+    `${[...seen].sort(compareNumbers).join(", ")}. ${problems.join("; ")}.`
+  );
 }
 
 export function packagingOf(systems: FrontendSystem[]): Packaging {
@@ -133,7 +191,12 @@ function accumulatePackageCounts(report: Report, aggregate: Aggregate): void {
   aggregate.packages.backendBooted += report.backendStart.ok
     ? report.backend.loaded
     : 0;
-  aggregate.packages.backendNotBooted += report.backend.skipped.length;
+  aggregate.packages.backendExcludedFromBoot += report.backend.skipped.length;
+  // Counted separately from the deliberate exclusions: a reader reconciling the panel
+  // against backendTotal found these packages in no row at all.
+  aggregate.packages.backendBootFailed += report.backendStart.ok
+    ? 0
+    : report.backend.loaded;
   aggregate.packages.frontendTotal += report.frontend.total;
   aggregate.packages.frontendValidBundle += report.frontend.valid;
 }
@@ -148,7 +211,8 @@ function emptyAggregate(support: string): Aggregate {
       backendTotal: 0,
       backendLoaded: 0,
       backendBooted: 0,
-      backendNotBooted: 0,
+      backendExcludedFromBoot: 0,
+      backendBootFailed: 0,
       frontendTotal: 0,
       frontendValidBundle: 0,
     },
@@ -174,6 +238,16 @@ export function buildAggregate(summaries: SweepSummary[]): Aggregate {
   aggregate.shards = new Set(summaries.map((s) => s.shard.index)).size;
 
   for (const summary of summaries) {
+    // A shard that ran no workspaces is a failure summarize() already recorded; without
+    // this the aggregate reports "0/0 workspaces passed" and exits 0 over it.
+    if (summary.status === "fail" && summary.workspaces.length === 0) {
+      aggregate.workspaces.failed += 1;
+      aggregate.failures.push({
+        workspace: `(shard ${summary.shard.index})`,
+        status: "fail",
+        detail: "the shard ran no workspaces — the plan and the run disagreed",
+      });
+    }
     for (const result of summary.workspaces) {
       aggregate.workspaces.total += 1;
       if (result.status === "pass") aggregate.workspaces.passed += 1;
@@ -209,6 +283,9 @@ export function buildAggregate(summaries: SweepSummary[]): Aggregate {
     compareStrings(a.packageName, b.packageName),
   );
   aggregate.failures.sort((a, b) => compareStrings(a.workspace, b.workspace));
+  aggregate.exclusions.sort((a, b) =>
+    compareStrings(a.packageName, b.packageName),
+  );
   return aggregate;
 }
 
@@ -220,7 +297,7 @@ function cell(text: string): string {
 export function renderMarkdown(aggregate: Aggregate): string {
   const { workspaces, packages, frontendSystems } = aggregate;
   const lines: string[] = [
-    `## Community plugin sweep — \`${aggregate.support}\``,
+    `## Plugin sweep — \`${aggregate.support}\``,
     "",
     `${workspaces.passed}/${workspaces.total} workspaces passed` +
       (workspaces.skipped ? `, ${workspaces.skipped} fully excluded` : "") +
@@ -231,7 +308,8 @@ export function renderMarkdown(aggregate: Aggregate): string {
     `| Artifacts installed | ${packages.installed} |`,
     `| Backend loaded | ${packages.backendLoaded}/${packages.backendTotal} |`,
     `| Backend booted | ${packages.backendBooted}/${packages.backendTotal} |`,
-    `| Backend installed but not booted | ${packages.backendNotBooted} |`,
+    `| Backend excluded from boot | ${packages.backendExcludedFromBoot} |`,
+    `| Backend loaded but boot failed | ${packages.backendBootFailed} |`,
     `| Frontend bundle layout valid | ${packages.frontendValidBundle}/${packages.frontendTotal} |`,
     "",
     "### Frontend system packaging",
@@ -243,7 +321,7 @@ export function renderMarkdown(aggregate: Aggregate): string {
     `| Legacy (Scalprum) only | ${frontendSystems.counts["legacy-only"]} |`,
     `| New frontend system only | ${frontendSystems.counts["new-frontend-system-only"]} |`,
     `| Dual | ${frontendSystems.counts.dual} |`,
-    `| Neither (bundle invalid) | ${frontendSystems.counts.none} |`,
+    `| No recognized layout | ${frontendSystems.counts.none} |`,
     "",
   ];
 
@@ -269,9 +347,7 @@ export function renderMarkdown(aggregate: Aggregate): string {
       "| Package | Scope | Ticket |",
       "| --- | --- | --- |",
     );
-    for (const exclusion of [...aggregate.exclusions].sort((a, b) =>
-      compareStrings(a.packageName, b.packageName),
-    )) {
+    for (const exclusion of aggregate.exclusions) {
       lines.push(
         `| \`${cell(exclusion.packageName)}\` | ${exclusion.scope} | ${exclusion.ticket} |`,
       );

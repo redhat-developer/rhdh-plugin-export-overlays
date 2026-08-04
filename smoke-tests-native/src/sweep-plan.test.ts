@@ -4,21 +4,39 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SWEEP_SCHEMA_VERSION, type SweepWorkspaceResult } from "./report";
+import {
+  SWEEP_SCHEMA_VERSION,
+  type Report,
+  type SweepWorkspaceResult,
+} from "./report";
 import {
   buildPlan,
   countByRole,
+  deriveStatus,
   isAcceptable,
   statusGlyph,
   summarize,
 } from "./sweep-plan";
+import { planShards, type WorkspaceGroup } from "./support";
 
-const repoRoot = mkdtempSync(join(tmpdir(), "sweep-plan-test-"));
+// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
+// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
+const TEMP_DIRS: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(prefix);
+  TEMP_DIRS.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
+});
+
+const repoRoot = tempDir(join(tmpdir(), "sweep-plan-test-"));
 
 function metadata(name: string, support: string, role: string): string {
   return [
@@ -166,3 +184,52 @@ test("the non-empty shard indices are a contiguous prefix", () => {
     );
   }
 });
+
+test("a passing report from a process that exited nonzero is an error", () => {
+  // The stale-file removal only defends against a PREVIOUS run's file; a harness that
+  // wrote `pass` and then died must not hand back a green verdict.
+  const passing = { status: "pass" } as Report;
+  assert.equal(deriveStatus(passing, 0), "pass");
+  assert.equal(deriveStatus(passing, 137), "error");
+  assert.equal(deriveStatus(passing, 1), "error");
+  // A report that already says it failed is more specific than "exited nonzero".
+  assert.equal(deriveStatus({ status: "fail-load" } as Report, 1), "fail-load");
+  assert.equal(
+    deriveStatus({ status: "fail-start" } as Report, 0),
+    "fail-start",
+  );
+  assert.equal(deriveStatus(null, 0), "error");
+  assert.equal(deriveStatus(null, 137), "error");
+});
+
+test("planShards breaks equal package counts by name, not by input order", () => {
+  // The plan job and each sweep job compute this independently; the tie-break is what
+  // makes shard N mean the same thing in both.
+  const expected = [["alpha"], ["zebra"]];
+  assert.deepEqual(
+    planShards([group("zebra", 3), group("alpha", 3)], 2).map((s) =>
+      s.map((g) => g.workspace),
+    ),
+    expected,
+  );
+  assert.deepEqual(
+    planShards([group("alpha", 3), group("zebra", 3)], 2).map((s) =>
+      s.map((g) => g.workspace),
+    ),
+    expected,
+  );
+});
+
+function group(workspace: string, count: number): WorkspaceGroup {
+  return {
+    workspace,
+    packages: Array.from({ length: count }, (_, i) => ({
+      workspace,
+      file: `${i}.yaml`,
+      packageName: `@scope/${workspace}-${i}`,
+      support: "community",
+      role: "backend-plugin",
+      artifact: `oci://ghcr.io/example/${workspace}-${i}:tag`,
+    })),
+  };
+}

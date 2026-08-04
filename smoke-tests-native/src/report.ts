@@ -19,13 +19,22 @@ import type { FrontendSystem, PluginError } from "./loader";
  * aggregator, and the parity runs comparing native vs Docker verdicts) parses this
  * file.
  *
- * 2: added `exclusions` and the support/exclusion fields on `workspace`; additive
- *    only, so a v1 consumer still reads a v2 report correctly.
+ * isReport/isSweepSummary below require an EXACT match, so every bump is breaking for
+ * every consumer even when the shape only grew — update them in the same change.
+ *
+ * 2: added `exclusions` and the support/exclusion fields on `workspace`.
+ * 3: added `installShortfall` and the `fail-install` status.
  */
-export const REPORT_SCHEMA_VERSION = 2;
+export const REPORT_SCHEMA_VERSION = 3;
 
 export type Status =
-  "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
+  | "pass"
+  | "fail-load"
+  | "fail-start"
+  | "fail-bundle"
+  /** The install produced fewer plugins than the workspace declared. */
+  | "fail-install"
+  | "error";
 
 export type BackendStartResult = {
   ok: boolean;
@@ -78,6 +87,8 @@ export type Report = {
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
+  /** Set when the install laid out fewer plugins than the workspace declared. */
+  installShortfall?: string;
   status: Status;
 };
 
@@ -105,7 +116,10 @@ export type SweepSummary = {
   support: string;
   shard: { index: number; total: number };
   workspaces: SweepWorkspaceResult[];
-  /** `fail` when any workspace did not pass. */
+  /**
+   * `fail` when any workspace did not pass — and also when the shard ran no
+   * workspaces at all, which means the plan and the run disagreed.
+   */
   status: "pass" | "fail";
 };
 

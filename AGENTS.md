@@ -42,6 +42,12 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
+Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+`spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
+what the build publishes from. The two currently disagree (41 workspaces carry a
+community package; the txt file names 20), so do not treat either as authoritative for
+the other's purpose.
+
 ### Plugin Scopes
 
 Auto-discovery covers three npm scopes (defined in `plugins-regexps`):

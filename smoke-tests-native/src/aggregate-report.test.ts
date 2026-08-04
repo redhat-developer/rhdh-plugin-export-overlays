@@ -4,13 +4,14 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   buildAggregate,
+  describeShardCoverage,
   failureDetail,
   findSummaries,
   oneLine,
@@ -19,6 +20,18 @@ import {
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
 import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+
+// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
+// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
+const TEMP_DIRS: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(prefix);
+  TEMP_DIRS.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
+});
 
 function report(overrides: Partial<Report> = {}): Report {
   return {
@@ -147,7 +160,8 @@ test("buildAggregate totals each counter from its own field", () => {
     backendTotal: 7,
     backendLoaded: 3,
     backendBooted: 3,
-    backendNotBooted: 2,
+    backendExcludedFromBoot: 2,
+    backendBootFailed: 0,
     frontendTotal: 5,
     frontendValidBundle: 2,
   });
@@ -171,6 +185,9 @@ test("buildAggregate counts loaded-but-not-booted plugins as not booted", () => 
   ]);
   assert.equal(aggregate.packages.backendLoaded, 3);
   assert.equal(aggregate.packages.backendBooted, 0);
+  // The three must land in a row of their own, not vanish between two rows.
+  assert.equal(aggregate.packages.backendBootFailed, 3);
+  assert.equal(aggregate.packages.backendExcludedFromBoot, 0);
 });
 
 test("buildAggregate partitions workspaces into passed, failed and skipped", () => {
@@ -276,7 +293,7 @@ test("renderMarkdown escapes pipes so a failure cannot break the table", () => {
 });
 
 test("findSummaries recurses into per-shard subdirectories in sorted order", () => {
-  const root = mkdtempSync(join(tmpdir(), "agg-find-"));
+  const root = tempDir(join(tmpdir(), "agg-find-"));
   for (const shard of ["shard-1", "shard-0"]) {
     mkdirSync(join(root, shard), { recursive: true });
     writeFileSync(
@@ -288,5 +305,213 @@ test("findSummaries recurses into per-shard subdirectories in sorted order", () 
   assert.deepEqual(
     findSummaries(root).map((p) => p.slice(root.length + 1)),
     ["shard-0/sweep-shard-0.json", "shard-1/sweep-shard-1.json"],
+  );
+});
+
+test("describeShardCoverage accepts complete coverage", () => {
+  assert.equal(describeShardCoverage(new Set([0, 1, 2]), "3"), null);
+});
+
+test("describeShardCoverage reports a missing shard", () => {
+  const problem = describeShardCoverage(new Set([0, 2]), "3");
+  assert.match(problem ?? "", /missing shard\(s\): 1/);
+  assert.match(problem ?? "", /only part of the sweep/);
+});
+
+test("describeShardCoverage catches a contaminated set of the right size", () => {
+  // {0, 2} has the same SIZE as an expected 2, so a size comparison passed it while
+  // shard 1 was missing AND a shard 2 from another run was mixed in.
+  const problem = describeShardCoverage(new Set([0, 2]), "2");
+  assert.match(problem ?? "", /missing shard\(s\): 1/);
+  assert.match(problem ?? "", /unexpected shard\(s\): 2/);
+});
+
+test("describeShardCoverage rejects a nonsensical --expect-shards", () => {
+  for (const bad of ["0", "-1", "abc", "1.5", ""]) {
+    assert.match(
+      describeShardCoverage(new Set([0]), bad) ?? "",
+      /must be a positive integer/,
+      `--expect-shards '${bad}' must be rejected`,
+    );
+  }
+});
+
+test("renderMarkdown puts each computed number in its own row", () => {
+  // Every number here is DISTINCT from every other, so swapping any two rows fails.
+  // An earlier version of this test used 3/3 and 1/1 and could not detect a swap.
+  const markdown = renderMarkdown(
+    buildAggregate([
+      summary([
+        result({
+          workspace: "a",
+          report: report({
+            backend: { total: 7, loaded: 5, skipped: ["x", "y"], errors: [] },
+            frontend: {
+              total: 4,
+              valid: 3,
+              errors: [],
+              bundles: [
+                { name: "@s/l1", version: "1", systems: ["legacy"] },
+                { name: "@s/l2", version: "1", systems: ["legacy"] },
+                {
+                  name: "@s/n",
+                  version: "1",
+                  systems: ["new-frontend-system"],
+                },
+                {
+                  name: "@s/d",
+                  version: "1",
+                  systems: ["legacy", "new-frontend-system"],
+                },
+              ],
+            },
+          }),
+          exclusions: [
+            {
+              packageName: "@s/x",
+              scope: "install",
+              ticket: "RHIDP-1",
+              patternSource: "^@s/x$",
+            },
+          ],
+        }),
+        // Boot failed here, so its 4 loaded plugins are loaded-but-not-booted.
+        result({
+          workspace: "b",
+          status: "fail-start",
+          report: report({
+            backend: { total: 6, loaded: 4, skipped: [], errors: [] },
+            backendStart: { ok: false, error: "boom" },
+            status: "fail-start",
+          }),
+        }),
+        result({ workspace: "c", status: "skipped", report: null }),
+      ]),
+    ]),
+  );
+  assert.match(markdown, /^## Plugin sweep — `community`$/m);
+  assert.match(
+    markdown,
+    /^1\/3 workspaces passed, 1 fully excluded across 1 shard\(s\)\.$/m,
+  );
+  assert.match(markdown, /^\| Artifacts installed \| 17 \|$/m);
+  assert.match(markdown, /^\| Backend loaded \| 9\/13 \|$/m);
+  assert.match(markdown, /^\| Backend booted \| 5\/13 \|$/m);
+  assert.match(markdown, /^\| Backend excluded from boot \| 2 \|$/m);
+  assert.match(markdown, /^\| Backend loaded but boot failed \| 4 \|$/m);
+  assert.match(markdown, /^\| Frontend bundle layout valid \| 3\/4 \|$/m);
+  assert.match(markdown, /^\| Legacy \(Scalprum\) only \| 2 \|$/m);
+  assert.match(markdown, /^\| New frontend system only \| 1 \|$/m);
+  assert.match(markdown, /^\| Dual \| 1 \|$/m);
+  assert.match(markdown, /^\| No recognized layout \| 0 \|$/m);
+  assert.match(markdown, /^\| `@s\/x` \| install \| RHIDP-1 \|$/m);
+});
+
+test("every markdown table row has the header's cell count", () => {
+  // The previous assertion only checked that a row ends in "|", which a template
+  // literal does unconditionally — a cell() that appends a stray pipe survived it.
+  const markdown = renderMarkdown(
+    buildAggregate([
+      summary([
+        result({
+          workspace: "ws",
+          status: "fail-start",
+          report: report({
+            backendStart: { ok: false, error: "a | b" },
+            status: "fail-start",
+          }),
+        }),
+      ]),
+    ]),
+  );
+  assert.match(markdown, /backend start: a \\\| b/);
+  const rows = markdown.split("\n").filter((l) => l.startsWith("|"));
+  const failuresHeader = rows.find((r) => r.startsWith("| Workspace |"));
+  assert.ok(failuresHeader, "failures table missing");
+  // Split on UNESCAPED pipes only: an escaped `\|` is cell content, and counting it
+  // as a separator would defeat the point of checking that escaping happened.
+  const cells = (row: string): number => row.split(/(?<!\\)\|/).length;
+  const width = cells(failuresHeader);
+  for (const row of rows.slice(rows.indexOf(failuresHeader))) {
+    assert.equal(cells(row), width, `cell count differs from header: ${row}`);
+  }
+});
+
+test("buildAggregate collects every workspace's exclusions", () => {
+  const rec = (n: string) => ({
+    packageName: n,
+    scope: "install" as const,
+    ticket: "RHIDP-1",
+    patternSource: `^${n}$`,
+  });
+  const aggregate = buildAggregate([
+    summary([
+      result({ workspace: "a", exclusions: [rec("@s/y")] }),
+      result({ workspace: "b", exclusions: [rec("@s/x")] }),
+      { workspace: "hollow", status: "pass" } as SweepWorkspaceResult,
+    ]),
+  ]);
+  assert.deepEqual(
+    aggregate.exclusions.map((e) => e.packageName),
+    ["@s/x", "@s/y"],
+  );
+  assert.equal(aggregate.workspaces.total, 3);
+});
+
+test("failureDetail falls through to the bundle error, then to the bare status", () => {
+  const fe = {
+    plugin: {
+      name: "@s/fe",
+      version: "1",
+      dirName: "d",
+      path: "/p",
+      role: "frontend" as const,
+    },
+    error: "missing plugin-manifest.json",
+  };
+  assert.equal(
+    failureDetail(
+      result({
+        report: report({
+          frontend: { total: 1, valid: 0, errors: [fe], bundles: [] },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    "@s/fe: missing plugin-manifest.json",
+  );
+  // Nothing more specific to say: the status itself, not a placeholder.
+  assert.equal(
+    failureDetail(result({ report: report({ status: "error" }) })),
+    "error",
+  );
+});
+
+test("a shard that ran no workspaces fails the aggregate", () => {
+  // summarize() marks it fail; without reading that, the aggregate printed
+  // "0/0 workspaces passed" and exited 0 over a job that validated nothing.
+  const empty: SweepSummary = { ...summary([]), status: "fail" };
+  const aggregate = buildAggregate([empty]);
+  assert.equal(aggregate.workspaces.failed, 1);
+  assert.match(aggregate.failures[0].detail, /ran no workspaces/);
+});
+
+test("findSummaries walks subdirectories in sorted order", () => {
+  // Injected listing: the on-disk fixture above cannot prove the sort, because readdir
+  // already returns sorted entries on this filesystem.
+  const tree: Record<string, Array<{ name: string; isDirectory: boolean }>> = {
+    "/root": [
+      { name: "shard-1", isDirectory: true },
+      { name: "shard-0", isDirectory: true },
+    ],
+    "/root/shard-0": [
+      { name: "acs.json", isDirectory: false },
+      { name: "sweep-shard-0.json", isDirectory: false },
+    ],
+    "/root/shard-1": [{ name: "sweep-shard-1.json", isDirectory: false }],
+  };
+  assert.deepEqual(
+    findSummaries("/root", (dir) => tree[dir] ?? []),
+    ["/root/shard-0/sweep-shard-0.json", "/root/shard-1/sweep-shard-1.json"],
   );
 });

@@ -13,7 +13,12 @@
  * part that most needs covering.
  */
 
-import type { SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  Report,
+  Status,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
 import {
   collectPackages,
   groupByWorkspace,
@@ -129,4 +134,20 @@ export function summarize(
     workspaces: results,
     status: results.length > 0 && results.every(isAcceptable) ? "pass" : "fail",
   };
+}
+
+/**
+ * The status a workspace run gets, from what the harness wrote and how it exited.
+ *
+ * A harness that wrote `pass` and THEN died — the stale-file removal only defends
+ * against a PREVIOUS run's file — must not hand back a green verdict on a crashed
+ * process. A report that already says it failed is reported as itself, whatever the
+ * exit code, because its own diagnosis is more specific than "the process exited 1".
+ */
+export function deriveStatus(
+  report: Report | null,
+  exitCode: number,
+): Status | "skipped" {
+  if (!report) return "error";
+  return exitCode === 0 || report.status !== "pass" ? report.status : "error";
 }
