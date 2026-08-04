@@ -7,41 +7,148 @@ on:
       - 'release-*'
     paths:
       - 'workspaces/**/metadata/**'
-      - 'scripts/validate-app-config-examples.py'
+      - 'scripts/validate-app-config-examples/**'
       - '.github/workflows/validate-app-config-examples.yaml'
   workflow_dispatch:
+    inputs:
+      check-schemas:
+        description: 'Also validate examples against each plugin config schema'
+        type: boolean
+        default: true
+      warn-only:
+        description: 'Report schema mismatches without failing (surveying a release branch)'
+        type: boolean
+        default: false
+  # The full-tree sweep is only worth failing if something runs it. On a PR the
+  # check sees just the metadata that PR touched, so a schema an upstream
+  # release changed under us — or a workspace whose patches stopped applying —
+  # would otherwise surface only when someone happened to dispatch this by hand.
+  # Only the default branch is swept on a schedule; a release branch carrying
+  # its own backlog is surveyed by dispatching this workflow from that branch
+  # with --warn-only semantics in mind.
+  schedule:
+    - cron: '0 6 * * 1'
 
+# Superseding a PR's run is the point; superseding a full-tree sweep is not —
+# it takes one tarball per distinct packageName@version across 180 files, so a
+# second dispatch would throw away real work. Keyed by run_id off a PR, which
+# never collides, and cancellation limited to pull_request.
 concurrency:
-  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: validate-app-config-examples-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
     name: appConfigExamples coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Schema validation downloads one published tarball per distinct
+    # packageName@version, so a full-tree run is far slower than the
+    # structural-only check this workflow used to run.
+    timeout-minutes: 45
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: scripts/validate-app-config-examples
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Setup Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v4
+      # Before setup-node, so its yarn-cache detection resolves Yarn 4 through
+      # corepack rather than the bundled Yarn 1.
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          python-version: '3.12'
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
 
+      # skip-build keeps dependency lifecycle scripts from running at install
+      # time. Nothing here needs them — esbuild ships its platform binary as an
+      # optional dependency rather than fetching one in a postinstall — and
+      # .yarnrc.yml sets enableScripts: false so local installs match.
       - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
+        run: yarn install --immutable --mode=skip-build
 
+      - name: Build
+        run: yarn build
+
+      - name: Check types and unit tests
+        run: yarn check
+
+      # The PR step below runs `--since`, which by construction sees no metadata
+      # when a PR only touches this directory — so a change to the validator
+      # itself would otherwise ship without the semantic path executing once.
+      # This exercises it against a known workspace whose package publishes a
+      # compiled config.schema.json. Warn-only: it is a smoke check of the tool,
+      # not a verdict on metadata the author did not touch.
+      - name: Smoke-check the schema path against known metadata
+        if: github.event_name == 'pull_request'
+        env:
+          SAMPLE: workspaces/adoption-insights/metadata
+        run: |
+          sha="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")"
+          if [[ -z "$sha" ]]; then
+            # Empty means the sample path has no reachable history — it was
+            # renamed or removed, or the clone is too shallow to reach it.
+            # Failing here beats passing a bare "~1" to git, which aborts with
+            # an error that says nothing about the real cause.
+            echo "No history for $SAMPLE — update the sample path in this step." >&2
+            exit 1
+          fi
+          echo "Exercising the schema path against $SAMPLE since ${sha}~1"
+          node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
+
+      # The sweep used to run --warn-only because the tree carried metadata
+      # written before this check existed. That backlog is now clear
+      # (RHIDP-15903), so it fails instead.
+      #
+      # It fails rather than warns because the weekly schedule gives the verdict
+      # somewhere to land: the PR step below sees only the metadata that PR
+      # touched, so drift nobody edited — an upstream release changing a schema,
+      # a workspace patch that stopped applying — has no other way to surface.
+      # Neither event blocks a merge.
       - name: Validate (full tree)
-        if: github.event_name == 'workflow_dispatch'
-        run: python scripts/validate-app-config-examples.py
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          # Scheduled runs get no inputs and the sweep is the point of the
+          # schedule, so absent means on; a dispatch gets whatever was ticked.
+          #
+          # Not `inputs.check-schemas != 'false'`: the input is declared
+          # `type: boolean`, so unticking it yields the boolean false, and
+          # comparing that to the string 'false' coerces both to numbers —
+          # 0 against NaN — which is never equal. The toggle would have been
+          # permanently stuck on.
+          CHECK_SCHEMAS: ${{ github.event_name != 'workflow_dispatch' || inputs.check-schemas }}
+          # The schedule is the gate, so it never warns; a dispatch can, which is
+          # how a release branch carrying its own backlog gets surveyed without
+          # editing this file.
+          WARN_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.warn-only }}
+        run: |
+          args=()
+          if [[ "$CHECK_SCHEMAS" == "true" ]]; then
+            # Undeclared keys ride along on the sweep rather than getting their
+            # own toggle: they are reported and never failed, and the sweep is
+            # the one run that looks at the whole catalogue, so this is where
+            # the backlog is worth seeing.
+            args+=(--check-schemas --check-undeclared-keys)
+            if [[ "$WARN_ONLY" == "true" ]]; then
+              args+=(--warn-only)
+            fi
+          fi
+          node dist/validate.mjs "${args[@]}"
 
+      # On a PR only the metadata the author just touched is validated, so a
+      # mismatch here is something they introduced and can act on. Blocking is
+      # fair, and keeps the check from being advisory-only forever.
       - name: Validate (PR — changed metadata only)
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: python scripts/validate-app-config-examples.py --since "$BASE_SHA"
+        run: node dist/validate.mjs --since "$BASE_SHA" --check-schemas
