@@ -560,7 +560,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b768c1df1eba52696b9020043518c9b4c17137f22a1e96d57e775471214ac627"
+          "digest": "sha256:b768c1df1eba52696b9020043518c9b4c17137f22a1e96d57e775471214ac627",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.26.0",
+          "resolvedTag": "bs_1.52.0__1.25.1"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
