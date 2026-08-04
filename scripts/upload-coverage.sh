@@ -35,8 +35,9 @@
 # Optional environment:
 #   CODECOV_UPLOAD_SLUG   - GitHub slug of the Codecov project to upload to.
 #                           Default: redhat-developer/rhdh-plugin-export-overlays.
-#   CODECOV_UPLOAD_STRICT - "true" to exit non-zero when the Codecov upload
-#                           itself fails. Default (unset) keeps the historical
+#   CODECOV_UPLOAD_STRICT - "true" to exit non-zero whenever Codecov did not
+#                           receive the report — a failed upload OR a missing
+#                           token. Default (unset) keeps the historical
 #                           non-blocking behaviour — see the exit-code contract
 #                           at the upload call below.
 #   PULL_PULL_SHA         - PR head SHA (set by Prow presubmits).
@@ -53,6 +54,15 @@ set -euo pipefail
 # and exports every VAULT_* key). Accept VAULT_CODECOV_TOKEN as a fallback so the
 # token only has to be added to that Vault secret — no openshift/release change.
 : "${CODECOV_TOKEN:=${VAULT_CODECOV_TOKEN:-}}"
+
+# Resolved once so every "did anything reach Codecov" branch below tests the same
+# thing — see the exit-code contract at the upload call.
+readonly STRICT="${CODECOV_UPLOAD_STRICT:-false}"
+
+# Long enough to ride out a brief Codecov blip or DNS hiccup, short enough that
+# a genuine outage still fails the job promptly (the seed uploads one snapshot
+# per workspace in sequence).
+readonly UPLOAD_RETRY_DELAY_SECONDS=10
 
 readonly AWK_FIRST_FIELD='{print $1}'
 
@@ -135,6 +145,14 @@ if [[ -z "${CODECOV_TOKEN:-}" ]]; then
   echo ""
   echo "[WARN] CODECOV_TOKEN is not set — skipping Codecov upload"
   echo "[INFO] Coverage report is still available locally at: $LCOV_FILE"
+  # Strict is about "did Codecov actually receive this", so it has to cover the
+  # path where nothing is even attempted. Without this, a strict caller missing
+  # the token exits 0 having uploaded nothing — the silent green strict exists
+  # to eliminate.
+  if [[ "$STRICT" == "true" ]]; then
+    echo "ERROR: CODECOV_UPLOAD_STRICT=true and no token — nothing was uploaded." >&2
+    exit 1
+  fi
   exit 0
 fi
 
@@ -207,25 +225,59 @@ echo ""
 #     failure mode seed-main-coverage.sh already guards against for a missing
 #     token ("the job would go green while uploading nothing"); this closes the
 #     same hole for the upload itself.
-if "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"; then
+#
+# One retry before either verdict: a strict caller runs on a schedule, so a
+# transient 5xx or DNS blip would otherwise turn a healthy day red and train
+# people to ignore the alert. Retrying costs seconds and only real outages
+# survive it. Uploads are idempotent (same flag+sha+name), so a retry after a
+# failure that actually landed server-side is harmless.
+upload_to_codecov() {
+  "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"
+}
+
+if upload_to_codecov; then
   echo ""
   echo "=== Upload complete ==="
   echo "  View coverage at: https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
   echo "  Filter by flag: e2e-$WORKSPACE"
-else
+  exit 0
+fi
+
+echo ""
+echo "[WARN] Codecov upload failed — retrying once in ${UPLOAD_RETRY_DELAY_SECONDS}s..."
+sleep "$UPLOAD_RETRY_DELAY_SECONDS"
+
+if upload_to_codecov; then
+  echo ""
+  echo "=== Upload complete (on retry) ==="
+  echo "  View coverage at: https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
+  echo "  Filter by flag: e2e-$WORKSPACE"
+  exit 0
+fi
+
+# Both attempts failed. Everything from here is a diagnostic, so it goes to
+# stderr as one block — splitting it across streams lets CI log capture
+# interleave the verdict away from the banner it explains.
+{
   echo ""
   echo "=================================================="
-  echo "  ⚠️  Codecov upload failed"
+  echo "  Codecov upload failed (2 attempts)"
   echo "=================================================="
-  echo "  This is non-fatal — coverage data is still available locally"
   echo "  LCOV report: $LCOV_FILE"
   echo "  Target repo: $UPLOAD_SLUG"
   echo "  Target SHA:  $UPLOAD_SHA"
-  echo "=================================================="
-  if [[ "${CODECOV_UPLOAD_STRICT:-}" == "true" ]]; then
-    echo "  CODECOV_UPLOAD_STRICT=true — failing so this doesn't pass silently." >&2
-    exit 1
+  if [[ "$STRICT" == "true" ]]; then
+    echo "  CODECOV_UPLOAD_STRICT=true — failing so this doesn't pass silently."
+  else
+    echo "  Non-fatal — the coverage data is still available locally."
   fi
-  # Exit 0 (success) — upload failure should not fail the CI job
-  exit 0
+  echo "=================================================="
+} >&2
+
+# Explicit `if` rather than `[[ ... ]] && exit 1`: under `set -e` that idiom
+# leaves the script's exit status riding on the test's own result, which is a
+# footgun a reader has to reason about.
+if [[ "$STRICT" == "true" ]]; then
+  exit 1
 fi
+exit 0

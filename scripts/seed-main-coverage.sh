@@ -57,11 +57,6 @@ if [[ ${#snapshots[@]} -eq 0 ]]; then
 fi
 
 echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
-# Uploading IS this job — a Codecov-side failure is a real failure here, not the
-# incidental side-effect it is for a caller that also does something else. Without
-# this, upload-coverage.sh returns 0 on a failed upload and every snapshot reports
-# as seeded while Codecov received nothing.
-export CODECOV_UPLOAD_STRICT=true
 # Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
 FAILED_WS=()
 for snapshot in "${snapshots[@]}"; do
@@ -70,7 +65,12 @@ for snapshot in "${snapshots[@]}"; do
   ws="$(basename "$snapshot" .lcov)"
   echo ""
   echo "--- $ws (e2e-$ws) ---"
-  if ! "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
+  # Uploading IS this job — a Codecov-side failure is a real failure here, not the
+  # incidental side-effect it is for a caller that also does something else. Without
+  # strict, upload-coverage.sh returns 0 on a failed upload and every snapshot
+  # reports as seeded while Codecov received nothing. Set per call rather than
+  # exported so the scope is visible right where it applies.
+  if ! CODECOV_UPLOAD_STRICT=true "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
     echo "[ERROR] Seed failed for $ws"
     FAILED_WS+=("$ws")
   fi

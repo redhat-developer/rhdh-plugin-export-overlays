@@ -13,15 +13,12 @@ name: Seed E2E coverage to main
 # see the E2E coverage section in README.md.
 
 on:
-  # The push trigger below is the fast path, but it is not guaranteed: on
-  # 2026-08-04 the merge of #3120 (which added coverage-snapshots/orchestrator.lcov)
-  # produced a delivered PushEvent for which GitHub created no workflow runs at
-  # all — not this one, not Publish, not the compatibility check. It was the only
-  # such commit in the last 25, and the next merge behaved normally, so it was a
-  # one-off drop in Actions' dispatch rather than anything in this repo. Nothing
-  # here can prevent that, so the schedule is the backstop and its interval is
-  # the worst-case staleness the dashboard can show. The job is a ~20s upload, so
-  # run it every 6h instead of daily to keep that bound tight.
+  # The push trigger below is best-effort: GitHub has dropped push-event dispatch
+  # for a main commit before (2026-08-04, #3120), creating no runs for ANY
+  # push-triggered workflow and stranding that snapshot until a manual dispatch.
+  # Nothing here can prevent that, so the schedule is the backstop and its
+  # interval is the worst-case staleness the dashboard can show. The job is a
+  # ~20s upload, so 6h rather than daily keeps that bound tight cheaply.
   schedule:
     - cron: "0 */6 * * *" # Every 6 hours
   push:
