@@ -724,7 +724,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:aa9cc82fed6a2ce383807a1dfb6f0a223da959486a4848312218c0868014acc7"
+          "digest": "sha256:5972e8f5ac9c8bd85a2a7c23f3893c9b67dc37f2a0bec2e16e3612c35a601866"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions",
@@ -883,7 +883,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:965fe7a2a81ee4e9d94d182744b329a4143ee07343ca439a1f60757b99cad3f6"
+          "digest": "sha256:2de13f19ab2c798c6a153e111d36e723c569dd74fdb8988a7d915afac44f4c06"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1222,7 +1222,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.52.0__2.0.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-quickstart:bs_1.52.0__2.0.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1236,14 +1236,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f255bb5f26dbcc84f5686b2641e729914678c3e0e23df369b1e3ca6d9c4b9d46",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__2.0.1",
-          "resolvedTag": "bs_1.52.0__2.0.0"
+          "digest": "sha256:1f4ed9e1aeb683ec43c1fcb1cce547315125a33b970c9dc8e9e695e6cdf0eb7c"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-quickstart",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "workspace": "quickstart",
       "overall": "pass"
     },
@@ -1265,7 +1262,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a03ded0db527ab2d7d6db2a33bacc3605ee0c4e0057cd259b43bf8308c71df10"
+          "digest": "sha256:7cda9ce42824a63f9572ba38557341cf4918c1553b4bf9a07d5390d943dbe1fb"
         }
       },
       "package": "@backstage-community/plugin-rbac",
@@ -1554,7 +1551,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0c5322c62436fd1d69abb72592b24f8d4b0769b83231ae05e7dadbbc8a2580ad"
+          "digest": "sha256:1af51fc4fc724d158a92c5416a7ae38bb460870f8db18bdd6dab3d99f1ef64b2"
         },
         "dpdy": {
           "status": "pass"
@@ -1620,7 +1617,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:717c31b66c8b32d83a96ef4b8de90d13c6108a7205b5ad0c59d6d77eaffcaff9"
+          "digest": "sha256:d639b6d2c00d1ff3c2c4a575b35adaa07cc2d19b669e0712f5c84409ea45fe25"
         },
         "dpdy": {
           "status": "pass"
