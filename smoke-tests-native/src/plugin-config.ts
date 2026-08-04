@@ -27,6 +27,14 @@ export const KNOWN_FAILURES = new Set<string>([
   "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
 ]);
 
+// Config every run starts from. These are core Backstage keys rather than any one
+// plugin's: a plugin that reads them (e.g. mta, to build its own URLs) fails startup
+// validation with no plugin-specific key to attach a dummy to.
+const baseConfig: JsonObject = {
+  app: { baseUrl: "http://localhost:3000" },
+  backend: { baseUrl: "http://localhost:7007" },
+};
+
 // Dummy values only — plugins never connect to anything; this satisfies config
 // validation at startup so the backend can boot.
 const configOverrides: Record<string, JsonObject> = {
@@ -42,6 +50,33 @@ const configOverrides: Record<string, JsonObject> = {
   },
   "immobiliarelabs-backstage-plugin-gitlab-backend": {
     integrations: { gitlab: [{ host: "gitlab.com", token: "test" }] },
+  },
+  // The three below came out of the first full community sweep (RHIDP-13510). Each
+  // failed startup config validation and nothing else, so a dummy recovers the boot
+  // signal at no cost — the outcome plugin-sweep-excludes.txt tells you to prefer over
+  // an exclusion. Shapes are copied from each workspace's own metadata
+  // appConfigExamples so they stay valid against the plugin's config schema.
+  "backstage-community-plugin-kiali-backend": {
+    kiali: {
+      providers: [
+        {
+          name: "kiali",
+          url: "https://localhost:20001",
+          skipTLSVerify: true,
+          serviceAccountToken: "test",
+          sessionTime: 60,
+        },
+      ],
+    },
+  },
+  "backstage-community-plugin-lighthouse-backend": {
+    lighthouse: { baseUrl: "http://localhost:3003" },
+  },
+  "backstage-community-backstage-plugin-mta-backend": {
+    mta: {
+      url: "http://localhost:8080",
+      providerAuth: { realm: "test", clientID: "test", secret: "test" },
+    },
   },
 };
 
@@ -75,7 +110,10 @@ export function buildMergedConfig(
   plugins: LoadedPlugin[],
   extra?: JsonObject,
 ): JsonObject {
-  const merged: Record<string, unknown> = {};
+  const merged: Record<string, unknown> = structuredClone(baseConfig) as Record<
+    string,
+    unknown
+  >;
   for (const { plugin } of plugins) {
     const overrides = configOverrides[plugin.dirName];
     if (overrides) deepMerge(merged, overrides);

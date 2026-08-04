@@ -10,10 +10,12 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parse } from "yaml";
+import { excluderFor, parseExclusions } from "./exclusions";
 import {
   collectWorkspaceRefs,
   discoverSmokeTestConfig,
   isValidWorkspaceName,
+  readWorkspacePackages,
   writeDynamicPluginsConfig,
 } from "./workspace";
 
@@ -96,6 +98,79 @@ test("discoverSmokeTestConfig finds only the files that exist", () => {
 
   const none = discoverSmokeTestConfig(repoRoot, "mixed");
   assert.deepEqual(none, { appConfig: undefined, testEnv: undefined });
+});
+
+test("readWorkspacePackages flattens the fields the sweep filters on", () => {
+  makeWorkspace("tiers", {
+    "community.yaml": [
+      "spec:",
+      '  packageName: "@scope/plugin-community"',
+      `  dynamicArtifact: ${OCI_REF}`,
+      "  support: community",
+      "  backstage:",
+      "    role: backend-plugin",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual(readWorkspacePackages(repoRoot, "tiers"), [
+    {
+      workspace: "tiers",
+      file: "community.yaml",
+      packageName: "@scope/plugin-community",
+      support: "community",
+      role: "backend-plugin",
+      artifact: OCI_REF,
+    },
+  ]);
+});
+
+test("collectWorkspaceRefs narrows to one support level", () => {
+  makeWorkspace("two-tiers", {
+    "a-community.yaml": `spec:\n  packageName: "@scope/a"\n  support: community\n  dynamicArtifact: ${OCI_REF}\n`,
+    "b-ga.yaml": `spec:\n  packageName: "@scope/b"\n  support: generally-available\n  dynamicArtifact: ${OCI_REF}-ga\n`,
+  });
+  const all = collectWorkspaceRefs(repoRoot, "two-tiers");
+  assert.equal(all.refs.length, 2);
+  assert.equal(all.outOfScope, 0);
+
+  const community = collectWorkspaceRefs(repoRoot, "two-tiers", {
+    support: "community",
+  });
+  assert.deepEqual(community.refs, [OCI_REF]);
+  assert.equal(community.outOfScope, 1);
+});
+
+test("collectWorkspaceRefs drops install-excluded packages and records the ticket", () => {
+  makeWorkspace("excluded", {
+    "a.yaml": `spec:\n  packageName: "@scope/keep"\n  dynamicArtifact: ${OCI_REF}\n`,
+    "b.yaml": `spec:\n  packageName: "@scope/drop"\n  dynamicArtifact: ${OCI_REF}-drop\n`,
+  });
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): unpublished.\ninstall ^@scope/drop$\n",
+    "test",
+  );
+  const { refs, excluded } = collectWorkspaceRefs(repoRoot, "excluded", {
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(refs, [OCI_REF]);
+  assert.deepEqual(excluded, [
+    {
+      packageName: "@scope/drop",
+      scope: "install",
+      ticket: "RHIDP-1",
+      pattern: "^@scope/drop$",
+    },
+  ]);
+});
+
+test("collectWorkspaceRefs says which filter emptied the set", () => {
+  // A support filter that matches nothing must not read like a workspace with no
+  // published artifacts — the two have different fixes.
+  assert.throws(
+    () =>
+      collectWorkspaceRefs(repoRoot, "two-tiers", { support: "dev-preview" }),
+    /2 at another support level.*nothing to validate/,
+  );
 });
 
 test("writeDynamicPluginsConfig produces the yaml the install CLI consumes", async () => {

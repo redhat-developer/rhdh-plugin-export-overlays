@@ -25,11 +25,14 @@
  *
  * Usage:
  *   yarn smoke --dynamic-plugins <dynamic-plugins.yaml> [--out results.json]
- *   yarn smoke --workspace <name>                       [--out results.json]
+ *   yarn smoke --workspace <name> [--support community] [--out results.json]
  *   ... either form also takes [--app-config <app-config.test.yaml>] [--test-env <test.env>]
+ *                             [--exclusions <plugin-sweep-excludes.txt>]
  *
  * Workspace mode resolves ALL of `workspaces/<name>/metadata/*.yaml`'s oci://
  * dynamicArtifact refs and validates them together (the Docker smoke's unit).
+ * `--support <level>` narrows that to one `spec.support` tier — how the community
+ * sweep (src/sweep.ts, RHIDP-13510) drives this harness one workspace at a time.
  *
  * --app-config / --test-env mirror what the Docker smoke passes to the container
  * (an extra --config mount and docker run --env-file) — see src/test-config.ts.
@@ -47,12 +50,12 @@ import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
+import searchPlugin from "@backstage/plugin-search-backend";
 import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
   loadBackendPlugins,
   validateFrontendBundle,
-  type FrontendSystem,
   type PluginEntry,
   type LoadedPlugin,
   type PluginError,
@@ -60,6 +63,20 @@ import {
 import { patchModuleResolution } from "./module-resolution";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
+import {
+  excluderFor,
+  loadExclusions,
+  type Exclusion,
+  type ExclusionRecord,
+} from "./exclusions";
+import {
+  REPORT_SCHEMA_VERSION,
+  type BackendStartResult,
+  type FrontendBundleInfo,
+  type Report,
+  type Status,
+  type WorkspaceInfo,
+} from "./report";
 import {
   collectWorkspaceRefs,
   discoverSmokeTestConfig,
@@ -86,51 +103,16 @@ const CLI_BIN = join(
 );
 
 // Bundled core plugins so dynamic plugins/modules can attach to their extension points.
+// searchPlugin was added for the community sweep (RHIDP-13510): without it, every
+// search-backend module fails to even LOAD — its bare
+// `@backstage/plugin-search-backend-node/alpha` import has nothing to resolve against —
+// so a whole class of community backend modules reported a load error that said nothing
+// about the plugin.
 // catalogPlugin is intentionally NOT here: @backstage/plugin-catalog-backend does not boot
 // cleanly in this minimal standalone harness yet (needs more service wiring than RHDH's
-// full e2e env provides), so the dep is left out until that gap is closed (Path A / the
-// catalog follow-up). Scaffolder + scaffolder/other modules boot fine today.
-const coreFeatures = [scaffolderPlugin];
-
-type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
-type BackendStartResult = { ok: boolean; skipped?: boolean; error?: string };
-// Which frontend system(s) each bundle ships — the signal for tracking migration to
-// the new frontend system across the catalog.
-type FrontendBundleInfo = {
-  name: string;
-  version: string;
-  systems: FrontendSystem[];
-};
-// Bump when the results.json shape changes — downstream tooling (e.g. the parity
-// runs comparing native vs Docker verdicts) parses this file.
-const REPORT_SCHEMA_VERSION = 1;
-
-// Workspace-mode provenance: which metadata files were skipped (non-oci artifacts),
-// so a "pass" can't silently hide that part of the workspace was never validated.
-type WorkspaceInfo = {
-  name: string;
-  refCount: number;
-  skippedMetadata: string[];
-};
-type Report = {
-  schemaVersion: number;
-  cliVersion: string;
-  workspace?: WorkspaceInfo;
-  backend: {
-    total: number;
-    loaded: number;
-    skipped: string[];
-    errors: PluginError[];
-  };
-  backendStart: BackendStartResult;
-  frontend: {
-    total: number;
-    valid: number;
-    errors: PluginError[];
-    bundles: FrontendBundleInfo[];
-  };
-  status: Status;
-};
+// full e2e env provides), so the dep is left out until RHIDP-16017 closes that gap.
+// Catalog-extending modules are boot-excluded in plugin-sweep-excludes.txt meanwhile.
+const coreFeatures = [scaffolderPlugin, searchPlugin];
 
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
@@ -175,29 +157,58 @@ function resolveTestConfig(
 async function materializeWorkspaceConfig(
   workspace: string,
   destDir: string,
-): Promise<{ path: string; info: WorkspaceInfo }> {
-  const { refs, skipped } = collectWorkspaceRefs(REPO_ROOT, workspace);
-  console.log(`▶ workspace '${workspace}': ${refs.length} oci plugin ref(s)`);
+  support: string | undefined,
+  exclusions: Exclusion[],
+): Promise<{ path: string; info: WorkspaceInfo; excluded: ExclusionRecord[] }> {
+  const { refs, skipped, excluded, outOfScope } = collectWorkspaceRefs(
+    REPO_ROOT,
+    workspace,
+    { support, installExcluded: excluderFor(exclusions, "install") },
+  );
+  console.log(
+    `▶ workspace '${workspace}': ${refs.length} oci plugin ref(s)` +
+      (support ? ` at support '${support}' (${outOfScope} out of scope)` : ""),
+  );
   const path = await writeDynamicPluginsConfig(refs, destDir);
   return {
     path,
-    info: { name: workspace, refCount: refs.length, skippedMetadata: skipped },
+    info: {
+      name: workspace,
+      refCount: refs.length,
+      skippedMetadata: skipped,
+      support,
+      outOfScope: support ? outOfScope : undefined,
+    },
+    excluded,
   };
 }
 
-// Partition backend entries into known-failure skips and loadable plugins in one
-// pass, so the two lists stay complementary.
-function partitionKnownFailures(entries: PluginEntry[]): {
+// Partition backend entries into skips and loadable plugins in one pass, so the two
+// lists stay complementary. Two sources of skip, both meaning "installed and its
+// artifact validated, but never loaded into startTestBackend":
+//   - KNOWN_FAILURES, the dirName list ported from RHDH PR #4967;
+//   - boot-scope entries in the exclusions file, matched on npm package name, each
+//     carrying a tracking ticket (see src/exclusions.ts).
+function partitionUnbootable(
+  entries: PluginEntry[],
+  exclusions: Exclusion[],
+): {
   skipped: string[];
+  excluded: ExclusionRecord[];
   backendPlugins: PluginEntry[];
 } {
+  const bootExcluded = excluderFor(exclusions, "boot");
   const skipped: string[] = [];
+  const excluded: ExclusionRecord[] = [];
   const backendPlugins: PluginEntry[] = [];
   for (const entry of entries) {
-    if (KNOWN_FAILURES.has(entry.dirName)) skipped.push(entry.dirName);
+    const exclusion = bootExcluded(entry.name);
+    if (exclusion) excluded.push(exclusion);
+    if (exclusion || KNOWN_FAILURES.has(entry.dirName))
+      skipped.push(entry.dirName);
     else backendPlugins.push(entry);
   }
-  return { skipped, backendPlugins };
+  return { skipped, excluded, backendPlugins };
 }
 
 // Any failure — bad args, install CLI crash, boot error before the report is built —
@@ -214,6 +225,7 @@ async function writeErrorReport(
     backend: { total: 0, loaded: 0, skipped: [], errors: [] },
     backendStart: { ok: false, error: message },
     frontend: { total: 0, valid: 0, errors: [], bundles: [] },
+    exclusions: [],
     status: "error",
   };
   await writeFile(out, JSON.stringify(report, null, 2));
@@ -228,17 +240,22 @@ type CliInputs = {
   source?: SmokeSource;
   appConfig?: string;
   envFile?: string;
+  support?: string;
+  exclusions: Exclusion[];
   usageError?: string;
 };
 
 // Validate the CLI arguments up front: a sane --out, exactly one plugin source
-// (--dynamic-plugins <file> XOR --workspace <name>), and the optional
-// --app-config/--test-env test-config inputs (see test-config.ts).
+// (--dynamic-plugins <file> XOR --workspace <name>), the optional
+// --app-config/--test-env test-config inputs (see test-config.ts), and the sweep's
+// --support / --exclusions filters.
 function parseCliInputs(): CliInputs {
   const { values } = parseArgs({
     options: {
       "dynamic-plugins": { type: "string" },
       workspace: { type: "string" },
+      support: { type: "string" },
+      exclusions: { type: "string" },
       "app-config": { type: "string" },
       "test-env": { type: "string" },
       out: { type: "string" },
@@ -250,6 +267,7 @@ function parseCliInputs(): CliInputs {
   if (!out) {
     return {
       out: null,
+      exclusions: [],
       usageError: `--out must resolve inside the working directory: ${outArg}`,
     };
   }
@@ -257,14 +275,36 @@ function parseCliInputs(): CliInputs {
   const optionalFiles: Array<[flag: string, file: string | undefined]> = [
     ["--app-config", values["app-config"]],
     ["--test-env", values["test-env"]],
+    ["--exclusions", values.exclusions],
   ];
   for (const [flag, file] of optionalFiles) {
     if (file && !existsSync(file)) {
-      return { out, usageError: `${flag} file not found: ${file}` };
+      return {
+        out,
+        exclusions: [],
+        usageError: `${flag} file not found: ${file}`,
+      };
     }
   }
+
+  // Parsed here so a malformed exclusions file — a pattern with no ticket, above all —
+  // fails before anything is pulled, with the same message wherever it is loaded from.
+  let exclusions: Exclusion[] = [];
+  if (values.exclusions) {
+    try {
+      exclusions = loadExclusions(values.exclusions);
+    } catch (err) {
+      return {
+        out,
+        exclusions: [],
+        usageError: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
   const common = {
     out,
+    exclusions,
     appConfig: values["app-config"],
     envFile: values["test-env"],
   };
@@ -273,26 +313,42 @@ function parseCliInputs(): CliInputs {
   const workspace = values.workspace;
   if (file && workspace) {
     return {
-      out,
+      ...common,
       usageError: "Provide only one of --dynamic-plugins or --workspace.",
+    };
+  }
+  // --support filters metadata by spec.support, which only workspace mode reads; an
+  // explicit dynamic-plugins.yaml has no metadata to filter, so silently ignoring it
+  // would produce a run that looks scoped but is not.
+  if (values.support && !workspace) {
+    return {
+      ...common,
+      usageError: "--support requires --workspace.",
     };
   }
   if (workspace) {
     // Validated here, before ANY filesystem consumer (auto-discovery runs early).
     if (!isValidWorkspaceName(workspace)) {
-      return { out, usageError: `invalid workspace name: '${workspace}'` };
+      return {
+        ...common,
+        usageError: `invalid workspace name: '${workspace}'`,
+      };
     }
-    return { ...common, source: { kind: "workspace", name: workspace } };
+    return {
+      ...common,
+      support: values.support,
+      source: { kind: "workspace", name: workspace },
+    };
   }
   if (!file) {
     return {
-      out,
+      ...common,
       usageError:
         "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>.",
     };
   }
   if (!existsSync(file)) {
-    return { out, usageError: `dynamic-plugins file not found: ${file}` };
+    return { ...common, usageError: `dynamic-plugins file not found: ${file}` };
   }
   return { ...common, source: { kind: "file", path: file } };
 }
@@ -411,8 +467,13 @@ async function main(): Promise<number> {
 
     const materialized =
       source.kind === "workspace"
-        ? await materializeWorkspaceConfig(source.name, tempDir)
-        : { path: source.path, info: undefined };
+        ? await materializeWorkspaceConfig(
+            source.name,
+            tempDir,
+            inputs.support,
+            inputs.exclusions,
+          )
+        : { path: source.path, info: undefined, excluded: [] };
     await extractPlugins(root, materialized.path);
 
     const manifest = discoverPlugins(root);
@@ -423,12 +484,18 @@ async function main(): Promise<number> {
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    const { skipped, backendPlugins } = partitionKnownFailures(
+    const { skipped, excluded, backendPlugins } = partitionUnbootable(
       manifest.backend,
+      inputs.exclusions,
     );
     if (skipped.length > 0) {
       console.warn(
-        `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
+        `⚠ not booted (installed and layout-validated): ${skipped.length} backend plugin(s): ${skipped.join(", ")}`,
+      );
+    }
+    for (const record of excluded) {
+      console.warn(
+        `  ${record.packageName}: boot excluded by ${record.pattern} (${record.ticket})`,
       );
     }
     const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
@@ -462,6 +529,7 @@ async function main(): Promise<number> {
         errors: frontend.errors,
         bundles: frontend.bundles,
       },
+      exclusions: [...materialized.excluded, ...excluded],
       status: computeStatus(
         loadErrors,
         start.ok,
