@@ -27,6 +27,11 @@
 # the point of this file is that exclusions get deleted, not accumulated. A blank line
 # ends a block, so consecutive patterns can share one ticket.
 #
+# NOTE: src/plugin-config.ts also carries a KNOWN_FAILURES set — an older, dirName-keyed
+# skip list ported from RHDH PR #4967, predating this file and carrying no tickets. It has
+# the same effect as a `boot` entry here. New skips belong in THIS file; those five should
+# migrate once each has a ticket, at which point KNOWN_FAILURES can go.
+#
 # This mirrors the discipline of RHDH's e2e-tests/local-harness/plugin-sanity-excludes.txt
 # (PR #4967). It differs in matching package names rather than OCI refs — the catalog
 # index gives RHDH only refs, while this repo's metadata carries the package name,

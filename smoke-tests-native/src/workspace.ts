@@ -148,7 +148,7 @@ export function collectWorkspaceRefs(
       excluded.push(exclusion);
       console.warn(
         `⚠ ${workspace}/${pkg.file}: '${pkg.packageName}' excluded from install ` +
-          `by ${exclusion.pattern} (${exclusion.ticket})`,
+          `by ${exclusion.patternSource} (${exclusion.ticket})`,
       );
       continue;
     }
@@ -166,7 +166,6 @@ export function collectWorkspaceRefs(
   if (refs.length === 0) {
     throw new Error(
       emptyRefsMessage(workspace, packages.length, {
-        refs,
         skipped,
         excluded,
         outOfScope,
@@ -184,7 +183,7 @@ export function collectWorkspaceRefs(
 function emptyRefsMessage(
   workspace: string,
   metadataCount: number,
-  result: WorkspaceRefs,
+  result: Pick<WorkspaceRefs, "skipped" | "excluded" | "outOfScope">,
 ): string {
   const filters = [
     result.outOfScope

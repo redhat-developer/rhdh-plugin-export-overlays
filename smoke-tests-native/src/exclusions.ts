@@ -47,8 +47,8 @@ export type Exclusion = {
   pattern: RegExp;
   /** Tracking ticket from the entry's `TODO(...)`, e.g. `RHIDP-16017`. */
   ticket: string;
-  /** Raw regex source, for reporting. */
-  source: string;
+  /** The regex exactly as written in the file, for reporting. */
+  patternSource: string;
   /** 1-based line number in the exclusions file, for parse errors. */
   line: number;
 };
@@ -58,11 +58,15 @@ export type ExclusionRecord = {
   packageName: string;
   scope: ExclusionScope;
   ticket: string;
-  pattern: string;
+  /** The regex exactly as written in the file — a string, unlike Exclusion.pattern. */
+  patternSource: string;
 };
 
 // A ticket reference inside a comment, e.g. `# TODO(RHIDP-16017): reason`.
 const TICKET_COMMENT = /^#\s*TODO\(([A-Z][A-Z0-9]+-\d+)\)/;
+// Any TODO marker, well-formed key or not — used to reject the malformed ones rather
+// than let them fall through to the previous block's ticket.
+const TODO_COMMENT = /^#\s*TODO\(/;
 
 function isExclusionScope(value: string): value is ExclusionScope {
   return (EXCLUSION_SCOPES as readonly string[]).includes(value);
@@ -73,7 +77,7 @@ function isExclusionScope(value: string): value is ExclusionScope {
  * dropped exclusion would either fail the sweep on a package that is known-broken,
  * or (worse) skip a package nobody meant to skip.
  */
-export function parseExclusions(text: string, source: string): Exclusion[] {
+export function parseExclusions(text: string, filePath: string): Exclusion[] {
   const exclusions: Exclusion[] = [];
   // The ticket set by the most recent `TODO(...)` comment. A blank line ends the
   // block and clears it, so consecutive patterns may share one ticket (RHDH's file
@@ -86,9 +90,20 @@ export function parseExclusions(text: string, source: string): Exclusion[] {
     if (trimmed === "") {
       ticket = undefined;
     } else if (trimmed.startsWith("#")) {
-      ticket = TICKET_COMMENT.exec(trimmed)?.[1] ?? ticket;
+      const matched = TICKET_COMMENT.exec(trimmed)?.[1];
+      // A line that means to open a block but mistypes the key (`X-1`, `RHIDP16018`)
+      // would otherwise leave the previous block's ticket in place, silently filing the
+      // entries below it under an unrelated ticket — and they would then be deleted
+      // when that ticket closes. Refuse it instead.
+      if (!matched && TODO_COMMENT.test(trimmed)) {
+        throw new Error(
+          `${filePath}:${index + 1}: '${trimmed}' looks like a TODO marker but has no ` +
+            `well-formed ticket key (expected e.g. TODO(RHIDP-1234)).`,
+        );
+      }
+      ticket = matched ?? ticket;
     } else {
-      exclusions.push(parseEntry(trimmed, ticket, source, index + 1));
+      exclusions.push(parseEntry(trimmed, ticket, filePath, index + 1));
     }
   }
 
@@ -99,23 +114,23 @@ export function parseExclusions(text: string, source: string): Exclusion[] {
 function parseEntry(
   trimmed: string,
   ticket: string | undefined,
-  source: string,
+  filePath: string,
   line: number,
 ): Exclusion {
   const [scope, ...rest] = trimmed.split(/\s+/);
   if (!isExclusionScope(scope)) {
     throw new Error(
-      `${source}:${line}: unknown scope '${scope}' — expected one of ${EXCLUSION_SCOPES.join(", ")}`,
+      `${filePath}:${line}: unknown scope '${scope}' — expected one of ${EXCLUSION_SCOPES.join(", ")}`,
     );
   }
   if (rest.length !== 1) {
     throw new Error(
-      `${source}:${line}: expected '<scope> <regex>', got '${trimmed}'`,
+      `${filePath}:${line}: expected '<scope> <regex>', got '${trimmed}'`,
     );
   }
   if (!ticket) {
     throw new Error(
-      `${source}:${line}: '${trimmed}' has no tracking ticket — precede it with ` +
+      `${filePath}:${line}: '${trimmed}' has no tracking ticket — precede it with ` +
         `'# TODO(TICKET-123): <why, and what unblocks it>'. Exclusions without a ` +
         `ticket never get removed.`,
     );
@@ -126,12 +141,12 @@ function parseEntry(
       scope,
       pattern: new RegExp(pattern),
       ticket,
-      source: pattern,
+      patternSource: pattern,
       line,
     };
   } catch (err) {
     throw new Error(
-      `${source}:${line}: invalid regex '${pattern}': ${err instanceof Error ? err.message : String(err)}`,
+      `${filePath}:${line}: invalid regex '${pattern}': ${err instanceof Error ? err.message : String(err)}`,
       { cause: err },
     );
   }
@@ -159,7 +174,12 @@ export function loadExclusions(path: string): Exclusion[] {
  */
 function candidateNames(packageName: string): string[] {
   const base = packageName.replace(/-dynamic$/, "");
-  return base === packageName ? [packageName] : [packageName, base];
+  // Both directions. Stripping only the NAME meant a pattern written with the suffix
+  // matched at boot scope (installed name) but not at install scope (metadata name) —
+  // the very "matches at one scope and not the other" failure this normalization is
+  // here to prevent.
+  const names = new Set([packageName, base, `${base}-dynamic`]);
+  return [...names];
 }
 
 /** First exclusion of `scope` matching the package name, if any. */
@@ -182,7 +202,12 @@ export function excluderFor(
   return (packageName) => {
     const hit = matchExclusion(exclusions, scope, packageName);
     return hit
-      ? { packageName, scope, ticket: hit.ticket, pattern: hit.source }
+      ? {
+          packageName,
+          scope,
+          ticket: hit.ticket,
+          patternSource: hit.patternSource,
+        }
       : undefined;
   };
 }

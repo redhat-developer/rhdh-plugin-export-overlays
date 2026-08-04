@@ -5,9 +5,10 @@
  */
 
 /**
- * The `results.json` contract. Extracted from native-smoke.ts so the sweep and the
- * aggregator read the harness's output through the same types rather than
- * re-describing it.
+ * The JSON contracts these tools exchange: the harness's `results.json` and the
+ * sweep's per-shard summary. Extracted from native-smoke.ts so the sweep and the
+ * aggregator read them through the same types rather than re-describing them, and so
+ * the runtime guards that check a file's `schemaVersion` live beside the shape.
  */
 
 import type { ExclusionRecord } from "./exclusions";

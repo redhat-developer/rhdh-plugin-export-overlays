@@ -14,10 +14,12 @@ import {
   matchExclusion,
   parseExclusions,
 } from "./exclusions";
+import { collectPackages } from "./support";
 
 // src/ → smoke-tests-native/
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const EXCLUDES_FILE = join(HARNESS_ROOT, "plugin-sweep-excludes.txt");
+const REPO_ROOT = dirname(HARNESS_ROOT);
 
 test("parseExclusions reads scope, pattern and the block's ticket", () => {
   const parsed = parseExclusions(
@@ -34,7 +36,7 @@ test("parseExclusions reads scope, pattern and the block's ticket", () => {
     "test",
   );
   assert.deepEqual(
-    parsed.map((e) => [e.scope, e.source, e.ticket]),
+    parsed.map((e) => [e.scope, e.patternSource, e.ticket]),
     [
       ["boot", "^@scope/plugin-a$", "RHIDP-16017"],
       ["boot", "^@scope/plugin-b$", "RHIDP-16017"],
@@ -104,28 +106,86 @@ test("matchExclusion only matches within its own scope", () => {
   );
 });
 
-test("matchExclusion sees through the dynamic export's -dynamic suffix", () => {
+test("matchExclusion sees through the -dynamic suffix in both directions", () => {
   // metadata says `@scope/plugin-a`; the installed package.json says
-  // `@scope/plugin-a-dynamic`. One anchored pattern has to match at both scopes.
-  const parsed = parseExclusions(
+  // `@scope/plugin-a-dynamic`. One anchored pattern must select the same package at
+  // install scope (metadata name) and boot scope (installed name), whichever form the
+  // author wrote it in — otherwise the two scopes silently cover different sets.
+  const base = parseExclusions(
     "# TODO(RHIDP-1): r\nboot ^@scope/plugin-a$\n",
     "test",
   );
   assert.equal(
-    matchExclusion(parsed, "boot", "@scope/plugin-a")?.ticket,
+    matchExclusion(base, "boot", "@scope/plugin-a")?.ticket,
     "RHIDP-1",
   );
   assert.equal(
-    matchExclusion(parsed, "boot", "@scope/plugin-a-dynamic")?.ticket,
+    matchExclusion(base, "boot", "@scope/plugin-a-dynamic")?.ticket,
     "RHIDP-1",
   );
-  // A pattern written with the suffix still matches the suffixed name.
+
   const suffixed = parseExclusions(
     "# TODO(RHIDP-1): r\nboot ^@scope/plugin-b-dynamic$\n",
     "test",
   );
   assert.equal(
     matchExclusion(suffixed, "boot", "@scope/plugin-b-dynamic")?.ticket,
+    "RHIDP-1",
+  );
+  assert.equal(
+    matchExclusion(suffixed, "boot", "@scope/plugin-b")?.ticket,
+    "RHIDP-1",
+  );
+});
+
+test("parseExclusions rejects a TODO marker with a malformed ticket key", () => {
+  // Falling back to the previous block's ticket filed these entries under an unrelated
+  // ticket — and they would then be deleted when that ticket closed. The committed file
+  // separates its rationales with `#` lines, not blank lines, so this is the live shape.
+  for (const bad of ["# TODO(X-1): too short", "# TODO(RHIDP16018): no dash"]) {
+    assert.throws(
+      () =>
+        parseExclusions(
+          [
+            "# TODO(RHIDP-1): first",
+            "boot ^@scope/a$",
+            bad,
+            "boot ^@scope/b$",
+          ].join("\n"),
+          "test",
+        ),
+      /looks like a TODO marker but has no well-formed ticket key/,
+    );
+  }
+});
+
+test("a plain comment between the ticket and its patterns keeps the ticket", () => {
+  const parsed = parseExclusions(
+    ["# TODO(RHIDP-1): why", "# more prose, no ticket", "boot ^@scope/a$"].join(
+      "\n",
+    ),
+    "test",
+  );
+  assert.deepEqual(
+    parsed.map((e) => e.ticket),
+    ["RHIDP-1"],
+  );
+});
+
+test("matchExclusion returns the first matching pattern when several apply", () => {
+  const parsed = parseExclusions(
+    [
+      "# TODO(RHIDP-1): broad",
+      "boot ^@scope/",
+      "",
+      "# TODO(RHIDP-2): narrow",
+      "boot ^@scope/plugin-a$",
+    ].join("\n"),
+    "test",
+  );
+  // The ticket that lands in the report is the first match, not the most specific.
+  assert.equal(
+    matchExclusion(parsed, "boot", "@scope/plugin-a")?.ticket,
     "RHIDP-1",
   );
 });
@@ -139,17 +199,21 @@ test("excluderFor returns a record carrying the ticket", () => {
     packageName: "@scope/plugin-a",
     scope: "install",
     ticket: "RHIDP-1",
-    pattern: "^@scope/plugin-a$",
+    patternSource: "^@scope/plugin-a$",
   });
   assert.equal(excluded("@scope/plugin-z"), undefined);
 });
 
-test("the committed exclusions file parses and every entry has a ticket", () => {
-  // Guards the file itself: a hand-edited entry without a ticket, or with a typo in
-  // the scope, fails here rather than at 03:00 in the scheduled sweep.
+test("every committed exclusion still matches a package in the repo", () => {
+  // Guards the file itself: a malformed entry fails in loadExclusions rather than at
+  // 03:00 in the scheduled sweep. Asserting the ticket format here would only re-assert
+  // the regex that produced it, so check the entries against reality instead — an
+  // exclusion that matches nothing is invisible debt whose ticket can be closed.
   const parsed = loadExclusions(EXCLUDES_FILE);
   assert.ok(parsed.length > 0, "expected at least one tracked exclusion");
-  for (const exclusion of parsed) {
-    assert.match(exclusion.ticket, /^[A-Z][A-Z0-9]+-\d+$/);
-  }
+  const names = collectPackages(REPO_ROOT).map((p) => p.packageName);
+  const stale = parsed
+    .filter((e) => !names.some((n) => e.pattern.test(n)))
+    .map((e) => `${e.patternSource} (${e.ticket}, line ${e.line})`);
+  assert.deepEqual(stale, [], "exclusions matching no package in the repo");
 });

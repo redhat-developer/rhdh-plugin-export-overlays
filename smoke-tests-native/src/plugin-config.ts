@@ -115,8 +115,13 @@ export function buildMergedConfig(
   );
   for (const { plugin } of plugins) {
     const overrides = configOverrides[plugin.dirName];
-    if (overrides) deepMerge(merged, overrides);
+    // Clone: deepMerge assigns source values by reference when the target key is
+    // absent, so merging the override directly made `merged.integrations` BE the
+    // constant's object — and the caller's app-config layer below then wrote into
+    // configOverrides itself, leaking one call's config into the next.
+    if (overrides) deepMerge(merged, structuredClone(overrides));
   }
-  if (extra) deepMerge(merged, extra as Record<string, unknown>);
+  if (extra)
+    deepMerge(merged, structuredClone(extra) as Record<string, unknown>);
   return merged as JsonObject;
 }

@@ -62,6 +62,7 @@ import {
 } from "./loader";
 import { patchModuleResolution } from "./module-resolution";
 import { resolveContained } from "./paths";
+import { errorMessage } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -119,13 +120,6 @@ const coreFeatures = [scaffolderPlugin, searchPlugin];
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
-}
-
-// --out comes from the CLI; constrain it to the working directory so a faulty
-// argument can never write outside it (Sonar S8707). resolveContained (src/paths.ts)
-// is the shared rule — sweep.ts and aggregate.ts enforce the same one.
-function resolveOutPath(outArg: string): string | null {
-  return resolveContained(outArg);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -263,7 +257,9 @@ function parseCliInputs(): CliInputs {
   });
 
   const outArg = values.out ?? "results.json";
-  const out = resolveOutPath(outArg);
+  // Contain --out to the working directory (Sonar S8707); sweep.ts and
+  // aggregate.ts enforce the same rule via the same helper.
+  const out = resolveContained(outArg);
   if (!out) {
     return {
       out: null,
@@ -500,19 +496,29 @@ async function main(): Promise<number> {
     }
     for (const record of excluded) {
       console.warn(
-        `  ${record.packageName}: boot excluded by ${record.pattern} (${record.ticket})`,
+        `  ${record.packageName}: boot excluded by ${record.patternSource} (${record.ticket})`,
       );
     }
     const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
     const start = await startBackend(loaded, appConfig);
     const frontend = validateFrontends(manifest.frontend);
 
-    // A workspace whose only backend plugin is a known failure would otherwise pass
-    // silently having validated nothing — make that visible.
-    if (loaded.length === 0 && manifest.frontend.length === 0) {
-      console.warn(
-        `⚠ nothing validated: 0 plugins loaded ` +
-          `(${manifest.backend.length} backend found, ${skipped.length} skipped)`,
+    // The install CLI can exit 0 having laid out fewer plugins than we asked for, and
+    // discoverPlugins silently drops any directory without a backstage.role. Without
+    // this, a workspace whose artifacts half-materialized reports a clean pass over
+    // packages nothing ever looked at — the silent green this sweep exists to prevent.
+    const discovered = manifest.backend.length + manifest.frontend.length;
+    const expected = materialized.info?.refCount;
+    if (expected !== undefined && discovered !== expected) {
+      throw new Error(
+        `installed ${discovered} plugin(s) but the workspace declared ${expected} ` +
+          `oci:// ref(s) — the install produced fewer plugins than requested, so part ` +
+          `of the workspace was never validated.`,
+      );
+    }
+    if (discovered === 0) {
+      throw new Error(
+        "nothing validated: the install produced no plugins at all",
       );
     }
 
@@ -556,11 +562,7 @@ async function main(): Promise<number> {
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
     // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(
-      out,
-      cliVersion,
-      err instanceof Error ? err.message : String(err),
-    );
+    await writeErrorReport(out, cliVersion, errorMessage(err));
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });

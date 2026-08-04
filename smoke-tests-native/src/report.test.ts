@@ -57,6 +57,20 @@ test("isReport rejects non-reports", () => {
   assert.equal(isReport(missingBackend), false);
 });
 
+for (const key of ["backend", "frontend", "backendStart"] as const) {
+  test(`isReport rejects a report whose ${key} is not an object`, () => {
+    // isRecord rejects arrays as well as primitives; both reach the aggregator as
+    // NaN totals or a crash if they slip through.
+    assert.equal(isReport({ ...validReport(), [key]: [] }), false);
+    assert.equal(isReport({ ...validReport(), [key]: undefined }), false);
+    assert.equal(isReport({ ...validReport(), [key]: "x" }), false);
+  });
+}
+
+test("isReport rejects a non-string status", () => {
+  assert.equal(isReport({ ...validReport(), status: 0 }), false);
+});
+
 test("isSweepSummary accepts a summary at the current schema version", () => {
   assert.equal(isSweepSummary(validSummary()), true);
 });

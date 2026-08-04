@@ -185,9 +185,15 @@ yarn smoke --dynamic-plugins dp.yaml \
   referencing an unset variable with no default is dropped (with a warning), not
   replaced by an empty string.
 
-`yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace
-resolution, name validation, env/app-config substitution, frontend bundle matrix);
-`yarn check` runs `tsc --noEmit` + the tests. This is a standalone tool dir, not a
+`yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace and
+support-level resolution, shard planning, exclusion parsing, path containment, report
+schema guards, config merging, aggregation and Markdown rendering, env/app-config
+substitution, frontend bundle matrix); `yarn check` runs `tsc --noEmit` + lint +
+prettier + the tests.
+
+The two CLIs keep their logic in `src/sweep-plan.ts` and `src/aggregate-report.ts`
+rather than beside their entry points: a module ending in `process.exit(main())` cannot
+be imported by a test, so anything living there is untestable by construction. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
 `workspaces/*/e2e-tests/**`).
 

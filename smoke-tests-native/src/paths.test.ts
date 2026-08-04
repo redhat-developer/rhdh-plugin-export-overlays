@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, symlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { requireContained, resolveContained } from "./paths";
@@ -39,6 +39,14 @@ test("resolveContained judges where a path lands, not how it is written", () => 
   // A sibling directory sharing the root's name prefix must NOT pass — this is the
   // bug a bare startsWith(root) check has, which is why the separator matters.
   assert.equal(resolveContained(`${root}-sibling/a.json`, root), null);
+});
+
+test("resolveContained is lexical, so a symlink out of the root still passes", () => {
+  // Known and accepted: containment uses resolve(), not realpathSync(). Pinned so the
+  // limitation is a decision on record rather than a surprise — the CLIs only ever
+  // resolve paths the caller typed, inside a checkout they control.
+  symlinkSync(tmpdir(), join(root, "escape"));
+  assert.notEqual(resolveContained("escape/x.json", root), null);
 });
 
 test("requireContained throws a flag-labelled usage error", () => {

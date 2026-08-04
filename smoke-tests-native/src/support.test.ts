@@ -80,22 +80,50 @@ test("listWorkspaces returns sorted names and skips dirs without metadata/", () 
 
 test("selectBySupport filters on spec.support, not on the npm scope", () => {
   // Every fixture package shares the @scope/ org; only spec.support separates them.
+  // Asserted as (name, role) pairs in the order collectPackages returns them: sorting
+  // the result first would discard the ordering guarantee, and comparing a bare
+  // multiset of roles would still pass with every role shuffled among the packages.
   const community = selectBySupport(collectPackages(repoRoot), "community");
-  assert.deepEqual(community.map((p) => p.packageName).sort(), [
-    "@scope/alpha-backend",
-    "@scope/mixed-community",
-    "@scope/zebra-backend",
-    "@scope/zebra-frontend",
-  ]);
-  assert.deepEqual(community.map((p) => p.role).sort(), [
-    "backend-plugin",
-    "backend-plugin",
-    "backend-plugin-module",
-    "frontend-plugin",
-  ]);
+  assert.deepEqual(
+    community.map((p) => [p.packageName, p.role]),
+    [
+      ["@scope/alpha-backend", "backend-plugin"],
+      ["@scope/mixed-community", "backend-plugin-module"],
+      ["@scope/zebra-backend", "backend-plugin"],
+      ["@scope/zebra-frontend", "frontend-plugin"],
+    ],
+  );
 });
 
-test("groupByWorkspace sorts workspaces and their packages deterministically", () => {
+test("groupByWorkspace sorts regardless of the order it is handed", () => {
+  // The filesystem returns readdir entries already sorted on some platforms, so a
+  // fixture built from disk cannot prove this. Hand-built, deliberately unsorted input
+  // can — remove either sort in groupByWorkspace and this fails.
+  const entry = (workspace: string, file: string): PackageEntry => ({
+    workspace,
+    file,
+    packageName: `@scope/${workspace}-${file}`,
+    support: "community",
+    role: "backend-plugin",
+    artifact: "oci://ghcr.io/example/x:tag",
+  });
+  const groups = groupByWorkspace([
+    entry("zebra", "z-frontend.yaml"),
+    entry("alpha", "a.yaml"),
+    entry("zebra", "z-backend.yaml"),
+    entry("mixed", "m.yaml"),
+  ]);
+  assert.deepEqual(
+    groups.map((g) => g.workspace),
+    ["alpha", "mixed", "zebra"],
+  );
+  assert.deepEqual(
+    groups[2].packages.map((p) => p.file),
+    ["z-backend.yaml", "z-frontend.yaml"],
+  );
+});
+
+test("groupByWorkspace groups the repo's own metadata deterministically", () => {
   // Ordering is a correctness property here: coverage gets counted by comparing
   // these lists, and comm/join miscount unsorted input without erroring.
   const groups = groupByWorkspace(
@@ -139,13 +167,26 @@ test("planShards balances on package count and keeps every workspace exactly onc
     .sort();
   assert.deepEqual(placed, ["a", "b", "c", "d", "e"]);
 
+  // Pin the actual placement, not a tolerance band: a subtly worse heuristic would
+  // still land inside a band, and planShards' whole contract is that it is deterministic.
+  assert.deepEqual(
+    shards.map((s) => s.map((g) => g.workspace)),
+    [["a"], ["b", "c"], ["d", "e"]],
+  );
   const loads = shards.map((s) =>
     s.reduce((sum, g) => sum + g.packages.length, 0),
   );
-  // Total 20 over 3 shards: LPT gives 8 / 6 / 6, well inside a 2-package spread.
-  assert.ok(
-    Math.max(...loads) - Math.min(...loads) <= 2,
-    `unbalanced shards: ${loads.join(", ")}`,
+  // 8 / 6 / 6 — round-robin over the same input would give 10 / 6 / 4.
+  assert.deepEqual(loads, [8, 6, 6]);
+});
+
+test("planShards handles the degenerate inputs the CLI can produce", () => {
+  assert.deepEqual(planShards([], 3), [[], [], []]);
+  assert.deepEqual(
+    planShards([group("a", 2), group("b", 1)], 1).map((s) =>
+      s.map((g) => g.workspace),
+    ),
+    [["a", "b"]],
   );
 });
 

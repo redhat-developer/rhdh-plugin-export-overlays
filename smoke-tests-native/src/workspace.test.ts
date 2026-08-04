@@ -19,26 +19,34 @@ import {
   writeDynamicPluginsConfig,
 } from "./workspace";
 
-// Fake repo root: workspaces/<name>/{metadata,smoke-tests}
-const repoRoot = mkdtempSync(join(tmpdir(), "workspace-test-"));
+/**
+ * One repo root per test. A shared root plus fixtures created inside tests made these
+ * order-dependent: a test could read a workspace another test had written, so one
+ * passed only in file order and another passed with no fixture at all.
+ */
+function freshRepo(): string {
+  return mkdtempSync(join(tmpdir(), "workspace-test-"));
+}
 
 function makeWorkspace(
+  root: string,
   name: string,
   metadata: Record<string, string>,
   smokeTests?: Record<string, string>,
-): void {
-  const metadataDir = join(repoRoot, "workspaces", name, "metadata");
+): string {
+  const metadataDir = join(root, "workspaces", name, "metadata");
   mkdirSync(metadataDir, { recursive: true });
   for (const [file, content] of Object.entries(metadata)) {
     writeFileSync(join(metadataDir, file), content);
   }
   if (smokeTests) {
-    const smokeDir = join(repoRoot, "workspaces", name, "smoke-tests");
+    const smokeDir = join(root, "workspaces", name, "smoke-tests");
     mkdirSync(smokeDir, { recursive: true });
     for (const [file, content] of Object.entries(smokeTests)) {
       writeFileSync(join(smokeDir, file), content);
     }
   }
+  return root;
 }
 
 const OCI_REF = "oci://ghcr.io/example/plugin-a:tag!plugin-a";
@@ -54,54 +62,91 @@ test("isValidWorkspaceName rejects separators and dot-only names", () => {
 });
 
 test("collectWorkspaceRefs collects oci refs and skips local-path artifacts", () => {
-  makeWorkspace("mixed", {
+  const root = makeWorkspace(freshRepo(), "mixed", {
     "plugin-a.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n`,
     "plugin-b.yaml":
       "spec:\n  dynamicArtifact: ./dynamic-plugins/dist/plugin-b-dynamic\n",
   });
-  const { refs, skipped } = collectWorkspaceRefs(repoRoot, "mixed");
+  const { refs, skipped } = collectWorkspaceRefs(root, "mixed");
   assert.deepEqual(refs, [OCI_REF]);
   assert.deepEqual(skipped, ["plugin-b.yaml"]);
 });
 
 test("collectWorkspaceRefs throws when no oci refs remain", () => {
-  makeWorkspace("local-only", {
+  const root = makeWorkspace(freshRepo(), "local-only", {
     "plugin.yaml":
       "spec:\n  dynamicArtifact: ./dynamic-plugins/dist/plugin-dynamic\n",
   });
   assert.throws(
-    () => collectWorkspaceRefs(repoRoot, "local-only"),
+    () => collectWorkspaceRefs(root, "local-only"),
     /nothing to validate/,
   );
 });
 
 test("collectWorkspaceRefs throws on unknown workspace and invalid names", () => {
+  const root = freshRepo();
   assert.throws(
-    () => collectWorkspaceRefs(repoRoot, "does-not-exist"),
+    () => collectWorkspaceRefs(root, "does-not-exist"),
     /metadata not found/,
   );
   assert.throws(
-    () => collectWorkspaceRefs(repoRoot, ".."),
+    () => collectWorkspaceRefs(root, ".."),
     /invalid workspace name/,
   );
 });
 
-test("discoverSmokeTestConfig finds only the files that exist", () => {
-  makeWorkspace(
-    "with-env",
-    { "plugin.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n` },
+test("discoverSmokeTestConfig finds both Docker-smoke config files", () => {
+  // The positive case for app-config.test.yaml: if that filename regressed, every
+  // swept workspace would boot without its config and the failures would read as
+  // plugin regressions across the whole catalog.
+  const root = makeWorkspace(
+    freshRepo(),
+    "full",
+    { "p.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n` },
+    {
+      "app-config.test.yaml": "app: {}\n",
+      "test.env": "SOME_URL=https://example.com\n",
+    },
+  );
+  const smokeDir = join(root, "workspaces", "full", "smoke-tests");
+  assert.deepEqual(discoverSmokeTestConfig(root, "full"), {
+    appConfig: join(smokeDir, "app-config.test.yaml"),
+    testEnv: join(smokeDir, "test.env"),
+  });
+});
+
+test("discoverSmokeTestConfig reports each file independently", () => {
+  const root = makeWorkspace(
+    freshRepo(),
+    "env-only",
+    { "p.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n` },
     { "test.env": "SOME_URL=https://example.com\n" },
   );
-  const withEnv = discoverSmokeTestConfig(repoRoot, "with-env");
-  assert.equal(withEnv.appConfig, undefined);
-  assert.match(withEnv.testEnv ?? "", /with-env\/smoke-tests\/test\.env$/);
+  const found = discoverSmokeTestConfig(root, "env-only");
+  assert.equal(found.appConfig, undefined);
+  assert.equal(
+    found.testEnv,
+    join(root, "workspaces", "env-only", "smoke-tests", "test.env"),
+  );
+});
 
-  const none = discoverSmokeTestConfig(repoRoot, "mixed");
-  assert.deepEqual(none, { appConfig: undefined, testEnv: undefined });
+test("discoverSmokeTestConfig returns nothing for a smoke-tests dir with no config", () => {
+  // The negative that actually distinguishes "no config files" from "no workspace":
+  // the previous version asserted against a workspace that need not exist at all.
+  const root = makeWorkspace(
+    freshRepo(),
+    "bare",
+    { "p.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n` },
+    {},
+  );
+  assert.deepEqual(discoverSmokeTestConfig(root, "bare"), {
+    appConfig: undefined,
+    testEnv: undefined,
+  });
 });
 
 test("readWorkspacePackages flattens the fields the sweep filters on", () => {
-  makeWorkspace("tiers", {
+  const root = makeWorkspace(freshRepo(), "tiers", {
     "community.yaml": [
       "spec:",
       '  packageName: "@scope/plugin-community"',
@@ -112,7 +157,7 @@ test("readWorkspacePackages flattens the fields the sweep filters on", () => {
       "",
     ].join("\n"),
   });
-  assert.deepEqual(readWorkspacePackages(repoRoot, "tiers"), [
+  assert.deepEqual(readWorkspacePackages(root, "tiers"), [
     {
       workspace: "tiers",
       file: "community.yaml",
@@ -124,16 +169,63 @@ test("readWorkspacePackages flattens the fields the sweep filters on", () => {
   ]);
 });
 
+test("readWorkspacePackages falls back rather than yielding an empty package name", () => {
+  // A package that reaches the support filter with support: "" matches no level and
+  // vanishes from every sweep with no warning — the miscount class this whole module
+  // is written to avoid. Pin the fallbacks so that stays visible.
+  const root = makeWorkspace(freshRepo(), "odd", {
+    "no-spec.yaml": "metadata:\n  name: entity-name\n",
+    "no-name.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n`,
+  });
+  assert.deepEqual(readWorkspacePackages(root, "odd"), [
+    {
+      workspace: "odd",
+      file: "no-name.yaml",
+      packageName: "no-name.yaml",
+      support: "",
+      role: "",
+      artifact: OCI_REF,
+    },
+    {
+      workspace: "odd",
+      file: "no-spec.yaml",
+      packageName: "entity-name",
+      support: "",
+      role: "",
+      artifact: "",
+    },
+  ]);
+});
+
+test("readWorkspacePackages reads .yml and ignores non-metadata files", () => {
+  const root = makeWorkspace(freshRepo(), "noise", {
+    "b.yml": `spec:\n  packageName: "@scope/b"\n  dynamicArtifact: ${OCI_REF}\n`,
+    "a.yaml": `spec:\n  packageName: "@scope/a"\n  dynamicArtifact: ${OCI_REF}\n`,
+    "README.md": "# notes\n",
+  });
+  assert.deepEqual(
+    readWorkspacePackages(root, "noise").map((p) => p.file),
+    ["a.yaml", "b.yml"],
+  );
+});
+
+test("a malformed metadata file fails the run rather than dropping the package", () => {
+  const root = makeWorkspace(freshRepo(), "broken", {
+    "bad.yaml": "spec:\n  - unbalanced: [\n",
+  });
+  assert.throws(() => readWorkspacePackages(root, "broken"));
+});
+
 test("collectWorkspaceRefs narrows to one support level", () => {
-  makeWorkspace("two-tiers", {
+  const root = makeWorkspace(freshRepo(), "two-tiers", {
     "a-community.yaml": `spec:\n  packageName: "@scope/a"\n  support: community\n  dynamicArtifact: ${OCI_REF}\n`,
     "b-ga.yaml": `spec:\n  packageName: "@scope/b"\n  support: generally-available\n  dynamicArtifact: ${OCI_REF}-ga\n`,
   });
-  const all = collectWorkspaceRefs(repoRoot, "two-tiers");
+  const all = collectWorkspaceRefs(root, "two-tiers");
   assert.equal(all.refs.length, 2);
   assert.equal(all.outOfScope, 0);
 
-  const community = collectWorkspaceRefs(repoRoot, "two-tiers", {
+  const community = collectWorkspaceRefs(root, "two-tiers", {
     support: "community",
   });
   assert.deepEqual(community.refs, [OCI_REF]);
@@ -141,7 +233,7 @@ test("collectWorkspaceRefs narrows to one support level", () => {
 });
 
 test("collectWorkspaceRefs drops install-excluded packages and records the ticket", () => {
-  makeWorkspace("excluded", {
+  const root = makeWorkspace(freshRepo(), "excluded", {
     "a.yaml": `spec:\n  packageName: "@scope/keep"\n  dynamicArtifact: ${OCI_REF}\n`,
     "b.yaml": `spec:\n  packageName: "@scope/drop"\n  dynamicArtifact: ${OCI_REF}-drop\n`,
   });
@@ -149,7 +241,7 @@ test("collectWorkspaceRefs drops install-excluded packages and records the ticke
     "# TODO(RHIDP-1): unpublished.\ninstall ^@scope/drop$\n",
     "test",
   );
-  const { refs, excluded } = collectWorkspaceRefs(repoRoot, "excluded", {
+  const { refs, excluded } = collectWorkspaceRefs(root, "excluded", {
     installExcluded: excluderFor(exclusions, "install"),
   });
   assert.deepEqual(refs, [OCI_REF]);
@@ -158,7 +250,7 @@ test("collectWorkspaceRefs drops install-excluded packages and records the ticke
       packageName: "@scope/drop",
       scope: "install",
       ticket: "RHIDP-1",
-      pattern: "^@scope/drop$",
+      patternSource: "^@scope/drop$",
     },
   ]);
 });
@@ -166,9 +258,12 @@ test("collectWorkspaceRefs drops install-excluded packages and records the ticke
 test("collectWorkspaceRefs says which filter emptied the set", () => {
   // A support filter that matches nothing must not read like a workspace with no
   // published artifacts — the two have different fixes.
+  const root = makeWorkspace(freshRepo(), "two-tiers", {
+    "a-community.yaml": `spec:\n  support: community\n  dynamicArtifact: ${OCI_REF}\n`,
+    "b-ga.yaml": `spec:\n  support: generally-available\n  dynamicArtifact: ${OCI_REF}\n`,
+  });
   assert.throws(
-    () =>
-      collectWorkspaceRefs(repoRoot, "two-tiers", { support: "dev-preview" }),
+    () => collectWorkspaceRefs(root, "two-tiers", { support: "dev-preview" }),
     /2 at another support level.*nothing to validate/,
   );
 });

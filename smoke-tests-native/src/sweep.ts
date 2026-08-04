@@ -45,16 +45,9 @@ import {
   type SweepSummary,
   type SweepWorkspaceResult,
 } from "./report";
-import {
-  collectPackages,
-  groupByWorkspace,
-  isSupportLevel,
-  planShards,
-  selectBySupport,
-  SUPPORT_LEVELS,
-  type WorkspaceGroup,
-} from "./support";
-import type { PackageEntry } from "./workspace";
+import { buildPlan, resolvePlan, statusGlyph, summarize } from "./sweep-plan";
+import { isSupportLevel, SUPPORT_LEVELS, type WorkspaceGroup } from "./support";
+import { errorMessage } from "./util";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // Both entry points are bundled into dist/, so the harness sits next to this file.
@@ -62,30 +55,12 @@ const HARNESS = join(HERE, "native-smoke.mjs");
 const HARNESS_ROOT = dirname(HERE);
 const REPO_ROOT = dirname(HARNESS_ROOT);
 
-type ShardPlanEntry = {
-  index: number;
-  workspaces: string[];
-  packageCount: number;
-};
-
-type SweepPlan = {
-  support: string;
-  shardCount: number;
-  totals: {
-    workspaces: number;
-    packages: number;
-    byRole: Record<string, number>;
-  };
-  /** Non-empty shards only — an empty one would be a CI job with nothing to do. */
-  shards: ShardPlanEntry[];
-};
-
 type CliInputs = {
   support: string;
   shards: number;
   shard: number;
   exclusions: Exclusion[];
-  /** Path as given, to forward to each harness process. */
+  /** Contained absolute path, forwarded to each harness process. */
   exclusionsFile?: string;
   outDir: string;
   plan: boolean;
@@ -181,47 +156,6 @@ function parseCliInputs(): CliInputs {
   };
 }
 
-/** Resolve the in-scope workspaces, grouped and shard-balanced. */
-function resolvePlan(
-  support: string,
-  shardCount: number,
-): {
-  groups: WorkspaceGroup[];
-  shards: WorkspaceGroup[][];
-  packages: PackageEntry[];
-} {
-  const packages = selectBySupport(collectPackages(REPO_ROOT), support);
-  const groups = groupByWorkspace(packages);
-  return { groups, shards: planShards(groups, shardCount), packages };
-}
-
-function buildPlan(support: string, shardCount: number): SweepPlan {
-  const { groups, shards, packages } = resolvePlan(support, shardCount);
-  const byRole: Record<string, number> = {};
-  for (const pkg of packages) {
-    byRole[pkg.role || "(unset)"] = (byRole[pkg.role || "(unset)"] ?? 0) + 1;
-  }
-  return {
-    support,
-    shardCount,
-    totals: {
-      workspaces: groups.length,
-      packages: packages.length,
-      byRole,
-    },
-    shards: shards
-      .map((shard, index) => ({
-        index,
-        workspaces: shard.map((group) => group.workspace),
-        packageCount: shard.reduce(
-          (sum, group) => sum + group.packages.length,
-          0,
-        ),
-      }))
-      .filter((entry) => entry.workspaces.length > 0),
-  };
-}
-
 /** Run one workspace through the harness, in its own process. */
 function runWorkspace(
   group: WorkspaceGroup,
@@ -289,27 +223,37 @@ function runWorkspace(
       }
     } catch (err) {
       console.error(
-        `⚠ ${group.workspace}: results file is unreadable (${err instanceof Error ? err.message : String(err)})`,
+        `⚠ ${group.workspace}: results file is unreadable (${errorMessage(err)})`,
       );
     }
+  }
+
+  // A harness that died without writing a report (signal, OOM) leaves no status. One
+  // that wrote `pass` and THEN died — the rm above only defends against a previous
+  // run's file — would otherwise hand back a green verdict on a crashed process.
+  const exitCode = result.status ?? 1;
+  const status =
+    report && (exitCode === 0 || report.status !== "pass")
+      ? report.status
+      : "error";
+  if (report?.status === "pass" && exitCode !== 0) {
+    console.error(
+      `⚠ ${group.workspace}: harness wrote a passing report but exited ${exitCode} — treating as an error.`,
+    );
   }
 
   return {
     workspace: group.workspace,
     packageCount: group.packages.length,
-    // A harness that died without writing a report (signal, OOM) leaves no status —
-    // call it `error` rather than inheriting a stale or absent verdict.
-    status: report?.status ?? "error",
-    exitCode: result.status ?? 1,
+    status,
+    exitCode,
     durationMs,
     report,
-    exclusions: [...excluded, ...(report?.exclusions ?? [])],
+    // The harness applies the same install-scope excluder to the same package set and
+    // records it, so taking both copies duplicated every record in the aggregate's
+    // exclusions table. Its report wins when there is one.
+    exclusions: report ? report.exclusions : excluded,
   };
-}
-
-function statusGlyph(status: SweepWorkspaceResult["status"]): string {
-  if (status === "pass") return "✓";
-  return status === "skipped" ? "–" : "✗";
 }
 
 function main(): number {
@@ -317,12 +261,16 @@ function main(): number {
 
   if (inputs.plan) {
     console.log(
-      JSON.stringify(buildPlan(inputs.support, inputs.shards), null, 2),
+      JSON.stringify(
+        buildPlan(REPO_ROOT, inputs.support, inputs.shards),
+        null,
+        2,
+      ),
     );
     return 0;
   }
 
-  const { shards } = resolvePlan(inputs.support, inputs.shards);
+  const { shards } = resolvePlan(REPO_ROOT, inputs.support, inputs.shards);
   const groups = shards[inputs.shard];
 
   mkdirSync(inputs.outDir, { recursive: true });
@@ -332,22 +280,17 @@ function main(): number {
   );
 
   const results = groups.map((group) => runWorkspace(group, inputs));
-  const summary: SweepSummary = {
-    schemaVersion: SWEEP_SCHEMA_VERSION,
-    support: inputs.support,
-    shard: { index: inputs.shard, total: inputs.shards },
-    workspaces: results,
-    status: results.every((r) => r.status === "pass" || r.status === "skipped")
-      ? "pass"
-      : "fail",
-  };
+  const summary: SweepSummary = summarize(
+    results,
+    inputs.support,
+    inputs.shard,
+    inputs.shards,
+    SWEEP_SCHEMA_VERSION,
+  );
 
   const summaryPath = join(inputs.outDir, `sweep-shard-${inputs.shard}.json`);
   writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
 
-  const failed = results.filter(
-    (r) => r.status !== "pass" && r.status !== "skipped",
-  );
   console.log(`\n▶ shard summary → ${summaryPath} (status: ${summary.status})`);
   for (const result of results) {
     console.log(
@@ -355,7 +298,7 @@ function main(): number {
         `${result.workspace}: ${result.status} (${Math.round(result.durationMs / 1000)}s)`,
     );
   }
-  return failed.length > 0 ? 1 : 0;
+  return summary.status === "pass" ? 0 : 1;
 }
 
 process.exit(main());
