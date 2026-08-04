@@ -71,6 +71,7 @@ On a PR, comment:
 | `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
+| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
