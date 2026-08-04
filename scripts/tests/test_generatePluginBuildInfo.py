@@ -618,10 +618,10 @@ class TestRhdhBranchAndVersion:
         "midstream, expected",
         [
             ("main", "main"),
-            ("rhdh-1-rhel-9", "main"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),
+            ("", "main"),
         ],
     )
     def test_rhdh_git_branch_for_midstream(self, midstream, expected):
