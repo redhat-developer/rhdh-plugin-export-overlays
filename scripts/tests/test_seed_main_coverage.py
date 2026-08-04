@@ -5,34 +5,47 @@ green run has to mean "the dashboard was updated". The way that quietly stops
 being true is a run that reports success while uploading nothing — which is what
 this suite pins down.
 
-Uploads are driven through a stub Codecov CLI, so the tests are hermetic: no
-network, and no dependence on a real token or on a shared /tmp binary.
+Every case runs against a throwaway repo built by build_fake_repo(), never the
+real checkout: the seed globs `coverage-snapshots/` and the orphan case has to
+put a file there, which would otherwise mean writing into the working tree. It
+also fixes the workspace set, so these assertions do not drift as snapshots are
+added to the repo.
+
+Uploads go through a stub Codecov CLI, so the tests are hermetic: no network and
+no dependence on a real token.
 """
 
 from tests.shell_harness import (
     FAKE_SHA,
-    SEED_SCRIPT,
+    build_fake_repo,
     call_count,
     run_script,
     write_stub_cli,
 )
 
-SNAPSHOT_DIR = SEED_SCRIPT.parent.parent / "coverage-snapshots"
+WORKSPACES = ["alpha", "beta", "gamma"]
 
 
-def committed_workspaces():
-    """Workspaces the seed would upload — one per committed snapshot."""
-    return sorted(p.stem for p in SNAPSHOT_DIR.glob("*.lcov"))
-
-
-def seed(tmp_path, exit_codes=(0,), token="fake-token", **extra):
-    """Run seed-main-coverage.sh against a stub Codecov CLI."""
+def seed(tmp_path, exit_codes=(0,), token="fake-token", workspaces=None, orphans=(), **extra):
+    """Run seed-main-coverage.sh in a fake repo against a stub Codecov CLI."""
+    repo = build_fake_repo(
+        tmp_path, workspaces if workspaces is not None else WORKSPACES, orphans
+    )
     stub = write_stub_cli(tmp_path / "codecov", list(exit_codes))
-    env = {"CODECOV_BIN": str(stub), "GITHUB_SHA": FAKE_SHA}
+    env = {
+        "CODECOV_BIN": str(stub),
+        "GITHUB_SHA": FAKE_SHA,
+        # upload-coverage.sh resolves the upload branch from git when there is no
+        # PR number; the fake repo is not a git checkout, so name it explicitly.
+        "PULL_BASE_REF": "main",
+    }
     if token is not None:
         env["CODECOV_TOKEN"] = token
     env.update(extra)
-    return run_script(SEED_SCRIPT, env=env), stub
+    result = run_script(
+        repo / "scripts" / "seed-main-coverage.sh", env=env, cwd=repo
+    )
+    return result, stub
 
 
 class TestTokenGuard:
@@ -46,16 +59,16 @@ class TestTokenGuard:
 
 class TestSeedOutcome:
     def test_all_uploads_succeed(self, tmp_path):
-        expected = len(committed_workspaces())
         result, stub = seed(tmp_path, exit_codes=(0,))
         assert result.returncode == 0
-        assert f"Done: {expected}/{expected} seeded" in result.stdout
-        assert call_count(stub) == expected
+        assert f"Done: {len(WORKSPACES)}/{len(WORKSPACES)} seeded" in result.stdout
+        assert call_count(stub) == len(WORKSPACES)
 
     def test_one_failed_workspace_fails_the_run_and_is_named(self, tmp_path):
-        """6/7 green would strand the 7th behind a stale carried-forward number,
-        which is exactly the silent staleness this job exists to prevent."""
-        target = committed_workspaces()[0]
+        """2/3 green would strand the third behind a stale carried-forward
+        number, which is the silent staleness this job exists to prevent."""
+        target = WORKSPACES[1]
+        repo = build_fake_repo(tmp_path, WORKSPACES)
         stub = tmp_path / "codecov"
         stub.write_text(
             "#!/usr/bin/env bash\n"
@@ -65,38 +78,49 @@ class TestSeedOutcome:
         )
         stub.chmod(0o755)
         result = run_script(
-            SEED_SCRIPT,
+            repo / "scripts" / "seed-main-coverage.sh",
             env={
                 "CODECOV_BIN": str(stub),
                 "CODECOV_TOKEN": "fake-token",
                 "GITHUB_SHA": FAKE_SHA,
+                "PULL_BASE_REF": "main",
             },
+            cwd=repo,
         )
         assert result.returncode == 1
         assert target in result.stderr
         assert "Not seeded" in result.stderr
+        # One bad workspace must not abort the rest: every workspace is still
+        # attempted, and the failing one twice because upload-coverage.sh retries.
+        calls = (tmp_path / "codecov.calls").read_text()
+        for ws in WORKSPACES:
+            assert f"--flag e2e-{ws}" in calls
+        assert calls.count(f"--flag e2e-{target}") == 2
+        assert call_count(stub) == len(WORKSPACES) + 1
 
     def test_every_workspace_is_uploaded_under_its_own_flag(self, tmp_path):
+        """Each workspace's lcov has to reach its own flag; pairing them up wrong
+        would put one workspace's coverage on another's dashboard entry."""
         result, stub = seed(tmp_path, exit_codes=(0,))
         assert result.returncode == 0
-        args = (tmp_path / "codecov.calls").read_text()
-        for ws in committed_workspaces():
-            assert f"--flag e2e-{ws}" in args
+        calls = (tmp_path / "codecov.calls").read_text().splitlines()
+        for ws in WORKSPACES:
+            assert any(
+                f"--flag e2e-{ws}" in c and f"coverage-snapshots/{ws}.lcov" in c
+                for c in calls
+            ), f"{ws}.lcov must be uploaded under e2e-{ws}"
 
     def test_strict_is_passed_through_to_every_upload(self, tmp_path):
         """Without strict the child returns 0 on a failed upload, and the seed
         reports every snapshot as seeded while Codecov received nothing."""
-        stub = write_stub_cli(tmp_path / "codecov", [1])
-        result = run_script(
-            SEED_SCRIPT,
-            env={
-                "CODECOV_BIN": str(stub),
-                "CODECOV_TOKEN": "fake-token",
-                "GITHUB_SHA": FAKE_SHA,
-                "UPLOAD_RETRY_DELAY_SECONDS": "0",
-            },
-        )
+        result, _ = seed(tmp_path, exit_codes=(1,), UPLOAD_RETRY_DELAY_SECONDS="0")
         assert result.returncode == 1, "a Codecov-side failure must fail the seed"
+
+    def test_no_snapshots_is_a_no_op(self, tmp_path):
+        result, stub = seed(tmp_path, workspaces=[])
+        assert result.returncode == 0
+        assert "nothing to seed" in result.stdout
+        assert call_count(stub) == 0
 
 
 class TestOrphanedSnapshot:
@@ -104,31 +128,9 @@ class TestOrphanedSnapshot:
         """A snapshot left behind by a renamed workspace would fail its upload on
         every run, turning the scheduled job permanently red with the cause
         buried in one workspace's log. It should fail once, up front, naming the
-        fix.
-
-        The snapshot has to be created in the real coverage-snapshots/ directory:
-        the script resolves that path from its own location, so there is nowhere
-        else it would look. The `finally` removes it.
-
-        Worst case if the process is killed between the two: the file is left
-        behind untracked. CI is unaffected — every job runs on a fresh checkout —
-        and a local seed run would fail immediately naming the exact file to
-        delete, which is the behaviour this test is asserting in the first place.
-        """
-        orphan = SNAPSHOT_DIR / "no-such-workspace-xyz.lcov"
-        orphan.write_text("TN:\nend_of_record\n")
-        try:
-            stub = write_stub_cli(tmp_path / "codecov", [0])
-            result = run_script(
-                SEED_SCRIPT,
-                env={
-                    "CODECOV_BIN": str(stub),
-                    "CODECOV_TOKEN": "fake-token",
-                    "GITHUB_SHA": FAKE_SHA,
-                },
-            )
-            assert result.returncode == 1
-            assert "no-such-workspace-xyz" in result.stderr
-            assert call_count(stub) == 0, "nothing should upload while a snapshot is orphaned"
-        finally:
-            orphan.unlink()
+        file to delete — and upload nothing in the meantime, since a partial seed
+        is what leaves flags inconsistent."""
+        result, stub = seed(tmp_path, orphans=["no-such-workspace"])
+        assert result.returncode == 1
+        assert "no-such-workspace" in result.stderr
+        assert call_count(stub) == 0

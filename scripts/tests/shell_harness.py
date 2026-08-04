@@ -57,6 +57,36 @@ def call_count(stub: Path) -> int:
     return len([line for line in calls.read_text().splitlines() if line.strip()])
 
 
+def build_fake_repo(tmp_path: Path, workspaces, extra_snapshots=()) -> Path:
+    """Lay out a throwaway repo the seed will treat as its own checkout.
+
+    Both scripts derive their repo root from their own location
+    (`dirname $0` -> `..`), so symlinking them into `<tmp>/scripts/` is enough to
+    relocate everything they read and write. That keeps the seed's snapshot
+    globbing off the real `coverage-snapshots/`, which a test would otherwise
+    have to write into — and makes the fixture set explicit instead of "whatever
+    happens to be committed today".
+
+    `extra_snapshots` creates a snapshot with no matching `workspaces/<name>/`,
+    which is exactly the orphan the seed is supposed to reject.
+    """
+    root = tmp_path / "repo"
+    (root / "scripts").mkdir(parents=True)
+    for name in ("seed-main-coverage.sh", "upload-coverage.sh"):
+        (root / "scripts" / name).symlink_to(SCRIPTS_DIR / name)
+
+    (root / "coverage-snapshots").mkdir()
+    for ws in [*workspaces, *extra_snapshots]:
+        # Minimal but well-formed lcov. Nothing under test parses it — the stub
+        # CLI ignores its content and upload-coverage.sh only checks it exists.
+        (root / "coverage-snapshots" / f"{ws}.lcov").write_text(
+            f"TN:\nSF:workspaces/{ws}/coverage-anchors/plugin-{ws}\nend_of_record\n"
+        )
+    for ws in workspaces:
+        (root / "workspaces" / ws).mkdir(parents=True)
+    return root
+
+
 def run_script(script: Path, *args, env=None, cwd=None):
     """Run one of the coverage scripts with a controlled environment.
 
