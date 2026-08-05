@@ -60,43 +60,14 @@ is_nfs_type() {
   return 1
 }
 
-# Read support tier files
-declare -A SUPPORT_TIER
-while IFS= read -r line; do
-  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-  SUPPORT_TIER["$line"]="supported"
-done < "$REPO_ROOT/rhdh-supported-packages.txt"
-
-while IFS= read -r line; do
-  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-  SUPPORT_TIER["$line"]="community"
-done < "$REPO_ROOT/rhdh-community-packages.txt"
-
-get_support_tier() {
-  local workspace="$1"
-  local plugin_path="$2"
-  # Try exact match first: workspace/plugins/plugin-folder
-  local key="${workspace}/plugins/${plugin_path}"
-  if [[ -n "${SUPPORT_TIER[$key]:-}" ]]; then
-    echo "${SUPPORT_TIER[$key]}"
-    return
-  fi
-  # Try matching by scanning all keys for this workspace
-  for k in "${!SUPPORT_TIER[@]}"; do
-    if [[ "$k" == "${workspace}/"* ]]; then
-      # At least one plugin in this workspace is tracked
-      echo "${SUPPORT_TIER[$k]}"
-      return
-    fi
-  done
-  echo "other"
-}
-
-get_plugin_folder() {
-  local package_name="$1"
-  # Extract the plugin folder name from the package name
-  # e.g. @backstage-community/plugin-tech-radar -> tech-radar (strip scope + plugin- prefix)
-  echo "$package_name" | sed 's|^@[^/]*/||; s|^plugin-||; s|^backstage-plugin-||'
+# Map spec.support values from metadata YAML to report tier labels
+map_support_tier() {
+  local support="$1"
+  case "$support" in
+    generally-available|tech-preview) echo "supported" ;;
+    community|dev-preview)            echo "community" ;;
+    *)                                echo "other" ;;
+  esac
 }
 
 classify_features() {
@@ -147,8 +118,8 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
 
   [[ -z "$package_name" ]] && continue
 
-  plugin_folder=$(get_plugin_folder "$package_name")
-  support_tier=$(get_support_tier "$workspace" "$plugin_folder")
+  support_raw=$(grep "  support:" "$yaml_file" | head -1 | sed 's/.*support: *//' | tr -d '[:space:]')
+  support_tier=$(map_support_tier "$support_raw")
 
   if [[ "$role" != "frontend-plugin" ]]; then
     status="backend-only"
@@ -249,9 +220,10 @@ EOF
 
   for tier in supported community other; do
     case "$tier" in
-      supported) tier_label="Red Hat Supported" ;;
+      supported) tier_label="Red Hat Supported (GA + Tech Preview)" ;;
       community) tier_label="Community" ;;
       other)     tier_label="Other" ;;
+      *)         tier_label="$tier" ;;
     esac
     tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .role == "frontend-plugin")] | length')
     tier_ready=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .status == "nfs-ready")] | length')

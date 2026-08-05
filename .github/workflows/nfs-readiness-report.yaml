@@ -19,19 +19,25 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install oras
+        env:
+          ORAS_VERSION: "1.2.2"
         run: |
-          ORAS_VERSION="1.2.2"
-          curl -fsSLO "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz"
-          tar xzf "oras_${ORAS_VERSION}_linux_amd64.tar.gz" -C /usr/local/bin oras
-          rm -f "oras_${ORAS_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --proto '=https' --tlsv1.2 \
+            "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
+            -o oras.tar.gz
+          tar xzf oras.tar.gz -C /usr/local/bin oras
+          rm -f oras.tar.gz
           oras version
 
       - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${GHCR_TOKEN}" | oras login ghcr.io -u "${GHCR_USER}" --password-stdin
 
       - name: Generate report
         run: |
-          bash scripts/nfs-readiness-report.sh --markdown --oci > nfs-readiness-report.md 2>/dev/null
+          bash scripts/nfs-readiness-report.sh --markdown --oci > nfs-readiness-report.md
 
       - name: Write job summary
         run: cat nfs-readiness-report.md >> "$GITHUB_STEP_SUMMARY"
