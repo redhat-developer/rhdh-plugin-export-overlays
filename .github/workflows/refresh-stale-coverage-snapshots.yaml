@@ -79,11 +79,15 @@ jobs:
             git fetch -q origin "$BRANCH"
             git checkout -q -B "$BRANCH" "origin/$BRANCH"
             # main moves under the branch (the per-PR refresh path also commits
-            # snapshots). Rebase so this run measures against current main. A
-            # conflict means both paths touched the same lcov; main's copy came
-            # from that workspace's own PR and is the better one, so drop the
-            # accumulated work and start over rather than resolve it here.
-            if ! git rebase -q origin/main; then
+            # snapshots). Rebase so this run measures against current main.
+            #
+            # `-X ours` resolves a conflicting lcov to main's copy — during a
+            # rebase "ours" is upstream, i.e. main — which is the right call:
+            # main's version came from that workspace's own PR and is newer.
+            # Stating it as a merge strategy keeps the rest of the queue, where
+            # aborting discarded every accumulated slice over one collision and
+            # restarted a 20-deep backlog that only drains ~1/day.
+            if ! git rebase -q -X ours origin/main; then
               git rebase --abort || true
               echo "[WARN] Accumulation branch conflicted with main — restarting it from main."
               git checkout -q -B "$BRANCH" origin/main
@@ -115,11 +119,24 @@ jobs:
             exit 1
           fi
 
-          # HEAD is the accumulation branch, so workspaces already refreshed by
-          # an earlier run read as current and are not redone.
-          mapfile -t stale < <(STALE_COMPARE_REF=HEAD ./scripts/find-stale-snapshots.sh)
+          # Captured in its own command, NOT through `mapfile < <(...)`: a
+          # process substitution's exit status is invisible to `set -e`, so a
+          # detector that failed (bad ref, git error) would read as "nothing is
+          # stale" and the job would report success having done nothing.
+          stale_out="$(STALE_COMPARE_REF=HEAD ./scripts/find-stale-snapshots.sh)"
+          mapfile -t stale <<<"$stale_out"
+          # A here-string always yields one line, so an empty result arrives as
+          # a single empty element rather than an empty array.
+          [[ ${#stale[@]} -eq 1 && -z "${stale[0]}" ]] && stale=()
+
           if [[ ${#stale[@]} -eq 0 ]]; then
             echo "[INFO] Every snapshot is current — nothing to do."
+            # Written before the early exit. An unset step output is '' in a GHA
+            # expression, and '' != '0' is TRUE — so skipping this made the PR
+            # step run with nothing staged and fail the job on its most common,
+            # entirely healthy path.
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "refreshed=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "[INFO] ${#stale[@]} stale snapshot(s): ${stale[*]}"
@@ -129,8 +146,8 @@ jobs:
           # and doing it in the loop made the window small enough to defeat the
           # job's own purpose.
           echo "[INFO] Listing the last $PR_SEARCH_LIMIT merged PRs..."
-          gh pr list --state merged --limit "$PR_SEARCH_LIMIT" --json number,files > /tmp/merged-prs.json
-          echo "[INFO] $(jq 'length' /tmp/merged-prs.json) merged PR(s) available to search."
+          gh pr list --state merged --limit "$PR_SEARCH_LIMIT" --json number,files > "$RUNNER_TEMP/merged-prs.json"
+          echo "[INFO] $(jq 'length' "$RUNNER_TEMP/merged-prs.json") merged PR(s) available to search."
 
           refreshed=()
           skipped=()
@@ -155,7 +172,7 @@ jobs:
             mapfile -t candidates < <(
               jq -r --arg ws "workspaces/$ws/" \
                 '[.[] | select([.files[].path] | any(startswith($ws))) | .number] | .[]' \
-                /tmp/merged-prs.json
+                "$RUNNER_TEMP/merged-prs.json"
             )
             if [[ ${#candidates[@]} -eq 0 ]]; then
               echo "[INFO] $ws: no merged PR touching it within the last $PR_SEARCH_LIMIT — skipping."
@@ -165,8 +182,15 @@ jobs:
             body=""
             pr=""
             for candidate in "${candidates[@]}"; do
-              body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/$candidate/comments?per_page=100" \
-                --jq "[.[] | select(.user.login == \"rhdh-test-bot\") | select(.body | test(\"Passed E2E Tests\")) | select(.body | test(\"\`$ws\`\")) | .body] | .[-1] // empty")
+              # jq program is static and the workspace arrives via --arg. Built
+              # by interpolation it went into test(), which is a REGEX — a name
+              # containing `.` or `+` would over-match a different workspace.
+              body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/$candidate/comments?per_page=100" --paginate \
+                | jq -r --arg ws "$ws" \
+                  '[.[] | select(.user.login == "rhdh-test-bot")
+                        | select(.body | contains("Passed E2E Tests"))
+                        | select(.body | contains("`" + $ws + "`"))
+                        | .body] | .[-1] // empty')
               if [[ -n "$body" ]]; then
                 pr="$candidate"
                 break
@@ -177,11 +201,13 @@ jobs:
               continue
             fi
 
-            # Pin the host and the /gcs/ path shape. The comment body is data,
-            # and a tampered one must not redirect the download. Kept identical
-            # to the pattern in refresh-coverage-snapshot.yaml's parse step —
-            # if one is tightened, tighten both.
-            log_url=$(grep -oE 'https://gcsweb-ci\.apps\.[a-z0-9.-]+/gcs/[^)[:space:]]*/build-log\.txt' <<<"$body" | head -1)
+            # The comment body is data, so the URL is pinned to the real
+            # gcsweb host in full — an unanchored `[a-z0-9.-]+` after
+            # `gcsweb-ci.apps.` would also match an attacker-controlled domain.
+            # Anchored inside the markdown link parens for the same reason
+            # refresh-coverage-snapshot.yaml's parse step does it: a URL in
+            # prose is not the artifact link. Keep both in step.
+            log_url=$(grep -oE '\(https://gcsweb-ci\.apps\.ci\.l2s4\.p1\.openshiftapps\.com/gcs/[^)[:space:]]+/build-log\.txt\)' <<<"$body" | head -1 | tr -d '()')
             if [[ -z "$log_url" ]]; then
               echo "[WARN] $ws: PR #$pr comment did not yield a build-log URL — skipping (format may have drifted)."
               continue
@@ -248,7 +274,10 @@ jobs:
           # run fetched it, which a bare --force would silently discard.
           git push --force-with-lease origin "$branch"
 
-          if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
+          # `gh pr view <branch>` also resolves CLOSED PRs, so a maintainer
+          # closing this one would leave the branch receiving pushes forever
+          # with nothing tracking it. Ask specifically for an OPEN one.
+          if [[ -z "$(gh pr list --head "$branch" --state open --json number -q '.[0].number')" ]]; then
             gh pr create --base main --head "$branch" \
               --title "chore(coverage): refresh ${COUNT} stale coverage snapshot(s)" \
               --body "Automated refresh of coverage snapshots that no longer matched their workspace.
