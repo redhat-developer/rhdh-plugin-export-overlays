@@ -20,9 +20,20 @@ export async function createUsersAndGroups(): Promise<void> {
     }
   }
 
-  await keycloak.configureForRHDH({
-    realm: realm,
-    groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
-    users: Object.values(RBAC_DESCRIPTIVE_USERS),
-  });
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await keycloak.configureForRHDH({
+        realm: realm,
+        groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
+        users: Object.values(RBAC_DESCRIPTIVE_USERS),
+      });
+      break;
+    } catch (e) {
+      if (attempt === 3) throw e;
+      console.log(
+        `[Keycloak] configureForRHDH attempt ${attempt} failed, retrying...`,
+      );
+      await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+  }
 }
