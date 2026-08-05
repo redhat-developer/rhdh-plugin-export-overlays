@@ -1,0 +1,24 @@
+plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:2.0.0--1.17.1!red-hat-developer-hub-backstage-plugin-homepage
+    disabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-microsoft-provider-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          microsoftGraphOrg:
+            providerId:
+              target: https://graph.microsoft.com/v1.0
+              authority: https://login.microsoftonline.com
+              tenantId: ${AUTH_PROVIDERS_AZURE_TENANT_ID}
+              clientId: ${AUTH_PROVIDERS_AZURE_CLIENT_ID}
+              clientSecret: ${AUTH_PROVIDERS_AZURE_CLIENT_SECRET}
+              user:
+                filter: "accountEnabled eq true and userType eq 'member' and startswith(displayName,'TEST')"
+              group:
+                filter: "securityEnabled eq true and mailEnabled eq false and startswith(displayName,'TEST_')"
+              schedule:
+                frequency: PT1M
+                timeout: PT1M
