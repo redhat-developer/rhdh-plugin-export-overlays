@@ -1,0 +1,184 @@
+name: Refresh stale coverage snapshots
+
+# Second, post-merge path for refreshing coverage-snapshots/<ws>.lcov.
+#
+# refresh-coverage-snapshot.yaml handles the fast case: the e2e bot reports a
+# pass on a PR and the snapshot is committed straight back to it. That path can
+# only work for same-repo PRs — it checks out the PR head and pushes to it, so
+# it skips forks outright ("Fork PR — skipping snapshot refresh"). Measured on
+# 2026-08-05, 16 of 37 recent merged PRs touching a workspace came from forks:
+# their e2e ran, coverage was collected, and the result was thrown away.
+#
+# The damage is not a gap, it is a stale number that still gets believed.
+# bulk-import, global-header and tech-radar were publishing coverage measured on
+# 2026-06-24/29 for workspaces that had changed on 08-03.
+#
+# This job closes that by working from MERGED pull requests only — which is also
+# the more defensible moment to trust the data. Coverage from an unmerged fork
+# PR describes code nobody accepted yet; coverage from a merged one describes
+# what main actually carries. It never checks out a fork, never pushes to one,
+# and runs every script from main's own checkout.
+
+on:
+  schedule:
+    # Off the hour, and clear of the 06:00-06:15 cluster the repo already has.
+    - cron: "40 5 * * *"
+  workflow_dispatch:
+    inputs:
+      max-workspaces:
+        description: How many stale workspaces to refresh in this run
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: refresh-stale-coverage-snapshots
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    name: Refresh snapshots that no longer match their workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # find-stale-snapshots.sh compares commit dates per path, which a
+          # shallow clone cannot answer.
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+
+      - name: Refresh stale snapshots from merged PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Each refresh downloads a run's full coverage artifacts, which reach
+          # hundreds of MB for a large workspace. Bounded per run so the job
+          # stays predictable; the remainder is reported and picked up by the
+          # next run rather than dropped silently.
+          MAX_WORKSPACES: ${{ inputs.max-workspaces || '5' }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t stale < <(./scripts/find-stale-snapshots.sh)
+          if [[ ${#stale[@]} -eq 0 ]]; then
+            echo "[INFO] Every snapshot is current — nothing to do."
+            exit 0
+          fi
+          echo "[INFO] ${#stale[@]} stale snapshot(s): ${stale[*]}"
+
+          refreshed=()
+          skipped=()
+          processed=0
+
+          for ws in "${stale[@]}"; do
+            if [[ "$processed" -ge "$MAX_WORKSPACES" ]]; then
+              skipped+=("$ws")
+              continue
+            fi
+
+            # Merged PRs only. An unmerged PR's coverage describes code that was
+            # never accepted, and re-running against it would publish a number
+            # for something main does not contain.
+            pr=$(gh pr list --state merged --limit 20 --json number,files \
+              --jq "[.[] | select([.files[].path] | any(startswith(\"workspaces/$ws/\"))) | .number] | .[0] // empty")
+            if [[ -z "$pr" ]]; then
+              echo "[INFO] $ws: no merged PR touching it — skipping."
+              continue
+            fi
+
+            body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/$pr/comments?per_page=100" \
+              --jq "[.[] | select(.user.login == \"rhdh-test-bot\") | select(.body | test(\"Passed E2E Tests\")) | select(.body | test(\"\`$ws\`\")) | .body] | .[-1] // empty")
+            if [[ -z "$body" ]]; then
+              echo "[INFO] $ws: merged PR #$pr has no passing e2e comment — skipping."
+              continue
+            fi
+
+            # Pin the host and the /gcs/ path shape, exactly as
+            # refresh-coverage-snapshot.yaml does: the comment body is data, and
+            # a tampered one must not redirect the download.
+            log_url=$(grep -oE 'https://gcsweb-ci\.apps\.[a-z0-9.-]+/gcs/[^)[:space:]]*/build-log\.txt' <<<"$body" | head -1)
+            if [[ -z "$log_url" ]]; then
+              echo "[WARN] $ws: PR #$pr comment did not yield a build-log URL — skipping (format may have drifted)."
+              continue
+            fi
+            cov_url="${log_url%build-log.txt}artifacts/e2e-test-results/coverage/"
+
+            echo "--- $ws (merged PR #$pr) ---"
+            processed=$((processed + 1))
+            # Non-fatal by design: a run with no coverage JSONs (the zip-bomb
+            # guard restored an oversized chunk, or the workspace is
+            # backend-heavy) exits 0 without writing. That is a real outcome for
+            # several workspaces and must not fail the whole batch.
+            if ! ./scripts/refresh-coverage-snapshot.sh "$ws" "$cov_url"; then
+              echo "[WARN] $ws: refresh failed — continuing with the rest."
+              continue
+            fi
+            if ! git diff --quiet -- "coverage-snapshots/$ws.lcov"; then
+              refreshed+=("$ws")
+            else
+              echo "[INFO] $ws: snapshot unchanged."
+            fi
+          done
+
+          if [[ ${#skipped[@]} -gt 0 ]]; then
+            echo "[INFO] Deferred to the next run (MAX_WORKSPACES=$MAX_WORKSPACES): ${skipped[*]}"
+          fi
+
+          {
+            echo "refreshed=${refreshed[*]}"
+            echo "count=${#refreshed[@]}"
+          } >> "$GITHUB_OUTPUT"
+        id: refresh
+
+      - name: Open a pull request with the refreshed snapshots
+        if: steps.refresh.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REFRESHED: ${{ steps.refresh.outputs.refreshed }}
+          COUNT: ${{ steps.refresh.outputs.count }}
+        run: |
+          set -euo pipefail
+
+          # One branch per day rather than per run, so a same-day re-run updates
+          # the open PR instead of opening a second one.
+          branch="chore/refresh-coverage-snapshots-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch" 2>/dev/null || git checkout "$branch"
+          git add coverage-snapshots/
+          git commit -m "chore(coverage): refresh ${COUNT} stale snapshot(s)
+
+          Refreshed from the most recent merged PR e2e run for each workspace:
+          ${REFRESHED}
+
+          These snapshots no longer matched their workspace. Most were stranded
+          because refresh-coverage-snapshot.yaml skips fork PRs, so their
+          coverage was measured and discarded while the flag kept publishing an
+          older number."
+          git push -f origin "$branch"
+
+          if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
+            gh pr create --base main --head "$branch" \
+              --title "chore(coverage): refresh ${COUNT} stale coverage snapshot(s)" \
+              --body "Automated refresh of coverage snapshots that no longer matched their workspace.
+
+          **Workspaces:** ${REFRESHED}
+
+          Each was refreshed from the most recent **merged** PR's e2e coverage artifacts. Merged-only is deliberate: coverage from an unmerged PR describes code that was never accepted.
+
+          Most of these were stranded because \`refresh-coverage-snapshot.yaml\` skips fork PRs — it checks out the PR head and pushes back to it, which is neither safe nor possible against a fork. Their e2e ran and passed, the coverage was collected, and it was discarded. The flag kept publishing the last number that did land, which is worse than publishing none.
+
+          Generated by \`refresh-stale-coverage-snapshots.yaml\`."
+          fi

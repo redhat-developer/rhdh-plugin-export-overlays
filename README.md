@@ -199,6 +199,10 @@ Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<wor
 
 **Snapshots refresh themselves.** When the e2e bot reports a passed run on a PR, `.github/workflows/refresh-coverage-snapshot.yaml` regenerates that workspace's snapshot from the run's coverage artifacts and commits it back to the PR. On merge, the seed picks it up — so the dashboard tracks every workspace change with no manual step, including the daily upstream repo-ref bumps (`update-plugins-repo-refs.yaml`) that re-run e2e when plugin code changes upstream. One intrinsic limit: coverage only exists after an e2e actually runs on the cluster, so a workspace's number updates when its e2e is triggered (`/test e2e-ocp-helm`) — the refresh then happens automatically.
 
+**Fork PRs need the second path.** That per-PR refresh checks out the PR head and pushes the snapshot back to it, so it skips forks outright — neither is safe or possible against a fork. Measured on 2026-08-05, 16 of 37 recent merged PRs touching a workspace came from forks: their e2e ran, coverage was collected, and the result was discarded while the flag kept publishing an older number. `.github/workflows/refresh-stale-coverage-snapshots.yaml` closes that. It runs daily, uses `scripts/find-stale-snapshots.sh` to find snapshots that no longer match their workspace, refreshes each from the most recent **merged** PR's coverage artifacts, and opens a single PR. Merged-only is deliberate: coverage from an unmerged PR describes code nobody accepted. It never checks out a fork and never pushes to one — every script runs from `main`'s own checkout.
+
+Not every workspace can be refreshed this way. A backend-only workspace produces no browser coverage at all and is excluded by construction, and a run whose instrumented bundle tripped the zip-bomb guard in `instrument-plugin.sh` yields no coverage JSONs — the refresh treats both as a no-op rather than a failure.
+
 To refresh a snapshot by hand (e.g. from a run the workflow didn't pick up):
 
 ```bash
