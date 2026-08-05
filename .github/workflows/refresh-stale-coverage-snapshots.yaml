@@ -93,7 +93,14 @@ jobs:
             # restarted a 20-deep backlog that only drains ~1/day.
             if ! git rebase -q -X ours origin/main; then
               git rebase --abort || true
-              echo "[WARN] Accumulation branch conflicted with main — restarting it from main."
+              # `-X ours` already resolves content collisions, so reaching here
+              # means something else — a dirty tree, an index lock, a corrupt
+              # ref. Say that rather than blaming a conflict, and say what it
+              # costs: restarting from main discards every accumulated slice
+              # and puts the whole backlog back in the queue.
+              echo "[WARN] Rebase onto main failed for a reason -X ours could not resolve." >&2
+              echo "[WARN] Restarting the branch from main — accumulated snapshots in it are discarded." >&2
+              git status --porcelain | head -20 >&2
               git checkout -q -B "$BRANCH" origin/main
             fi
           else
