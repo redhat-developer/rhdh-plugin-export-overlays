@@ -77,6 +77,11 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   fs.writeFileSync(tmp, yaml.dump(config));
   await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, "config.yaml");
   await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
+  // waitUntilReady() only checks that currently-existing pods are Ready, which is
+  // trivially true while the old pod is still serving. Gate on the rollout itself:
+  // lightspeed-core is a sidecar in this pod and its vector stores are EmptyDir-backed,
+  // so a mid-suite pod swap silently orphans every notebook created before it.
+  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
