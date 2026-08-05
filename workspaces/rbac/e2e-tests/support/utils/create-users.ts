@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import {
   RBAC_DESCRIPTIVE_USERS,
@@ -20,20 +21,14 @@ export async function createUsersAndGroups(): Promise<void> {
     }
   }
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      await keycloak.configureForRHDH({
-        realm: realm,
-        groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
-        users: Object.values(RBAC_DESCRIPTIVE_USERS),
-      });
-      break;
-    } catch (e) {
-      if (attempt === 3) throw e;
-      console.log(
-        `[Keycloak] configureForRHDH attempt ${attempt} failed, retrying...`,
-      );
-      await new Promise((r) => setTimeout(r, attempt * 2000));
-    }
-  }
+  await expect(async () => {
+    await keycloak.configureForRHDH({
+      realm: realm,
+      groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
+      users: Object.values(RBAC_DESCRIPTIVE_USERS),
+    });
+  }).toPass({
+    intervals: [2_000, 4_000],
+    timeout: 10_000,
+  });
 }
