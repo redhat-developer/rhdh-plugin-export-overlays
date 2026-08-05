@@ -41,8 +41,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Compare against the pushed branch rather than the local checkout, so a run
-# from a feature branch reports what main actually carries.
+# Which committed history to measure against. HEAD is right for CI, where the
+# caller has already checked out the branch it wants measured — the accumulation
+# branch in refresh-stale-coverage-snapshots.yaml, so snapshots refreshed by an
+# earlier run count as current instead of being redone every time. Override it
+# to inspect another ref by hand (`STALE_COMPARE_REF=origin/main`).
 REF="${STALE_COMPARE_REF:-HEAD}"
 
 shopt -s nullglob

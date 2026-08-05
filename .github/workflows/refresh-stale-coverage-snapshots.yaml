@@ -60,23 +60,77 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Resume the accumulation branch
+        env:
+          BRANCH: chore/refresh-coverage-snapshots
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # One long-lived branch, not one per run. The staleness check reads
+          # committed history, so snapshots refreshed by an earlier run have to
+          # be ON the branch for this run to see them as current — otherwise
+          # every run rediscovers the same workspaces, spends its whole budget
+          # redoing them, and the queue never advances past MAX_WORKSPACES until
+          # someone merges.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch -q origin "$BRANCH"
+            git checkout -q -B "$BRANCH" "origin/$BRANCH"
+            # main moves under the branch (the per-PR refresh path also commits
+            # snapshots). Rebase so this run measures against current main. A
+            # conflict means both paths touched the same lcov; main's copy came
+            # from that workspace's own PR and is the better one, so drop the
+            # accumulated work and start over rather than resolve it here.
+            if ! git rebase -q origin/main; then
+              git rebase --abort || true
+              echo "[WARN] Accumulation branch conflicted with main — restarting it from main."
+              git checkout -q -B "$BRANCH" origin/main
+            fi
+          else
+            git checkout -q -B "$BRANCH" origin/main
+          fi
+          echo "[INFO] Working on $BRANCH at $(git rev-parse --short HEAD)"
+
       - name: Refresh stale snapshots from merged PRs
         env:
           GH_TOKEN: ${{ github.token }}
           # Each refresh downloads a run's full coverage artifacts, which reach
           # hundreds of MB for a large workspace. Bounded per run so the job
           # stays predictable; the remainder is reported and picked up by the
-          # next run rather than dropped silently.
+          # next run, which sees this run's commits on the branch and moves on
+          # to the next slice.
           MAX_WORKSPACES: ${{ inputs.max-workspaces || '5' }}
+          # How far back to look for the merged PR that carries a workspace's
+          # coverage. Staleness and recency are inversely correlated — the
+          # staler the snapshot, the further back its last PR sits — so a small
+          # window structurally misses exactly the workspaces this job targets.
+          PR_SEARCH_LIMIT: "200"
         run: |
           set -euo pipefail
 
-          mapfile -t stale < <(./scripts/find-stale-snapshots.sh)
+          if ! [[ "$MAX_WORKSPACES" =~ ^[1-9][0-9]*$ ]]; then
+            echo "ERROR: max-workspaces must be a positive integer, got '$MAX_WORKSPACES'" >&2
+            exit 1
+          fi
+
+          # HEAD is the accumulation branch, so workspaces already refreshed by
+          # an earlier run read as current and are not redone.
+          mapfile -t stale < <(STALE_COMPARE_REF=HEAD ./scripts/find-stale-snapshots.sh)
           if [[ ${#stale[@]} -eq 0 ]]; then
             echo "[INFO] Every snapshot is current — nothing to do."
             exit 0
           fi
           echo "[INFO] ${#stale[@]} stale snapshot(s): ${stale[*]}"
+
+          # Fetched ONCE for every workspace rather than per workspace: this is
+          # the expensive call (file lists for PR_SEARCH_LIMIT pull requests),
+          # and doing it in the loop made the window small enough to defeat the
+          # job's own purpose.
+          echo "[INFO] Listing the last $PR_SEARCH_LIMIT merged PRs..."
+          gh pr list --state merged --limit "$PR_SEARCH_LIMIT" --json number,files > /tmp/merged-prs.json
+          echo "[INFO] $(jq 'length' /tmp/merged-prs.json) merged PR(s) available to search."
 
           refreshed=()
           skipped=()
@@ -91,23 +145,42 @@ jobs:
             # Merged PRs only. An unmerged PR's coverage describes code that was
             # never accepted, and re-running against it would publish a number
             # for something main does not contain.
-            pr=$(gh pr list --state merged --limit 20 --json number,files \
-              --jq "[.[] | select([.files[].path] | any(startswith(\"workspaces/$ws/\"))) | .number] | .[0] // empty")
+            #
+            # ALL candidates, newest first — not just the newest. A workspace's
+            # most recent PR is frequently something that never ran e2e (a
+            # metadata tweak, a patch bump), while the coverage sits on an
+            # earlier one. Stopping at the first candidate reported "no passing
+            # e2e comment" and skipped a workspace whose coverage was there all
+            # along, a few PRs back.
+            mapfile -t candidates < <(
+              jq -r --arg ws "workspaces/$ws/" \
+                '[.[] | select([.files[].path] | any(startswith($ws))) | .number] | .[]' \
+                /tmp/merged-prs.json
+            )
+            if [[ ${#candidates[@]} -eq 0 ]]; then
+              echo "[INFO] $ws: no merged PR touching it within the last $PR_SEARCH_LIMIT — skipping."
+              continue
+            fi
+
+            body=""
+            pr=""
+            for candidate in "${candidates[@]}"; do
+              body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/$candidate/comments?per_page=100" \
+                --jq "[.[] | select(.user.login == \"rhdh-test-bot\") | select(.body | test(\"Passed E2E Tests\")) | select(.body | test(\"\`$ws\`\")) | .body] | .[-1] // empty")
+              if [[ -n "$body" ]]; then
+                pr="$candidate"
+                break
+              fi
+            done
             if [[ -z "$pr" ]]; then
-              echo "[INFO] $ws: no merged PR touching it — skipping."
+              echo "[INFO] $ws: none of its ${#candidates[@]} merged PR(s) has a passing e2e comment — skipping."
               continue
             fi
 
-            body=$(gh api "repos/${GITHUB_REPOSITORY}/issues/$pr/comments?per_page=100" \
-              --jq "[.[] | select(.user.login == \"rhdh-test-bot\") | select(.body | test(\"Passed E2E Tests\")) | select(.body | test(\"\`$ws\`\")) | .body] | .[-1] // empty")
-            if [[ -z "$body" ]]; then
-              echo "[INFO] $ws: merged PR #$pr has no passing e2e comment — skipping."
-              continue
-            fi
-
-            # Pin the host and the /gcs/ path shape, exactly as
-            # refresh-coverage-snapshot.yaml does: the comment body is data, and
-            # a tampered one must not redirect the download.
+            # Pin the host and the /gcs/ path shape. The comment body is data,
+            # and a tampered one must not redirect the download. Kept identical
+            # to the pattern in refresh-coverage-snapshot.yaml's parse step —
+            # if one is tightened, tighten both.
             log_url=$(grep -oE 'https://gcsweb-ci\.apps\.[a-z0-9.-]+/gcs/[^)[:space:]]*/build-log\.txt' <<<"$body" | head -1)
             if [[ -z "$log_url" ]]; then
               echo "[WARN] $ws: PR #$pr comment did not yield a build-log URL — skipping (format may have drifted)."
@@ -116,6 +189,9 @@ jobs:
             cov_url="${log_url%build-log.txt}artifacts/e2e-test-results/coverage/"
 
             echo "--- $ws (merged PR #$pr) ---"
+            # Counted before the refresh runs, not after: the budget exists to
+            # bound artifact downloads, and a refresh that fails has already
+            # paid that cost.
             processed=$((processed + 1))
             # Non-fatal by design: a run with no coverage JSONs (the zip-bomb
             # guard restored an oversized chunk, or the workspace is
@@ -151,23 +227,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          # One branch per day rather than per run, so a same-day re-run updates
-          # the open PR instead of opening a second one.
-          branch="chore/refresh-coverage-snapshots-$(date -u +%Y%m%d)"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch" 2>/dev/null || git checkout "$branch"
+          # Already on the accumulation branch, rebased onto main by the resume
+          # step. Each run adds a commit rather than replacing the branch, so
+          # earlier slices survive and the next run sees them as current.
+          branch="chore/refresh-coverage-snapshots"
           git add coverage-snapshots/
-          git commit -m "chore(coverage): refresh ${COUNT} stale snapshot(s)
+          git commit -q -m "chore(coverage): refresh ${COUNT} stale snapshot(s)
 
-          Refreshed from the most recent merged PR e2e run for each workspace:
+          Refreshed from the most recent merged PR with e2e coverage for each of:
           ${REFRESHED}
 
           These snapshots no longer matched their workspace. Most were stranded
           because refresh-coverage-snapshot.yaml skips fork PRs, so their
           coverage was measured and discarded while the flag kept publishing an
           older number."
-          git push -f origin "$branch"
+
+          # --force-with-lease, not --force: the resume step rebases onto main,
+          # so history is rewritten and a plain push would always be rejected.
+          # The lease still refuses to clobber a remote that moved since this
+          # run fetched it, which a bare --force would silently discard.
+          git push --force-with-lease origin "$branch"
 
           if ! gh pr view "$branch" --json number >/dev/null 2>&1; then
             gh pr create --base main --head "$branch" \

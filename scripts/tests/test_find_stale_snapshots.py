@@ -11,6 +11,7 @@ Each case builds a throwaway git repo so the assertions do not depend on the
 real repository's history, which changes under them.
 """
 
+import os
 import subprocess
 
 import pytest
@@ -35,7 +36,7 @@ def commit(repo, path, content, when):
         ["git", "-C", str(repo), "commit", "-q", "-m", f"touch {path}"],
         check=True,
         capture_output=True,
-        env={**subprocess.os.environ, **env},
+        env={**os.environ, **env},
     )
 
 
