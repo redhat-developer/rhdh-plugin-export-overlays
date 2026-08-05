@@ -17,13 +17,36 @@
 #
 # Coverage is uploaded to the Codecov project of this overlay repo
 # (redhat-developer/rhdh-plugin-export-overlays), flagged `e2e-<workspace>`,
-# against the overlay commit currently being tested. Earlier versions attributed
-# coverage to the upstream source repo + the historical `repo-ref` commit from
-# source.json, but Codecov finalizes a commit's report shortly after that
-# commit's own CI completes — uploads to an already-finalized historical commit
-# are accepted by the API and never displayed. Uploading to the fresh overlay
-# commit keeps the data live, avoids needing other orgs' tokens, and keeps
-# RHDH-specific E2E numbers off upstream community dashboards.
+# against the overlay commit currently being tested. That avoids needing other
+# orgs' Codecov tokens and keeps RHDH-specific E2E numbers off upstream
+# community dashboards.
+#
+# An earlier version attributed coverage to the upstream source repo plus the
+# historical `repo-ref` commit from source.json. It produced a flag stuck at
+# 0.00% on rhdh-plugins and was reverted in #2580, recorded there as "Codecov
+# finalizes a commit's report shortly after that commit's own CI completes —
+# uploads to an already-finalized historical commit are accepted by the API and
+# never displayed".
+#
+# That diagnosis was retested on 2026-08-05 and does NOT hold. Do not treat
+# cross-repo attribution as closed off:
+#
+#   - Late uploads register fine. The seed itself uploaded to 129f9ac5 twice,
+#     17h and 41h after the commit, the second one against an already
+#     `state: complete` report — sessions went 6 -> 12. (Both seeds carried
+#     identical data, so this shows a late upload is accepted and recorded, not
+#     that new content surfaces.)
+#   - The 0.00% is fully explained by path prefixes. parseSourcePath() in
+#     remap-coverage.cjs emits plugin-relative paths (`./src/foo.tsx` ->
+#     `src/foo.tsx`). At theme's source.json SHA, rhdh-plugins has no `/src`
+#     (404) — the real tree is `workspaces/theme/plugins/theme/src` (200).
+#     Codecov keeps only entries whose paths exist in the uploaded commit's
+#     tree, so every entry was dropped and the flag rendered empty.
+#
+# What is still untested is a cross-PROJECT upload: our lcov, their project,
+# their token. Reopening this needs that token (per-repo) and a reliable
+# remote -> plugin-directory mapping — deriving it from the scalprum remote name
+# resolves only 82 of 95 committed anchors. See RHIDP-13411.
 #
 # Trade-off: this repo does not contain the plugin source files, so Codecov
 # cannot render line-level annotations — only the per-flag coverage percentage
