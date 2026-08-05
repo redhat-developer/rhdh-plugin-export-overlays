@@ -321,6 +321,8 @@ Examples:
     bs_mismatch_count = 0
     no_ref_count = 0
     expected_files: set[Path] = set()
+    # Plugin keys touched this run (success or fail) — used to prune build-report.json
+    expected_plugins: set[str] = set()
 
     for workspace_dir in workspace_dirs:
         workspace_name = workspace_dir.name
@@ -423,6 +425,7 @@ Examples:
                     f.write('\n')
 
                 expected_files.add(Path(workspace_name) / f"{image_name}.json")
+                expected_plugins.add(image_name)
                 log_debug(f"{action} {json_file.relative_to(plugin_builds_dir)}")
 
                 report.add_plugin(
@@ -443,9 +446,13 @@ Examples:
 
             except Exception as e:
                 log_error(f"Error processing {yaml_file}: {e}")
+                expected_plugins.add(yaml_file.stem)
                 report.set_stage(yaml_file.stem, "bootstrap", "fail", reason=str(e))
 
     deleted_count = remove_stale_plugin_builds(plugin_builds_dir, expected_files)
+    stale_report = report.remove_stale_plugins(expected_plugins)
+    for stale_name in stale_report:
+        log_info(f"Removed stale build-report entry {stale_name}")
 
     # Summary
     total = created_count + updated_count
@@ -455,6 +462,11 @@ Examples:
         log_info(f"Updated: {Colors.BLUE}{updated_count}{Colors.NORM}")
     if deleted_count > 0:
         log_info(f"Removed stale: {Colors.YELLOW}{deleted_count}{Colors.NORM}")
+    if stale_report:
+        log_info(
+            f"Removed stale build-report entries: "
+            f"{Colors.YELLOW}{len(stale_report)}{Colors.NORM}"
+        )
     if skipped_count > 0:
         log_info(f"Filtered out: {skipped_count}")
     if bs_mismatch_count > 0:
