@@ -147,6 +147,23 @@ jobs:
           # job's own purpose.
           echo "[INFO] Listing the last $PR_SEARCH_LIMIT merged PRs..."
           gh pr list --state merged --limit "$PR_SEARCH_LIMIT" --json number,files > "$RUNNER_TEMP/merged-prs.json"
+
+          # `gh pr list --json files` requests files(first: 100) and truncates
+          # silently. A bulk metadata PR is exactly that shape — #2869 reports
+          # 100 here and actually has 183 — so a workspace whose only recent PR
+          # is one of those would never be found, which is the same silent
+          # not-found this job was already fixed for once. Re-fetch the full
+          # list for any PR sitting exactly at the cap.
+          for capped in $(jq -r '.[] | select((.files | length) == 100) | .number' "$RUNNER_TEMP/merged-prs.json"); do
+            echo "[INFO] PR #$capped is at the 100-file cap — re-fetching its full file list."
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/$capped/files?per_page=100" --paginate \
+              --jq '[.[] | {path: .filename}]' > "$RUNNER_TEMP/files-$capped.json"
+            jq --argjson n "$capped" --slurpfile full "$RUNNER_TEMP/files-$capped.json" \
+              'map(if .number == $n then .files = $full[0] else . end)' \
+              "$RUNNER_TEMP/merged-prs.json" > "$RUNNER_TEMP/merged-prs.tmp"
+            mv "$RUNNER_TEMP/merged-prs.tmp" "$RUNNER_TEMP/merged-prs.json"
+          done
+
           echo "[INFO] $(jq 'length' "$RUNNER_TEMP/merged-prs.json") merged PR(s) available to search."
 
           refreshed=()
