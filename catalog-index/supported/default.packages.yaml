@@ -7,8 +7,9 @@
 #
 # Package support level should only be "generally-available" as of 2.1
 #    Tech-preview entries are commented out until promoted to generally-available
-#    Exception: app-auth / app-integrations (RHIDP-15482) — TP but enabled OOTB for NFS auth
-#    Community plugins have been removed https://redhat.atlassian.net/browse/RHIDP-13262
+#    Exception: app-auth / app-integrations / app-defaults (RHIDP-15482, RHIDP-15944) —
+#    TP but enabled OOTB for NFS shell/auth. Community plugins have been removed
+#    https://redhat.atlassian.net/browse/RHIDP-13262
 packages:
   # should only include GA (or TP with a path to GA) content here
   enabled: 
@@ -28,9 +29,11 @@ packages:
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights'
     support: "generally-available"
-  # NFS OOTB auth prerequisites (RHIDP-15482 / RHDHPLAN-846). TP until security scans
-  # complete for GA; must stay enabled or non-guest authentication will not work.
+  # NFS OOTB shell/auth prerequisites (RHIDP-15482 / RHIDP-15944 / RHDHPLAN-846).
+  # TP until security scans complete for GA; must stay enabled for NFS experience.
   - package: '@red-hat-developer-hub/backstage-plugin-app-auth'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-app-defaults'
     support: "tech-preview"
   - package: '@red-hat-developer-hub/backstage-plugin-app-integrations'
     support: "tech-preview"

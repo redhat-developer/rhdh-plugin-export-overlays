@@ -144,6 +144,8 @@ plugins:
               - importName: AdoptionInsightsAnalyticsApi
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:d3444f671971796ba6f9a4888c90051ba2466308c5dcb781a4621acefd58e04e
     enabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults@sha256:208b980df534d72dd6ccfbf3738d73f2f0a8ce1553222a1c892e23d22ded223c
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:840ce4bfe3fd967e0e5376a1c2eb7bee05b1eed8dd9cf33bc816dc164787d72e
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:ddac1c08dbe83ec84f51089ee4004fa470784083228f7f9599088eb05a78cc4d
@@ -719,7 +721,7 @@ plugins:
             ref: template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:1aa34fc1cb3d69bd2b9ad24966d75e222e2d738bc87aa1ef87bd1b6171c1319c
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:9186d25b8142343113242601eb8a45fb94372b276ce4262d22fc67fea4ec3642
     enabled: false
     pluginConfig:
       intelligent-assistant:
@@ -757,7 +759,7 @@ plugins:
                 config:
                   id: intelligent-assistant
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:ae63e459e95f02cc989222ee2dc65c3e411debcb955db3f70c4ad28837e806b0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:01c08176cab1b30fdbfd3ff03618d53f3791f296e709cab846ac88adf3265285
     enabled: false
     pluginConfig:
       intelligent-assistant:
@@ -837,5 +839,5 @@ plugins:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
   # Tag: bs_1.49.4__5.6.0, Build date: 2026-05-26T12:41:25Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:12a49a2b8a52ca11e0dd8ee5fa01cca82cc0f985882a7924aea3e65070bb6efd
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-scaffolder-backend-module-http-request@sha256:9cb5041b1af16b2d2206161d315ba09a53528d04a7838af7ed4c448cab770eb7
     enabled: false
