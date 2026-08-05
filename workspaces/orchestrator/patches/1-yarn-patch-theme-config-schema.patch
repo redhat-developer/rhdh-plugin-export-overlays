@@ -1,0 +1,224 @@
+diff -Naur orch-postcve/.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch orch-fixed/.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch
+--- a/.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch	1970-01-01 01:00:00
++++ b/.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch	2026-08-05 13:34:24
+@@ -0,0 +1,172 @@
++diff --git a/config.d.ts b/config.d.ts
++index 0f25986176dbacd184222a102832a155aa0a54f5..de392159cbffb14c0724ec76563e0b211bea7aa3 100644
++--- a/config.d.ts
+++++ b/config.d.ts
++@@ -14,7 +14,10 @@
++  * limitations under the License.
++  */
++ 
++-import { ThemeConfig } from './src';
+++// Types are inlined to avoid importing from the package entry point,
+++// which pulls in @mui/material types that break ts-json-schema-generator
+++// (typeof window.matchMedia has no value declaration).
+++// Keep in sync with ThemeConfig and related types in src/types.ts.
++ 
++ export interface Config {
++   app: {
++@@ -24,7 +27,154 @@ export interface Config {
++        * @deepVisibility frontend
++        */
++       theme?: {
++-        [key: string]: ThemeConfig;
+++        [key: string]: {
+++          /**
+++           * Optional key to load different defaults.
+++           * Fallbacks to the latest 'rhdh' theme if not defined.
+++           */
+++          variant?: 'rhdh' | 'backstage';
+++
+++          /**
+++           * Light or dark theme.
+++           * Automatically selects 'dark' if the theme name contains the keyword "dark".
+++           */
+++          mode?: 'light' | 'dark';
+++
+++          /**
+++           * Palette configuration. Accepts standard Backstage/MUI palette options
+++           * plus an optional 'rhdh' key for RHDH-specific palette extensions.
+++           */
+++          palette?: {
+++            rhdh?: {
+++              general?: {
+++                pageInset?: string;
+++                pageInsetBackgroundColor?: string;
+++                disabled?: string;
+++                disabledBackground?: string;
+++                paperBackgroundImage?: string;
+++                paperBorderColor?: string;
+++                popoverBoxShadow?: string;
+++                cardBackgroundColor?: string;
+++                cardBorderColor?: string;
+++                mainSectionBackgroundColor?: string;
+++                formControlBackgroundColor?: string;
+++                sidebarBackgroundColor?: string;
+++                sidebarDividerColor?: string;
+++                sidebarItemSelectedBackgroundColor?: string;
+++                tableTitleColor?: string;
+++                tableSubtitleColor?: string;
+++                tableColumnTitleColor?: string;
+++                tableRowHover?: string;
+++                tableBorderColor?: string;
+++                tableBackgroundColor?: string;
+++                tabsLinkHoverBackgroundColor?: string;
+++                contrastText?: string;
+++                appBarBackgroundScheme?: 'light' | 'dark';
+++                appBarBackgroundColor?: string;
+++                appBarForegroundColor?: string;
+++                appBarBackgroundImage?: string;
+++                starredItemsColor?: string;
+++              };
+++              primary?: {
+++                main?: string;
+++                focusVisibleBorder?: string;
+++              };
+++              secondary?: {
+++                main?: string;
+++                focusVisibleBorder?: string;
+++              };
+++              cards?: {
+++                headerTextColor?: string;
+++                headerBackgroundColor?: string;
+++                headerBackgroundImage?: string;
+++              };
+++            };
+++            [key: string]: unknown;
+++          };
+++
+++          /** Font family for the theme. */
+++          fontFamily?: string;
+++
+++          /** Base HTML font size in pixels. */
+++          htmlFontSize?: number;
+++
+++          /** Typography configuration for headings and base font settings. */
+++          typography?: {
+++            htmlFontSize?: number;
+++            fontFamily?: string;
+++            h1?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++            h2?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++            h3?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++            h4?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++            h5?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++            h6?: {
+++              fontFamily?: string;
+++              fontSize?: number | string;
+++              fontWeight?: number;
+++              marginBottom?: number;
+++            };
+++          };
+++
+++          /** Default page theme name. */
+++          defaultPageTheme?: string;
+++
+++          /** Page theme configurations keyed by theme name. */
+++          pageTheme?: {
+++            [key: string]: {
+++              backgroundColor?: string | string[];
+++              colors?: string | string[];
+++              shape?: string;
+++              backgroundImage?: string;
+++              fontColor?: string;
+++            };
+++          };
+++
+++          /** UI component style options. */
+++          options?: {
+++            components?: 'rhdh' | 'backstage' | 'mui';
+++            rippleEffect?: 'on' | 'off';
+++            paper?: 'patternfly' | 'mui';
+++            buttons?: 'patternfly' | 'mui';
+++            inputs?: 'patternfly' | 'mui';
+++            checkbox?: 'patternfly' | 'mui';
+++            accordions?: 'patternfly' | 'mui';
+++            sidebars?: 'patternfly' | 'mui';
+++            pages?: 'patternfly' | 'mui';
+++            headers?: 'patternfly' | 'mui';
+++            toolbars?: 'patternfly' | 'mui';
+++            dialogs?: 'patternfly' | 'mui';
+++            cards?: 'patternfly' | 'mui';
+++            tables?: 'patternfly' | 'mui';
+++            tabs?: 'patternfly' | 'mui';
+++            appBar?: 'patternfly' | 'mui';
+++            breadcrumbs?: 'patternfly' | 'mui';
+++          };
+++        };
++       };
++     };
++   };
+diff -Naur orch-postcve/package.json orch-fixed/package.json
+--- a/package.json	2026-06-22 10:46:59
++++ b/package.json	2026-08-05 13:34:24
+@@ -56,7 +56,8 @@
+     "react-dom": "^18",
+     "refractor@npm:3.6.0/prismjs": "^1.30.0",
+     "zod-to-json-schema": "3.24.6",
+-    "@backstage/backend-plugin-api": "1.5.0"
++    "@backstage/backend-plugin-api": "1.5.0",
++    "@red-hat-developer-hub/backstage-plugin-theme@^0.10.0": "patch:@red-hat-developer-hub/backstage-plugin-theme@npm%3A0.10.1#./.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch"
+   },
+   "prettier": "@backstage/cli/config/prettier",
+   "lint-staged": {
+diff -Naur orch-postcve/yarn.lock orch-fixed/yarn.lock
+--- a/yarn.lock	2026-08-05 13:34:24
++++ b/yarn.lock	2026-08-05 13:34:24
+@@ -12663,7 +12663,7 @@
+   languageName: unknown
+   linkType: soft
+ 
+-"@red-hat-developer-hub/backstage-plugin-theme@npm:^0.10.0":
++"@red-hat-developer-hub/backstage-plugin-theme@npm:0.10.1":
+   version: 0.10.1
+   resolution: "@red-hat-developer-hub/backstage-plugin-theme@npm:0.10.1"
+   dependencies:
+@@ -12676,6 +12676,22 @@
+     "@mui/material": ^5.0.0
+     react: ^16.13.1 || ^17.0.0 || ^18.0.0
+   checksum: 29a9aee8d29b1c96d38e771f07556885ba23cbe495f14a998b15ec0cf7b7f4adc8c8e86aaf0a6f52355dfe18998322a325376d35b9b1da6466a370dcdbe9fc7b
++  languageName: node
++  linkType: hard
++
++"@red-hat-developer-hub/backstage-plugin-theme@patch:@red-hat-developer-hub/backstage-plugin-theme@npm%3A0.10.1#./.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch::locator=%40internal%2Forchestrator%40workspace%3A.":
++  version: 0.10.1
++  resolution: "@red-hat-developer-hub/backstage-plugin-theme@patch:@red-hat-developer-hub/backstage-plugin-theme@npm%3A0.10.1#./.yarn/patches/@red-hat-developer-hub-backstage-plugin-theme-npm-0.10.1-1e2d57106d.patch::version=0.10.1&hash=45b256&locator=%40internal%2Forchestrator%40workspace%3A."
++  dependencies:
++    "@mui/icons-material": ^5.17.1
++  peerDependencies:
++    "@backstage/core-plugin-api": ^1.10.9
++    "@backstage/theme": ^0.6.8
++    "@material-ui/icons": ^4.11.3
++    "@mui/icons-material": ^5.17.1
++    "@mui/material": ^5.0.0
++    react: ^16.13.1 || ^17.0.0 || ^18.0.0
++  checksum: 9e18e6ab4cd6294ec4f5f7e77ed3db651dca05f27e4bd83de439c0de47aa2ee0895705fc1ce2ce772d88f5cf3d7d35b2cd560b9908fa95a13d1049fa8f4e955e
+   languageName: node
+   linkType: hard
+ 
