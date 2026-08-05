@@ -57,6 +57,62 @@ def call_count(stub: Path) -> int:
     return len([line for line in calls.read_text().splitlines() if line.strip()])
 
 
+# Git run from a test must not see the developer's global config or any ambient
+# git state. A `commit.gpgsign = true` with a passphrase-protected key, a global
+# `core.hooksPath` with a rejecting pre-commit, or an inherited GIT_DIR (which is
+# what any git hook, `git rebase -x` or `git bisect run` exports) all change the
+# outcome — the last one silently commits into whatever repo GIT_DIR points at
+# rather than the fixture. Building the environment from scratch is the same
+# guarantee run_script() gives for the shell scripts.
+GIT_ENV = {
+    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+    "GIT_AUTHOR_NAME": "test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+}
+
+
+def git(repo: Path, *args, when=None):
+    """Run git against `repo` in a scrubbed environment.
+
+    `when` fixes both author and committer date, which is what makes
+    staleness assertions deterministic rather than dependent on how fast the
+    test ran.
+    """
+    env = dict(GIT_ENV)
+    if when is not None:
+        env["GIT_AUTHOR_DATE"] = when
+        env["GIT_COMMITTER_DATE"] = when
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    # Surface git's own stderr. check=True raises with only the exit status,
+    # which turns "gpg failed to sign" or "pre-commit hook rejected" into a bare
+    # "returned non-zero exit status 128".
+    assert result.returncode == 0, f"git {' '.join(args)} failed:\n{result.stderr}"
+    return result
+
+
+def link_script(root: Path, name: str) -> Path:
+    """Symlink one of the repo's scripts into `<root>/scripts/`.
+
+    The scripts derive their repo root from their own location (`dirname $0`
+    -> `..`), so this is what relocates everything they read and write onto the
+    fixture instead of the real checkout.
+    """
+    (root / "scripts").mkdir(parents=True, exist_ok=True)
+    link = root / "scripts" / name
+    link.symlink_to(SCRIPTS_DIR / name)
+    return link
+
+
 def build_fake_repo(tmp_path: Path, workspaces, extra_snapshots=()) -> Path:
     """Lay out a throwaway repo the seed will treat as its own checkout.
 
