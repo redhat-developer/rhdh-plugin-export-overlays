@@ -28,25 +28,37 @@
 # uploads to an already-finalized historical commit are accepted by the API and
 # never displayed".
 #
-# That diagnosis was retested on 2026-08-05 and does NOT hold. Do not treat
-# cross-repo attribution as closed off:
+# That diagnosis does NOT hold. A cross-project upload was actually performed on
+# 2026-08-05 — real orchestrator e2e coverage from PR #3120, remapped to
+# source-repo paths, sent to the rhdh-plugins project at orchestrator's
+# source.json SHA. The target report was `state: complete` with 24 sessions and
+# it still moved:
 #
-#   - Late uploads register fine. The seed itself uploaded to 129f9ac5 twice,
-#     17h and 41h after the commit, the second one against an already
-#     `state: complete` report — sessions went 6 -> 12. (Both seeds carried
-#     identical data, so this shows a late upload is accepted and recorded, not
-#     that new content surfaces.)
-#   - The 0.00% is fully explained by path prefixes. parseSourcePath() in
-#     remap-coverage.cjs emits plugin-relative paths (`./src/foo.tsx` ->
-#     `src/foo.tsx`). At theme's source.json SHA, rhdh-plugins has no `/src`
-#     (404) — the real tree is `workspaces/theme/plugins/theme/src` (200).
-#     Codecov keeps only entries whose paths exist in the uploaded commit's
-#     tree, so every entry was dropped and the flag rendered empty.
+#     sessions 24 -> 25   coverage 58.12 -> 58.05   (134 of our 149 paths present)
 #
-# What is still untested is a cross-PROJECT upload: our lcov, their project,
-# their token. Reopening this needs that token (per-repo) and a reliable
-# remote -> plugin-directory mapping — deriving it from the scalprum remote name
-# resolves only 82 of 95 committed anchors. See RHIDP-13411.
+# So a late upload to a finalized commit is accepted, registered AND recomputed.
+#
+# The 0.00% flag has a different cause, and it is not path prefixes either. An
+# earlier revision of this comment claimed it was; that was wrong. The test used
+# correct paths (151/151 resolved against a checkout at the pinned SHA) and its
+# `e2e-orchestrator` flag ALSO reads 0.0%, right beside the pilot's `e2e-theme`.
+# The flags page reports each flag's coverage on the DEFAULT BRANCH. Both uploads
+# targeted a historical commit and never the default-branch HEAD, so both read
+# 0.0% there regardless of path correctness.
+#
+# The real constraint is which commit you attribute to. To surface a number on
+# the source repo's dashboard, coverage has to land on a commit of that repo's
+# default branch — the same compromise this seed already makes for itself, since
+# it uploads to the current main HEAD rather than to the commit the coverage was
+# measured against. Correct paths are still required for line-level annotation;
+# they are simply not what the 0.0% was about.
+#
+# Remaining work if this is revived: a reliable remote -> plugin-directory
+# mapping. Deriving it from the scalprum remote name resolves only 82 of 95
+# committed anchors (roadie-backstage-plugins fails outright). Resolving against
+# a checkout of the source repo resolved 151/151, including sibling packages
+# (`orchestrator-common/src/...` must not take the owning plugin's prefix), but
+# the remap step has no source tree in CI. See RHIDP-13411.
 #
 # Trade-off: this repo does not contain the plugin source files, so Codecov
 # cannot render line-level annotations — only the per-flag coverage percentage
