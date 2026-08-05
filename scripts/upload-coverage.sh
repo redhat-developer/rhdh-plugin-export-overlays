@@ -30,17 +30,28 @@
 # and its trend, which is the metric we want from E2E runs.
 #
 # Required environment:
-#   CODECOV_TOKEN       - Codecov upload token for this repo's project.
-#                         Falls back to VAULT_CODECOV_TOKEN (see below).
+#   CODECOV_TOKEN         - Codecov upload token for this repo's project.
+#                           Falls back to VAULT_CODECOV_TOKEN (see below).
 # Optional environment:
-#   CODECOV_UPLOAD_SLUG - GitHub slug of the Codecov project to upload to.
-#                         Default: redhat-developer/rhdh-plugin-export-overlays.
-#   PULL_PULL_SHA       - PR head SHA (set by Prow presubmits).
-#   PULL_NUMBER         - PR number (set by Prow presubmits).
-#   PULL_BASE_REF       - Base branch (set by Prow postsubmits) — used as the
-#                         upload branch when there is no PR number.
-#   GITHUB_SHA          - Commit SHA (set by GitHub Actions).
-#   GIT_PR_NUMBER       - PR number fallback (exported by the E2E CI step).
+#   CODECOV_UPLOAD_SLUG   - GitHub slug of the Codecov project to upload to.
+#                           Default: redhat-developer/rhdh-plugin-export-overlays.
+#   CODECOV_UPLOAD_STRICT - "true" to exit non-zero whenever Codecov did not
+#                           receive the report — a failed upload OR a missing
+#                           token. Default (unset) keeps the historical
+#                           non-blocking behaviour — see the exit-code contract
+#                           at the upload call below.
+#   PULL_PULL_SHA         - PR head SHA (set by Prow presubmits).
+#   PULL_NUMBER           - PR number (set by Prow presubmits).
+#   PULL_BASE_REF         - Base branch (set by Prow postsubmits) — used as the
+#                           upload branch when there is no PR number.
+#   GITHUB_SHA            - Commit SHA (set by GitHub Actions).
+#   GIT_PR_NUMBER         - PR number fallback (exported by the E2E CI step).
+#
+# Test seams (scripts/tests/test_upload_coverage.py) — production leaves these
+# at their defaults:
+#   CODECOV_BIN                 - path to the Codecov CLI, so tests can stub it
+#                                 instead of downloading and calling the real one.
+#   UPLOAD_RETRY_DELAY_SECONDS  - retry backoff, so tests don't wait it out.
 
 set -euo pipefail
 
@@ -49,6 +60,31 @@ set -euo pipefail
 # and exports every VAULT_* key). Accept VAULT_CODECOV_TOKEN as a fallback so the
 # token only has to be added to that Vault secret — no openshift/release change.
 : "${CODECOV_TOKEN:=${VAULT_CODECOV_TOKEN:-}}"
+
+# Resolved once so every "did anything reach Codecov" branch below tests the same
+# thing — see the exit-code contract at the upload call.
+#
+# Rejected rather than defaulted when unrecognized: silently treating STRICT=1 or
+# STRICT=yes as non-strict would hand back the exact silent green this flag
+# exists to prevent, and a caller that bothered to set it clearly wanted it.
+case "${CODECOV_UPLOAD_STRICT:-false}" in
+  true)  readonly UPLOAD_STRICT=true ;;
+  false) readonly UPLOAD_STRICT=false ;;
+  *)
+    echo "ERROR: CODECOV_UPLOAD_STRICT must be 'true' or 'false' (got '${CODECOV_UPLOAD_STRICT}')" >&2
+    exit 1
+    ;;
+esac
+
+# One retry, no more: a strict caller runs on a schedule, so a transient 5xx or
+# DNS blip would otherwise turn a healthy day red and train people to ignore the
+# alert — while a longer backoff chain would just delay a real outage's verdict.
+readonly UPLOAD_ATTEMPTS=2
+
+# Long enough to ride out a brief Codecov blip or DNS hiccup, short enough that
+# a genuine outage still fails the job promptly (the seed uploads one snapshot
+# per workspace in sequence). Overridable so the unit tests don't pay it.
+readonly UPLOAD_RETRY_DELAY_SECONDS="${UPLOAD_RETRY_DELAY_SECONDS:-10}"
 
 readonly AWK_FIRST_FIELD='{print $1}'
 
@@ -63,6 +99,11 @@ if [[ ! -d "$REPO_ROOT/workspaces/$WORKSPACE" ]]; then
   echo "ERROR: Unknown workspace '$WORKSPACE' (no workspaces/$WORKSPACE directory)" >&2
   exit 1
 fi
+
+# The namespace this workspace's coverage lives under on the dashboard (see
+# codecov.yml). Named once so the upload and every message about it can never
+# disagree.
+readonly FLAG="e2e-$WORKSPACE"
 
 if [[ ! -f "$LCOV_FILE" ]]; then
   echo "ERROR: No lcov file found at $LCOV_FILE" >&2
@@ -125,19 +166,29 @@ echo "  Target repo: $UPLOAD_SLUG"
 echo "  Target SHA:  $UPLOAD_SHA"
 [[ -n "$PR_NUMBER" ]] && echo "  PR:          #$PR_NUMBER"
 [[ -n "$UPLOAD_BRANCH" ]] && echo "  Branch:      $UPLOAD_BRANCH"
-echo "  Flag:        e2e-$WORKSPACE"
+echo "  Flag:        $FLAG"
 
 if [[ -z "${CODECOV_TOKEN:-}" ]]; then
   echo ""
   echo "[WARN] CODECOV_TOKEN is not set — skipping Codecov upload"
   echo "[INFO] Coverage report is still available locally at: $LCOV_FILE"
+  # Strict is about "did Codecov actually receive this", so it has to cover the
+  # path where nothing is even attempted. Without this, a strict caller missing
+  # the token exits 0 having uploaded nothing — the silent green strict exists
+  # to eliminate.
+  if [[ "$UPLOAD_STRICT" == "true" ]]; then
+    echo "ERROR: CODECOV_UPLOAD_STRICT=true and no token — nothing was uploaded." >&2
+    exit 1
+  fi
   exit 0
 fi
 
 # Download Codecov CLI binary with SHA256 verification.
 # Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
 CODECOV_VERSION="v11.2.8"
-CODECOV_BIN="/tmp/codecov"
+# Overridable so the unit tests can point at a stub CLI instead of downloading
+# the real one and reaching Codecov. CI and local runs leave it at the default.
+CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ ! -x "$CODECOV_BIN" ]]; then
   OS=$(uname -s | tr '[:upper:]' '[:lower:]')
   case "$OS" in
@@ -174,14 +225,16 @@ if [[ ! -x "$CODECOV_BIN" ]]; then
   echo "  Codecov CLI downloaded and verified"
 fi
 
+readonly COMMIT_URL="https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
+
 CODECOV_ARGS=(
   --file "$LCOV_FILE"
-  --flag "e2e-$WORKSPACE"
+  --flag "$FLAG"
   --sha "$UPLOAD_SHA"
   --slug "$UPLOAD_SLUG"
   --token "$CODECOV_TOKEN"
   --git-service github
-  --name "overlay-e2e-$WORKSPACE"
+  --name "overlay-$FLAG"
   --disable-search
   --fail-on-error
 )
@@ -189,26 +242,62 @@ CODECOV_ARGS=(
 [[ -n "$UPLOAD_BRANCH" ]] && CODECOV_ARGS+=(--branch "$UPLOAD_BRANCH")
 
 echo ""
-# Codecov upload failures are intentionally non-blocking (exit 0).
-# Coverage is informational — CI jobs should not fail if Codecov is down or
-# has transient errors. The lcov report is still available locally for review.
-# This approach prioritizes CI stability while ensuring coverage visibility when
-# Codecov is available.
-if "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"; then
-  echo ""
-  echo "=== Upload complete ==="
-  echo "  View coverage at: https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
-  echo "  Filter by flag: e2e-$WORKSPACE"
-else
+# Exit-code contract for a failed upload, selected by CODECOV_UPLOAD_STRICT:
+#
+#   unset/false (default) - exit 0. For a caller whose real job is something else
+#     and merely uploads coverage on the side (the Prow e2e run used to do this):
+#     coverage is informational, so Codecov being down must not fail that job.
+#     The lcov is still on disk, and a human reading the log sees the banner.
+#
+#   true - exit non-zero. For a caller whose ONLY job is the upload — today
+#     scripts/seed-main-coverage.sh, the sole automated caller. There, swallowing
+#     the failure makes the job report "seeded" while Codecov received nothing,
+#     so the dashboard silently goes stale with a green check. That is the exact
+#     failure mode seed-main-coverage.sh already guards against for a missing
+#     token ("the job would go green while uploading nothing"); this closes the
+#     same hole for the upload itself.
+#
+# Either verdict is reached only after UPLOAD_ATTEMPTS tries. Uploads are
+# idempotent (same flag+sha+name), so a retry after a failure that actually
+# landed server-side is harmless.
+for attempt in $(seq 1 "$UPLOAD_ATTEMPTS"); do
+  if "$CODECOV_BIN" upload-process "${CODECOV_ARGS[@]}"; then
+    echo ""
+    echo "=== Upload complete (attempt $attempt/$UPLOAD_ATTEMPTS) ==="
+    echo "  View coverage at: $COMMIT_URL"
+    echo "  Filter by flag: $FLAG"
+    exit 0
+  fi
+  if [[ "$attempt" -lt "$UPLOAD_ATTEMPTS" ]]; then
+    echo "[WARN] Codecov upload attempt $attempt did not go through — retrying in ${UPLOAD_RETRY_DELAY_SECONDS}s..." >&2
+    # An interrupted sleep must not decide the verdict: under `set -e` a signalled
+    # sleep would abort here with a non-zero status, failing even a non-strict
+    # caller this script promises never to fail.
+    sleep "$UPLOAD_RETRY_DELAY_SECONDS" || true
+  fi
+done
+
+# Every attempt failed. Everything from here is a diagnostic, so it goes to
+# stderr as one block — splitting it across streams lets CI log capture
+# interleave the verdict away from the banner it explains.
+{
   echo ""
   echo "=================================================="
-  echo "  ⚠️  Codecov upload failed"
+  echo "  Codecov upload failed ($UPLOAD_ATTEMPTS attempts)"
   echo "=================================================="
-  echo "  This is non-fatal — coverage data is still available locally"
-  echo "  LCOV report: $LCOV_FILE"
+  echo "  LCOV file:   $LCOV_FILE"
   echo "  Target repo: $UPLOAD_SLUG"
   echo "  Target SHA:  $UPLOAD_SHA"
+  if [[ "$UPLOAD_STRICT" == "true" ]]; then
+    echo "  CODECOV_UPLOAD_STRICT=true — failing so this doesn't pass silently."
+  else
+    echo "  Non-fatal — the coverage data is still available locally."
+  fi
   echo "=================================================="
-  # Exit 0 (success) — upload failure should not fail the CI job
-  exit 0
+} >&2
+
+# Explicit `if` so the two exits read as one decision.
+if [[ "$UPLOAD_STRICT" == "true" ]]; then
+  exit 1
 fi
+exit 0
