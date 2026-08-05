@@ -124,13 +124,31 @@ class TestSeedOutcome:
 
 
 class TestOrphanedSnapshot:
-    def test_snapshot_without_a_workspace_fails_before_uploading(self, tmp_path):
-        """A snapshot left behind by a renamed workspace would fail its upload on
-        every run, turning the scheduled job permanently red with the cause
-        buried in one workspace's log. It should fail once, up front, naming the
-        file to delete — and upload nothing in the meantime, since a partial seed
-        is what leaves flags inconsistent."""
+    """A snapshot left behind by a renamed workspace has no workspace directory,
+    so upload-coverage.sh would reject it on every run. It is reported up front,
+    naming the file to delete, rather than surfacing as one buried per-workspace
+    failure."""
+
+    def test_healthy_workspaces_are_still_seeded(self, tmp_path):
+        """The orphan is one workspace's bookkeeping problem. Aborting the run
+        over it would hold every other flag at its last value until someone
+        cleans up — punishing flags with nothing wrong with them."""
         result, stub = seed(tmp_path, orphans=["no-such-workspace"])
+        assert call_count(stub) == len(WORKSPACES)
+        calls = (tmp_path / "codecov.calls").read_text()
+        for ws in WORKSPACES:
+            assert f"--flag e2e-{ws}" in calls
+        assert "e2e-no-such-workspace" not in calls
+
+    def test_run_still_fails_and_names_the_orphan(self, tmp_path):
+        """Seeding the rest must not make the run green: nothing was uploaded
+        for the orphan either, which is the staleness this job exists to catch."""
+        result, _ = seed(tmp_path, orphans=["no-such-workspace"])
         assert result.returncode == 1
         assert "no-such-workspace" in result.stderr
+
+    def test_every_snapshot_orphaned_fails_without_uploading(self, tmp_path):
+        result, stub = seed(tmp_path, workspaces=[], orphans=["gone-a", "gone-b"])
+        assert result.returncode == 1
+        assert "every snapshot is orphaned" in result.stderr
         assert call_count(stub) == 0

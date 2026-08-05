@@ -74,9 +74,20 @@ for snapshot in "${snapshots[@]}"; do
   fi
 done
 
+# Reported now, but the run continues: an orphan is one workspace's bookkeeping
+# problem, and aborting here would hold every OTHER workspace's flag at its last
+# value until someone cleans up — punishing flags that have nothing wrong with
+# them. Seed the healthy ones, then fail at the end so the orphan still gets
+# noticed. (Safe only because the loop below derives each snapshot path from its
+# workspace name; skipping entries would desync a parallel array.)
 if [[ ${#ORPHANED[@]} -gt 0 ]]; then
-  echo "ERROR: snapshot(s) with no matching workspaces/<name>/ directory: ${ORPHANED[*]}" >&2
+  echo "[WARN] snapshot(s) with no matching workspaces/<name>/ directory: ${ORPHANED[*]}" >&2
   echo "       The workspace was renamed or removed — delete or rename the matching coverage-snapshots/<name>.lcov." >&2
+  echo "       Seeding the remaining workspace(s); this run will still fail." >&2
+fi
+
+if [[ ${#WORKSPACES[@]} -eq 0 ]]; then
+  echo "ERROR: every snapshot is orphaned — nothing to seed." >&2
   exit 1
 fi
 
@@ -84,9 +95,9 @@ echo "=== Seeding ${#WORKSPACES[@]} coverage snapshot(s) to the current main com
 # Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
 FAILED_WS=()
 for ws in "${WORKSPACES[@]}"; do
-  # Derived from the workspace name rather than read from a parallel array. Index
-  # alignment between two lists would hold only as long as the orphan check above
-  # stays fatal — make it a skip-and-warn and the arrays silently diverge, sending
+  # Derived from the workspace name rather than read from a parallel array. The
+  # orphan check above filters entries out, so index alignment between two lists
+  # would already be broken here — a parallel array would silently diverge, sending
   # one workspace's lcov up under another's flag. Deriving the path cannot drift.
   snapshot="$SNAPSHOT_DIR/$ws.lcov"
   echo ""
@@ -110,8 +121,13 @@ echo "=== Done: $(( ${#WORKSPACES[@]} - FAILED ))/${#WORKSPACES[@]} seeded ==="
 # the 7th showing a stale carried-forward number with nothing to indicate it was
 # never refreshed, which is precisely the silent staleness this job exists to
 # prevent. The seed is idempotent and re-runs on schedule, so a re-run is the fix.
+# An orphaned snapshot counts the same way: nothing was uploaded for it either.
 if [[ "$FAILED" -gt 0 ]]; then
   echo "ERROR: Not seeded: ${FAILED_WS[*]}" >&2
+  exit 1
+fi
+if [[ ${#ORPHANED[@]} -gt 0 ]]; then
+  echo "ERROR: orphaned snapshot(s) still present: ${ORPHANED[*]}" >&2
   exit 1
 fi
 exit 0
