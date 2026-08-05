@@ -46,6 +46,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      # Defined once for the whole job. It was previously set in the resume
+      # step's env and hardcoded again in the PR step; the two drifting apart
+      # meant the run committed to one branch and pushed another, failing after
+      # the artifact downloads were already paid for.
+      BRANCH: chore/refresh-coverage-snapshots
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -61,8 +67,6 @@ jobs:
           node-version: "24"
 
       - name: Resume the accumulation branch
-        env:
-          BRANCH: chore/refresh-coverage-snapshots
         run: |
           set -euo pipefail
 
@@ -244,7 +248,13 @@ jobs:
               echo "[WARN] $ws: refresh failed — continuing with the rest."
               continue
             fi
-            if ! git diff --quiet -- "coverage-snapshots/$ws.lcov"; then
+            # Staged first, because `git diff` only sees TRACKED files and the
+            # dominant case here is a workspace that has no snapshot at all —
+            # 16 of the 20 currently stale. For those the refresh writes a new,
+            # untracked file, `git diff --quiet` reports clean, and the run
+            # discards the work it just paid a full artifact download for.
+            git add -- "coverage-snapshots/$ws.lcov"
+            if ! git diff --cached --quiet -- "coverage-snapshots/$ws.lcov"; then
               refreshed+=("$ws")
             else
               echo "[INFO] $ws: snapshot unchanged."
@@ -273,7 +283,6 @@ jobs:
           # Already on the accumulation branch, rebased onto main by the resume
           # step. Each run adds a commit rather than replacing the branch, so
           # earlier slices survive and the next run sees them as current.
-          branch="chore/refresh-coverage-snapshots"
           git add coverage-snapshots/
           git commit -q -m "chore(coverage): refresh ${COUNT} stale snapshot(s)
 
@@ -289,13 +298,13 @@ jobs:
           # so history is rewritten and a plain push would always be rejected.
           # The lease still refuses to clobber a remote that moved since this
           # run fetched it, which a bare --force would silently discard.
-          git push --force-with-lease origin "$branch"
+          git push --force-with-lease origin "$BRANCH"
 
           # `gh pr view <branch>` also resolves CLOSED PRs, so a maintainer
           # closing this one would leave the branch receiving pushes forever
           # with nothing tracking it. Ask specifically for an OPEN one.
-          if [[ -z "$(gh pr list --head "$branch" --state open --json number -q '.[0].number')" ]]; then
-            gh pr create --base main --head "$branch" \
+          if [[ -z "$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')" ]]; then
+            gh pr create --base main --head "$BRANCH" \
               --title "chore(coverage): refresh ${COUNT} stale coverage snapshot(s)" \
               --body "Automated refresh of coverage snapshots that no longer matched their workspace.
 
