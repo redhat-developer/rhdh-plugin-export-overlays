@@ -9,6 +9,12 @@ import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
 import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
 import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
+import { registerOrchestratorKafkaTests } from "./orchestrator-kafka.tests.js";
+
+function reuseClusterSetup(): boolean {
+  const v = process.env.ORCH_E2E_REUSE_CLUSTER ?? "";
+  return v === "1" || v.toLowerCase() === "true";
+}
 
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
@@ -18,6 +24,26 @@ test.describe("Orchestrator", () => {
       `orchestrator-setup-${testInfo.project.name}`,
       async () => {
         const project = rhdh.deploymentConfig.namespace;
+        process.env.SONATAFLOW_DATA_INDEX_URL =
+          "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+
+        // Small clusters: skip Loki + full redeploy when substrate is already live.
+        // Use after a prior successful (or manually healed) deploy: ORCH_E2E_REUSE_CLUSTER=1
+        if (reuseClusterSetup()) {
+          console.warn(
+            "[orchestrator-setup] ORCH_E2E_REUSE_CLUSTER=1 — skipping deploySonataflow/Loki/RHDH redeploy",
+          );
+          if (!process.env.RHDH_BASE_URL?.trim()) {
+            console.warn(
+              "[orchestrator-setup] ORCH_E2E_REUSE_CLUSTER=1 but RHDH_BASE_URL is not set — tests may fail",
+            );
+          }
+          process.env.LOKI_BASE_URL =
+            process.env.LOKI_BASE_URL?.trim() ||
+            "http://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080";
+          return;
+        }
+
         await rhdh.configure({ auth: "keycloak" });
         try {
           await deploySonataflow(project);
@@ -25,8 +51,6 @@ test.describe("Orchestrator", () => {
           logOrchestratorDeployFailureDiagnostics(project);
           throw err;
         }
-        process.env.SONATAFLOW_DATA_INDEX_URL =
-          "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
         await configureOrchestratorLoki();
         try {
           await prepareRhdhHelmRedeploy(project);
@@ -47,4 +71,5 @@ test.describe("Orchestrator", () => {
   registerOrchestratorRbacTests();
   registerRetryWorkflowTests();
   registerUiPropsTestWorkflowTests();
+  registerOrchestratorKafkaTests();
 });

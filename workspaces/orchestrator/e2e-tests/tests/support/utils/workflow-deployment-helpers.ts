@@ -22,9 +22,21 @@ const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
 const DEMO_WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/orchestrator-demo.git";
+/** Optional pin for orchestrator-demo clones (branch, tag, or SHA). Unset = default-branch tip. */
+const DEMO_WORKFLOW_REPO_REF = process.env.DEMO_WORKFLOW_REPO_REF?.trim();
 const WORKFLOW_REPO_REF =
   process.env.SERVERLESS_WORKFLOWS_REF ||
   "daeeee8dec16beab6d96a81774ef500081a2c2b0";
+
+async function cloneOrchestratorDemo(demoDir: string): Promise<void> {
+  if (!DEMO_WORKFLOW_REPO_REF) {
+    await $`git clone --depth=1 ${DEMO_WORKFLOW_REPO} ${demoDir}`;
+    return;
+  }
+  await $`git clone --depth=1 ${DEMO_WORKFLOW_REPO} ${demoDir}`;
+  await $`git -C ${demoDir} fetch --depth=1 origin ${DEMO_WORKFLOW_REPO_REF}`;
+  await $`git -C ${demoDir} checkout --detach ${DEMO_WORKFLOW_REPO_REF}`;
+}
 
 const MANIFEST_DIRS = [
   "workflows/greeting/manifests",
@@ -596,6 +608,52 @@ EOF`;
         "rollout",
         "status",
         "deployment/token-propagation",
+        "-n",
+        namespace,
+        "--timeout=600s",
+      ],
+      610_000,
+    );
+  } finally {
+    await $`rm -rf ${demoDir}`.catch(() => {});
+  }
+}
+
+/**
+ * Deploy orchestrator-demo callback-flow (SonataFlow CR `lock-flow`) for Kafka Run as Event e2e.
+ */
+export async function deployLockFlowWorkflow(namespace: string): Promise<void> {
+  const workflowOcDeps: WorkflowOcDeps = { runOc };
+  const demoDir = `/tmp/orchestrator-demo-lock-flow-${process.pid}`;
+  const manifestsDir = join(demoDir, "08_kafka_events/callback-flow/manifests");
+  const workflow = "lock-flow";
+
+  try {
+    await cloneOrchestratorDemo(demoDir);
+    await $`oc apply -n ${namespace} -f ${manifestsDir}`;
+
+    patchWorkflowPostgres(namespace, workflow);
+    await waitForWorkflowDeployment(
+      namespace,
+      workflow,
+      WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
+      workflowOcDeps,
+    );
+    await waitForWorkflowPostgresDeploymentAligned(
+      namespace,
+      workflow,
+      POSTGRES_ALIGN_TIMEOUT_MS,
+    );
+    runOc(
+      ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
+      60_000,
+    );
+    await sleep(2_000);
+    runOc(
+      [
+        "rollout",
+        "status",
+        `deployment/${workflow}`,
         "-n",
         namespace,
         "--timeout=600s",
