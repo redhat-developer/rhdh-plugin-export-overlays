@@ -113,6 +113,28 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
 
+### Adding a Plugin to an Existing Workspace
+
+When adding a new plugin to a workspace that already has `source.json` and `plugins-list.yaml`, the `repo-ref` is already pinned to a specific commit. The new plugin must exist at that pinned ref — not at the upstream repo's HEAD or latest tag.
+
+1. **Read `source.json` to get the pinned ref.** Extract the `repo`, `repo-ref`, and `repo-flat` values. The `repo-ref` is the exact commit SHA that the build system checks out.
+
+2. **Verify the plugin directory exists at the pinned ref.** Use the GitHub API to check whether the plugin path exists at the specific commit:
+   ```bash
+   # For monorepo workspaces (repo-flat: false), plugins are under workspaces/<name>/plugins/<plugin>/
+   gh api repos/{owner}/{repo}/contents/{plugin-path}?ref={repo-ref} --jq '.name' 2>/dev/null
+   ```
+   Do NOT use `git clone --depth 1` for this check — shallow clones fetch HEAD of the default branch, which may contain content not present at the pinned ref.
+
+3. **If the plugin does not exist at the pinned ref, update `repo-ref`.** Find the earliest upstream commit that contains the plugin and update `source.json`:
+   - Browse or search the upstream repo's commit history for when the plugin was added
+   - Update the `repo-ref` value to a commit SHA where the plugin exists
+   - Verify that ALL existing plugins in `plugins-list.yaml` still exist and are valid at the new ref (same directory structure, compatible versions)
+
+4. **Check `repo-backstage-version` when updating `repo-ref`.** If the upstream repo's Backstage version changed between the old and new ref, update the `repo-backstage-version` field in `source.json` to match. Check the upstream repo's root `package.json` or `backstage.json` at the new ref.
+
+5. **Add the plugin to `plugins-list.yaml` and create its metadata.** Follow the same pattern as existing entries — add the plugin path to `plugins-list.yaml` and create a `metadata/<package-name>.yaml` file (kind: Package) with the correct `spec.packageName`, `spec.dynamicArtifact`, `spec.version`, and other required fields.
+
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
