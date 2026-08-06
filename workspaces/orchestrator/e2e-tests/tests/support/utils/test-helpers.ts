@@ -20,6 +20,10 @@ export {
   waitForLokiWorkflowLogs,
 } from "./orchestrator-loki-helpers.js";
 export {
+  configureOrchestratorKafka,
+  deployLockFlowWorkflow,
+} from "./orchestrator-kafka-helpers.js";
+export {
   deploySonataflow,
   prepareRhdhHelmRedeploy,
   runOc,
