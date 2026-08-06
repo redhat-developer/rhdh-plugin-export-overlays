@@ -118,6 +118,28 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### Reviewing Yarn Lock Patches
+
+Any PR that modifies `patches/*.patch` files containing `yarn.lock` changes — regardless of whether the version bumps are major, minor, or patch-level — must be verified through CI before merging. This repo's patches bypass the upstream test suite, so the CI commands below are the primary mechanism for catching breakage introduced by dependency changes.
+
+**Verification steps for all yarn.lock patches:**
+
+When reviewing a PR that adds or modifies a `patches/*.patch` file with `yarn.lock` content:
+
+1. **Recommend `/publish`** as a minimum first step. This builds the OCI images with the patched dependencies and confirms the patch applies cleanly to the upstream source.
+2. **Recommend `/smoketest`** after `/publish` completes. This loads all workspace plugins from the published OCI images and confirms they initialize without errors — a basic build consistency check.
+3. **Check whether the affected workspace has an `e2e-tests/` directory.** If it does, additionally recommend `/test e2e-ocp-helm` to exercise the plugins through their E2E acceptance criteria and catch runtime breakage that smoke tests cannot detect.
+
+**What each command verifies:**
+
+| Command | What it confirms | When to use |
+|---------|-----------------|-------------|
+| `/publish` | Patch applies cleanly; OCI images build successfully | Always — minimum for any yarn.lock patch |
+| `/smoketest` | All workspace plugins load and initialize in RHDH | Always — after `/publish` completes |
+| `/test e2e-ocp-helm` | Plugins pass runtime acceptance tests | When `e2e-tests/` exists in the workspace |
+
+**Do not approve yarn.lock patches without recommending at least `/publish` + `/smoketest`.** These commands are not a substitute for code review, but they catch the most common failure modes (patch conflicts, missing dependencies, plugin load failures) that cannot be detected by reviewing the patch diff alone.
+
 ### Major Version Bumps in Patches
 
 When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
@@ -136,7 +158,7 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Do not approve major version bump patches without explicit risk assessment.** A patch that passes build does not guarantee runtime compatibility — the old API may still be called at runtime by plugin code that was not exercised during the build.
 
-**Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
+**Leverage CI verification.** In addition to the general verification steps in "Reviewing Yarn Lock Patches" above, major version bumps specifically benefit from `/test e2e-ocp-helm` when E2E tests exist — they exercise runtime behavior that can catch breaking API changes. However, neither smoke tests nor E2E tests replace a manual review of the dependency's changelog for breaking API changes.
 
 ## Working with Catalog Entities
 
