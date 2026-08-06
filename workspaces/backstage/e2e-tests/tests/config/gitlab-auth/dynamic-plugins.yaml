@@ -1,0 +1,24 @@
+plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:2.0.0--1.17.1!red-hat-developer-hub-backstage-plugin-homepage
+    disabled: true
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-gitlab-provider-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-org-dynamic
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          gitlab:
+            orgProvider:
+              host: ${AUTH_PROVIDERS_GITLAB_HOST}
+              orgEnabled: true
+              group: ${AUTH_PROVIDERS_GITLAB_PARENT_ORG}
+              restrictUsersToGroup: true
+              includeUsersWithoutSeat: true
+              schedule:
+                initialDelay:
+                  seconds: 0
+                frequency:
+                  minutes: 1
+                timeout:
+                  minutes: 1
