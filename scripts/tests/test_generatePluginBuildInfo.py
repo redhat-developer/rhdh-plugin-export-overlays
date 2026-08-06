@@ -551,7 +551,7 @@ class TestCollectFallbackEntries:
         )
         result = generatePluginBuildInfo.collect_fallback_entries(tmp_path)
         assert result == [
-            ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
+            ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0", "topology"),
         ]
 
     def test_empty_when_no_fallbacks(self, tmp_path):
@@ -589,26 +589,54 @@ class TestFallbackRegexFragment:
 
     def test_cta_regex_includes_fetched_version(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
-             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"):
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=False):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
                 [
-                    ("backstage-community-plugin-topology", "2.0--1.5.4", "2.0--1.6.0"),
-                    ("backstage-plugin-kubernetes", "2.0--1.5.4", "2.0--1.6.0"),
+                    ("backstage-community-plugin-topology", "2.0--1.5.4", "2.0--1.6.0", "topology"),
+                    ("backstage-plugin-kubernetes", "2.0--1.5.4", "2.0--1.6.0", "kubernetes"),
                 ]
             )
         out = capsys.readouterr().out
-        assert "-p 'topology|kubernetes' -v 2.0.0 --next" in out
-        assert "-p '|" not in out
+        assert (
+            "-p 'backstage-community-plugin-topology|backstage-plugin-kubernetes' "
+            "-v 2.0.0 --next"
+        ) in out
+        assert "sync-midstream.sh" not in out
+        assert "./build/ci/update-index.sh" in out
+
+    def test_cta_includes_sync_midstream_when_in_midstream(self, capsys):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions",
+                        "2.0.0--0.19.0",
+                        "2.0.0--0.19.1",
+                        "extensions",
+                    ),
+                ]
+            )
+        out = capsys.readouterr().out
+        assert "sync-midstream.sh --force-clone 'extensions' --yes" in out
+        assert (
+            "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' "
+            "-v 2.0.0 --next"
+        ) in out
 
     def test_cta_uses_package_version_on_release_branch(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
-             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"):
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=False):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
-                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0")]
+                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")]
             )
         out = capsys.readouterr().out
-        assert "-p 'topology' -v 1.10.3" in out
+        assert "-p 'backstage-community-plugin-topology' -v 1.10.3" in out
         assert "--next" not in out
+        assert "sync-midstream.sh" not in out
 
 
 class TestRhdhBranchAndVersion:
