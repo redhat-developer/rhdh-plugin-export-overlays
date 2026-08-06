@@ -692,9 +692,11 @@ def print_fallback_rebuild_cta(
     """Print a clear rebuild call-to-action for plugins using older published tags.
 
     Accepts 3-tuples ``(container, have, want)`` or 4-tuples with ``workspace``.
-    When run from midstream (``build/ci/sync-midstream.sh`` present), also prints
-    a sync step — PLRs alone rebuild whatever is in ``workspaces/``, so stale
-    midstream sources must be synced before triggering Konflux.
+
+    Always lists the fallback containers. Midstream-only rebuild steps (sync
+    overlays into ``rhdh-plugin-catalog``, Konflux PLRs, ``./build/ci/update-index.sh``)
+    are printed only when ``_in_midstream_repo()`` is true — those paths do not
+    exist upstream and must not be suggested from the overlays repo.
     """
     if not fallbacks:
         return
@@ -722,6 +724,12 @@ def print_fallback_rebuild_cta(
         )
         containers.append(container)
 
+    # Upstream overlays has neither sync-midstream, Konflux PLR helpers, nor
+    # build/ci/update-index.sh — stop after the fallback list.
+    if not _in_midstream_repo():
+        print()
+        return
+
     package_filter = "|".join(containers)
     # Prefer -v x.y.z --next on the next stream (matches generatePipelineRunsForPlugins.sh /
     # RELEASE_GUIDE). Release branches use plain -v x.y.z from rhdh package.json.
@@ -733,7 +741,7 @@ def print_fallback_rebuild_cta(
     )
 
     step = 1
-    if _in_midstream_repo() and workspaces:
+    if workspaces:
         ws_filter = "|".join(sorted(workspaces))
         print(
             f"\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
