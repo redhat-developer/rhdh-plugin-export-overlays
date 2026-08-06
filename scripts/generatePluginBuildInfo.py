@@ -625,9 +625,9 @@ def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, st
 
 
 def _fallback_regex_fragment(container: str) -> str:
-    """Map a container image name to a packages-list path fragment for ``--regex``.
+    """Map a container image name to a packages-list path fragment for ``-p``/``--package``.
 
-    ``generatePipelineRunsForPlugins.sh --regex`` matches lines like
+    ``generatePipelineRunsForPlugins.sh -p`` matches lines like
     ``topology/plugins/topology``, not full OCI names, so strip common
     container prefixes to leave a distinctive path fragment.
     """
@@ -729,7 +729,7 @@ def print_fallback_rebuild_cta(fallbacks: list[tuple[str, str, str]]) -> None:
     )
     print(
         f"\n{Colors.YELLOW}Re-export with:{Colors.NORM}\n"
-        f".tekton/generatePipelineRunsForPlugins.sh --trigger --regex '{regex}' {version_args}\n"
+        f".tekton/generatePipelineRunsForPlugins.sh --trigger -p '{regex}' {version_args}\n"
         f"\n{Colors.YELLOW}Then re-run ./build/ci/update-index.sh{Colors.NORM}\n"
     )
 
