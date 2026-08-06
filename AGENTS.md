@@ -138,6 +138,47 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Reviewing cve-backports.yaml Manifest Completeness
+
+Each workspace that applies CVE patches via `0-cve-yarn-lock.patch` must have a corresponding `cve-backports.yaml` manifest in the same `patches/` directory. This manifest serves as an audit trail for CVE remediation — auditors rely on it to understand what was patched and why. Missing entries mean incomplete visibility into what was remediated.
+
+**Cross-reference the manifest against the patch:**
+
+For every package whose version changes in `0-cve-yarn-lock.patch`, verify there is a corresponding entry in `cve-backports.yaml`. Each entry must include `cve_ids`, `package`, and `patch_version` fields. A missing entry is a **medium-severity** finding — the manifest must be a complete record of all patched packages.
+
+How to check:
+
+1. Parse the lockfile patch to extract all packages with version changes. In a `yarn.lock` patch, look for lines where the `version:` field changes between the `-` (removed) and `+` (added) sides.
+2. For each changed package, verify a `backports` entry exists in `cve-backports.yaml` with a matching `package` name and a `patch_version` that includes the new version(s).
+3. If a package version change appears in the patch but has no manifest entry, flag it. Do not treat this as a low or informational finding.
+
+**Include partial fixes:**
+
+When a package is bumped but some version lines remain in the CVE-affected range (e.g., `tar@6.2.1` is still vulnerable but `tar@7.5.22` is fixed), the entry should still exist in `cve-backports.yaml`. List all resolved versions in `patch_version` (including the still-affected version) and add a `notes` field documenting the residual exposure with the dependency tree spine showing which packages pull in the still-affected version. Example:
+
+```yaml
+- cve_ids:
+    - CVE-2026-59873
+    - CVE-2026-59874
+  package: tar
+  patch_version: 6.2.1, 7.5.22
+  notes: |-
+    [auto] tar@6.2.1 is still in CVE affected range; verify dev-only
+    └─┬ @internal/lightspeed@1.0.0
+      └─┬ @backstage/cli-defaults@0.1.0
+        └─┬ keytar@7.9.0
+          └─┬ node-gyp@10.2.0
+            └── tar@6.2.1
+```
+
+**Do not approve with missing entries:**
+
+If the lockfile patch bumps a package that has no `cve-backports.yaml` entry, request changes or flag as medium severity. Do not treat this as a low or informational finding and do not approve or apply `ready-for-merge` when manifest entries are missing. The manifest must account for every package version change in the patch.
+
+**Verify entry removals:**
+
+If a previously-existing manifest entry is removed in a PR, verify the removal is intentional — for example, because the CVE was fixed upstream via a `repo-ref` bump in `source.json` and the patch no longer changes that package's version. Unintentional removals of tracking entries reduce audit visibility and should be flagged.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
