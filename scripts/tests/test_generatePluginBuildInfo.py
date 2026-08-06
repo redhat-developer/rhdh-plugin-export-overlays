@@ -597,8 +597,8 @@ class TestFallbackRegexFragment:
                 ]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology|kubernetes' -v 2.0.0 --next" in out
-        assert "--regex '|" not in out
+        assert "-p 'topology|kubernetes' -v 2.0.0 --next" in out
+        assert "-p '|" not in out
 
     def test_cta_uses_package_version_on_release_branch(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
@@ -607,7 +607,7 @@ class TestFallbackRegexFragment:
                 [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0")]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology' -v 1.10.3" in out
+        assert "-p 'topology' -v 1.10.3" in out
         assert "--next" not in out
 
 
