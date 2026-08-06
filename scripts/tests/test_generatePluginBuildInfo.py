@@ -564,28 +564,11 @@ class TestCollectFallbackEntries:
 
 
 # ---------------------------------------------------------------------------
-# _fallback_regex_fragment / print_fallback_rebuild_cta
+# print_fallback_rebuild_cta
 # ---------------------------------------------------------------------------
 
-class TestFallbackRegexFragment:
-    """Unit tests for packages-list path fragments used in rebuild CTA regex."""
-
-    @pytest.mark.parametrize(
-        "container, expected",
-        [
-            ("backstage-community-plugin-topology", "topology"),
-            (
-                "backstage-community-plugin-catalog-backend-module-pingidentity",
-                "catalog-backend-module-pingidentity",
-            ),
-            ("backstage-plugin-kubernetes", "kubernetes"),
-            ("redhat-backstage-plugin-orchestrator", "orchestrator"),
-            ("red-hat-developer-hub-backstage-plugin-lightspeed", "backstage-plugin-lightspeed"),
-            ("custom-container-name", "custom-container-name"),
-        ],
-    )
-    def test_strips_known_prefixes(self, container, expected):
-        assert generatePluginBuildInfo._fallback_regex_fragment(container) == expected
+class TestFallbackRebuildCta:
+    """Unit tests for the outdated-plugin rebuild CTA."""
 
     def test_cta_regex_includes_fetched_version(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \

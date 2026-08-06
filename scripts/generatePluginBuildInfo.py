@@ -628,24 +628,6 @@ def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, st
     return sorted(fallbacks, key=lambda t: t[0])
 
 
-def _fallback_regex_fragment(container: str) -> str:
-    """Map a container image name to a short ``-p``/``--package`` filter fragment.
-
-    Strips common container prefixes so a filter like ``topology`` matches both
-    the npm package name and Quay basename. Prefer full container basenames in
-    CTAs when uniqueness matters.
-    """
-    for prefix in (
-        "backstage-community-plugin-",
-        "backstage-plugin-",
-        "redhat-backstage-plugin-",
-        "red-hat-developer-hub-",
-    ):
-        if container.startswith(prefix):
-            return container[len(prefix):]
-    return container
-
-
 def _in_midstream_repo(start: Path | None = None) -> bool:
     """Return True when cwd (or ``start``) looks like rhdh-plugin-catalog midstream."""
     root = start or Path.cwd()
