@@ -6,6 +6,8 @@ catalog:
   locations:
     - type: url
       target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
+permission:
+  enabled: true
 extensions:
   installation:
     enabled: true
