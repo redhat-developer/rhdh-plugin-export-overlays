@@ -285,11 +285,16 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
 If the plugin OCI image is built and published outside this repository, do **not** add a `workspaces/` entry unless you are also moving export into overlays with a public cloneable source.
 
+**Model B is listing-only in the catalog index today** — Plugin YAML alone does not produce installable Package entities or overlay-resolved OCI. See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
+
 Instead:
 
 1. Add or update the Plugin entity under `catalog-entities/extensions/plugins/`
-2. Keep title, description, support level, links, and configuration guidance accurate
-3. Open a PR against `main`
+2. Reference it from `catalog-entities/extensions/plugins/all.yaml` (required for the Location to pick it up)
+3. Keep title, description, support level, links, and configuration / external-install guidance accurate
+4. Treat the catalog entry as **listing-only** (omit `packages:` unless you are linking to Package entities that already exist via Model A). Do not assume Plugin YAML alone makes an external OCI image installable from Extensions
+5. **Optional — curated catalogs:** If RHDH PM approves Supported Plugins / Optional Extras inclusion (tracking RHDHPLAN feature JIRA), also update the matching package-list / collection / `default.packages.yaml` entries **when Package entities exist** (Model A or hybrid). Listing-only Model B with no workspace Package metadata skips package-list maintenance
+6. Open a PR against `main`
 
 Owner obligations for that path are documented in [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
