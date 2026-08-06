@@ -138,6 +138,27 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Dependency Fork/Scope Substitutions in Patches
+
+When a patch in `patches/*.patch` replaces a package with a fork from a different npm scope (e.g., `es5-ext` replaced by `npm:@unes/es5-ext@0.10.64-1`), the change introduces supply-chain risk distinct from a version bump. The package name changes, the publisher changes, and the trust chain is different. A version bump within the same package is governed by semver conventions and the original maintainer's release process; a fork substitution has no such contract.
+
+**Why this matters for this repo:** Patches modify `yarn.lock` to force dependency resolutions across the upstream workspace. Substituting a fork changes which npm publisher's code runs in every exported plugin that depends on the replaced package — transitively or directly. Unlike a version bump where the same maintainers ship the update, a fork introduces a new party into the supply chain. The fork may diverge from the original beyond its stated purpose, may not receive security patches when the original does, and may be abandoned without notice.
+
+**Review criteria for dependency fork/scope substitutions:**
+
+When reviewing a PR where a patch replaces a package resolution with a fork (identified by `npm:<scope>/<name>@<version>` pointing to a different package than the original):
+
+1. **Detect the substitution.** When a patch modifies `yarn.lock` or package resolutions to replace a package with `npm:<different-scope>/<name>@<version>`, flag it as a fork substitution — not a regular version bump. The key indicator is that the package identity (scope or name) changes, not just the version.
+2. **Assess the fork's provenance.** Determine who publishes the fork package on npm, why the fork exists, and whether it is actively maintained. Look for a linked upstream issue, PR, or advisory that explains the divergence. Check the fork's npm page for publisher identity, download counts, and last-publish date.
+3. **Verify the fork's changes.** Compare the fork's source to the original package at the equivalent version. Confirm the changes are limited to the stated purpose (e.g., removing post-install scripts, patching a vulnerability) and do not introduce additional modifications, added dependencies, or altered behavior.
+4. **Check for upstream alternatives.** Determine whether the original package has addressed the concern in a newer release, which would eliminate the need for the fork entirely. An upstream fix is always preferable to a third-party fork.
+5. **Assess ongoing maintenance risk.** A fork may not receive timely security patches when vulnerabilities are found in the original package. If the fork's maintenance cadence is unclear or the fork appears inactive, flag this as a risk — the fork could become a liability when future CVEs are discovered in the original.
+6. **Recommend CI verification.** As with major version bumps, use `/smoketest` to verify all workspace plugins still load correctly, and `/test` (if E2E tests exist) to exercise plugin functionality. These checks validate that the fork does not introduce runtime breakage.
+
+**Do not approve fork substitution patches without explicit supply-chain assessment.** A patch that passes build does not guarantee that the fork is trustworthy, actively maintained, or limited to its stated changes. Explicitly acknowledge the fork substitution and either assess the supply-chain risk or request human review.
+
+**Leverage CI verification.** Smoke tests (`/smoketest` PR command) and E2E tests (`/test` PR command, if the workspace has an `e2e-tests/` directory) are minimum verification steps for fork substitutions. They confirm that the substituted package does not break plugin loading or basic functionality, but they do not assess supply-chain trust — that requires manual review of the fork's provenance and changes.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
