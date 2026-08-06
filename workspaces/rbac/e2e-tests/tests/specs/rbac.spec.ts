@@ -309,7 +309,7 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
+      await uiHelper.clickButton("Administration");
       // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
       const rbacNavLink = page
         .getByRole("navigation", { name: "sidebar nav" })
@@ -588,7 +588,7 @@ test.describe("RBAC plugin", () => {
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
+      await uiHelper.clickButton("Administration");
       const dropdownMenuLocator = page.getByText("RBAC");
       await expect(dropdownMenuLocator).toBeHidden();
     });

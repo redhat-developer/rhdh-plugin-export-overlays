@@ -211,7 +211,7 @@ test.describe.serial("Test Adoption Insights", () => {
 
         await page.reload();
         await testHelper.waitUntilApiCallSucceeds(page);
-        await uiHelper.openSidebarButton("Administration");
+        await uiHelper.clickButton("Administration");
         await uiHelper.clickLink("Adoption Insights");
         await testHelper.clickByText("Last 28 days");
         await Promise.all([
