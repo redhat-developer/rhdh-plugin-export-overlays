@@ -1,0 +1,15 @@
+# Static external-access token for catalog API calls (Helm-injected appConfig).
+global:
+  lightspeed:
+    enabled: false
+
+upstream:
+  backstage:
+    appConfig:
+      backend:
+        auth:
+          externalAccess:
+            - type: static
+              options:
+                token: gitlab-auth-e2e-token
+                subject: gitlab-auth-e2e
