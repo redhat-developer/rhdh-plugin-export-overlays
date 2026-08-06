@@ -12,12 +12,14 @@ Not every plugin is built and exported through overlays. Ownership responsibilit
 
 | Model | What lives in overlays | OCI build / publish | Typical when |
 |-------|------------------------|---------------------|--------------|
-| **A. Source + overlay build** | `workspaces/<name>/` (`source.json`, `plugins-list.yaml`, `metadata/*.yaml`, optional patches) **and** a Plugin entity under `catalog-entities/extensions/plugins/` (usually with `packages:` / OCI refs) | Built and published by overlay CI / midstream export | Source is on a **public** GitHub repo that CI can clone (`https://github.com/...` only today) |
-| **B. Catalog metadata only** | Plugin entity YAML under `catalog-entities/extensions/plugins/` only — **no** `workspaces/` export config | Built and published **outside** this repository (owner’s own pipeline / registry) | Source or build stays outside overlays (including private source trees); overlays only need marketplace/catalog listing metadata |
+| **A. Source + overlay build** | `workspaces/<name>/` (`source.json`, `plugins-list.yaml`, `metadata/*.yaml` Package entities, optional patches). Overlay **export** only needs `workspaces/`. A Plugin entity under `catalog-entities/extensions/plugins/` is the Extensions/marketplace listing (usually with `packages:` links to Package **entity names**). OCI refs live on Package `spec.dynamicArtifact`, not on the Plugin YAML. | Built and published by overlay CI / midstream export | Source is on a **public** GitHub repo that CI can clone (`https://github.com/...` only today) |
+| **B. Catalog metadata only** | Plugin entity YAML under `catalog-entities/extensions/plugins/` only — **no** `workspaces/` export config and **no** workspace Package metadata | Built and published **outside** this repository (owner’s own pipeline / registry) | Source or build stays outside overlays (including private source trees); overlays only need **listing** metadata in the catalog index |
 
-> **Important:** Overlay export does **not** clone private source repositories. If the plugin cannot be built from a public GitHub URL via `source.json`, use **Model B** and keep OCI production in your own pipeline. Maintain the catalog Plugin YAML here so the plugin can still appear in the plugin catalog index.
+> **Important:** Overlay export does **not** clone private source repositories. If the plugin cannot be built from a public GitHub URL via `source.json`, use **Model B** and keep OCI production in your own pipeline.
+>
+> **Model B is listing-only in the catalog index today.** The catalog-index pipeline resolves installable Package entities (and OCI) from `workspaces/*/metadata/` and package lists — see [07 - Plugin Catalog Index](./07-plugin-catalog-index.md). Catalog-only Plugin YAML contributes marketplace listing metadata (title, description, support level, links, install/config guidance). Omitting `packages:` is normal for listing-only / external-install docs. There is **no** supported path today to publish installable Package entities for an external OCI image without a Model A `workspaces/` entry.
 
-Model A is the default path described in the rest of this guide (metadata sync, version bumps, patches, `/publish`, `/smoketest`). Model B owners skip workspace/export maintenance and focus on catalog YAML accuracy (title, description, support level, links, configuration guidance).
+Model A is the default path described in the rest of this guide (metadata sync, version bumps, patches, `/publish`, `/smoketest`). Model B owners skip workspace/export maintenance and keep catalog Plugin YAML accurate (title, description, support level, links, configuration guidance), knowing the index entry is listing-oriented unless/until the plugin moves to Model A.
 
 ### Who is a Plugin Owner?
 
@@ -44,33 +46,41 @@ You are a plugin owner if you:
 
 ## Core Responsibilities
 
-> Workspace/export subsections (**2**–**4**) focus on **Model A** (source + overlay build). For **Model B**, keep the Plugin YAML under `catalog-entities/extensions/plugins/` accurate and up to date; do not add a `workspaces/` entry unless you are moving the plugin onto the overlay export path with a public cloneable source. Section **1** (Plugin YAML and PM-gated catalog curation) applies to both models when the plugin is listed in curated catalogs.
+> Workspace/export subsections (**2**–**4**) focus on **Model A** (source + overlay build). For **Model B**, always maintain the Plugin YAML (and `plugins/all.yaml`); do not add a `workspaces/` entry unless you are moving the plugin onto the overlay export path with a public cloneable source. PM-gated curation bullets below (collections, package lists, `default.packages.yaml`) apply only when approved for curated catalogs.
 
 ### 1. Keep Plugin Metadata and Catalog Curation Files Up To Date
 
-**If you have been approved by RHDH PM**, and a RHDHPLAN feature JIRA exists tracking the request, you will need additional metadata stored only in this repo.
+Split this section into what **always** applies vs what applies only after **RHDH PM approval** for a curated catalog tier.
 
-These files are only required (if approved by PM) for inclusion in the **Supported Plugins** catalog or the curated **Optional Extras** catalog. If you are not being advertised in one of the catalogs, you can skip this step.
-
-#### Plugin Metadata
+#### Plugin Metadata (always for Model B; for Model A when advertising in Extensions)
 
 Your file should be under [`../catalog-entities/extensions/plugins`](../catalog-entities/extensions/plugins).
 
 It should also be referenced from `catalog-entities/extensions/plugins/all.yaml`.
 
-For **Model B**, this Plugin YAML is the primary overlay-repo deliverable (OCI is built externally). Keep title, description, support level, links, and configuration guidance accurate even when you are not targeting a curated catalog tier.
+For **Model B**, this Plugin YAML is the primary overlay-repo deliverable and is **always** required (even when you are not PM-approved for Supported Plugins / Optional Extras). Keep title, description, support level, links, and configuration / external-install guidance accurate. Expect a **listing-only** index contribution today — see [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
 
-#### Collections (if applicable)
+For **Model A**, overlay export itself only needs `workspaces/`. Add or update Plugin YAML when the plugin should appear in Extensions / marketplace listings (usually with `packages:` links to Package entity names from `workspaces/*/metadata/`).
+
+#### Collections and package lists (only if PM-approved)
+
+**If you have been approved by RHDH PM**, and a RHDHPLAN feature JIRA exists tracking the request, you will need additional curation metadata stored only in this repo for inclusion in the **Supported Plugins** catalog or the curated **Optional Extras** catalog.
+
+If you are **not** PM-approved for those curated tiers, **skip the rest of this subsection** (collections, package-list files, `default.packages.yaml`). Model B owners still must not skip Plugin YAML / `all.yaml` above.
+
+##### Collections (if applicable)
 
 If PM approval includes grouping your plugin in an Extensions Collection (featured, recommended, cicd, openshift, redhat, etc.), add or update the relevant file under [`../catalog-entities/extensions/collections`](../catalog-entities/extensions/collections) and ensure it is referenced from `catalog-entities/extensions/collections/all.yaml`. Skip this unless PM has approved inclusion in a Collection.
 
-#### Catalog Curation
+##### Catalog Curation (package lists)
 
-Additionally, your package(s) must be listed in the package-list file for the **catalog tier** you are targeting. These files select which catalog index includes the package; they do **not** set the support level. Support level (for example `community`, tech-preview, or generally-available) is declared in Plugin and Package metadata YAML and can vary independently of which list a package appears in.
+Package-list files select packages that the catalog-index pipeline resolves from **workspace** Package metadata (`workspaces/*/metadata/`). They do **not** set support level (support level lives in Plugin/Package YAML).
 
 * [`../rhdh-community-packages.txt`](../rhdh-community-packages.txt) — curated **Optional Extras** catalog index tier (Community and Developer Preview)
 * [`../rhdh-supported-packages.txt`](../rhdh-supported-packages.txt) — **Supported Plugins** catalog index tier (GA and TP)
 * [`../default.packages.yaml`](../default.packages.yaml) — **GA packages only** (`support: generally-available`), with PM approval tracked in an RHDHPLAN feature JIRA. List each package under `enabled:` (usable out of the box) or `disabled:` (requires configuration before use). Do not add non-GA packages to this file.
+
+**Model B (listing-only):** skip package-list / `default.packages.yaml` maintenance unless you also have Package entities (Model A or a rare hybrid). Listing-only plugins with no `packages:` and no `workspaces/*/metadata/` have nothing for those lists to select.
 
 #### Quality Expectations for the Level You Declare
 
@@ -220,13 +230,17 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 
 ### Model B (catalog metadata only)
 
+Listing-only in the catalog index today ([07 - Plugin Catalog Index](./07-plugin-catalog-index.md)). Installable Package/OCI resolution still requires Model A workspace Package metadata.
+
 ```markdown
 ## Catalog-only Plugin Maintenance - [Plugin Name] - [Date]
 
-- [ ] Confirmed OCI images are still built and published by the external pipeline
+- [ ] Confirmed OCI images are still built and published by the external pipeline (install is outside overlays)
 - [ ] Updated `catalog-entities/extensions/plugins/<plugin>.yaml` (title, description, support level, links, tags)
-- [ ] Reviewed configuration / install guidance in the Plugin YAML against current external docs
-- [ ] If PM-approved for curated catalogs, package-list / collection / `default.packages.yaml` entries are still correct
+- [ ] Referenced the Plugin YAML from `catalog-entities/extensions/plugins/all.yaml`
+- [ ] Reviewed configuration / external-install guidance in the Plugin YAML against current external docs
+- [ ] Confirmed listing-only expectation (no workspace Package entities; omit `packages:` unless documenting links that already exist elsewhere)
+- [ ] If PM-approved for curated catalogs **and** Package entities exist (Model A / hybrid only): package-list / collection / `default.packages.yaml` entries are still correct — otherwise skip
 - [ ] Opened PR against this repository; no `workspaces/` changes required
 ```
 
