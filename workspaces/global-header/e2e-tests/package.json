@@ -7,7 +7,7 @@
     "node": ">=24",
     "yarn": ">=3"
   },
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.17.1",
   "description": "E2E tests for global-header",
   "scripts": {
     "test": "playwright test",
