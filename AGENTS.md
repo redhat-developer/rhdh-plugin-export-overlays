@@ -483,3 +483,14 @@ After changes, run from the workspace's e2e-tests directory:
 - `catalog-entities/extensions/README.md` — Extensions catalog metadata format
 - GitHub Wiki — Auto-synced from `user-guide/` with dynamic content injection (`{{AUTO:*}}` placeholders replaced from `versions.json`)
 - **E2E test utils docs** — https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs — latest API docs, changelogs, tutorials, and configuration reference for `@red-hat-developer-hub/e2e-test-utils`
+
+### User Guide Content Scope
+
+The `user-guide/` documents target plugin developers who are already cleared to contribute to this repo. Each document has a specific technical scope:
+
+- `01-getting-started.md` — Technical setup: CLI installation, source.json configuration, workspace creation. Assumes business approvals are already complete.
+- `03-plugin-owner-responsibilities.md` — Ongoing technical maintenance tasks: metadata sync, version bumps, deprecation procedures.
+- `04-metadata-synchronization.md` — Package metadata YAML format and sync workflow.
+- `07-plugin-catalog-index.md` — Catalog index pipeline: how indexes are built, published, and consumed.
+
+When reviewing documentation PRs that modify user-guide files, flag additions of business-process requirements (approvals, JIRA workflows, stakeholder agreements) to technically-scoped documents for human discussion. These may belong in a separate onboarding or governance document.
