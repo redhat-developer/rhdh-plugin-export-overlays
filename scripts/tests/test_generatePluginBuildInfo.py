@@ -588,16 +588,17 @@ class TestFallbackRegexFragment:
         assert generatePluginBuildInfo._fallback_regex_fragment(container) == expected
 
     def test_cta_regex_includes_fetched_version(self, capsys):
-        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1-rhel-9"):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
                 [
-                    ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
-                    ("backstage-plugin-kubernetes", "1.11--1.5.4", "1.11--1.6.0"),
+                    ("backstage-community-plugin-topology", "2.0--1.5.4", "2.0--1.6.0"),
+                    ("backstage-plugin-kubernetes", "2.0--1.5.4", "2.0--1.6.0"),
                 ]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology|kubernetes' -v 1.next" in out
-        assert "--regex '|" not in out
+        assert "-p 'topology|kubernetes' -v 2.0.0 --next" in out
+        assert "-p '|" not in out
 
     def test_cta_uses_package_version_on_release_branch(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
@@ -606,7 +607,8 @@ class TestFallbackRegexFragment:
                 [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0")]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology' -v 1.10.3" in out
+        assert "-p 'topology' -v 1.10.3" in out
+        assert "--next" not in out
 
 
 class TestRhdhBranchAndVersion:
@@ -616,10 +618,10 @@ class TestRhdhBranchAndVersion:
         "midstream, expected",
         [
             ("main", "main"),
-            ("rhdh-1-rhel-9", "main"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),
+            ("", "main"),
         ],
     )
     def test_rhdh_git_branch_for_midstream(self, midstream, expected):

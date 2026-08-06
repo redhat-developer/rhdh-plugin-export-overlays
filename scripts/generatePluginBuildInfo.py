@@ -38,6 +38,9 @@ from plugin_utils import (
 # Global registry config
 REGISTRY_BASE = ""
 
+# Default midstream branch when git HEAD is unavailable (next / development line)
+DEFAULT_MIDSTREAM_BRANCH = "main"
+
 # Registry path constants
 QUAY_RHDH_PREFIX = "quay.io/rhdh/"
 RARC_DOMAIN = "registry.access.redhat.com"
@@ -622,9 +625,9 @@ def collect_fallback_entries(plugin_builds_dir: Path) -> list[tuple[str, str, st
 
 
 def _fallback_regex_fragment(container: str) -> str:
-    """Map a container image name to a packages-list path fragment for ``--regex``.
+    """Map a container image name to a packages-list path fragment for ``-p``/``--package``.
 
-    ``generatePipelineRunsForPlugins.sh --regex`` matches lines like
+    ``generatePipelineRunsForPlugins.sh -p`` matches lines like
     ``topology/plugins/topology``, not full OCI names, so strip common
     container prefixes to leave a distinctive path fragment.
     """
@@ -642,20 +645,20 @@ def _fallback_regex_fragment(container: str) -> str:
 def rhdh_git_branch_for_midstream(midstream_branch: str) -> str:
     """Map a midstream catalog branch to the matching ``redhat-developer/rhdh`` git branch.
 
-    - ``main`` / ``rhdh-1-rhel-9`` (next) → ``main``
+    - ``main`` (next) → ``main``
     - ``rhdh-1.10-rhel-9`` → ``release-1.10``
     """
     branch = (midstream_branch or "").strip()
-    if branch in ("main", "rhdh-1-rhel-9", ""):
-        return "main"
+    if branch in (DEFAULT_MIDSTREAM_BRANCH, ""):
+        return DEFAULT_MIDSTREAM_BRANCH
     match = re.fullmatch(r"rhdh-([0-9]+(?:\.[0-9]+)+)-rhel-9", branch)
     if match:
         return f"release-{match.group(1)}"
-    return "main"
+    return DEFAULT_MIDSTREAM_BRANCH
 
 
 def current_midstream_branch() -> str:
-    """Return the current git branch name, or ``rhdh-1-rhel-9`` if unavailable."""
+    """Return the current git branch name, or ``main`` if unavailable."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -668,7 +671,7 @@ def current_midstream_branch() -> str:
             return result.stdout.strip()
     except (OSError, subprocess.SubprocessError):
         pass
-    return "rhdh-1-rhel-9"
+    return DEFAULT_MIDSTREAM_BRANCH
 
 
 def fetch_rhdh_package_version(rhdh_branch: str | None = None) -> str | None:
@@ -716,17 +719,17 @@ def print_fallback_rebuild_cta(fallbacks: list[tuple[str, str, str]]) -> None:
         parts.append(_fallback_regex_fragment(container))
 
     regex = "|".join(parts)
-    # next midstream (main / rhdh-1-rhel-9) uses the 1.next alias; release
-    # branches use the concrete x.y.z from redhat-developer/rhdh package.json
+    # Prefer -v x.y.z --next on the next stream (matches generatePipelineRunsForPlugins.sh /
+    # RELEASE_GUIDE). Release branches use plain -v x.y.z from rhdh package.json.
+    # (-v main also works once package.json major matches the next stream.)
     rhdh_branch = rhdh_git_branch_for_midstream(current_midstream_branch())
-    if rhdh_branch == "main":
-        # TODO switch to 2.next when we move to the main branch downstream
-        version = "1.next"
-    else:
-        version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
+    version = fetch_rhdh_package_version(rhdh_branch) or "<version>"
+    version_args = (
+        f"-v {version} --next" if rhdh_branch == DEFAULT_MIDSTREAM_BRANCH else f"-v {version}"
+    )
     print(
         f"\n{Colors.YELLOW}Re-export with:{Colors.NORM}\n"
-        f".tekton/generatePipelineRunsForPlugins.sh --trigger --regex '{regex}' -v {version}\n"
+        f".tekton/generatePipelineRunsForPlugins.sh --trigger -p '{regex}' {version_args}\n"
         f"\n{Colors.YELLOW}Then re-run ./build/ci/update-index.sh{Colors.NORM}\n"
     )
 
