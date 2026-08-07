@@ -1,3 +1,4 @@
+import { expect } from "@playwright/test";
 import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 import {
   RBAC_DESCRIPTIVE_USERS,
@@ -20,9 +21,14 @@ export async function createUsersAndGroups(): Promise<void> {
     }
   }
 
-  await keycloak.configureForRHDH({
-    realm: realm,
-    groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
-    users: Object.values(RBAC_DESCRIPTIVE_USERS),
+  await expect(async () => {
+    await keycloak.configureForRHDH({
+      realm: realm,
+      groups: Object.values(RBAC_GROUPS).filter((g) => g.keycloak),
+      users: Object.values(RBAC_DESCRIPTIVE_USERS),
+    });
+  }).toPass({
+    intervals: [2_000, 4_000],
+    timeout: 10_000,
   });
 }
