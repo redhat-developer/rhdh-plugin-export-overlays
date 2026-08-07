@@ -8,7 +8,7 @@
     "node": ">=24",
     "yarn": ">=4"
   },
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.17.1",
   "scripts": {
     "build": "esbuild src/validate.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/validate.mjs",
     "validate": "yarn build && node dist/validate.mjs",
