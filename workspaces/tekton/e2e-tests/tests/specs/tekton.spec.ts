@@ -3,22 +3,13 @@ import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { TektonSupportHelper } from "../support/tekton-support-helper";
 
 test.describe("Test Tekton plugin", () => {
-  test.beforeAll(async ({ rhdh }, testInfo) => {
+  test.beforeAll(async ({ rhdh }) => {
     // Community plugin publishes to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
     // Remove when this community package is no longer in default.packages.yaml in the rhdh repo.
     const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
     process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
       [ghcrRegistry]: ["@backstage-community/plugin-tekton"],
     });
-    const project = testInfo.project.name;
-    const isNightlyMode =
-      process.env.E2E_NIGHTLY_MODE === "true" ||
-      process.env.E2E_NIGHTLY_MODE === "1" ||
-      (process.env.JOB_NAME?.includes("periodic-") ?? false);
-    test.skip(
-      project === "tekton-app-next" && isNightlyMode,
-      "tekton-app-next not ready for nightly",
-    );
     await rhdh.configure({
       auth: "keycloak",
     });
