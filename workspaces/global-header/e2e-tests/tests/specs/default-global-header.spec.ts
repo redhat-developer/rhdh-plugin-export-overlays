@@ -20,11 +20,11 @@ test.describe("Default Global Header", () => {
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
-      ...(isAppNext && {
-        dynamicPlugins: WorkspacePaths.resolve(
-          "tests/config/dynamic-plugins-nfs.yaml",
-        ),
-      }),
+      dynamicPlugins: WorkspacePaths.resolve(
+        isAppNext
+          ? "tests/config/dynamic-plugins-nfs.yaml"
+          : "tests/config/dynamic-plugins.yaml",
+      ),
     });
     await rhdh.deploy();
   });
@@ -72,7 +72,11 @@ test.describe("Default Global Header", () => {
     uiHelper,
   }) => {
     await uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await uiHelper.verifyHeading("Self-service");
+    const isAppNext = test.info().project.name.endsWith("-app-next");
+    // eslint-disable-next-line playwright/no-conditional-in-test, @typescript-eslint/no-unused-expressions
+    isAppNext
+      ? await uiHelper.verifyLink({ label: "Self-service" })
+      : await uiHelper.verifyHeading("Self-service");
   });
 
   test("Verify that clicking on Support button in HelpDropdown opens a new tab", async ({
@@ -116,8 +120,14 @@ test.describe("Default Global Header", () => {
     page,
     uiHelper,
   }) => {
+    const isAppNext = test.info().project.name.endsWith("-app-next");
     await uiHelper.openProfileDropdown();
-    await uiHelper.verifyLinkVisible("Settings");
+    // eslint-disable-next-line playwright/no-conditional-in-test, @typescript-eslint/no-unused-expressions
+    isAppNext
+      ? await page
+          .getByRole("menuitem", { name: "Settings" })
+          .waitFor({ state: "visible", timeout: 10000 })
+      : await uiHelper.verifyLinkVisible("Settings");
     await uiHelper.verifyTextVisible("Sign out");
 
     await page

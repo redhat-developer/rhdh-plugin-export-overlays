@@ -12,14 +12,18 @@ test.describe("Header mount points", () => {
       isAppNext && isNightlyMode,
       "global-header not ready for nightly",
     );
+    test.skip(
+      isAppNext,
+      "test plugin uses npm wrapper packaging which is incompatible with NFS module federation",
+    );
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
-      ...(isAppNext && {
-        dynamicPlugins: WorkspacePaths.resolve(
-          "tests/config/dynamic-plugins-nfs.yaml",
-        ),
-      }),
+      dynamicPlugins: WorkspacePaths.resolve(
+        isAppNext
+          ? "tests/config/dynamic-plugins-nfs.yaml"
+          : "tests/config/dynamic-plugins.yaml",
+      ),
     });
     await rhdh.deploy();
   });
