@@ -4,7 +4,7 @@ const isNightlyMode =
   !!process.env.E2E_NIGHTLY_MODE ||
   (process.env.JOB_NAME?.includes("periodic-") ?? false);
 
-test.describe("Auth plugin", () => {
+test.describe("Auth plugin", { tag: "@auth-tests" }, () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",
