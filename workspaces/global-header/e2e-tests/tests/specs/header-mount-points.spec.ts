@@ -15,11 +15,11 @@ test.describe("Header mount points", () => {
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
-      ...(isAppNext && {
-        dynamicPlugins: WorkspacePaths.resolve(
-          "tests/config/dynamic-plugins-nfs.yaml",
-        ),
-      }),
+      dynamicPlugins: WorkspacePaths.resolve(
+        isAppNext
+          ? "tests/config/dynamic-plugins-nfs.yaml"
+          : "tests/config/dynamic-plugins.yaml",
+      ),
     });
     await rhdh.deploy();
   });
