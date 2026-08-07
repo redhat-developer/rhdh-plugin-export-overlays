@@ -56,12 +56,12 @@ plugins:
                   minutes: 10
                 initialDelay:
                   seconds: 120
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
     disabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
-          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+          red-hat-developer-hub.backstage-plugin-homepage:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
@@ -76,5 +76,5 @@ plugins:
                 config:
                   id: "entity-section"
                   title: "Entity section"
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-homepage
     disabled: true
