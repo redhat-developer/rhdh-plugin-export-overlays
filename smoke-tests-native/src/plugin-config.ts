@@ -27,6 +27,14 @@ export const KNOWN_FAILURES = new Set<string>([
   "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator",
 ]);
 
+// Config every run starts from. These are core Backstage keys rather than any one
+// plugin's: a plugin that reads them (e.g. mta, to build its own URLs) fails startup
+// validation with no plugin-specific key to attach a dummy to.
+const baseConfig: JsonObject = {
+  app: { baseUrl: "http://localhost:3000" },
+  backend: { baseUrl: "http://localhost:7007" },
+};
+
 // Dummy values only — plugins never connect to anything; this satisfies config
 // validation at startup so the backend can boot.
 const configOverrides: Record<string, JsonObject> = {
@@ -42,6 +50,33 @@ const configOverrides: Record<string, JsonObject> = {
   },
   "immobiliarelabs-backstage-plugin-gitlab-backend": {
     integrations: { gitlab: [{ host: "gitlab.com", token: "test" }] },
+  },
+  // The three below came out of the first full community sweep (RHIDP-13510). Each
+  // failed startup config validation and nothing else, so a dummy recovers the boot
+  // signal at no cost — the outcome plugin-sweep-excludes.txt tells you to prefer over
+  // an exclusion. Shapes are copied from each workspace's own metadata
+  // appConfigExamples so they stay valid against the plugin's config schema.
+  "backstage-community-plugin-kiali-backend": {
+    kiali: {
+      providers: [
+        {
+          name: "kiali",
+          url: "https://localhost:20001",
+          skipTLSVerify: true,
+          serviceAccountToken: "test",
+          sessionTime: 60,
+        },
+      ],
+    },
+  },
+  "backstage-community-plugin-lighthouse-backend": {
+    lighthouse: { baseUrl: "http://localhost:3003" },
+  },
+  "backstage-community-backstage-plugin-mta-backend": {
+    mta: {
+      url: "http://localhost:8080",
+      providerAuth: { realm: "test", clientID: "test", secret: "test" },
+    },
   },
 };
 
@@ -69,17 +104,25 @@ function deepMerge(
 }
 
 // `extra` is a caller-supplied app-config layer (e.g. a workspace's
-// smoke-tests/app-config.test.yaml) merged last, so it wins over the built-in dummies —
-// same precedence the Docker smoke gives its extra `--config` mount.
+// smoke-tests/app-config.test.yaml) merged last. Scalars in it override the built-in
+// dummies; ARRAYS concatenate (see deepMerge), so a workspace supplying
+// `integrations.gitlab` appends to the dummy rather than replacing it.
 export function buildMergedConfig(
   plugins: LoadedPlugin[],
   extra?: JsonObject,
 ): JsonObject {
-  const merged: Record<string, unknown> = {};
+  const merged: Record<string, unknown> = structuredClone(
+    baseConfig as Record<string, unknown>,
+  );
   for (const { plugin } of plugins) {
     const overrides = configOverrides[plugin.dirName];
-    if (overrides) deepMerge(merged, overrides);
+    // Clone: deepMerge assigns source values by reference when the target key is
+    // absent, so merging the override directly made `merged.integrations` BE the
+    // constant's object — and the caller's app-config layer below then wrote into
+    // configOverrides itself, leaking one call's config into the next.
+    if (overrides) deepMerge(merged, structuredClone(overrides));
   }
-  if (extra) deepMerge(merged, extra as Record<string, unknown>);
+  if (extra)
+    deepMerge(merged, structuredClone(extra) as Record<string, unknown>);
   return merged as JsonObject;
 }
