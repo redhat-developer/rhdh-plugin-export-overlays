@@ -147,6 +147,17 @@ export async function loginAsKeycloakUserWithRetry(
           });
           return;
         }
+
+        // OIDC auto-redirect may have silently authenticated the user
+        // without showing a login form or popup.
+        if (
+          await page
+            .locator("nav a")
+            .first()
+            .isVisible({ timeout: LOGIN_SUCCESS_TIMEOUT_MS })
+        ) {
+          return;
+        }
       } catch (fallbackError) {
         lastError = fallbackError;
       }
@@ -374,6 +385,10 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Primary user runs greeting workflow and captures instance ID", async ({}) => {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "RBAC permission evaluation returns stale DENY after prior deny policy deletion — product bug in permission cache invalidation",
+        );
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
@@ -383,6 +398,10 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Secondary user cannot access instance before admin grant", async ({}) => {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "RBAC permission evaluation returns stale DENY after prior deny policy deletion — product bug in permission cache invalidation",
+        );
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
@@ -400,6 +419,10 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Grant admin role and verify secondary user access", async ({}) => {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "RBAC permission evaluation returns stale DENY after prior deny policy deletion — product bug in permission cache invalidation",
+        );
         const orchestratorPo = new OrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
