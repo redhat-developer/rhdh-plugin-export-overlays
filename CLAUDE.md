@@ -19,7 +19,8 @@ The repo has two distinct metadata systems that serve different purposes:
    - `plugins-list.yaml` — Which plugins to export, with optional CLI args
    - `metadata/*.yaml` — `kind: Package` entities describing each built artifact (version, OCI reference, `appConfigExamples`)
    - `plugins/<plugin>/overlay/` — Files that replace/add source files during packaging
-   - `patches/*.patch` — Unified diffs applied to the workspace source before build
+   - `patches/*.patch` — Unified diffs applied to the workspace source before build (lexicographic order; `0-cve-yarn-lock.patch` for community-plugins / Backstage transitive CVE lockfile bumps only)
+   - `patches/cve-backports.yaml` — Manifest for CVE yarn.lock backports (paired with `0-cve-yarn-lock.patch`)
 
 2. **Catalog entities** (`catalog-entities/extensions/`) — Define *how plugins appear* in the RHDH Extensions UI. These are separate from workspace metadata:
    - `plugins/*.yaml` — `kind: Plugin` entities with descriptions, icons, categories, highlights (user-facing display)
@@ -103,7 +104,7 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
-- **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
+- **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Export applies `*.patch` in **lexicographic order**. Use `0-cve-yarn-lock.patch` only for transitive CVE lockfile fixes on **community-plugins / Backstage** workspaces when an upstream lockfile publish is not practical (see `scripts/yarnlock-backport/` and `user-guide/06-patch-management.md`). For **rhdh-plugins**, fix transitive CVEs in the upstream workspace `yarn.lock` and bump `repo-ref` — do not overlay-patch. Number other patches (`1-`, `2-`, …) to control order.
 
 ## Working with Catalog Entities
 
@@ -414,6 +415,7 @@ Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 
 - `README.md` — Repo overview, PR workflow, testing procedures
 - `user-guide/` — 6-part contributor guide (getting started, export tools, ownership, metadata sync, versions, patches) plus catalog index pipeline docs
+- `scripts/yarnlock-backport/` — CLI to generate `0-cve-yarn-lock.patch` + `cve-backports.yaml` for transitive CVE lockfile backports on community-plugins / Backstage only (not rhdh-plugins; see `user-guide/06-patch-management.md`)
 - `user-guide/troubleshooting-catalog-index.md` — Troubleshooting content embedded by `renderCatalogStatus.py` into each generated status page. Anchor slugs must stay in sync with `REASON_ANCHORS` in the renderer
 - `catalog-entities/extensions/README.md` — Extensions catalog metadata format
 - GitHub Wiki — Auto-synced from `user-guide/` with dynamic content injection (`{{AUTO:*}}` placeholders replaced from `versions.json`)
