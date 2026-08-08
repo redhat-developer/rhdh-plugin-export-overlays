@@ -607,6 +607,52 @@ EOF`;
   }
 }
 
+/**
+ * Deploy orchestrator-demo callback-flow (SonataFlow CR `lock-flow`) for Kafka Run as Event e2e.
+ */
+export async function deployLockFlowWorkflow(namespace: string): Promise<void> {
+  const workflowOcDeps: WorkflowOcDeps = { runOc };
+  const demoDir = `/tmp/orchestrator-demo-lock-flow-${process.pid}`;
+  const manifestsDir = join(demoDir, "08_kafka_events/callback-flow/manifests");
+  const workflow = "lock-flow";
+
+  try {
+    await $`git clone --depth=1 ${DEMO_WORKFLOW_REPO} ${demoDir}`;
+    await $`oc apply -n ${namespace} -f ${manifestsDir}`;
+
+    patchWorkflowPostgres(namespace, workflow);
+    await waitForWorkflowDeployment(
+      namespace,
+      workflow,
+      WORKFLOW_DEPLOYMENT_TIMEOUT_MS,
+      workflowOcDeps,
+    );
+    await waitForWorkflowPostgresDeploymentAligned(
+      namespace,
+      workflow,
+      POSTGRES_ALIGN_TIMEOUT_MS,
+    );
+    runOc(
+      ["rollout", "restart", `deployment/${workflow}`, "-n", namespace],
+      60_000,
+    );
+    await sleep(2_000);
+    runOc(
+      [
+        "rollout",
+        "status",
+        `deployment/${workflow}`,
+        "-n",
+        namespace,
+        "--timeout=600s",
+      ],
+      610_000,
+    );
+  } finally {
+    await $`rm -rf ${demoDir}`.catch(() => {});
+  }
+}
+
 function formatOcFailure(err: unknown): string {
   if (err instanceof Error) {
     const m = err.message.trim();
