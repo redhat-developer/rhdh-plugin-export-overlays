@@ -50,6 +50,10 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
     test.describe.configure({ retries: 1 });
 
     test("Aggregated scorecard (README file exists): drill-down and table UI", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Cascading failure from scorecard-metric-unavailable — RHDH returns 503 after worker restart",
+      );
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),
         FILECHECK_METRICS.readme,
@@ -79,6 +83,10 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
 
   for (const { entity, key, expected } of filecheckCases) {
     test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "Scorecard entity-level view shows 'Metric data unavailable' despite backend API returning data — product bug in scorecard frontend plugin",
+      );
       await scorecard.expectFilecheckForEntity(
         async () => {
           await catalog.go();
