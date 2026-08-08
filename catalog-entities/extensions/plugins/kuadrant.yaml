@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: kuadrant
+  namespace: rhdh
+  title: Kuadrant
+  annotations:
+    extensions.backstage.io/pre-installed: 'custom'
+  links:
+    - title: Homepage
+      url: https://kuadrant.io
+    - title: Issues
+      url: https://github.com/Kuadrant/kuadrant-backstage-plugin/issues
+    - title: Source Code
+      url: https://github.com/Kuadrant/kuadrant-backstage-plugin
+    - title: Documentation
+      url: https://github.com/Kuadrant/kuadrant-backstage-plugin/blob/main/docs/installation.md
+  tags:
+    - kubernetes
+    - gateway-api
+    - api-access
+    - rate-limiting
+    - authentication
+  description: |
+    Self-service API access management for Kubernetes-native organisations using Kuadrant Gateway API primitives.
+    Developers can discover APIs, request access with tiered plans, and manage API keys.
+    Platform engineers can approve requests, define rate limits, and configure auth policies.
+spec:
+  author: Kuadrant
+  support:
+    provider: Kuadrant
+    level: community
+  lifecycle: active
+  publisher: Kuadrant
+
+  description: |
+    The Kuadrant Backstage plugin brings self-service API access management to your developer portal. It bridges the gap
+    between API providers who want to share their services and developers who need to consume them, using Kubernetes-native
+    Kuadrant Gateway API primitives.
+
+    **For API Consumers:**
+    * Discover published APIs and request access with tiered plans (bronze, silver, gold)
+    * Manage API keys and track request status (pending, approved, rejected)
+
+    **For API Owners:**
+    * Publish APIs with multiple plan tiers and define rate limits and quotas
+    * Approve or reject API access requests
+
+    **For Platform Engineers:**
+    * Manage API products across the organisation
+    * Configure AuthPolicy and RateLimitPolicy via PlanPolicy
+    * Full RBAC integration with three built-in roles
+
+    The plugin operates on Kubernetes CRDs (APIProduct, APIKey, PlanPolicy) and integrates with Kuadrant's
+    AuthPolicy and RateLimitPolicy for enforcement at the gateway level.
+
+    ## Adding The Plugin To Red Hat Developer Hub
+
+    See the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub/extensions-in-rhdh_plugins-in-rhdh)
+    for further instructions on how to add, enable, configure, and remove plugins in your instance.
+
+    ## Configuring The Plugin ##
+
+    Plugins often need additional configuration to work correctly - particularly those that integrate with other
+    systems. See the original source code repository, the software vendor, or the [Red Hat Developer Hub documentation](https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/installing_and_viewing_plugins_in_red_hat_developer_hub)
+    for further details regarding the configuration required.
+
+  categories:
+    - Kubernetes
+
+  highlights:
+    - Self-service API access management
+    - Tiered API plans (bronze, silver, gold)
+    - API key lifecycle management
+    - Approval workflows for access requests
+    - RBAC with three built-in roles
+    - Kuadrant Gateway API integration
+    - AuthPolicy and RateLimitPolicy support
+
+  icon: data:image/svg+xml;base64,
+    PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+Cjwh
+    RE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xLy9FTiIgImh0dHA6Ly93d3cu
+    dzMub3JnL0dyYXBoaWNzL1NWRy8xLjEvRFREL3N2ZzExLmR0ZCI+Cjxzdmcgd2lkdGg9IjEwMCUi
+    IGhlaWdodD0iMTAwJSIgdmlld0JveD0iMCAwIDEwMjQgMTAyNCIgdmVyc2lvbj0iMS4xIiB4bWxu
+    cz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3Lncz
+    Lm9yZy8xOTk5L3hsaW5rIiB4bWw6c3BhY2U9InByZXNlcnZlIiB4bWxuczpzZXJpZj0iaHR0cDov
+    L3d3dy5zZXJpZi5jb20vIiBzdHlsZT0iZmlsbC1ydWxlOmV2ZW5vZGQ7Y2xpcC1ydWxlOmV2ZW5v
+    ZGQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kO3N0cm9rZS1taXRlcmxpbWl0OjI7Ij4KICAgIDxwYXRo
+    IGlkPSJTZWdtZW50LTEiIGQ9Ik04MDksMUM5OTMuNTksMTgzLjU2IDEwNjUuNyw0NDkuNjUgOTk4
+    LjEyLDY5OS4wNUM5NjQuNzc4LDgyMS44MjMgODk5LjUxOSw5MzMuNjA3IDgwOSwxMDIzTDI5Mi4y
+    Nyw1MTJMODA5LDFaIiBzdHlsZT0iZmlsbDpyZ2IoNjgsMTgwLDIyOCk7Ii8+CiAgICA8cmVjdCBp
+    ZD0iUmVjdGFuZ2xlIiB4PSIxIiB5PSIxIiB3aWR0aD0iMjE4IiBoZWlnaHQ9IjEwMjIiLz4KPC9z
+    dmc+Cg==
+
+  assets:
+    - type: icon
+      filename: img/kuadrant.svg
+      originUri: https://github.com/cncf/artwork/blob/main/projects/kuadrant/icon/color/kuadrant-icon-color.svg
+
+  history:
+    added: '2026-07-21'
+
+  packages:
+    - kuadrant-backstage-plugin-frontend
+    - kuadrant-backstage-plugin-backend-dynamic
