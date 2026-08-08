@@ -25,6 +25,11 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("RBAC plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RBAC plugin module Legacy not available in current OCI artifact",
+  );
+
   let rbacPO: RbacPO;
   let apiToken: string;
 
