@@ -63,5 +63,9 @@ export default playwrightDefineConfig({
       name: "backstage-auth",
       testMatch: /tests\/specs\/auth\.spec\.ts/,
     },
+    {
+      name: "backstage-microsoft-auth",
+      testMatch: /tests\/specs\/microsoft-auth\.spec\.ts/,
+    },
   ],
 });
