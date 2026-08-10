@@ -113,6 +113,20 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
 
+### Adding New Plugins to Existing Workspaces
+
+When adding a new plugin to a workspace that already has other plugins, the new plugin's `metadata/*.yaml` file — especially its `appConfigExamples` — must reflect the **new plugin's** actual configuration interface, not the sibling plugins' config. Plugins in the same workspace often share a config namespace (e.g., `catalog.providers`) but consume it with different key shapes (flat strings vs nested objects, different required fields).
+
+1. **Read the upstream plugin's `config.d.ts`** (or `configSchema` in `package.json`) to understand the exact TypeScript interface the plugin expects. Use the `repo` URL and `repo-ref` from the workspace's `source.json` to locate the file in the upstream repository at the pinned ref. Do not assume sibling plugins in the same workspace share identical config structures.
+
+2. **Cross-reference `appConfigExamples` against the config schema.** Every key in `appConfigExamples` must match the type expected by the plugin's config interface — strings where strings are expected, objects where objects are expected, arrays where arrays are expected. If the schema defines a nested object with specific fields (e.g., `clusters` as an array of objects with `name`, `url`, `authProvider`), the example must use that structure, not a flat string.
+
+3. **Do not copy sibling metadata `appConfigExamples` verbatim** when the new plugin consumes a shared config namespace differently. Read the sibling files to understand the metadata format (YAML structure, field names, OCI reference patterns), but derive the `appConfigExamples` content from the new plugin's own config schema.
+
+4. **Check the upstream plugin's README** for documented configuration examples as a secondary reference. READMEs often contain working config snippets that complement the TypeScript schema.
+
+5. **Run smoke tests when available.** If the workspace has smoke tests, note that `/publish` + `/smoketest` PR commands should be run to verify the `appConfigExamples` don't cause the plugin to crash at runtime. Incorrect config shapes (e.g., passing a string where an object is expected) are caught by smoke tests but not by metadata schema validation.
+
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
