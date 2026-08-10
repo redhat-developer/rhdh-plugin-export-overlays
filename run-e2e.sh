@@ -198,7 +198,7 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.17.1",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }
