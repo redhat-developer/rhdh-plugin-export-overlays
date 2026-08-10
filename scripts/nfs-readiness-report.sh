@@ -216,12 +216,12 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
         tar xzf "$subdir/layout/blobs/sha256/$layer_digest" -C "$subdir" "$pkg_json_path" 2>/dev/null
         features_json=$(jq -c '.backstage.features // {}' "$subdir/$pkg_json_path" 2>/dev/null || echo '{}')
       fi
+      status=$(classify_features "$features_json")
     else
       echo "Warning: failed to pull $oci_ref" >&2
+      status="unknown"
     fi
     rm -rf "$subdir"
-
-    status=$(classify_features "$features_json")
   else
     # No --oci flag — can't determine status
     status="unknown"
