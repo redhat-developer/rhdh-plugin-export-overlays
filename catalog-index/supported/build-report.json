@@ -22,7 +22,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b8faa0c7453c7f392a28a7fc10036544d491979717e3e11b1c12303a0d3c68cf"
+          "digest": "sha256:e8f29f41df76a1b4239cff77c7cafa343aa6b7376b0268bf52ead45537bf1f2a"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights-backend",
@@ -48,7 +48,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bac9d463eec38a9fc1132c7d020a5e38537aa30df5f7aba8107dbfa5d26da8c1"
+          "digest": "sha256:1f8aade14625e31c5a9ba90397b9ebc712984415f273fbd6a044be5741bc579b"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-adoption-insights",
@@ -74,7 +74,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e0aac6f3a9ce3867924aec93a79980bf2598217104f7b1e310b57453e0a43f87"
+          "digest": "sha256:a47195082cbe65e65bdb23090ccefeab33fb5f03e9f46847a31e794db7767183"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights",
@@ -1175,7 +1175,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:efef44a0f764842c8f2b557f3a003a1b832b01a7263a02d430e729299181b53d"
+          "digest": "sha256:b01bc767b8f97fcefc85dc2805bf240986b0be436339689d83eb904977351ce3"
         }
       },
       "package": "@backstage-community/plugin-tech-radar-backend",
@@ -1201,7 +1201,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:53c60b04424d40eeb093aa921d1dd34b744ea5117a363269b66d428561291e6d"
+          "digest": "sha256:2ba499b7e62b999b9ec38a34eafedf8231b9edbea54395781057c869e3d680b8"
         }
       },
       "package": "@backstage-community/plugin-tech-radar",
@@ -1227,7 +1227,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d953963617a6d2656ea3b8c8c15101cf8fff891aee9e9d32423c83feaa1ce2d8"
+          "digest": "sha256:f78b5cf67a496f308b8658837037ddc7ef254947641b19546c169ddbe9d25eb7"
         }
       },
       "package": "@backstage-community/plugin-topology",
@@ -1265,7 +1265,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e1f2fcb89c1ced63658804c3ed8a013e98ec67508c4b93baa8c9116c4e41e8b3"
+          "digest": "sha256:c2d445661a120c2a5642de2d72648b99e188083433b33714a427a8ecd7732662"
         },
         "dpdy": {
           "status": "pass"
@@ -1287,7 +1287,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cce805ccc927d4af8fdd050babbc97bcbfeb933e33ed6c794823d37f41d619ee"
+          "digest": "sha256:c85d3a985d9723d3476c18fa2ea7b26ec2550a8f65de99843db8ac0da468233d"
         },
         "dpdy": {
           "status": "pass"
@@ -1305,14 +1305,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:85809619d088338a49999894ab7afcc032c15b03568944bf9b05372a82c751f7",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.1.1",
-          "resolvedTag": "bs_1.52.0__0.1.0"
+          "digest": "sha256:76ef47343978a70320132777ad5cbcfacdec05554005bd83c1030d89347804f6"
         },
         "dpdy": {
           "status": "pass"
@@ -1322,7 +1319,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-app-auth",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "workspace": "app-defaults",
       "overall": "pass"
     },
@@ -1330,14 +1327,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8f76244c9e4c93578d944761e85e31d0ee274a89fe5faae7de2272823e52b338",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.1.1",
-          "resolvedTag": "bs_1.52.0__0.1.0"
+          "digest": "sha256:318419f8292e251ed02fcbbaecc335537a4968101c1e7e0b1312909deb13baef"
         },
         "dpdy": {
           "status": "pass"
@@ -1347,7 +1341,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-app-integrations",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "workspace": "app-defaults",
       "overall": "pass"
     },
@@ -1355,14 +1349,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.2"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f8344374a253b6aa097cd22d822983b06316d9706e2d6458cbe0878ec3ece4d6",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__0.0.3",
-          "resolvedTag": "bs_1.52.0__0.0.2"
+          "digest": "sha256:24a12de49f4598f7b76169098edf28f6052f471e9d06449d5e6da7f702e8625b"
         },
         "dpdy": {
           "status": "pass"
@@ -1372,7 +1363,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-app-defaults",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "workspace": "app-defaults",
       "overall": "pass"
     }
