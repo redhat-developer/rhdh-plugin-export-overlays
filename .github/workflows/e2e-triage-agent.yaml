@@ -118,7 +118,7 @@ jobs:
           TOKEN: ${{ secrets.E2E_TRIAGE_TOKEN }}
         run: |
           if [[ -z "${TOKEN}" ]]; then
-            echo "::error::E2E_TRIAGE_TOKEN secret is not configured — see PR #NNNN"
+            echo "::error::E2E_TRIAGE_TOKEN secret is not configured — see PR #3211"
             exit 1
           fi
           echo "::add-mask::${TOKEN}"
