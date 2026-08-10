@@ -53,7 +53,7 @@ def build_overlay(tmp_path: Path, repo_url=f"https://github.com/{UPSTREAM_SLUG}"
     return root
 
 
-def build_upstream_clone(tmp_path: Path) -> Path:
+def build_upstream_clone(tmp_path: Path, branch: str = "main") -> Path:
     """A stand-in for the shallow clone, with a git remote the script can read.
 
     `git ls-remote origin HEAD` is how the script finds main's HEAD; pointing
@@ -61,7 +61,7 @@ def build_upstream_clone(tmp_path: Path) -> Path:
     """
     upstream = tmp_path / "upstream-origin"
     upstream.mkdir()
-    git(upstream, "init", "-q", "-b", "main", ".")
+    git(upstream, "init", "-q", "-b", branch, ".")
     (upstream / "workspaces").mkdir()
     src = upstream / "workspaces" / WORKSPACE / "plugins" / "ia" / "src"
     src.mkdir(parents=True)
@@ -276,6 +276,30 @@ def test_uploads_run_from_inside_the_upstream_clone(tmp_path, coverage_dir):
         if line.strip()
     }
     assert cwds == {clone.resolve()}
+
+
+def test_branch_is_derived_not_assumed(tmp_path, coverage_dir):
+    """--branch decides which branch's trend the report joins. Hardcoding "main"
+    while resolving the tip of whatever HEAD points at would attach the report to
+    a branch that may not exist, and nobody watching the real default branch
+    would ever see it."""
+    root = build_overlay(tmp_path)
+    clone = build_upstream_clone(tmp_path, branch="trunk")
+    stub = write_stub_cli(tmp_path / "codecov", [0])
+    remap = write_stub_remap(tmp_path / "remap.sh")
+
+    result = run_script(
+        root / "scripts" / "upload-coverage-upstream.sh",
+        WORKSPACE,
+        str(coverage_dir),
+        env=base_env(stub, clone, remap),
+        cwd=root,
+    )
+
+    assert result.returncode == 0, result.stderr
+    calls = Path(f"{stub}.calls").read_text()
+    assert "--branch trunk" in calls
+    assert "--branch main" not in calls
 
 
 def test_pinned_only_skips_the_one_way_door(tmp_path, coverage_dir):

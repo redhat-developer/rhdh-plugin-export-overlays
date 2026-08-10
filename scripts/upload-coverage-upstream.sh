@@ -8,7 +8,8 @@
 #
 # Flags:
 #   --dry-run      resolve and remap everything, upload nothing.
-#   --pinned-only  upload to the pinned repo-ref but NOT to main HEAD. The HEAD
+#   --pinned-only  upload to the pinned repo-ref but NOT to the default-branch
+#                  HEAD. The HEAD
 #                  copy is a one-way door: once the flag exists there,
 #                  carryforward keeps it on every later commit and removing it
 #                  needs Codecov UI access on a repo we may not administer. The
@@ -40,14 +41,21 @@
 #
 #   3. Coverage is attributed to the workspace's pinned `repo-ref`, because that
 #      is the commit the tested plugin was built from. It is ALSO uploaded to the
-#      source repo's current main HEAD, because a report on a historical commit
-#      is never reachable from the default branch: Codecov's carryforward
-#      inherits from the parent commit's finalised report, and every commit
-#      between the pinned ref and now was finalised without this flag. Measured
-#      2026-08-10: e2e-orchestrator has a report at its pinned ref and files=0 on
-#      all ~30 main commits processed after that upload landed. The HEAD copy is
-#      the only one anyone sees; the pinned-ref copy is the exactly-attributed
-#      one. Source drift between the two was 0-14% per workspace.
+#      source repo's current default-branch HEAD, because a report on a
+#      historical commit is never reachable from the default branch: Codecov's
+#      carryforward inherits from the parent commit's finalised report, and every
+#      commit between the pinned ref and now was finalised without this flag.
+#      Measured 2026-08-10: e2e-orchestrator has a report at its pinned ref and
+#      files=0 on all ~30 main commits processed after that upload landed, while
+#      the unit-test flag carries forward normally on those same commits.
+#
+#      The HEAD copy was verified end to end on 2026-08-10 with real coverage
+#      from the Prow run of overlay PR #3200: e2e-intelligent-assistant went from
+#      files=0 to files=99 at rhdh-plugins main HEAD 008c3da9, browsable per
+#      file, and the commit's own coverage moved 58.52 -> 58.74. So the HEAD copy
+#      is the one anyone sees; the pinned-ref copy is the exactly-attributed one.
+#      Source drift between the two measured 0-14% per workspace, and does not
+#      track the ref's age — churn does.
 #
 # Required environment:
 #   CODECOV_UPSTREAM_TOKEN - Codecov upload token for the SOURCE repo's project.
@@ -68,8 +76,8 @@
 
 set -euo pipefail
 
-WORKSPACE="${1:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run]}"
-JSON_DIR="${2:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run]}"
+WORKSPACE="${1:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run] [--pinned-only]}"
+JSON_DIR="${2:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run] [--pinned-only]}"
 shift 2
 DRY_RUN="false"
 PINNED_ONLY="false"
@@ -192,25 +200,53 @@ if [[ ! -s "$LCOV" ]]; then
   exit 1
 fi
 
+# One --symref query yields both the default branch's NAME and its tip. Both are
+# needed and they must agree: --branch tells Codecov which branch's trend the
+# report joins, so hardcoding "main" while resolving the tip of whatever HEAD
+# actually points at would attach the report to a branch that may not exist.
+SYMREF="$(git -C "$CLONE_DIR" ls-remote --symref origin HEAD 2>/dev/null || true)"
+DEFAULT_BRANCH="$(sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p' <<<"$SYMREF" | head -1)"
+DEFAULT_HEAD="$(awk '$2 == "HEAD" {print $1; exit}' <<<"$SYMREF")"
+
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  # Attaching to the wrong branch is worse than not attaching: the report joins
+  # a trend it does not belong to, and nobody looking at the real default branch
+  # ever sees it.
+  echo "ERROR: could not resolve the default branch of $SLUG." >&2
+  exit 1
+fi
+echo "  Branch:      $DEFAULT_BRANCH"
+
 # Both targets are resolved before either upload, so failing to determine HEAD
 # does not leave the pinned-ref copy uploaded and the visible one missing.
 TARGETS=("$PINNED_REF")
 if [[ "$PINNED_ONLY" == "true" ]]; then
   echo ""
-  echo "[--pinned-only] skipping the main HEAD copy; the flag will NOT be"
-  echo "                visible on the default branch until a full run."
+  echo "[--pinned-only] skipping the $DEFAULT_BRANCH HEAD copy; the flag will"
+  echo "                NOT be visible on the default branch until a full run."
+elif [[ "$DEFAULT_HEAD" =~ ^[0-9a-f]{40}$ && "$DEFAULT_HEAD" != "$PINNED_REF" ]]; then
+  TARGETS+=("$DEFAULT_HEAD")
 else
-  MAIN_HEAD="$(git -C "$CLONE_DIR" ls-remote origin HEAD 2>/dev/null | awk '{print $1}')"
-  if [[ "$MAIN_HEAD" =~ ^[0-9a-f]{40}$ && "$MAIN_HEAD" != "$PINNED_REF" ]]; then
-    TARGETS+=("$MAIN_HEAD")
-  else
-    # Not fatal: the exactly-attributed copy is still worth publishing, and a
-    # later run will carry the HEAD copy. Silence here would hide why the flag
-    # never appears on the default branch, which is the whole point of the copy.
-    echo "[WARN] could not resolve $SLUG main HEAD — uploading to the pinned ref" >&2
-    echo "       only. The flag will not be visible on the default branch." >&2
-  fi
+  # Not fatal: the exactly-attributed copy is still worth publishing, and a
+  # later run will carry the HEAD copy. Silence here would hide why the flag
+  # never appears on the default branch, which is the whole point of the copy.
+  echo "[WARN] could not resolve $SLUG $DEFAULT_BRANCH HEAD — uploading to the" >&2
+  echo "       pinned ref only. The flag will not be visible on the default branch." >&2
 fi
+
+# Codecov treats an upload whose --name matches an existing session on the same
+# commit as a REPLACEMENT for it. A fixed name therefore collides with every
+# previous run's session, including the spike uploads already sitting on these
+# pinned commits. Deriving the name from the report's content keeps the useful
+# half of that behaviour and drops the harmful half: re-uploading identical data
+# collapses onto the same session (idempotent retries), while a genuinely
+# different measurement gets its own.
+if command -v sha256sum &>/dev/null; then
+  REPORT_DIGEST="$(sha256sum "$LCOV" | cut -c1-8)"
+else
+  REPORT_DIGEST="$(shasum -a 256 "$LCOV" | cut -c1-8)"
+fi
+readonly UPLOAD_NAME="overlay-$FLAG-$REPORT_DIGEST"
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ "$DRY_RUN" != "true" && ! -x "$CODECOV_BIN" ]]; then
@@ -220,13 +256,13 @@ fi
 FAILED=()
 for sha in "${TARGETS[@]}"; do
   label="pinned ref"
-  [[ "$sha" != "$PINNED_REF" ]] && label="main HEAD"
+  [[ "$sha" != "$PINNED_REF" ]] && label="$DEFAULT_BRANCH HEAD"
   echo ""
   echo "--- Upload to $sha ($label) ---"
 
   if [[ "$DRY_RUN" == "true" ]]; then
     echo "[DRY-RUN] would upload $LCOV"
-    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch main"
+    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $UPLOAD_NAME"
     continue
   fi
 
@@ -236,11 +272,11 @@ for sha in "${TARGETS[@]}"; do
     --token "$CODECOV_UPSTREAM_TOKEN" \
     --slug "$SLUG" \
     --sha "$sha" \
-    --branch main \
+    --branch "$DEFAULT_BRANCH" \
     --flag "$FLAG" \
     --file "$LCOV" \
     --disable-search \
-    --name "overlay-$FLAG" \
+    --name "$UPLOAD_NAME" \
     --fail-on-error); then
     echo "ERROR: upload to $sha failed" >&2
     FAILED+=("$sha")

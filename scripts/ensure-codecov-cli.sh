@@ -24,6 +24,7 @@ TARGET="${1:-/tmp/codecov}"
 # version pin is what bounds what can arrive.
 readonly CODECOV_VERSION="v11.2.8"
 
+# shellcheck disable=SC2016  # an awk program, not a shell expansion
 readonly AWK_FIRST_FIELD='{print $1}'
 
 if [[ -x "$TARGET" ]]; then
