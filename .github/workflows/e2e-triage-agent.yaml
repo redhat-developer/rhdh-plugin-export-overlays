@@ -39,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   issues: write
 
 jobs:
@@ -107,17 +106,23 @@ jobs:
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
 
-      # Mint a triage-role token so the issues:labeled event triggers
-      # fullsend.yaml. GITHUB_TOKEN events are suppressed by GitHub's
-      # anti-recursion safety (see fullsend ADR 0033).
-      - name: Mint triage token
+      # Use a bot PAT so the issues:labeled event triggers fullsend.yaml.
+      # GITHUB_TOKEN events are suppressed by GitHub's anti-recursion
+      # safety (see fullsend ADR 0033). Previously used the fullsend mint
+      # service (OIDC → app token), which broke due to a server-side trust
+      # policy change (HTTP 401 since 2026-08-07).
+      - name: Set triage token
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         id: mint
-        uses: fullsend-ai/fullsend/.github/actions/mint-token@3cfa255ab4cc8190670585ea42da529119251632 # v0.32.0
-        with:
-          role: triage
-          repos: rhdh-plugin-export-overlays
-          mint_url: ${{ vars.FULLSEND_MINT_URL }}
+        env:
+          TOKEN: ${{ secrets.E2E_TRIAGE_TOKEN }}
+        run: |
+          if [[ -z "${TOKEN}" ]]; then
+            echo "::error::E2E_TRIAGE_TOKEN secret is not configured — see PR #3211"
+            exit 1
+          fi
+          echo "::add-mask::${TOKEN}"
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
 
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
