@@ -6,11 +6,14 @@
 # in RHDH (NFS_FEATURE_TYPES: @backstage/FrontendPlugin, @backstage/FrontendModule).
 #
 # Classification:
-#   nfs-ready    — All entry points have NFS feature types
-#   mixed        — Some NFS entry points, some legacy/unrecognized
-#   legacy-only  — Entry points present but none are NFS types
-#   unknown      — backstage.features field absent or empty
-#   backend-only — Plugin role is backend-plugin (not applicable)
+#   nfs-ready          — All entry points have NFS feature types
+#   mixed              — Some NFS entry points, some legacy/unrecognized
+#   legacy-only        — Entry points present but none are NFS types
+#   no-features        — backstage.features field absent or empty in OCI artifact
+#   baked-in           — Ships inside the RHDH container image (local path, not OCI)
+#   external-registry  — Hosted on a non-GHCR registry (cannot inspect)
+#   unknown            — Could not determine status (no --oci flag or OCI pull failed)
+#   backend-only       — Plugin role is backend-plugin (not applicable)
 #
 # Usage:
 #   ./scripts/nfs-readiness-report.sh [--json] [--markdown] [--oci]
