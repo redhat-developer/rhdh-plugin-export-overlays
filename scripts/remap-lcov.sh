@@ -14,8 +14,12 @@
 
 set -euo pipefail
 
-JSON_DIR="${1:?Usage: $0 <coverage-json-dir> <report-dir>}"
-REPORT_DIR="${2:?Usage: $0 <coverage-json-dir> <report-dir>}"
+JSON_DIR="${1:?Usage: $0 <coverage-json-dir> <report-dir> [remap-options...]}"
+REPORT_DIR="${2:?Usage: $0 <coverage-json-dir> <report-dir> [remap-options...]}"
+shift 2
+# Remaining arguments are forwarded verbatim to remap-coverage.cjs, which is how
+# upload-coverage-upstream.sh selects upstream mode without this script needing
+# to know what the options mean.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -38,4 +42,4 @@ npx nyc@18.0.0 merge "$JSON_DIR" "$NYC_OUT/out.json"
 # anchors (workspaces/*/coverage-anchors/<scalprum-name>), so it must run from
 # the repo root.
 ( cd "$REPO_ROOT" && NODE_PATH="$DEPS_DIR/node_modules" \
-    node "$SCRIPT_DIR/remap-coverage.cjs" "$NYC_OUT/out.json" "$REPORT_DIR" )
+    node "$SCRIPT_DIR/remap-coverage.cjs" "$NYC_OUT/out.json" "$REPORT_DIR" "$@" )

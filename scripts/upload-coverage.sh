@@ -121,8 +121,6 @@ readonly UPLOAD_ATTEMPTS=2
 # per workspace in sequence). Overridable so the unit tests don't pay it.
 readonly UPLOAD_RETRY_DELAY_SECONDS="${UPLOAD_RETRY_DELAY_SECONDS:-10}"
 
-readonly AWK_FIRST_FIELD='{print $1}'
-
 WORKSPACE="${1:?Usage: $0 <workspace-name> [lcov-file]}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -218,46 +216,14 @@ if [[ -z "${CODECOV_TOKEN:-}" ]]; then
   exit 0
 fi
 
-# Download Codecov CLI binary with SHA256 verification.
-# Uses the standalone Go binary (not pip codecov-cli) for supply-chain safety.
-CODECOV_VERSION="v11.2.8"
-# Overridable so the unit tests can point at a stub CLI instead of downloading
-# the real one and reaching Codecov. CI and local runs leave it at the default.
+# Codecov CLI, downloaded and checksum-verified by the shared helper so this
+# path and upload-coverage-upstream.sh cannot drift to different pinned
+# versions. CODECOV_BIN still overrides the location — the seam the unit tests
+# use to point at a stub instead of downloading the real one.
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ ! -x "$CODECOV_BIN" ]]; then
-  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-  case "$OS" in
-    linux)  CODECOV_OS="linux" ;;
-    darwin) CODECOV_OS="macos" ;;
-    *)
-      echo "ERROR: Unsupported OS: $OS" >&2
-      exit 1
-      ;;
-  esac
-
   echo ""
-  echo "Downloading Codecov CLI $CODECOV_VERSION for ${CODECOV_OS}..."
-  curl -sL -o "$CODECOV_BIN" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov"
-  curl -sL -o "${CODECOV_BIN}.SHA256SUM" "https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}/codecov.SHA256SUM"
-
-  EXPECTED=$(awk "$AWK_FIRST_FIELD" "${CODECOV_BIN}.SHA256SUM")
-  if command -v sha256sum &>/dev/null; then
-    ACTUAL=$(sha256sum "$CODECOV_BIN" | awk "$AWK_FIRST_FIELD")
-  else
-    ACTUAL=$(shasum -a 256 "$CODECOV_BIN" | awk "$AWK_FIRST_FIELD")
-  fi
-  rm -f "${CODECOV_BIN}.SHA256SUM"
-
-  if [[ "$EXPECTED" != "$ACTUAL" ]]; then
-    echo "ERROR: Codecov CLI checksum verification failed" >&2
-    echo "  Expected: $EXPECTED" >&2
-    echo "  Actual:   $ACTUAL" >&2
-    rm -f "$CODECOV_BIN"
-    exit 1
-  fi
-
-  chmod +x "$CODECOV_BIN"
-  echo "  Codecov CLI downloaded and verified"
+  "$SCRIPT_DIR/ensure-codecov-cli.sh" "$CODECOV_BIN"
 fi
 
 readonly COMMIT_URL="https://app.codecov.io/gh/$UPLOAD_SLUG/commit/$UPLOAD_SHA"
