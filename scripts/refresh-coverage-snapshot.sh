@@ -55,10 +55,18 @@ if [[ "$SOURCE" =~ ^https:// ]]; then
   # Names come from the collector in e2e-test-utils and have changed shape
   # before: they were `<testId>-<timestamp>.json`, all hex, and are now
   # `w<worker>-page<n>.json`. A hex-only pattern silently carved `e0.json` out
-  # of `w0-page0.json` and "found" a file that does not exist, so match the
-  # href instead of guessing the alphabet, and anchor on the boundary so a
-  # partial name cannot be extracted from a longer one.
-  files=$(echo "$listing" | grep -oE '[A-Za-z0-9._-]+\.json' | sort -u || true)
+  # of `w0-page0.json` and "found" a file that does not exist, so do not guess
+  # the alphabet.
+  #
+  # Read the link targets rather than scanning the page: a bare `.json` pattern
+  # would also match anything the listing happens to mention in prose or in an
+  # inline script, and each false name costs a request whose failure arrives as
+  # a 200 (see below). Taking the last path segment is what keeps the directory
+  # prefix in the href out of the filename.
+  files=$(echo "$listing" \
+    | grep -oE 'href="[^"]*\.json"' \
+    | grep -oE '[^"/]+\.json' \
+    | sort -u || true)
   if [[ -z "$files" ]]; then
     echo "[INFO] No coverage JSONs at $SOURCE (backend-only or uninstrumented run) — nothing to snapshot."
     exit 0

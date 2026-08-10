@@ -44,10 +44,16 @@ SOFT_404 = "<!doctype html><html><body>no such object</body></html>"
 class _Handler(BaseHTTPRequestHandler):
     listed: tuple = ()
     available: tuple = ()
+    broken: tuple = ()
 
     def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
         path = self.path.rstrip("/")
         name = path.rsplit("/", 1)[-1]
+        if name in self.broken:
+            # A real HTTP failure, the one case `curl -f` does catch.
+            self.send_response(500)
+            self.end_headers()
+            return
         if path.endswith("coverage"):
             body = LISTING.format(first=self.listed[0], second=self.listed[1])
         elif name in self.available:
@@ -74,13 +80,14 @@ def listing_server():
     """
     servers = []
 
-    def factory(listed, available=None):
+    def factory(listed, available=None, broken=()):
         handler = type(
             "Handler",
             (_Handler,),
             {
                 "listed": tuple(listed),
                 "available": tuple(listed if available is None else available),
+                "broken": tuple(broken),
             },
         )
         server = HTTPServer(("127.0.0.1", 0), handler)
@@ -102,9 +109,19 @@ def download_only(url, tmp_path):
     protecting anything if the block moved, so the marker comment is checked.
     """
     source = SCRIPT.read_text()
-    start = source.index("  if ! listing=$(curl")
-    end = source.index('elif [[ "$SOURCE" =~ ^http:// ]]')
+    try:
+        start = source.index("  if ! listing=$(curl")
+        end = source.index('elif [[ "$SOURCE" =~ ^http:// ]]')
+    except ValueError as exc:  # pragma: no cover - only on a bad edit
+        raise AssertionError(
+            "could not locate the download block in refresh-coverage-snapshot.sh; "
+            "these tests slice it out by literal markers, so update them together"
+        ) from exc
     block = source[start:end]
+    assert "grep -oE" in block and "curl -sf -o" in block, (
+        "the extracted block no longer contains the listing parse and the "
+        "download — the markers moved and these tests are asserting on nothing"
+    )
     script = tmp_path / "download.sh"
     script.write_text(
         "#!/usr/bin/env bash\nset -euo pipefail\n"
@@ -167,6 +184,19 @@ class TestErrorPages:
         # On stderr, with the other diagnostics — stdout carries the [INFO]
         # progress a caller may parse.
         assert "not-uploaded.json is not JSON" in result.stderr
+
+    def test_a_real_http_failure_is_fatal(self, listing_server, tmp_path):
+        """The one failure `curl -f` does catch. Unlike a soft 404 this means
+        the artifact store is unreachable or broken, so continuing would
+        snapshot a partial run as if it were complete."""
+        url = listing_server(
+            ["w0-page0.json", "w1-page0.json"], broken=["w1-page0.json"]
+        )
+
+        result = download_only(url, tmp_path)
+
+        assert result.returncode == 1
+        assert "failed to download w1-page0.json" in result.stderr
 
     def test_fails_when_every_name_serves_an_error_page(
         self, listing_server, tmp_path
