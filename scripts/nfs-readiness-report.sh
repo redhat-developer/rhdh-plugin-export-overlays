@@ -60,14 +60,85 @@ is_nfs_type() {
   return 1
 }
 
-# Map spec.support values from metadata YAML to report tier labels
-map_support_tier() {
-  local support="$1"
-  case "$support" in
-    generally-available|tech-preview) echo "supported" ;;
-    community|dev-preview)            echo "community" ;;
-    *)                                echo "other" ;;
-  esac
+# Read support tier files into associative arrays
+declare -A TIER_MAP
+while IFS= read -r line; do
+  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+  TIER_MAP["$line"]="supported"
+done < "$REPO_ROOT/rhdh-supported-packages.txt"
+
+while IFS= read -r line; do
+  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+  TIER_MAP["$line"]="community"
+done < "$REPO_ROOT/rhdh-community-packages.txt"
+
+# Build per-workspace tier sets for fallback matching
+declare -A WS_TIERS
+for entry in "${!TIER_MAP[@]}"; do
+  ws="${entry%%/*}"
+  tier="${TIER_MAP[$entry]}"
+  existing="${WS_TIERS[$ws]:-}"
+  if [[ -z "$existing" ]]; then
+    WS_TIERS["$ws"]="$tier"
+  elif [[ "$existing" != "$tier" ]]; then
+    WS_TIERS["$ws"]="mixed"
+  fi
+done
+
+# Read plugins-list.yaml paths for a workspace (cached)
+declare -A PLUGINS_LIST_CACHE
+load_plugin_paths() {
+  local ws="$1"
+  if [[ -n "${PLUGINS_LIST_CACHE[$ws]+set}" ]]; then
+    return
+  fi
+  local pl_file="$REPO_ROOT/workspaces/$ws/plugins-list.yaml"
+  local paths=""
+  if [[ -f "$pl_file" ]]; then
+    while IFS= read -r pl_line <&3; do
+      [[ "$pl_line" =~ ^#.*$ || -z "$pl_line" ]] && continue
+      local path="${pl_line%%:*}"
+      path="$(echo "$path" | tr -d '[:space:]')"
+      [[ -n "$path" ]] && paths="$paths $path"
+    done 3< "$pl_file"
+  fi
+  PLUGINS_LIST_CACHE["$ws"]="$paths"
+}
+
+# Determine support tier for a package by matching against txt files
+get_support_tier() {
+  local ws="$1"
+  local pkg_name="$2"
+  local bare="${pkg_name#@*/}"  # strip npm scope
+  local stripped_plugin="${bare#plugin-}"
+  local stripped_backstage="${bare#backstage-plugin-}"
+
+  # Try to match package name to a plugins-list.yaml path
+  load_plugin_paths "$ws"
+  local paths="${PLUGINS_LIST_CACHE[$ws]:-}"
+  for pp in $paths; do
+    local folder="${pp##*/}"
+    if [[ "$folder" == "$bare" || \
+          "$folder" == "$stripped_plugin" || \
+          "$folder" == "$stripped_backstage" || \
+          "$bare" == *"$folder" || \
+          "$folder" == *"$bare" ]]; then
+      local key="$ws/$pp"
+      if [[ -n "${TIER_MAP[$key]:-}" ]]; then
+        echo "${TIER_MAP[$key]}"
+        return
+      fi
+    fi
+  done
+
+  # Fallback: if all entries for this workspace are the same tier, use that
+  local ws_tier="${WS_TIERS[$ws]:-}"
+  if [[ -n "$ws_tier" && "$ws_tier" != "mixed" ]]; then
+    echo "$ws_tier"
+    return
+  fi
+
+  echo "other"
 }
 
 classify_features() {
@@ -100,13 +171,11 @@ classify_features() {
 }
 
 # Collect all plugins from metadata
-RESULTS="[]"
-WORKDIR=""
-
-if [[ "$USE_OCI" == "true" ]]; then
-  WORKDIR=$(mktemp -d)
-  trap "rm -rf $WORKDIR" EXIT
-fi
+TMPDIR_WORK=$(mktemp -d)
+trap "rm -rf $TMPDIR_WORK" EXIT
+RESULTS_FILE="$TMPDIR_WORK/results.jsonl"
+touch "$RESULTS_FILE"
+WORKDIR="$TMPDIR_WORK/oci"
 
 for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
   [[ -f "$yaml_file" ]] || continue
@@ -118,8 +187,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
 
   [[ -z "$package_name" ]] && continue
 
-  support_raw=$(grep "  support:" "$yaml_file" | head -1 | sed 's/.*support: *//' | tr -d '[:space:]')
-  support_tier=$(map_support_tier "$support_raw")
+  support_tier=$(get_support_tier "$workspace" "$package_name")
 
   if [[ "$role" != "frontend-plugin" ]]; then
     status="backend-only"
@@ -134,6 +202,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     features_json="{}"
   elif [[ "$USE_OCI" == "true" ]]; then
     # Pull OCI artifact and extract backstage.features
+    mkdir -p "$WORKDIR"
     subdir="$WORKDIR/$(echo "$package_name" | tr '/@' '__')"
     mkdir -p "$subdir"
 
@@ -159,7 +228,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     features_json="{}"
   fi
 
-  RESULTS=$(echo "$RESULTS" | jq \
+  jq -n -c \
     --arg ws "$workspace" \
     --arg pkg "$package_name" \
     --arg role "$role" \
@@ -167,7 +236,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     --arg tier "$support_tier" \
     --arg oci "$oci_ref" \
     --argjson features "$features_json" \
-    '. += [{
+    '{
       workspace: $ws,
       packageName: $pkg,
       role: $role,
@@ -175,8 +244,11 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       supportTier: $tier,
       ociRef: $oci,
       features: $features
-    }]')
+    }' >> "$RESULTS_FILE"
 done
+
+# Convert JSONL to JSON array
+RESULTS=$(jq -s '.' "$RESULTS_FILE")
 
 if [[ "$OUTPUT_JSON" == "true" ]]; then
   echo "$RESULTS" | jq .
