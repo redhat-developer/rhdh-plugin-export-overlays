@@ -34,8 +34,8 @@ test.describe("Orchestrator", () => {
             "[orchestrator-setup] ORCH_E2E_REUSE_CLUSTER=1 — skipping deploySonataflow/Loki/RHDH redeploy",
           );
           if (!process.env.RHDH_BASE_URL?.trim()) {
-            console.warn(
-              "[orchestrator-setup] ORCH_E2E_REUSE_CLUSTER=1 but RHDH_BASE_URL is not set — tests may fail",
+            throw new Error(
+              "ORCH_E2E_REUSE_CLUSTER=1 requires RHDH_BASE_URL to be set",
             );
           }
           process.env.LOKI_BASE_URL =

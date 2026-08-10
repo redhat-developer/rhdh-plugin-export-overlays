@@ -498,7 +498,7 @@ async function deployTokenPropagationWorkflow(
   );
 
   try {
-    await $`git clone --depth=1 ${DEMO_WORKFLOW_REPO} ${demoDir}`;
+    await cloneOrchestratorDemo(demoDir);
 
     const propsData = readFileSync(propsCm, "utf-8")
       .replaceAll(
