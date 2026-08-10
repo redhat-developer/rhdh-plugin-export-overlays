@@ -101,6 +101,8 @@ Reads each `workspaces/*/metadata/*.yaml` file and constructs initial `plugin_bu
 
 Plugins are filtered to only those matching the provided `--packages-file` list(s).
 
+Orphan cleanup after renames/removals (e.g. lightspeed → intelligent-assistant): JSON files under `plugin_builds/` that are no longer produced from metadata are deleted, and matching orphan keys are removed from `--report-file` (`build-report.json`) so later steps and `renderCatalogStatus.py` do not keep advertising obsolete OCI refs.
+
 ### Step 2: Image Metadata Fetch (`generatePluginBuildInfo.py`)
 
 Queries the container registry for each plugin's OCI image to retrieve:

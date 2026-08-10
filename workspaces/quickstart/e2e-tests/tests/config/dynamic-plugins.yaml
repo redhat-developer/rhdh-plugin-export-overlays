@@ -1,8 +1,0 @@
-# Quickstart is an enabled entry in default.packages.yaml, so it ships baked into
-# the RHDH image via dynamic-plugins.default.yaml. In PR mode, auto-generation
-# from metadata would inject app.quickstart into a second plugin entry, causing:
-#   "Config key 'app.quickstart' defined differently for 2 dynamic plugins"
-# Using an empty plugins list prevents auto-generation. The baked-in quickstart
-# wrapper loads from defaults; app-config-rhdh.yaml overrides app.quickstart
-# with the updated step text at the app-config level.
-plugins: []
