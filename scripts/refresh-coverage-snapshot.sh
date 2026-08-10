@@ -74,7 +74,7 @@ if [[ "$SOURCE" =~ ^https:// ]]; then
       exit 1
     fi
     if ! jq -e 'type == "object"' "$JSON_DIR/$f" >/dev/null 2>&1; then
-      echo "[WARN] $f is not JSON (server likely returned an error page) — ignoring."
+      echo "[WARN] $f is not JSON (server likely returned an error page) — ignoring." >&2
       rm -f "$JSON_DIR/$f"
     fi
   done

@@ -164,7 +164,9 @@ class TestErrorPages:
 
         assert result.returncode == 0, result.stderr
         assert downloaded(tmp_path) == ["w0-page0.json"]
-        assert "not-uploaded.json is not JSON" in result.stdout
+        # On stderr, with the other diagnostics — stdout carries the [INFO]
+        # progress a caller may parse.
+        assert "not-uploaded.json is not JSON" in result.stderr
 
     def test_fails_when_every_name_serves_an_error_page(
         self, listing_server, tmp_path
