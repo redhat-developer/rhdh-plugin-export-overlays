@@ -361,6 +361,23 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
+### Retry Pattern
+
+For retry-with-backoff in E2E tests, use Playwright's native `expect(async () => { ... }).toPass()` instead of manual `for`-loop retry constructs with `try/catch`. This is the established convention in the codebase.
+
+```typescript
+import { expect } from "@playwright/test";
+
+await expect(async () => {
+  await someFlakeyOperation();
+}).toPass({
+  intervals: [2_000, 4_000],
+  timeout: 10_000,
+});
+```
+
+See `workspaces/topology/`, `workspaces/bulk-import/`, and `workspaces/global-header/` for examples.
+
 ### Unified Test Runner (run-e2e.sh)
 
 `run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
