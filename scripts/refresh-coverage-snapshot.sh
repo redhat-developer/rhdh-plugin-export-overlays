@@ -20,7 +20,9 @@
 # only needs refreshing when a workspace's coverage actually changes (i.e. when
 # a PR touches that workspace and re-runs its e2e).
 #
-# Requires: node, npm, nyc (npx), and the workspace's coverage-anchors/ present.
+# Requires: node, npm, nyc (npx), jq, and the workspace's coverage-anchors/
+# present. jq is only needed when SOURCE is a URL, to tell a coverage map from
+# an error page.
 
 set -euo pipefail
 
@@ -48,6 +50,13 @@ if [[ "$SOURCE" =~ ^https:// ]]; then
   # Distinguish a genuine fetch failure (bad URL / network — fatal) from a
   # valid-but-empty coverage dir (backend-only or uninstrumented run, which a
   # passed e2e legitimately produces — non-fatal, nothing to snapshot).
+  # Checked up front because the failure is otherwise disguised: `if ! jq` reads
+  # a missing binary's 127 as "not JSON", drops every file, and the run reports
+  # a server or listing problem instead of a missing tool.
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "ERROR: jq is required to download coverage from a URL (see header)." >&2
+    exit 1
+  fi
   if ! listing=$(curl -sf "$SOURCE"); then
     echo "ERROR: could not fetch $SOURCE (bad URL or network)" >&2
     exit 1

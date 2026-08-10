@@ -17,6 +17,7 @@ same soft-404 behaviour, so these run without network access.
 """
 
 import json
+import shutil
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -100,7 +101,7 @@ def listing_server():
         server.shutdown()
 
 
-def download_only(url, tmp_path):
+def download_only(url, tmp_path, path=None):
     """Run just the download half of the script.
 
     The script goes on to merge and remap, which needs npm and the real
@@ -110,7 +111,7 @@ def download_only(url, tmp_path):
     """
     source = SCRIPT.read_text()
     try:
-        start = source.index("  if ! listing=$(curl")
+        start = source.index("  if ! command -v jq")
         end = source.index('elif [[ "$SOURCE" =~ ^http:// ]]')
     except ValueError as exc:  # pragma: no cover - only on a bad edit
         raise AssertionError(
@@ -118,10 +119,11 @@ def download_only(url, tmp_path):
             "these tests slice it out by literal markers, so update them together"
         ) from exc
     block = source[start:end]
-    assert "grep -oE" in block and "curl -sf -o" in block, (
-        "the extracted block no longer contains the listing parse and the "
-        "download — the markers moved and these tests are asserting on nothing"
-    )
+    for marker in ("command -v jq", "grep -oE", "curl -sf -o"):
+        assert marker in block, (
+            f"the extracted block no longer contains {marker!r} — the markers "
+            "moved and these tests are asserting on nothing"
+        )
     script = tmp_path / "download.sh"
     script.write_text(
         "#!/usr/bin/env bash\nset -euo pipefail\n"
@@ -129,8 +131,11 @@ def download_only(url, tmp_path):
         f"{block}\n"
     )
     script.chmod(0o755)
+    env = None
+    if path is not None:
+        env = {"PATH": path}
     return subprocess.run(
-        ["bash", str(script)], capture_output=True, text=True, timeout=60
+        ["bash", str(script)], capture_output=True, text=True, timeout=60, env=env
     )
 
 
@@ -210,6 +215,26 @@ class TestErrorPages:
 
         assert result.returncode == 1
         assert "none of them downloaded as JSON" in result.stderr
+
+
+class TestPrerequisites:
+    def test_a_missing_jq_says_so(self, listing_server, tmp_path):
+        """Without the check, `if ! jq` reads the 127 from a missing binary as
+        "not JSON", discards every file, and the run blames the server — the
+        same disguised failure this script was fixed for."""
+        url = listing_server(["w0-page0.json", "w1-page0.json"])
+        # A PATH with the real tools but no jq, so only that one is missing.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        for tool in ("curl", "grep", "sort", "rm", "mkdir", "bash", "compgen"):
+            found = shutil.which(tool)
+            if found:
+                (bin_dir / tool).symlink_to(found)
+
+        result = download_only(url, tmp_path, path=str(bin_dir))
+
+        assert result.returncode == 1
+        assert "jq is required" in result.stderr
 
 
 class TestEmptyRun:
