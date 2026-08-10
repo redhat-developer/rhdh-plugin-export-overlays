@@ -123,9 +123,7 @@ get_support_tier() {
     local folder="${pp##*/}"
     if [[ "$folder" == "$bare" || \
           "$folder" == "$stripped_plugin" || \
-          "$folder" == "$stripped_backstage" || \
-          "$bare" == *"$folder" || \
-          "$folder" == *"$bare" ]]; then
+          "$folder" == "$stripped_backstage" ]]; then
       local key="$ws/$pp"
       if [[ -n "${TIER_MAP[$key]:-}" ]]; then
         echo "${TIER_MAP[$key]}"
@@ -175,7 +173,7 @@ classify_features() {
 
 # Collect all plugins from metadata
 TMPDIR_WORK=$(mktemp -d)
-trap "rm -rf $TMPDIR_WORK" EXIT
+trap 'rm -rf "$TMPDIR_WORK"' EXIT
 RESULTS_FILE="$TMPDIR_WORK/results.jsonl"
 touch "$RESULTS_FILE"
 WORKDIR="$TMPDIR_WORK/oci"
@@ -199,7 +197,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     # Plugin ships inside the RHDH container image (local path)
     status="baked-in"
     features_json="{}"
-  elif [[ "$oci_ref" == *"quay.io"* ]]; then
+  elif [[ "$oci_ref" != *"ghcr.io"* ]]; then
     # Hosted on a non-GHCR registry we can't inspect
     status="external-registry"
     features_json="{}"
