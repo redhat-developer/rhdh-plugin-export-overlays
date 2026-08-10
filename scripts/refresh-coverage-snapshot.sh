@@ -52,19 +52,37 @@ if [[ "$SOURCE" =~ ^https:// ]]; then
     echo "ERROR: could not fetch $SOURCE (bad URL or network)" >&2
     exit 1
   fi
-  files=$(echo "$listing" | grep -oE '[a-f0-9-]+\.json' | sort -u || true)
+  # Names come from the collector in e2e-test-utils and have changed shape
+  # before: they were `<testId>-<timestamp>.json`, all hex, and are now
+  # `w<worker>-page<n>.json`. A hex-only pattern silently carved `e0.json` out
+  # of `w0-page0.json` and "found" a file that does not exist, so match the
+  # href instead of guessing the alphabet, and anchor on the boundary so a
+  # partial name cannot be extracted from a longer one.
+  files=$(echo "$listing" | grep -oE '[A-Za-z0-9._-]+\.json' | sort -u || true)
   if [[ -z "$files" ]]; then
     echo "[INFO] No coverage JSONs at $SOURCE (backend-only or uninstrumented run) — nothing to snapshot."
     exit 0
   fi
-  # -f so a 404/HTML error page fails loudly instead of being written as a
-  # bogus .json that would silently skew the snapshot.
   for f in $files; do
-    curl -sf -o "$JSON_DIR/$f" "${SOURCE%/}/$f" || {
+    # -f alone is not enough: gcsweb answers a missing file with HTTP 200 and an
+    # HTML error page, so the failure arrives as a well-formed response. Verify
+    # what landed is really a coverage map, or a stray name from the listing
+    # becomes an unparseable file that `nyc merge` skips and an empty snapshot
+    # nobody can explain.
+    if ! curl -sf -o "$JSON_DIR/$f" "${SOURCE%/}/$f"; then
       echo "ERROR: failed to download $f from $SOURCE" >&2
       exit 1
-    }
+    fi
+    if ! jq -e 'type == "object"' "$JSON_DIR/$f" >/dev/null 2>&1; then
+      echo "[WARN] $f is not JSON (server likely returned an error page) — ignoring."
+      rm -f "$JSON_DIR/$f"
+    fi
   done
+  if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
+    echo "ERROR: $SOURCE listed .json files but none of them downloaded as JSON." >&2
+    echo "       The listing format may have changed — check the coverage URL by hand." >&2
+    exit 1
+  fi
 elif [[ "$SOURCE" =~ ^http:// ]]; then
   echo "ERROR: refusing to download over insecure HTTP; use HTTPS" >&2
   exit 1
