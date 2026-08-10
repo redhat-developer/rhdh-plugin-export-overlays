@@ -278,6 +278,31 @@ def test_uploads_run_from_inside_the_upstream_clone(tmp_path, coverage_dir):
     assert cwds == {clone.resolve()}
 
 
+def test_pinned_only_skips_the_one_way_door(tmp_path, coverage_dir):
+    """The main HEAD copy cannot be taken back — once the flag is there,
+    carryforward keeps it on every later commit and removal needs Codecov UI
+    access. --pinned-only stages a first real run without that."""
+    root = build_overlay(tmp_path)
+    clone = build_upstream_clone(tmp_path)
+    stub = write_stub_cli(tmp_path / "codecov", [0])
+    remap = write_stub_remap(tmp_path / "remap.sh")
+
+    result = run_script(
+        root / "scripts" / "upload-coverage-upstream.sh",
+        WORKSPACE,
+        str(coverage_dir),
+        "--pinned-only",
+        env=base_env(stub, clone, remap),
+        cwd=root,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert call_count(stub) == 1
+    calls = Path(f"{stub}.calls").read_text()
+    assert f"--sha {PINNED_REF}" in calls
+    assert calls.count("--sha ") == 1
+
+
 def test_dry_run_uploads_nothing(tmp_path, coverage_dir):
     root = build_overlay(tmp_path)
     clone = build_upstream_clone(tmp_path)

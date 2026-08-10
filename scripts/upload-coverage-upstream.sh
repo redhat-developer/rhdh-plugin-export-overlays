@@ -4,7 +4,17 @@
 # the plugin SOURCES live in, browsable file by file.
 #
 # Usage:
-#   ./scripts/upload-coverage-upstream.sh <workspace> <coverage-json-dir> [--dry-run]
+#   ./scripts/upload-coverage-upstream.sh <workspace> <coverage-json-dir> [flags]
+#
+# Flags:
+#   --dry-run      resolve and remap everything, upload nothing.
+#   --pinned-only  upload to the pinned repo-ref but NOT to main HEAD. The HEAD
+#                  copy is a one-way door: once the flag exists there,
+#                  carryforward keeps it on every later commit and removing it
+#                  needs Codecov UI access on a repo we may not administer. The
+#                  pinned-ref copy has no such reach, so a first real run against
+#                  a shared project can be staged behind this flag and reviewed
+#                  before the visible copy is published.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
 # publishes to this repo's own project against a committed anchor, which keeps
@@ -60,13 +70,20 @@ set -euo pipefail
 
 WORKSPACE="${1:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run]}"
 JSON_DIR="${2:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run]}"
+shift 2
 DRY_RUN="false"
-if [[ "${3:-}" == "--dry-run" ]]; then
-  DRY_RUN="true"
-elif [[ -n "${3:-}" ]]; then
-  echo "ERROR: unknown argument '$3' (expected --dry-run)" >&2
-  exit 1
-fi
+PINNED_ONLY="false"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN="true" ;;
+    --pinned-only) PINNED_ONLY="true" ;;
+    *)
+      echo "ERROR: unknown argument '$1' (expected --dry-run or --pinned-only)" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -175,18 +192,24 @@ if [[ ! -s "$LCOV" ]]; then
   exit 1
 fi
 
-# Both targets, resolved before either upload so a failure to determine HEAD
+# Both targets are resolved before either upload, so failing to determine HEAD
 # does not leave the pinned-ref copy uploaded and the visible one missing.
 TARGETS=("$PINNED_REF")
-MAIN_HEAD="$(git -C "$CLONE_DIR" ls-remote origin HEAD 2>/dev/null | awk '{print $1}')"
-if [[ "$MAIN_HEAD" =~ ^[0-9a-f]{40}$ && "$MAIN_HEAD" != "$PINNED_REF" ]]; then
-  TARGETS+=("$MAIN_HEAD")
+if [[ "$PINNED_ONLY" == "true" ]]; then
+  echo ""
+  echo "[--pinned-only] skipping the main HEAD copy; the flag will NOT be"
+  echo "                visible on the default branch until a full run."
 else
-  # Not fatal: the exactly-attributed copy is still worth publishing, and a
-  # later run will carry the HEAD copy. Silence here would hide why the flag
-  # never appears on the default branch, which is the whole point of the copy.
-  echo "[WARN] could not resolve $SLUG main HEAD — uploading to the pinned ref" >&2
-  echo "       only. The flag will not be visible on the default branch." >&2
+  MAIN_HEAD="$(git -C "$CLONE_DIR" ls-remote origin HEAD 2>/dev/null | awk '{print $1}')"
+  if [[ "$MAIN_HEAD" =~ ^[0-9a-f]{40}$ && "$MAIN_HEAD" != "$PINNED_REF" ]]; then
+    TARGETS+=("$MAIN_HEAD")
+  else
+    # Not fatal: the exactly-attributed copy is still worth publishing, and a
+    # later run will carry the HEAD copy. Silence here would hide why the flag
+    # never appears on the default branch, which is the whole point of the copy.
+    echo "[WARN] could not resolve $SLUG main HEAD — uploading to the pinned ref" >&2
+    echo "       only. The flag will not be visible on the default branch." >&2
+  fi
 fi
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
