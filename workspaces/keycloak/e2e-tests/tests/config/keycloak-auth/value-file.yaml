@@ -1,0 +1,24 @@
+# Helm value overrides for keycloak-auth E2E (NFS + community auth provider).
+# Mirror chart defaults (charts/backstage/values.yaml) when overriding lists.
+# See workspaces/extensions/e2e-tests/tests/config/value_file.yaml (RHDHPLAN-869).
+upstream:
+  backstage:
+    extraEnvVars:
+      - name: BACKEND_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: backend-secret
+            name: '{{ include "rhdh.backend-secret-name" $ }}'
+      - name: POSTGRESQL_ADMIN_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: '{{- include "rhdh.postgresql.adminPasswordKey" . }}'
+            name: '{{- include "rhdh.postgresql.secretName" . }}'
+    appConfig:
+      backend:
+        auth:
+          externalAccess:
+            - type: static
+              options:
+                token: keycloak-auth-e2e-token
+                subject: keycloak-auth-e2e
