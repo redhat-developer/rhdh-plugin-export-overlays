@@ -12,7 +12,7 @@
   "scripts": {
     "test": "playwright test",
     "test:vault": "VAULT=1 playwright test",
-    "test:kafka": "ORCH_E2E_KAFKA=1 playwright test",
+    "test:kafka": "ORCH_E2E_KAFKA=true playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",

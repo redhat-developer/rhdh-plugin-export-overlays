@@ -11,9 +11,8 @@ import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 import { registerOrchestratorKafkaTests } from "./orchestrator-kafka.tests.js";
 
-function reuseClusterSetup(): boolean {
-  const v = process.env.ORCH_E2E_REUSE_CLUSTER ?? "";
-  return v === "1" || v.toLowerCase() === "true";
+function skipOrchestratorDeploy(): boolean {
+  return process.env.SKIP_ORCHESTRATOR_DEPLOY === "true";
 }
 
 test.describe("Orchestrator", () => {
@@ -27,15 +26,15 @@ test.describe("Orchestrator", () => {
         process.env.SONATAFLOW_DATA_INDEX_URL =
           "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
 
-        // Small clusters: skip Loki + full redeploy when substrate is already live.
-        // Use after a prior successful (or manually healed) deploy: ORCH_E2E_REUSE_CLUSTER=1
-        if (reuseClusterSetup()) {
+        // Local/dev: skip Loki + full redeploy when substrate is already live.
+        // Use after a prior successful (or manually healed) deploy: SKIP_ORCHESTRATOR_DEPLOY=true
+        if (skipOrchestratorDeploy()) {
           console.warn(
-            "[orchestrator-setup] ORCH_E2E_REUSE_CLUSTER=1 — skipping deploySonataflow/Loki/RHDH redeploy",
+            "[orchestrator-setup] SKIP_ORCHESTRATOR_DEPLOY=true — skipping deploySonataflow/Loki/RHDH redeploy",
           );
           if (!process.env.RHDH_BASE_URL?.trim()) {
             throw new Error(
-              "ORCH_E2E_REUSE_CLUSTER=1 requires RHDH_BASE_URL to be set",
+              "SKIP_ORCHESTRATOR_DEPLOY=true requires RHDH_BASE_URL to be set",
             );
           }
           process.env.LOKI_BASE_URL =

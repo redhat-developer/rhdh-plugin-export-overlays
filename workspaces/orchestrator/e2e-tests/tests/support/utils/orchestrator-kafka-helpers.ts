@@ -3,7 +3,6 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runOc } from "./oc-helpers.js";
-import { deployLockFlowWorkflow } from "./workflow-deployment-helpers.js";
 
 const kafkaHelpersDir = import.meta.dirname;
 const KAFKA_INSTALL_SCRIPT = join(
@@ -197,5 +196,3 @@ export async function configureOrchestratorKafka(
   await patchAppConfigKafka(namespace, bootstrap);
   return bootstrap;
 }
-
-export { deployLockFlowWorkflow };

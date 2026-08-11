@@ -16,10 +16,10 @@ Env-gated L4b coverage for cloud-event workflow execution ([RHIDP-16050](https:/
 ```bash
 # After the usual e2e cluster/auth prerequisites (oc login, Keycloak env, etc.)
 yarn test:kafka
-# equivalent: ORCH_E2E_KAFKA=1 yarn test
+# equivalent: ORCH_E2E_KAFKA=true yarn test
 ```
 
-Without `ORCH_E2E_KAFKA=1` / `true`, the Kafka suite is skipped and does not affect the default job.
+Without `ORCH_E2E_KAFKA=true`, the Kafka suite is skipped and does not affect the default job.
 
 ### Capacity / runtime
 
@@ -35,8 +35,8 @@ Without `ORCH_E2E_KAFKA=1` / `true`, the Kafka suite is skipped and does not aff
 
 ### Optional env knobs
 
-| Var                        | Role                                                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORCH_E2E_KAFKA=1`         | Enable Kafka Run as Event suite                                                                                                                   |
-| `ORCH_E2E_REUSE_CLUSTER=1` | Skip SonataFlow/Loki/RHDH redeploy (dev convenience on small clusters). Requires an already-live substrate and `RHDH_BASE_URL` (errors if unset). |
-| `DEMO_WORKFLOW_REPO_REF`   | Pin `orchestrator-demo` clone (branch/tag/SHA) for lock-flow and token-propagation; unset uses default-branch tip                                 |
+| Var                              | Role                                                                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORCH_E2E_KAFKA=true`            | Enable Kafka Run as Event suite                                                                                                                   |
+| `SKIP_ORCHESTRATOR_DEPLOY=true`  | Skip SonataFlow/Loki/RHDH redeploy (local/dev on an already-live substrate). Requires `RHDH_BASE_URL` (errors if unset). Not used in CI.          |
+| `DEMO_WORKFLOW_REPO_REF`         | Pin `orchestrator-demo` clone (branch/tag/SHA) for lock-flow and token-propagation; unset uses default-branch tip                                 |

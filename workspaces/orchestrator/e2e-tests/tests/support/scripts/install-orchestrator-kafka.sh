@@ -71,6 +71,23 @@ operator_deploy_ready() {
       | awk -F'\t' 'tolower($1) ~ /amq-streams-cluster-operator/ && ($2+0) >= 1 { found = 1; exit } END { exit !found }'
 }
 
+create_subscription() {
+  log "Creating OLM Subscription ${SUB_NAME} in ${KAFKA_NS}"
+  oc apply -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ${SUB_NAME}
+  namespace: ${KAFKA_NS}
+spec:
+  channel: ${CHANNEL}
+  name: ${PACKAGE}
+  source: ${CATALOG_SOURCE}
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+EOF
+}
+
 ensure_subscription() {
   if oc get "${OLM_SUB}" "${SUB_NAME}" -n "${KAFKA_NS}" &>/dev/null; then
     log "OLM Subscription ${SUB_NAME} already exists"
@@ -79,36 +96,10 @@ ensure_subscription() {
     # Still create a namespaced Subscription when missing — cluster CSV copies
     # (e.g. from a previous install) do not guarantee a running operator here.
     if ! oc get "${OLM_SUB}" "${SUB_NAME}" -n "${KAFKA_NS}" &>/dev/null; then
-      log "Creating OLM Subscription ${SUB_NAME} in ${KAFKA_NS}"
-      oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ${SUB_NAME}
-  namespace: ${KAFKA_NS}
-spec:
-  channel: ${CHANNEL}
-  name: ${PACKAGE}
-  source: ${CATALOG_SOURCE}
-  sourceNamespace: openshift-marketplace
-  installPlanApproval: Automatic
-EOF
+      create_subscription
     fi
   else
-    log "Creating OLM Subscription ${SUB_NAME} in ${KAFKA_NS}"
-    oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ${SUB_NAME}
-  namespace: ${KAFKA_NS}
-spec:
-  channel: ${CHANNEL}
-  name: ${PACKAGE}
-  source: ${CATALOG_SOURCE}
-  sourceNamespace: openshift-marketplace
-  installPlanApproval: Automatic
-EOF
+    create_subscription
   fi
 
   # CRDs may linger from a previous install while the operator pod is gone.

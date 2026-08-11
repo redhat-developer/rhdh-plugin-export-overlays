@@ -17,8 +17,7 @@ const ensureDataIndexOrSkip = createDataIndexGuard();
 const KAFKA_RBAC_ROLE = "role:default/kafkaRunAsEventTest";
 
 function kafkaE2eEnabled(): boolean {
-  const v = process.env.ORCH_E2E_KAFKA ?? "";
-  return v === "1" || v.toLowerCase() === "true";
+  return process.env.ORCH_E2E_KAFKA === "true";
 }
 
 function kafkaRbacPolicies(): PolicySpec[] {
@@ -35,13 +34,13 @@ function kafkaRbacPolicies(): PolicySpec[] {
 
 /**
  * Optional L4b: Kafka + lock-flow Run as Event.
- * Enable with ORCH_E2E_KAFKA=1 (see README / yarn test:kafka).
+ * Enable with ORCH_E2E_KAFKA=true (see README / yarn test:kafka).
  */
 export function registerOrchestratorKafkaTests(): void {
   test.describe("Kafka Run as Event", () => {
     test.skip(
       !kafkaE2eEnabled(),
-      "Set ORCH_E2E_KAFKA=1 to run optional Kafka Run as Event e2e",
+      "Set ORCH_E2E_KAFKA=true to run optional Kafka Run as Event e2e",
     );
 
     let apiToken: string;
