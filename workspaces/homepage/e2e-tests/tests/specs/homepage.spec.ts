@@ -1,21 +1,27 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  LoginHelper,
-  UIhelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import type { BrowserContext, Page } from "@playwright/test";
 import {
   DynamicHomePagePo,
-  AVAILABLE_WIDGETS,
   DEFAULT_WIDGETS,
   HOMEPAGE_ADMIN,
+  isHomepageAppNext,
+  loginAsKeycloakUser,
   setupKeycloakGroups,
 } from "../utils/dynamic-homepage";
 
 const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-homepage",
 ];
+
+function isNightlyMode(): boolean {
+  return (
+    process.env.E2E_NIGHTLY_MODE === "true" ||
+    process.env.E2E_NIGHTLY_MODE === "1" ||
+    (process.env.JOB_NAME?.includes("periodic-") ?? false)
+  );
+}
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
@@ -25,15 +31,30 @@ test.describe.serial("Dynamic home page customization", () => {
   let home: DynamicHomePagePo;
   let baseURL: string;
   let test1Count: number;
+  let isAppNext: boolean;
 
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
 
     const namespace = rhdh.deploymentConfig.namespace;
-    // Key must be unique per Playwright project — each project deploys its own namespace.
-    await test.runOnce(`homepage-setup-${namespace}`, async () => {
-      await setupKeycloakGroups();
+    isAppNext = isHomepageAppNext(namespace);
 
+    test.skip(
+      isAppNext && isNightlyMode(),
+      "homepage-app-next not ready for nightly",
+    );
+
+    // Keycloak users are cluster-scoped — create once so parallel legacy/app-next
+    // projects do not race on delete/create of the same users.
+    await test.runOnce("homepage-keycloak-groups", async () => {
+      await setupKeycloakGroups();
+    });
+
+    // Deploy key must be unique per Playwright project/namespace.
+    await test.runOnce(`homepage-deploy-${namespace}`, async () => {
+      if (process.env.SKIP_RHDH_DEPLOY === "true") {
+        return;
+      }
       const rbacConfigmapPath = WorkspacePaths.resolve(
         "tests/config/rbac-configmap.yaml",
       );
@@ -42,14 +63,23 @@ test.describe.serial("Dynamic home page customization", () => {
       await rhdh.configure({
         auth: "keycloak",
         disablePlugins: HOMEPAGE_WRAPPER_DIST_NAMES,
+        dynamicPlugins: isAppNext
+          ? WorkspacePaths.resolve("tests/config/dynamic-plugins-app-next.yaml")
+          : WorkspacePaths.resolve("tests/config/dynamic-plugins.yaml"),
       });
       await rhdh.deploy();
+    });
+
+    // Keycloak users are cluster-scoped — create once so parallel legacy/app-next
+    // projects do not race on delete/create of the same users.
+    await test.runOnce("homepage-keycloak-groups", async () => {
+      await setupKeycloakGroups();
     });
     baseURL = rhdh.rhdhUrl;
     context = await browser.newContext({ baseURL });
     page = await context.newPage();
     uiHelper = new UIhelper(page);
-    home = new DynamicHomePagePo(page, uiHelper);
+    home = new DynamicHomePagePo(page, uiHelper, isAppNext);
     home.setBaseURL(baseURL);
   });
 
@@ -58,13 +88,24 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify default widgets from server config on first load", async () => {
-    await new LoginHelper(page).loginAsKeycloakUser();
+    test.skip(
+      isAppNext,
+      "homepage-backend defaultWidgets are not supported on NFS yet",
+    );
+
+    await loginAsKeycloakUser(page);
     await home.resetToDefaults();
     await home.verifyHomePageLoaded();
     await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
   });
 
   test("Verify cards display after seeding widgets", async () => {
+    // When the server-defaults test is skipped (NFS), log in here first.
+    // eslint-disable-next-line playwright/no-conditional-in-test -- NFS skips the prior login test
+    if (isAppNext) {
+      await loginAsKeycloakUser(page);
+      await home.verifyHomePageLoaded();
+    }
     await home.seedHomePageWidgets();
     await home.verifyHomePageLoaded();
     await home.verifyAllCardsDisplayed();
@@ -100,7 +141,7 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Each widget type can be added individually", async () => {
-      for (const widget of AVAILABLE_WIDGETS) {
+      for (const widget of home.availableWidgets) {
         await home.addWidget(widget);
       }
       await home.verifyAllCardsDisplayed();
@@ -199,17 +240,25 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Per-user isolation: test2 sees defaults", async () => {
+      test.skip(
+        isAppNext,
+        "homepage-backend defaultWidgets are not supported on NFS yet",
+      );
       await home.reloginAsKeycloakUser();
       await home.verifyHomePageLoaded();
       await home.seedHomePageWidgets();
       test1Count = await home.getVisibleCardCount();
-      expect(test1Count).toBe(AVAILABLE_WIDGETS.length);
+      expect(test1Count).toBe(home.availableWidgets.length);
       await home.reloginAsKeycloakUser("test2", "test2@123");
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
     });
 
     test("test2 customization does not affect test1 layout", async () => {
+      test.skip(
+        isAppNext,
+        "homepage-backend defaultWidgets / persona defaults are not supported on NFS yet",
+      );
       await home.reloginAsKeycloakUser("test2", "test2@123");
       await home.verifyHomePageLoaded();
       await home.enterEditMode();
@@ -220,20 +269,63 @@ test.describe.serial("Dynamic home page customization", () => {
       const test1CountAfter = await home.getVisibleCardCount();
       expect(test1CountAfter).toBe(test1Count);
     });
+
+    test("NFS: layout persists for same user; clears on account switch", async () => {
+      test.skip(
+        !isAppNext,
+        "legacy relies on backend defaultWidgets for cross-user defaults",
+      );
+      await home.reloginAsKeycloakUser("test1", "test1@123", {
+        clearHomeStorage: true,
+      });
+      await home.verifyHomePageLoaded();
+      await home.seedHomePageWidgets();
+      const seededCount = await home.getVisibleCardCount();
+      expect(seededCount).toBe(home.availableWidgets.length);
+
+      await home.reloginAsKeycloakUser("test2", "test2@123", {
+        clearHomeStorage: true,
+      });
+      await home.verifyHomePageLoaded();
+      await home.enterEditMode();
+      await home.clearAllCardsWithButton();
+      await home.verifyCardsDeleted();
+      await home.exitEditMode();
+
+      await home.reloginAsKeycloakUser("test1", "test1@123", {
+        clearHomeStorage: true,
+      });
+      await home.verifyHomePageLoaded();
+      await home.seedHomePageWidgets();
+      expect(await home.getVisibleCardCount()).toBe(
+        home.availableWidgets.length,
+      );
+    });
   });
 
   test.describe("Persona-based homepages", () => {
+    test.beforeEach(() => {
+      // Enable persona-based tests for NFS, once the backend defaultWidgets config is supported.
+      test.skip(
+        isAppNext,
+        "homepage-backend defaultWidgets are not supported on NFS yet",
+      );
+    });
+
     test("Admin sees all group widgets", async () => {
       await home.reloginAsKeycloakUser(
         HOMEPAGE_ADMIN.username,
         HOMEPAGE_ADMIN.password,
+        { clearHomeStorage: true },
       );
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.admin);
     });
 
     test("Developer sees developer widgets only", async () => {
-      await home.reloginAsKeycloakUser("test2", "test2@123");
+      await home.reloginAsKeycloakUser("test2", "test2@123", {
+        clearHomeStorage: true,
+      });
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
       for (const widget of DEFAULT_WIDGETS.adminOnly) {
