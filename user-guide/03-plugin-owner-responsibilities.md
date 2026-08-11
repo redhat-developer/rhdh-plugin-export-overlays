@@ -50,7 +50,7 @@ You are a plugin owner if you:
 
 ### 1. Keep Plugin Metadata and Catalog Curation Files Up To Date
 
-Split this section into what **always** applies vs what applies only after **RHDH PM approval** for a curated catalog tier.
+This section covers what **always** applies and what applies only after **RHDH PM approval** for a curated catalog tier.
 
 #### Plugin Metadata (always for Model B; for Model A when advertising in Extensions)
 
