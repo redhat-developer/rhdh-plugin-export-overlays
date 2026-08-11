@@ -108,6 +108,8 @@ while IFS= read -r plugin_path; do
   # from the package name.
   SCALPRUM_NAME=$(echo "$PKG_JSON" | jq -r '.scalprum.name // empty')
   if [[ -z "$SCALPRUM_NAME" ]]; then
+    # Mirrored by remoteOf() in scripts/upstream-paths.cjs, which keys the
+    # upstream tie-break on the same value — change the two together.
     SCALPRUM_NAME=$(echo "$PKG_NAME" | sed 's|^@||; s|/|.|')
   fi
 
