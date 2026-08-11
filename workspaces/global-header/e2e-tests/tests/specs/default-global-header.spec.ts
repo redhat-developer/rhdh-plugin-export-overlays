@@ -9,14 +9,10 @@ import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
     const isAppNext = test.info().project.name.endsWith("-app-next");
-    const isNightlyMode =
-      process.env.E2E_NIGHTLY_MODE === "true" ||
-      process.env.E2E_NIGHTLY_MODE === "1" ||
-      (process.env.JOB_NAME?.includes("periodic-") ?? false);
-    test.skip(
-      isAppNext && isNightlyMode,
-      "default global-header not ready for nightly",
-    );
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: ["@red-hat-developer-hub/backstage-plugin-global-header"],
+    });
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
