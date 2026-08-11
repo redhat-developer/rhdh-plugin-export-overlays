@@ -120,11 +120,13 @@ spec:
                       breakpoints:
                         xl: { w: 12, h: 6 }
                         lg: { w: 12, h: 6 }
-        homepage:
-          defaultWidgets:
-            - id: onboarding
-              ref: rhdh-onboarding-section
-            - id: entity-list
-              ref: rhdh-entity-section
-            - id: template-list
-              ref: rhdh-template-section
+        # homepage.defaultWidgets is not supported on NFS yet — uncomment when it is:
+        # homepage:
+        #   defaultWidgets:
+        #     - id: onboarding
+        #       ref: rhdh-onboarding-section
+        #     - id: entity-list
+        #       ref: rhdh-entity-section
+        #     - id: template-list
+        #       ref: rhdh-template-section
+

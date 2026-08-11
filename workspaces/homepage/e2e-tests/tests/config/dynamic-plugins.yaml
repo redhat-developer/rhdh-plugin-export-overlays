@@ -1,5 +1,29 @@
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.0
+  # Auth layer adds this with {{inherit}}; hub image has no base version, so install
+  # fails. Merge is by exact package string (no normalizeKey), so disable it explicitly
+  # and enable a pinned GHCR artifact below (workspaces/keycloak metadata).
+  - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
+    disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak:bs_1.49.4__3.19.2
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          keycloakOrg:
+            default:
+              baseUrl: ${KEYCLOAK_BASE_URL}
+              loginRealm: ${KEYCLOAK_LOGIN_REALM}
+              realm: ${KEYCLOAK_REALM}
+              clientId: ${KEYCLOAK_CLIENT_ID}
+              clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+              schedule:
+                frequency:
+                  minutes: 1
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
     enabled: true
     pluginConfig:
       dynamicPlugins:

@@ -16,13 +16,33 @@ const EXPECTED_CARD_TEXTS = [
   "Top Visited",
 ] as const;
 
-/** All widgets available in the "Add widget" dialog. */
+/** Legacy Scalprum "Add widget" dialog labels. */
 export const AVAILABLE_WIDGETS = [
   "Onboarding Section",
   "Entity Section",
   "Recently Visited",
   "Top Visited",
 ] as const;
+
+/**
+ * NFS AddWidgetDialog labels use HomePageWidgetBlueprint title/name
+ * (title || name). Onboarding/Entity have no title — dialog shows name.
+ */
+export const AVAILABLE_WIDGETS_NFS = [
+  "Red Hat Developer Hub - Onboarding",
+  "Red Hat Developer Hub - Software Catalog",
+  "Recently Visited",
+  "Top Visited",
+] as const;
+
+/** Map legacy add-widget labels to NFS dialog labels. */
+const NFS_WIDGET_LABELS = new Map<string, string>([
+  ["Onboarding Section", "Red Hat Developer Hub - Onboarding"],
+  ["Entity Section", "Red Hat Developer Hub - Software Catalog"],
+  ["Entity section", "Red Hat Developer Hub - Software Catalog"],
+  ["Recently Visited", "Recently Visited"],
+  ["Top Visited", "Top Visited"],
+]);
 
 const COMMON = ["Explore Your Software Catalog"];
 const ADMIN_ONLY = ["Explore Templates", "Quick Access"];
@@ -37,6 +57,10 @@ export const DEFAULT_WIDGETS = {
   developerOnly: DEVELOPER_ONLY,
 };
 
+export function isHomepageAppNext(projectOrNamespace: string): boolean {
+  return projectOrNamespace.endsWith("-app-next");
+}
+
 export const HOMEPAGE_ADMIN = {
   username: "homepage-admin",
   password: "homepage-admin@123", // gitleaks:allow
@@ -47,12 +71,59 @@ const HOMEPAGE_TEST3 = {
   password: "test3@123", // gitleaks:allow
 };
 
+/**
+ * Keycloak login that tolerates slow NFS cold loads.
+ *
+ * Stock LoginHelper.loginAsKeycloakUser uses waitForLoad (progressbar state:hidden
+ * resolves immediately if the bar is not mounted yet) then clickButton("Sign In")
+ * under actionTimeout=10s. On homepage-app-next the Sign In card often appears only
+ * after ~30–60s of remote plugin loading, so login races and looks like a blank page.
+ */
+export async function loginAsKeycloakUser(
+  page: Page,
+  username = "test1",
+  password = "test1@123",
+): Promise<void> {
+  const helper = new LoginHelper(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign In", exact: true }).waitFor({
+    state: "visible",
+    timeout: 240_000,
+  });
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  const popup = await popupPromise;
+  await helper.logintoKeycloak(popup, username, password);
+  await page
+    .locator("nav a")
+    .first()
+    .waitFor({ state: "visible", timeout: 60_000 });
+}
+
 export async function setupKeycloakGroups(): Promise<void> {
+  const baseUrl = process.env.KEYCLOAK_BASE_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "KEYCLOAK_BASE_URL is not set. Global setup should deploy Keycloak and set it; " +
+        "do not set SKIP_KEYCLOAK_DEPLOYMENT=true for homepage tests.",
+    );
+  }
+
+  // Local Keycloak from e2e-test-utils uses admin/admin123. Vault secrets are for CI.
+  const username =
+    process.env.VAULT_KEYCLOAK_ADMIN_USERNAME ||
+    process.env.KEYCLOAK_ADMIN_USERNAME ||
+    "admin";
+  const password =
+    process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD ||
+    process.env.KEYCLOAK_ADMIN_PASSWORD ||
+    "admin123";
+
   const keycloak = new KeycloakHelper();
   await keycloak.connect({
-    baseUrl: process.env.KEYCLOAK_BASE_URL!,
-    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
-    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+    baseUrl,
+    username,
+    password,
   });
 
   await keycloak.deleteUser("rhdh", HOMEPAGE_ADMIN.username).catch(() => {});
@@ -86,10 +157,49 @@ export class DynamicHomePagePo {
   constructor(
     private readonly page: Page,
     private readonly ui: UIhelper,
+    private readonly isAppNext = false,
   ) {}
 
   setBaseURL(url: string): void {
     this.baseURL = url;
+  }
+
+  /** Widget labels shown in the Add widget dialog for the active frontend. */
+  get availableWidgets(): readonly string[] {
+    return this.isAppNext ? AVAILABLE_WIDGETS_NFS : AVAILABLE_WIDGETS;
+  }
+
+  private widgetDialogLabel(widgetType: string): string {
+    if (!this.isAppNext) {
+      return widgetType;
+    }
+    return NFS_WIDGET_LABELS.get(widgetType) ?? widgetType;
+  }
+
+  /**
+   * Clears the CustomHomepageGrid storage bucket used by NFS/legacy home.
+   * Layout is stored under storageApi bucket `home.customHomepage` (often
+   * localStorage). Clear between distinct users so shared browser storage
+   * cannot leak layouts when user-settings isolation is unavailable.
+   */
+  async clearHomeLayoutStorage(): Promise<void> {
+    await this.page.evaluate(() => {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.includes("home.customHomepage") ||
+            key.includes("customHomepage") ||
+            /[/:]home$/.test(key))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+      }
+    });
   }
 
   private async signOut(): Promise<void> {
@@ -103,18 +213,24 @@ export class DynamicHomePagePo {
   async reloginAsKeycloakUser(
     username = "test1",
     password = "test1@123",
+    options?: { clearHomeStorage?: boolean },
   ): Promise<void> {
     await this.signOut();
     await this.page.context().clearCookies();
-    await this.page.goto(this.baseURL);
-    await new LoginHelper(this.page).loginAsKeycloakUser(username, password);
+    if (options?.clearHomeStorage) {
+      await this.clearHomeLayoutStorage();
+    }
+    await loginAsKeycloakUser(this.page, username, password);
   }
 
   async reloginAsNonGroupUser(): Promise<void> {
     await this.signOut();
     await this.page.context().clearCookies();
-    await this.page.goto(this.baseURL);
-    await new LoginHelper(this.page).loginAsKeycloakUser(
+    // Guest/non-group user must not inherit the previous user's layout from
+    // shared browser storage when switching accounts in the same context.
+    await this.clearHomeLayoutStorage();
+    await loginAsKeycloakUser(
+      this.page,
       HOMEPAGE_TEST3.username,
       HOMEPAGE_TEST3.password,
     );
@@ -280,10 +396,11 @@ export class DynamicHomePagePo {
   }
 
   async addWidget(widgetType: string): Promise<void> {
+    const label = this.widgetDialogLabel(widgetType);
     await this.ui.clickButton("Add widget");
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
-    await this.page.getByRole("button", { name: widgetType }).click();
+    await this.page.getByRole("button", { name: label }).click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- widget mount
     await this.page.waitForTimeout(1000);
   }
@@ -314,7 +431,7 @@ export class DynamicHomePagePo {
     await this.ui.clickButton("Add widget");
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
-    for (const widget of AVAILABLE_WIDGETS) {
+    for (const widget of this.availableWidgets) {
       await expect(
         this.page.getByRole("button", { name: widget }),
       ).toBeVisible();
