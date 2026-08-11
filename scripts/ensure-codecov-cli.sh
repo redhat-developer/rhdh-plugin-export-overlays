@@ -48,12 +48,13 @@ BASE="https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}"
 # both the binary AND the checksum used to verify it come from the same
 # tamperable channel — the verification below would then confirm nothing.
 #
-# Spelled out on each call rather than shared through an array: static analysis
-# cannot see inside the expansion, so the array form reads as an unpinned
-# `curl -sL` to any reviewer or scanner checking this property.
+# The pins stay written out here rather than behind a variable: static analysis
+# cannot see inside an expansion, so the indirect form reads as an unpinned
+# `curl -sL` to any scanner — or reviewer — checking this property. One
+# invocation fetches both artifacts, which is what keeps that from meaning a
+# repeated flag list: they always come from the same base and are useless apart.
 curl -sL --proto '=https' --proto-redir '=https' --tlsv1.2 \
-  -o "$TARGET" "$BASE/codecov"
-curl -sL --proto '=https' --proto-redir '=https' --tlsv1.2 \
+  -o "$TARGET" "$BASE/codecov" \
   -o "${TARGET}.SHA256SUM" "$BASE/codecov.SHA256SUM"
 
 EXPECTED=$(awk "$AWK_FIRST_FIELD" "${TARGET}.SHA256SUM")
