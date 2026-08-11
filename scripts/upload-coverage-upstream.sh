@@ -4,18 +4,21 @@
 # the plugin SOURCES live in, browsable file by file.
 #
 # Usage:
-#   ./scripts/upload-coverage-upstream.sh <workspace> <coverage-json-dir> [flags]
+#   ./scripts/upload-coverage-upstream.sh <workspace> <coverage-source> [flags]
+#
+# <coverage-source> is either a local directory of the run's per-test coverage
+# JSONs, or the gcsweb URL of a Prow run's .../artifacts/e2e-test-results/
+# coverage/ listing, which is downloaded for you.
 #
 # Flags:
 #   --dry-run      resolve and remap everything, upload nothing.
 #   --pinned-only  upload to the pinned repo-ref but NOT to the default-branch
-#                  HEAD. The HEAD
-#                  copy is a one-way door: once the flag exists there,
-#                  carryforward keeps it on every later commit and removing it
-#                  needs Codecov UI access on a repo we may not administer. The
-#                  pinned-ref copy has no such reach, so a first real run against
-#                  a shared project can be staged behind this flag and reviewed
-#                  before the visible copy is published.
+#                  HEAD. The HEAD copy is a one-way door: once the flag exists
+#                  there, carryforward keeps it on every later commit and
+#                  removing it needs Codecov UI access on a repo we may not
+#                  administer. The pinned-ref copy has no such reach, so a first
+#                  real run against a shared project can be staged behind this
+#                  flag and reviewed before the visible copy is published.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
 # publishes to this repo's own project against a committed anchor, which keeps
@@ -76,8 +79,8 @@
 
 set -euo pipefail
 
-WORKSPACE="${1:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run] [--pinned-only]}"
-JSON_DIR="${2:?Usage: $0 <workspace> <coverage-json-dir> [--dry-run] [--pinned-only]}"
+WORKSPACE="${1:?Usage: $0 <workspace> <coverage-source> [--dry-run] [--pinned-only]}"
+COVERAGE_SOURCE="${2:?Usage: $0 <workspace> <coverage-source> [--dry-run] [--pinned-only]}"
 shift 2
 DRY_RUN="false"
 PINNED_ONLY="false"
@@ -111,8 +114,8 @@ if [[ ! -f "$SOURCE_JSON" ]]; then
   exit 1
 fi
 
-if [[ ! -d "$JSON_DIR" ]]; then
-  echo "ERROR: coverage JSON directory not found: $JSON_DIR" >&2
+if [[ ! "$COVERAGE_SOURCE" =~ ^https?:// && ! -d "$COVERAGE_SOURCE" ]]; then
+  echo "ERROR: coverage source is neither a URL nor a directory: $COVERAGE_SOURCE" >&2
   exit 1
 fi
 
@@ -187,6 +190,23 @@ if [[ -z "${UPSTREAM_CLONE_DIR:-}" ]]; then
     exit 1
   fi
   git -C "$CLONE_DIR" checkout -q FETCH_HEAD
+fi
+
+# A gcsweb listing URL is downloaded by the shared helper; a local path is used
+# as-is. An e2e run that legitimately produced no coverage (backend-only or
+# uninstrumented) leaves the directory empty, and that is not this script's
+# failure to report — exit cleanly rather than turning a passing run red.
+if [[ "$COVERAGE_SOURCE" =~ ^https?:// ]]; then
+  JSON_DIR="$WORK_DIR/coverage-json"
+  echo ""
+  "$SCRIPT_DIR/download-coverage-json.sh" "$COVERAGE_SOURCE" "$JSON_DIR"
+else
+  JSON_DIR="$COVERAGE_SOURCE"
+fi
+
+if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
+  echo "[INFO] No coverage JSONs in $JSON_DIR — nothing to publish upstream."
+  exit 0
 fi
 
 echo ""

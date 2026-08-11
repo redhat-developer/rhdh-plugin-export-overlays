@@ -191,7 +191,7 @@ def test_rejects_non_sha_repo_ref(tmp_path, coverage_dir):
     assert "not a 40-char SHA" in result.stderr
 
 
-def test_rejects_missing_coverage_dir(tmp_path):
+def test_rejects_a_source_that_is_neither_url_nor_directory(tmp_path):
     root = build_overlay(tmp_path)
     result = run_script(
         root / "scripts" / "upload-coverage-upstream.sh",
@@ -201,7 +201,29 @@ def test_rejects_missing_coverage_dir(tmp_path):
         cwd=root,
     )
     assert result.returncode == 1
-    assert "coverage JSON directory not found" in result.stderr
+    assert "neither a URL nor a directory" in result.stderr
+
+
+def test_an_empty_coverage_dir_is_not_a_failure(tmp_path):
+    """A backend-only or uninstrumented e2e legitimately produces no coverage.
+    Turning that into a red job punishes a run that did nothing wrong."""
+    root = build_overlay(tmp_path)
+    clone = build_upstream_clone(tmp_path)
+    stub = write_stub_cli(tmp_path / "codecov", [0])
+    empty = tmp_path / "no-coverage"
+    empty.mkdir()
+
+    result = run_script(
+        root / "scripts" / "upload-coverage-upstream.sh",
+        WORKSPACE,
+        str(empty),
+        env=base_env(stub, clone, write_stub_remap(tmp_path / "remap.sh")),
+        cwd=root,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert call_count(stub) == 0
+    assert "nothing to publish upstream" in result.stdout
 
 
 def test_rejects_unknown_argument(tmp_path, coverage_dir):
