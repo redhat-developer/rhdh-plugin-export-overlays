@@ -56,7 +56,10 @@
 // istanbul-reports to be resolvable (installed by remap-lcov.sh).
 
 const fs = require("node:fs");
-const path = require("node:path");
+const {
+  indexUpstreamTree,
+  resolveUpstream,
+} = require("./upstream-paths.cjs");
 const libCoverage = require("istanbul-lib-coverage");
 const libSourceMaps = require("istanbul-lib-source-maps");
 const libReport = require("istanbul-lib-report");
@@ -89,6 +92,14 @@ const { positional, opts } = parseArgs(process.argv.slice(2));
 const inputJson = positional[0];
 const reportDir = positional[1] || "coverage";
 const { upstreamRoot, upstreamWorkspace } = opts;
+
+// Wiring files (plugin.ts, alpha.tsx, index.ts) are expected losses in upstream
+// mode — they are ambiguous across a workspace's plugins, and the source repo's
+// own codecov.yml ignores them anyway. Measured at 2% for intelligent-assistant.
+// A materially larger share means the resolution itself is off (wrong ref, wrong
+// workspace), which is worth saying out loud even though the report that
+// survives is still valid.
+const MAX_EXPECTED_LOST_PCT = 10;
 
 if (!inputJson) {
   console.error("Usage: remap-coverage.cjs <nyc-output-json> [report-dir]");
@@ -273,45 +284,6 @@ function buildWorkspaceMaps(byRemote) {
   return { byWorkspace, missing };
 }
 
-// Every file the source repo tracks under this workspace, as repo-relative
-// paths. `.git` and `node_modules` are skipped: a fresh shallow clone has
-// neither, but a reused working tree would otherwise drown the index in
-// dependencies whose names collide with real sources.
-function indexUpstreamTree(root, workspace) {
-  const base = path.join(root, "workspaces", workspace);
-  if (!fs.existsSync(base)) {
-    console.error(
-      `[remap] no 'workspaces/${workspace}' in the upstream checkout at ` +
-        `${root} — wrong repo, or the pinned ref predates the workspace.`,
-    );
-    process.exit(1);
-  }
-  const found = [];
-  const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === ".git" || entry.name === "node_modules") continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile()) found.push(path.relative(root, full));
-    }
-  };
-  walk(base);
-  return found;
-}
-
-// Resolve one source-relative path (`src/utils/foo.ts`) to its real path in the
-// source repo, the same way Codecov matches a report path against a git tree.
-//
-// Ambiguity is dropped rather than guessed: several plugins in one workspace
-// legitimately share `src/index.ts`, and attributing one plugin's coverage to
-// another is a worse outcome than losing the file.
-function resolveUpstream(index, sourcePath) {
-  const suffix = `/${sourcePath}`;
-  const hits = index.filter((f) => f.endsWith(suffix));
-  if (hits.length === 1) return { path: hits[0], reason: null };
-  return { path: null, reason: hits.length > 1 ? "ambiguous" : "not-in-tree" };
-}
-
 // One report entry per real source file, for the single workspace being
 // published upstream: upstream mode targets one source repo at one pinned ref,
 // so remotes owned by any other workspace are not ours to attribute.
@@ -369,7 +341,18 @@ function linesSummary(coverageMap) {
   const byRemote = groupByRemote(transformed.map || transformed);
 
   if (upstreamRoot) {
-    const index = indexUpstreamTree(upstreamRoot, upstreamWorkspace);
+    let index;
+    try {
+      index = indexUpstreamTree(upstreamRoot, upstreamWorkspace);
+    } catch (err) {
+      // A wrong checkout is a configuration mistake, not a crash — report it as
+      // the actionable sentence it is rather than a stack trace from the walker.
+      if (err?.code === "ENOWORKSPACE") {
+        console.error(`[remap] ${err.message}`);
+        process.exit(1);
+      }
+      throw err;
+    }
     console.log(
       `[remap] upstream tree: ${index.length} file(s) under workspaces/${upstreamWorkspace}/`,
     );
@@ -398,13 +381,9 @@ function linesSummary(coverageMap) {
       process.exit(1);
     }
 
-    // Wiring files (plugin.ts, alpha.tsx, index.ts) are expected losses and are
-    // already in the source repo's own ignore: list. A larger share means the
-    // resolution itself is off, which is worth a warning even though the report
-    // that remains is still valid.
     const totalLines = keptLines + lostLines;
     const lostPct = totalLines === 0 ? 0 : (100 * lostLines) / totalLines;
-    if (lostPct > 10) {
+    if (lostPct > MAX_EXPECTED_LOST_PCT) {
       console.warn(
         `[remap] ${lostPct.toFixed(1)}% of lines were dropped — above the ` +
           "usual wiring-file noise; check the pinned ref matches the tested build.",

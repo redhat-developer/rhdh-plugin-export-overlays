@@ -76,7 +76,12 @@ if [[ -z "$files" ]]; then
   exit 0
 fi
 
-for f in $files; do
+# Read line by line rather than `for f in $files`: word-splitting would turn a
+# filename containing a space into two names that do not exist, and gcsweb
+# answers a missing file with HTTP 200 and an error page — so the damage would
+# arrive disguised as the very failure the checks below exist to catch.
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
   # -f alone is not enough: gcsweb answers a missing file with HTTP 200 and an
   # HTML error page, so the failure arrives as a well-formed response. Verify
   # what landed is really a coverage map, or a stray name from the listing
@@ -90,7 +95,7 @@ for f in $files; do
     echo "[WARN] $f is not JSON (server likely returned an error page) — ignoring." >&2
     rm -f "$DEST/$f"
   fi
-done
+done <<<"$files"
 
 if ! compgen -G "$DEST/*.json" >/dev/null; then
   echo "ERROR: $SOURCE listed .json files but none of them downloaded as JSON." >&2

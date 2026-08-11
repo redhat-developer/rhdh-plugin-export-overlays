@@ -241,6 +241,32 @@ def test_rejects_unknown_argument(tmp_path, coverage_dir):
     assert "unknown argument" in result.stderr
 
 
+def test_no_coverage_exits_before_cloning(tmp_path):
+    """The empty check has to come first. Cloning a large monorepo and then
+    discovering there was nothing to publish is pure waste, and this is the only
+    test that pins the order — the others hand in UPSTREAM_CLONE_DIR, which skips
+    the clone regardless.
+
+    Deliberately does NOT set UPSTREAM_CLONE_DIR: if the order regresses, the run
+    reaches for the network and this fails.
+    """
+    root = build_overlay(tmp_path)
+    empty = tmp_path / "no-coverage"
+    empty.mkdir()
+
+    result = run_script(
+        root / "scripts" / "upload-coverage-upstream.sh",
+        WORKSPACE,
+        str(empty),
+        env={"CODECOV_UPSTREAM_TOKEN": "t"},
+        cwd=root,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "nothing to publish upstream" in result.stdout
+    assert "Shallow clone" not in result.stdout
+
+
 def test_uploads_to_both_pinned_ref_and_main_head(tmp_path, coverage_dir):
     """The dual attribution: exact on the pinned ref, visible on main's HEAD."""
     root = build_overlay(tmp_path)

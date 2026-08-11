@@ -167,7 +167,14 @@ echo "  Pinned ref:  $PINNED_REF"
 echo "  Flag:        $FLAG"
 
 WORK_DIR="$(mktemp -d)"
-CLONE_DIR="${UPSTREAM_CLONE_DIR:-$WORK_DIR/src}"
+# Absolute on purpose: remap-lcov.sh runs the remap from the repo root, so a
+# relative path handed in through UPSTREAM_CLONE_DIR would silently resolve
+# against that root instead of the caller's directory.
+if [[ -n "${UPSTREAM_CLONE_DIR:-}" ]]; then
+  CLONE_DIR="$(cd "$UPSTREAM_CLONE_DIR" && pwd)"
+else
+  CLONE_DIR="$WORK_DIR/src"
+fi
 REPORT_DIR="$WORK_DIR/report"
 # Keep the clone when it was handed to us: deleting a caller's checkout (or a
 # test fixture) is not ours to do.
@@ -175,6 +182,25 @@ cleanup() {
   rm -rf "$WORK_DIR"
 }
 trap cleanup EXIT
+
+# Resolved BEFORE the clone on purpose. A gcsweb listing URL is downloaded by
+# the shared helper; a local path is used as-is. An e2e run that legitimately
+# produced no coverage (backend-only or uninstrumented) leaves the directory
+# empty, and that is not this script's failure to report — exit cleanly rather
+# than turning a passing run red. Doing it first means such a run does not pay
+# for a shallow clone of a large monorepo it is about to throw away.
+if [[ "$COVERAGE_SOURCE" =~ ^https?:// ]]; then
+  JSON_DIR="$WORK_DIR/coverage-json"
+  echo ""
+  "$SCRIPT_DIR/download-coverage-json.sh" "$COVERAGE_SOURCE" "$JSON_DIR"
+else
+  JSON_DIR="$COVERAGE_SOURCE"
+fi
+
+if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
+  echo "[INFO] No coverage JSONs in $JSON_DIR — nothing to publish upstream."
+  exit 0
+fi
 
 if [[ -z "${UPSTREAM_CLONE_DIR:-}" ]]; then
   echo ""
@@ -192,22 +218,31 @@ if [[ -z "${UPSTREAM_CLONE_DIR:-}" ]]; then
   git -C "$CLONE_DIR" checkout -q FETCH_HEAD
 fi
 
-# A gcsweb listing URL is downloaded by the shared helper; a local path is used
-# as-is. An e2e run that legitimately produced no coverage (backend-only or
-# uninstrumented) leaves the directory empty, and that is not this script's
-# failure to report — exit cleanly rather than turning a passing run red.
-if [[ "$COVERAGE_SOURCE" =~ ^https?:// ]]; then
-  JSON_DIR="$WORK_DIR/coverage-json"
-  echo ""
-  "$SCRIPT_DIR/download-coverage-json.sh" "$COVERAGE_SOURCE" "$JSON_DIR"
-else
-  JSON_DIR="$COVERAGE_SOURCE"
+# Both upload targets are resolved before the remap, so a lookup failure costs a
+# fast exit rather than an npm install and a full remap first. One --symref query
+# yields the default branch's NAME and its tip together, and they must agree:
+# --branch tells Codecov which branch's trend the report joins, so hardcoding
+# "main" while resolving the tip of whatever HEAD points at would attach the
+# report to a branch that may not exist.
+SYMREF_ERR="$WORK_DIR/ls-remote.err"
+if ! SYMREF="$(git -C "$CLONE_DIR" ls-remote --symref origin HEAD 2>"$SYMREF_ERR")"; then
+  # Keep git's own message: "could not resolve the default branch" on its own
+  # says nothing about whether this was auth, DNS, or a deleted repo.
+  echo "ERROR: could not query $SLUG for its default branch:" >&2
+  sed 's/^/       /' "$SYMREF_ERR" >&2
+  exit 1
 fi
+DEFAULT_BRANCH="$(sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p' <<<"$SYMREF" | head -1)"
+DEFAULT_HEAD="$(awk '$2 == "HEAD" {print $1; exit}' <<<"$SYMREF")"
 
-if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
-  echo "[INFO] No coverage JSONs in $JSON_DIR — nothing to publish upstream."
-  exit 0
+if [[ -z "$DEFAULT_BRANCH" ]]; then
+  # Attaching to the wrong branch is worse than not attaching: the report joins
+  # a trend it does not belong to, and nobody looking at the real default branch
+  # ever sees it.
+  echo "ERROR: $SLUG reported no symbolic HEAD, so its default branch is unknown." >&2
+  exit 1
 fi
+echo "  Branch:      $DEFAULT_BRANCH"
 
 echo ""
 echo "--- Remapping onto upstream source paths ---"
@@ -219,23 +254,6 @@ if [[ ! -s "$LCOV" ]]; then
   echo "ERROR: remap produced no lcov at $LCOV." >&2
   exit 1
 fi
-
-# One --symref query yields both the default branch's NAME and its tip. Both are
-# needed and they must agree: --branch tells Codecov which branch's trend the
-# report joins, so hardcoding "main" while resolving the tip of whatever HEAD
-# actually points at would attach the report to a branch that may not exist.
-SYMREF="$(git -C "$CLONE_DIR" ls-remote --symref origin HEAD 2>/dev/null || true)"
-DEFAULT_BRANCH="$(sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p' <<<"$SYMREF" | head -1)"
-DEFAULT_HEAD="$(awk '$2 == "HEAD" {print $1; exit}' <<<"$SYMREF")"
-
-if [[ -z "$DEFAULT_BRANCH" ]]; then
-  # Attaching to the wrong branch is worse than not attaching: the report joins
-  # a trend it does not belong to, and nobody looking at the real default branch
-  # ever sees it.
-  echo "ERROR: could not resolve the default branch of $SLUG." >&2
-  exit 1
-fi
-echo "  Branch:      $DEFAULT_BRANCH"
 
 # Both targets are resolved before either upload, so failing to determine HEAD
 # does not leave the pinned-ref copy uploaded and the visible one missing.
@@ -261,11 +279,12 @@ fi
 # half of that behaviour and drops the harmful half: re-uploading identical data
 # collapses onto the same session (idempotent retries), while a genuinely
 # different measurement gets its own.
-if command -v sha256sum &>/dev/null; then
-  REPORT_DIGEST="$(sha256sum "$LCOV" | cut -c1-8)"
-else
-  REPORT_DIGEST="$(shasum -a 256 "$LCOV" | cut -c1-8)"
-fi
+# git hash-object rather than sha256sum: git is already a hard dependency here
+# (the clone above), and it behaves identically everywhere, so this avoids a
+# second copy of the sha256sum/shasum fallback that ensure-codecov-cli.sh needs.
+# Any content-stable digest works — this one only has to differ when the report
+# does.
+REPORT_DIGEST="$(git hash-object "$LCOV" | cut -c1-8)"
 readonly UPLOAD_NAME="overlay-$FLAG-$REPORT_DIGEST"
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"

@@ -20,8 +20,16 @@ shift 2
 # Remaining arguments are forwarded verbatim to remap-coverage.cjs, which is how
 # upload-coverage-upstream.sh selects upstream mode without this script needing
 # to know what the options mean.
+#
+# Any PATH among those forwarded options must be absolute: the remap runs from
+# the repo root (see below), so a relative one resolves against that root rather
+# than the caller's directory. The two positional arguments are absolutised here
+# because they are this script's own contract.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+mkdir -p "$REPORT_DIR"
+REPORT_DIR="$(cd "$REPORT_DIR" && pwd)"
 
 # The istanbul libraries are installed into a throwaway prefix so they never
 # land in the repo or a workspace's node_modules. The trap cleans them up on
