@@ -22,10 +22,12 @@ jobs:
       - name: Install oras
         env:
           ORAS_VERSION: "1.2.2"
+          ORAS_SHA256: "bff970346470e5ef888e9f2c0bf7f8ee47283f5a45207d6e7a037da1fb0eae0d"
         run: |
           curl -fsSL --proto '=https' --tlsv1.2 \
             "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
             -o oras.tar.gz
+          echo "${ORAS_SHA256}  oras.tar.gz" | sha256sum -c -
           tar xzf oras.tar.gz -C /usr/local/bin oras
           rm -f oras.tar.gz
           oras version
