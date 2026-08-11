@@ -40,19 +40,65 @@ function indexUpstreamTree(root, workspace) {
   return found;
 }
 
+// Map each plugin's webpack remote (its scalprum name) to the plugin directory
+// that owns it, so an ambiguous path can be attributed to the plugin the
+// coverage actually came from.
+//
+// The remote is read from the plugin's own `scalprum.name` rather than derived
+// from its package name. Both usually agree (`@scope/pkg` -> `scope.pkg`), but
+// the declared value is authoritative and the derivation is only a fallback for
+// a plugin that does not declare one. Deriving the other way — guessing a
+// directory from the remote string — is what fails: it cannot recover a
+// directory name that differs from the package name.
+function mapPluginDirsByRemote(root, workspace) {
+  const pluginsDir = path.join(root, "workspaces", workspace, "plugins");
+  const byRemote = new Map();
+  if (!fs.existsSync(pluginsDir)) return byRemote;
+
+  for (const entry of fs.readdirSync(pluginsDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const manifest = path.join(pluginsDir, entry.name, "package.json");
+    if (!fs.existsSync(manifest)) continue;
+    let pkg;
+    try {
+      pkg = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    } catch {
+      // A malformed manifest costs this plugin its tie-breaking, not the run.
+      continue;
+    }
+    const remote =
+      pkg?.scalprum?.name ||
+      (pkg?.name ? pkg.name.replace(/^@/, "").replace("/", ".") : null);
+    if (!remote) continue;
+    byRemote.set(remote, `workspaces/${workspace}/plugins/${entry.name}`);
+  }
+  return byRemote;
+}
+
 // Resolve one source-relative path to its real path in the source repo, the same
 // way Codecov matches a report path against a git tree.
 //
-// Ambiguity is dropped rather than guessed: several plugins in one workspace
-// legitimately share `src/index.ts`, and attributing one plugin's coverage to
-// another is a worse outcome than losing the file. In practice the dropped files
-// are wiring (index, plugin, alpha) that the source repo's own codecov.yml
-// already ignores.
-function resolveUpstream(index, sourcePath) {
+// A unique match across the workspace wins outright — that is what resolves a
+// sibling package's file (`<pkg>-common/src/x.ts`), which lives outside the
+// plugin the coverage came from.
+//
+// When several plugins in the workspace share the path — `src/index.ts` and
+// `src/api/index.ts` are the common cases — `ownerDir` breaks the tie, because
+// the coverage carries the remote of the plugin it came from and only that
+// plugin's copy can be the right one. Without an owner the path is dropped
+// rather than guessed: attributing one plugin's coverage to another is worse
+// than losing the file.
+function resolveUpstream(index, sourcePath, ownerDir) {
   const suffix = `/${sourcePath}`;
   const hits = index.filter((f) => f.endsWith(suffix));
   if (hits.length === 1) return { path: hits[0], reason: null };
+
+  if (hits.length > 1 && ownerDir) {
+    const owned = hits.filter((f) => f.startsWith(`${ownerDir}/`));
+    if (owned.length === 1) return { path: owned[0], reason: null };
+  }
+
   return { path: null, reason: hits.length > 1 ? "ambiguous" : "not-in-tree" };
 }
 
-module.exports = { indexUpstreamTree, resolveUpstream };
+module.exports = { indexUpstreamTree, mapPluginDirsByRemote, resolveUpstream };

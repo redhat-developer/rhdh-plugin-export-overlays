@@ -58,6 +58,7 @@
 const fs = require("node:fs");
 const {
   indexUpstreamTree,
+  mapPluginDirsByRemote,
   resolveUpstream,
 } = require("./upstream-paths.cjs");
 const libCoverage = require("istanbul-lib-coverage");
@@ -287,7 +288,7 @@ function buildWorkspaceMaps(byRemote) {
 // One report entry per real source file, for the single workspace being
 // published upstream: upstream mode targets one source repo at one pinned ref,
 // so remotes owned by any other workspace are not ours to attribute.
-function buildUpstreamMap(byRemote, workspace, index) {
+function buildUpstreamMap(byRemote, workspace, index, pluginDirs) {
   const map = libCoverage.createCoverageMap({});
   const dropped = [];
   let keptLines = 0;
@@ -296,11 +297,14 @@ function buildUpstreamMap(byRemote, workspace, index) {
   const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
   for (const [remote, remoteMap] of sorted) {
     if (findAnchorWorkspace(remote) !== workspace) continue;
+    // The directory of the plugin this coverage came from, used to break ties
+    // when several plugins in the workspace ship the same relative path.
+    const ownerDir = pluginDirs.get(remote);
     console.log(`[remap] ${remote}:`);
     for (const file of [...remoteMap.files()].sort(byName)) {
       const fileCoverage = remoteMap.fileCoverageFor(file);
       const lines = fileCoverage.toSummary().data.lines;
-      const { path: realPath, reason } = resolveUpstream(index, file);
+      const { path: realPath, reason } = resolveUpstream(index, file, ownerDir);
       if (!realPath) {
         dropped.push({ file, reason });
         lostLines += lines.total;
@@ -380,10 +384,12 @@ function runUpstreamMode(byRemote, root, workspace, outDir) {
     `[remap] upstream tree: ${files.length} file(s) under workspaces/${workspace}/`,
   );
 
+  const pluginDirs = mapPluginDirsByRemote(root, workspace);
   const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
     byRemote,
     workspace,
     files,
+    pluginDirs,
   );
   reportDroppedFiles(dropped, lostLines);
   warnIfLossExceedsThreshold({ kept: keptLines, lost: lostLines });
