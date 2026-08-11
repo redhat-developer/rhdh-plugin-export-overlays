@@ -288,7 +288,7 @@ function buildWorkspaceMaps(byRemote) {
 // One report entry per real source file, for the single workspace being
 // published upstream: upstream mode targets one source repo at one pinned ref,
 // so remotes owned by any other workspace are not ours to attribute.
-function buildUpstreamMap(byRemote, workspace, index, pluginDirs) {
+function buildUpstreamMap(byRemote, workspace, files, pluginDirs = new Map()) {
   const map = libCoverage.createCoverageMap({});
   const dropped = [];
   let keptLines = 0;
@@ -304,7 +304,7 @@ function buildUpstreamMap(byRemote, workspace, index, pluginDirs) {
     for (const file of [...remoteMap.files()].sort(byName)) {
       const fileCoverage = remoteMap.fileCoverageFor(file);
       const lines = fileCoverage.toSummary().data.lines;
-      const { path: realPath, reason } = resolveUpstream(index, file, ownerDir);
+      const { path: realPath, reason } = resolveUpstream(files, file, ownerDir);
       if (!realPath) {
         dropped.push({ file, reason });
         lostLines += lines.total;
@@ -385,6 +385,9 @@ function runUpstreamMode(byRemote, root, workspace, outDir) {
   );
 
   const pluginDirs = mapPluginDirsByRemote(root, workspace);
+  console.log(
+    `[remap] tie-break available for ${pluginDirs.size} plugin(s) in ${workspace}`,
+  );
   const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
     byRemote,
     workspace,

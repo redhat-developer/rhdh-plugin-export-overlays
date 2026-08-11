@@ -322,6 +322,38 @@ class TestRemoteToPluginDir:
 
         assert plugin_dirs(tmp_path) == {}
 
+    def test_two_plugins_claiming_one_remote_get_no_tie_break(self, tmp_path):
+        """Keeping one would be a coin flip on readdir order, and a wrong owner
+        attributes a plugin's coverage to another plugin's file — the exact
+        outcome the drop-rather-than-guess rule exists to prevent. Dropping the
+        entry sends those paths back to being reported ambiguous.
+
+        The sibling findAnchorWorkspace picks deterministically and warns; here
+        the consequence of picking wrong is silent, so this one refuses.
+        """
+        write_plugin(tmp_path, "a", name="@scope/a", scalprum="scope.shared")
+        write_plugin(tmp_path, "b", name="@scope/b", scalprum="scope.shared")
+        write_plugin(tmp_path, "c", name="@scope/c")
+
+        got = plugin_dirs(tmp_path)
+
+        assert "scope.shared" not in got
+        # The unaffected plugin keeps its own tie-break.
+        assert got == {"scope.c": f"workspaces/{WORKSPACE}/plugins/c"}
+
+    def test_a_directory_without_a_manifest_is_skipped(self, tmp_path):
+        """`plugins/` holds a README in the real repos, and a plugin can be
+        vendored without a package.json."""
+        write_plugin(tmp_path, "real", name="@scope/real")
+        (tmp_path / "workspaces" / WORKSPACE / "plugins" / "no-manifest").mkdir(
+            parents=True
+        )
+        (tmp_path / "workspaces" / WORKSPACE / "plugins" / "README.md").write_text("x")
+
+        assert plugin_dirs(tmp_path) == {
+            "scope.real": f"workspaces/{WORKSPACE}/plugins/real"
+        }
+
 
 def test_a_missing_workspace_is_an_actionable_error(tmp_path):
     """Pointing at the wrong repo, or at a ref predating the workspace."""

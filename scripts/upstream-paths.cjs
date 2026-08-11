@@ -55,6 +55,7 @@ function mapPluginDirsByRemote(root, workspace) {
   const byRemote = new Map();
   if (!fs.existsSync(pluginsDir)) return byRemote;
 
+  const claimedBy = new Map();
   for (const entry of fs.readdirSync(pluginsDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const manifest = path.join(pluginsDir, entry.name, "package.json");
@@ -70,7 +71,25 @@ function mapPluginDirsByRemote(root, workspace) {
       pkg?.scalprum?.name ||
       (pkg?.name ? pkg.name.replace(/^@/, "").replace("/", ".") : null);
     if (!remote) continue;
-    byRemote.set(remote, `workspaces/${workspace}/plugins/${entry.name}`);
+    if (!claimedBy.has(remote)) claimedBy.set(remote, []);
+    claimedBy.get(remote).push(`workspaces/${workspace}/plugins/${entry.name}`);
+  }
+
+  for (const [remote, dirs] of claimedBy) {
+    if (dirs.length > 1) {
+      // Keeping one would be a coin flip on readdir order, and the whole point
+      // of the tie-break is to attribute to the plugin the coverage came from.
+      // Dropping the entry costs those paths their tie-break — they fall back to
+      // being reported ambiguous, which is the honest outcome — rather than
+      // silently attributing one plugin's coverage to another's file.
+      console.warn(
+        `[remap] remote '${remote}' is claimed by ${dirs.length} plugins ` +
+          `(${dirs.map((d) => d.split("/").pop()).join(", ")}) — no tie-break ` +
+          "for it; check their package.json scalprum.name.",
+      );
+      continue;
+    }
+    byRemote.set(remote, dirs[0]);
   }
   return byRemote;
 }
@@ -88,9 +107,9 @@ function mapPluginDirsByRemote(root, workspace) {
 // plugin's copy can be the right one. Without an owner the path is dropped
 // rather than guessed: attributing one plugin's coverage to another is worse
 // than losing the file.
-function resolveUpstream(index, sourcePath, ownerDir) {
+function resolveUpstream(files, sourcePath, ownerDir) {
   const suffix = `/${sourcePath}`;
-  const hits = index.filter((f) => f.endsWith(suffix));
+  const hits = files.filter((f) => f.endsWith(suffix));
   if (hits.length === 1) return { path: hits[0], reason: null };
 
   if (hits.length > 1 && ownerDir) {
