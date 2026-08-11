@@ -203,6 +203,39 @@ class TestErrorPages:
         assert "none of them downloaded as JSON" in result.stderr
 
 
+class TestTransportSecurity:
+    """The loopback exception is what lets the tests above use a local server.
+    It also widens a security control — the artifacts decide what coverage gets
+    published — so the boundary of that exception is worth pinning.
+    """
+
+    def test_plaintext_http_is_refused(self, tmp_path):
+        result = download_only("http://example.com/coverage/", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
+
+    def test_a_host_that_merely_starts_with_the_loopback_address_is_refused(
+        self, tmp_path
+    ):
+        """`http://127.0.0.1.evil.com/` must not satisfy the exception. The
+        alternation is anchored with a following `[:/]` or end-of-string for
+        exactly this — a prefix match would hand an attacker the plaintext
+        path the check exists to close."""
+        result = download_only("http://127.0.0.1.evil.com/coverage/", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
+
+    def test_a_non_url_source_is_refused(self, tmp_path):
+        """The helper only handles URLs; callers pass local directories through
+        without it."""
+        result = download_only("/tmp/some/dir", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
+
+
 class TestPrerequisites:
     def test_a_missing_jq_says_so(self, listing_server, tmp_path):
         """Without the check, `if ! jq` reads the 127 from a missing binary as

@@ -23,8 +23,9 @@ shift 2
 #
 # Any PATH among those forwarded options must be absolute: the remap runs from
 # the repo root (see below), so a relative one resolves against that root rather
-# than the caller's directory. The two positional arguments are absolutised here
-# because they are this script's own contract.
+# than the caller's directory. REPORT_DIR is absolutised here because it is this
+# script's own contract and is consumed after that cd; JSON_DIR needs no such
+# treatment, since nyc reads it before the cd, from the caller's directory.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
