@@ -61,21 +61,25 @@
 #      track the ref's age — churn does.
 #
 # Required environment:
-#   CODECOV_UPSTREAM_TOKEN - Codecov upload token for the SOURCE repo's project.
-#                            This is NOT the CODECOV_TOKEN used by
-#                            upload-coverage.sh: tokens are per project, and
-#                            reusing this repo's would upload nothing anywhere
-#                            useful. Not needed for --dry-run.
+#   CODECOV_RHDH_PLUGINS_TOKEN
+#       Codecov upload token for the redhat-developer/rhdh-plugins project — the
+#       same value that repository holds as its own CODECOV_TOKEN. Named for the
+#       project rather than "upstream" on purpose: Codecov tokens are per
+#       project, so this one authorises exactly one destination and a generic
+#       name would suggest otherwise. It is NOT the CODECOV_TOKEN this repo uses
+#       for its own anchor uploads. Not needed for --dry-run.
 #
 # Test seams (scripts/tests/test_upload_coverage_upstream.py):
-#   CODECOV_BIN            - path to the Codecov CLI, so tests stub it instead of
-#                            downloading and calling the real one.
-#   UPSTREAM_CHECKOUT_DIR     - reuse an existing checkout instead of cloning, so
-#                            tests never reach GitHub.
-#   REMAP_BIN              - path to the remap step. remap-lcov.sh npm-installs
-#                            the istanbul libraries on every run, which is too
-#                            heavy and too networked for a unit test; the remap
-#                            itself is covered separately against a fixture.
+#   CODECOV_BIN
+#       Path to the Codecov CLI, so tests stub it instead of downloading and
+#       calling the real one.
+#   UPSTREAM_CHECKOUT_DIR
+#       Reuse an existing checkout instead of cloning, so tests never reach
+#       GitHub.
+#   REMAP_BIN
+#       Path to the remap step. remap-lcov.sh npm-installs the istanbul
+#       libraries on every run, which is too heavy and too networked for a unit
+#       test; the remap itself is covered separately against a fixture.
 
 set -euo pipefail
 
@@ -144,6 +148,12 @@ fi
 # creates a project nobody watches, in an org we may not administer — and a flag
 # carryforward then drags forward with no way for us to remove it. Skipping is
 # not an error: most workspaces legitimately have nowhere upstream to publish.
+#
+# Adding an entry here is NOT sufficient on its own. Codecov tokens are per
+# project, and this script carries one — CODECOV_RHDH_PLUGINS_TOKEN. A second
+# destination needs its own token and a way to select between them, so treat
+# this list as "the one project, written as a list" rather than an extension
+# point that only needs appending to.
 readonly ELIGIBLE_SLUGS=("redhat-developer/rhdh-plugins")
 eligible="false"
 for candidate in "${ELIGIBLE_SLUGS[@]}"; do
@@ -161,8 +171,8 @@ if [[ ! "$PINNED_REF" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
-if [[ "$DRY_RUN" != "true" && -z "${CODECOV_UPSTREAM_TOKEN:-}" ]]; then
-  echo "ERROR: CODECOV_UPSTREAM_TOKEN is not set — the upload would reach" >&2
+if [[ "$DRY_RUN" != "true" && -z "${CODECOV_RHDH_PLUGINS_TOKEN:-}" ]]; then
+  echo "ERROR: CODECOV_RHDH_PLUGINS_TOKEN is not set — the upload would reach" >&2
   echo "       nothing. Use --dry-run to exercise the remap without it." >&2
   exit 1
 fi
@@ -326,7 +336,7 @@ for sha in "${UPLOAD_SHAS[@]}"; do
   for attempt in $(seq 1 "$UPLOAD_ATTEMPTS"); do
     # Run from inside the checkout — see constraint 1 at the top.
     if (cd "$UPSTREAM_CHECKOUT" && "$CODECOV_BIN" upload-process \
-      --token "$CODECOV_UPSTREAM_TOKEN" \
+      --token "$CODECOV_RHDH_PLUGINS_TOKEN" \
       --slug "$SLUG" \
       --sha "$sha" \
       --branch "$DEFAULT_BRANCH" \

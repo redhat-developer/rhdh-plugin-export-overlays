@@ -148,7 +148,7 @@ def run_upstream(
         "CODECOV_BIN": str(stub),
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
         "REMAP_BIN": str(remap),
-        "CODECOV_UPSTREAM_TOKEN": "test-token",
+        "CODECOV_RHDH_PLUGINS_TOKEN": "test-token",
     }
     base.update(env or {})
 
@@ -170,7 +170,7 @@ class TestInputValidation:
             root / "scripts" / "upload-coverage-upstream.sh",
             "nope",
             str(coverage_dir),
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -183,7 +183,7 @@ class TestInputValidation:
             root / "scripts" / "upload-coverage-upstream.sh",
             "../evil",
             str(coverage_dir),
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -195,7 +195,7 @@ class TestInputValidation:
             root / "scripts" / "upload-coverage-upstream.sh",
             WORKSPACE,
             str(tmp_path / "absent"),
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -209,7 +209,7 @@ class TestInputValidation:
             WORKSPACE,
             str(coverage_dir),
             "--dryrun",
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -228,7 +228,7 @@ class TestInputValidation:
             root / "scripts" / "upload-coverage-upstream.sh",
             WORKSPACE,
             str(coverage_dir),
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -241,7 +241,7 @@ class TestInputValidation:
             root / "scripts" / "upload-coverage-upstream.sh",
             WORKSPACE,
             str(coverage_dir),
-            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
@@ -257,7 +257,7 @@ class TestInputValidation:
             cwd=root,
         )
         assert result.returncode == 1
-        assert "CODECOV_UPSTREAM_TOKEN" in result.stderr
+        assert "CODECOV_RHDH_PLUGINS_TOKEN" in result.stderr
 
 
 class TestEligibility:
@@ -414,7 +414,7 @@ class TestTargetSelection:
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
                 "REMAP_BIN": str(remap),
-                "CODECOV_UPSTREAM_TOKEN": "t",
+                "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
             cwd=root,
         )
@@ -485,7 +485,7 @@ class TestFailureHandling:
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
                 "REMAP_BIN": str(silent),
-                "CODECOV_UPSTREAM_TOKEN": "t",
+                "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
             cwd=root,
         )
@@ -512,7 +512,7 @@ class TestFailureHandling:
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
                 "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
-                "CODECOV_UPSTREAM_TOKEN": "t",
+                "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
             cwd=root,
         )
@@ -564,7 +564,7 @@ class TestNoCoverage:
             str(empty),
             env={
                 "PATH": f"{bin_dir}:/usr/bin:/bin",
-                "CODECOV_UPSTREAM_TOKEN": "t",
+                "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
             cwd=root,
         )
@@ -581,7 +581,7 @@ class TestDryRun:
         """The preview is the whole value of a dry run — it is what a reviewer
         checks before authorising a real publish to a shared project."""
         result, stub, checkout, _ = run_upstream(
-            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_UPSTREAM_TOKEN": ""}
+            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_RHDH_PLUGINS_TOKEN": ""}
         )
 
         assert result.returncode == 0, result.stderr
@@ -597,7 +597,7 @@ class TestDryRun:
         """So the remap can be exercised by anyone, including CI without the
         upstream project's secret."""
         result, _, _, _ = run_upstream(
-            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_UPSTREAM_TOKEN": ""}
+            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_RHDH_PLUGINS_TOKEN": ""}
         )
         assert result.returncode == 0, result.stderr
 
@@ -609,7 +609,7 @@ class TestDryRun:
             coverage_dir,
             "--dry-run",
             "--pinned-only",
-            env={"CODECOV_UPSTREAM_TOKEN": ""},
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": ""},
         )
 
         assert result.returncode == 0, result.stderr

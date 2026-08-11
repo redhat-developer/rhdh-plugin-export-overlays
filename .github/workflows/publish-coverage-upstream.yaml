@@ -82,7 +82,7 @@ jobs:
           # project, so publishing to rhdh-plugins needs that project's token,
           # held here under its own name. Without it the job fails fast rather
           # than uploading nothing and reporting success.
-          CODECOV_UPSTREAM_TOKEN: ${{ secrets.CODECOV_UPSTREAM_TOKEN }}
+          CODECOV_RHDH_PLUGINS_TOKEN: ${{ secrets.CODECOV_RHDH_PLUGINS_TOKEN }}
           # Passed through the environment rather than interpolated into the run
           # block: `${{ inputs.x }}` is substituted into the script text before
           # bash sees it, so a crafted value runs as code. Reading them as shell
