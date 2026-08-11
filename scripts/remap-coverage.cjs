@@ -39,23 +39,79 @@
 //   committed `coverage-snapshots/<workspace>.lcov`, which the seed later
 //   uploads under its own `e2e-<workspace>` Codecov flag.
 //
+//   UPSTREAM MODE (opt-in) emits the plugin's REAL source paths instead of the
+//   anchor. The anchor exists only because this repo has no plugin source; the
+//   plugin's own repo does, so a report uploaded THERE can be browsed per file.
+//   Given a checkout of the source repo at the workspace's pinned `repo-ref`,
+//   each remapped source is resolved by unique suffix match against that tree
+//   and emitted at its real repo-relative path with its real line numbers.
+//   Anchor mode is untouched and stays the default.
+//
 // Usage:
 //   node scripts/remap-coverage.cjs <nyc-output-json> [report-dir]
+//   node scripts/remap-coverage.cjs <nyc-output-json> <report-dir> \
+//     --upstream-root <checkout> --upstream-workspace <workspace>
 //
 // Requires istanbul-lib-coverage, istanbul-lib-source-maps, istanbul-lib-report,
 // istanbul-reports to be resolvable (installed by remap-lcov.sh).
 
 const fs = require("node:fs");
+const {
+  indexUpstreamTree,
+  resolveUpstream,
+} = require("./upstream-paths.cjs");
 const libCoverage = require("istanbul-lib-coverage");
 const libSourceMaps = require("istanbul-lib-source-maps");
 const libReport = require("istanbul-lib-report");
 const reports = require("istanbul-reports");
 
-const inputJson = process.argv[2];
-const reportDir = process.argv[3] || "coverage";
+// Options are parsed off the tail so the two positional arguments keep the
+// signature every existing caller (remap-lcov.sh) already passes.
+function parseArgs(argv) {
+  const positional = [];
+  const opts = {};
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--upstream-root" || arg === "--upstream-workspace") {
+      const value = argv[i + 1];
+      if (!value || value.startsWith("--")) {
+        console.error(`Usage: remap-coverage.cjs: ${arg} requires a value`);
+        process.exit(1);
+      }
+      opts[arg === "--upstream-root" ? "upstreamRoot" : "upstreamWorkspace"] =
+        value;
+      i += 1;
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { positional, opts };
+}
+
+const { positional, opts } = parseArgs(process.argv.slice(2));
+const inputJson = positional[0];
+const reportDir = positional[1] || "coverage";
+const { upstreamRoot, upstreamWorkspace } = opts;
+
+// Wiring files (plugin.ts, alpha.tsx, index.ts) are expected losses in upstream
+// mode — they are ambiguous across a workspace's plugins, and the source repo's
+// own codecov.yml ignores them anyway. Measured at 2% for intelligent-assistant.
+// A materially larger share means the resolution itself is off (wrong ref, wrong
+// workspace), which is worth saying out loud even though the report that
+// survives is still valid.
+const MAX_EXPECTED_LOST_PCT = 10;
 
 if (!inputJson) {
   console.error("Usage: remap-coverage.cjs <nyc-output-json> [report-dir]");
+  process.exit(1);
+}
+
+// Half-configured upstream mode would silently fall back to anchor mode and
+// produce a report that looks fine and is attributed to the wrong paths.
+if (Boolean(upstreamRoot) !== Boolean(upstreamWorkspace)) {
+  console.error(
+    "[remap] --upstream-root and --upstream-workspace must be given together",
+  );
   process.exit(1);
 }
 
@@ -228,6 +284,40 @@ function buildWorkspaceMaps(byRemote) {
   return { byWorkspace, missing };
 }
 
+// One report entry per real source file, for the single workspace being
+// published upstream: upstream mode targets one source repo at one pinned ref,
+// so remotes owned by any other workspace are not ours to attribute.
+function buildUpstreamMap(byRemote, workspace, index) {
+  const map = libCoverage.createCoverageMap({});
+  const dropped = [];
+  let keptLines = 0;
+  let lostLines = 0;
+
+  const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
+  for (const [remote, remoteMap] of sorted) {
+    if (findAnchorWorkspace(remote) !== workspace) continue;
+    console.log(`[remap] ${remote}:`);
+    for (const file of [...remoteMap.files()].sort(byName)) {
+      const fileCoverage = remoteMap.fileCoverageFor(file);
+      const lines = fileCoverage.toSummary().data.lines;
+      const { path: realPath, reason } = resolveUpstream(index, file);
+      if (!realPath) {
+        dropped.push({ file, reason });
+        lostLines += lines.total;
+        continue;
+      }
+      const data = structuredClone(fileCoverage.data);
+      data.path = realPath;
+      map.addFileCoverage(data);
+      keptLines += lines.total;
+      console.log(
+        `[remap]   ${file} -> ${realPath}: ${lines.covered}/${lines.total} lines (${lines.pct}%)`,
+      );
+    }
+  }
+  return { map, dropped, keptLines, lostLines };
+}
+
 function writeReport(dir, coverageMap, formats) {
   fs.mkdirSync(dir, { recursive: true });
   const context = libReport.createContext({ dir, coverageMap });
@@ -242,6 +332,81 @@ function linesSummary(coverageMap) {
   return summary.data.lines;
 }
 
+// The upstream tree, or an actionable message and exit. A wrong checkout is a
+// configuration mistake, not a crash, so it must not surface as a stack trace
+// from the directory walker.
+function listUpstreamFilesOrExit(root, workspace) {
+  try {
+    return indexUpstreamTree(root, workspace);
+  } catch (err) {
+    if (err?.code === "ENOWORKSPACE") {
+      console.error(`[remap] ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+}
+
+function reportDroppedFiles(dropped, lostLines) {
+  if (dropped.length === 0) return;
+  console.warn(
+    `[remap] ${dropped.length} file(s) not attributed upstream ` +
+      `(${lostLines} line(s)):`,
+  );
+  dropped.forEach((d) => console.warn(`[remap]   ${d.reason}: ${d.file}`));
+}
+
+// Kept separate from the drop listing above: that one is always informational,
+// this one is a signal that the resolution itself is off. Takes an object so the
+// two counts cannot be transposed at the call site — swapping them would
+// silently invert the percentage.
+function warnIfLossExceedsThreshold({ kept, lost }) {
+  const total = kept + lost;
+  const lostPct = total === 0 ? 0 : (100 * lost) / total;
+  if (lostPct > MAX_EXPECTED_LOST_PCT) {
+    console.warn(
+      `[remap] ${lostPct.toFixed(1)}% of lines were dropped — above the ` +
+        "usual wiring-file noise; check the pinned ref matches the tested build.",
+    );
+  }
+}
+
+// Emit one report entry per real upstream source file. Everything it needs is a
+// parameter, matching buildUpstreamMap next door — the module globals are read
+// once, at the single call site below.
+function runUpstreamMode(byRemote, root, workspace, outDir) {
+  const files = listUpstreamFilesOrExit(root, workspace);
+  console.log(
+    `[remap] upstream tree: ${files.length} file(s) under workspaces/${workspace}/`,
+  );
+
+  const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
+    byRemote,
+    workspace,
+    files,
+  );
+  reportDroppedFiles(dropped, lostLines);
+  warnIfLossExceedsThreshold({ kept: keptLines, lost: lostLines });
+
+  // Same contract as anchor mode: an empty report means the pipeline broke, and
+  // writing it silently is the failure this whole path exists to avoid.
+  if (map.files().length === 0) {
+    console.error(
+      `[remap] no source files resolved against the upstream checkout for ` +
+        `'${workspace}' — wrong ref, wrong workspace, or the source ` +
+        "maps did not survive instrumentation.",
+    );
+    process.exit(1);
+  }
+
+  writeReport(outDir, map, ["lcovonly", "text-summary"]);
+  const lines = linesSummary(map);
+  console.log(
+    `[remap] upstream ${workspace}: ${map.files().length} file(s), ` +
+      `lines ${lines.covered}/${lines.total} (${lines.pct}%) -> ${outDir}/lcov.info`,
+  );
+}
+
 (async () => {
   const raw = JSON.parse(fs.readFileSync(inputJson, "utf8"));
   const store = libSourceMaps.createSourceMapStore();
@@ -249,6 +414,12 @@ function linesSummary(coverageMap) {
     libCoverage.createCoverageMap(raw),
   );
   const byRemote = groupByRemote(transformed.map || transformed);
+
+  if (upstreamRoot) {
+    runUpstreamMode(byRemote, upstreamRoot, upstreamWorkspace, reportDir);
+    return;
+  }
+
   const { byWorkspace, missing } = buildWorkspaceMaps(byRemote);
 
   if (missing.length > 0) {

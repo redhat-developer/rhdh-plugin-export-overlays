@@ -193,7 +193,7 @@ See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechan
 
 Coverage is produced only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds. Those jobs emit per-test coverage **as run artifacts**; they do not upload to Codecov directly. (A PR-head upload would be pointless anyway: squash-merge creates a fresh `main` commit the upload never reaches, and Codecov's carryforward can't cross the squash.)
 
-Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (every 6h, on snapshot change, or manually). This is the **only** path that uploads to Codecov, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits.
+Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (every 6h, on snapshot change, or manually). This is the **only** path that uploads to *this repository's* Codecov project, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits. (A workspace whose sources live in a repo with its own Codecov project can additionally be published there, per file — see below.)
 
 **A red seed run means a flag is stale.** Uploading is that job's only purpose, so it runs strict: if any workspace fails to reach Codecov — a failed upload or a missing token — the run goes red instead of leaving a carried-forward number behind a green check. Uploads retry once, so a red run means a real outage rather than a blip. Re-running the workflow is the fix.
 
@@ -212,3 +212,27 @@ git add coverage-snapshots/<workspace>.lcov
 ```
 
 A snapshot's number only moves when it's refreshed — which is also the only time the coverage itself changes, since a workspace's coverage is fixed until its plugin code changes (and code changes come through PRs that re-run e2e). This keeps the dashboard effectively current without a separate coverage run: the nightly stays entirely on the shipped `{{inherit}}`/Konflux builds and is not involved in coverage.
+
+### Publishing the same coverage upstream, per file
+
+The anchor keeps the percentage and loses the detail: you cannot click into a plugin and see which files are untested, because the sources are not in this repository. `scripts/upload-coverage-upstream.sh` publishes the *same* measurements to the repository the sources actually live in, where Codecov resolves every path and the report becomes browsable file by file. This **complements** the anchor path and never replaces it — most workspaces have nowhere else to publish, and are skipped with a message rather than an error.
+
+```bash
+# a local coverage dir, or the run's gcsweb .../artifacts/e2e-test-results/coverage/
+./scripts/upload-coverage-upstream.sh <workspace> <coverage-dir-or-gcsweb-url> --dry-run
+```
+
+`.github/workflows/publish-coverage-upstream.yaml` runs it from CI. It is `workflow_dispatch` only: the input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts, and the artifact URL is only derivable from the job's own build id — so paste the `coverage/` listing URL from the run you want published. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+
+Four things make this work, each of which is easy to get wrong:
+
+- **The upload must run from a checkout of the target repo at the pinned ref.** The Codecov CLI builds the file network it sends from the git repo in the *current working directory* and resolves report paths against it; `--slug` and `--sha` do not change that. Uploading from this checkout sends this repo's file list and the report is rejected as `REPORT_EMPTY` even though every path is valid upstream. The script does the shallow clone for you.
+- **Coverage is uploaded twice: to the pinned `repo-ref` and to the source repo's default-branch HEAD.** The pinned ref is what the tested plugin was built from, so it is the exactly-attributed copy — but a report on a historical commit is never reachable from the default branch. Carryforward inherits from the parent commit's finalised report, and every commit between the pinned ref and now was finalised without the flag. Measured 2026-08-10: `e2e-orchestrator` has a report at its pinned ref and `files=0` on all ~30 `main` commits processed *after* that upload landed, while the unit-test flag carries forward normally on those same commits. The HEAD copy is the one anyone sees.
+- **The HEAD copy trades exactness for visibility.** It attributes coverage to code that has drifted since the measurement, because Codecov matches by path plus line number and does not rebase. Measured across the workspaces: 0–14% of files had shifted lines, and the share does not track the pinned ref's age — churn does, so `adoption-insights` at 9.6 days drifted 0% while `intelligent-assistant` at 10.1 days drifted 14%. Use `--pinned-only` to publish just the exact copy; note that it is then visible nowhere.
+- **Only repos with an active Codecov project are eligible** — today just `redhat-developer/rhdh-plugins`, which covers 11 of the workspaces that have E2E tests.
+
+Resolution is by unique suffix match against the pinned ref's tree, and an ambiguous name (several plugins in one workspace share `src/index.ts`) is dropped rather than guessed — misattributing one plugin's coverage to another is worse than losing it. In practice that costs nothing: measured on `intelligent-assistant`, the 2 dropped files of 105 were `src/index.tsx` and `src/plugin.ts`, both already in the plugin repo's own `codecov.yml` `ignore:` list. The remap prints what it dropped and warns when the share of lost lines exceeds the usual wiring-file noise.
+
+Verified end to end on 2026-08-10 with the Prow run of PR #3200: 103 files resolved, and `e2e-intelligent-assistant` went from `files=0` to `files=99` at `rhdh-plugins` `main` HEAD — browsable per file, with that commit's own coverage moving 58.52 → 58.74. (103 becomes 99 because Codecov then applies the plugin repo's `ignore:` rules.)
+
+**This needs its own secret.** Codecov upload tokens are per project, so the workflow reads `CODECOV_RHDH_PLUGINS_TOKEN` — not the `CODECOV_TOKEN` the anchor path uses, which belongs to this repository's own project. Its value is the same one `redhat-developer/rhdh-plugins` already holds as its `CODECOV_TOKEN`; it has to be copied here because GitHub secrets do not cross repositories. The secret is named for the project rather than for "upstream" because a Codecov token authorises exactly one destination, and a generic name would suggest it covers more. Without it the job fails fast rather than uploading nothing behind a green check.

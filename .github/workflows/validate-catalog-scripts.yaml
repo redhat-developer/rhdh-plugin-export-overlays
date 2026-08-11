@@ -12,6 +12,9 @@ on:
       # change to them has to run these tests too — otherwise the shell is
       # covered but never gated.
       - 'scripts/*.sh'
+      # Same reason for the .cjs remap helpers: tests/test_upstream_paths.py
+      # drives scripts/upstream-paths.cjs through node.
+      - 'scripts/*.cjs'
       - 'scripts/tests/**'
       - 'scripts/requirements-dev.txt'
       - '.github/workflows/validate-catalog-scripts.yaml'

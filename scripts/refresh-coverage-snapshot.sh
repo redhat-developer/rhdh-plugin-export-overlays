@@ -42,67 +42,13 @@ REPORT_DIR=""
 cleanup() { rm -rf ${DOWNLOAD_DIR:+"$DOWNLOAD_DIR"} ${REPORT_DIR:+"$REPORT_DIR"}; }
 trap cleanup EXIT
 
+# A URL is downloaded by the shared helper (which distinguishes a genuine fetch
+# failure from a valid-but-empty coverage dir); a local path is used as-is.
 JSON_DIR=""
-if [[ "$SOURCE" =~ ^https:// ]]; then
+if [[ "$SOURCE" =~ ^https?:// ]]; then
   DOWNLOAD_DIR="$(mktemp -d)"
   JSON_DIR="$DOWNLOAD_DIR"
-  echo "[INFO] Downloading coverage JSONs from $SOURCE"
-  # Distinguish a genuine fetch failure (bad URL / network — fatal) from a
-  # valid-but-empty coverage dir (backend-only or uninstrumented run, which a
-  # passed e2e legitimately produces — non-fatal, nothing to snapshot).
-  # Checked up front because the failure is otherwise disguised: `if ! jq` reads
-  # a missing binary's 127 as "not JSON", drops every file, and the run reports
-  # a server or listing problem instead of a missing tool.
-  if ! command -v jq >/dev/null 2>&1; then
-    echo "ERROR: jq is required to download coverage from a URL (see header)." >&2
-    exit 1
-  fi
-  if ! listing=$(curl -sf "$SOURCE"); then
-    echo "ERROR: could not fetch $SOURCE (bad URL or network)" >&2
-    exit 1
-  fi
-  # Names come from the collector in e2e-test-utils and have changed shape
-  # before: they were `<testId>-<timestamp>.json`, all hex, and are now
-  # `w<worker>-page<n>.json`. A hex-only pattern silently carved `e0.json` out
-  # of `w0-page0.json` and "found" a file that does not exist, so do not guess
-  # the alphabet.
-  #
-  # Read the link targets rather than scanning the page: a bare `.json` pattern
-  # would also match anything the listing happens to mention in prose or in an
-  # inline script, and each false name costs a request whose failure arrives as
-  # a 200 (see below). Taking the last path segment is what keeps the directory
-  # prefix in the href out of the filename.
-  files=$(echo "$listing" \
-    | grep -oE 'href="[^"]*\.json"' \
-    | grep -oE '[^"/]+\.json' \
-    | sort -u || true)
-  if [[ -z "$files" ]]; then
-    echo "[INFO] No coverage JSONs at $SOURCE (backend-only or uninstrumented run) — nothing to snapshot."
-    exit 0
-  fi
-  for f in $files; do
-    # -f alone is not enough: gcsweb answers a missing file with HTTP 200 and an
-    # HTML error page, so the failure arrives as a well-formed response. Verify
-    # what landed is really a coverage map, or a stray name from the listing
-    # becomes an unparseable file that `nyc merge` skips and an empty snapshot
-    # nobody can explain.
-    if ! curl -sf -o "$JSON_DIR/$f" "${SOURCE%/}/$f"; then
-      echo "ERROR: failed to download $f from $SOURCE" >&2
-      exit 1
-    fi
-    if ! jq -e 'type == "object"' "$JSON_DIR/$f" >/dev/null 2>&1; then
-      echo "[WARN] $f is not JSON (server likely returned an error page) — ignoring." >&2
-      rm -f "$JSON_DIR/$f"
-    fi
-  done
-  if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
-    echo "ERROR: $SOURCE listed .json files but none of them downloaded as JSON." >&2
-    echo "       The listing format may have changed — check the coverage URL by hand." >&2
-    exit 1
-  fi
-elif [[ "$SOURCE" =~ ^http:// ]]; then
-  echo "ERROR: refusing to download over insecure HTTP; use HTTPS" >&2
-  exit 1
+  "$SCRIPT_DIR/download-coverage-json.sh" "$SOURCE" "$DOWNLOAD_DIR"
 else
   JSON_DIR="$SOURCE"
 fi
