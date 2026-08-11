@@ -35,8 +35,8 @@ Without `ORCH_E2E_KAFKA=true`, the Kafka suite is skipped and does not affect th
 
 ### Optional env knobs
 
-| Var                              | Role                                                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORCH_E2E_KAFKA=true`            | Enable Kafka Run as Event suite                                                                                                                   |
-| `SKIP_ORCHESTRATOR_DEPLOY=true`  | Skip SonataFlow/Loki/RHDH redeploy (local/dev on an already-live substrate). Requires `RHDH_BASE_URL` (errors if unset). Not used in CI.          |
-| `DEMO_WORKFLOW_REPO_REF`         | Pin `orchestrator-demo` clone (branch/tag/SHA) for lock-flow and token-propagation; unset uses default-branch tip                                 |
+| Var                             | Role                                                                                                                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORCH_E2E_KAFKA=true`           | Enable Kafka Run as Event suite                                                                                                          |
+| `SKIP_ORCHESTRATOR_DEPLOY=true` | Skip SonataFlow/Loki/RHDH redeploy (local/dev on an already-live substrate). Requires `RHDH_BASE_URL` (errors if unset). Not used in CI. |
+| `DEMO_WORKFLOW_REPO_REF`        | Pin `orchestrator-demo` clone (branch/tag/SHA) for lock-flow and token-propagation; unset uses default-branch tip                        |
