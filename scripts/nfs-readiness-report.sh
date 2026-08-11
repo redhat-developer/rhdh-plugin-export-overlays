@@ -210,12 +210,23 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     features_json="{}"
     if oras copy "$oci_ref" --to-oci-layout "$subdir/layout" >/dev/null 2>&1; then
       manifest_digest=$(jq -r '.manifests[0].digest' "$subdir/layout/index.json" | sed 's/sha256://')
-      layer_digest=$(jq -r '.layers[0].digest' "$subdir/layout/blobs/sha256/$manifest_digest" | sed 's/sha256://')
-      pkg_json_path=$(tar tzf "$subdir/layout/blobs/sha256/$layer_digest" 2>/dev/null | grep -E "^[^/]+/package\.json$" | head -1)
+      layer_digests=$(jq -r '.layers[].digest' "$subdir/layout/blobs/sha256/$manifest_digest" | sed 's/sha256://')
 
-      if [[ -n "$pkg_json_path" ]]; then
-        tar xzf "$subdir/layout/blobs/sha256/$layer_digest" -C "$subdir" "$pkg_json_path" 2>/dev/null
+      pkg_json_path=""
+      matched_layer=""
+      for layer_digest in $layer_digests; do
+        pkg_json_path=$(tar tzf "$subdir/layout/blobs/sha256/$layer_digest" 2>/dev/null | grep -E "^[^/]+/package\.json$" | head -1)
+        if [[ -n "$pkg_json_path" ]]; then
+          matched_layer="$layer_digest"
+          break
+        fi
+      done
+
+      if [[ -n "$pkg_json_path" && -n "$matched_layer" ]]; then
+        tar xzf "$subdir/layout/blobs/sha256/$matched_layer" -C "$subdir" "$pkg_json_path" 2>/dev/null
         features_json=$(jq -c '.backstage.features // {}' "$subdir/$pkg_json_path" 2>/dev/null || echo '{}')
+      else
+        echo "Warning: no package.json found in any layer of $oci_ref" >&2
       fi
       status=$(classify_features "$features_json")
     else
