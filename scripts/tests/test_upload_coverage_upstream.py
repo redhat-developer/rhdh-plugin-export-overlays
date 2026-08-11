@@ -1,12 +1,14 @@
 """Tests for scripts/upload-coverage-upstream.sh.
 
-The contract under test is what reaches the Codecov CLI: which slug, which
-SHAs, which flag, and from which working directory. Those are exactly the four
-things that are silently wrong in a cross-repo upload — an upload with a bad
-slug or a bad CWD is still accepted by the API and simply never displays.
+The contract under test is what reaches the Codecov CLI: which slug, which SHAs,
+which branch, which flag, which session name, and from which working directory.
+Those are exactly the things that are silently wrong in a cross-repo upload — an
+upload with a bad slug, a bad branch or a bad CWD is still accepted by the API
+and simply never displays.
 
-Every run is hermetic: UPSTREAM_CLONE_DIR stands in for the shallow clone so no
-test reaches GitHub, and CODECOV_BIN points at a stub so none reaches Codecov.
+Every run is hermetic. UPSTREAM_CHECKOUT_DIR stands in for the shallow clone and
+REMAP_BIN for the remap, so nothing reaches GitHub, Codecov or npm. The one
+exception is documented on the test that needs it.
 """
 
 import json
@@ -18,32 +20,35 @@ from tests.shell_harness import (
     SCRIPTS_DIR,
     call_count,
     git,
+    link_script,
     run_script,
     write_stub_cli,
 )
-
-UPSTREAM_SCRIPT = SCRIPTS_DIR / "upload-coverage-upstream.sh"
 
 PINNED_REF = "a" * 40
 WORKSPACE = "intelligent-assistant"
 UPSTREAM_SLUG = "redhat-developer/rhdh-plugins"
 
+# Symlinked into the fixture so the script finds its own helpers next to it.
+LINKED_SCRIPTS = (
+    "upload-coverage-upstream.sh",
+    "download-coverage-json.sh",
+    "remap-lcov.sh",
+    "remap-coverage.cjs",
+    "upstream-paths.cjs",
+    "ensure-codecov-cli.sh",
+)
+
 
 def build_overlay(tmp_path: Path, repo_url=f"https://github.com/{UPSTREAM_SLUG}"):
     """An overlay checkout with one workspace and its source.json.
 
-    The script derives its repo root from its own location, so symlinking it
-    into <root>/scripts/ relocates every path it reads.
+    The script derives its repo root from its own location, so linking it into
+    <root>/scripts/ relocates every path it reads.
     """
     root = tmp_path / "overlay"
-    (root / "scripts").mkdir(parents=True)
-    for name in (
-        "upload-coverage-upstream.sh",
-        "remap-lcov.sh",
-        "remap-coverage.cjs",
-        "ensure-codecov-cli.sh",
-    ):
-        (root / "scripts" / name).symlink_to(SCRIPTS_DIR / name)
+    for name in LINKED_SCRIPTS:
+        link_script(root, name)
 
     ws = root / "workspaces" / WORKSPACE
     ws.mkdir(parents=True)
@@ -53,39 +58,47 @@ def build_overlay(tmp_path: Path, repo_url=f"https://github.com/{UPSTREAM_SLUG}"
     return root
 
 
-def build_upstream_clone(tmp_path: Path, branch: str = "main") -> Path:
-    """A stand-in for the shallow clone, with a git remote the script can read.
+def build_upstream_checkout(tmp_path: Path, branch="main", head_sha=None) -> Path:
+    """A stand-in for the shallow clone, with a real git remote behind it.
 
-    `git ls-remote origin HEAD` is how the script finds main's HEAD; pointing
-    origin at a local repo keeps that resolution real without a network.
+    `git ls-remote --symref origin HEAD` is how the script learns both the
+    default branch name and its tip, so origin points at a local repo: the
+    resolution stays real without a network.
     """
     upstream = tmp_path / "upstream-origin"
     upstream.mkdir()
     git(upstream, "init", "-q", "-b", branch, ".")
-    (upstream / "workspaces").mkdir()
     src = upstream / "workspaces" / WORKSPACE / "plugins" / "ia" / "src"
     src.mkdir(parents=True)
     (src / "Chat.tsx").write_text("export const a = 1;\n")
     git(upstream, "add", "-A")
     git(upstream, "commit", "-q", "-m", "seed")
 
-    clone = tmp_path / "clone"
-    clone.mkdir()
-    git(clone, "init", "-q", ".")
-    git(clone, "remote", "add", "origin", str(upstream))
-    return clone
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    git(checkout, "init", "-q", ".")
+    git(checkout, "remote", "add", "origin", str(upstream))
+    return checkout
+
+
+def upstream_head(checkout: Path) -> str:
+    """The SHA `ls-remote` will report for the checkout's origin."""
+    result = git(checkout, "ls-remote", "origin", "HEAD")
+    return result.stdout.split()[0]
 
 
 def write_stub_remap(path: Path) -> Path:
-    """A remap that writes a well-formed lcov without npm-installing istanbul.
+    """A remap that records its arguments and writes a well-formed lcov.
 
-    The real remap-lcov.sh installs four istanbul packages per run. That belongs
-    in a test of the remap itself, against a fixture; these tests are about what
-    the upload does with whatever the remap produced.
+    The real remap-lcov.sh npm-installs four istanbul packages per run. That
+    belongs in a test of the remap itself; these tests are about what the upload
+    does with whatever the remap produced — and about the arguments it hands
+    over, which is why they are recorded.
     """
     path.write_text(
         "#!/usr/bin/env bash\n"
-        'set -euo pipefail\n'
+        "set -euo pipefail\n"
+        f'echo "$*" >> "{path}.args"\n'
         'mkdir -p "$2"\n'
         'printf "TN:\\nSF:workspaces/x/src/a.ts\\nDA:1,1\\nend_of_record\\n" > "$2/lcov.info"\n'
     )
@@ -93,23 +106,17 @@ def write_stub_remap(path: Path) -> Path:
     return path
 
 
-def base_env(stub: Path, clone: Path, remap: Path, **extra):
-    env = {
-        "CODECOV_BIN": str(stub),
-        "UPSTREAM_CLONE_DIR": str(clone),
-        "REMAP_BIN": str(remap),
-        "CODECOV_UPSTREAM_TOKEN": "test-token",
-    }
-    env.update(extra)
-    return env
+def recorded(stub: Path, suffix: str) -> str:
+    sidecar = Path(f"{stub}{suffix}")
+    return sidecar.read_text() if sidecar.exists() else ""
 
 
 @pytest.fixture
 def coverage_dir(tmp_path: Path) -> Path:
-    """A directory that exists — the remap is what consumes it.
+    """A non-empty coverage directory.
 
-    Tests that stop before the remap only need the directory to be present;
-    those that get past it are marked and skipped when node/npm is unavailable.
+    Only its non-emptiness matters: the remap is stubbed, so nothing parses the
+    contents.
     """
     d = tmp_path / "coverage-json"
     d.mkdir()
@@ -117,302 +124,485 @@ def coverage_dir(tmp_path: Path) -> Path:
     return d
 
 
-def test_rejects_unknown_workspace(tmp_path, coverage_dir):
-    root = build_overlay(tmp_path)
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        "nope",
-        str(coverage_dir),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "unknown workspace" in result.stderr
+def run_upstream(
+    tmp_path: Path,
+    coverage_source,
+    *flags,
+    exit_codes=(0,),
+    branch="main",
+    repo_url=f"https://github.com/{UPSTREAM_SLUG}",
+    workspace=WORKSPACE,
+    env=None,
+):
+    """Drive the script against stubs, returning (result, stub_cli, checkout).
 
-
-def test_rejects_workspace_name_that_would_forge_a_flag(tmp_path, coverage_dir):
-    """A bad name becomes a ghost e2e-<typo> flag carryforward keeps alive."""
-    root = build_overlay(tmp_path)
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        "../evil",
-        str(coverage_dir),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "invalid workspace name" in result.stderr
-
-
-def test_skips_repo_without_a_codecov_project(tmp_path, coverage_dir):
-    """Not an error: most workspaces have nowhere upstream to publish."""
-    root = build_overlay(tmp_path, repo_url="https://github.com/someone/elsewhere")
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 0
-    assert "[SKIP]" in result.stdout
-    assert "someone/elsewhere" in result.stdout
-
-
-def test_requires_token_unless_dry_run(tmp_path, coverage_dir):
-    root = build_overlay(tmp_path)
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env={},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "CODECOV_UPSTREAM_TOKEN" in result.stderr
-
-
-def test_rejects_non_sha_repo_ref(tmp_path, coverage_dir):
-    """Codecov needs a commit that exists on GitHub; a branch name silently
-    produces an upload attributed to nothing."""
-    root = build_overlay(tmp_path)
-    source = root / "workspaces" / WORKSPACE / "source.json"
-    source.write_text(
-        json.dumps({"repo": f"https://github.com/{UPSTREAM_SLUG}", "repo-ref": "main"})
-    )
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "not a 40-char SHA" in result.stderr
-
-
-def test_rejects_a_source_that_is_neither_url_nor_directory(tmp_path):
-    root = build_overlay(tmp_path)
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(tmp_path / "absent"),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "neither a URL nor a directory" in result.stderr
-
-
-def test_an_empty_coverage_dir_is_not_a_failure(tmp_path):
-    """A backend-only or uninstrumented e2e legitimately produces no coverage.
-    Turning that into a red job punishes a run that did nothing wrong."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = write_stub_cli(tmp_path / "codecov", [0])
-    empty = tmp_path / "no-coverage"
-    empty.mkdir()
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(empty),
-        env=base_env(stub, clone, write_stub_remap(tmp_path / "remap.sh")),
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert call_count(stub) == 0
-    assert "nothing to publish upstream" in result.stdout
-
-
-def test_rejects_unknown_argument(tmp_path, coverage_dir):
-    """A typo'd --dry-run must not silently become a real upload."""
-    root = build_overlay(tmp_path)
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        "--dryrun",
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-    assert result.returncode == 1
-    assert "unknown argument" in result.stderr
-
-
-def test_no_coverage_exits_before_cloning(tmp_path):
-    """The empty check has to come first. Cloning a large monorepo and then
-    discovering there was nothing to publish is pure waste, and this is the only
-    test that pins the order — the others hand in UPSTREAM_CLONE_DIR, which skips
-    the clone regardless.
-
-    Deliberately does NOT set UPSTREAM_CLONE_DIR: if the order regresses, the run
-    reaches for the network and this fails.
+    Collapses the four-part fixture setup every test needs; the sibling suites
+    (test_upload_coverage.py, test_seed_main_coverage.py) use the same shape.
     """
-    root = build_overlay(tmp_path)
-    empty = tmp_path / "no-coverage"
-    empty.mkdir()
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(empty),
-        env={"CODECOV_UPSTREAM_TOKEN": "t"},
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "nothing to publish upstream" in result.stdout
-    assert "Shallow clone" not in result.stdout
-
-
-def test_uploads_to_both_pinned_ref_and_main_head(tmp_path, coverage_dir):
-    """The dual attribution: exact on the pinned ref, visible on main's HEAD."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = write_stub_cli(tmp_path / "codecov", [0])
+    root = build_overlay(tmp_path, repo_url=repo_url)
+    checkout = build_upstream_checkout(tmp_path, branch=branch)
+    stub = write_stub_cli(tmp_path / "codecov", list(exit_codes))
     remap = write_stub_remap(tmp_path / "remap.sh")
 
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env=base_env(stub, clone, remap),
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert call_count(stub) == 2
-    calls = Path(f"{stub}.calls").read_text()
-    assert f"--slug {UPSTREAM_SLUG}" in calls
-    assert f"--sha {PINNED_REF}" in calls
-    assert f"--flag e2e-{WORKSPACE}" in calls
-    # Two distinct SHAs: the pinned ref and main's HEAD resolved from origin.
-    shas = {line.split("--sha ")[1].split()[0] for line in calls.splitlines()}
-    assert len(shas) == 2
-    assert PINNED_REF in shas
-
-
-def test_uploads_run_from_inside_the_upstream_clone(tmp_path, coverage_dir):
-    """The load-bearing constraint: the Codecov CLI builds the file network it
-    sends from the git repo in the CWD. Uploading from the overlay checkout is
-    accepted and then reported as REPORT_EMPTY, so the CWD is part of the
-    contract, not an implementation detail."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = tmp_path / "codecov"
-    # Record the working directory each invocation ran from.
-    stub.write_text(
-        "#!/usr/bin/env bash\n" f'pwd >> "{stub}.cwds"\n' "exit 0\n"
-    )
-    stub.chmod(0o755)
-    remap = write_stub_remap(tmp_path / "remap.sh")
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env=base_env(stub, clone, remap),
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    cwds = {
-        Path(line).resolve()
-        for line in Path(f"{stub}.cwds").read_text().splitlines()
-        if line.strip()
+    base = {
+        "CODECOV_BIN": str(stub),
+        "UPSTREAM_CHECKOUT_DIR": str(checkout),
+        "REMAP_BIN": str(remap),
+        "CODECOV_UPSTREAM_TOKEN": "test-token",
     }
-    assert cwds == {clone.resolve()}
-
-
-def test_branch_is_derived_not_assumed(tmp_path, coverage_dir):
-    """--branch decides which branch's trend the report joins. Hardcoding "main"
-    while resolving the tip of whatever HEAD points at would attach the report to
-    a branch that may not exist, and nobody watching the real default branch
-    would ever see it."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path, branch="trunk")
-    stub = write_stub_cli(tmp_path / "codecov", [0])
-    remap = write_stub_remap(tmp_path / "remap.sh")
+    base.update(env or {})
 
     result = run_script(
         root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env=base_env(stub, clone, remap),
+        workspace,
+        str(coverage_source),
+        *flags,
+        env=base,
         cwd=root,
     )
+    return result, stub, checkout, remap
+
+
+class TestInputValidation:
+    def test_rejects_unknown_workspace(self, tmp_path, coverage_dir):
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            "nope",
+            str(coverage_dir),
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "unknown workspace" in result.stderr
+
+    def test_rejects_a_name_that_would_forge_a_flag(self, tmp_path, coverage_dir):
+        """A bad name becomes a ghost e2e-<typo> flag carryforward keeps alive."""
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            "../evil",
+            str(coverage_dir),
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "invalid workspace name" in result.stderr
+
+    def test_rejects_a_source_that_is_neither_url_nor_directory(self, tmp_path):
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(tmp_path / "absent"),
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "neither a URL nor a directory" in result.stderr
+
+    def test_rejects_unknown_argument(self, tmp_path, coverage_dir):
+        """A typo'd --dry-run must not silently become a real upload."""
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            "--dryrun",
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "unknown argument" in result.stderr
+
+    def test_rejects_non_sha_repo_ref(self, tmp_path, coverage_dir):
+        """Codecov needs a commit that exists on GitHub; a branch name produces
+        an upload attributed to nothing."""
+        root = build_overlay(tmp_path)
+        (root / "workspaces" / WORKSPACE / "source.json").write_text(
+            json.dumps(
+                {"repo": f"https://github.com/{UPSTREAM_SLUG}", "repo-ref": "main"}
+            )
+        )
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "not a 40-char SHA" in result.stderr
+
+    def test_reports_a_source_json_missing_its_fields(self, tmp_path, coverage_dir):
+        root = build_overlay(tmp_path)
+        (root / "workspaces" / WORKSPACE / "source.json").write_text(json.dumps({}))
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={"CODECOV_UPSTREAM_TOKEN": "t"},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "no 'repo' / 'repo-ref'" in result.stderr
+
+    def test_requires_token_unless_dry_run(self, tmp_path, coverage_dir):
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={},
+            cwd=root,
+        )
+        assert result.returncode == 1
+        assert "CODECOV_UPSTREAM_TOKEN" in result.stderr
+
+
+class TestEligibility:
+    def test_skips_a_repo_without_a_codecov_project(self, tmp_path, coverage_dir):
+        """Not an error: most workspaces have nowhere upstream to publish."""
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, repo_url="https://github.com/someone/elsewhere"
+        )
+        assert result.returncode == 0
+        assert "[SKIP]" in result.stdout
+        assert call_count(stub) == 0
+
+    @pytest.mark.parametrize(
+        "repo_url",
+        [
+            f"https://github.com/{UPSTREAM_SLUG}",
+            f"https://github.com/{UPSTREAM_SLUG}.git",
+            f"https://github.com/{UPSTREAM_SLUG}/",
+            f"git@github.com:{UPSTREAM_SLUG}.git",
+        ],
+        ids=["plain", "dot-git", "trailing-slash", "ssh"],
+    )
+    def test_derives_the_slug_from_every_url_form(
+        self, tmp_path, coverage_dir, repo_url
+    ):
+        """Eligibility is exact string equality, so a URL form the derivation
+        mishandles degrades to a silent [SKIP] and exit 0 — an invisible
+        failure rather than a loud one."""
+        result, stub, _, _ = run_upstream(tmp_path, coverage_dir, repo_url=repo_url)
+
+        assert result.returncode == 0, result.stderr
+        assert "[SKIP]" not in result.stdout
+        assert f"--slug {UPSTREAM_SLUG}" in recorded(stub, ".calls")
+
+
+class TestUploadContract:
+    def test_uploads_to_both_the_pinned_ref_and_the_branch_tip(
+        self, tmp_path, coverage_dir
+    ):
+        """The dual attribution: exact on the pinned ref, visible on the tip."""
+        result, stub, checkout, _ = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 2
+        calls = recorded(stub, ".calls")
+        assert f"--slug {UPSTREAM_SLUG}" in calls
+        assert f"--flag e2e-{WORKSPACE}" in calls
+        assert f"--sha {PINNED_REF}" in calls
+        # The second SHA is the real tip, not merely "some other 40 chars".
+        assert f"--sha {upstream_head(checkout)}" in calls
+
+    def test_uploads_run_from_inside_the_upstream_checkout(
+        self, tmp_path, coverage_dir
+    ):
+        """The load-bearing constraint: the Codecov CLI builds the file network
+        it sends from the git repo in the CWD. Uploading from the overlay
+        checkout is accepted and then reported as REPORT_EMPTY, so the CWD is
+        part of the contract, not an implementation detail."""
+        result, stub, checkout, _ = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        cwds = [
+            Path(line).resolve()
+            for line in recorded(stub, ".cwds").splitlines()
+            if line.strip()
+        ]
+        # Both uploads, both from the checkout — a length check as well as a
+        # set check, so this cannot pass when only one upload ran.
+        assert len(cwds) == 2
+        assert set(cwds) == {checkout.resolve()}
+
+    def test_branch_is_derived_not_assumed(self, tmp_path, coverage_dir):
+        """--branch decides which branch's trend the report joins. Hardcoding
+        "main" while resolving the tip of whatever HEAD points at would attach
+        the report to a branch that may not exist."""
+        result, stub, _, _ = run_upstream(tmp_path, coverage_dir, branch="trunk")
+
+        assert result.returncode == 0, result.stderr
+        calls = recorded(stub, ".calls")
+        assert "--branch trunk" in calls
+        assert "--branch main" not in calls
+
+    def test_passes_the_checkout_and_workspace_to_the_remap(
+        self, tmp_path, coverage_dir
+    ):
+        """The remap resolves report paths against this checkout. Handing it the
+        wrong root or the slug instead of the workspace produces a report that
+        uploads cleanly and attributes to nothing."""
+        result, _, checkout, remap = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        args = recorded(remap, ".args")
+        assert f"--upstream-root {checkout.resolve()}" in args
+        assert f"--upstream-workspace {WORKSPACE}" in args
+        assert str(coverage_dir) in args
+
+    def test_the_session_name_follows_the_report_content(
+        self, tmp_path, coverage_dir
+    ):
+        """Codecov treats a matching --name on the same commit as a replacement
+        for that session. Deriving it from the report digest is what makes a
+        retry idempotent while keeping two different measurements apart."""
+        first, stub, _, _ = run_upstream(tmp_path, coverage_dir)
+        assert first.returncode == 0, first.stderr
+
+        names = {
+            part.split()[0]
+            for line in recorded(stub, ".calls").splitlines()
+            for part in [line.split("--name ", 1)[1]]
+        }
+        assert len(names) == 1
+        name = names.pop()
+        assert name.startswith(f"overlay-e2e-{WORKSPACE}-")
+        # Both uploads of one report share a name; the digest is the tail.
+        digest = name.rsplit("-", 1)[1]
+        assert len(digest) == 8 and all(c in "0123456789abcdef" for c in digest)
+
+
+class TestTargetSelection:
+    def test_pinned_only_skips_the_one_way_door(self, tmp_path, coverage_dir):
+        """The tip copy cannot be taken back — once the flag is there,
+        carryforward keeps it on every later commit and removal needs Codecov UI
+        access. --pinned-only stages a first real run without that."""
+        result, stub, _, _ = run_upstream(tmp_path, coverage_dir, "--pinned-only")
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 1
+        calls = recorded(stub, ".calls")
+        assert f"--sha {PINNED_REF}" in calls
+        assert calls.count("--sha ") == 1
+
+    def test_a_pinned_ref_that_is_already_the_tip_uploads_once_without_warning(
+        self, tmp_path, coverage_dir
+    ):
+        """The normal state right after update-plugins-repo-refs bumps a
+        workspace. One upload covers both roles; claiming the tip could not be
+        resolved would be false, and would send a reader looking for a fault
+        that is not there."""
+        root = build_overlay(tmp_path)
+        checkout = build_upstream_checkout(tmp_path)
+        head = upstream_head(checkout)
+        (root / "workspaces" / WORKSPACE / "source.json").write_text(
+            json.dumps({"repo": f"https://github.com/{UPSTREAM_SLUG}", "repo-ref": head})
+        )
+        stub = write_stub_cli(tmp_path / "codecov", [0])
+        remap = write_stub_remap(tmp_path / "remap.sh")
+
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={
+                "CODECOV_BIN": str(stub),
+                "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "REMAP_BIN": str(remap),
+                "CODECOV_UPSTREAM_TOKEN": "t",
+            },
+            cwd=root,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 1
+        assert "[WARN]" not in result.stderr
+        assert "will not be visible" not in result.stderr
+
+
+class TestFailureHandling:
+    def test_a_failed_upload_is_a_failed_run(self, tmp_path, coverage_dir):
+        """Without this the job goes green while Codecov received nothing."""
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, exit_codes=(1,), env={"UPLOAD_RETRY_DELAY_SECONDS": "0"}
+        )
+
+        assert result.returncode == 1
+        assert "upload(s) failed" in result.stderr
+
+    def test_a_failed_first_upload_does_not_skip_the_second(
+        self, tmp_path, coverage_dir
+    ):
+        """Each SHA is an independent target. Abandoning the tip copy because
+        the pinned-ref copy failed would lose the only one anyone sees."""
+        # Attempt 1 fails, its retry succeeds, then the second target succeeds.
+        result, stub, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            exit_codes=(1, 0),
+            env={"UPLOAD_RETRY_DELAY_SECONDS": "0"},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 3
+
+    def test_a_transient_failure_is_retried(self, tmp_path, coverage_dir):
+        """Matches upload-coverage.sh: a 5xx or DNS blip should not need a
+        human to re-dispatch the job."""
+        result, stub, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            "--pinned-only",
+            exit_codes=(1, 0),
+            env={"UPLOAD_RETRY_DELAY_SECONDS": "0"},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 2
+
+    def test_a_remap_that_writes_nothing_is_an_error(self, tmp_path, coverage_dir):
+        """An empty report would upload cleanly and publish nothing."""
+        root = build_overlay(tmp_path)
+        checkout = build_upstream_checkout(tmp_path)
+        stub = write_stub_cli(tmp_path / "codecov", [0])
+        silent = tmp_path / "silent-remap.sh"
+        silent.write_text("#!/usr/bin/env bash\nmkdir -p \"$2\"\nexit 0\n")
+        silent.chmod(0o755)
+
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={
+                "CODECOV_BIN": str(stub),
+                "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "REMAP_BIN": str(silent),
+                "CODECOV_UPSTREAM_TOKEN": "t",
+            },
+            cwd=root,
+        )
+
+        assert result.returncode == 1
+        assert "remap produced no lcov" in result.stderr
+        assert call_count(stub) == 0
+
+    def test_an_unreachable_origin_reports_gits_own_error(self, tmp_path, coverage_dir):
+        """"could not resolve the default branch" alone never says whether it
+        was auth, DNS or a deleted repo, so git's message is kept."""
+        root = build_overlay(tmp_path)
+        checkout = tmp_path / "checkout"
+        checkout.mkdir()
+        git(checkout, "init", "-q", ".")
+        git(checkout, "remote", "add", "origin", str(tmp_path / "does-not-exist"))
+        stub = write_stub_cli(tmp_path / "codecov", [0])
+
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={
+                "CODECOV_BIN": str(stub),
+                "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
+                "CODECOV_UPSTREAM_TOKEN": "t",
+            },
+            cwd=root,
+        )
+
+        assert result.returncode == 1
+        assert "could not query" in result.stderr
+        assert "does-not-exist" in result.stderr
+        assert call_count(stub) == 0
+
+
+class TestNoCoverage:
+    def test_an_empty_coverage_dir_is_not_a_failure(self, tmp_path):
+        """A backend-only or uninstrumented e2e legitimately produces no
+        coverage. Turning that into a red job punishes a run that did nothing
+        wrong."""
+        empty = tmp_path / "no-coverage"
+        empty.mkdir()
+        result, stub, _, _ = run_upstream(tmp_path, empty)
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 0
+        assert "nothing to publish upstream" in result.stdout
+
+    def test_no_coverage_exits_before_cloning(self, tmp_path):
+        """The empty check has to come first: cloning a large monorepo and then
+        discovering there was nothing to publish is pure waste.
+
+        This is the only test that can pin the order, because it deliberately
+        omits UPSTREAM_CHECKOUT_DIR — the seam every other test uses to skip the
+        clone. A `git` shim on PATH keeps it hermetic: if the ordering
+        regresses, the clone runs and fails loudly instead of reaching GitHub.
+        """
+        root = build_overlay(tmp_path)
+        empty = tmp_path / "no-coverage"
+        empty.mkdir()
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        shim = bin_dir / "git"
+        shim.write_text(
+            "#!/usr/bin/env bash\n"
+            'echo "git was called: $*" >&2\n'
+            "exit 97\n"
+        )
+        shim.chmod(0o755)
+
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(empty),
+            env={
+                "PATH": f"{bin_dir}:/usr/bin:/bin",
+                "CODECOV_UPSTREAM_TOKEN": "t",
+            },
+            cwd=root,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "nothing to publish upstream" in result.stdout
+        assert "git was called" not in result.stderr
+
+
+class TestDryRun:
+    def test_dry_run_uploads_nothing_and_previews_the_arguments(
+        self, tmp_path, coverage_dir
+    ):
+        """The preview is the whole value of a dry run — it is what a reviewer
+        checks before authorising a real publish to a shared project."""
+        result, stub, checkout, _ = run_upstream(
+            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_UPSTREAM_TOKEN": ""}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 0
+        assert "[DRY-RUN]" in result.stdout
+        assert f"--slug {UPSTREAM_SLUG}" in result.stdout
+        assert f"--sha {PINNED_REF}" in result.stdout
+        assert f"--sha {upstream_head(checkout)}" in result.stdout
+        assert f"--flag e2e-{WORKSPACE}" in result.stdout
+        assert "--branch main" in result.stdout
+
+    def test_dry_run_needs_no_token(self, tmp_path, coverage_dir):
+        """So the remap can be exercised by anyone, including CI without the
+        upstream project's secret."""
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, "--dry-run", env={"CODECOV_UPSTREAM_TOKEN": ""}
+        )
+        assert result.returncode == 0, result.stderr
+
+
+def test_a_caller_supplied_checkout_survives_the_run(tmp_path, coverage_dir):
+    """The cleanup trap removes the script's own temp dir. Deleting a checkout
+    the caller handed in — or a test fixture — is not its to delete."""
+    result, _, checkout, _ = run_upstream(tmp_path, coverage_dir)
 
     assert result.returncode == 0, result.stderr
-    calls = Path(f"{stub}.calls").read_text()
-    assert "--branch trunk" in calls
-    assert "--branch main" not in calls
-
-
-def test_pinned_only_skips_the_one_way_door(tmp_path, coverage_dir):
-    """The main HEAD copy cannot be taken back — once the flag is there,
-    carryforward keeps it on every later commit and removal needs Codecov UI
-    access. --pinned-only stages a first real run without that."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = write_stub_cli(tmp_path / "codecov", [0])
-    remap = write_stub_remap(tmp_path / "remap.sh")
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        "--pinned-only",
-        env=base_env(stub, clone, remap),
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert call_count(stub) == 1
-    calls = Path(f"{stub}.calls").read_text()
-    assert f"--sha {PINNED_REF}" in calls
-    assert calls.count("--sha ") == 1
-
-
-def test_dry_run_uploads_nothing(tmp_path, coverage_dir):
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = write_stub_cli(tmp_path / "codecov", [0])
-    remap = write_stub_remap(tmp_path / "remap.sh")
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        "--dry-run",
-        env={
-            "CODECOV_BIN": str(stub),
-            "UPSTREAM_CLONE_DIR": str(clone),
-            "REMAP_BIN": str(remap),
-        },
-        cwd=root,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert call_count(stub) == 0
-    assert "[DRY-RUN]" in result.stdout
-
-
-def test_a_failed_upload_is_a_failed_run(tmp_path, coverage_dir):
-    """Without this the job goes green while Codecov received nothing."""
-    root = build_overlay(tmp_path)
-    clone = build_upstream_clone(tmp_path)
-    stub = write_stub_cli(tmp_path / "codecov", [1])
-    remap = write_stub_remap(tmp_path / "remap.sh")
-
-    result = run_script(
-        root / "scripts" / "upload-coverage-upstream.sh",
-        WORKSPACE,
-        str(coverage_dir),
-        env=base_env(stub, clone, remap),
-        cwd=root,
-    )
-
-    assert result.returncode == 1
-    assert "upload(s) failed" in result.stderr
+    assert checkout.exists()
+    assert (checkout / ".git").exists()

@@ -18,7 +18,8 @@ from pathlib import Path
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+from tests.shell_harness import SCRIPTS_DIR
+
 MODULE = SCRIPTS_DIR / "upstream-paths.cjs"
 
 pytestmark = pytest.mark.skipif(
@@ -132,6 +133,26 @@ def test_skips_node_modules_so_a_dependency_cannot_shadow_a_source(tmp_path):
 
     got = resolve(tmp_path, ["src/index.ts"])
 
+    # Excluded at walk time, not merely out-resolved: one entry in the whole
+    # index, so a future change cannot re-admit it and stay green here.
+    assert got["index"] == 1
+    assert got["out"]["src/index.ts"]["path"] == (
+        f"workspaces/{WORKSPACE}/plugins/a/src/index.ts"
+    )
+
+
+def test_scans_only_the_requested_workspace(tmp_path):
+    """The scoping is what keeps ambiguity rare enough to be an acceptable loss.
+    Without it, every workspace sharing a `src/index.ts` would collide with
+    every other, and the drop rate would stop being wiring-file noise."""
+    build_tree(tmp_path, ["plugins/a/src/index.ts"])
+    other = tmp_path / "workspaces" / "other" / "plugins" / "b" / "src"
+    other.mkdir(parents=True)
+    (other / "index.ts").write_text("x\n")
+
+    got = resolve(tmp_path, ["src/index.ts"])
+
+    assert got["index"] == 1
     assert got["out"]["src/index.ts"]["path"] == (
         f"workspaces/{WORKSPACE}/plugins/a/src/index.ts"
     )
@@ -141,22 +162,13 @@ def test_a_missing_workspace_is_an_actionable_error(tmp_path):
     """Pointing at the wrong repo, or at a ref predating the workspace."""
     build_tree(tmp_path, ["plugins/a/src/x.ts"])
 
-    result = subprocess.run(
-        [
-            "node",
-            "-e",
-            f"""
-            const m = require({str(MODULE)!r});
-            try {{ m.indexUpstreamTree({str(tmp_path)!r}, 'absent'); }}
-            catch (e) {{ console.log(JSON.stringify({{code: e.code, msg: e.message}})); }}
-            """,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=60,
+    payload = run_node(
+        f"""
+        const m = require({str(MODULE)!r});
+        try {{ m.indexUpstreamTree({str(tmp_path)!r}, 'absent'); }}
+        catch (e) {{ console.log(JSON.stringify({{code: e.code, msg: e.message}})); }}
+        """
     )
 
-    assert result.returncode == 0, result.stderr
-    payload = json.loads(result.stdout)
     assert payload["code"] == "ENOWORKSPACE"
     assert "absent" in payload["msg"]

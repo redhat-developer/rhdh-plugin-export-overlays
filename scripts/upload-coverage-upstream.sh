@@ -70,7 +70,7 @@
 # Test seams (scripts/tests/test_upload_coverage_upstream.py):
 #   CODECOV_BIN            - path to the Codecov CLI, so tests stub it instead of
 #                            downloading and calling the real one.
-#   UPSTREAM_CLONE_DIR     - reuse an existing checkout instead of cloning, so
+#   UPSTREAM_CHECKOUT_DIR     - reuse an existing checkout instead of cloning, so
 #                            tests never reach GitHub.
 #   REMAP_BIN              - path to the remap step. remap-lcov.sh npm-installs
 #                            the istanbul libraries on every run, which is too
@@ -78,6 +78,12 @@
 #                            itself is covered separately against a fixture.
 
 set -euo pipefail
+
+# Same values and same reasoning as upload-coverage.sh — kept in step so the two
+# uploaders do not develop different ideas about what a transient failure is.
+# Overridable so the unit tests do not pay the delay.
+readonly UPLOAD_ATTEMPTS=2
+readonly UPLOAD_RETRY_DELAY_SECONDS="${UPLOAD_RETRY_DELAY_SECONDS:-10}"
 
 WORKSPACE="${1:?Usage: $0 <workspace> <coverage-source> [--dry-run] [--pinned-only]}"
 COVERAGE_SOURCE="${2:?Usage: $0 <workspace> <coverage-source> [--dry-run] [--pinned-only]}"
@@ -168,12 +174,12 @@ echo "  Flag:        $FLAG"
 
 WORK_DIR="$(mktemp -d)"
 # Absolute on purpose: remap-lcov.sh runs the remap from the repo root, so a
-# relative path handed in through UPSTREAM_CLONE_DIR would silently resolve
+# relative path handed in through UPSTREAM_CHECKOUT_DIR would silently resolve
 # against that root instead of the caller's directory.
-if [[ -n "${UPSTREAM_CLONE_DIR:-}" ]]; then
-  CLONE_DIR="$(cd "$UPSTREAM_CLONE_DIR" && pwd)"
+if [[ -n "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
+  UPSTREAM_CHECKOUT="$(cd "$UPSTREAM_CHECKOUT_DIR" && pwd)"
 else
-  CLONE_DIR="$WORK_DIR/src"
+  UPSTREAM_CHECKOUT="$WORK_DIR/src"
 fi
 REPORT_DIR="$WORK_DIR/report"
 # Keep the clone when it was handed to us: deleting a caller's checkout (or a
@@ -202,20 +208,20 @@ if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
   exit 0
 fi
 
-if [[ -z "${UPSTREAM_CLONE_DIR:-}" ]]; then
+if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
   echo ""
   echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
   # A pinned SHA is not a ref, so it cannot be cloned with --branch. Fetching it
   # by SHA into an empty repo keeps the download to one commit instead of the
   # full history a plain clone would pull.
-  git init -q "$CLONE_DIR"
-  git -C "$CLONE_DIR" remote add origin "https://github.com/$SLUG"
-  if ! git -C "$CLONE_DIR" fetch -q --depth 1 origin "$PINNED_REF"; then
+  git init -q "$UPSTREAM_CHECKOUT"
+  git -C "$UPSTREAM_CHECKOUT" remote add origin "https://github.com/$SLUG"
+  if ! git -C "$UPSTREAM_CHECKOUT" fetch -q --depth 1 origin "$PINNED_REF"; then
     echo "ERROR: could not fetch $PINNED_REF from $SLUG." >&2
     echo "       The ref may have been garbage-collected or force-pushed away." >&2
     exit 1
   fi
-  git -C "$CLONE_DIR" checkout -q FETCH_HEAD
+  git -C "$UPSTREAM_CHECKOUT" checkout -q FETCH_HEAD
 fi
 
 # Both upload targets are resolved before the remap, so a lookup failure costs a
@@ -224,16 +230,16 @@ fi
 # --branch tells Codecov which branch's trend the report joins, so hardcoding
 # "main" while resolving the tip of whatever HEAD points at would attach the
 # report to a branch that may not exist.
-SYMREF_ERR="$WORK_DIR/ls-remote.err"
-if ! SYMREF="$(git -C "$CLONE_DIR" ls-remote --symref origin HEAD 2>"$SYMREF_ERR")"; then
+LS_REMOTE_STDERR="$WORK_DIR/ls-remote.err"
+if ! LS_REMOTE_OUTPUT="$(git -C "$UPSTREAM_CHECKOUT" ls-remote --symref origin HEAD 2>"$LS_REMOTE_STDERR")"; then
   # Keep git's own message: "could not resolve the default branch" on its own
   # says nothing about whether this was auth, DNS, or a deleted repo.
   echo "ERROR: could not query $SLUG for its default branch:" >&2
-  sed 's/^/       /' "$SYMREF_ERR" >&2
+  sed 's/^/       /' "$LS_REMOTE_STDERR" >&2
   exit 1
 fi
-DEFAULT_BRANCH="$(sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p' <<<"$SYMREF" | head -1)"
-DEFAULT_HEAD="$(awk '$2 == "HEAD" {print $1; exit}' <<<"$SYMREF")"
+DEFAULT_BRANCH="$(sed -n 's#^ref: refs/heads/\([^[:space:]]*\).*#\1#p' <<<"$LS_REMOTE_OUTPUT" | head -1)"
+DEFAULT_BRANCH_SHA="$(awk '$2 == "HEAD" {print $1; exit}' <<<"$LS_REMOTE_OUTPUT")"
 
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   # Attaching to the wrong branch is worse than not attaching: the report joins
@@ -247,23 +253,30 @@ echo "  Branch:      $DEFAULT_BRANCH"
 echo ""
 echo "--- Remapping onto upstream source paths ---"
 "${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$REPORT_DIR" \
-  --upstream-root "$CLONE_DIR" --upstream-workspace "$WORKSPACE"
+  --upstream-root "$UPSTREAM_CHECKOUT" --upstream-workspace "$WORKSPACE"
 
-LCOV="$REPORT_DIR/lcov.info"
-if [[ ! -s "$LCOV" ]]; then
-  echo "ERROR: remap produced no lcov at $LCOV." >&2
+LCOV_FILE="$REPORT_DIR/lcov.info"
+if [[ ! -s "$LCOV_FILE" ]]; then
+  echo "ERROR: remap produced no lcov at $LCOV_FILE." >&2
   exit 1
 fi
 
-# Both targets are resolved before either upload, so failing to determine HEAD
-# does not leave the pinned-ref copy uploaded and the visible one missing.
-TARGETS=("$PINNED_REF")
+# Both SHAs are resolved before either upload, so failing to determine HEAD does
+# not leave the pinned-ref copy uploaded and the visible one missing.
+UPLOAD_SHAS=("$PINNED_REF")
 if [[ "$PINNED_ONLY" == "true" ]]; then
   echo ""
   echo "[--pinned-only] skipping the $DEFAULT_BRANCH HEAD copy; the flag will"
   echo "                NOT be visible on the default branch until a full run."
-elif [[ "$DEFAULT_HEAD" =~ ^[0-9a-f]{40}$ && "$DEFAULT_HEAD" != "$PINNED_REF" ]]; then
-  TARGETS+=("$DEFAULT_HEAD")
+elif [[ "$DEFAULT_BRANCH_SHA" == "$PINNED_REF" ]]; then
+  # The pinned ref IS the branch tip, which is the normal state right after
+  # update-plugins-repo-refs bumps a workspace. One upload covers both roles, and
+  # saying "could not resolve HEAD" here would be plainly false.
+  echo ""
+  echo "[INFO] the pinned ref is already $DEFAULT_BRANCH HEAD — one upload covers"
+  echo "       both the exact attribution and the default-branch view."
+elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+  UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
 else
   # Not fatal: the exactly-attributed copy is still worth publishing, and a
   # later run will carry the HEAD copy. Silence here would hide why the flag
@@ -284,47 +297,62 @@ fi
 # second copy of the sha256sum/shasum fallback that ensure-codecov-cli.sh needs.
 # Any content-stable digest works — this one only has to differ when the report
 # does.
-REPORT_DIGEST="$(git hash-object "$LCOV" | cut -c1-8)"
-readonly UPLOAD_NAME="overlay-$FLAG-$REPORT_DIGEST"
+LCOV_DIGEST="$(git hash-object "$LCOV_FILE" | cut -c1-8)"
+readonly UPLOAD_NAME="overlay-$FLAG-$LCOV_DIGEST"
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ "$DRY_RUN" != "true" && ! -x "$CODECOV_BIN" ]]; then
   "$SCRIPT_DIR/ensure-codecov-cli.sh" "$CODECOV_BIN"
 fi
 
-FAILED=()
-for sha in "${TARGETS[@]}"; do
+FAILED_SHAS=()
+for sha in "${UPLOAD_SHAS[@]}"; do
   label="pinned ref"
   [[ "$sha" != "$PINNED_REF" ]] && label="$DEFAULT_BRANCH HEAD"
   echo ""
   echo "--- Upload to $sha ($label) ---"
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    echo "[DRY-RUN] would upload $LCOV"
+    echo "[DRY-RUN] would upload $LCOV_FILE"
     echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $UPLOAD_NAME"
     continue
   fi
 
-  # Run from inside the clone — see constraint 1 at the top. This is the single
-  # most load-bearing line in the script.
-  if ! (cd "$CLONE_DIR" && "$CODECOV_BIN" upload-process \
-    --token "$CODECOV_UPSTREAM_TOKEN" \
-    --slug "$SLUG" \
-    --sha "$sha" \
-    --branch "$DEFAULT_BRANCH" \
-    --flag "$FLAG" \
-    --file "$LCOV" \
-    --disable-search \
-    --name "$UPLOAD_NAME" \
-    --fail-on-error); then
+  # Retried for the same reason upload-coverage.sh retries (see its
+  # UPLOAD_ATTEMPTS comment): a transient 5xx or DNS blip should not need a
+  # human. It matters more here — this job is dispatched by hand, so a blip on
+  # the second upload costs a re-dispatch rather than the next scheduled run.
+  uploaded="false"
+  for attempt in $(seq 1 "$UPLOAD_ATTEMPTS"); do
+    # Run from inside the checkout — see constraint 1 at the top.
+    if (cd "$UPSTREAM_CHECKOUT" && "$CODECOV_BIN" upload-process \
+      --token "$CODECOV_UPSTREAM_TOKEN" \
+      --slug "$SLUG" \
+      --sha "$sha" \
+      --branch "$DEFAULT_BRANCH" \
+      --git-service github \
+      --flag "$FLAG" \
+      --file "$LCOV_FILE" \
+      --disable-search \
+      --name "$UPLOAD_NAME" \
+      --fail-on-error); then
+      uploaded="true"
+      break
+    fi
+    if [[ "$attempt" -lt "$UPLOAD_ATTEMPTS" ]]; then
+      echo "[WARN] upload to $sha failed, retrying in ${UPLOAD_RETRY_DELAY_SECONDS}s" >&2
+      sleep "$UPLOAD_RETRY_DELAY_SECONDS"
+    fi
+  done
+  if [[ "$uploaded" != "true" ]]; then
     echo "ERROR: upload to $sha failed" >&2
-    FAILED+=("$sha")
+    FAILED_SHAS+=("$sha")
   fi
 done
 
 echo ""
-if [[ ${#FAILED[@]} -gt 0 ]]; then
-  echo "ERROR: ${#FAILED[@]} of ${#TARGETS[@]} upload(s) failed: ${FAILED[*]}" >&2
+if [[ ${#FAILED_SHAS[@]} -gt 0 ]]; then
+  echo "ERROR: ${#FAILED_SHAS[@]} of ${#UPLOAD_SHAS[@]} upload(s) failed: ${FAILED_SHAS[*]}" >&2
   exit 1
 fi
-echo "=== Done: ${#TARGETS[@]} upload(s) for $FLAG ==="
+echo "=== Done: ${#UPLOAD_SHAS[@]} upload(s) for $FLAG ==="
