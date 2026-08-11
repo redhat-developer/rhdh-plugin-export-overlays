@@ -435,21 +435,24 @@ class TestFailureHandling:
         assert result.returncode == 1
         assert "upload(s) failed" in result.stderr
 
-    def test_a_failed_first_upload_does_not_skip_the_second(
+    def test_a_target_that_exhausts_its_retries_does_not_skip_the_next(
         self, tmp_path, coverage_dir
     ):
-        """Each SHA is an independent target. Abandoning the tip copy because
-        the pinned-ref copy failed would lose the only one anyone sees."""
-        # Attempt 1 fails, its retry succeeds, then the second target succeeds.
+        """Each SHA is an independent target. Abandoning the tip copy because the
+        pinned-ref copy failed would lose the only one anyone sees — and the run
+        must still end red, naming how many of how many failed."""
+        # Both attempts on the pinned ref fail; the tip upload then succeeds.
         result, stub, _, _ = run_upstream(
             tmp_path,
             coverage_dir,
-            exit_codes=(1, 0),
+            exit_codes=(1, 1, 0),
             env={"UPLOAD_RETRY_DELAY_SECONDS": "0"},
         )
 
-        assert result.returncode == 0, result.stderr
+        assert result.returncode == 1
+        # 2 attempts on the first target + 1 on the second: the second was tried.
         assert call_count(stub) == 3
+        assert "1 of 2 upload(s) failed" in result.stderr
 
     def test_a_transient_failure_is_retried(self, tmp_path, coverage_dir):
         """Matches upload-coverage.sh: a 5xx or DNS blip should not need a
@@ -597,6 +600,22 @@ class TestDryRun:
             tmp_path, coverage_dir, "--dry-run", env={"CODECOV_UPSTREAM_TOKEN": ""}
         )
         assert result.returncode == 0, result.stderr
+
+    def test_dry_run_composes_with_pinned_only(self, tmp_path, coverage_dir):
+        """The documented first step of a staged rollout is both flags at once,
+        so the pair has to preview exactly one target and upload nothing."""
+        result, stub, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            "--dry-run",
+            "--pinned-only",
+            env={"CODECOV_UPSTREAM_TOKEN": ""},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 0
+        assert result.stdout.count("[DRY-RUN] would upload") == 1
+        assert f"--sha {PINNED_REF}" in result.stdout
 
 
 def test_a_caller_supplied_checkout_survives_the_run(tmp_path, coverage_dir):

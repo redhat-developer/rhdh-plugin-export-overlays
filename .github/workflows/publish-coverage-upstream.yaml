@@ -32,6 +32,14 @@ on:
           listing, from a PASSING e2e run of that workspace
         type: string
         required: true
+      dry-run:
+        description: >-
+          Resolve, clone and remap everything, upload nothing. Needs no upstream
+          token, and is the cheapest way to check what a run would publish
+          before it publishes it.
+        type: boolean
+        required: false
+        default: false
       pinned-only:
         description: >-
           Upload only to the pinned repo-ref, not to the source repo's
@@ -81,10 +89,14 @@ jobs:
           # variables leaves them as data.
           INPUT_WORKSPACE: ${{ inputs.workspace }}
           INPUT_COVERAGE_URL: ${{ inputs.coverage-url }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
           INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
         run: |
           set -euo pipefail
           args=("$INPUT_WORKSPACE" "$INPUT_COVERAGE_URL")
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then
+            args+=("--dry-run")
+          fi
           if [[ "$INPUT_PINNED_ONLY" == "true" ]]; then
             args+=("--pinned-only")
           fi

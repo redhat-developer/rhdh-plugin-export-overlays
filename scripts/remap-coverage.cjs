@@ -335,9 +335,9 @@ function linesSummary(coverageMap) {
 // The upstream tree, or an actionable message and exit. A wrong checkout is a
 // configuration mistake, not a crash, so it must not surface as a stack trace
 // from the directory walker.
-function indexUpstreamTreeOrExit() {
+function listUpstreamFilesOrExit(root, workspace) {
   try {
-    return indexUpstreamTree(upstreamRoot, upstreamWorkspace);
+    return indexUpstreamTree(root, workspace);
   } catch (err) {
     if (err?.code === "ENOWORKSPACE") {
       console.error(`[remap] ${err.message}`);
@@ -347,17 +347,22 @@ function indexUpstreamTreeOrExit() {
   }
 }
 
-function reportDroppedFiles(dropped, lostLines, keptLines) {
-  if (dropped.length > 0) {
-    console.warn(
-      `[remap] ${dropped.length} file(s) not attributed upstream ` +
-        `(${lostLines} line(s)):`,
-    );
-    dropped.forEach((d) => console.warn(`[remap]   ${d.reason}: ${d.file}`));
-  }
+function reportDroppedFiles(dropped, lostLines) {
+  if (dropped.length === 0) return;
+  console.warn(
+    `[remap] ${dropped.length} file(s) not attributed upstream ` +
+      `(${lostLines} line(s)):`,
+  );
+  dropped.forEach((d) => console.warn(`[remap]   ${d.reason}: ${d.file}`));
+}
 
-  const totalLines = keptLines + lostLines;
-  const lostPct = totalLines === 0 ? 0 : (100 * lostLines) / totalLines;
+// Kept separate from the drop listing above: that one is always informational,
+// this one is a signal that the resolution itself is off. Takes an object so the
+// two counts cannot be transposed at the call site — swapping them would
+// silently invert the percentage.
+function warnIfLossExceedsThreshold({ kept, lost }) {
+  const total = kept + lost;
+  const lostPct = total === 0 ? 0 : (100 * lost) / total;
   if (lostPct > MAX_EXPECTED_LOST_PCT) {
     console.warn(
       `[remap] ${lostPct.toFixed(1)}% of lines were dropped — above the ` +
@@ -366,38 +371,39 @@ function reportDroppedFiles(dropped, lostLines, keptLines) {
   }
 }
 
-// Emit one report entry per real upstream source file. Kept beside the anchor
-// path as a sibling function rather than inlined into the entry point, so the
-// mode choice below stays a two-line dispatch.
-function runUpstreamMode(byRemote) {
-  const files = indexUpstreamTreeOrExit();
+// Emit one report entry per real upstream source file. Everything it needs is a
+// parameter, matching buildUpstreamMap next door — the module globals are read
+// once, at the single call site below.
+function runUpstreamMode(byRemote, root, workspace, outDir) {
+  const files = listUpstreamFilesOrExit(root, workspace);
   console.log(
-    `[remap] upstream tree: ${files.length} file(s) under workspaces/${upstreamWorkspace}/`,
+    `[remap] upstream tree: ${files.length} file(s) under workspaces/${workspace}/`,
   );
 
   const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
     byRemote,
-    upstreamWorkspace,
+    workspace,
     files,
   );
-  reportDroppedFiles(dropped, lostLines, keptLines);
+  reportDroppedFiles(dropped, lostLines);
+  warnIfLossExceedsThreshold({ kept: keptLines, lost: lostLines });
 
   // Same contract as anchor mode: an empty report means the pipeline broke, and
   // writing it silently is the failure this whole path exists to avoid.
   if (map.files().length === 0) {
     console.error(
       `[remap] no source files resolved against the upstream checkout for ` +
-        `'${upstreamWorkspace}' — wrong ref, wrong workspace, or the source ` +
+        `'${workspace}' — wrong ref, wrong workspace, or the source ` +
         "maps did not survive instrumentation.",
     );
     process.exit(1);
   }
 
-  writeReport(reportDir, map, ["lcovonly", "text-summary"]);
+  writeReport(outDir, map, ["lcovonly", "text-summary"]);
   const lines = linesSummary(map);
   console.log(
-    `[remap] upstream ${upstreamWorkspace}: ${map.files().length} file(s), ` +
-      `lines ${lines.covered}/${lines.total} (${lines.pct}%) -> ${reportDir}/lcov.info`,
+    `[remap] upstream ${workspace}: ${map.files().length} file(s), ` +
+      `lines ${lines.covered}/${lines.total} (${lines.pct}%) -> ${outDir}/lcov.info`,
   );
 }
 
@@ -410,7 +416,7 @@ function runUpstreamMode(byRemote) {
   const byRemote = groupByRemote(transformed.map || transformed);
 
   if (upstreamRoot) {
-    runUpstreamMode(byRemote);
+    runUpstreamMode(byRemote, upstreamRoot, upstreamWorkspace, reportDir);
     return;
   }
 
