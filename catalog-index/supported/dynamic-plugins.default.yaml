@@ -98,7 +98,7 @@ plugins:
             techdocsAddons:
               - importName: ReportIssue
   # Tag: bs_1.52.0__0.9.1, Build date: 2026-06-03T21:17:56Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:1f8aade14625e31c5a9ba90397b9ebc712984415f273fbd6a044be5741bc579b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:ef35ed2bb941f8aa6df4167d62e974338ab1b23e3eda8bb84ca5caf226f1ef30
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -123,7 +123,7 @@ plugins:
                 parent: default.admin
                 icon: adoptionInsightsIcon
   # Tag: bs_1.52.0__0.9.1, Build date: 2026-05-22T15:13:50Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:e8f29f41df76a1b4239cff77c7cafa343aa6b7376b0268bf52ead45537bf1f2a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights-backend@sha256:b8bed99050eb89bd682a9bc4673b6b4a24ea79c41e9d1ab6d546d0341bb60970
     enabled: true
     pluginConfig:
       app:
@@ -134,7 +134,7 @@ plugins:
             debug: false
             licensedUsers: 100
   # Tag: bs_1.52.0__0.9.1, Build date: 2026-06-03T21:21:00Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:a47195082cbe65e65bdb23090ccefeab33fb5f03e9f46847a31e794db7767183
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights@sha256:daa9c063308d2da45eb26b404536468cbc3deb9d952a77cd77cc61cd913ed124
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -142,11 +142,11 @@ plugins:
           red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
             analyticsApiExtensions:
               - importName: AdoptionInsightsAnalyticsApi
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:76ef47343978a70320132777ad5cbcfacdec05554005bd83c1030d89347804f6
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth@sha256:d8e9507aefa3a87aaa3ad9d7e211968166c228068b1f6f4c3e81e034a88a817f
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults@sha256:24a12de49f4598f7b76169098edf28f6052f471e9d06449d5e6da7f702e8625b
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults@sha256:f1b5069426a587fbcc732a1fea1cf3996d6ef7e47cd5dd26a98fb034a8d982ec
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:318419f8292e251ed02fcbbaecc335537a4968101c1e7e0b1312909deb13baef
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:ec9ff700f929cf726823705996165b1f7a68aa768bae03b4f16460fb2fe4f9e5
     enabled: true
   # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:683162f1be56abaa1c81e1b2d5b88223af74e66ab0babb75a9771acb99ea75b2
   # Tag: bs_1.52.0__0.19.1, Build date: 2026-05-22T15:19:47Z
