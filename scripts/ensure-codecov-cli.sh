@@ -44,13 +44,17 @@ esac
 echo "Downloading Codecov CLI $CODECOV_VERSION for ${CODECOV_OS}..."
 BASE="https://cli.codecov.io/${CODECOV_VERSION}/${CODECOV_OS}"
 # -L follows redirects, and the fetched bytes are about to be executed. Without
-# these, a redirect could send the download to plaintext HTTP, where both the
-# binary AND the checksum used to verify it come from the same tamperable
-# channel — the verification below would then confirm nothing. Pinning the
-# protocol on the transfer and on any redirect keeps that channel authenticated.
-readonly CURL_TLS=(--proto '=https' --proto-redir '=https' --tlsv1.2)
-curl -sL "${CURL_TLS[@]}" -o "$TARGET" "$BASE/codecov"
-curl -sL "${CURL_TLS[@]}" -o "${TARGET}.SHA256SUM" "$BASE/codecov.SHA256SUM"
+# the protocol pins, a redirect could send the download to plaintext HTTP, where
+# both the binary AND the checksum used to verify it come from the same
+# tamperable channel — the verification below would then confirm nothing.
+#
+# Spelled out on each call rather than shared through an array: static analysis
+# cannot see inside the expansion, so the array form reads as an unpinned
+# `curl -sL` to any reviewer or scanner checking this property.
+curl -sL --proto '=https' --proto-redir '=https' --tlsv1.2 \
+  -o "$TARGET" "$BASE/codecov"
+curl -sL --proto '=https' --proto-redir '=https' --tlsv1.2 \
+  -o "${TARGET}.SHA256SUM" "$BASE/codecov.SHA256SUM"
 
 EXPECTED=$(awk "$AWK_FIRST_FIELD" "${TARGET}.SHA256SUM")
 if command -v sha256sum &>/dev/null; then
