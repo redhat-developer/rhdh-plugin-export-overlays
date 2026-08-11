@@ -351,7 +351,11 @@ for sha in "${UPLOAD_SHAS[@]}"; do
     fi
     if [[ "$attempt" -lt "$UPLOAD_ATTEMPTS" ]]; then
       echo "[WARN] upload to $sha failed, retrying in ${UPLOAD_RETRY_DELAY_SECONDS}s" >&2
-      sleep "$UPLOAD_RETRY_DELAY_SECONDS"
+      # An interrupted sleep must not decide the verdict: under `set -e` a
+      # signalled sleep aborts with a non-zero status. Here that would abandon
+      # the remaining target mid-loop — the per-target independence this loop
+      # exists for — on nothing more than a stray signal.
+      sleep "$UPLOAD_RETRY_DELAY_SECONDS" || true
     fi
   done
   if [[ "$uploaded" != "true" ]]; then

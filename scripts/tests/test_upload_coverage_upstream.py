@@ -12,6 +12,7 @@ exception is documented on the test that needs it.
 """
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -452,6 +453,38 @@ class TestFailureHandling:
         assert result.returncode == 1
         # 2 attempts on the first target + 1 on the second: the second was tried.
         assert call_count(stub) == 3
+        assert "1 of 2 upload(s) failed" in result.stderr
+
+    def test_an_interrupted_retry_sleep_does_not_abandon_the_next_target(
+        self, tmp_path, coverage_dir
+    ):
+        """A signalled `sleep` exits non-zero, and under `set -e` that would
+        abort the loop — losing the remaining target on nothing more than a
+        stray signal. upload-coverage.sh guards the same line for the same
+        reason; here the blast radius is larger because there are two targets.
+
+        A `sleep` shim that exits non-zero reproduces the signal case exactly.
+        """
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        shim = bin_dir / "sleep"
+        shim.write_text("#!/usr/bin/env bash\nexit 1\n")
+        shim.chmod(0o755)
+
+        result, stub, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            exit_codes=(1, 1, 0),
+            env={
+                "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+                "UPLOAD_RETRY_DELAY_SECONDS": "0",
+            },
+        )
+
+        # Without the guard the run dies during the first retry's sleep, so the
+        # second target is never attempted and the count stops at 1.
+        assert call_count(stub) == 3
+        assert result.returncode == 1
         assert "1 of 2 upload(s) failed" in result.stderr
 
     def test_a_transient_failure_is_retried(self, tmp_path, coverage_dir):
