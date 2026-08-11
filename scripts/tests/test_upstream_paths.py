@@ -94,13 +94,6 @@ def plugin_dirs(root: Path):
     )
 
 
-def mf_remote(package_name: str) -> str:
-    """The Module Federation form of a remote: `@` dropped, `/` -> `__`,
-    `-` -> `_`. A plugin claims this alongside its scalprum name because which
-    build serves it is not visible from the manifest."""
-    return package_name.lstrip("@").replace("/", "__").replace("-", "_")
-
-
 def write_plugin(root: Path, dirname: str, *, name=None, scalprum=None, raw=None):
     """A plugin directory with a package.json, as the source repo has."""
     d = root / "workspaces" / WORKSPACE / "plugins" / dirname
@@ -412,7 +405,7 @@ class TestRemoteToPluginDir:
         # The scalprum form is not derived when one is declared; the MF form is
         # still claimed, because MF sanitises the package name regardless.
         assert "scope.backstage-plugin-thing" not in got
-        assert got[mf_remote("@scope/backstage-plugin-thing")] == here
+        assert got["scope__backstage_plugin_thing"] == here
 
     def test_falls_back_to_the_package_name(self, tmp_path):
         """Load-bearing, not a nicety: most plugin manifests in the published
@@ -423,7 +416,7 @@ class TestRemoteToPluginDir:
         here = f"workspaces/{WORKSPACE}/plugins/thing"
         assert plugin_dirs(tmp_path)["dirs"] == {
             "scope.backstage-plugin-thing": here,
-            mf_remote("@scope/backstage-plugin-thing"): here,
+            "scope__backstage_plugin_thing": here,
         }
 
     def test_claims_the_module_federation_form_too(self, tmp_path):
@@ -480,9 +473,9 @@ class TestRemoteToPluginDir:
         # The unaffected plugin keeps its own tie-break.
         assert got["dirs"] == {
             "scope.c": f"workspaces/{WORKSPACE}/plugins/c",
-            mf_remote("@scope/c"): f"workspaces/{WORKSPACE}/plugins/c",
-            mf_remote("@scope/a"): f"workspaces/{WORKSPACE}/plugins/a",
-            mf_remote("@scope/b"): f"workspaces/{WORKSPACE}/plugins/b",
+            "scope__c": f"workspaces/{WORKSPACE}/plugins/c",
+            "scope__a": f"workspaces/{WORKSPACE}/plugins/a",
+            "scope__b": f"workspaces/{WORKSPACE}/plugins/b",
         }
         # Reported, not swallowed: this is the only signal that two manifests
         # disagree, and without it the drops read as ordinary wiring noise.
@@ -503,7 +496,7 @@ class TestRemoteToPluginDir:
         got = plugin_dirs(tmp_path)
 
         here = f"workspaces/{WORKSPACE}/plugins/fine"
-        assert got["dirs"] == {"scope.fine": here, mf_remote("@scope/fine"): here}
+        assert got["dirs"] == {"scope.fine": here, "scope__fine": here}
         assert got["unreadable"] == [
             f"workspaces/{WORKSPACE}/plugins/broken/package.json"
         ]
@@ -517,7 +510,7 @@ class TestRemoteToPluginDir:
         got = plugin_dirs(tmp_path)
 
         here = f"workspaces/{WORKSPACE}/plugins/fine"
-        assert got["dirs"] == {"scope.fine": here, mf_remote("@scope/fine"): here}
+        assert got["dirs"] == {"scope.fine": here, "scope__fine": here}
         assert got["unreadable"] == []
 
     def test_a_workspace_without_plugins_maps_nothing(self, tmp_path):
@@ -537,7 +530,7 @@ class TestRemoteToPluginDir:
 
         here = f"workspaces/{WORKSPACE}/plugins/flat"
         assert plugin_dirs(tmp_path)["dirs"] == {
-            "scope.flat": here, mf_remote("@scope/flat"): here
+            "scope.flat": here, "scope__flat": here
         }
 
     def test_a_directory_without_a_manifest_is_skipped(self, tmp_path):
@@ -549,7 +542,7 @@ class TestRemoteToPluginDir:
 
         here = f"workspaces/{WORKSPACE}/plugins/real"
         assert plugin_dirs(tmp_path)["dirs"] == {
-            "scope.real": here, mf_remote("@scope/real"): here
+            "scope.real": here, "scope__real": here
         }
 
 

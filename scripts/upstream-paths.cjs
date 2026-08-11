@@ -58,14 +58,23 @@ function listUpstreamFiles(root, workspace) {
 // outranks a derived one when two plugins want the same remote.
 function remotesOf(pkg) {
   const out = [];
-  const declared = pkg?.scalprum?.name;
-  if (typeof declared === "string" && declared) {
-    out.push({ remote: declared, declared: true });
-  }
+  const add = (remote, declared) => {
+    // An unscoped, hyphen-free name derives to itself both ways (`foo`).
+    // Pushing it twice would read downstream as two plugins claiming one
+    // remote, and cost the plugin the tie-break it should have had.
+    if (!out.some((r) => r.remote === remote)) out.push({ remote, declared });
+  };
+
+  // Validated once: a non-string `scalprum.name` is not a claim, and must not
+  // suppress the derived form either.
+  const raw = pkg?.scalprum?.name;
+  const declared = typeof raw === "string" && raw ? raw : null;
+  if (declared) add(declared, true);
+
   if (typeof pkg?.name === "string" && pkg.name) {
     const bare = pkg.name.replace(/^@/, "");
-    if (!declared) out.push({ remote: bare.replace(/\//g, "."), declared: false });
-    out.push({ remote: bare.replace(/\//g, "__").replace(/-/g, "_"), declared: false });
+    if (!declared) add(bare.replace(/\//g, "."), false);
+    add(bare.replace(/\//g, "__").replace(/-/g, "_"), false);
   }
   return out;
 }

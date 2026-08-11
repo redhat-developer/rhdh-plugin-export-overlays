@@ -179,7 +179,7 @@ This creates `backstage.json` with the target version and updates all metadata O
 
 Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
 
-Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+Each `workspaces/<workspace>/coverage-anchors/` directory holds empty, static files named after the webpack remotes a deployed plugin can publish under — one per plugin for each of the two builds that can serve it, since Scalprum and Module Federation name the remote differently and which one RHDH loads is not visible from the manifest. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
 
 These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
 
