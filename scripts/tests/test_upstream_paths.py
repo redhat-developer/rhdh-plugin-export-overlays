@@ -399,11 +399,13 @@ class TestRemoteToPluginDir:
         )
 
         got = plugin_dirs(tmp_path)["dirs"]
+        here = f"workspaces/{WORKSPACE}/plugins/thing"
 
-        assert got == {
-            "totally.different.remote": f"workspaces/{WORKSPACE}/plugins/thing"
-        }
+        assert got["totally.different.remote"] == here
+        # The scalprum form is not derived when one is declared; the MF form is
+        # still claimed, because MF sanitises the package name regardless.
         assert "scope.backstage-plugin-thing" not in got
+        assert got["scope__backstage_plugin_thing"] == here
 
     def test_falls_back_to_the_package_name(self, tmp_path):
         """Load-bearing, not a nicety: most plugin manifests in the published
@@ -411,9 +413,34 @@ class TestRemoteToPluginDir:
         the tie-break exists to settle."""
         write_plugin(tmp_path, "thing", name="@scope/backstage-plugin-thing")
 
+        here = f"workspaces/{WORKSPACE}/plugins/thing"
         assert plugin_dirs(tmp_path)["dirs"] == {
-            "scope.backstage-plugin-thing": f"workspaces/{WORKSPACE}/plugins/thing"
+            "scope.backstage-plugin-thing": here,
+            "scope__backstage_plugin_thing": here,
         }
+
+    def test_claims_the_module_federation_form_too(self, tmp_path):
+        """A plugin served through Module Federation reports a remote sanitised
+        into a JS identifier, not the dotted scalprum name. app-defaults
+        collected nothing at all from 2026-08-04 until this was found: its
+        remotes arrive as `red_hat_developer_hub__backstage_plugin_app_defaults`
+        and every one missed its anchor, so the workspace was dropped whole —
+        silently, because a missing anchor is only a warning.
+
+        Which build serves a plugin is not visible from its manifest —
+        app-defaults and adoption-insights have identical-looking ones — so both
+        forms are claimed.
+        """
+        write_plugin(
+            tmp_path, "app-defaults",
+            name="@red-hat-developer-hub/backstage-plugin-app-defaults",
+        )
+
+        got = plugin_dirs(tmp_path)["dirs"]
+        here = f"workspaces/{WORKSPACE}/plugins/app-defaults"
+
+        assert got["red_hat_developer_hub__backstage_plugin_app_defaults"] == here
+        assert got["red-hat-developer-hub.backstage-plugin-app-defaults"] == here
 
     def test_a_declared_name_is_not_displaced_by_a_derived_one(self, tmp_path):
         """A plugin that asks for a remote must get it. Treating the two as
@@ -444,7 +471,12 @@ class TestRemoteToPluginDir:
         got = plugin_dirs(tmp_path)
 
         # The unaffected plugin keeps its own tie-break.
-        assert got["dirs"] == {"scope.c": f"workspaces/{WORKSPACE}/plugins/c"}
+        assert got["dirs"] == {
+            "scope.c": f"workspaces/{WORKSPACE}/plugins/c",
+            "scope__c": f"workspaces/{WORKSPACE}/plugins/c",
+            "scope__a": f"workspaces/{WORKSPACE}/plugins/a",
+            "scope__b": f"workspaces/{WORKSPACE}/plugins/b",
+        }
         # Reported, not swallowed: this is the only signal that two manifests
         # disagree, and without it the drops read as ordinary wiring noise.
         assert len(got["collisions"]) == 1
@@ -463,7 +495,8 @@ class TestRemoteToPluginDir:
 
         got = plugin_dirs(tmp_path)
 
-        assert got["dirs"] == {"scope.fine": f"workspaces/{WORKSPACE}/plugins/fine"}
+        here = f"workspaces/{WORKSPACE}/plugins/fine"
+        assert got["dirs"] == {"scope.fine": here, "scope__fine": here}
         assert got["unreadable"] == [
             f"workspaces/{WORKSPACE}/plugins/broken/package.json"
         ]
@@ -476,7 +509,8 @@ class TestRemoteToPluginDir:
 
         got = plugin_dirs(tmp_path)
 
-        assert got["dirs"] == {"scope.fine": f"workspaces/{WORKSPACE}/plugins/fine"}
+        here = f"workspaces/{WORKSPACE}/plugins/fine"
+        assert got["dirs"] == {"scope.fine": here, "scope__fine": here}
         assert got["unreadable"] == []
 
     def test_a_workspace_without_plugins_maps_nothing(self, tmp_path):
@@ -494,8 +528,9 @@ class TestRemoteToPluginDir:
         write_plugin(tmp_path, "frontend/nested", name="@scope/nested")
         write_plugin(tmp_path, "flat", name="@scope/flat")
 
+        here = f"workspaces/{WORKSPACE}/plugins/flat"
         assert plugin_dirs(tmp_path)["dirs"] == {
-            "scope.flat": f"workspaces/{WORKSPACE}/plugins/flat"
+            "scope.flat": here, "scope__flat": here
         }
 
     def test_a_directory_without_a_manifest_is_skipped(self, tmp_path):
@@ -505,8 +540,9 @@ class TestRemoteToPluginDir:
             parents=True
         )
 
+        here = f"workspaces/{WORKSPACE}/plugins/real"
         assert plugin_dirs(tmp_path)["dirs"] == {
-            "scope.real": f"workspaces/{WORKSPACE}/plugins/real"
+            "scope.real": here, "scope__real": here
         }
 
 

@@ -41,23 +41,42 @@ function listUpstreamFiles(root, workspace) {
   return found;
 }
 
-// The webpack remote a plugin publishes under, as the plugin itself declares it.
-// The derivation from the package name is only a fallback — but a load-bearing
-// one: measured across the two workspaces published so far, 5 of 7 plugin
-// directories declare no `scalprum.name`, including one side of the very clash
-// this tie-break exists to settle.
+// Every webpack remote a plugin can publish under. A plugin reaches the browser
+// through one of two builds, and they name the remote differently:
 //
-// scripts/generate-coverage-anchors.sh:106 derives the same value with
-// `sed 's|^@||; s|/|.|'` to name the committed anchor files. The two must agree
-// — the anchor name is what findAnchorWorkspace matches — so change them
-// together. test_upstream_paths.py pins that they do.
-function remoteOf(pkg) {
-  const declared = pkg?.scalprum?.name;
-  if (typeof declared === "string" && declared) return { remote: declared, declared: true };
+//   Scalprum uses the name as written — explicit `scalprum.name`, or
+//     `<scope>.<name>` derived from the package.
+//   Module Federation needs a valid JS identifier, so it sanitises: `@`
+//     dropped, `/` -> `__`, `-` -> `_`.
+//
+// Which one a given plugin serves through is not visible from a manifest —
+// app-defaults and adoption-insights differ with identical-looking manifests —
+// so both are claimed. scripts/generate-coverage-anchors.sh writes an anchor for
+// the same pair; change the two together.
+//
+// The declared name is returned first and marked, because a declared claim
+// outranks a derived one when two plugins want the same remote.
+function remotesOf(pkg) {
+  const out = [];
+  const add = (remote, declared) => {
+    // An unscoped, hyphen-free name derives to itself both ways (`foo`).
+    // Pushing it twice would read downstream as two plugins claiming one
+    // remote, and cost the plugin the tie-break it should have had.
+    if (!out.some((r) => r.remote === remote)) out.push({ remote, declared });
+  };
+
+  // Validated once: a non-string `scalprum.name` is not a claim, and must not
+  // suppress the derived form either.
+  const raw = pkg?.scalprum?.name;
+  const declared = typeof raw === "string" && raw ? raw : null;
+  if (declared) add(declared, true);
+
   if (typeof pkg?.name === "string" && pkg.name) {
-    return { remote: pkg.name.replace(/^@/, "").replace(/\//g, "."), declared: false };
+    const bare = pkg.name.replace(/^@/, "");
+    if (!declared) add(bare.replace(/\//g, "."), false);
+    add(bare.replace(/\//g, "__").replace(/-/g, "_"), false);
   }
-  return null;
+  return out;
 }
 
 // Map each plugin's webpack remote to the directory that owns it, so an
@@ -96,13 +115,13 @@ function mapPluginDirsByRemote(root, workspace) {
       continue;
     }
 
-    const found = remoteOf(pkg);
-    if (!found) continue;
-    const bucket = found.declared ? claims.declared : claims.derived;
-    if (!bucket.has(found.remote)) bucket.set(found.remote, []);
-    // Built with path.relative so it is the same shape as listUpstreamFiles'
-    // entries; the two are compared directly in resolveUpstreamPath.
-    bucket.get(found.remote).push(path.relative(root, dir));
+    for (const found of remotesOf(pkg)) {
+      const bucket = found.declared ? claims.declared : claims.derived;
+      if (!bucket.has(found.remote)) bucket.set(found.remote, []);
+      // Built with path.relative so it is the same shape as listUpstreamFiles'
+      // entries; the two are compared directly in resolveUpstreamPath.
+      bucket.get(found.remote).push(path.relative(root, dir));
+    }
   }
 
   for (const bucket of [claims.declared, claims.derived]) {

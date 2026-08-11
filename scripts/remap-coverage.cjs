@@ -222,7 +222,7 @@ function groupByRemote(remappedCoverage) {
 
 // Find which workspace owns a remote by locating its committed anchor file.
 // The anchor's location IS the remote->workspace mapping: each workspace
-// commits one anchor per deployed plugin, named by scalprum name.
+// commits an anchor per remote a deployed plugin can publish under.
 function findAnchorWorkspace(remote) {
   const owners = fs
     .readdirSync("workspaces", { withFileTypes: true })
