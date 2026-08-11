@@ -103,19 +103,35 @@ while IFS= read -r plugin_path; do
     continue
   fi
 
-  # The webpack remote in the coverage source maps is the plugin's scalprum
-  # name: explicit `scalprum.name`, or the default `<scope>.<name>` derived
-  # from the package name.
+  # A plugin can reach the browser through either of two builds, and they name
+  # the webpack remote differently. Both names get an anchor, because which
+  # build RHDH loads is not visible from here:
+  #
+  #   Scalprum (`dist-scalprum/`) uses the scalprum name as written —
+  #     explicit `scalprum.name`, or `<scope>.<name>` derived from the package.
+  #   Module Federation (`dist/`) requires a valid JS identifier, so it
+  #     sanitises: `@` dropped, `/` -> `__`, `-` -> `_`.
+  #
+  # Emitting only the first is why app-defaults collected no coverage at all
+  # from 2026-08-04 until this was found: it serves through MF, so every one of
+  # its remotes missed its anchor and the whole workspace was dropped — silently,
+  # since a missing anchor is a warning and an empty report is "nothing to
+  # snapshot". Anchors are empty files, so covering both costs nothing.
+  #
+  # remoteOf() in scripts/upstream-paths.cjs derives the same pair to key the
+  # upstream tie-break — change the two together.
   SCALPRUM_NAME=$(echo "$PKG_JSON" | jq -r '.scalprum.name // empty')
   if [[ -z "$SCALPRUM_NAME" ]]; then
-    # Mirrored by remoteOf() in scripts/upstream-paths.cjs, which keys the
-    # upstream tie-break on the same value — change the two together.
     SCALPRUM_NAME=$(echo "$PKG_NAME" | sed 's|^@||; s|/|.|')
   fi
+  MF_NAME=$(echo "$PKG_NAME" | sed 's|^@||; s|/|__|; s|-|_|g')
 
-  : > "$OUT_ROOT/$SCALPRUM_NAME"
-  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-anchors/$SCALPRUM_NAME"
-  GENERATED=$((GENERATED + 1))
+  for anchor in "$SCALPRUM_NAME" "$MF_NAME"; do
+    [[ -e "$OUT_ROOT/$anchor" ]] && continue
+    : > "$OUT_ROOT/$anchor"
+    echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-anchors/$anchor"
+    GENERATED=$((GENERATED + 1))
+  done
 done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed "s/:.*//; s/[\"']//g")
 
 # No per-workspace README is written: the anchor mechanism is documented once
