@@ -1,0 +1,8 @@
+appConfig:
+  backend:
+    auth:
+      externalAccess:
+        - type: static
+          options:
+            token: keycloak-auth-e2e-token
+            subject: keycloak-auth-e2e
