@@ -43,9 +43,12 @@
 //   anchor. The anchor exists only because this repo has no plugin source; the
 //   plugin's own repo does, so a report uploaded THERE can be browsed per file.
 //   Given a checkout of the source repo at the workspace's pinned `repo-ref`,
-//   each remapped source is resolved by unique suffix match against that tree
-//   and emitted at its real repo-relative path with its real line numbers.
-//   Anchor mode is untouched and stays the default.
+//   each remapped source is resolved by suffix match against that tree and
+//   emitted at its real repo-relative path with its real line numbers. Several
+//   plugins in one workspace ship the same relative path, so the match is
+//   settled against the plugin the coverage came from — its webpack remote,
+//   which each plugin declares in its own package.json. Anchor mode is untouched
+//   and stays the default.
 //
 // Usage:
 //   node scripts/remap-coverage.cjs <nyc-output-json> [report-dir]
@@ -57,8 +60,9 @@
 
 const fs = require("node:fs");
 const {
-  indexUpstreamTree,
-  resolveUpstream,
+  listUpstreamFiles,
+  mapPluginDirsByRemote,
+  resolveUpstreamPath,
 } = require("./upstream-paths.cjs");
 const libCoverage = require("istanbul-lib-coverage");
 const libSourceMaps = require("istanbul-lib-source-maps");
@@ -93,11 +97,12 @@ const inputJson = positional[0];
 const reportDir = positional[1] || "coverage";
 const { upstreamRoot, upstreamWorkspace } = opts;
 
-// Wiring files (plugin.ts, alpha.tsx, index.ts) are expected losses in upstream
-// mode — they are ambiguous across a workspace's plugins, and the source repo's
-// own codecov.yml ignores them anyway. Measured at 2% for intelligent-assistant.
-// A materially larger share means the resolution itself is off (wrong ref, wrong
-// workspace), which is worth saying out loud even though the report that
+// Upstream mode drops what it cannot attribute honestly. With the owner
+// tie-break in place both published workspaces drop nothing, so the residue this
+// threshold guards against is drift between the pinned ref and the tested build:
+// files moved or added after the ref resolve to nothing, or to a package the
+// owner could not have produced. A materially large share means the ref does not
+// match the build, which is worth saying out loud even though the report that
 // survives is still valid.
 const MAX_EXPECTED_LOST_PCT = 10;
 
@@ -287,7 +292,7 @@ function buildWorkspaceMaps(byRemote) {
 // One report entry per real source file, for the single workspace being
 // published upstream: upstream mode targets one source repo at one pinned ref,
 // so remotes owned by any other workspace are not ours to attribute.
-function buildUpstreamMap(byRemote, workspace, index) {
+function buildUpstreamMap(byRemote, workspace, files, pluginDirs) {
   const map = libCoverage.createCoverageMap({});
   const dropped = [];
   let keptLines = 0;
@@ -296,22 +301,25 @@ function buildUpstreamMap(byRemote, workspace, index) {
   const sorted = [...byRemote.entries()].sort((a, b) => byName(a[0], b[0]));
   for (const [remote, remoteMap] of sorted) {
     if (findAnchorWorkspace(remote) !== workspace) continue;
+    // The directory of the plugin this coverage came from, used to break ties
+    // when several plugins in the workspace ship the same relative path.
+    const ownerDir = pluginDirs.get(remote);
     console.log(`[remap] ${remote}:`);
     for (const file of [...remoteMap.files()].sort(byName)) {
       const fileCoverage = remoteMap.fileCoverageFor(file);
       const lines = fileCoverage.toSummary().data.lines;
-      const { path: realPath, reason } = resolveUpstream(index, file);
-      if (!realPath) {
+      const { upstreamPath, reason } = resolveUpstreamPath(files, file, ownerDir);
+      if (!upstreamPath) {
         dropped.push({ file, reason });
         lostLines += lines.total;
         continue;
       }
       const data = structuredClone(fileCoverage.data);
-      data.path = realPath;
+      data.path = upstreamPath;
       map.addFileCoverage(data);
       keptLines += lines.total;
       console.log(
-        `[remap]   ${file} -> ${realPath}: ${lines.covered}/${lines.total} lines (${lines.pct}%)`,
+        `[remap]   ${file} -> ${upstreamPath}: ${lines.covered}/${lines.total} lines (${lines.pct}%)`,
       );
     }
   }
@@ -337,7 +345,7 @@ function linesSummary(coverageMap) {
 // from the directory walker.
 function listUpstreamFilesOrExit(root, workspace) {
   try {
-    return indexUpstreamTree(root, workspace);
+    return listUpstreamFiles(root, workspace);
   } catch (err) {
     if (err?.code === "ENOWORKSPACE") {
       console.error(`[remap] ${err.message}`);
@@ -345,6 +353,35 @@ function listUpstreamFilesOrExit(root, workspace) {
     }
     throw err;
   }
+}
+
+// What the tie-break can and cannot settle. Every entry here is a plugin whose
+// shared paths will be dropped instead of attributed, so a silent map is the one
+// outcome worth avoiding — the drops it causes are indistinguishable from
+// ordinary wiring-file noise in the list below.
+function reportPluginMap(pluginDirs, collisions, unreadable, workspace) {
+  if (pluginDirs.size === 0) {
+    console.warn(
+      `[remap] no plugin manifests under workspaces/${workspace}/plugins in the ` +
+        "upstream checkout — no tie-break, so every shared path will be dropped.",
+    );
+  } else {
+    console.log(
+      `[remap] tie-break available for ${pluginDirs.size} plugin(s) in ${workspace}`,
+    );
+  }
+  collisions.forEach(({ remote, dirs }) =>
+    console.warn(
+      `[remap] remote '${remote}' is claimed by ${dirs.length} plugins ` +
+        `(${dirs.map((d) => d.split("/").pop()).join(", ")}) — no tie-break for ` +
+        "it; check their package.json scalprum.name.",
+    ),
+  );
+  unreadable.forEach((manifest) =>
+    console.warn(
+      `[remap] could not parse ${manifest} — that plugin gets no tie-break.`,
+    ),
+  );
 }
 
 function reportDroppedFiles(dropped, lostLines) {
@@ -380,10 +417,16 @@ function runUpstreamMode(byRemote, root, workspace, outDir) {
     `[remap] upstream tree: ${files.length} file(s) under workspaces/${workspace}/`,
   );
 
+  const { pluginDirs, collisions, unreadable } = mapPluginDirsByRemote(
+    root,
+    workspace,
+  );
+  reportPluginMap(pluginDirs, collisions, unreadable, workspace);
   const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
     byRemote,
     workspace,
     files,
+    pluginDirs,
   );
   reportDroppedFiles(dropped, lostLines);
   warnIfLossExceedsThreshold({ kept: keptLines, lost: lostLines });
