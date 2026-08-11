@@ -332,6 +332,75 @@ function linesSummary(coverageMap) {
   return summary.data.lines;
 }
 
+// The upstream tree, or an actionable message and exit. A wrong checkout is a
+// configuration mistake, not a crash, so it must not surface as a stack trace
+// from the directory walker.
+function indexUpstreamTreeOrExit() {
+  try {
+    return indexUpstreamTree(upstreamRoot, upstreamWorkspace);
+  } catch (err) {
+    if (err?.code === "ENOWORKSPACE") {
+      console.error(`[remap] ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+}
+
+function reportDroppedFiles(dropped, lostLines, keptLines) {
+  if (dropped.length > 0) {
+    console.warn(
+      `[remap] ${dropped.length} file(s) not attributed upstream ` +
+        `(${lostLines} line(s)):`,
+    );
+    dropped.forEach((d) => console.warn(`[remap]   ${d.reason}: ${d.file}`));
+  }
+
+  const totalLines = keptLines + lostLines;
+  const lostPct = totalLines === 0 ? 0 : (100 * lostLines) / totalLines;
+  if (lostPct > MAX_EXPECTED_LOST_PCT) {
+    console.warn(
+      `[remap] ${lostPct.toFixed(1)}% of lines were dropped — above the ` +
+        "usual wiring-file noise; check the pinned ref matches the tested build.",
+    );
+  }
+}
+
+// Emit one report entry per real upstream source file. Kept beside the anchor
+// path as a sibling function rather than inlined into the entry point, so the
+// mode choice below stays a two-line dispatch.
+function runUpstreamMode(byRemote) {
+  const files = indexUpstreamTreeOrExit();
+  console.log(
+    `[remap] upstream tree: ${files.length} file(s) under workspaces/${upstreamWorkspace}/`,
+  );
+
+  const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
+    byRemote,
+    upstreamWorkspace,
+    files,
+  );
+  reportDroppedFiles(dropped, lostLines, keptLines);
+
+  // Same contract as anchor mode: an empty report means the pipeline broke, and
+  // writing it silently is the failure this whole path exists to avoid.
+  if (map.files().length === 0) {
+    console.error(
+      `[remap] no source files resolved against the upstream checkout for ` +
+        `'${upstreamWorkspace}' — wrong ref, wrong workspace, or the source ` +
+        "maps did not survive instrumentation.",
+    );
+    process.exit(1);
+  }
+
+  writeReport(reportDir, map, ["lcovonly", "text-summary"]);
+  const lines = linesSummary(map);
+  console.log(
+    `[remap] upstream ${upstreamWorkspace}: ${map.files().length} file(s), ` +
+      `lines ${lines.covered}/${lines.total} (${lines.pct}%) -> ${reportDir}/lcov.info`,
+  );
+}
+
 (async () => {
   const raw = JSON.parse(fs.readFileSync(inputJson, "utf8"));
   const store = libSourceMaps.createSourceMapStore();
@@ -341,61 +410,7 @@ function linesSummary(coverageMap) {
   const byRemote = groupByRemote(transformed.map || transformed);
 
   if (upstreamRoot) {
-    let index;
-    try {
-      index = indexUpstreamTree(upstreamRoot, upstreamWorkspace);
-    } catch (err) {
-      // A wrong checkout is a configuration mistake, not a crash — report it as
-      // the actionable sentence it is rather than a stack trace from the walker.
-      if (err?.code === "ENOWORKSPACE") {
-        console.error(`[remap] ${err.message}`);
-        process.exit(1);
-      }
-      throw err;
-    }
-    console.log(
-      `[remap] upstream tree: ${index.length} file(s) under workspaces/${upstreamWorkspace}/`,
-    );
-    const { map, dropped, keptLines, lostLines } = buildUpstreamMap(
-      byRemote,
-      upstreamWorkspace,
-      index,
-    );
-
-    if (dropped.length > 0) {
-      console.warn(
-        `[remap] ${dropped.length} file(s) not attributed upstream ` +
-          `(${lostLines} line(s)):`,
-      );
-      dropped.forEach((d) => console.warn(`[remap]   ${d.reason}: ${d.file}`));
-    }
-
-    // Same contract as anchor mode: an empty report means the pipeline broke,
-    // and writing it silently is the failure this whole path exists to avoid.
-    if (map.files().length === 0) {
-      console.error(
-        `[remap] no source files resolved against the upstream checkout for ` +
-          `'${upstreamWorkspace}' — wrong ref, wrong workspace, or the source ` +
-          "maps did not survive instrumentation.",
-      );
-      process.exit(1);
-    }
-
-    const totalLines = keptLines + lostLines;
-    const lostPct = totalLines === 0 ? 0 : (100 * lostLines) / totalLines;
-    if (lostPct > MAX_EXPECTED_LOST_PCT) {
-      console.warn(
-        `[remap] ${lostPct.toFixed(1)}% of lines were dropped — above the ` +
-          "usual wiring-file noise; check the pinned ref matches the tested build.",
-      );
-    }
-
-    writeReport(reportDir, map, ["lcovonly", "text-summary"]);
-    const lines = linesSummary(map);
-    console.log(
-      `[remap] upstream ${upstreamWorkspace}: ${map.files().length} file(s), ` +
-        `lines ${lines.covered}/${lines.total} (${lines.pct}%) -> ${reportDir}/lcov.info`,
-    );
+    runUpstreamMode(byRemote);
     return;
   }
 

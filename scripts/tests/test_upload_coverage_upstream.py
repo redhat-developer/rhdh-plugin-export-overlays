@@ -373,7 +373,8 @@ class TestUploadContract:
         assert name.startswith(f"overlay-e2e-{WORKSPACE}-")
         # Both uploads of one report share a name; the digest is the tail.
         digest = name.rsplit("-", 1)[1]
-        assert len(digest) == 8 and all(c in "0123456789abcdef" for c in digest)
+        assert len(digest) == 8
+        assert all(c in "0123456789abcdef" for c in digest)
 
 
 class TestTargetSelection:
