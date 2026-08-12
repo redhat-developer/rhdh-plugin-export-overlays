@@ -16,9 +16,18 @@
 #                  HEAD. The HEAD copy is a one-way door: once the flag exists
 #                  there, carryforward keeps it on every later commit and
 #                  removing it needs Codecov UI access on a repo we may not
-#                  administer. The pinned-ref copy has no such reach, so a first
-#                  real run against a shared project can be staged behind this
-#                  flag and reviewed before the visible copy is published.
+#                  administer.
+#
+#                  This flag was written to stage a first run for review, and
+#                  that is NOT what it does. A pinned-only upload of the
+#                  extensions workspace was accepted by Codecov (556 KB stored,
+#                  queued) and ten minutes later the pinned commit still
+#                  reported the same session count and the same per-file
+#                  numbers, none of them the uploaded ones. A report uploaded
+#                  onto a historical commit has not been observed to change
+#                  that commit's report, so there is nothing to review — the
+#                  same finalised-parent behaviour described in point 3 below.
+#                  Keep the flag for staging only if that changes.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
 # publishes to this repo's own project against a committed anchor, which keeps
