@@ -69,6 +69,26 @@
 #      Source drift between the two measured 0-14% per workspace, and does not
 #      track the ref's age — churn does.
 #
+#      That verification was read as "the HEAD copy works" for longer than it
+#      should have been. On 2026-08-12 the same path was run for extensions,
+#      whose pinned ref sits 201 commits behind HEAD, and NOTHING landed: the
+#      flag on main HEAD kept showing an older measurement, and two files this
+#      run covers with real numbers (plugins/extensions/src/index.ts 3/3 and
+#      plugin.ts 18/25) were absent from the report entirely. Both uploads were
+#      accepted, queued and reported success.
+#
+#      One cause is fixed here: every upload now runs from a checkout OF THE SHA
+#      IT DECLARES, and is remapped against that tree. Before, both uploads ran
+#      from the pinned clone, so the HEAD copy declared the pinned tree's file
+#      list against a different commit.
+#
+#      That does NOT explain the whole observation, and the gap is left written
+#      down rather than smoothed over: the PINNED copy had the correct tree and
+#      also did not land. What both failures share is a flag that already had a
+#      carried-forward report on the target commit, which intelligent-assistant
+#      did not. Whether Codecov declines to recompute such a commit is not
+#      established — do not assume a green run here means the report changed.
+#
 # Required environment:
 #   CODECOV_RHDH_PLUGINS_TOKEN
 #       Codecov upload token for the redhat-developer/rhdh-plugins project — the
@@ -227,20 +247,28 @@ if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
   exit 0
 fi
 
-if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
-  echo ""
-  echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
+# A shallow checkout of one commit. Used twice — see the HEAD checkout further
+# down — because the Codecov CLI sends the file network of the tree it is run
+# from, so each upload target needs a tree that IS that commit.
+clone_at() {
+  local ref="$1" dir="$2"
   # A pinned SHA is not a ref, so it cannot be cloned with --branch. Fetching it
   # by SHA into an empty repo keeps the download to one commit instead of the
   # full history a plain clone would pull.
-  git init -q "$UPSTREAM_CHECKOUT"
-  git -C "$UPSTREAM_CHECKOUT" remote add origin "https://github.com/$SLUG"
-  if ! git -C "$UPSTREAM_CHECKOUT" fetch -q --depth 1 origin "$PINNED_REF"; then
-    echo "ERROR: could not fetch $PINNED_REF from $SLUG." >&2
+  git init -q "$dir"
+  git -C "$dir" remote add origin "https://github.com/$SLUG"
+  if ! git -C "$dir" fetch -q --depth 1 origin "$ref"; then
+    echo "ERROR: could not fetch $ref from $SLUG." >&2
     echo "       The ref may have been garbage-collected or force-pushed away." >&2
-    exit 1
+    return 1
   fi
-  git -C "$UPSTREAM_CHECKOUT" checkout -q FETCH_HEAD
+  git -C "$dir" checkout -q FETCH_HEAD
+}
+
+if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
+  echo ""
+  echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
+  clone_at "$PINNED_REF" "$UPSTREAM_CHECKOUT" || exit 1
 fi
 
 # Both upload targets are resolved before the remap, so a lookup failure costs a
@@ -295,7 +323,52 @@ elif [[ "$DEFAULT_BRANCH_SHA" == "$PINNED_REF" ]]; then
   echo "[INFO] the pinned ref is already $DEFAULT_BRANCH HEAD — one upload covers"
   echo "       both the exact attribution and the default-branch view."
 elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-  UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
+  # The HEAD copy needs its OWN checkout and its OWN remap, and getting this
+  # wrong is silent. The CLI sends the file network of the tree it runs in, so
+  # uploading the pinned tree's network against the HEAD sha declares a set of
+  # files that is not what that commit contains; Codecov drops the report and
+  # the run still reports success. Measured: extensions, pinned 201 commits
+  # behind HEAD, uploaded cleanly and changed nothing, while
+  # intelligent-assistant at 101 commits behind landed — the difference was how
+  # far the workspace had moved, which is not something to leave to luck.
+  #
+  # Remapping again is not optional either: the paths are resolved against the
+  # tree, and a file that moved or was deleted since the pinned ref has no place
+  # in the HEAD report.
+  echo ""
+  echo "--- Shallow clone of $SLUG at $DEFAULT_BRANCH ($DEFAULT_BRANCH_SHA) ---"
+  HEAD_CHECKOUT="${UPSTREAM_HEAD_CHECKOUT_DIR:-$WORK_DIR/src-head}"
+  HEAD_REPORT_DIR="$WORK_DIR/report-head"
+  mkdir -p "$HEAD_REPORT_DIR"
+  if [[ -z "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]] && ! clone_at "$DEFAULT_BRANCH_SHA" "$HEAD_CHECKOUT"; then
+    echo "[WARN] could not check out $DEFAULT_BRANCH HEAD — uploading to the pinned" >&2
+    echo "       ref only. The flag will not be visible on the default branch." >&2
+  else
+    echo ""
+    echo "--- Remapping onto $DEFAULT_BRANCH HEAD paths ---"
+    "${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$HEAD_REPORT_DIR" \
+      --upstream-root "$HEAD_CHECKOUT" --upstream-workspace "$WORKSPACE"
+
+    HEAD_LCOV="$HEAD_REPORT_DIR/lcov.info"
+    if [[ ! -s "$HEAD_LCOV" ]]; then
+      # Every path the run measured has moved or gone since the pinned ref. The
+      # pinned copy is still worth publishing; going quiet here is not.
+      echo "[WARN] the remap resolved nothing against $DEFAULT_BRANCH HEAD — the" >&2
+      echo "       workspace has moved too far from its pinned ref. Uploading to" >&2
+      echo "       the pinned ref only." >&2
+    else
+      # Reported because it is the number that says how stale the pinned ref has
+      # become, and it is invisible otherwise.
+      PINNED_FILES="$(grep -c '^SF:' "$LCOV_FILE" || true)"
+      HEAD_FILES="$(grep -c '^SF:' "$HEAD_LCOV" || true)"
+      echo "[INFO] $HEAD_FILES of $PINNED_FILES file(s) still resolve at $DEFAULT_BRANCH HEAD."
+      if [[ "$HEAD_FILES" -lt "$PINNED_FILES" ]]; then
+        echo "[WARN] $((PINNED_FILES - HEAD_FILES)) file(s) measured at the pinned ref no" >&2
+        echo "       longer exist there and are absent from the HEAD copy." >&2
+      fi
+      UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
+    fi
+  fi
 else
   # Not fatal: the exactly-attributed copy is still worth publishing, and a
   # later run will carry the HEAD copy. Silence here would hide why the flag
@@ -316,8 +389,9 @@ fi
 # second copy of the sha256sum/shasum fallback that ensure-codecov-cli.sh needs.
 # Any content-stable digest works — this one only has to differ when the report
 # does.
-LCOV_DIGEST="$(git hash-object "$LCOV_FILE" | cut -c1-8)"
-readonly UPLOAD_NAME="overlay-$FLAG-$LCOV_DIGEST"
+upload_name_for() {
+  echo "overlay-$FLAG-$(git hash-object "$1" | cut -c1-8)"
+}
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ "$DRY_RUN" != "true" && ! -x "$CODECOV_BIN" ]]; then
@@ -326,14 +400,24 @@ fi
 
 FAILED_SHAS=()
 for sha in "${UPLOAD_SHAS[@]}"; do
-  label="pinned ref"
-  [[ "$sha" != "$PINNED_REF" ]] && label="$DEFAULT_BRANCH HEAD"
+  # Each target uploads ITS OWN tree and ITS OWN remap. Reusing the pinned pair
+  # for the HEAD sha is exactly the silent failure this loop was changed to fix.
+  if [[ "$sha" == "$PINNED_REF" ]]; then
+    label="pinned ref"
+    target_root="$UPSTREAM_CHECKOUT"
+    target_lcov="$LCOV_FILE"
+  else
+    label="$DEFAULT_BRANCH HEAD"
+    target_root="$HEAD_CHECKOUT"
+    target_lcov="$HEAD_LCOV"
+  fi
+  upload_name="$(upload_name_for "$target_lcov")"
   echo ""
   echo "--- Upload to $sha ($label) ---"
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    echo "[DRY-RUN] would upload $LCOV_FILE"
-    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $UPLOAD_NAME"
+    echo "[DRY-RUN] would upload $target_lcov from $target_root"
+    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $upload_name"
     continue
   fi
 
@@ -344,16 +428,16 @@ for sha in "${UPLOAD_SHAS[@]}"; do
   uploaded="false"
   for attempt in $(seq 1 "$UPLOAD_ATTEMPTS"); do
     # Run from inside the checkout — see constraint 1 at the top.
-    if (cd "$UPSTREAM_CHECKOUT" && "$CODECOV_BIN" upload-process \
+    if (cd "$target_root" && "$CODECOV_BIN" upload-process \
       --token "$CODECOV_RHDH_PLUGINS_TOKEN" \
       --slug "$SLUG" \
       --sha "$sha" \
       --branch "$DEFAULT_BRANCH" \
       --git-service github \
       --flag "$FLAG" \
-      --file "$LCOV_FILE" \
+      --file "$target_lcov" \
       --disable-search \
-      --name "$UPLOAD_NAME" \
+      --name "$upload_name" \
       --fail-on-error); then
       uploaded="true"
       break

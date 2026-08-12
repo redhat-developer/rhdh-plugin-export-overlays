@@ -59,7 +59,7 @@ def build_overlay(tmp_path: Path, repo_url=f"https://github.com/{UPSTREAM_SLUG}"
     return root
 
 
-def build_upstream_checkout(tmp_path: Path, branch="main", head_sha=None) -> Path:
+def build_upstream_checkout(tmp_path: Path, branch="main", head_sha=None, into=None) -> Path:
     """A stand-in for the shallow clone, with a real git remote behind it.
 
     `git ls-remote --symref origin HEAD` is how the script learns both the
@@ -67,19 +67,27 @@ def build_upstream_checkout(tmp_path: Path, branch="main", head_sha=None) -> Pat
     resolution stays real without a network.
     """
     upstream = tmp_path / "upstream-origin"
-    upstream.mkdir()
-    git(upstream, "init", "-q", "-b", branch, ".")
-    src = upstream / "workspaces" / WORKSPACE / "plugins" / "ia" / "src"
-    src.mkdir(parents=True)
-    (src / "Chat.tsx").write_text("export const a = 1;\n")
-    git(upstream, "add", "-A")
-    git(upstream, "commit", "-q", "-m", "seed")
+    # Both checkouts share one origin — the same repo really does serve both the
+    # pinned ref and the branch tip.
+    if not upstream.exists():
+        upstream.mkdir()
+        git(upstream, "init", "-q", "-b", branch, ".")
+        src = upstream / "workspaces" / WORKSPACE / "plugins" / "ia" / "src"
+        src.mkdir(parents=True)
+        (src / "Chat.tsx").write_text("export const a = 1;\n")
+        git(upstream, "add", "-A")
+        git(upstream, "commit", "-q", "-m", "seed")
 
-    checkout = tmp_path / "checkout"
-    checkout.mkdir()
+    checkout = into or (tmp_path / "checkout")
+    checkout.mkdir(parents=True, exist_ok=True)
     git(checkout, "init", "-q", ".")
     git(checkout, "remote", "add", "origin", str(upstream))
     return checkout
+
+
+def head_checkout_of(tmp_path: Path) -> Path:
+    """Where run_upstream puts the default-branch checkout."""
+    return tmp_path / "checkout-head"
 
 
 def upstream_head(checkout: Path) -> str:
@@ -142,12 +150,19 @@ def run_upstream(
     """
     root = build_overlay(tmp_path, repo_url=repo_url)
     checkout = build_upstream_checkout(tmp_path, branch=branch)
+    # The HEAD copy gets its OWN checkout, because the Codecov CLI sends the file
+    # network of the tree it runs in — uploading the pinned tree against the HEAD
+    # sha declares files that commit does not have. head_checkout_of() is how a
+    # test reaches it without changing this helper's return shape.
+    head_checkout = head_checkout_of(tmp_path)
+    build_upstream_checkout(tmp_path, branch=branch, into=head_checkout)
     stub = write_stub_cli(tmp_path / "codecov", list(exit_codes))
     remap = write_stub_remap(tmp_path / "remap.sh")
 
     base = {
         "CODECOV_BIN": str(stub),
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
+        "UPSTREAM_HEAD_CHECKOUT_DIR": str(head_checkout),
         "REMAP_BIN": str(remap),
         "CODECOV_RHDH_PLUGINS_TOKEN": "test-token",
     }
@@ -310,13 +325,23 @@ class TestUploadContract:
         # The second SHA is the real tip, not merely "some other 40 chars".
         assert f"--sha {upstream_head(checkout)}" in calls
 
-    def test_uploads_run_from_inside_the_upstream_checkout(
+    def test_each_upload_runs_from_a_checkout_of_the_sha_it_declares(
         self, tmp_path, coverage_dir
     ):
-        """The load-bearing constraint: the Codecov CLI builds the file network
-        it sends from the git repo in the CWD. Uploading from the overlay
-        checkout is accepted and then reported as REPORT_EMPTY, so the CWD is
-        part of the contract, not an implementation detail."""
+        """The load-bearing constraint, and the one this suite got wrong once.
+
+        The Codecov CLI builds the file network it sends from the git repo in
+        the CWD; `--sha` does not change that. Running BOTH uploads from the
+        pinned checkout declares the pinned tree's file list against the HEAD
+        commit, so Codecov is told about files that commit may not contain — it
+        drops the report and the run still reports success.
+
+        Measured before this was fixed: extensions, pinned 201 commits behind
+        HEAD, uploaded cleanly and changed nothing at HEAD, while
+        intelligent-assistant at 101 commits behind landed. The difference was
+        how far the workspace had drifted, which is not a thing to leave to
+        luck.
+        """
         result, stub, checkout, _ = run_upstream(tmp_path, coverage_dir)
 
         assert result.returncode == 0, result.stderr
@@ -325,10 +350,46 @@ class TestUploadContract:
             for line in recorded(stub, ".cwds").splitlines()
             if line.strip()
         ]
-        # Both uploads, both from the checkout — a length check as well as a
-        # set check, so this cannot pass when only one upload ran.
+        # Two uploads, two DIFFERENT trees — a length check as well, so this
+        # cannot pass when only one upload ran.
         assert len(cwds) == 2
-        assert set(cwds) == {checkout.resolve()}
+        assert cwds[0] == checkout.resolve()
+        assert cwds[1] == head_checkout_of(tmp_path).resolve()
+
+    def test_the_head_copy_is_remapped_against_the_head_tree(
+        self, tmp_path, coverage_dir
+    ):
+        """Resolving the HEAD copy against the pinned tree would publish paths
+        that may have moved or been deleted since the ref was pinned."""
+        result, _, checkout, remap = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        roots = [
+            line.split("--upstream-root", 1)[1].split()[0]
+            for line in recorded(remap, ".args").splitlines()
+            if "--upstream-root" in line
+        ]
+        assert len(roots) == 2, "the HEAD copy needs its own remap"
+        assert Path(roots[0]).resolve() == checkout.resolve()
+        assert Path(roots[1]).resolve() == head_checkout_of(tmp_path).resolve()
+
+    def test_each_upload_sends_its_own_remapped_report(self, tmp_path, coverage_dir):
+        """Two checkouts are only half the fix. Pointing both uploads at the
+        pinned remap's lcov would send the pinned tree's PATHS against the HEAD
+        commit — the same mismatch, one layer down, and just as silent."""
+        result, stub, _, _ = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        files = [
+            line.split("--file", 1)[1].split()[0]
+            for line in recorded(stub, ".calls").splitlines()
+            if "--file" in line
+        ]
+        assert len(files) == 2
+        assert files[0] != files[1], (
+            "both uploads sent the same report file, so one of them describes "
+            "a tree it was not resolved against"
+        )
 
     def test_branch_is_derived_not_assumed(self, tmp_path, coverage_dir):
         """--branch decides which branch's trend the report joins. Hardcoding
