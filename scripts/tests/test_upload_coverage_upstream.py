@@ -241,18 +241,45 @@ class TestInputValidation:
         assert result.returncode == 1
         assert "unknown workspace" in result.stderr
 
-    def test_rejects_a_name_that_would_forge_a_flag(self, tmp_path, coverage_dir):
-        """A bad name becomes a ghost e2e-<typo> flag carryforward keeps alive."""
+    @pytest.mark.parametrize("name", ["../evil", "trailing-", "a" * 51, "UPPER"])
+    def test_rejects_a_name_that_would_forge_a_flag(
+        self, tmp_path, coverage_dir, name
+    ):
+        """A bad name becomes a ghost e2e-<typo> flag carryforward keeps alive.
+
+        The cap and the trailing hyphen are here because this script is a
+        documented entry point of its own: it used to be the LOOSER of the two
+        guards on the reasoning that scripts/e2e-comment.cjs always runs first,
+        which is only true of the two callers that exist today.
+        """
         root = build_overlay(tmp_path)
         result = run_script(
             root / "scripts" / "upload-coverage-upstream.sh",
-            "../evil",
+            name,
             str(coverage_dir),
             env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
             cwd=root,
         )
         assert result.returncode == 1
         assert "invalid workspace name" in result.stderr
+
+    def test_the_longest_real_workspace_name_is_not_rejected(
+        self, tmp_path, coverage_dir
+    ):
+        """A cap is only safe if it clears the names actually in use; the
+        longest in this repo is 36 characters. Rejected here for a DIFFERENT
+        reason — no such workspace in the fixture — which is what proves the
+        name itself got through."""
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            "scaffolder-backend-module-servicenow",
+            str(coverage_dir),
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
+            cwd=root,
+        )
+        assert "invalid workspace name" not in result.stderr
+        assert "unknown workspace" in result.stderr
 
     def test_rejects_a_source_that_is_neither_url_nor_directory(self, tmp_path):
         root = build_overlay(tmp_path)

@@ -53,12 +53,12 @@ const BUILD_LOG =
 // from the comment body.
 //
 // This is the STRICTEST of the shapes that used to exist for one rule, not the
-// most convenient: `upload-coverage-upstream.sh` allows any length and a
-// trailing hyphen, `refresh-coverage-snapshot.yaml` did not. Consolidating on
-// the loosest would have quietly widened what that workflow accepts, which is
-// the wrong direction for the only guard standing between a comment body and a
-// path. The longest real workspace name is 36 characters and none ends in a
-// hyphen.
+// most convenient. Consolidating on the loosest would have widened what the
+// callers accept, which is the wrong direction for the only guard standing
+// between a comment body and a path. upload-coverage-upstream.sh now enforces
+// the same shape rather than a looser one, because it is a documented entry
+// point in its own right. The longest real workspace name is 36 characters and
+// none ends in a hyphen.
 const WORKSPACE = /^[a-z0-9][a-z0-9-]{0,49}$/;
 
 // A trailing hyphen passes the pattern above and is still not a name anything

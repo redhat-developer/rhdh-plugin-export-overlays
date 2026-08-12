@@ -150,7 +150,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # The workspace name becomes the Codecov flag verbatim — validate it so a typo
 # cannot create a ghost e2e-<typo> flag that carryforward then keeps alive in a
 # shared project we do not administer.
-if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+#
+# Deliberately the SAME shape scripts/e2e-comment.cjs enforces, cap and trailing
+# hyphen included. This used to be the looser of the two on the reasoning that
+# the module always runs first — but this script is a documented entry point on
+# its own, and the guard whose stated job is stopping a ghost flag should not be
+# the weakest place the name can enter from.
+if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]{0,49}$ || "$WORKSPACE" == *- ]]; then
   echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
   exit 1
 fi
