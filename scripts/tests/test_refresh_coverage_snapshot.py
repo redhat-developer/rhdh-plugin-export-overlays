@@ -101,41 +101,27 @@ def listing_server():
         server.shutdown()
 
 
-def download_only(url, tmp_path, path=None):
-    """Run just the download half of the script.
+DOWNLOAD_SCRIPT = SCRIPT.parent / "download-coverage-json.sh"
 
-    The script goes on to merge and remap, which needs npm and the real
-    workspace layout. Extracting the block under test keeps these hermetic and
-    fast, at the cost of pinning the extraction: the assertions below would stop
-    protecting anything if the block moved, so the marker comment is checked.
+
+def download_only(url, tmp_path, path=None):
+    """Run the download step.
+
+    This used to slice the download block out of refresh-coverage-snapshot.sh by
+    literal source markers, because the rest of that script needs npm and the
+    real workspace layout. The block is now its own script shared with the
+    upstream upload path, so these run the real thing — the assertions no longer
+    depend on the source text keeping a particular shape.
     """
-    source = SCRIPT.read_text()
-    try:
-        start = source.index("  if ! command -v jq")
-        end = source.index('elif [[ "$SOURCE" =~ ^http:// ]]')
-    except ValueError as exc:  # pragma: no cover - only on a bad edit
-        raise AssertionError(
-            "could not locate the download block in refresh-coverage-snapshot.sh; "
-            "these tests slice it out by literal markers, so update them together"
-        ) from exc
-    block = source[start:end]
-    for marker in ("command -v jq", "grep -oE", "curl -sf -o"):
-        assert marker in block, (
-            f"the extracted block no longer contains {marker!r} — the markers "
-            "moved and these tests are asserting on nothing"
-        )
-    script = tmp_path / "download.sh"
-    script.write_text(
-        "#!/usr/bin/env bash\nset -euo pipefail\n"
-        f'SOURCE="{url}"\nJSON_DIR="{tmp_path}/out"\nmkdir -p "$JSON_DIR"\n'
-        f"{block}\n"
-    )
-    script.chmod(0o755)
     env = None
     if path is not None:
         env = {"PATH": path}
     return subprocess.run(
-        ["bash", str(script)], capture_output=True, text=True, timeout=60, env=env
+        ["bash", str(DOWNLOAD_SCRIPT), url, f"{tmp_path}/out"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
     )
 
 
@@ -215,6 +201,39 @@ class TestErrorPages:
 
         assert result.returncode == 1
         assert "none of them downloaded as JSON" in result.stderr
+
+
+class TestTransportSecurity:
+    """The loopback exception is what lets the tests above use a local server.
+    It also widens a security control — the artifacts decide what coverage gets
+    published — so the boundary of that exception is worth pinning.
+    """
+
+    def test_plaintext_http_is_refused(self, tmp_path):
+        result = download_only("http://example.com/coverage/", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
+
+    def test_a_host_that_merely_starts_with_the_loopback_address_is_refused(
+        self, tmp_path
+    ):
+        """`http://127.0.0.1.evil.com/` must not satisfy the exception. The
+        alternation is anchored with a following `[:/]` or end-of-string for
+        exactly this — a prefix match would hand an attacker the plaintext
+        path the check exists to close."""
+        result = download_only("http://127.0.0.1.evil.com/coverage/", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
+
+    def test_a_non_url_source_is_refused(self, tmp_path):
+        """The helper only handles URLs; callers pass local directories through
+        without it."""
+        result = download_only("/tmp/some/dir", tmp_path)
+
+        assert result.returncode == 1
+        assert "refusing to download over insecure HTTP" in result.stderr
 
 
 class TestPrerequisites:
