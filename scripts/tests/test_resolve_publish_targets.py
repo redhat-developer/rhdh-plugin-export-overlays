@@ -554,3 +554,22 @@ def test_the_url_the_push_path_derives_is_accepted_by_the_dispatch_guard():
     )
     assert out["error"] is None
     assert out["targets"][0]["coverageUrl"] == coverage_url()
+
+
+def test_a_passing_comment_that_mentions_a_failure_in_prose_still_publishes():
+    """The failure marker is anchored to the first line, like the passing one.
+
+    As a bare phrase it also matched a PASSING comment that merely referred to
+    an earlier red run, and refused to publish a result that had parsed
+    perfectly one line above — a false negative with nothing to gain.
+    """
+    body = (
+        f"{passing_comment('extensions')}\n"
+        "Retried after a Failed E2E Tests run earlier."
+    )
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": body}],
+    )
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+    assert not any("cannot retract anything" in m for m in out["warnings"])

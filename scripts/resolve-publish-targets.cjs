@@ -28,10 +28,16 @@ const {
 // those would bury the two that mean the comment's format has drifted.
 const REPORTABLE = new Set(["bad-workspace", "no-build-log", "multi-section"]);
 
-// Any failure report, however malformed. Only used to tell "not an e2e result"
-// from "an e2e result this cannot read", which is the difference between
-// ignoring a comment and warning about one.
-const FAILED_ANYWHERE = /Failed E2E Tests/;
+// A failure report that announces itself the way the bot does — on the comment's
+// FIRST line — however malformed the rest of it is. Only used to tell "not an
+// e2e result" from "an e2e result this cannot read", which is the difference
+// between ignoring a comment and warning about one.
+//
+// Anchored for the same reason the passing header is, and the asymmetry was a
+// real false negative: as a bare phrase it also matched a PASSING comment that
+// merely mentioned a failed run in prose, which then refused to publish a run
+// that had parsed perfectly one line above.
+const FAILED_HEADLINE = /^[^\n]*Failed E2E Tests/;
 
 // What one comment means, decided without side effects so the loop below reads
 // as a list of outcomes rather than a nest of guards. Every kind here is a
@@ -55,7 +61,7 @@ function classifyComment(comment, headCommittedAt) {
   // means "do not publish", which is safe. On the failing side it means "do not
   // retract" — so a failure report this cannot read leaves an earlier pass
   // standing and publishes a run that is known to be red.
-  if (FAILED_ANYWHERE.test(body)) return { kind: "unreadable-failure" };
+  if (FAILED_HEADLINE.test(body)) return { kind: "unreadable-failure" };
 
   const { workspace, coverageUrl, reason, rejected } = parsePassedE2eComment(body);
   if (reason !== null) return { kind: "refused", reason, rejected };
