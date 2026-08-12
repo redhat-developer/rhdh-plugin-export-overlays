@@ -19,6 +19,7 @@ You are a plugin owner if you:
 | Area | Frequency | Criticality |
 |------|-----------|-------------|
 | Plugin Metadata updates | As needed | 🟡 Medium |
+| Meeting the quality bar for your declared support level | Every release | 🔴 High |
 | Package Metadata synchronization | Every release | 🔴 High |
 | Backstage version updates | When compatibility signals appear | 🔴 High |
 | Patch maintenance | As needed | 🟡 Medium |
@@ -52,6 +53,22 @@ Additionally, your package(s) must be listed in the package-list file for the **
 * [`../rhdh-community-packages.txt`](../rhdh-community-packages.txt) — curated **Optional Extras** catalog index tier (Community and Developer Preview)
 * [`../rhdh-supported-packages.txt`](../rhdh-supported-packages.txt) — **Supported Plugins** catalog index tier (GA and TP)
 * [`../default.packages.yaml`](../default.packages.yaml) — **GA packages only** (`support: generally-available`), with PM approval tracked in an RHDHPLAN feature JIRA. List each package under `enabled:` (usable out of the box) or `disabled:` (requires configuration before use). Do not add non-GA packages to this file.
+
+#### Quality Expectations for the Level You Declare
+
+PM approval decides **whether** your plugin is listed and in which catalog tier. It does not decide whether the plugin meets the bar for the support level you declare — that is a separate expectation, and it is the same for every owner, inside or outside Red Hat.
+
+The requirements per support level are defined in [RHDH Plugin Quality Requirements by Support Level](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md), in the `rhdh` repository. In short:
+
+| Declared level | What is expected |
+|----------------|------------------|
+| **Generally Available** | Unit and integration coverage floors, E2E smoke tests required for release, blocking security scan, 2 review approvals |
+| **Technology Preview** | Coverage recommended, not enforced — but the full GA bar must be met before promotion to GA |
+| **Community** | The published artifact installs and boots, and `appConfigExamples` are valid. Both are already checked automatically |
+| **Developer Preview** | Nothing required |
+
+Most of this is measured for you: the export, smoke, `appConfigExamples` and Backstage compatibility workflows in this repository run against every listed plugin. Coverage and E2E are the exception — they are only measured when your workspace carries `e2e-tests/` and `coverage-anchors/`. Without those two directories, a coverage or E2E claim for a GA or TP plugin is taken on your word rather than measured. See [Getting a Plugin Listed in the Extensions Catalog](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md#getting-a-plugin-listed-in-the-extensions-catalog) for what counts as evidence.
+
 ### 2. Keep Package Metadata Synchronized
 
 Your packages exist in **two places** that must stay in sync:
@@ -177,6 +194,7 @@ Use this checklist when updating your plugin (triggered by a compatibility signa
 - [ ] PR created with updates
 - [ ] `/publish` completed successfully
 - [ ] `/smoketest` passed or manual testing completed
+- [ ] Plugin still meets the quality expectations for its declared support level (see [Quality Expectations for the Level You Declare](./03-plugin-owner-responsibilities.md#quality-expectations-for-the-level-you-declare))
 - [ ] PR merged
 ```
 

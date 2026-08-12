@@ -42,6 +42,12 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
+Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+`spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
+what the build publishes from. The two currently disagree (41 workspaces carry a
+community package; the txt file names 20), so do not treat either as authoritative for
+the other's purpose.
+
 ### Plugin Scopes
 
 Auto-discovery covers three npm scopes (defined in `plugins-regexps`):
@@ -71,6 +77,7 @@ On a PR, comment:
 | `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
+| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
@@ -442,6 +449,31 @@ Two Claude Code skills are available at `.claude/skills/` for investigating E2E 
 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
 - **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+
+## E2E Nightly Fix Conventions
+
+When fixing E2E test failures from `[fullsend] E2E:` issues:
+
+### Allowed modifications
+- `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+
+### Prohibited modifications
+- Plugin source code (`workspaces/*/plugins/`)
+- CI configuration (`.github/`)
+- Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
+
+### Skipping tests (product_bug classification)
+When the issue says `fix_category: product_bug`, add `test.skip` instead
+of fixing the test:
+
+    test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+
+### Verification
+After changes, run from the workspace's e2e-tests directory:
+
+    npx tsc --noEmit
+    npx eslint <changed-files>
+    npx prettier --check <changed-files>
 
 ## Documentation
 

@@ -1,0 +1,103 @@
+name: Publish E2E coverage upstream
+
+# Publishes a workspace's E2E coverage to the Codecov project of the repository
+# the plugin sources live in, where it is browsable file by file. The anchor
+# upload (seed-coverage-main.yaml) keeps the per-workspace percentage on THIS
+# repo's project and is unaffected; this is the per-file view that the anchor
+# cannot give, because this repo does not contain the plugin sources.
+#
+# Why this is manual rather than triggered by a passing e2e:
+#
+#   The input is the Prow run's RAW coverage JSONs, which live in that run's
+#   artifacts — not the committed coverage-snapshots/<ws>.lcov, which is already
+#   anchor-mapped and has lost the per-file detail. Prow jobs report back as a
+#   commit status, and the artifact URL is only derivable from the job's own
+#   build id, so a workflow cannot reliably reconstruct it after the fact. Paste
+#   the coverage/ listing URL from the run you want published.
+#
+#   Automating this properly belongs in the Prow step itself (it already has the
+#   artifacts and the workspace name in hand), which is an openshift/release
+#   change rather than a workflow here. Until then this is the supported path.
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Workspace whose coverage to publish (e.g. intelligent-assistant)
+        type: string
+        required: true
+      coverage-url:
+        description: >-
+          gcsweb URL of the run's .../artifacts/e2e-test-results/coverage/
+          listing, from a PASSING e2e run of that workspace
+        type: string
+        required: true
+      dry-run:
+        description: >-
+          Resolve, clone and remap everything, upload nothing. Needs no upstream
+          token, and is the cheapest way to check what a run would publish
+          before it publishes it.
+        type: boolean
+        required: false
+        default: false
+      pinned-only:
+        description: >-
+          Upload only to the pinned repo-ref, not to the source repo's
+          default-branch HEAD. The HEAD copy is what makes the flag visible, and
+          it cannot be taken back — carryforward keeps it on every later commit
+          and removing it needs Codecov UI access. Use this to stage a first run.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+# A second run for the same workspace while one is in flight would upload two
+# reports for the same flag; serialize per workspace rather than globally so
+# unrelated workspaces are not made to wait.
+concurrency:
+  group: publish-coverage-upstream-${{ inputs.workspace }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.workspace }} coverage upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+
+      - name: Publish coverage upstream
+        env:
+          # NOT the same secret as CODECOV_TOKEN. Codecov upload tokens are per
+          # project, so publishing to rhdh-plugins needs that project's token,
+          # held here under its own name. Without it the job fails fast rather
+          # than uploading nothing and reporting success.
+          CODECOV_RHDH_PLUGINS_TOKEN: ${{ secrets.CODECOV_RHDH_PLUGINS_TOKEN }}
+          # Passed through the environment rather than interpolated into the run
+          # block: `${{ inputs.x }}` is substituted into the script text before
+          # bash sees it, so a crafted value runs as code. Reading them as shell
+          # variables leaves them as data.
+          INPUT_WORKSPACE: ${{ inputs.workspace }}
+          INPUT_COVERAGE_URL: ${{ inputs.coverage-url }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
+          INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
+        run: |
+          set -euo pipefail
+          args=("$INPUT_WORKSPACE" "$INPUT_COVERAGE_URL")
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then
+            args+=("--dry-run")
+          fi
+          if [[ "$INPUT_PINNED_ONLY" == "true" ]]; then
+            args+=("--pinned-only")
+          fi
+          ./scripts/upload-coverage-upstream.sh "${args[@]}"
