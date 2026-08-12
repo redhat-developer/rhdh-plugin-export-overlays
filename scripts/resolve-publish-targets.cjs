@@ -17,6 +17,7 @@
 
 const {
   E2E_BOT_LOGIN,
+  isWorkspaceName,
   parsePassedE2eComment,
   failedWorkspaceOf,
 } = require("./e2e-comment.cjs");
@@ -34,12 +35,15 @@ async function resolvePublishTargets({ github, context, core }) {
     // From the event payload, NOT core.getInput: that reads this STEP's inputs,
     // and github-script declares only `script` and its own options.
     const inputs = context.payload.inputs ?? {};
-    return [
-      {
-        workspace: inputs.workspace ?? "",
-        coverageUrl: inputs["coverage-url"] ?? "",
-      },
-    ];
+    const workspace = inputs.workspace ?? "";
+    // Held to the same shape a comment-derived name is. Dispatching needs write
+    // access, so this is not the main defence — but the name reaches a
+    // `::group::` line before the script that validates it ever runs, and a
+    // guard that applies to one caller and not the other is not a guard.
+    if (!isWorkspaceName(workspace)) {
+      throw new Error(`'${workspace}' is not a usable workspace name.`);
+    }
+    return [{ workspace, coverageUrl: inputs["coverage-url"] ?? "" }];
   }
 
   const { data: prs } =

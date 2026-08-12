@@ -93,7 +93,9 @@ def resolve(*, event="push", inputs=None, prs=(), comments=()):
           payload: {{ inputs: fixture.inputs }},
         }};
         resolvePublishTargets({{ github, context, core }}).then((targets) => {{
-          process.stdout.write(JSON.stringify({{ targets, warnings, infos }}));
+          process.stdout.write(JSON.stringify({{ targets, warnings, infos, error: null }}));
+        }}, (e) => {{
+          process.stdout.write(JSON.stringify({{ targets: [], warnings, infos, error: String(e.message) }}));
         }});
     """
     result = subprocess.run(
@@ -117,6 +119,19 @@ def test_a_dispatch_passes_its_inputs_through():
     assert out["targets"] == [
         {"workspace": "extensions", "coverageUrl": coverage_url()}
     ]
+
+
+def test_a_dispatch_workspace_is_held_to_the_same_shape():
+    """The name reaches a `::group::` line in the workflow before the script
+    that validates it ever runs. Dispatching needs write access, so this is not
+    the main defence — but a guard that applies to the comment path and not the
+    dispatch path is not a guard."""
+    out = resolve(
+        event="workflow_dispatch",
+        inputs={"workspace": "../etc", "coverage-url": coverage_url()},
+    )
+    assert out["error"] is not None
+    assert "not a usable workspace name" in out["error"]
 
 
 def test_a_dispatch_does_not_consult_the_pull_requests():

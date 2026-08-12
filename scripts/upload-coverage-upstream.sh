@@ -274,6 +274,15 @@ clone_at() {
   git -C "$dir" checkout -q FETCH_HEAD
 }
 
+# The remap, once per upload target. Same reason clone_at exists: each target
+# resolves its report paths against ITS OWN tree, so this runs twice with
+# different arguments and nothing else different.
+remap_onto() {
+  local out_dir="$1" root="$2"
+  "${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$out_dir" \
+    --upstream-root "$root" --upstream-workspace "$WORKSPACE"
+}
+
 if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
   echo ""
   echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
@@ -308,8 +317,7 @@ echo "  Branch:      $DEFAULT_BRANCH"
 
 echo ""
 echo "--- Remapping onto upstream source paths ---"
-"${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$REPORT_DIR" \
-  --upstream-root "$UPSTREAM_CHECKOUT" --upstream-workspace "$WORKSPACE"
+remap_onto "$REPORT_DIR" "$UPSTREAM_CHECKOUT"
 
 LCOV_FILE="$REPORT_DIR/lcov.info"
 if [[ ! -s "$LCOV_FILE" ]]; then
@@ -346,17 +354,26 @@ elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   # in the HEAD report.
   echo ""
   echo "--- Shallow clone of $SLUG at $DEFAULT_BRANCH ($DEFAULT_BRANCH_SHA) ---"
-  HEAD_CHECKOUT="${UPSTREAM_HEAD_CHECKOUT_DIR:-$WORK_DIR/src-head}"
+  # Absolutised for the same reason the pinned checkout is, and under the same
+  # contract: remap-lcov.sh runs the remap from the repo root, so a relative
+  # --upstream-root resolves against that root instead of the caller's
+  # directory. The default is already absolute; a seam handed in by a caller
+  # need not be.
+  if [[ -n "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]]; then
+    HEAD_CHECKOUT="$(cd "$UPSTREAM_HEAD_CHECKOUT_DIR" && pwd)"
+  else
+    HEAD_CHECKOUT="$WORK_DIR/src-head"
+  fi
+  # No mkdir: remap-lcov.sh creates its own report dir, which is why the pinned
+  # path does not pre-create one either.
   HEAD_REPORT_DIR="$WORK_DIR/report-head"
-  mkdir -p "$HEAD_REPORT_DIR"
   if [[ -z "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]] && ! clone_at "$DEFAULT_BRANCH_SHA" "$HEAD_CHECKOUT"; then
     echo "[WARN] could not check out $DEFAULT_BRANCH HEAD — uploading to the pinned" >&2
     echo "       ref only. The flag will not be visible on the default branch." >&2
   else
     echo ""
     echo "--- Remapping onto $DEFAULT_BRANCH HEAD paths ---"
-    "${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$HEAD_REPORT_DIR" \
-      --upstream-root "$HEAD_CHECKOUT" --upstream-workspace "$WORKSPACE"
+    remap_onto "$HEAD_REPORT_DIR" "$HEAD_CHECKOUT"
 
     HEAD_LCOV="$HEAD_REPORT_DIR/lcov.info"
     if [[ ! -s "$HEAD_LCOV" ]]; then
