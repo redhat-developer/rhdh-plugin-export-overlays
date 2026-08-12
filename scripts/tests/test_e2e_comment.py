@@ -11,7 +11,8 @@ verbatim so a drift in the bot's format shows up here rather than in a silent
 no-op weeks later.
 
 Driven through `node` rather than imported, because the logic is CommonJS —
-the same reason test_upstream_paths.py does it that way.
+the same reason test_upstream_paths.py does it that way, and the `run_node`
+helper here is deliberately the same shape as that file's.
 """
 
 import json
@@ -47,11 +48,11 @@ Passed: 11 | Failed: 0 | Flaky: 0 | Skipped: 3
 EXPECTED_COVERAGE_URL = f"{ARTIFACTS}/artifacts/e2e-test-results/coverage/"
 
 
-def parse(body):
-    """Run the module's parser over `body` and return its result as a dict."""
-    script = f"""
-        const m = require({str(MODULE)!r});
-        process.stdout.write(JSON.stringify(m.parsePassedE2eComment({json.dumps(body)})));
+def run_node(script: str):
+    """Evaluate `script` with the module in scope; it prints JSON on stdout.
+
+    cwd is the repo root rather than the tests directory so a relative require
+    in the module would resolve the way it does in CI, not against the fixture.
     """
     result = subprocess.run(
         ["node", "-e", script],
@@ -61,7 +62,18 @@ def parse(body):
         cwd=str(SCRIPTS_DIR.parent),
     )
     assert result.returncode == 0, result.stderr
-    return json.loads(result.stdout)
+    return json.loads(result.stdout), result.stderr
+
+
+def parse(body):
+    """Run the parser over a string body and return its result."""
+    payload, _ = run_node(
+        f"""
+        const m = require({str(MODULE)!r});
+        process.stdout.write(JSON.stringify(m.parsePassedE2eComment({json.dumps(body)})));
+        """
+    )
+    return payload
 
 
 def test_a_real_passing_comment_yields_its_coverage_listing():
@@ -84,6 +96,41 @@ def test_a_failed_run_is_not_a_publish_target():
     assert parse(body)["reason"] == "not-a-pass"
 
 
+def test_a_failed_run_quoting_a_passing_header_publishes_nothing():
+    """The defect this guard exists for, and it defeated every other guard here.
+
+    The header and the link are matched independently over the whole body, so a
+    body whose first section FAILED and which quotes a passing header lower down
+    used to return the quoted section's workspace paired with the FAILED run's
+    artifacts — a red run publishing under another workspace's name, reported as
+    success.
+    """
+    body = "\n".join(
+        [
+            "### ❌ Failed E2E Tests - `bulk-import`",
+            f"[Build Log]({ARTIFACTS}/build-log.txt)",
+            "",
+            "> ### ✅ Passed E2E Tests - `extensions`",
+        ]
+    )
+    assert parse(body) == {"workspace": None, "coverageUrl": None, "reason": "multi-section"}
+
+
+def test_a_comment_carrying_two_passing_runs_is_refused_rather_than_paired():
+    """Two results in one body cannot be split by position, so the parser
+    refuses instead of guessing which link belongs to which header. One comment
+    per result is today's shape; this is what notices if that changes."""
+    body = f"{PASSING_COMMENT}\n\n{PASSING_COMMENT.replace('`extensions`', '`theme`')}"
+    assert parse(body)["reason"] == "multi-section"
+
+
+def test_the_header_must_be_the_comments_first_line():
+    """Anchoring is what keeps a quoted or appended header from being read as
+    the comment's own result."""
+    body = f"some preamble\n{PASSING_COMMENT}"
+    assert parse(body)["reason"] == "not-a-pass"
+
+
 def test_an_unrelated_comment_is_not_a_publish_target():
     assert parse("/retest")["reason"] == "not-a-pass"
 
@@ -91,10 +138,21 @@ def test_an_unrelated_comment_is_not_a_publish_target():
 def test_a_lookalike_host_is_refused():
     """The comment body is data. Were the host pattern loose after
     `gcsweb-ci.apps.`, a crafted link would decide which artifacts get published
-    under a Red Hat flag."""
+    under a Red Hat flag. refresh-coverage-snapshot.yaml still carries the loose
+    form, which is why this is pinned here."""
     body = PASSING_COMMENT.replace(
         "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com",
         "gcsweb-ci.apps.attacker.example.com",
+    )
+    assert parse(body)["reason"] == "no-build-log"
+
+
+def test_a_host_smuggled_through_userinfo_is_refused():
+    """`...openshiftapps.com@evil.example.com` is a URL whose real host is the
+    part after the `@`, and it reads as legitimate at a glance."""
+    body = PASSING_COMMENT.replace(
+        "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com",
+        "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com@evil.example.com",
     )
     assert parse(body)["reason"] == "no-build-log"
 
@@ -110,10 +168,14 @@ def test_a_url_in_prose_is_not_the_artifact_link():
     assert parse(body)["reason"] == "no-build-log"
 
 
-@pytest.mark.parametrize("name", ["../../etc", "a b", "/abs", "UPPER", "-lead"])
+@pytest.mark.parametrize(
+    "name", ["../../etc", "a b", "/abs", "UPPER", "-lead", "with.dot", "with_underscore"]
+)
 def test_a_workspace_name_that_cannot_be_a_directory_is_refused(name):
     """The name is interpolated into a path downstream, so it is constrained
-    here rather than trusted."""
+    here rather than trusted. `.` and `_` are refused because
+    upload-coverage-upstream.sh refuses them, and one rule with two shapes is
+    how the looser of the two eventually gets relied on."""
     body = PASSING_COMMENT.replace("`extensions`", f"`{name}`")
     assert parse(body)["reason"] == "bad-workspace"
 
@@ -133,30 +195,45 @@ def test_a_passing_comment_without_a_build_log_is_distinguished():
     assert parse("### ✅ Passed E2E Tests - `extensions`")["reason"] == "no-build-log"
 
 
-def test_a_non_string_body_is_refused_rather_than_crashing():
-    """The GitHub API omits `body` on some comment payloads, and a parser that
-    throws there takes down the publish for every workspace in the push."""
-    script = f"""
-        const m = require({str(MODULE)!r});
-        process.stdout.write(JSON.stringify(m.parsePassedE2eComment(undefined)));
+def test_a_non_string_that_stringifies_into_a_comment_is_refused():
+    """What the `typeof` guard actually buys.
+
+    `RegExp.exec` coerces its argument, so an object whose string form parses
+    would be accepted as a comment without it. Asserting on `undefined` instead
+    would prove nothing — that misses the header on its own, guard or no guard.
     """
-    result = subprocess.run(
-        ["node", "-e", script], capture_output=True, text=True, timeout=60,
-        cwd=str(SCRIPTS_DIR.parent),
+    payload, _ = run_node(
+        f"""
+        const m = require({str(MODULE)!r});
+        const shaped = {{ toString: () => {json.dumps(PASSING_COMMENT)} }};
+        process.stdout.write(JSON.stringify(m.parsePassedE2eComment(shaped)));
+        """
     )
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["reason"] == "not-a-pass"
+    assert payload == {"workspace": None, "coverageUrl": None, "reason": "not-a-pass"}
+
+
+def test_the_parser_writes_nothing_to_the_console():
+    """The module's stated contract — callers decide how to report a refusal.
+    A stray log here would land in the workflow's output as an unexplained line
+    with no PR or workspace attached to it."""
+    _, stderr = run_node(
+        f"""
+        const m = require({str(MODULE)!r});
+        m.parsePassedE2eComment("/retest");
+        m.parsePassedE2eComment({json.dumps(PASSING_COMMENT)});
+        process.stdout.write("null");
+        """
+    )
+    assert stderr == ""
 
 
 def test_the_bot_login_has_one_definition():
     """The author pin is what makes the body trustworthy at all. The workflow
     imports this rather than restating it, so the two cannot drift apart."""
-    script = f"""
+    payload, _ = run_node(
+        f"""
         const m = require({str(MODULE)!r});
         process.stdout.write(JSON.stringify(m.E2E_BOT_LOGIN));
-    """
-    result = subprocess.run(
-        ["node", "-e", script], capture_output=True, text=True, timeout=60,
-        cwd=str(SCRIPTS_DIR.parent),
+        """
     )
-    assert json.loads(result.stdout) == "rhdh-test-bot"
+    assert payload == "rhdh-test-bot"

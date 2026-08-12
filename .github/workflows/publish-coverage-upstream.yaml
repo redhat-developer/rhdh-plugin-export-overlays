@@ -6,8 +6,11 @@ name: Publish E2E coverage upstream
 # repo's project and is unaffected; this is the per-file view that the anchor
 # cannot give, because this repo does not contain the plugin sources.
 #
-# Every push to main that touches a workspace publishes that workspace's
-# coverage. The manual dispatch is kept for backfilling a specific run.
+# A push to main that touches a workspace publishes the coverage of whichever
+# workspaces the merged PR's PASSING e2e comments name — which is the workspace
+# the push touched in every case a presubmit allows, since the e2e job refuses a
+# PR that changes more than one. The manual dispatch is kept for backfilling a
+# specific run.
 #
 # How a push finds the coverage to publish:
 #
@@ -17,8 +20,12 @@ name: Publish E2E coverage upstream
 #
 #   The artifact URL is NOT reconstructed from the Prow job id. It is read from
 #   the link the e2e bot already posts on the PR, which is exactly where
-#   refresh-stale-coverage-snapshots.yaml reads it from. Two parsers now depend
-#   on that comment's shape; change them together.
+#   refresh-stale-coverage-snapshots.yaml reads it from. THREE places now depend
+#   on that comment's shape — this one, that workflow's shell copy, and
+#   refresh-coverage-snapshot.yaml's inline JS — and they have already drifted:
+#   refresh-coverage-snapshot.yaml still matches the gcsweb host with
+#   `gcsweb-ci\.apps\.[\w.-]+`, which the module here deliberately does not.
+#   Change them together, and prefer moving them onto scripts/e2e-comment.cjs.
 #
 #   Only a PASSING run publishes. A failed run still produces coverage JSONs,
 #   and they are misleading rather than merely incomplete: the bulk-import run
@@ -75,13 +82,19 @@ permissions:
   # comments, to find the e2e run whose artifacts hold the coverage.
   pull-requests: read
 
-# Two runs uploading the same flag at once would send two reports for one
-# measurement. Dispatches serialize per workspace so unrelated backfills do not
-# wait on each other; push runs share one group because which workspaces they
-# carry is only known after the resolve step, by which point a concurrency
-# group can no longer be chosen.
+# Dispatches serialize per workspace so two backfills of one workspace do not
+# upload two reports for the same flag, while unrelated ones do not wait.
+#
+# Push runs key on the commit instead, which gives each its own group and so
+# never queues. Sharing one group across pushes looks tidier and silently loses
+# coverage: GitHub keeps at most ONE pending run per group and cancels the
+# previously pending one, so a batch of merges — which is exactly how
+# update-plugins-repo-refs.yaml lands its daily bumps — would publish only the
+# last. Two pushes racing on one workspace is the accepted cost; Codecov merges
+# sessions for a flag, and a duplicate session is recoverable where a dropped
+# publish is not.
 concurrency:
-  group: publish-coverage-upstream-${{ inputs.workspace || 'push' }}
+  group: publish-coverage-upstream-${{ inputs.workspace || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -108,74 +121,15 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            // Parsing lives in a module so it can be tested without running
-            // this workflow — see scripts/tests/test_e2e_comment.py.
-            const { E2E_BOT_LOGIN, parsePassedE2eComment } =
-              require(`${process.env.GITHUB_WORKSPACE}/scripts/e2e-comment.cjs`);
+            // Both the resolution and the comment parsing it rests on live in
+            // modules so they can be tested without running this workflow —
+            // see scripts/tests/test_resolve_publish_targets.py. What is left
+            // here is the wiring, which is the only part a test cannot reach.
+            const { resolvePublishTargets } =
+              require(`${process.env.GITHUB_WORKSPACE}/scripts/resolve-publish-targets.cjs`);
 
-            if (context.eventName === 'workflow_dispatch') {
-              core.setOutput('targets', JSON.stringify([{
-                workspace: core.getInput('workspace') || '',
-                coverageUrl: core.getInput('coverage-url') || '',
-              }]));
-              return;
-            }
-
-            const { data: prs } = await github.rest.repos
-              .listPullRequestsAssociatedWithCommit({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: context.sha,
-              });
-            const merged = prs.filter((pr) => pr.merged_at);
-            if (merged.length === 0) {
-              core.info('No merged PR is associated with this commit — nothing to publish.');
-              core.setOutput('targets', '[]');
-              return;
-            }
-
-            // Keyed by workspace so the LAST passing comment wins. One e2e
-            // invocation posts one comment per RHDH version in the matrix, and
-            // they measure the same PR-built image, so any of them is the same
-            // coverage; taking the last is just a deterministic choice.
-            const targets = new Map();
-            for (const pr of merged) {
-              const comments = await github.paginate(
-                github.rest.issues.listComments,
-                { owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100 },
-              );
-              for (const comment of comments) {
-                if (comment.user?.login !== E2E_BOT_LOGIN) continue;
-
-                const { workspace, coverageUrl, reason } =
-                  parsePassedE2eComment(comment.body ?? '');
-                // not-a-pass is the ordinary case — most bot comments on a PR
-                // are failures or reruns — so only the two that mean something
-                // is wrong are surfaced.
-                if (reason === 'bad-workspace') {
-                  core.warning(`PR #${pr.number}: ignoring a comment naming an unusable workspace.`);
-                  continue;
-                }
-                if (reason === 'no-build-log') {
-                  core.warning(
-                    `PR #${pr.number}: a passing e2e comment carried no build-log URL — ` +
-                    "skipping (the bot's comment format may have drifted).",
-                  );
-                  continue;
-                }
-                if (reason !== null) continue;
-
-                targets.set(workspace, { workspace, coverageUrl });
-              }
-            }
-
-            const resolved = [...targets.values()];
-            core.info(
-              resolved.length
-                ? `Publishing: ${resolved.map((t) => t.workspace).join(', ')}`
-                : 'No passing e2e run found on the merged PR(s) — nothing to publish.',
-            );
-            core.setOutput('targets', JSON.stringify(resolved));
+            const targets = await resolvePublishTargets({ github, context, core });
+            core.setOutput('targets', JSON.stringify(targets));
 
       - name: Publish coverage upstream
         env:
