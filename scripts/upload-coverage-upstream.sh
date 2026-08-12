@@ -11,7 +11,11 @@
 # coverage/ listing, which is downloaded for you.
 #
 # Flags:
-#   --dry-run      resolve and remap everything, upload nothing.
+#   --dry-run      resolve and remap everything, upload nothing. That is both
+#                  checkouts and both remaps, on purpose: the copy anyone
+#                  actually sees is the HEAD one, and a dry run that skipped it
+#                  would not tell you what a real run would publish. It costs
+#                  roughly twice what a single-target run does.
 #   --pinned-only  upload to the pinned repo-ref but NOT to the default-branch
 #                  HEAD. The HEAD copy is a one-way door: once the flag exists
 #                  there, carryforward keeps it on every later commit and
@@ -25,8 +29,9 @@
 #                  reported the same session count and the same per-file
 #                  numbers, none of them the uploaded ones. A report uploaded
 #                  onto a historical commit has not been observed to change
-#                  that commit's report, so there is nothing to review — the
-#                  same finalised-parent behaviour described in point 3 below.
+#                  that commit's report, so there is nothing to review. WHY that
+#                  is has not been established — see point 3, which is the one
+#                  account of it; do not infer a mechanism from here.
 #                  Keep the flag for staging only if that changes.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
@@ -103,8 +108,12 @@
 #       Path to the Codecov CLI, so tests stub it instead of downloading and
 #       calling the real one.
 #   UPSTREAM_CHECKOUT_DIR
-#       Reuse an existing checkout instead of cloning, so tests never reach
-#       GitHub.
+#       Reuse an existing checkout of the PINNED ref instead of cloning it.
+#   UPSTREAM_HEAD_CHECKOUT_DIR
+#       The same for the default-branch HEAD checkout. Both are needed to keep a
+#       run off the network: setting only the first leaves the HEAD copy cloning
+#       from github.com, which is how a "hermetic" test quietly grows a network
+#       dependency.
 #   REMAP_BIN
 #       Path to the remap step. remap-lcov.sh npm-installs the istanbul
 #       libraries on every run, which is too heavy and too networked for a unit
@@ -361,7 +370,10 @@ elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
       # become, and it is invisible otherwise.
       PINNED_FILES="$(grep -c '^SF:' "$LCOV_FILE" || true)"
       HEAD_FILES="$(grep -c '^SF:' "$HEAD_LCOV" || true)"
-      echo "[INFO] $HEAD_FILES of $PINNED_FILES file(s) still resolve at $DEFAULT_BRANCH HEAD."
+      # Not phrased as a subset: both remaps run over the same coverage JSONs
+      # against different trees, so HEAD can resolve a file the pinned ref did
+      # not have — a plugin added upstream since the ref was pinned.
+      echo "[INFO] pinned ref resolved $PINNED_FILES file(s); $DEFAULT_BRANCH HEAD resolved $HEAD_FILES."
       if [[ "$HEAD_FILES" -lt "$PINNED_FILES" ]]; then
         echo "[WARN] $((PINNED_FILES - HEAD_FILES)) file(s) measured at the pinned ref no" >&2
         echo "       longer exist there and are absent from the HEAD copy." >&2

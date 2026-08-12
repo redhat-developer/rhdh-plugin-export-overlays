@@ -6,7 +6,13 @@ Those are exactly the things that are silently wrong in a cross-repo upload — 
 upload with a bad slug, a bad branch or a bad CWD is still accepted by the API
 and simply never displays.
 
-Every run is hermetic. UPSTREAM_CHECKOUT_DIR stands in for the shallow clone and
+Every run is hermetic, and stays that way only while BOTH checkout seams are
+set: UPSTREAM_CHECKOUT_DIR stands in for the pinned shallow clone,
+UPSTREAM_HEAD_CHECKOUT_DIR for the default-branch one. Setting only the first
+leaves the HEAD copy fetching from github.com, which is how this suite briefly
+became flaky rather than failing honestly.
+
+UPSTREAM_CHECKOUT_DIR stands in for the shallow clone and
 REMAP_BIN for the remap, so nothing reaches GitHub, Codecov or npm. The one
 exception is documented on the test that needs it.
 """
@@ -85,6 +91,15 @@ def build_upstream_checkout(tmp_path: Path, branch="main", head_sha=None, into=N
     return checkout
 
 
+def session_names(stub: Path):
+    """The --name each upload was given, in call order."""
+    return [
+        line.split("--name ", 1)[1].split()[0]
+        for line in recorded(stub, ".calls").splitlines()
+        if "--name " in line
+    ]
+
+
 def head_checkout_of(tmp_path: Path) -> Path:
     """Where run_upstream puts the default-branch checkout."""
     return tmp_path / "checkout-head"
@@ -109,7 +124,29 @@ def write_stub_remap(path: Path) -> Path:
         "set -euo pipefail\n"
         f'echo "$*" >> "{path}.args"\n'
         'mkdir -p "$2"\n'
-        'printf "TN:\\nSF:workspaces/x/src/a.ts\\nDA:1,1\\nend_of_record\\n" > "$2/lcov.info"\n'
+        # How many files this remap "resolved". Keyed by --upstream-root so a
+        # test can make the HEAD tree resolve fewer than the pinned one, which
+        # is the whole point of remapping twice — with one fixed body for both,
+        # the drop the script reports could never happen and its warning could
+        # never be exercised.
+        'files=2\n'
+        # Keyed on the VALUE of --upstream-root, which this file owns. Keying
+        # on the output dir would couple the fixture to the script's private
+        # temp-dir name, and matching anywhere in "$*" would fire on any tmp
+        # path that happens to contain the word.
+        'root=""; prev=""\n'
+        'for a in "$@"; do [ "$prev" = "--upstream-root" ] && root="$a"; prev="$a"; done\n'
+        'case "$root" in *checkout-head) files="${REMAP_HEAD_FILES:-2}";; esac\n'
+        ': > "$2/lcov.info"\n'
+        # NOT `seq 1 $files`: BSD seq counts DOWN when first > last, so
+        # `seq 1 0` yields "1 0" on macOS and nothing on GNU. A fixture whose
+        # zero case means "two files" on one developer's machine and "none" in
+        # CI is worse than no fixture.
+        'i=1\n'
+        'while [ "$i" -le "$files" ]; do\n'
+        '  printf "TN:\\nSF:workspaces/x/src/a$i.ts\\nDA:1,1\\nend_of_record\\n" >> "$2/lcov.info"\n'
+        '  i=$((i + 1))\n'
+        'done\n'
     )
     path.chmod(0o755)
     return path
@@ -416,30 +453,193 @@ class TestUploadContract:
         assert f"--upstream-workspace {WORKSPACE}" in args
         assert str(coverage_dir) in args
 
-    def test_the_session_name_follows_the_report_content(
+    def test_two_identical_reports_share_one_session_name(
         self, tmp_path, coverage_dir
     ):
         """Codecov treats a matching --name on the same commit as a replacement
         for that session. Deriving it from the report digest is what makes a
-        retry idempotent while keeping two different measurements apart."""
+        retry idempotent."""
         first, stub, _, _ = run_upstream(tmp_path, coverage_dir)
         assert first.returncode == 0, first.stderr
 
-        names = {
-            part.split()[0]
-            for line in recorded(stub, ".calls").splitlines()
-            for part in [line.split("--name ", 1)[1]]
-        }
-        assert len(names) == 1
-        name = names.pop()
+        names = session_names(stub)
+        assert len(set(names)) == 1
+        name = names[0]
         assert name.startswith(f"overlay-e2e-{WORKSPACE}-")
-        # Both uploads of one report share a name; the digest is the tail.
         digest = name.rsplit("-", 1)[1]
         assert len(digest) == 8
         assert all(c in "0123456789abcdef" for c in digest)
 
+    def test_two_different_reports_get_different_session_names(
+        self, tmp_path, coverage_dir
+    ):
+        """The other half, and the half this suite briefly asserted backwards.
+
+        Before each target got its own remap there was one report and one
+        `readonly UPLOAD_NAME`, so "both uploads share a name" was true. It is
+        now a fixture artefact: in production the two lcovs describe different
+        trees. A name that ignored the report it names would collapse the HEAD
+        session onto the pinned one and silently replace it.
+        """
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_FILES": "1"}
+        )
+        assert result.returncode == 0, result.stderr
+
+        assert len(set(session_names(stub))) == 2
+
+
+def write_git_shim(path: Path):
+    """A `git` that passes everything through but fails `fetch`.
+
+    The checkout seams and clone_at are mutually exclusive — setting the seam
+    means clone_at never runs, and not setting it means the fetch goes to
+    github.com — so the only hermetic way to reach the failure branch is to make
+    git itself refuse. `fail_fetch_after` lets the pinned clone succeed and the
+    HEAD one fail, which is the case that must NOT be fatal.
+    """
+    path.write_text(
+        "#!/usr/bin/env bash\n"
+        'for a in "$@"; do\n'
+        '  if [ "$a" = "fetch" ]; then\n'
+        '    echo "fatal: could not read from remote repository" >&2; exit 128\n'
+        '  fi\n'
+        'done\n'
+        'exec /usr/bin/env -i PATH=/usr/bin:/bin HOME="$HOME" git "$@"\n'
+    )
+    path.chmod(0o755)
+    return path
+
+
+class TestCloneFailure:
+    """clone_at's failure contract, which the two-checkout change created.
+
+    The two checkouts fail differently on purpose: without the pinned tree there
+    is nothing to publish at all, while without the HEAD tree the
+    exactly-attributed copy is still worth having.
+    """
+
+    def _run(self, tmp_path, coverage_dir, *, pinned_seam):
+        """`git fetch` always fails. Which clone that breaks depends on whether
+        the pinned checkout is handed in: with the seam set, clone_at only ever
+        runs for the HEAD copy."""
+        root = build_overlay(tmp_path)
+        checkout = build_upstream_checkout(tmp_path)
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        write_git_shim(bin_dir / "git")
+        stub = write_stub_cli(tmp_path / "codecov", [0])
+        env = {
+            "CODECOV_BIN": str(stub),
+            "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
+            "CODECOV_RHDH_PLUGINS_TOKEN": "t",
+            "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+        }
+        if pinned_seam:
+            env["UPSTREAM_CHECKOUT_DIR"] = str(checkout)
+        return (
+            run_script(
+                root / "scripts" / "upload-coverage-upstream.sh",
+                WORKSPACE,
+                str(coverage_dir),
+                env=env,
+                cwd=root,
+            ),
+            stub,
+        )
+
+    def test_a_pinned_clone_that_fails_stops_the_run(self, tmp_path, coverage_dir):
+        """Nothing downstream can be attributed without the tree the coverage
+        was measured against."""
+        result, stub = self._run(tmp_path, coverage_dir, pinned_seam=False)
+
+        assert result.returncode == 1
+        assert "could not fetch" in result.stderr
+        assert call_count(stub) == 0
+
+    def test_a_head_clone_that_fails_still_publishes_the_pinned_copy(
+        self, tmp_path, coverage_dir
+    ):
+        """The visible copy is lost, the attributed one is not — and the run
+        says which, because a flag that never appears on the default branch with
+        no explanation is the failure this whole path exists to remove."""
+        result, stub = self._run(tmp_path, coverage_dir, pinned_seam=True)
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 1
+        assert "could not check out main HEAD" in result.stderr
+
+
+class TestStalenessReporting:
+    """The diagnostic half of the two-checkout change.
+
+    The counts are the only place a reader learns that a workspace's pinned ref
+    has drifted far enough that the HEAD copy no longer describes the same
+    files. The script header calls it "the number that says how stale a pinned
+    ref has become, and it is invisible otherwise" — which is precisely why it
+    needs a test: nothing else would notice if it stopped being printed.
+    """
+
+    def test_both_resolutions_are_reported(self, tmp_path, coverage_dir):
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_FILES": "1"}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "pinned ref resolved 2 file(s)" in result.stdout
+        assert "HEAD resolved 1" in result.stdout
+
+    def test_files_lost_since_the_pinned_ref_are_warned_about(
+        self, tmp_path, coverage_dir
+    ):
+        """A file measured at the pinned ref that no longer exists at HEAD is
+        absent from the copy anyone sees. Quietly publishing less than was
+        measured is the kind of shortfall this whole change exists to surface."""
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_FILES": "1"}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "1 file(s) measured at the pinned ref no" in result.stderr
+
+    def test_no_drift_warning_when_everything_still_resolves(
+        self, tmp_path, coverage_dir
+    ):
+        """The warning is only worth having if the ordinary case is quiet."""
+        result, _, _, _ = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        assert "no longer exist" not in result.stderr
+
+    def test_a_head_remap_that_resolves_nothing_publishes_only_the_pinned_copy(
+        self, tmp_path, coverage_dir
+    ):
+        """Every path the run measured has moved or gone since the ref was
+        pinned. The exactly-attributed copy is still worth publishing; doing it
+        without saying why the visible one is missing is not."""
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_FILES": "0"}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 1
+        assert "resolved nothing against main HEAD" in result.stderr
+
 
 class TestTargetSelection:
+    def test_pinned_only_does_not_pay_for_the_head_resolution(
+        self, tmp_path, coverage_dir
+    ):
+        """--pinned-only is the cheap staged run. Doing the HEAD checkout and
+        remap anyway and then discarding them costs a shallow clone of a
+        monorepo for nothing, and nothing else would notice."""
+        result, _, _, remap = run_upstream(tmp_path, coverage_dir, "--pinned-only")
+
+        assert result.returncode == 0, result.stderr
+        assert len(recorded(remap, ".args").strip().splitlines()) == 1
+        assert "Remapping onto main HEAD paths" not in result.stdout
+
+
     def test_pinned_only_skips_the_one_way_door(self, tmp_path, coverage_dir):
         """The tip copy cannot be taken back — once the flag is there,
         carryforward keeps it on every later commit and removal needs Codecov UI
@@ -475,6 +675,11 @@ class TestTargetSelection:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                # Without this the HEAD copy clones from github.com, and the
+                # test's outcome starts depending on the network.
+                "UPSTREAM_HEAD_CHECKOUT_DIR": str(
+                    build_upstream_checkout(tmp_path, into=head_checkout_of(tmp_path))
+                ),
                 "REMAP_BIN": str(remap),
                 "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
@@ -578,6 +783,11 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                # Without this the HEAD copy clones from github.com, and the
+                # test's outcome starts depending on the network.
+                "UPSTREAM_HEAD_CHECKOUT_DIR": str(
+                    build_upstream_checkout(tmp_path, into=head_checkout_of(tmp_path))
+                ),
                 "REMAP_BIN": str(silent),
                 "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
@@ -605,6 +815,11 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                # Without this the HEAD copy clones from github.com, and the
+                # test's outcome starts depending on the network.
+                "UPSTREAM_HEAD_CHECKOUT_DIR": str(
+                    build_upstream_checkout(tmp_path, into=head_checkout_of(tmp_path))
+                ),
                 "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
                 "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             },
