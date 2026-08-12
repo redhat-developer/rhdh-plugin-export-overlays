@@ -71,11 +71,20 @@ async function resolvePublishTargets({ github, context, core }) {
       per_page: 100,
     });
 
+    // The drift alarm. If the bot's header wording ever changes, every comment
+    // falls through as `not-a-pass`, no target resolves, and the run stays
+    // green — this workflow would simply stop publishing and go on reporting
+    // success forever. Counting what the bot said against what was understood
+    // is what turns that into a signal.
+    let fromBot = 0;
+    let understood = 0;
+
     for (const comment of comments) {
       // The author pin is what makes the body trustworthy enough to parse a URL
       // out of; without it any account able to comment could choose which
       // artifacts get published under a Red Hat flag.
       if (comment.user?.login !== E2E_BOT_LOGIN) continue;
+      fromBot += 1;
 
       // Comments arrive oldest-first, so a failure retracts any pass this
       // workspace had earlier on the same PR. Without this an on-demand re-run
@@ -84,6 +93,7 @@ async function resolvePublishTargets({ github, context, core }) {
       // upload-coverage-upstream.sh's own header calls a one-way door.
       const failed = failedWorkspaceOf(comment.body ?? "");
       if (failed) {
+        understood += 1;
         if (targets.delete(failed)) {
           core.warning(
             `PR #${pr.number}: ${failed} passed earlier and failed later — ` +
@@ -93,19 +103,32 @@ async function resolvePublishTargets({ github, context, core }) {
         continue;
       }
 
-      const { workspace, coverageUrl, reason } = parsePassedE2eComment(
-        comment.body ?? "",
-      );
+      const { workspace, coverageUrl, reason, rejected } =
+        parsePassedE2eComment(comment.body ?? "");
       if (reason !== null) {
         if (REPORTABLE.has(reason)) {
+          understood += 1;
+          // The offending name is included, as refresh-coverage-snapshot.yaml
+          // does: "a comment was rejected" without saying which sends whoever
+          // reads it back to the PR to guess.
+          const named = rejected ? ` naming '${rejected}'` : "";
           core.warning(
-            `PR #${pr.number}: a passing e2e comment could not be read (${reason}) — ` +
+            `PR #${pr.number}: a passing e2e comment${named} could not be read (${reason}) — ` +
               "skipping (the bot's comment format may have drifted).",
           );
         }
         continue;
       }
+      understood += 1;
       targets.set(workspace, { workspace, coverageUrl });
+    }
+
+    if (fromBot > 0 && understood === 0) {
+      core.warning(
+        `PR #${pr.number}: ${fromBot} comment(s) from ${E2E_BOT_LOGIN}, none of them ` +
+          "recognisable as an e2e result — the comment format has probably changed, " +
+          "and until scripts/e2e-comment.cjs is updated nothing will publish.",
+      );
     }
   }
 

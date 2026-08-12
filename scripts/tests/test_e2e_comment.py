@@ -83,6 +83,7 @@ def test_a_real_passing_comment_yields_its_coverage_listing():
         "workspace": "extensions",
         "coverageUrl": EXPECTED_COVERAGE_URL,
         "reason": None,
+        "rejected": None,
     }
 
 
@@ -113,7 +114,12 @@ def test_a_failed_run_quoting_a_passing_header_publishes_nothing():
             "> ### ✅ Passed E2E Tests - `extensions`",
         ]
     )
-    assert parse(body) == {"workspace": None, "coverageUrl": None, "reason": "multi-section"}
+    assert parse(body) == {
+        "workspace": None,
+        "coverageUrl": None,
+        "reason": "multi-section",
+        "rejected": None,
+    }
 
 
 def test_a_comment_carrying_two_passing_runs_is_refused_rather_than_paired():
@@ -209,7 +215,12 @@ def test_a_non_string_that_stringifies_into_a_comment_is_refused():
         process.stdout.write(JSON.stringify(m.parsePassedE2eComment(shaped)));
         """
     )
-    assert payload == {"workspace": None, "coverageUrl": None, "reason": "not-a-pass"}
+    assert payload == {
+        "workspace": None,
+        "coverageUrl": None,
+        "reason": "not-a-pass",
+        "rejected": None,
+    }
 
 
 def test_the_parser_writes_nothing_to_the_console():
@@ -237,3 +248,14 @@ def test_the_bot_login_has_one_definition():
         """
     )
     assert payload == "rhdh-test-bot"
+
+
+def test_a_rejected_workspace_name_is_reported_back():
+    """A refusal nobody can trace is a refusal nobody acts on. The name is
+    exposed under its own key so a caller can log it without being able to
+    mistake it for one that passed the guard."""
+    body = PASSING_COMMENT.replace("`extensions`", "`../etc`")
+    result = parse(body)
+    assert result["reason"] == "bad-workspace"
+    assert result["rejected"] == "../etc"
+    assert result["workspace"] is None

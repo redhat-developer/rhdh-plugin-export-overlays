@@ -290,3 +290,51 @@ def test_a_pass_after_a_failure_still_publishes():
         ],
     )
     assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+
+
+def test_bot_comments_that_no_longer_parse_raise_a_drift_alarm():
+    """The failure this whole workflow exists to remove, one level up.
+
+    If the bot's header wording changes, every comment falls through as the
+    ordinary `not-a-pass`, nothing resolves, and the run is green — publishing
+    would stop for good while CI kept reporting success. The bot having spoken
+    and nothing having been understood is what makes that visible.
+    """
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[
+            {"user": {"login": BOT}, "body": "### ✅ E2E Tests Passed - `extensions`"},
+            {"user": {"login": BOT}, "body": "### ✅ E2E Tests Passed - `theme`"},
+        ],
+    )
+    assert out["targets"] == []
+    assert any("format has probably changed" in m for m in out["warnings"])
+
+
+def test_no_drift_alarm_when_the_bot_was_understood():
+    """The alarm is only worth having if an ordinary run stays quiet."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+    )
+    assert not any("format has probably changed" in m for m in out["warnings"])
+
+
+def test_no_drift_alarm_when_the_bot_said_nothing():
+    """A PR that never ran e2e is not drift."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": "someone"}, "body": "looks good"}],
+    )
+    assert out["warnings"] == []
+
+
+def test_a_rejected_workspace_is_named_in_the_warning():
+    """An unattended job telling you it skipped something, without saying what,
+    sends whoever reads it back to the PR to guess."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("../etc")}],
+    )
+    assert out["targets"] == []
+    assert "../etc" in out["warnings"][0]

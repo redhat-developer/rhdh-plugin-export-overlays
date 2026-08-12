@@ -148,7 +148,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          count=$(jq 'length' <<<"$TARGETS")
+          # Validated rather than trusted. `jq length` on empty input prints
+          # nothing and exits 0, and `[[ "" -eq 0 ]]` is TRUE — so a resolve step
+          # that produced no output at all would read as "nothing to publish"
+          # and report success, which is the silent failure this workflow exists
+          # to remove.
+          if ! count=$(jq 'length' <<<"$TARGETS") || [[ ! "$count" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: the resolve step produced no usable target list." >&2
+            exit 1
+          fi
+
           if [[ "$count" -eq 0 ]]; then
             echo "Nothing to publish."
             exit 0

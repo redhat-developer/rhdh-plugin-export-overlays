@@ -65,8 +65,18 @@ const WORKSPACE = /^[a-z0-9][a-z0-9-]*$/;
 //   bad-workspace the bot named something that cannot be a directory.
 //   no-build-log  the comment passed but carried no artifact link, which means
 //                 the bot's format drifted and this parser needs updating.
+//
+// A fourth field, `rejected`, carries the name a `bad-workspace` refusal turned
+// down, and is null otherwise. Kept separate from `workspace` on purpose: a
+// caller may want it in a log so the refusal can be traced back to a comment,
+// and must not be able to reach for it as though it had passed the guard.
 function parsePassedE2eComment(body) {
-  const miss = (reason) => ({ workspace: null, coverageUrl: null, reason });
+  const miss = (reason, rejected = null) => ({
+    workspace: null,
+    coverageUrl: null,
+    reason,
+    rejected,
+  });
   // Not merely defensive: `exec` COERCES its argument, so a non-string whose
   // string form happens to parse would otherwise be accepted as a comment.
   // `undefined` is refused either way — it stringifies to something that misses
@@ -83,7 +93,7 @@ function parsePassedE2eComment(body) {
   if (!header) return miss("not-a-pass");
 
   const workspace = header[1];
-  if (!WORKSPACE.test(workspace)) return miss("bad-workspace");
+  if (!WORKSPACE.test(workspace)) return miss("bad-workspace", workspace);
 
   const link = BUILD_LOG.exec(body);
   if (!link) return miss("no-build-log");
@@ -98,6 +108,7 @@ function parsePassedE2eComment(body) {
       "artifacts/e2e-test-results/coverage/",
     ),
     reason: null,
+    rejected: null,
   };
 }
 
