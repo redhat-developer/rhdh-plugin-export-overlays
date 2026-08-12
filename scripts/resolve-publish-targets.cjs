@@ -27,47 +27,56 @@ const {
 // those would bury the two that mean the comment's format has drifted.
 const REPORTABLE = new Set(["bad-workspace", "no-build-log", "multi-section"]);
 
-// Returns an array of `{ workspace, coverageUrl }`, possibly empty. Empty is an
-// ordinary outcome — a merge whose PR never ran e2e, or ran it and failed — so
-// the caller reports it rather than failing.
-async function resolvePublishTargets({ github, context, core }) {
-  if (context.eventName === "workflow_dispatch") {
-    // From the event payload, NOT core.getInput: that reads this STEP's inputs,
-    // and github-script declares only `script` and its own options.
-    const inputs = context.payload.inputs ?? {};
-    const workspace = inputs.workspace ?? "";
-    // Held to the same shape a comment-derived name is. Dispatching needs write
-    // access, so this is not the main defence — but the name reaches a
-    // `::group::` line before the script that validates it ever runs, and a
-    // guard that applies to one caller and not the other is not a guard.
-    if (!isWorkspaceName(workspace)) {
-      throw new Error(`'${workspace}' is not a usable workspace name.`);
-    }
-    return [{ workspace, coverageUrl: inputs["coverage-url"] ?? "" }];
+// Any failure report, however malformed. Only used to tell "not an e2e result"
+// from "an e2e result this cannot read", which is the difference between
+// ignoring a comment and warning about one.
+const FAILED_ANYWHERE = /Failed E2E Tests/;
+
+// What one comment means, decided without side effects so the loop below reads
+// as a list of outcomes rather than a nest of guards. Every kind here is a
+// distinct thing that can happen to a run, and they are deliberately not
+// collapsed: "the bot said nothing useful" and "the bot said this failed and I
+// could not read which workspace" call for opposite responses.
+//
+//   not-bot             ignore it entirely; the author pin is the trust anchor.
+//   retract             a failure for a workspace this PR reported passing.
+//   unreadable-failure  a failure report that names nothing retractable.
+//   refused             a passing comment the parser would not read.
+//   stale               a pass that predates the commit being merged.
+//   target              publishable.
+function classifyComment(comment, headCommittedAt) {
+  if (comment.user?.login !== E2E_BOT_LOGIN) return { kind: "not-bot" };
+
+  const body = comment.body ?? "";
+  const failed = failedWorkspaceOf(body);
+  if (failed) return { kind: "retract", workspace: failed };
+  // A refusal means the opposite thing on each side. On the passing side it
+  // means "do not publish", which is safe. On the failing side it means "do not
+  // retract" — so a failure report this cannot read leaves an earlier pass
+  // standing and publishes a run that is known to be red.
+  if (FAILED_ANYWHERE.test(body)) return { kind: "unreadable-failure" };
+
+  const { workspace, coverageUrl, reason, rejected } = parsePassedE2eComment(body);
+  if (reason !== null) return { kind: "refused", reason, rejected };
+
+  // A passing comment older than the merged commit reports a run against a tree
+  // that is not the one being merged, and upload-coverage-upstream.sh reads
+  // `repo-ref` from the MERGED tree — so publishing it would put per-line hit
+  // counts on source lines that build never executed, on a flag whose
+  // default-branch copy cannot be taken back.
+  const ranAt = Date.parse(comment.created_at ?? "");
+  if (headCommittedAt && ranAt && ranAt < headCommittedAt) {
+    return { kind: "stale", workspace };
   }
+  return { kind: "target", workspace, coverageUrl };
+}
 
-  const { data: prs } =
-    await github.rest.repos.listPullRequestsAssociatedWithCommit({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      commit_sha: context.sha,
-    });
+// Everything one merged PR contributes. Lifted out of resolvePublishTargets so
+// neither function has to be read with two loops and six outcomes in the head
+// at once; the orchestration up there is now "which PRs, then log what came
+// back".
+async function collectPullRequestTargets({ github, context, core, pr, targets }) {
 
-  // Only merged: a PR that merely contains this commit has not had its coverage
-  // accepted into main, and an open PR's numbers describe code that may never
-  // land.
-  const merged = prs.filter((pr) => pr.merged_at);
-  if (merged.length === 0) {
-    core.info("No merged PR is associated with this commit — nothing to publish.");
-    return [];
-  }
-
-  // Keyed by workspace so the LAST passing comment wins. One e2e invocation
-  // posts one comment per RHDH version in the matrix, and they measure the same
-  // PR-built image, so any of them carries the same coverage; taking the last
-  // is a deterministic choice rather than a meaningful one.
-  const targets = new Map();
-  for (const pr of merged) {
     // When the merged code was last touched. A passing comment older than this
     // reports a run against a tree that is not the one being merged, and
     // upload-coverage-upstream.sh reads `repo-ref` from the MERGED tree — so
@@ -115,81 +124,54 @@ async function resolvePublishTargets({ github, context, core }) {
     const fromThisPr = new Set();
 
     for (const comment of comments) {
-      // The author pin is what makes the body trustworthy enough to parse a URL
-      // out of; without it any account able to comment could choose which
-      // artifacts get published under a Red Hat flag.
-      if (comment.user?.login !== E2E_BOT_LOGIN) continue;
+      const found = classifyComment(comment, headCommittedAt);
+      if (found.kind === "not-bot") continue;
       fromBot += 1;
-
-      // Comments arrive oldest-first, so a failure retracts any pass this
-      // workspace had earlier on the same PR. Without this an on-demand re-run
-      // going red would still publish the previous green run's numbers, which
-      // is a wrong report rather than a missing one — and it lands on a project
-      // upload-coverage-upstream.sh's own header calls a one-way door.
-      // A refusal means something different on each side. On the passing side
-      // it means "do not publish", which is safe. On the failing side it means
-      // "do not retract" — so a failure report this cannot read leaves an
-      // earlier pass standing and publishes a run that is known to be red.
-      // Nothing can be retracted without knowing which workspace, so the only
-      // honest response is to say so.
-      const body = comment.body ?? "";
-      const failed = failedWorkspaceOf(body);
-      if (!failed && /Failed E2E Tests/.test(body)) {
+      // Only "refused with a reason nobody needs to hear about" leaves this
+      // unincremented — that is the ordinary rerun noise the drift alarm must
+      // not be buried by.
+      if (found.kind !== "refused" || REPORTABLE.has(found.reason)) {
         understood += 1;
+      }
+
+      if (found.kind === "retract") {
+        // Scoped to the PR that reported it. `targets` spans every merged PR
+        // this commit is associated with, so deleting globally would let one
+        // PR's red run retract a different PR's green one.
+        if (fromThisPr.has(found.workspace) && targets.delete(found.workspace)) {
+          fromThisPr.delete(found.workspace);
+          core.warning(
+            `PR #${pr.number}: ${found.workspace} passed earlier and failed later — ` +
+              "not publishing the superseded run.",
+          );
+        }
+      } else if (found.kind === "unreadable-failure") {
         core.warning(
           `PR #${pr.number}: a FAILING e2e comment could not be read, so it ` +
             "cannot retract anything — check whether a red run is about to be " +
             "published as green.",
         );
-        continue;
-      }
-      if (failed) {
-        understood += 1;
-        // Scoped to the PR that reported it. `targets` spans every merged PR
-        // this commit is associated with, so deleting globally would let one
-        // PR's red run retract a different PR's green one — a workspace that
-        // passed on its own PR silently not publishing because an unrelated
-        // one failed.
-        if (fromThisPr.has(failed) && targets.delete(failed)) {
-          fromThisPr.delete(failed);
+      } else if (found.kind === "refused") {
+        if (REPORTABLE.has(found.reason)) {
+          const named = found.rejected ? ` naming '${found.rejected}'` : "";
           core.warning(
-            `PR #${pr.number}: ${failed} passed earlier and failed later — ` +
-              "not publishing the superseded run.",
+            `PR #${pr.number}: a passing e2e comment${named} could not be read ` +
+              `(${found.reason}) — skipping (the bot's comment format may have drifted).`,
           );
         }
-        continue;
-      }
-
-      const { workspace, coverageUrl, reason, rejected } =
-        parsePassedE2eComment(body);
-      if (reason !== null) {
-        if (REPORTABLE.has(reason)) {
-          understood += 1;
-          // The offending name is included, as refresh-coverage-snapshot.yaml
-          // does: "a comment was rejected" without saying which sends whoever
-          // reads it back to the PR to guess.
-          const named = rejected ? ` naming '${rejected}'` : "";
-          core.warning(
-            `PR #${pr.number}: a passing e2e comment${named} could not be read (${reason}) — ` +
-              "skipping (the bot's comment format may have drifted).",
-          );
-        }
-        continue;
-      }
-      understood += 1;
-
-      const ranAt = Date.parse(comment.created_at ?? "");
-      if (headCommittedAt && ranAt && ranAt < headCommittedAt) {
+      } else if (found.kind === "stale") {
         core.warning(
-          `PR #${pr.number}: the passing ${workspace} run predates the commit ` +
-            "that merged, so it measured a different tree — not publishing it. " +
-            "Re-run e2e on the final commit to publish this workspace.",
+          `PR #${pr.number}: the passing ${found.workspace} run predates the ` +
+            "commit that merged, so it measured a different tree — not " +
+            "publishing it. Re-run e2e on the final commit to publish this workspace.",
         );
-        continue;
+      } else {
+        targets.set(found.workspace, {
+          workspace: found.workspace,
+          coverageUrl: found.coverageUrl,
+        });
+        fromThisPr.add(found.workspace);
       }
-
-      targets.set(workspace, { workspace, coverageUrl });
-      fromThisPr.add(workspace);
     }
 
     if (fromBot > 0 && understood === 0) {
@@ -199,6 +181,50 @@ async function resolvePublishTargets({ github, context, core }) {
           "and until scripts/e2e-comment.cjs is updated nothing will publish.",
       );
     }
+}
+
+// Returns an array of `{ workspace, coverageUrl }`, possibly empty. Empty is an
+// ordinary outcome — a merge whose PR never ran e2e, or ran it and failed — so
+// the caller reports it rather than failing.
+async function resolvePublishTargets({ github, context, core }) {
+  if (context.eventName === "workflow_dispatch") {
+    // From the event payload, NOT core.getInput: that reads this STEP's inputs,
+    // and github-script declares only `script` and its own options.
+    const inputs = context.payload.inputs ?? {};
+    const workspace = inputs.workspace ?? "";
+    // Held to the same shape a comment-derived name is. Dispatching needs write
+    // access, so this is not the main defence — but the name reaches a
+    // `::group::` line before the script that validates it ever runs, and a
+    // guard that applies to one caller and not the other is not a guard.
+    if (!isWorkspaceName(workspace)) {
+      throw new Error(`'${workspace}' is not a usable workspace name.`);
+    }
+    return [{ workspace, coverageUrl: inputs["coverage-url"] ?? "" }];
+  }
+
+  const { data: prs } =
+    await github.rest.repos.listPullRequestsAssociatedWithCommit({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      commit_sha: context.sha,
+    });
+
+  // Only merged: a PR that merely contains this commit has not had its coverage
+  // accepted into main, and an open PR's numbers describe code that may never
+  // land.
+  const merged = prs.filter((pr) => pr.merged_at);
+  if (merged.length === 0) {
+    core.info("No merged PR is associated with this commit — nothing to publish.");
+    return [];
+  }
+
+  // Keyed by workspace so the LAST passing comment wins. One e2e invocation
+  // posts one comment per RHDH version in the matrix, and they measure the same
+  // PR-built image, so any of them carries the same coverage; taking the last
+  // is a deterministic choice rather than a meaningful one.
+  const targets = new Map();
+  for (const pr of merged) {
+    await collectPullRequestTargets({ github, context, core, pr, targets });
   }
 
   const resolved = [...targets.values()];

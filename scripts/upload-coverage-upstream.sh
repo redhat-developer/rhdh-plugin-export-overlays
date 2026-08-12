@@ -283,9 +283,10 @@ clone_at() {
 # success", which is the failure this whole change exists to remove, so the
 # HEAD-copy failures are raised to run annotations rather than left in the log.
 warn_loudly() {
-  echo "[WARN] $1" >&2
+  local message="$1"
+  echo "[WARN] $message" >&2
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    echo "::warning::$FLAG: $1"
+    echo "::warning::$FLAG: $message"
   fi
 }
 
@@ -447,10 +448,10 @@ upload_name_for() {
   # status echo's, so a failed hash-object would yield "overlay-<flag>-" and
   # every target would upload under one colliding constant name — Codecov reads
   # a matching name on a commit as a REPLACEMENT for that session.
-  local digest
-  digest="$(git hash-object "$1" | cut -c1-8)"
+  local lcov="$1" digest
+  digest="$(git hash-object "$lcov" | cut -c1-8)"
   if [[ -z "$digest" ]]; then
-    echo "ERROR: could not digest $1 for the upload session name." >&2
+    echo "ERROR: could not digest $lcov for the upload session name." >&2
     return 1
   fi
   echo "overlay-$FLAG-$digest"
