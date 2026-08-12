@@ -52,7 +52,22 @@ def coverage_url(artifacts=ARTIFACTS):
     return f"{artifacts}/artifacts/e2e-test-results/coverage/"
 
 
-def resolve(*, event="push", inputs=None, prs=(), comments=()):
+# The head commit's timestamp and the comment's are what the staleness gate
+# compares. Defaults put every comment AFTER the merged commit, which is the
+# ordinary case: a run that measured the tree being merged.
+HEAD_COMMITTED_AT = "2026-08-11T10:00:00Z"
+AFTER_HEAD = "2026-08-11T11:00:00Z"
+BEFORE_HEAD = "2026-08-11T09:00:00Z"
+
+
+def resolve(
+    *,
+    event="push",
+    inputs=None,
+    prs=(),
+    comments=(),
+    head_committed_at=HEAD_COMMITTED_AT,
+):
     """Drive the module against stubbed github/context/core.
 
     Returns `{targets, warnings, infos}` — the warnings matter as much as the
@@ -62,8 +77,19 @@ def resolve(*, event="push", inputs=None, prs=(), comments=()):
     fixture = {
         "event": event,
         "inputs": inputs or {},
-        "prs": list(prs),
-        "comments": list(comments),
+        "prs": [{"head": {"sha": "headsha"}, **pr} for pr in prs],
+        # A flat list is served to every PR; a dict keyed by PR number serves
+        # each its own, which is what distinguishes "this PR's run failed" from
+        # "some other merged PR's run failed".
+        "comments": (
+            {
+                str(n): [{"created_at": AFTER_HEAD, **c} for c in cs]
+                for n, cs in comments.items()
+            }
+            if isinstance(comments, dict)
+            else [{"created_at": AFTER_HEAD, **c} for c in comments]
+        ),
+        "headCommittedAt": head_committed_at,
     }
     script = f"""
         const {{ resolvePublishTargets }} = require({str(MODULE)!r});
@@ -79,12 +105,19 @@ def resolve(*, event="push", inputs=None, prs=(), comments=()):
           rest: {{
             repos: {{
               listPullRequestsAssociatedWithCommit: async () => ({{ data: fixture.prs }}),
+              getCommit: async () => {{
+                if (!fixture.headCommittedAt) throw new Error("no such commit");
+                return {{ data: {{ commit: {{ committer: {{ date: fixture.headCommittedAt }} }} }} }};
+              }},
             }},
             issues: {{ listComments: 'listComments' }},
           }},
           // The real paginate takes the method and its params; the fixture is
           // flat because no test here needs per-PR comment lists.
-          paginate: async () => fixture.comments,
+          paginate: async (_m, params) =>
+            Array.isArray(fixture.comments)
+              ? fixture.comments
+              : (fixture.comments[String(params.issue_number)] ?? []),
         }};
         const context = {{
           eventName: fixture.event,
@@ -353,3 +386,92 @@ def test_a_rejected_workspace_is_named_in_the_warning():
     )
     assert out["targets"] == []
     assert "../etc" in out["warnings"][0]
+
+
+def test_a_run_that_predates_the_merged_commit_is_not_published():
+    """The finding that survived two rounds of being deferred.
+
+    e2e here is on-demand, not per-push: green run on commit A, another commit
+    bumping the workspace's repo-ref, merge with no re-run. The coverage
+    measured against A would then be uploaded with the repo-ref read from the
+    MERGED tree and remapped onto it — per-line hit counts on source lines that
+    build never executed, on a flag whose default-branch copy cannot be taken
+    back.
+    """
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {
+                "user": {"login": BOT},
+                "body": passing_comment("extensions"),
+                "created_at": BEFORE_HEAD,
+            }
+        ],
+    )
+    assert out["targets"] == []
+    assert any("measured a different tree" in m for m in out["warnings"])
+
+
+def test_a_run_after_the_merged_commit_still_publishes():
+    """The gate is only safe if the ordinary case survives it — otherwise it
+    trades a wrong report for no report at all."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {
+                "user": {"login": BOT},
+                "body": passing_comment("extensions"),
+                "created_at": AFTER_HEAD,
+            }
+        ],
+    )
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+
+
+def test_an_unreadable_head_commit_publishes_and_says_the_check_is_off():
+    """Skipping every workspace because one API call failed would be a worse
+    answer than publishing with the missing check announced."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+        head_committed_at=None,
+    )
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+    assert any("cannot be told from a current one" in m for m in out["warnings"])
+
+
+def test_one_prs_failure_does_not_retract_another_prs_pass():
+    """`targets` spans every merged PR associated with the pushed commit. A
+    global delete let a red run on one PR silently stop an unrelated workspace
+    from publishing."""
+    out = resolve(
+        prs=[
+            {"number": 1, "merged_at": "2026-08-11T12:00:00Z"},
+            {"number": 2, "merged_at": "2026-08-11T12:00:00Z"},
+        ],
+        comments={
+            1: [{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+            2: [
+                {
+                    "user": {"login": BOT},
+                    "body": "### ❌ Failed E2E Tests - `extensions`",
+                }
+            ],
+        },
+    )
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+
+
+def test_an_unreadable_failure_report_is_flagged_rather_than_ignored():
+    """A refusal means the opposite thing on each side. On the passing side it
+    means "do not publish"; on the failing side it means "do not retract", so a
+    failure report this cannot parse leaves an earlier pass standing and
+    publishes a run that is known to be red."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {"user": {"login": BOT}, "body": passing_comment("extensions")},
+            {"user": {"login": BOT}, "body": "### ❌ Failed E2E Tests - `NOT A SLUG`"},
+        ],
+    )
+    assert any("cannot retract anything" in m for m in out["warnings"])

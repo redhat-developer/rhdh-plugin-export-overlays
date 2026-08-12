@@ -19,13 +19,14 @@ name: Publish E2E coverage upstream
 #   anchor-mapped and has lost the per-file detail this exists to publish.
 #
 #   The artifact URL is NOT reconstructed from the Prow job id. It is read from
-#   the link the e2e bot already posts on the PR, which is exactly where
-#   refresh-stale-coverage-snapshots.yaml reads it from. THREE places now depend
-#   on that comment's shape — this one, that workflow's shell copy, and
-#   refresh-coverage-snapshot.yaml's inline JS — and they have already drifted:
-#   refresh-coverage-snapshot.yaml still matches the gcsweb host with
-#   `gcsweb-ci\.apps\.[\w.-]+`, which the module here deliberately does not.
-#   Change them together, and prefer moving them onto scripts/e2e-comment.cjs.
+#   the link the e2e bot already posts on the PR. Two places read that shape
+#   now: scripts/e2e-comment.cjs, which this workflow and
+#   refresh-coverage-snapshot.yaml both call, and
+#   refresh-stale-coverage-snapshots.yaml's shell copy, which sweeps many merged
+#   PRs in bash and is pinned to the module by an agreement test rather than by
+#   this comment. A third copy used to live inline in
+#   refresh-coverage-snapshot.yaml and had drifted to a looser gcsweb host; it
+#   was replaced by the module in this change.
 #
 #   Only a PASSING run publishes. A failed run still produces coverage JSONs,
 #   and they are misleading rather than merely incomplete: the bulk-import run
@@ -81,6 +82,14 @@ permissions:
   # The push path reads the merged PR behind the pushed commit and that PR's
   # comments, to find the e2e run whose artifacts hold the coverage.
   pull-requests: read
+  # Belt and braces, and deliberately not minimal. PR comments are served by the
+  # Issues API, and refresh-stale-coverage-snapshots.yaml reads them in
+  # production with `contents: read` alone — so on this public repo
+  # `pull-requests: read` is very likely already enough. But this is the one
+  # path that cannot be exercised before merge, and being wrong costs a 403 on
+  # every push to main rather than a visible test failure. One read scope on
+  # public data is the cheaper side of that trade.
+  issues: read
 
 # Dispatches serialize per workspace so two backfills of one workspace do not
 # upload two reports for the same flag, while unrelated ones do not wait.

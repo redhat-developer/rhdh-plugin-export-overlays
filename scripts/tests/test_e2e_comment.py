@@ -144,8 +144,8 @@ def test_an_unrelated_comment_is_not_a_publish_target():
 def test_a_lookalike_host_is_refused():
     """The comment body is data. Were the host pattern loose after
     `gcsweb-ci.apps.`, a crafted link would decide which artifacts get published
-    under a Red Hat flag. refresh-coverage-snapshot.yaml still carries the loose
-    form, which is why this is pinned here."""
+    under a Red Hat flag. refresh-coverage-snapshot.yaml used to carry a looser
+    form; it now calls this module, so this is the one place the rule lives."""
     body = PASSING_COMMENT.replace(
         "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com",
         "gcsweb-ci.apps.attacker.example.com",

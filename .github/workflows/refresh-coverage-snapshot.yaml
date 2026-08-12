@@ -91,6 +91,13 @@ jobs:
           # Its own directory, so the PR-branch checkout below lands on a clean
           # workspace and this copy of the parser cannot be replaced by the PR's.
           path: .trusted
+          # One file off the tip is all this step needs, and it runs on every
+          # passing e2e comment. Sparse is safe precisely BECAUSE of `path`
+          # above: the sparse state belongs to this checkout's own .git, so it
+          # cannot leave the PR checkout below partially populated.
+          fetch-depth: 1
+          sparse-checkout: scripts/e2e-comment.cjs
+          sparse-checkout-cone-mode: false
 
       - name: Parse the e2e result comment
         id: parse

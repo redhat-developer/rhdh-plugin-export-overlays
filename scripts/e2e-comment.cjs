@@ -65,6 +65,12 @@ const WORKSPACE = /^[a-z0-9][a-z0-9-]{0,49}$/;
 // here should act on.
 const isWorkspaceName = (name) => WORKSPACE.test(name) && !name.endsWith("-");
 
+// More than one result header in one body. Asked in both directions — a comment
+// that reports a pass and a comment that reports a failure — because pairing a
+// header with a link from a different section is the failure the anchoring
+// exists to prevent, and one copy of that rule is enough.
+const carriesMoreThanOneResult = (body) => (body.match(ANY_HEADER) ?? []).length > 1;
+
 // Returns `{ workspace, coverageUrl, reason }`. On success `reason` is null; on
 // a refusal both other fields are null and `reason` says which, because they
 // call for different actions:
@@ -93,11 +99,9 @@ function parsePassedE2eComment(body) {
   // the header — so that case proves nothing about this line.
   if (typeof body !== "string") return miss("not-a-pass");
 
-  // Counted before anything is extracted: pairing a header with a link from a
-  // different section is the failure this guards, so neither may be trusted
-  // until the body is known to hold exactly one result.
-  const headers = body.match(ANY_HEADER);
-  if (headers && headers.length > 1) return miss("multi-section");
+  // Checked before anything is extracted: neither the header nor the link may
+  // be trusted until the body is known to hold exactly one result.
+  if (carriesMoreThanOneResult(body)) return miss("multi-section");
 
   const header = HEADER.exec(body);
   if (!header) return miss("not-a-pass");
@@ -136,8 +140,7 @@ const FAILED_HEADER = /^[^\n]*Failed E2E Tests\s*-\s*`([^`]+)`/;
 // predecessor on a shared upstream project as the plugin's record.
 function failedWorkspaceOf(body) {
   if (typeof body !== "string") return null;
-  const headers = body.match(ANY_HEADER);
-  if (headers && headers.length > 1) return null;
+  if (carriesMoreThanOneResult(body)) return null;
   const header = FAILED_HEADER.exec(body);
   if (!header || !isWorkspaceName(header[1])) return null;
   return header[1];

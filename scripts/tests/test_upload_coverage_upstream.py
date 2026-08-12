@@ -12,9 +12,8 @@ UPSTREAM_HEAD_CHECKOUT_DIR for the default-branch one. Setting only the first
 leaves the HEAD copy fetching from github.com, which is how this suite briefly
 became flaky rather than failing honestly.
 
-UPSTREAM_CHECKOUT_DIR stands in for the shallow clone and
-REMAP_BIN for the remap, so nothing reaches GitHub, Codecov or npm. The one
-exception is documented on the test that needs it.
+REMAP_BIN stands in for the remap, so nothing reaches GitHub, Codecov or npm.
+The one exception is documented on the test that needs it.
 """
 
 import json
@@ -142,9 +141,22 @@ def write_stub_remap(path: Path) -> Path:
         # `seq 1 0` yields "1 0" on macOS and nothing on GNU. A fixture whose
         # zero case means "two files" on one developer's machine and "none" in
         # CI is worse than no fixture.
+        # Models the real remap's contract, not a convenient one:
+        # remap-coverage.cjs EXITS 1 when nothing resolves, it never writes an
+        # empty lcov. A stub that exited 0 with an empty file made a guard the
+        # script could not actually reach look tested.
+        'if [ "$files" -eq 0 ]; then\n'
+        '  echo "[remap] no source files resolved against the upstream checkout" >&2\n'
+        '  exit 1\n'
+        'fi\n'
+        # REMAP_HEAD_SHIFT renames the HEAD tree's files without changing how
+        # many there are, which is the churn a count-based comparison misses.
+        'shift_by=0\n'
+        'case "$root" in *checkout-head) shift_by="${REMAP_HEAD_SHIFT:-0}";; esac\n'
         'i=1\n'
         'while [ "$i" -le "$files" ]; do\n'
-        '  printf "TN:\\nSF:workspaces/x/src/a$i.ts\\nDA:1,1\\nend_of_record\\n" >> "$2/lcov.info"\n'
+        '  n=$((i + shift_by))\n'
+        '  printf "TN:\\nSF:workspaces/x/src/a$n.ts\\nDA:1,1\\nend_of_record\\n" >> "$2/lcov.info"\n'
         '  i=$((i + 1))\n'
         'done\n'
     )
@@ -511,6 +523,86 @@ def write_git_shim(path: Path):
     return path
 
 
+class TestRealClone:
+    """The PR's central claim, exercised without a seam.
+
+    Every other test hands both checkouts in, so `clone_at` never runs and the
+    thing the change is about — each upload coming from a checkout of the sha it
+    declares — is asserted only against directories the fixture prepared. Here
+    the script really clones, twice, from a git shim that rewrites the remote to
+    a local repository.
+    """
+
+    def test_it_clones_each_sha_and_uploads_from_the_right_one(
+        self, tmp_path, coverage_dir
+    ):
+        root = build_overlay(tmp_path)
+        origin = build_upstream_checkout(tmp_path).parent / "upstream-origin"
+        # The pinned ref must be a real commit that is NOT the tip, or the
+        # script takes its "pinned ref is already HEAD" shortcut and only one
+        # upload happens — which is not what this test is about.
+        pinned = git(origin, "rev-parse", "HEAD").stdout.strip()
+        (origin / "workspaces" / WORKSPACE / "plugins" / "ia" / "src" / "Later.tsx").write_text(
+            "export const b = 2;\n"
+        )
+        git(origin, "add", "-A")
+        git(origin, "commit", "-q", "-m", "move on")
+        (root / "workspaces" / WORKSPACE / "source.json").write_text(
+            json.dumps(
+                {
+                    "repo": f"https://github.com/{UPSTREAM_SLUG}",
+                    "repo-ref": pinned,
+                    "repo-flat": False,
+                }
+            )
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        shim = bin_dir / "git"
+        # clone_at fetches by remote NAME, so the URL has to be swapped where it
+        # is registered rather than where it is used.
+        shim.write_text(
+            "#!/usr/bin/env bash\n"
+            "args=()\n"
+            'for a in "$@"; do\n'
+            f'  if [ "$a" = "https://github.com/{UPSTREAM_SLUG}" ]; then a="{origin}"; fi\n'
+            '  args+=("$a")\n'
+            "done\n"
+            'exec /usr/bin/env -i PATH=/usr/bin:/bin HOME="$HOME" git "${args[@]}"\n'
+        )
+        shim.chmod(0o755)
+        stub = write_stub_cli(tmp_path / "codecov", [0])
+
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            WORKSPACE,
+            str(coverage_dir),
+            env={
+                "CODECOV_BIN": str(stub),
+                "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
+                "CODECOV_RHDH_PLUGINS_TOKEN": "t",
+                "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+            },
+            cwd=root,
+        )
+
+        assert result.returncode == 0, result.stderr
+        cwds = [
+            Path(line).resolve()
+            for line in recorded(stub, ".cwds").splitlines()
+            if line.strip()
+        ]
+        assert len(cwds) == 2
+        # Two real clones in two different directories, neither handed in. The
+        # directories themselves are gone by now — the script traps EXIT and
+        # removes its work dir — so what is asserted is the pairing that
+        # outlives it: distinct trees, and the right sha declared from each.
+        assert cwds[0] != cwds[1]
+        calls = recorded(stub, ".calls").splitlines()
+        assert f"--sha {pinned}" in calls[0]
+        assert f"--sha {git(origin, 'rev-parse', 'HEAD').stdout.strip()}" in calls[1]
+
+
 class TestCloneFailure:
     """clone_at's failure contract, which the two-checkout change created.
 
@@ -611,6 +703,43 @@ class TestStalenessReporting:
         assert result.returncode == 0, result.stderr
         assert "no longer exist" not in result.stderr
 
+    def test_churn_that_keeps_the_count_equal_is_still_reported(
+        self, tmp_path, coverage_dir
+    ):
+        """Counts would call this no drift. One measured file is missing from
+        the copy anyone sees and another appeared in its place, which is exactly
+        the case a count cannot see."""
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_SHIFT": "1"}
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "1 file(s) measured at the pinned ref no longer resolve" in result.stderr
+
+    def test_a_skipped_head_copy_is_raised_as_a_run_annotation(
+        self, tmp_path, coverage_dir
+    ):
+        """The job is unattended now. Every HEAD-copy failure exits 0 on
+        purpose, so stderr alone would mean "published nothing anyone can see,
+        reported success" — the failure this change exists to remove."""
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={"REMAP_HEAD_FILES": "0", "GITHUB_ACTIONS": "true"},
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "::warning::e2e-" in result.stdout
+
+    def test_nothing_is_annotated_outside_actions(self, tmp_path, coverage_dir):
+        """`::warning::` is only meaningful to the Actions runner; printing it
+        into a developer's terminal is noise pretending to be a mechanism."""
+        result, _, _, _ = run_upstream(
+            tmp_path, coverage_dir, env={"REMAP_HEAD_FILES": "0"}
+        )
+
+        assert "::warning::" not in result.stdout
+
     def test_a_head_remap_that_resolves_nothing_publishes_only_the_pinned_copy(
         self, tmp_path, coverage_dir
     ):
@@ -638,7 +767,6 @@ class TestTargetSelection:
         assert result.returncode == 0, result.stderr
         assert len(recorded(remap, ".args").strip().splitlines()) == 1
         assert "Remapping onto main HEAD paths" not in result.stdout
-
 
     def test_pinned_only_skips_the_one_way_door(self, tmp_path, coverage_dir):
         """The tip copy cannot be taken back — once the flag is there,

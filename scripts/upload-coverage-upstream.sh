@@ -274,6 +274,21 @@ clone_at() {
   git -C "$dir" checkout -q FETCH_HEAD
 }
 
+# A warning nobody is expected to go looking for.
+#
+# This job used to be dispatched by hand, so stderr reached the person who ran
+# it. It now fires on every merge, unattended, and every HEAD-copy failure below
+# still exits 0 on purpose — the exactly-attributed copy is worth publishing
+# without it. That combination is "published nothing anyone can see, reported
+# success", which is the failure this whole change exists to remove, so the
+# HEAD-copy failures are raised to run annotations rather than left in the log.
+warn_loudly() {
+  echo "[WARN] $1" >&2
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "::warning::$FLAG: $1"
+  fi
+}
+
 # The remap, once per upload target. Same reason clone_at exists: each target
 # resolves its report paths against ITS OWN tree, so this runs twice with
 # different arguments and nothing else different.
@@ -368,32 +383,42 @@ elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   # path does not pre-create one either.
   HEAD_REPORT_DIR="$WORK_DIR/report-head"
   if [[ -z "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]] && ! clone_at "$DEFAULT_BRANCH_SHA" "$HEAD_CHECKOUT"; then
-    echo "[WARN] could not check out $DEFAULT_BRANCH HEAD — uploading to the pinned" >&2
-    echo "       ref only. The flag will not be visible on the default branch." >&2
+    warn_loudly "could not check out $DEFAULT_BRANCH HEAD — uploaded to the pinned ref only, so the flag will not be visible on the default branch."
   else
     echo ""
     echo "--- Remapping onto $DEFAULT_BRANCH HEAD paths ---"
-    remap_onto "$HEAD_REPORT_DIR" "$HEAD_CHECKOUT"
-
+    # Guarded, and the guard is the point. remap-coverage.cjs EXITS 1 when
+    # nothing resolves against a tree (and on a missing workspace directory) —
+    # it does not write an empty lcov. Called bare, that status propagates
+    # through `set -e` and kills the run here, before any upload: the
+    # exactly-attributed pinned copy this branch says is "still worth
+    # publishing" would be lost too, and every later merge touching the
+    # workspace would go red for a condition the code below is written to treat
+    # as survivable.
     HEAD_LCOV="$HEAD_REPORT_DIR/lcov.info"
-    if [[ ! -s "$HEAD_LCOV" ]]; then
+    if ! remap_onto "$HEAD_REPORT_DIR" "$HEAD_CHECKOUT" || [[ ! -s "$HEAD_LCOV" ]]; then
       # Every path the run measured has moved or gone since the pinned ref. The
       # pinned copy is still worth publishing; going quiet here is not.
-      echo "[WARN] the remap resolved nothing against $DEFAULT_BRANCH HEAD — the" >&2
-      echo "       workspace has moved too far from its pinned ref. Uploading to" >&2
-      echo "       the pinned ref only." >&2
+      warn_loudly "the remap resolved nothing against $DEFAULT_BRANCH HEAD — the workspace has moved too far from its pinned ref. Uploaded to the pinned ref only, so the flag will not be visible on the default branch."
     else
       # Reported because it is the number that says how stale the pinned ref has
       # become, and it is invisible otherwise.
-      PINNED_FILES="$(grep -c '^SF:' "$LCOV_FILE" || true)"
-      HEAD_FILES="$(grep -c '^SF:' "$HEAD_LCOV" || true)"
+      # Compared as SETS, not counts. Churn that removes one measured file and
+      # adds another leaves the counts equal while the visible copy is missing
+      # something the run measured — the exact drift this is here to surface.
+      PINNED_PATHS="$WORK_DIR/pinned-paths"
+      HEAD_PATHS="$WORK_DIR/head-paths"
+      grep '^SF:' "$LCOV_FILE" | sort -u > "$PINNED_PATHS" || true
+      grep '^SF:' "$HEAD_LCOV" | sort -u > "$HEAD_PATHS" || true
+      PINNED_FILES="$(wc -l < "$PINNED_PATHS" | tr -d ' ')"
+      HEAD_FILES="$(wc -l < "$HEAD_PATHS" | tr -d ' ')"
+      LOST="$(comm -23 "$PINNED_PATHS" "$HEAD_PATHS" | wc -l | tr -d ' ')"
       # Not phrased as a subset: both remaps run over the same coverage JSONs
       # against different trees, so HEAD can resolve a file the pinned ref did
       # not have — a plugin added upstream since the ref was pinned.
       echo "[INFO] pinned ref resolved $PINNED_FILES file(s); $DEFAULT_BRANCH HEAD resolved $HEAD_FILES."
-      if [[ "$HEAD_FILES" -lt "$PINNED_FILES" ]]; then
-        echo "[WARN] $((PINNED_FILES - HEAD_FILES)) file(s) measured at the pinned ref no" >&2
-        echo "       longer exist there and are absent from the HEAD copy." >&2
+      if [[ "$LOST" -gt 0 ]]; then
+        warn_loudly "$LOST file(s) measured at the pinned ref no longer resolve at $DEFAULT_BRANCH HEAD and are absent from the copy anyone sees."
       fi
       UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
     fi
@@ -402,8 +427,7 @@ else
   # Not fatal: the exactly-attributed copy is still worth publishing, and a
   # later run will carry the HEAD copy. Silence here would hide why the flag
   # never appears on the default branch, which is the whole point of the copy.
-  echo "[WARN] could not resolve $SLUG $DEFAULT_BRANCH HEAD — uploading to the" >&2
-  echo "       pinned ref only. The flag will not be visible on the default branch." >&2
+  warn_loudly "could not resolve $SLUG $DEFAULT_BRANCH HEAD — uploaded to the pinned ref only, so the flag will not be visible on the default branch."
 fi
 
 # Codecov treats an upload whose --name matches an existing session on the same
@@ -419,7 +443,17 @@ fi
 # Any content-stable digest works — this one only has to differ when the report
 # does.
 upload_name_for() {
-  echo "overlay-$FLAG-$(git hash-object "$1" | cut -c1-8)"
+  # Assigned rather than echoed inline: `echo "$(cmd)"` makes the function's
+  # status echo's, so a failed hash-object would yield "overlay-<flag>-" and
+  # every target would upload under one colliding constant name — Codecov reads
+  # a matching name on a commit as a REPLACEMENT for that session.
+  local digest
+  digest="$(git hash-object "$1" | cut -c1-8)"
+  if [[ -z "$digest" ]]; then
+    echo "ERROR: could not digest $1 for the upload session name." >&2
+    return 1
+  fi
+  echo "overlay-$FLAG-$digest"
 }
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
