@@ -259,3 +259,71 @@ def test_a_rejected_workspace_name_is_reported_back():
     assert result["reason"] == "bad-workspace"
     assert result["rejected"] == "../etc"
     assert result["workspace"] is None
+
+
+@pytest.mark.parametrize("name", ["trailing-", "a" * 51])
+def test_a_name_the_strictest_caller_refuses_is_refused_here(name):
+    """The guard is the strictest of the shapes that used to exist for this one
+    rule, not the most convenient. refresh-coverage-snapshot.yaml capped the
+    length and rejected a trailing hyphen; consolidating on the looser shape
+    would have widened what that workflow accepts, which is the wrong direction
+    for the only thing standing between a comment body and a path."""
+    body = PASSING_COMMENT.replace("`extensions`", f"`{name}`")
+    assert parse(body)["reason"] == "bad-workspace"
+
+
+def test_the_longest_real_workspace_name_still_fits():
+    """A cap is only safe if it clears the names actually in use — the longest
+    in this repo is 36 characters."""
+    name = "scaffolder-backend-module-servicenow"
+    body = PASSING_COMMENT.replace("`extensions`", f"`{name}`")
+    assert parse(body)["workspace"] == name
+
+
+class TestAgreementWithTheShellCopy:
+    """refresh-stale-coverage-snapshots.yaml still derives the coverage URL in
+    shell, because it runs over many merged PRs in bash rather than in a
+    github-script step.
+
+    The repo has been here before: TestCrossLanguageAgreement in
+    test_print_plugin_remotes.py exists because two derivations of one rule
+    drifted and cost app-defaults a week of coverage. This pins the pair instead
+    of trusting a comment that says to change them together.
+    """
+
+    WORKFLOW = SCRIPTS_DIR.parent / ".github/workflows/refresh-stale-coverage-snapshots.yaml"
+
+    def shell_derivation(self, body):
+        """Run the workflow's own grep + suffix rewrite over a comment body."""
+        pattern = None
+        for line in self.WORKFLOW.read_text().splitlines():
+            if "grep -oE" in line and "build-log" in line:
+                pattern = line.split("grep -oE", 1)[1].strip().split("<<<")[0].strip()
+                break
+        assert pattern, "the shell copy's build-log grep was not found"
+        script = (
+            f"log_url=$(grep -oE {pattern} <<<\"$BODY\" | head -1 | tr -d '()')\n"
+            'printf "%s" "${log_url%build-log.txt}artifacts/e2e-test-results/coverage/"\n'
+        )
+        result = subprocess.run(
+            ["bash", "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env={"BODY": body, "PATH": "/usr/bin:/bin:/usr/local/bin"},
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    def test_both_derive_the_same_coverage_url(self):
+        assert self.shell_derivation(PASSING_COMMENT) == EXPECTED_COVERAGE_URL
+
+    def test_both_refuse_a_lookalike_host(self):
+        body = PASSING_COMMENT.replace(
+            "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com",
+            "gcsweb-ci.apps.attacker.example.com",
+        )
+        assert parse(body)["reason"] == "no-build-log"
+        # The shell copy yields only the rewritten suffix when nothing matched,
+        # which is what its own caller checks for.
+        assert self.shell_derivation(body) == "artifacts/e2e-test-results/coverage/"
