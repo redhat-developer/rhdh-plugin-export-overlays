@@ -1,5 +1,12 @@
 app:
   title: RHDH Roadie Plugins Test Instance
+auth:
+  providers:
+    github:
+      production:
+        signIn:
+          resolvers:
+            - resolver: usernameMatchingUserEntityName
 integrations:
   github:
     - host: github.com
