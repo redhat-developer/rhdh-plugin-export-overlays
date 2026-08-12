@@ -42,6 +42,12 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
+Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+`spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
+what the build publishes from. The two currently disagree (41 workspaces carry a
+community package; the txt file names 20), so do not treat either as authoritative for
+the other's purpose.
+
 ### Plugin Scopes
 
 Auto-discovery covers three npm scopes (defined in `plugins-regexps`):
@@ -71,6 +77,7 @@ On a PR, comment:
 | `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
 | `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
+| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
@@ -110,6 +117,26 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
+
+### Major Version Bumps in Patches
+
+When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
+
+**Why this matters for this repo:** Patches modify `yarn.lock` to force dependency versions across the upstream workspace. A major version bump in a patched dependency could break any exported plugin whose code (or transitive dependencies) relies on the old API. Unlike upstream repos where CI catches breakage, this repo's patches bypass the upstream test suite — so compatibility must be verified during review.
+
+**Review criteria for major version bumps:**
+
+When reviewing a PR where a patch bumps a dependency across a major version:
+
+1. **Detect the major version change.** Compare the old and new version numbers in the patch. A change where the first numeric component increases (e.g., `2.2.1` to `3.0.8`) is a major bump with potential breaking changes.
+2. **Check the dependency's changelog or migration guide** for breaking API changes. Common breakages include: removed or renamed functions, changed return types, removed configuration options, and altered default behavior.
+3. **Assess whether exported plugins use the affected APIs.** Check `plugins-list.yaml` to identify which plugins are exported. Since this repo does not contain plugin source code, use the `repo` URL and `repo-ref` from the workspace's `source.json` to browse or clone the upstream repository at the pinned ref. Search the upstream plugin source for imports and usage of the bumped dependency's changed APIs. If the dependency is only in the scaffold/dev tree (see "Reviewing CVE / Dependency Patches" if present), the risk is lower — but still flag it if the patch forces the version across the entire `yarn.lock`.
+4. **Flag the risk for human verification** when breaking changes exist and the dependency is in the shipped tree. Do not approve major version bump patches with only generic version-consistency checks. Explicitly acknowledge the major version change and either assess breaking API risk or request human review.
+5. **Check wrapper and type packages.** When a dependency crosses a major version, related packages often need compatible bumps — for example, `@types/*` type definition packages (e.g., `@types/js-cookie` 2.x to 3.x) and wrapper libraries (e.g., `react-use` updating its peer dependency range). Verify that all related packages in the patch are version-compatible with each other.
+
+**Do not approve major version bump patches without explicit risk assessment.** A patch that passes build does not guarantee runtime compatibility — the old API may still be called at runtime by plugin code that was not exercised during the build.
+
+**Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
 ## Working with Catalog Entities
 
@@ -422,6 +449,31 @@ Two Claude Code skills are available at `.claude/skills/` for investigating E2E 
 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
 - **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+
+## E2E Nightly Fix Conventions
+
+When fixing E2E test failures from `[fullsend] E2E:` issues:
+
+### Allowed modifications
+- `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+
+### Prohibited modifications
+- Plugin source code (`workspaces/*/plugins/`)
+- CI configuration (`.github/`)
+- Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
+
+### Skipping tests (product_bug classification)
+When the issue says `fix_category: product_bug`, add `test.skip` instead
+of fixing the test:
+
+    test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+
+### Verification
+After changes, run from the workspace's e2e-tests directory:
+
+    npx tsc --noEmit
+    npx eslint <changed-files>
+    npx prettier --check <changed-files>
 
 ## Documentation
 

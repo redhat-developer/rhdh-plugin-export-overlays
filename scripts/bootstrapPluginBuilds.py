@@ -92,6 +92,34 @@ def package_name_to_image_name(package_name: str) -> str:
     return package_name.lstrip('@').replace('/', '-')
 
 
+def remove_stale_plugin_builds(plugin_builds_dir: Path, expected_files: set[Path]) -> int:
+    """Delete plugin_builds JSON files not produced by this bootstrap run.
+
+    Handles renames/removals (e.g. lightspeed → intelligent-assistant) by
+    removing leftover ``<workspace>/<image>.json`` files and empty workspace
+    directories. ``expected_files`` are paths relative to ``plugin_builds_dir``.
+
+    Returns the number of deleted JSON files.
+    """
+    if not plugin_builds_dir.exists():
+        return 0
+
+    deleted = 0
+    for json_file in sorted(plugin_builds_dir.glob("*/*.json")):
+        rel = json_file.relative_to(plugin_builds_dir)
+        if rel not in expected_files:
+            log_info(f"Removed stale {rel}")
+            json_file.unlink()
+            deleted += 1
+
+    for ws_dir in sorted(plugin_builds_dir.iterdir()):
+        if ws_dir.is_dir() and not any(ws_dir.iterdir()):
+            log_info(f"Removed empty workspace dir {ws_dir.name}/")
+            ws_dir.rmdir()
+
+    return deleted
+
+
 def parse_dynamic_artifact(dynamic_artifact: str) -> str:
     """
     Extract a bare registry reference from a dynamicArtifact value.
@@ -290,8 +318,11 @@ Examples:
     created_count = 0
     updated_count = 0
     skipped_count = 0
-    outdated_count = 0
+    bs_mismatch_count = 0
     no_ref_count = 0
+    expected_files: set[Path] = set()
+    # Plugin keys touched this run (success or fail) — used to prune build-report.json
+    expected_plugins: set[str] = set()
 
     for workspace_dir in workspace_dirs:
         workspace_name = workspace_dir.name
@@ -322,29 +353,21 @@ Examples:
                     skipped_count += 1
                     continue
 
-                # Check workspace backstage version (only for plugins passing the packages filter)
-                if workspace_name in outdated_workspaces:
-                    outdated_count += 1
-                    info = outdated_workspaces[workspace_name]
-                    image_name = package_name_to_image_name(package_name) if package_name else stem
-                    report.add_plugin(
-                        image_name,
-                        package=package_name,
-                        version=version,
-                        workspace=workspace_name,
-                    )
-                    report.set_stage(
-                        image_name, "bootstrap", "outdated",
-                        reason="Backstage version mismatch",
-                        expected_version=info["expected"],
-                        found_version=info["found"],
-                    )
-                    log_debug(f"Skipped {stem} (workspace {workspace_name}): "
-                              f"backstage version {info['found']} != expected {info['expected']}")
-                    continue
-
                 # Construct registryReference
                 image_name = package_name_to_image_name(package_name) if package_name else stem
+
+                bs_mismatch_info = outdated_workspaces.get(workspace_name)
+                tag_backstage_version = backstage_version
+                if bs_mismatch_info:
+                    bs_mismatch_count += 1
+                    found = bs_mismatch_info.get("found", "")
+                    if found and found != "missing":
+                        tag_backstage_version = found
+                    log_debug(
+                        f"{stem} (workspace {workspace_name}): "
+                        f"backstage version {bs_mismatch_info['found']} != expected "
+                        f"{bs_mismatch_info['expected']}, using tag bs version {tag_backstage_version}"
+                    )
 
                 # Look up workspacePath from pre-built mappings (uses scored matching
                 # + process-of-elimination to handle divergent folder/package names)
@@ -358,7 +381,7 @@ Examples:
                 if support_level == 'community' and community_registry != registry_base:
                     effective_registry = community_registry
                 registry_reference = construct_registry_reference(
-                    effective_registry, image_name, version, backstage_version, rhdh_version, dynamic_artifact,
+                    effective_registry, image_name, version, tag_backstage_version, rhdh_version, dynamic_artifact,
                 )
 
                 if not registry_reference:
@@ -401,6 +424,8 @@ Examples:
                     json.dump(new_data, f, indent=2)
                     f.write('\n')
 
+                expected_files.add(Path(workspace_name) / f"{image_name}.json")
+                expected_plugins.add(image_name)
                 log_debug(f"{action} {json_file.relative_to(plugin_builds_dir)}")
 
                 report.add_plugin(
@@ -412,11 +437,22 @@ Examples:
                 stage_details = {}
                 if registry_reference:
                     stage_details["oci_ref"] = registry_reference
+                if bs_mismatch_info:
+                    stage_details["bs_version_mismatch"] = True
+                    stage_details["reason"] = "Backstage version mismatch"
+                    stage_details["expected_version"] = bs_mismatch_info["expected"]
+                    stage_details["found_version"] = bs_mismatch_info["found"]
                 report.set_stage(image_name, "bootstrap", "pass", **stage_details)
 
             except Exception as e:
                 log_error(f"Error processing {yaml_file}: {e}")
+                expected_plugins.add(yaml_file.stem)
                 report.set_stage(yaml_file.stem, "bootstrap", "fail", reason=str(e))
+
+    deleted_count = remove_stale_plugin_builds(plugin_builds_dir, expected_files)
+    stale_report = report.remove_stale_plugins(expected_plugins)
+    for stale_name in stale_report:
+        log_info(f"Removed stale build-report entry {stale_name}")
 
     # Summary
     total = created_count + updated_count
@@ -424,10 +460,20 @@ Examples:
     log_info(f"Created: {Colors.GREEN}{created_count}{Colors.NORM}")
     if updated_count > 0:
         log_info(f"Updated: {Colors.BLUE}{updated_count}{Colors.NORM}")
+    if deleted_count > 0:
+        log_info(f"Removed stale: {Colors.YELLOW}{deleted_count}{Colors.NORM}")
+    if stale_report:
+        log_info(
+            f"Removed stale build-report entries: "
+            f"{Colors.YELLOW}{len(stale_report)}{Colors.NORM}"
+        )
     if skipped_count > 0:
         log_info(f"Filtered out: {skipped_count}")
-    if outdated_count > 0:
-        log_warn(f"Outdated (backstage version mismatch): {Colors.YELLOW}{outdated_count}{Colors.NORM}")
+    if bs_mismatch_count > 0:
+        log_warn(
+            f"Backstage version mismatch (included with warning): "
+            f"{Colors.YELLOW}{bs_mismatch_count}{Colors.NORM}"
+        )
     if no_ref_count > 0:
         log_warn(f"No OCI reference (local path): {Colors.YELLOW}{no_ref_count}{Colors.NORM}")
     log_info(f"Total: {total}")

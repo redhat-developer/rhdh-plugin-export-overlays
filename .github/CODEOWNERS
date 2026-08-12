@@ -30,7 +30,7 @@
 /workspaces/backstage                                                   @redhat-developer/rhdh-cope
 /workspaces/backstage-plugins-for-aws                                   @durandom
 /workspaces/bulk-import                                                 @redhat-developer/rhdh-plugins @rm3l   @redhat-developer/rhdh-ui @debsmita1 @its-mitesh-kumar
-/workspaces/cost-management                                             @ydayagi @mareklibra @batzionb @PreetiW @asmasarw
+/workspaces/cost-management                                             @ydayagi @mareklibra @batzionb @PreetiW @asmasarw @Aurobinda55 @r14chandra @kgaikwad
 /workspaces/config-viewer                                               @redhat-developer/rhdh-ui @christoph-jerolimov
 # /workspaces/dynatrace
 # /workspaces/dynatrace-dql
@@ -48,7 +48,7 @@
 /workspaces/keycloak                                                    @redhat-developer/rhdh-plugins @AndrienkoAleksandr @dzemanov
 # /workspaces/kiali
 # /workspaces/lighthouse
-/workspaces/lightspeed                                                  @redhat-developer/rhdh-ui @karthikjeeyar @rohitkrai03 @redhat-developer/rhdh-ai
+/workspaces/intelligent-assistant                                        @redhat-developer/rhdh-ui @karthikjeeyar @rohitkrai03 @redhat-developer/rhdh-ai
 /workspaces/nexus-repository-manager                                    @redhat-developer/rhdh-ui @debsmita1 @ciiay   @jessicajhee
 /workspaces/npm                                                         @redhat-developer/rhdh-ui @christoph-jerolimov
 /workspaces/odo                                                         @rm3l
@@ -85,3 +85,4 @@
 # Fullsend AI agent configuration — require maintainer approval
 /.fullsend/                                                             @redhat-developer/rhdh-cope @durandom @subhashkhileri
 /.github/workflows/fullsend.yaml                                        @redhat-developer/rhdh-cope @durandom @subhashkhileri
+/.github/workflows/e2e-triage-agent.yaml                                @redhat-developer/rhdh-cope @durandom @subhashkhileri

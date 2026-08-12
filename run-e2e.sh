@@ -43,7 +43,8 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.11}"             # RHDH version to deploy (e.g., "1.10", "next")
+# Revert back to 1.11 when https://redhat.atlassian.net/browse/RHDHBUGS-3515 is fixed
+export RHDH_VERSION="1.11-57-CI"             # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
@@ -65,16 +66,14 @@ E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
 # Coverage collection (Istanbul) — enabled by default
 #
-# For PR checks: Works now. The auto-publish-pr.yaml workflow builds -coverage
-# images (plugin:tag__coverage) that e2e-test-utils will load when available.
-#
-# For nightly/local: Depends on e2e-test-utils automatic image swap logic
-# (PR #95, merged 2026-06-04). Until that lands, coverage collection will be
-# skipped silently (no -coverage images exist).
+# PR checks: auto-publish-pr.yaml builds __coverage images
+# (plugin:tag__coverage) that e2e-test-utils automatically swaps in for
+# frontend plugins. Zip bomb detection (RHDHBUGS-3470) is handled at
+# image-build time: instrument-plugin.sh restores the original file for any
+# chunk whose instrumented output would exceed RHDH's per-entry size limit.
 #
 # To disable (faster local dev): E2E_COLLECT_COVERAGE=false
-# Disabled by default due to zip bomb detection failures — see RHDHBUGS-3470
-export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-false}"
+export E2E_COLLECT_COVERAGE="${E2E_COLLECT_COVERAGE:-true}"
 
 # Local e2e-test-utils: absolute path to use a local build instead of npm
 E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
@@ -187,7 +186,7 @@ RESOLUTIONS="\"@playwright/test\": \"${PLAYWRIGHT_VERSION}\""
 if [[ -n "$E2E_TEST_UTILS_PATH" ]]; then
     echo "[INFO] Using local e2e-test-utils: $E2E_TEST_UTILS_PATH"
     echo "[INFO] Building local e2e-test-utils..."
-    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable && yarn build)
+    (cd "$E2E_TEST_UTILS_PATH" && yarn install --immutable --mode=skip-build && yarn build)
     RESOLUTIONS+=", \"@red-hat-developer-hub/e2e-test-utils\": \"file:${E2E_TEST_UTILS_PATH}\""
 elif [[ -n "$E2E_TEST_UTILS_VERSION" ]]; then
     echo "[INFO] Pinning e2e-test-utils to version: $E2E_TEST_UTILS_VERSION"
@@ -199,7 +198,7 @@ cat > package.json <<EOF
   "name": "overlay-e2e-nightly",
   "private": true,
   "type": "module",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.17.1",
   "workspaces": ${WORKSPACE_PATHS},
   "resolutions": { ${RESOLUTIONS} }
 }
@@ -216,7 +215,7 @@ for ws in "${E2E_WORKSPACES[@]}"; do
 done
 
 echo "[INFO] Installing dependencies (@playwright/test pinned to $PLAYWRIGHT_VERSION)..."
-YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install --mode=skip-build
 
 # ── Generate root playwright.config.ts ────────────────────────────────────────
 # Extracts project definitions directly from workspace configs via sed instead of

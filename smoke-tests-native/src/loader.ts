@@ -120,7 +120,6 @@ export function loadBackendPlugins(plugins: PluginEntry[]): {
   for (const plugin of plugins) {
     try {
       const entryPoint = resolveEntryPoint(plugin.path);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports -- OCI plugins are CJS
       const mod = require(entryPoint) as { default?: BackendFeature };
       if (!mod.default) {
         errors.push({ plugin, error: "No default export" });
@@ -156,26 +155,31 @@ export type FrontendBundleResult = {
  * layout is an error even when the other system's layout is valid — the artifact
  * advertises a system it can't deliver.
  */
-export function validateFrontendBundle(plugin: PluginEntry): FrontendBundleResult {
+export function validateFrontendBundle(
+  plugin: PluginEntry,
+): FrontendBundleResult {
   const has = (rel: string) => existsSync(join(plugin.path, rel));
-  if (!has("package.json")) return { systems: [], error: "missing package.json" };
+  if (!has("package.json"))
+    return { systems: [], error: "missing package.json" };
 
+  // Probe BOTH layouts before returning. Bailing out on the first broken one left
+  // `systems` empty, so a dual-shipping bundle with a broken Scalprum manifest was
+  // reported as shipping neither system — corrupting the migration panel the sweep
+  // exists to keep fresh, on top of the (correct) error.
   const systems: FrontendSystem[] = [];
+  let error: string | null = null;
   if (has("dist-scalprum")) {
-    if (!has("dist-scalprum/plugin-manifest.json")) {
-      return { systems, error: "dist-scalprum/ found but missing plugin-manifest.json" };
-    }
-    systems.push("legacy");
+    if (has("dist-scalprum/plugin-manifest.json")) systems.push("legacy");
+    else error = "dist-scalprum/ found but missing plugin-manifest.json";
   }
   if (has("dist/remoteEntry.js")) {
-    if (!has("dist/mf-manifest.json")) {
-      return {
-        systems,
-        error: "dist/remoteEntry.js found but missing dist/mf-manifest.json",
-      };
+    if (has("dist/mf-manifest.json")) systems.push("new-frontend-system");
+    else {
+      const mf = "dist/remoteEntry.js found but missing dist/mf-manifest.json";
+      error = error ? `${error}; ${mf}` : mf;
     }
-    systems.push("new-frontend-system");
   }
+  if (error) return { systems, error };
   if (systems.length === 0) {
     return {
       systems,

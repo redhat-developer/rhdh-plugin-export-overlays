@@ -705,6 +705,25 @@ class BuildReport:
         for plugin_name in self._data.get("plugins", {}):
             self.set_stage(plugin_name, stage, status, **details)
 
+    def remove_stale_plugins(self, expected_plugins: set[str]) -> list[str]:
+        """Drop report plugins not in ``expected_plugins`` (renames/removals).
+
+        Mirrors ``remove_stale_plugin_builds``: when a package is renamed
+        (e.g. lightspeed → intelligent-assistant) or removed, bootstrap still
+        upserts the new keys into an existing ``build-report.json`` and would
+        otherwise leave orphan entries forever. Call this after the current
+        run's expected set is known.
+
+        Returns the sorted list of removed plugin names.
+        """
+        if not self.enabled:
+            return []
+        plugins = self._data.setdefault("plugins", {})
+        stale = sorted(name for name in plugins if name not in expected_plugins)
+        for name in stale:
+            del plugins[name]
+        return stale
+
     def save(self) -> None:
         """Compute per-plugin overall status and summary counts, then write to disk."""
         if not self.enabled:
@@ -712,9 +731,7 @@ class BuildReport:
 
         for plugin in self._data.get("plugins", {}).values():
             stages = plugin.get("stages", {})
-            if any(s.get("status") == "outdated" for s in stages.values()):
-                plugin["overall"] = "outdated"
-            elif any(s.get("status") == "fail" for s in stages.values()):
+            if any(s.get("status") == "fail" for s in stages.values()):
                 plugin["overall"] = "fail"
             elif stages and all(
                 s.get("status") in ("pass", "skip") for s in stages.values()
@@ -727,18 +744,16 @@ class BuildReport:
         total = len(plugins)
         succeeded = sum(1 for p in plugins.values() if p.get("overall") == "pass")
         failed = sum(1 for p in plugins.values() if p.get("overall") == "fail")
-        outdated = sum(1 for p in plugins.values() if p.get("overall") == "outdated")
 
         self._data["summary"] = {
             "total": total,
             "succeeded": succeeded,
             "failed": failed,
-            "outdated": outdated,
         }
 
         if total == 0:
             self._data["status"] = "initial"
-        elif failed == 0 and outdated == 0:
+        elif failed == 0:
             self._data["status"] = "success"
         else:
             self._data["status"] = "partial"

@@ -1,3 +1,4 @@
+// Trigger e2e: validate the zip-bomb guard on __coverage images (RHDHBUGS-3470)
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
@@ -34,7 +35,6 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-
     await rhdh.configure({ auth: "keycloak" });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(
