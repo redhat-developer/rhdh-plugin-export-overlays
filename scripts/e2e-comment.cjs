@@ -48,12 +48,22 @@ const ANY_HEADER = /(?:Passed|Failed) E2E Tests\s*-\s*`/g;
 const BUILD_LOG =
   /\(https:\/\/gcsweb-ci\.apps\.ci\.l2s4\.p1\.openshiftapps\.com\/gcs\/[^)\s]+\/build-log\.txt\)/;
 
-// The workspace name is interpolated into a filesystem path downstream, so it
-// is constrained here rather than trusted from the comment body. Deliberately
-// the SAME shape upload-coverage-upstream.sh enforces before the name is used
-// for anything dangerous — a looser copy here would be a second, weaker
-// definition of one rule, and no workspace in this repo uses `.` or `_`.
-const WORKSPACE = /^[a-z0-9][a-z0-9-]*$/;
+// The workspace name is interpolated into a filesystem path and passed as a
+// script argument downstream, so it is constrained here rather than trusted
+// from the comment body.
+//
+// This is the STRICTEST of the shapes that used to exist for one rule, not the
+// most convenient: `upload-coverage-upstream.sh` allows any length and a
+// trailing hyphen, `refresh-coverage-snapshot.yaml` did not. Consolidating on
+// the loosest would have quietly widened what that workflow accepts, which is
+// the wrong direction for the only guard standing between a comment body and a
+// path. The longest real workspace name is 36 characters and none ends in a
+// hyphen.
+const WORKSPACE = /^[a-z0-9][a-z0-9-]{0,49}$/;
+
+// A trailing hyphen passes the pattern above and is still not a name anything
+// here should act on.
+const isWorkspaceName = (name) => WORKSPACE.test(name) && !name.endsWith("-");
 
 // Returns `{ workspace, coverageUrl, reason }`. On success `reason` is null; on
 // a refusal both other fields are null and `reason` says which, because they
@@ -93,7 +103,7 @@ function parsePassedE2eComment(body) {
   if (!header) return miss("not-a-pass");
 
   const workspace = header[1];
-  if (!WORKSPACE.test(workspace)) return miss("bad-workspace", workspace);
+  if (!isWorkspaceName(workspace)) return miss("bad-workspace", workspace);
 
   const link = BUILD_LOG.exec(body);
   if (!link) return miss("no-build-log");
@@ -129,8 +139,13 @@ function failedWorkspaceOf(body) {
   const headers = body.match(ANY_HEADER);
   if (headers && headers.length > 1) return null;
   const header = FAILED_HEADER.exec(body);
-  if (!header || !WORKSPACE.test(header[1])) return null;
+  if (!header || !isWorkspaceName(header[1])) return null;
   return header[1];
 }
 
-module.exports = { E2E_BOT_LOGIN, parsePassedE2eComment, failedWorkspaceOf };
+module.exports = {
+  E2E_BOT_LOGIN,
+  isWorkspaceName,
+  parsePassedE2eComment,
+  failedWorkspaceOf,
+};
