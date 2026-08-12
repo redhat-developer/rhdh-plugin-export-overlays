@@ -475,3 +475,82 @@ def test_an_unreadable_failure_report_is_flagged_rather_than_ignored():
         ],
     )
     assert any("cannot retract anything" in m for m in out["warnings"])
+
+
+def test_drift_is_seen_even_when_failure_comments_still_parse():
+    """The hole the first version of this alarm had.
+
+    If the bot rewords only the PASSING header, its failure comments keep
+    parsing. Counting those as "understood" kept the alarm silent while no
+    passing run could be read any more — publishing would have stopped forever
+    and every run stayed green.
+    """
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {"user": {"login": BOT}, "body": "### ✅ E2E Tests Passed - `extensions`"},
+            {"user": {"login": BOT}, "body": "### ❌ Failed E2E Tests - `theme`"},
+        ],
+    )
+    assert out["targets"] == []
+    assert any("matched no e2e result" in m for m in out["warnings"])
+
+
+def test_a_pr_whose_e2e_only_failed_is_not_reported_as_drift():
+    """Red is not drift. Its comments parse; they just say no. Alarming here
+    would fire on every genuinely-failing PR and teach everyone to ignore it."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {"user": {"login": BOT}, "body": "### ❌ Failed E2E Tests - `bulk-import`"}
+        ],
+    )
+    assert not any("matched no e2e result" in m for m in out["warnings"])
+
+
+def test_a_stale_run_counts_as_the_parser_still_working():
+    """A skipped stale run proves the shape was read. Treating it as
+    unrecognised would raise drift on an ordinary re-bumped PR."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T12:00:00Z"}],
+        comments=[
+            {
+                "user": {"login": BOT},
+                "body": passing_comment("extensions"),
+                "created_at": BEFORE_HEAD,
+            }
+        ],
+    )
+    assert not any("matched no e2e result" in m for m in out["warnings"])
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://gcsweb-ci.apps.attacker.example.com/gcs/x/artifacts/e2e-test-results/coverage/",
+        "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/x/artifacts/playwright-report/",
+        "http://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/x/artifacts/e2e-test-results/coverage/",
+        "",
+    ],
+)
+def test_a_dispatch_coverage_url_is_held_to_the_pinned_host(url):
+    """The push path pins the host by construction — it swaps the tail of a link
+    the parser already validated. The dispatched URL is typed in, and was the
+    only one nothing checked."""
+    out = resolve(
+        event="workflow_dispatch",
+        inputs={"workspace": "extensions", "coverage-url": url},
+    )
+    assert out["error"] is not None
+    assert "coverage listing URL" in out["error"]
+
+
+def test_the_url_the_push_path_derives_is_accepted_by_the_dispatch_guard():
+    """The two paths feed one uploader, so a guard that rejected what the other
+    produces would be wrong rather than strict."""
+    out = resolve(
+        event="workflow_dispatch",
+        inputs={"workspace": "extensions", "coverage-url": coverage_url()},
+    )
+    assert out["error"] is None
+    assert out["targets"][0]["coverageUrl"] == coverage_url()

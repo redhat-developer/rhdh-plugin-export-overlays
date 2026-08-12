@@ -146,8 +146,19 @@ function failedWorkspaceOf(body) {
   return header[1];
 }
 
+// The coverage listing a publish may be pointed at. Derived URLs satisfy this
+// by construction — it is the build-log link with its tail swapped — so its
+// real job is the dispatch path, where an operator types the URL and nothing
+// else would check the host.
+const COVERAGE_LISTING =
+  /^https:\/\/gcsweb-ci\.apps\.ci\.l2s4\.p1\.openshiftapps\.com\/gcs\/[^\s]+\/artifacts\/e2e-test-results\/coverage\/$/;
+
+const isCoverageListingUrl = (url) =>
+  typeof url === "string" && COVERAGE_LISTING.test(url);
+
 module.exports = {
   E2E_BOT_LOGIN,
+  isCoverageListingUrl,
   isWorkspaceName,
   parsePassedE2eComment,
   failedWorkspaceOf,

@@ -475,7 +475,13 @@ for sha in "${UPLOAD_SHAS[@]}"; do
     target_root="$HEAD_CHECKOUT"
     target_lcov="$HEAD_LCOV"
   fi
-  upload_name="$(upload_name_for "$target_lcov")"
+  # Guarded like every other per-target step: a digest failure is one target's
+  # problem, and under `set -e` an unguarded assignment here would take the
+  # other target down with it — the opposite of what this loop is for.
+  if ! upload_name="$(upload_name_for "$target_lcov")"; then
+    FAILED_SHAS+=("$sha")
+    continue
+  fi
   echo ""
   echo "--- Upload to $sha ($label) ---"
 

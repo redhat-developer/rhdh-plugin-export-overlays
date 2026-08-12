@@ -17,6 +17,7 @@
 
 const {
   E2E_BOT_LOGIN,
+  isCoverageListingUrl,
   isWorkspaceName,
   parsePassedE2eComment,
   failedWorkspaceOf,
@@ -118,7 +119,17 @@ async function collectPullRequestTargets({ github, context, core, pr, targets })
     // success forever. Counting what the bot said against what was understood
     // is what turns that into a signal.
     let fromBot = 0;
-    let understood = 0;
+    // Split on purpose. Counting failures as "understood" made the alarm below
+    // unable to see the drift it exists for: if the bot reworded only the
+    // PASSING header, every failure comment still parsed, the count stayed
+    // non-zero, and publishing would have stopped forever in silence.
+    //
+    // `unrecognised` is a comment that matched nothing at all — neither side.
+    // `passingRecognised` covers every passing-side outcome, including the ones
+    // that end in a refusal or a staleness skip, because those still prove the
+    // parser can read the shape.
+    let unrecognised = 0;
+    let passingRecognised = 0;
     // Which workspaces THIS pr contributed, so a retraction cannot reach past
     // its own PR.
     const fromThisPr = new Set();
@@ -127,11 +138,10 @@ async function collectPullRequestTargets({ github, context, core, pr, targets })
       const found = classifyComment(comment, headCommittedAt);
       if (found.kind === "not-bot") continue;
       fromBot += 1;
-      // Only "refused with a reason nobody needs to hear about" leaves this
-      // unincremented — that is the ordinary rerun noise the drift alarm must
-      // not be buried by.
-      if (found.kind !== "refused" || REPORTABLE.has(found.reason)) {
-        understood += 1;
+      if (found.kind === "refused" && !REPORTABLE.has(found.reason)) {
+        unrecognised += 1;
+      } else if (found.kind !== "retract" && found.kind !== "unreadable-failure") {
+        passingRecognised += 1;
       }
 
       if (found.kind === "retract") {
@@ -174,11 +184,15 @@ async function collectPullRequestTargets({ github, context, core, pr, targets })
       }
     }
 
-    if (fromBot > 0 && understood === 0) {
+    // A PR whose e2e simply failed is not drift: its comments parse, they just
+    // report red. Drift is a comment that matches NOTHING while no passing
+    // result was recognised either.
+    if (unrecognised > 0 && passingRecognised === 0) {
       core.warning(
-        `PR #${pr.number}: ${fromBot} comment(s) from ${E2E_BOT_LOGIN}, none of them ` +
-          "recognisable as an e2e result — the comment format has probably changed, " +
-          "and until scripts/e2e-comment.cjs is updated nothing will publish.",
+        `PR #${pr.number}: ${unrecognised} of ${fromBot} comment(s) from ` +
+          `${E2E_BOT_LOGIN} matched no e2e result and no passing run was read — ` +
+          "the comment format has probably changed, and until " +
+          "scripts/e2e-comment.cjs is updated nothing will publish.",
       );
     }
 }
@@ -199,7 +213,17 @@ async function resolvePublishTargets({ github, context, core }) {
     if (!isWorkspaceName(workspace)) {
       throw new Error(`'${workspace}' is not a usable workspace name.`);
     }
-    return [{ workspace, coverageUrl: inputs["coverage-url"] ?? "" }];
+    // Held to the host the push path pins by construction. A dispatcher needs
+    // write access, so this is not the main defence — but the two paths feeding
+    // one uploader should not disagree about what a coverage URL is, and the
+    // typed-in one is the only one nothing else checks.
+    const coverageUrl = inputs["coverage-url"] ?? "";
+    if (!isCoverageListingUrl(coverageUrl)) {
+      throw new Error(
+        `'${coverageUrl}' is not a gcsweb e2e coverage listing URL.`,
+      );
+    }
+    return [{ workspace, coverageUrl }];
   }
 
   const { data: prs } =

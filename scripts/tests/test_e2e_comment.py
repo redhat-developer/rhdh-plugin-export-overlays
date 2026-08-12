@@ -280,6 +280,40 @@ def test_the_longest_real_workspace_name_still_fits():
     assert parse(body)["workspace"] == name
 
 
+class TestAgreementWithTheWorkflowGate:
+    """refresh-coverage-snapshot.yaml decides at the JOB level whether to run at
+    all, and a `if:` expression cannot call into a module — so the bot's login
+    is spelled out there as a literal while this module owns it everywhere else.
+
+    Nothing but this test stops the two from drifting, and drift is silent in
+    the worse direction: a workflow pinned to a login the bot no longer uses
+    stops firing, and a green run says nothing happened because nothing needed
+    to.
+    """
+
+    WORKFLOW = (
+        SCRIPTS_DIR.parent / ".github/workflows/refresh-coverage-snapshot.yaml"
+    )
+
+    def test_the_job_gate_pins_the_same_login_the_module_owns(self):
+        payload, _ = run_node(
+            f"""
+            const m = require({str(MODULE)!r});
+            process.stdout.write(JSON.stringify(m.E2E_BOT_LOGIN));
+            """
+        )
+        gate = [
+            line
+            for line in self.WORKFLOW.read_text().splitlines()
+            if "github.event.comment.user.login" in line
+        ]
+        assert gate, "the job-level author gate is gone"
+        assert f"'{payload}'" in gate[0], (
+            f"the workflow gate does not pin {payload!r}; "
+            "it and scripts/e2e-comment.cjs have drifted"
+        )
+
+
 class TestAgreementWithTheShellCopy:
     """refresh-stale-coverage-snapshots.yaml still derives the coverage URL in
     shell, because it runs over many merged PRs in bash rather than in a

@@ -162,7 +162,11 @@ jobs:
           # that produced no output at all would read as "nothing to publish"
           # and report success, which is the silent failure this workflow exists
           # to remove.
-          if ! count=$(jq 'length' <<<"$TARGETS") || [[ ! "$count" =~ ^[0-9]+$ ]]; then
+          # `length` alone would accept a JSON object (key count) or a string
+          # (character count), so the type is asserted rather than inferred from
+          # the result looking like a number.
+          if ! count=$(jq 'if type == "array" then length else error("not an array") end' <<<"$TARGETS") \
+            || [[ ! "$count" =~ ^[0-9]+$ ]]; then
             echo "ERROR: the resolve step produced no usable target list." >&2
             exit 1
           fi
