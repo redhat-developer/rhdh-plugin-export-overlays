@@ -50,6 +50,8 @@ packages:
 
   # should only include GA (or TP with a path to GA) content here
   disabled: 
+  - package: '@backstage-community/plugin-auth-backend-module-keycloak-provider'
+    support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
     support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
