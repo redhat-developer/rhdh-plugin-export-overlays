@@ -9,13 +9,21 @@ import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
     const isAppNext = test.info().project.name.endsWith("-app-next");
-    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
-    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
-      [ghcrRegistry]: ["@red-hat-developer-hub/backstage-plugin-global-header"],
-    });
+    const isNightlyMode =
+      process.env.E2E_NIGHTLY_MODE === "true" ||
+      process.env.E2E_NIGHTLY_MODE === "1" ||
+      (process.env.JOB_NAME?.includes("periodic-") ?? false);
+
     await rhdh.configure({
       auth: "keycloak",
-      disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
+      // In nightly: don't disable — our entry overrides the default via merge-by-key after natural conversion (ghcr → registry.access.redhat.com:{{inherit}})
+      ...(isNightlyMode
+        ? {}
+        : {
+            disablePlugins: [
+              "red-hat-developer-hub-backstage-plugin-global-header",
+            ],
+          }),
       dynamicPlugins: WorkspacePaths.resolve(
         isAppNext
           ? "tests/config/dynamic-plugins-nfs.yaml"
