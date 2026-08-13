@@ -1,0 +1,211 @@
+name: Publish E2E coverage upstream
+
+# Publishes a workspace's E2E coverage to the Codecov project of the repository
+# the plugin sources live in, where it is browsable file by file. The anchor
+# upload (seed-coverage-main.yaml) keeps the per-workspace percentage on THIS
+# repo's project and is unaffected; this is the per-file view that the anchor
+# cannot give, because this repo does not contain the plugin sources.
+#
+# A push to main that touches a workspace publishes the coverage of whichever
+# workspaces the merged PR's PASSING e2e comments name — which is the workspace
+# the push touched in every case a presubmit allows, since the e2e job refuses a
+# PR that changes more than one. The manual dispatch is kept for backfilling a
+# specific run.
+#
+# How a push finds the coverage to publish:
+#
+#   The input is the Prow run's RAW coverage JSONs, which live in that run's
+#   artifacts — not the committed coverage-snapshots/<ws>.lcov, which is already
+#   anchor-mapped and has lost the per-file detail this exists to publish.
+#
+#   The artifact URL is NOT reconstructed from the Prow job id. It is read from
+#   the link the e2e bot already posts on the PR. Two places read that shape
+#   now: scripts/e2e-comment.cjs, which this workflow and
+#   refresh-coverage-snapshot.yaml both call, and
+#   refresh-stale-coverage-snapshots.yaml's shell copy, which sweeps many merged
+#   PRs in bash and is pinned to the module by an agreement test rather than by
+#   this comment. A third copy used to live inline in
+#   refresh-coverage-snapshot.yaml and had drifted to a looser gcsweb host; it
+#   was replaced by the module in this change.
+#
+#   Only a PASSING run publishes. A failed run still produces coverage JSONs,
+#   and they are misleading rather than merely incomplete: the bulk-import run
+#   blocked by issue #3106 collected 22% because the tests that exercise the
+#   page died before touching it. Publishing that would make a broken run's
+#   number the plugin's record upstream.
+#
+# Where this does NOT reach: a workspace whose source repo has no Codecov
+# project. upload-coverage-upstream.sh holds that list (ELIGIBLE_SLUGS) and
+# exits 0 for anything else, so community plugins are skipped, not failed.
+
+on:
+  push:
+    branches: [main]
+    # Only a workspace change can carry new coverage. A scripts/ or README
+    # change cannot, and re-publishing an unchanged report would add a Codecov
+    # session for a measurement nobody took.
+    paths:
+      - "workspaces/**"
+  workflow_dispatch:
+    inputs:
+      workspace:
+        description: Workspace whose coverage to publish (e.g. intelligent-assistant)
+        type: string
+        required: true
+      coverage-url:
+        description: >-
+          gcsweb URL of the run's .../artifacts/e2e-test-results/coverage/
+          listing, from a PASSING e2e run of that workspace
+        type: string
+        required: true
+      dry-run:
+        description: >-
+          Resolve, clone and remap everything, upload nothing. Needs no upstream
+          token, and is the cheapest way to check what a run would publish
+          before it publishes it.
+        type: boolean
+        required: false
+        default: false
+      pinned-only:
+        description: >-
+          Upload only to the pinned repo-ref, not to the source repo's
+          default-branch HEAD. The upload lands either way — what this withholds
+          is the copy that makes the flag reachable from the default branch, so
+          it publishes where nobody is looking rather than previewing what the
+          visible copy will say.
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  # The push path reads the merged PR behind the pushed commit and that PR's
+  # comments, to find the e2e run whose artifacts hold the coverage.
+  pull-requests: read
+  # Belt and braces, and deliberately not minimal. PR comments are served by the
+  # Issues API, and refresh-stale-coverage-snapshots.yaml reads them in
+  # production with `contents: read` alone — so on this public repo
+  # `pull-requests: read` is very likely already enough. But this is the one
+  # path that cannot be exercised before merge, and being wrong costs a 403 on
+  # every push to main rather than a visible test failure. One read scope on
+  # public data is the cheaper side of that trade.
+  issues: read
+
+# Dispatches serialize per workspace so two backfills of one workspace do not
+# upload two reports for the same flag, while unrelated ones do not wait.
+#
+# Push runs key on the commit instead, which gives each its own group and so
+# never queues. Sharing one group across pushes looks tidier and silently loses
+# coverage: GitHub keeps at most ONE pending run per group and cancels the
+# previously pending one, so a batch of merges — which is exactly how
+# update-plugins-repo-refs.yaml lands its daily bumps — would publish only the
+# last. Two pushes racing on one workspace is the accepted cost; Codecov merges
+# sessions for a flag, and a duplicate session is recoverable where a dropped
+# publish is not.
+concurrency:
+  group: publish-coverage-upstream-${{ inputs.workspace || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish coverage upstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24"
+
+      # Emits a JSON array of {workspace, coverageUrl}. Empty on a push whose
+      # PR never ran e2e, or ran it and failed — both are ordinary, so the job
+      # reports and succeeds rather than failing on "nothing to publish".
+      - name: Resolve what to publish
+        id: resolve
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            // Both the resolution and the comment parsing it rests on live in
+            // modules so they can be tested without running this workflow —
+            // see scripts/tests/test_resolve_publish_targets.py. What is left
+            // here is the wiring, which is the only part a test cannot reach.
+            const { resolvePublishTargets } =
+              require(`${process.env.GITHUB_WORKSPACE}/scripts/resolve-publish-targets.cjs`);
+
+            const targets = await resolvePublishTargets({ github, context, core });
+            core.setOutput('targets', JSON.stringify(targets));
+
+      - name: Publish coverage upstream
+        env:
+          # NOT the same secret as CODECOV_TOKEN. Codecov upload tokens are per
+          # project, so publishing to rhdh-plugins needs that project's token,
+          # held here under its own name. Without it the script fails fast
+          # rather than uploading nothing and reporting success.
+          CODECOV_RHDH_PLUGINS_TOKEN: ${{ secrets.CODECOV_RHDH_PLUGINS_TOKEN }}
+          # Passed through the environment rather than interpolated into the run
+          # block: `${{ ... }}` is substituted into the script text before bash
+          # sees it, so a crafted value runs as code. Read as shell variables
+          # they stay data.
+          TARGETS: ${{ steps.resolve.outputs.targets }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
+          INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
+          # Pinned here rather than left to the script's defaults, because this
+          # job carries `timeout-minutes: 30` and the check polls. Worst case is
+          # 4 x 15s per upload target, so under two minutes for both — a budget
+          # that stays clear of the clone and remap either side of it.
+          VERIFY_ATTEMPTS: "4"
+          VERIFY_DELAY_SECONDS: "15"
+        run: |
+          set -euo pipefail
+
+          # Validated rather than trusted. `jq length` on empty input prints
+          # nothing and exits 0, and `[[ "" -eq 0 ]]` is TRUE — so a resolve step
+          # that produced no output at all would read as "nothing to publish"
+          # and report success, which is the silent failure this workflow exists
+          # to remove.
+          # `length` alone would accept a JSON object (key count) or a string
+          # (character count), so the type is asserted rather than inferred from
+          # the result looking like a number.
+          if ! count=$(jq 'if type == "array" then length else error("not an array") end' <<<"$TARGETS") \
+            || [[ ! "$count" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: the resolve step produced no usable target list." >&2
+            exit 1
+          fi
+
+          if [[ "$count" -eq 0 ]]; then
+            echo "Nothing to publish."
+            exit 0
+          fi
+
+          # One workspace's failure must not cost the others theirs. Collected
+          # and re-raised at the end so a red run is still a red run.
+          failed=()
+          for i in $(seq 0 $((count - 1))); do
+            workspace=$(jq -r ".[$i].workspace" <<<"$TARGETS")
+            coverage_url=$(jq -r ".[$i].coverageUrl" <<<"$TARGETS")
+
+            args=("$workspace" "$coverage_url")
+            if [[ "${INPUT_DRY_RUN:-}" == "true" ]]; then
+              args+=("--dry-run")
+            fi
+            if [[ "${INPUT_PINNED_ONLY:-}" == "true" ]]; then
+              args+=("--pinned-only")
+            fi
+
+            echo "::group::$workspace"
+            if ! ./scripts/upload-coverage-upstream.sh "${args[@]}"; then
+              echo "[WARN] $workspace: publish failed — continuing with the rest."
+              failed+=("$workspace")
+            fi
+            echo "::endgroup::"
+          done
+
+          if [[ ${#failed[@]} -gt 0 ]]; then
+            echo "ERROR: failed to publish: ${failed[*]}" >&2
+            exit 1
+          fi

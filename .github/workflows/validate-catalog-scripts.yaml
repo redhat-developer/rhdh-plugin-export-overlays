@@ -7,6 +7,14 @@ on:
       - 'release-*'
     paths:
       - 'scripts/*.py'
+      # The suite also drives the coverage shell scripts as subprocesses
+      # (tests/test_upload_coverage.py, tests/test_seed_main_coverage.py), so a
+      # change to them has to run these tests too — otherwise the shell is
+      # covered but never gated.
+      - 'scripts/*.sh'
+      # Same reason for the .cjs remap helpers: tests/test_upstream_paths.py
+      # drives scripts/upstream-paths.cjs through node.
+      - 'scripts/*.cjs'
       - 'scripts/tests/**'
       - 'scripts/requirements-dev.txt'
       - '.github/workflows/validate-catalog-scripts.yaml'

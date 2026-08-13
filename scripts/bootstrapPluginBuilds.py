@@ -92,6 +92,34 @@ def package_name_to_image_name(package_name: str) -> str:
     return package_name.lstrip('@').replace('/', '-')
 
 
+def remove_stale_plugin_builds(plugin_builds_dir: Path, expected_files: set[Path]) -> int:
+    """Delete plugin_builds JSON files not produced by this bootstrap run.
+
+    Handles renames/removals (e.g. lightspeed → intelligent-assistant) by
+    removing leftover ``<workspace>/<image>.json`` files and empty workspace
+    directories. ``expected_files`` are paths relative to ``plugin_builds_dir``.
+
+    Returns the number of deleted JSON files.
+    """
+    if not plugin_builds_dir.exists():
+        return 0
+
+    deleted = 0
+    for json_file in sorted(plugin_builds_dir.glob("*/*.json")):
+        rel = json_file.relative_to(plugin_builds_dir)
+        if rel not in expected_files:
+            log_info(f"Removed stale {rel}")
+            json_file.unlink()
+            deleted += 1
+
+    for ws_dir in sorted(plugin_builds_dir.iterdir()):
+        if ws_dir.is_dir() and not any(ws_dir.iterdir()):
+            log_info(f"Removed empty workspace dir {ws_dir.name}/")
+            ws_dir.rmdir()
+
+    return deleted
+
+
 def parse_dynamic_artifact(dynamic_artifact: str) -> str:
     """
     Extract a bare registry reference from a dynamicArtifact value.
@@ -292,6 +320,9 @@ Examples:
     skipped_count = 0
     bs_mismatch_count = 0
     no_ref_count = 0
+    expected_files: set[Path] = set()
+    # Plugin keys touched this run (success or fail) — used to prune build-report.json
+    expected_plugins: set[str] = set()
 
     for workspace_dir in workspace_dirs:
         workspace_name = workspace_dir.name
@@ -393,6 +424,8 @@ Examples:
                     json.dump(new_data, f, indent=2)
                     f.write('\n')
 
+                expected_files.add(Path(workspace_name) / f"{image_name}.json")
+                expected_plugins.add(image_name)
                 log_debug(f"{action} {json_file.relative_to(plugin_builds_dir)}")
 
                 report.add_plugin(
@@ -413,7 +446,13 @@ Examples:
 
             except Exception as e:
                 log_error(f"Error processing {yaml_file}: {e}")
+                expected_plugins.add(yaml_file.stem)
                 report.set_stage(yaml_file.stem, "bootstrap", "fail", reason=str(e))
+
+    deleted_count = remove_stale_plugin_builds(plugin_builds_dir, expected_files)
+    stale_report = report.remove_stale_plugins(expected_plugins)
+    for stale_name in stale_report:
+        log_info(f"Removed stale build-report entry {stale_name}")
 
     # Summary
     total = created_count + updated_count
@@ -421,6 +460,13 @@ Examples:
     log_info(f"Created: {Colors.GREEN}{created_count}{Colors.NORM}")
     if updated_count > 0:
         log_info(f"Updated: {Colors.BLUE}{updated_count}{Colors.NORM}")
+    if deleted_count > 0:
+        log_info(f"Removed stale: {Colors.YELLOW}{deleted_count}{Colors.NORM}")
+    if stale_report:
+        log_info(
+            f"Removed stale build-report entries: "
+            f"{Colors.YELLOW}{len(stale_report)}{Colors.NORM}"
+        )
     if skipped_count > 0:
         log_info(f"Filtered out: {skipped_count}")
     if bs_mismatch_count > 0:

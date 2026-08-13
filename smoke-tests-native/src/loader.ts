@@ -162,25 +162,24 @@ export function validateFrontendBundle(
   if (!has("package.json"))
     return { systems: [], error: "missing package.json" };
 
+  // Probe BOTH layouts before returning. Bailing out on the first broken one left
+  // `systems` empty, so a dual-shipping bundle with a broken Scalprum manifest was
+  // reported as shipping neither system — corrupting the migration panel the sweep
+  // exists to keep fresh, on top of the (correct) error.
   const systems: FrontendSystem[] = [];
+  let error: string | null = null;
   if (has("dist-scalprum")) {
-    if (!has("dist-scalprum/plugin-manifest.json")) {
-      return {
-        systems,
-        error: "dist-scalprum/ found but missing plugin-manifest.json",
-      };
-    }
-    systems.push("legacy");
+    if (has("dist-scalprum/plugin-manifest.json")) systems.push("legacy");
+    else error = "dist-scalprum/ found but missing plugin-manifest.json";
   }
   if (has("dist/remoteEntry.js")) {
-    if (!has("dist/mf-manifest.json")) {
-      return {
-        systems,
-        error: "dist/remoteEntry.js found but missing dist/mf-manifest.json",
-      };
+    if (has("dist/mf-manifest.json")) systems.push("new-frontend-system");
+    else {
+      const mf = "dist/remoteEntry.js found but missing dist/mf-manifest.json";
+      error = error ? `${error}; ${mf}` : mf;
     }
-    systems.push("new-frontend-system");
   }
+  if (error) return { systems, error };
   if (systems.length === 0) {
     return {
       systems,

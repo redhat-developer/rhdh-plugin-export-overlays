@@ -13,17 +13,28 @@ name: Seed E2E coverage to main
 # see the E2E coverage section in README.md.
 
 on:
+  # This schedule is the backstop for a push trigger that is itself best-effort
+  # — GitHub has dropped push-event dispatch for a main commit before
+  # (2026-08-04, #3120), creating no runs for ANY push-triggered workflow and
+  # stranding that snapshot until a manual dispatch. The interval is therefore
+  # the worst-case staleness the dashboard can show; the job is a ~20s upload,
+  # so 6h rather than daily.
+  #
+  # Off the hour on purpose: GitHub delays scheduled events under load and the
+  # top of the hour is the peak slot — a backstop should not sit in the slot
+  # most likely to be delayed. Matches house style (e2e-triage-agent.yaml
+  # "15 6 * * *", stale.yaml "30 1 * * *").
   schedule:
-    - cron: "0 6 * * *" # Daily at 06:00 UTC
+    - cron: "17 */6 * * *" # Every 6h, at :17
   push:
     branches: [main]
     paths:
       - "coverage-snapshots/**"
   workflow_dispatch:
 
-# A push to coverage-snapshots/** near the 06:00 schedule could run two seeds
-# against the same main SHA + flag; serialize them. Uploads are idempotent on
-# Codecov's side — this just avoids a wasted double-upload.
+# A push to coverage-snapshots/** landing near the scheduled run could run two
+# seeds against the same main SHA + flag; serialize them. Uploads are idempotent
+# on Codecov's side — this just avoids a wasted double-upload.
 concurrency:
   group: seed-coverage-main
   cancel-in-progress: false
