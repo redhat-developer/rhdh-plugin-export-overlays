@@ -104,6 +104,14 @@ test.describe("Bulk Import via Scaffolder Template", () => {
         .getByRole("article")
         .getByText("Finished step Register catalog-info.yaml in Backstage"),
     ).toBeVisible();
+
+    // Verify the PR was actually created on GitHub
+    const prs = await APIHelper.getGitHubPRs(
+      repositoryParametersGitHub.organization,
+      repositoryParametersGitHub.name,
+      "open",
+    );
+    expect(prs.length).toBeGreaterThan(0);
   });
 
   test("GitLab form renders correctly", async ({ page, uiHelper }) => {
