@@ -22,17 +22,16 @@
 #                  removing it needs Codecov UI access on a repo we may not
 #                  administer.
 #
-#                  This flag was written to stage a first run for review, and
-#                  that is NOT what it does. A pinned-only upload of the
-#                  extensions workspace was accepted by Codecov (556 KB stored,
-#                  queued) and ten minutes later the pinned commit still
-#                  reported the same session count and the same per-file
-#                  numbers, none of them the uploaded ones. A report uploaded
-#                  onto a historical commit has not been observed to change
-#                  that commit's report, so there is nothing to review. WHY that
-#                  is has not been established — see point 3, which is the one
-#                  account of it; do not infer a mechanism from here.
-#                  Keep the flag for staging only if that changes.
+                  A pinned-only upload DOES land — the session is on the
+#                  commit, in state `merged`, with its own totals. An earlier
+#                  version of this comment said otherwise; see point 3 for how
+#                  that mistake was made and how to check for yourself.
+#
+#                  What it does not do is make the flag reachable from the
+#                  default branch, which is the whole reason the HEAD copy
+#                  exists. So this stages a run in the sense of publishing it
+#                  where nobody is looking, not in the sense of previewing what
+#                  the visible copy will say.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
 # publishes to this repo's own project against a committed anchor, which keeps
@@ -74,25 +73,31 @@
 #      Source drift between the two measured 0-14% per workspace, and does not
 #      track the ref's age — churn does.
 #
-#      That verification was read as "the HEAD copy works" for longer than it
-#      should have been. On 2026-08-12 the same path was run for extensions,
-#      whose pinned ref sits 201 commits behind HEAD, and NOTHING landed: the
-#      flag on main HEAD kept showing an older measurement, and two files this
-#      run covers with real numbers (plugins/extensions/src/index.ts 3/3 and
-#      plugin.ts 18/25) were absent from the report entirely. Both uploads were
-#      accepted, queued and reported success.
+#      HOW TO TELL WHETHER AN UPLOAD LANDED, because getting this wrong cost a
+#      day. The commit endpoint does not expose sessions; the uploads one does,
+#      and it PAGINATES:
 #
-#      One cause is fixed here: every upload now runs from a checkout OF THE SHA
-#      IT DECLARES, and is remapped against that tree. Before, both uploads ran
-#      from the pinned clone, so the HEAD copy declared the pinned tree's file
-#      list against a different commit.
+#        /api/v2/github/redhat-developer/repos/rhdh-plugins/commits/<sha>/uploads
 #
-#      That does NOT explain the whole observation, and the gap is left written
-#      down rather than smoothed over: the PINNED copy had the correct tree and
-#      also did not land. What both failures share is a flag that already had a
-#      carried-forward report on the target commit, which intelligent-assistant
-#      did not. Whether Codecov declines to recompute such a commit is not
-#      established — do not assume a green run here means the report changed.
+#      Look for a session named `overlay-<flag>-<digest>`. If it is there with
+#      totals, the upload landed, whatever the numbers look like.
+#
+#      Two things make a landed upload look like a lost one, and both were
+#      mistaken for "the report did not change" on 2026-08-12:
+#
+#      1. The numbers are counted differently at each end. lcov reports a line
+#         as covered or not; Codecov splits it into hits, misses and PARTIALS.
+#         extensions remapped to 995/1179 lines here and arrived as 906 hits +
+#         260 misses + 292 partials = 1458. A file this side calls 1/1 can read
+#         0/1 there with partials=1. Same measurement, finer classification —
+#         not, as it first appeared, somebody else's data.
+#
+#      2. The destination repo's own codecov.yml `ignore:` block drops files
+#         after upload. rhdh-plugins ignores `**/src/index.ts` and plugin wiring
+#         deliberately, which is why 78 resolved files arrive as 76. The drift
+#         warning below compares OUR two remaps and cannot see this, so a gap
+#         between "N resolved" and the flag's file count is expected and is not
+#         a defect to chase.
 #
 # Required environment:
 #   CODECOV_RHDH_PLUGINS_TOKEN
