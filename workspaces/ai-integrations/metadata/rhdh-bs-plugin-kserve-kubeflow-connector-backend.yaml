@@ -33,7 +33,9 @@ spec:
           providers:
             modelCatalog:
               developement:
-                baseUrl: http://localhost:9090
+                my-cluster:
+                  kubernetesPluginRef: ${K8S_CLUSTER_NAME}
+                  kubeflow-model-catalog-url: http://localhost:9090
         kubernetes:
           serviceLocatorMethod:
             type: multiTenant
