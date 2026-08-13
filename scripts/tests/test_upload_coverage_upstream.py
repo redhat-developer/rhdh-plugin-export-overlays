@@ -16,6 +16,8 @@ REMAP_BIN stands in for the remap, so nothing reaches GitHub, Codecov or npm.
 The one exception is documented on the test that needs it.
 """
 
+import hashlib
+import itertools
 import json
 import os
 from pathlib import Path
@@ -210,6 +212,13 @@ def run_upstream(
 
     base = {
         "CODECOV_BIN": str(stub),
+        # Points the post-upload session check at an empty local fixture unless
+        # a test overrides it. Without this every successful upload would poll
+        # the real Codecov API — a network dependency and minutes of wall clock
+        # in a suite whose whole contract is being hermetic.
+        "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+        "VERIFY_ATTEMPTS": "1",
+        "VERIFY_DELAY_SECONDS": "0",
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
         "UPSTREAM_HEAD_CHECKOUT_DIR": str(head_checkout),
         "REMAP_BIN": str(remap),
@@ -606,6 +615,9 @@ class TestRealClone:
             str(coverage_dir),
             env={
                 "CODECOV_BIN": str(stub),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
                 "CODECOV_RHDH_PLUGINS_TOKEN": "t",
                 "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
@@ -630,6 +642,108 @@ class TestRealClone:
         assert f"--sha {git(origin, 'rev-parse', 'HEAD').stdout.strip()}" in calls[1]
 
 
+_UPLOADS_API_SEQ = itertools.count()
+
+
+def expected_session_name(files=2):
+    """The session name the script will derive for the stub's report.
+
+    `upload_name_for` digests the lcov with `git hash-object`, which is a plain
+    git blob sha1 — so it can be computed here instead of running the script
+    once to find out. Deriving it keeps the check on the CONTRACT (the name
+    follows the content) rather than on a digest pasted into the test.
+    """
+    body = "".join(
+        f"TN:\nSF:workspaces/x/src/a{i}.ts\nDA:1,1\nend_of_record\n"
+        for i in range(1, files + 1)
+    ).encode()
+    blob = b"blob " + str(len(body)).encode() + b"\x00" + body
+    return f"overlay-e2e-{WORKSPACE}-{hashlib.sha1(blob).hexdigest()[:8]}"
+
+
+def write_uploads_api(tmp_path, names, *, pages=1):
+    """A stand-in for Codecov's uploads endpoint, served from files.
+
+    Paginated on purpose: the endpoint really does page, and not paginating it
+    is what hid the sessions during the investigation this check exists because
+    of. A fixture that returned everything on one page would let that same bug
+    back in.
+    """
+    # Its own directory per call: the harness writes an empty one for every run,
+    # and a shared path would have it clobber the fixture a test just set up.
+    api = tmp_path / f"api{next(_UPLOADS_API_SEQ)}"
+    api.mkdir(parents=True, exist_ok=True)
+    per_page = max(1, (len(names) + pages - 1) // pages) if names else 1
+    chunks = [names[i : i + per_page] for i in range(0, len(names), per_page)] or [[]]
+    for i, chunk in enumerate(chunks):
+        nxt = f"file://{api}/page{i + 2}.json" if i + 1 < len(chunks) else None
+        (api / f"page{i + 1}.json").write_text(
+            json.dumps({"results": [{"name": n} for n in chunk], "next": nxt})
+        )
+    return f"file://{api}/page1.json"
+
+
+class TestUploadVerification:
+    """Codecov accepts an upload and returns before processing it, so "queued
+    for processing" is a receipt rather than a result. This is the last place
+    the script could publish nothing and report success."""
+
+    def _run(self, tmp_path, coverage_dir, uploads_api):
+        return run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": uploads_api,
+                "VERIFY_ATTEMPTS": "2",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+    def test_a_session_that_appears_is_confirmed(self, tmp_path, coverage_dir):
+        name = expected_session_name()
+
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, [name], pages=3)
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert f"session '{name}' is on the commit" in result.stdout
+        assert "unconfirmed" not in result.stderr
+
+    def test_a_session_that_never_appears_is_reported(self, tmp_path, coverage_dir):
+        """The upload was accepted and the report did not change — the exact
+        outcome that read as success for a day."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, ["someone-elses-session"])
+        )
+
+        assert "no session named" in result.stderr
+        assert "uploaded but unconfirmed" in result.stderr
+
+    def test_an_unconfirmed_upload_does_not_fail_the_run(
+        self, tmp_path, coverage_dir
+    ):
+        """A slow processing queue is not a failed publish. Turning every merge
+        red on a timeout would be worse than the silence it replaces."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, [])
+        )
+
+        assert result.returncode == 0, result.stderr
+
+    def test_the_session_is_looked_for_beyond_the_first_page(
+        self, tmp_path, coverage_dir
+    ):
+        """The endpoint paginates, and not following `next` is precisely what
+        made these sessions look absent while they were there all along."""
+        name = expected_session_name()
+        api = write_uploads_api(tmp_path, ["filler-a", "filler-b", name], pages=3)
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, api)
+
+        assert f"session '{name}' is on the commit" in result.stdout
+
+
 class TestCloneFailure:
     """clone_at's failure contract, which the two-checkout change created.
 
@@ -650,6 +764,9 @@ class TestCloneFailure:
         stub = write_stub_cli(tmp_path / "codecov", [0])
         env = {
             "CODECOV_BIN": str(stub),
+            "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+            "VERIFY_ATTEMPTS": "1",
+            "VERIFY_DELAY_SECONDS": "0",
             "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
             "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
@@ -830,6 +947,11 @@ class TestTargetSelection:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(
+                    tmp_path, [expected_session_name()]
+                ),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(
@@ -843,6 +965,9 @@ class TestTargetSelection:
 
         assert result.returncode == 0, result.stderr
         assert call_count(stub) == 1
+        # Nothing at all, not "nothing about the HEAD copy": the session the
+        # upload creates is in the fixture, so a clean run here has to be
+        # clean end to end.
         assert "[WARN]" not in result.stderr
         assert "will not be visible" not in result.stderr
 
@@ -938,6 +1063,9 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(
@@ -970,6 +1098,9 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(

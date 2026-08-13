@@ -473,7 +473,53 @@ if [[ "$DRY_RUN" != "true" && ! -x "$CODECOV_BIN" ]]; then
   "$SCRIPT_DIR/ensure-codecov-cli.sh" "$CODECOV_BIN"
 fi
 
+# Whether a session with this name is on the commit yet.
+#
+# Codecov accepts an upload and returns before it has processed it, so "queued
+# for processing" is a receipt, not a result — the CLI says it whether or not
+# the report ever changes. Everything else in this script guards against
+# publishing nothing while reporting success; this is the last place that could
+# still happen, and it is the exact blindness that made a landed upload
+# indistinguishable from a swallowed one for a day.
+#
+# Only the uploads endpoint lists sessions, and it PAGINATES — the omission that
+# hid them. Read-only and unauthenticated: the destination project is public.
+UPLOADS_API="${CODECOV_UPLOADS_API:-https://api.codecov.io/api/v2/github/%OWNER%/repos/%REPO%/commits/%SHA%/uploads}"
+
+session_names_on() {
+  local sha="$1" owner="${SLUG%%/*}" repo="${SLUG##*/}" url
+  url="${UPLOADS_API//%OWNER%/$owner}"
+  url="${url//%REPO%/$repo}"
+  url="${url//%SHA%/$sha}"
+  while [[ -n "$url" && "$url" != "null" ]]; do
+    local page
+    page="$(curl -sL --max-time 30 "$url" 2>/dev/null)" || return 1
+    jq -r '(.results // [])[] | .name // empty' <<<"$page" 2>/dev/null || return 1
+    url="$(jq -r '.next // "null"' <<<"$page" 2>/dev/null | sed 's#^http://#https://#')"
+  done
+}
+
+# Bounded and non-fatal. A slow processing queue is not a failed publish, and
+# turning every merge red on a timeout would be worse than the silence it
+# replaces — so an unconfirmed upload is raised as an annotation, not an error.
+readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
+readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
+
+verify_landed() {
+  local sha="$1" name="$2" attempt
+  for attempt in $(seq 1 "$VERIFY_ATTEMPTS"); do
+    if session_names_on "$sha" | grep -qxF "$name"; then
+      echo "[OK]   $sha: session '$name' is on the commit."
+      return 0
+    fi
+    [[ "$attempt" -lt "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
+  done
+  warn_loudly "uploaded to $sha but no session named '$name' appeared after $((VERIFY_ATTEMPTS * VERIFY_DELAY_SECONDS))s — the report may not have changed. Check ${UPLOADS_API//%SHA%/$sha} (it paginates)."
+  return 1
+}
+
 FAILED_SHAS=()
+UNVERIFIED_SHAS=()
 for sha in "${UPLOAD_SHAS[@]}"; do
   # Each target uploads ITS OWN tree and ITS OWN remap. Reusing the pinned pair
   # for the HEAD sha is exactly the silent failure this loop was changed to fix.
@@ -535,10 +581,15 @@ for sha in "${UPLOAD_SHAS[@]}"; do
   if [[ "$uploaded" != "true" ]]; then
     echo "ERROR: upload to $sha failed" >&2
     FAILED_SHAS+=("$sha")
+  elif ! verify_landed "$sha" "$upload_name"; then
+    UNVERIFIED_SHAS+=("$sha")
   fi
 done
 
 echo ""
+if [[ ${#UNVERIFIED_SHAS[@]} -gt 0 ]]; then
+  echo "[WARN] uploaded but unconfirmed: ${UNVERIFIED_SHAS[*]}" >&2
+fi
 if [[ ${#FAILED_SHAS[@]} -gt 0 ]]; then
   echo "ERROR: ${#FAILED_SHAS[@]} of ${#UPLOAD_SHAS[@]} upload(s) failed: ${FAILED_SHAS[*]}" >&2
   exit 1
