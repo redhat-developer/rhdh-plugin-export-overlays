@@ -16,10 +16,13 @@ REMAP_BIN stands in for the remap, so nothing reaches GitHub, Codecov or npm.
 The one exception is documented on the test that needs it.
 """
 
+import contextlib
 import hashlib
+import http.server
 import itertools
 import json
 import os
+import threading
 from pathlib import Path
 
 import pytest
@@ -212,13 +215,18 @@ def run_upstream(
 
     base = {
         "CODECOV_BIN": str(stub),
-        # Points the post-upload session check at an empty local fixture unless
-        # a test overrides it. Without this every successful upload would poll
-        # the real Codecov API — a network dependency and minutes of wall clock
-        # in a suite whose whole contract is being hermetic.
-        "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
-        "VERIFY_ATTEMPTS": "1",
+        # Verification OFF by default, and off rather than pointed at an empty
+        # fixture. An empty one made every default run emit its own
+        # `::warning::e2e-`, which silently satisfied
+        # test_a_skipped_head_copy_is_raised_as_a_run_annotation from an
+        # unrelated code path — the annotation could then be deleted from the
+        # HEAD-copy failure and the suite stayed green. Tests that exercise
+        # verification turn it on themselves.
+        "VERIFY_ATTEMPTS": "0",
         "VERIFY_DELAY_SECONDS": "0",
+        # Still set, so a test that raises VERIFY_ATTEMPTS without naming an API
+        # cannot reach the network by accident.
+        "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
         "UPSTREAM_HEAD_CHECKOUT_DIR": str(head_checkout),
         "REMAP_BIN": str(remap),
@@ -235,6 +243,45 @@ def run_upstream(
         cwd=root,
     )
     return result, stub, checkout, remap
+
+
+class TestScriptHeader:
+    """The header is long and is edited by hand a lot, and a comment that loses
+    its `#` becomes a command.
+
+    That happened: a rewrite of the --pinned-only block dropped the marker on
+    one line, and bash ran `A: command not found` on every single invocation.
+    Nothing caught it — shellcheck passes (it is valid shell), `bash -n` passes
+    (it is valid syntax), and 56 tests passed because the stray line writes to
+    stderr without changing any exit code or any assertion. Two reviewers found
+    it by reading.
+    """
+
+    SCRIPT = SCRIPTS_DIR / "upload-coverage-upstream.sh"
+
+    def test_nothing_before_the_first_command_is_executable(self):
+        for number, line in enumerate(self.SCRIPT.read_text().splitlines(), 1):
+            if line.startswith("#") or not line.strip():
+                continue
+            # The first real line, and the only one this is allowed to be.
+            assert line == "set -euo pipefail", (
+                f"line {number} sits in the header but is not a comment, so bash "
+                f"will execute it: {line!r}"
+            )
+            return
+        raise AssertionError("the script has no commands at all")
+
+    def test_a_run_emits_nothing_bash_could_not_understand(self, tmp_path):
+        """The symptom as a user sees it, rather than as the file looks."""
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
+            cwd=root,
+        )
+
+        assert "command not found" not in result.stderr
+        assert "não encontrado" not in result.stderr
 
 
 class TestInputValidation:
@@ -683,6 +730,72 @@ def write_uploads_api(tmp_path, names, *, pages=1):
     return f"file://{api}/page1.json"
 
 
+@contextlib.contextmanager
+def scripted_http_server(responses):
+    """A loopback server that answers each request from `responses` in order.
+
+    Needed for the one thing a static fixture cannot express: an endpoint that
+    works and then stops. The last entry is repeated if more requests arrive.
+    """
+
+    remaining = list(responses)
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
+            status, body = remaining.pop(0) if len(remaining) > 1 else remaining[0]
+            payload = body.encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/uploads"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@contextlib.contextmanager
+def error_http_server(*, status, body):
+    """A loopback HTTP server that answers everything with one error status.
+
+    Only for the cases `file://` cannot express. Bound to 127.0.0.1 on an
+    ephemeral port, so this stays as hermetic as the rest of the suite — no name
+    resolution, no route off the machine.
+    """
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
+            payload = body.encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/uploads"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 class TestUploadVerification:
     """Codecov accepts an upload and returns before processing it, so "queued
     for processing" is a receipt rather than a result. This is the last place
@@ -719,6 +832,114 @@ class TestUploadVerification:
 
         assert "no session named" in result.stderr
         assert "uploaded but unconfirmed" in result.stderr
+
+    def test_verification_can_be_switched_off_with_zero_attempts(
+        self, tmp_path, coverage_dir
+    ):
+        """VERIFY_ATTEMPTS=0 is the obvious way to turn this off, and it must
+        mean the same thing on both platforms. BSD seq counts DOWN when first >
+        last, so the loop this replaced ran TWICE on macOS for zero attempts
+        while skipping entirely on GNU."""
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "0",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "is on the commit" not in result.stdout
+        assert "no session named" not in result.stderr
+
+    def test_an_unreachable_api_is_not_reported_as_a_missing_session(
+        self, tmp_path, coverage_dir
+    ):
+        """The two read identically in a log and send whoever is debugging to
+        opposite places — Codecov, or their own network."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, f"file://{tmp_path}/nothing-here.json"
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "could not reach" in result.stderr
+        assert "no session named" not in result.stderr
+
+    def test_the_url_the_warning_prints_is_one_you_can_open(
+        self, tmp_path, coverage_dir
+    ):
+        """It is the only thread anyone gets for investigating, and it used to
+        be printed with two of its three placeholders unsubstituted.
+
+        The fixture URL carries all three placeholders on purpose. Pointing this
+        at an already-substituted path would assert the absence of something the
+        input never contained — a test that passes whatever the code does.
+        """
+        owner, repo = UPSTREAM_SLUG.split("/")
+        api = tmp_path / "tpl" / owner / repo / PINNED_REF
+        api.mkdir(parents=True)
+        (api / "page1.json").write_text(json.dumps({"results": [], "next": None}))
+        templated = f"file://{tmp_path}/tpl/%OWNER%/%REPO%/%SHA%/page1.json"
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, templated)
+
+        assert "no session named" in result.stderr, (
+            "the templated URL did not resolve, so this asserts nothing"
+        )
+        assert "%OWNER%" not in result.stderr
+        assert "%REPO%" not in result.stderr
+        assert "%SHA%" not in result.stderr
+
+    def test_an_http_error_is_not_read_as_an_empty_listing(
+        self, tmp_path, coverage_dir
+    ):
+        """Codecov answers 404 with `{"detail":"Not found."}` and 429 with its
+        own JSON. Without `curl --fail` both are a successful fetch of an error
+        body, which `jq '(.results // [])[]'` reads as "no sessions" — routing a
+        rate-limit into the loud "the report may not have changed" instead of
+        "could not reach".
+
+        Served over real HTTP on loopback, because the file:// seam every other
+        test uses has no status code: it can express "the file is there" and
+        "it is not", never "the server answered 404 with a body". A fixture
+        that cannot produce the condition cannot test the guard against it.
+        """
+        with error_http_server(status=404, body='{"detail": "Not found."}') as base:
+            result, _, _, _ = self._run(tmp_path, coverage_dir, base)
+
+        assert "no session named" not in result.stderr
+        assert "could not reach" in result.stderr
+
+    def test_one_reachable_poll_outweighs_a_later_blip(
+        self, tmp_path, coverage_dir
+    ):
+        """A poll that reached the API and found nothing is evidence; a blip on
+        a later attempt must not downgrade it to "could not reach", which is the
+        message an operator dismisses.
+
+        The server answers a real listing first and fails afterwards — a static
+        fixture is either always reachable or never, so it cannot produce the
+        ordering this guards. `--pinned-only` keeps it to ONE upload, so the
+        scripted responses belong to a single verification rather than being
+        split across two.
+        """
+        listing = json.dumps({"results": [{"name": "someone-elses"}], "next": None})
+        with scripted_http_server([(200, listing), (500, "boom")]) as api:
+            result, _, _, _ = run_upstream(
+                tmp_path,
+                coverage_dir,
+                "--pinned-only",
+                env={
+                    "CODECOV_UPLOADS_API": api,
+                    "VERIFY_ATTEMPTS": "2",
+                    "VERIFY_DELAY_SECONDS": "0",
+                },
+            )
+
+        assert "no session named" in result.stderr
+        assert "could not reach" not in result.stderr
 
     def test_an_unconfirmed_upload_does_not_fail_the_run(
         self, tmp_path, coverage_dir

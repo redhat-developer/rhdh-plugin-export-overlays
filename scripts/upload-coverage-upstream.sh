@@ -22,7 +22,7 @@
 #                  removing it needs Codecov UI access on a repo we may not
 #                  administer.
 #
-                  A pinned-only upload DOES land — the session is on the
+#                  A pinned-only upload DOES land — the session is on the
 #                  commit, in state `merged`, with its own totals. An earlier
 #                  version of this comment said otherwise; see point 3 for how
 #                  that mistake was made and how to check for yourself.
@@ -486,16 +486,49 @@ fi
 # hid them. Read-only and unauthenticated: the destination project is public.
 UPLOADS_API="${CODECOV_UPLOADS_API:-https://api.codecov.io/api/v2/github/%OWNER%/repos/%REPO%/commits/%SHA%/uploads}"
 
-session_names_on() {
+uploads_url_for() {
   local sha="$1" owner="${SLUG%%/*}" repo="${SLUG##*/}" url
   url="${UPLOADS_API//%OWNER%/$owner}"
   url="${url//%REPO%/$repo}"
-  url="${url//%SHA%/$sha}"
+  echo "${url//%SHA%/$sha}"
+}
+
+# Prints one session name per line and FAILS if the listing could not be read.
+# The caller tells those apart through the EXIT STATUS, not a variable: this is
+# consumed through a command substitution, which is a subshell, so anything
+# assigned in here is gone by the time the caller looks. The status survives.
+session_names_on() {
+  local sha="$1" url next page
+  url="$(uploads_url_for "$sha")"
   while [[ -n "$url" && "$url" != "null" ]]; do
-    local page
-    page="$(curl -sL --max-time 30 "$url" 2>/dev/null)" || return 1
-    jq -r '(.results // [])[] | .name // empty' <<<"$page" 2>/dev/null || return 1
-    url="$(jq -r '.next // "null"' <<<"$page" 2>/dev/null | sed 's#^http://#https://#')"
+    # --fail, because without it an HTTP error IS a successful fetch of an
+    # error body: Codecov answers 404 with `{"detail":"Not found."}` and 429
+    # with its own JSON, both of which `jq '(.results // [])[]'` reads as an
+    # empty listing and exits 0. That routes a rate-limit or a moved endpoint
+    # into "no session is on the commit" — the loud message — instead of
+    # "could not reach", which is the whole distinction this function draws.
+    if ! page="$(curl -sfL --max-time 30 "$url" 2>/dev/null)"; then
+      return 1
+    fi
+    if ! jq -r '(.results // [])[] | .name // empty' <<<"$page" 2>/dev/null; then
+      return 1
+    fi
+    next="$(jq -r '.next // "null"' <<<"$page" 2>/dev/null)"
+    # Codecov hands `next` back on the insecure scheme even when asked over TLS.
+    # The host is the one we chose, so the scheme is forced rather than
+    # followed — written as a swap rather than a literal so nothing here spells
+    # out a clear-text URL. file:// is the test seam and is taken as given.
+    #
+    # Only the file:// arm is covered: the tests serve pages from disk, so no
+    # test reaches the scheme-forcing arm, and mutating that arm alone leaves
+    # the suite green. Covering it would need a local TLS server, which buys
+    # less than it costs — but do not read a green suite as proof of this line.
+    case "$next" in
+      null | "") url="" ;;
+      file://*) url="$next" ;;
+      *://*) url="https://${next#*://}" ;;
+      *) url="$next" ;;
+    esac
   done
 }
 
@@ -506,15 +539,42 @@ readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
 readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
 
 verify_landed() {
-  local sha="$1" name="$2" attempt
-  for attempt in $(seq 1 "$VERIFY_ATTEMPTS"); do
-    if session_names_on "$sha" | grep -qxF "$name"; then
-      echo "[OK]   $sha: session '$name' is on the commit."
-      return 0
+  local sha="$1" name="$2" attempt=1 names lookup_failed="false" where
+  # Nothing was asked, so nothing can be claimed either way — warning here would
+  # report a session that was never looked for.
+  if [[ "$VERIFY_ATTEMPTS" -le 0 ]]; then
+    return 0
+  fi
+
+  # An arithmetic loop rather than `seq 1 "$VERIFY_ATTEMPTS"`: BSD seq counts
+  # DOWN when first > last, so `seq 1 0` yields "1 0" on macOS and nothing on
+  # GNU. The guard above already makes zero unreachable, so this is
+  # belt-and-braces — kept because that trap has already cost this repo a
+  # fixture that meant opposite things on the two platforms.
+  while [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]]; do
+    if names="$(session_names_on "$sha")"; then
+      # Sticky in the useful direction: one reachable poll that showed the
+      # session absent is real evidence, and a blip on a later attempt must not
+      # erase it. Last-poll-wins turned four definitive observations into "could
+      # not reach", which is the dismissible message and would be false.
+      lookup_failed="reached"
+      if grep -qxF "$name" <<<"$names"; then
+        echo "[OK]   $sha: session '$name' is on the commit."
+        return 0
+      fi
+    elif [[ "$lookup_failed" != "reached" ]]; then
+      lookup_failed="true"
     fi
-    [[ "$attempt" -lt "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
+    attempt=$((attempt + 1))
+    [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
   done
-  warn_loudly "uploaded to $sha but no session named '$name' appeared after $((VERIFY_ATTEMPTS * VERIFY_DELAY_SECONDS))s — the report may not have changed. Check ${UPLOADS_API//%SHA%/$sha} (it paginates)."
+
+  where="$(uploads_url_for "$sha")"
+  if [[ "$lookup_failed" == "true" ]]; then
+    warn_loudly "uploaded to $sha but could not reach $where to confirm it — this says nothing about whether the report changed."
+  else
+    warn_loudly "uploaded to $sha but no session named '$name' is on the commit — the report may not have changed. Check $where (it paginates)."
+  fi
   return 1
 }
 
