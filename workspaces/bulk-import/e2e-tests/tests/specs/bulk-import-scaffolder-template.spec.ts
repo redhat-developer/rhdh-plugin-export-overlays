@@ -16,7 +16,7 @@ const repositoryParametersGitHub: RepositoryParameters =
 const repositoryParametersGitLab: RepositoryParameters =
   defaultGitLabRepositoryParameters();
 
-test.describe("Bulk Import via Scaffolder Template", () => {
+test.describe.serial("Bulk Import via Scaffolder Template", () => {
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce("bulk-import-scaffolder-template-setup", async () => {
       await setupBulkImportRhdh(rhdh, {
