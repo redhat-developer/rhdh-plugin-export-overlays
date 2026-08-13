@@ -11,7 +11,6 @@
 #   legacy-only        — Entry points present but none are NFS types
 #   no-features        — backstage.features field absent or empty in OCI artifact
 #   baked-in           — Ships inside the RHDH container image (local path, not OCI)
-#   external-registry  — Hosted on a non-GHCR registry (cannot inspect)
 #   unknown            — Could not determine status (no --oci flag or OCI pull failed)
 #   backend-only       — Plugin role is backend-plugin (not applicable)
 #
@@ -197,10 +196,6 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     # Plugin ships inside the RHDH container image (local path)
     status="baked-in"
     features_json="{}"
-  elif [[ "$oci_ref" != *"ghcr.io"* ]]; then
-    # Hosted on a non-GHCR registry we can't inspect
-    status="external-registry"
-    features_json="{}"
   elif [[ "$USE_OCI" == "true" ]]; then
     # Pull OCI artifact and extract backstage.features
     mkdir -p "$WORKDIR"
@@ -274,7 +269,6 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   legacy_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "legacy-only")] | length')
   no_features=$(echo "$RESULTS" | jq '[.[] | select(.status == "no-features")] | length')
   baked_in=$(echo "$RESULTS" | jq '[.[] | select(.status == "baked-in")] | length')
-  external_reg=$(echo "$RESULTS" | jq '[.[] | select(.status == "external-registry")] | length')
   unknown=$(echo "$RESULTS" | jq '[.[] | select(.status == "unknown")] | length')
   backend_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "backend-only")] | length')
 
@@ -291,8 +285,7 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 | :yellow_circle: mixed | $mixed | Some NFS entry points, some legacy/unrecognized |
 | :orange_circle: legacy-only | $legacy_only | Entry points present but none are NFS types |
 | :red_circle: no-features | $no_features | \`backstage.features\` field absent or empty in OCI artifact |
-| :blue_circle: baked-in | $baked_in | Ships inside the RHDH container image (local path, not OCI) |
-| :purple_circle: external-registry | $external_reg | Hosted on a non-GHCR registry (cannot inspect) |
+| :large_blue_circle: baked-in | $baked_in | Ships inside the RHDH container image (local path, not OCI) |
 | :white_circle: unknown | $unknown | Could not determine status (no \`--oci\` flag or pull failed) |
 | — backend-only | $backend_only | Backend plugin (not applicable) |
 
@@ -332,8 +325,7 @@ EOF
                  elif .status == "mixed" then ":yellow_circle:"
                  elif .status == "legacy-only" then ":orange_circle:"
                  elif .status == "no-features" then ":red_circle:"
-                 elif .status == "baked-in" then ":blue_circle:"
-                 elif .status == "external-registry" then ":purple_circle:"
+                 elif .status == "baked-in" then ":large_blue_circle:"
                  else ":white_circle:" end),
           features_str: (if (.features | length) == 0 then "—"
                          else (.features | to_entries | map("`\(.key)` → \(.value)") | join(", ")) end)
@@ -381,8 +373,6 @@ have standard Module Federation exports that the CLI can detect.
 Plugins classified as **baked-in** ship inside the RHDH container image and are not
 published as separate OCI artifacts.
 
-Plugins classified as **external-registry** are hosted on a non-GHCR registry
-(e.g., \`quay.io\`) and cannot be inspected by this report.
 
 EOF
 fi
