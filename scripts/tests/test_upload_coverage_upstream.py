@@ -746,6 +746,9 @@ def scripted_http_server(responses):
     rest of the suite — no name resolution, no route off the machine.
     """
 
+    # Popped from the handler thread, which is safe only because HTTPServer
+    # answers one request at a time. Switching to ThreadingHTTPServer would need
+    # a lock — noted here because the failure would be a flake, not a red test.
     remaining = list(responses)
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -930,6 +933,40 @@ class TestUploadVerification:
 
         assert result.returncode == 0, result.stderr
         assert "stopped after" in result.stderr
+
+    def test_a_warning_cannot_forge_a_second_workflow_command(
+        self, tmp_path, coverage_dir
+    ):
+        """`::warning::` is a workflow command, so a newline inside its data
+        would start a second one. Nothing reaching it today is unconstrained —
+        this closes the gap for the next caller, which is the only moment it is
+        cheap to close."""
+        # A REAL newline, in a filename — `%0A` written literally proves nothing,
+        # since the string survives either way and only its escaping changes.
+        api = tmp_path / "inject"
+        api.mkdir()
+        page = api / "p\n::error::forged.json"
+        page.write_text(json.dumps({"results": [], "next": None}))
+
+        # GITHUB_ACTIONS on, or the `::warning::` line is never emitted and the
+        # test passes without ever reaching the thing it names.
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": f"file://{page}",
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
+                "GITHUB_ACTIONS": "true",
+            },
+        )
+
+        # Unescaped, the newline ends the warning and the rest starts a command
+        # of its own on the next line.
+        for line in result.stdout.splitlines():
+            assert not line.startswith("::error::"), (
+                f"a forged workflow command reached the runner: {line!r}"
+            )
 
     def test_an_unconfirmed_upload_does_not_fail_the_run(
         self, tmp_path, coverage_dir

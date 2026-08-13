@@ -307,10 +307,17 @@ clone_at() {
 # success", which is the failure this whole change exists to remove, so the
 # HEAD-copy failures are raised to run annotations rather than left in the log.
 warn_loudly() {
-  local message="$1"
+  local message="$1" escaped
   echo "[WARN] $message" >&2
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    echo "::warning::$FLAG: $message"
+    # Escaped the way GitHub documents for workflow command DATA. Every value
+    # reaching here today is already constrained — a 40-char SHA, an allowlisted
+    # slug, a content digest — so this closes the gap for the next caller rather
+    # than a live one, which is the only time it is cheap to close.
+    escaped="${message//\%/%25}"
+    escaped="${escaped//$'\r'/%0D}"
+    escaped="${escaped//$'\n'/%0A}"
+    echo "::warning::$FLAG: $escaped"
   fi
 }
 
