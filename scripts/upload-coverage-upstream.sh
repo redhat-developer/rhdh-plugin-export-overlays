@@ -82,6 +82,12 @@
 #      Look for a session named `overlay-<flag>-<digest>`. If it is there with
 #      totals, the upload landed, whatever the numbers look like.
 #
+#      Every run checks this for itself now and says so when it cannot confirm,
+#      which retires the standing caution this block used to carry about not
+#      reading a green run as proof. The caution applies again wherever
+#      VERIFY_ATTEMPTS is 0: verification off means nothing was asked, and the
+#      run says nothing either way on purpose.
+#
 #      Two things make a landed upload look like a lost one, and both were
 #      mistaken for "the report did not change" on 2026-08-12:
 #
