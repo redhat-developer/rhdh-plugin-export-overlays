@@ -734,8 +734,13 @@ def write_uploads_api(tmp_path, names, *, pages=1):
 def scripted_http_server(responses):
     """A loopback server that answers each request from `responses` in order.
 
-    Needed for the one thing a static fixture cannot express: an endpoint that
-    works and then stops. The last entry is repeated if more requests arrive.
+    For the two things a file:// fixture cannot express: a status code at all,
+    and an endpoint that works and then stops. The last entry repeats if more
+    requests arrive, so a single-entry list is a server that always answers the
+    same way.
+
+    Bound to 127.0.0.1 on an ephemeral port, so this stays as hermetic as the
+    rest of the suite — no name resolution, no route off the machine.
     """
 
     remaining = list(responses)
@@ -743,38 +748,6 @@ def scripted_http_server(responses):
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
             status, body = remaining.pop(0) if len(remaining) > 1 else remaining[0]
-            payload = body.encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-
-        def log_message(self, *_args):
-            pass
-
-    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/uploads"
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=5)
-
-
-@contextlib.contextmanager
-def error_http_server(*, status, body):
-    """A loopback HTTP server that answers everything with one error status.
-
-    Only for the cases `file://` cannot express. Bound to 127.0.0.1 on an
-    ephemeral port, so this stays as hermetic as the rest of the suite — no name
-    resolution, no route off the machine.
-    """
-
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
             payload = body.encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -906,7 +879,7 @@ class TestUploadVerification:
         "it is not", never "the server answered 404 with a body". A fixture
         that cannot produce the condition cannot test the guard against it.
         """
-        with error_http_server(status=404, body='{"detail": "Not found."}') as base:
+        with scripted_http_server([(404, '{"detail": "Not found."}')]) as base:
             result, _, _, _ = self._run(tmp_path, coverage_dir, base)
 
         assert "no session named" not in result.stderr
