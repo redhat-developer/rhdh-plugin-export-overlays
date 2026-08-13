@@ -8,6 +8,7 @@ import {
   defaultGitLabRepositoryParameters,
 } from "../../support/test-data/template-repository-data";
 import { fillFormFields } from "../../support/utils/fill-template-form";
+import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
 const repositoryParametersGitHub: RepositoryParameters =
   defaultGitHubRepositoryParameters();
@@ -35,9 +36,7 @@ test.describe("Bulk Import via Scaffolder Template", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper }) => {
-    await loginHelper.loginAsGithubUser();
-    await uiHelper.goToPageUrl("/create");
-    await uiHelper.verifyHeading("Self-service");
+    await signInForScaffolderTemplateTests(loginHelper, uiHelper);
   });
 
   test.afterAll(async () => {
