@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a
+  name: red-hat-developer-hub-backstage-plugin-x2a-scaffolder-module
   namespace: rhdh
   title: "X2A"
   links:
@@ -13,12 +13,12 @@ metadata:
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/x2a
   tags: []
 spec:
-  packageName: "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-x2a"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-x2a:bs_1.49.4__0.3.1
-  version: 0.3.1
+  packageName: "@red-hat-developer-hub/backstage-plugin-x2a-scaffolder-module"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-x2a-scaffolder-module:bs_1.52.0__2.0.0!red-hat-developer-hub-backstage-plugin-x2a-scaffolder-module
+  version: 2.0.0
   backstage:
-    role: backend-plugin
-    supportedVersions: 1.49.4
+    role: backend-plugin-module
+    supportedVersions: 1.52.0
   author: Red Hat
   support: community
   lifecycle: active

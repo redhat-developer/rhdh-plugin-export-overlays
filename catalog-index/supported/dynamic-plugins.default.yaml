@@ -148,7 +148,7 @@ plugins:
     enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:560461d3f868e1e8855e9e7c9c2660d36257c76452f1515b866ff326cbd58935
     enabled: true
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:273fd0bcd7b643a0359eccdbc6d0d1ddd44b6e91d1bded9be2608b34951afcb7
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions@sha256:949f6ead694cb13858f363ebe854f630f7006235f6666ff5a18b576fb122fd06
   # Tag: bs_1.52.0__0.19.1, Build date: 2026-05-22T15:19:47Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -365,7 +365,7 @@ plugins:
                 module: Legacy
                 config:
                   priority: 10
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions@sha256:00f4b5206d799dcbfb43b3e199a9811a9e8cd1231855c4eeb61e73cb72268f17
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions@sha256:15f257ea5a5c4c48394d694f5edea3337c186d54d5b8f026905e69f245e367b7
   # Tag: bs_1.52.0__0.19.1, Build date: 2026-06-03T21:08:05Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
@@ -393,7 +393,7 @@ plugins:
             menuItems:
               extensions:
                 parent: default.admin
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend@sha256:2ec0e94f78717ae771cab93b096c6bdb3af770f42fbceff4433d51f6b7508c6d
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend@sha256:bd78ec72ccf7f55e4e7ef3a75e6d2d637a9da7fef9c8589dec84034a90ca3733
   # Tag: bs_1.52.0__0.19.1, Build date: 2026-05-22T15:01:13Z
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
