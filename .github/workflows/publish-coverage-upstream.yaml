@@ -69,10 +69,10 @@ on:
       pinned-only:
         description: >-
           Upload only to the pinned repo-ref, not to the source repo's
-          default-branch HEAD. NOTE: a report uploaded to a historical commit
-          has not been observed to change that commit's report, so this does
-          NOT give you a copy to review before publishing — see the flag's
-          comment in scripts/upload-coverage-upstream.sh.
+          default-branch HEAD. The upload lands either way — what this withholds
+          is the copy that makes the flag reachable from the default branch, so
+          it publishes where nobody is looking rather than previewing what the
+          visible copy will say.
         type: boolean
         required: false
         default: false
@@ -154,6 +154,12 @@ jobs:
           TARGETS: ${{ steps.resolve.outputs.targets }}
           INPUT_DRY_RUN: ${{ inputs.dry-run }}
           INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
+          # Pinned here rather than left to the script's defaults, because this
+          # job carries `timeout-minutes: 30` and the check polls. Worst case is
+          # 4 x 15s per upload target, so under two minutes for both — a budget
+          # that stays clear of the clone and remap either side of it.
+          VERIFY_ATTEMPTS: "4"
+          VERIFY_DELAY_SECONDS: "15"
         run: |
           set -euo pipefail
 

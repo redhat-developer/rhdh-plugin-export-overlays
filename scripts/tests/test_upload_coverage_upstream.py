@@ -16,8 +16,13 @@ REMAP_BIN stands in for the remap, so nothing reaches GitHub, Codecov or npm.
 The one exception is documented on the test that needs it.
 """
 
+import contextlib
+import hashlib
+import http.server
+import itertools
 import json
 import os
+import threading
 from pathlib import Path
 
 import pytest
@@ -210,6 +215,18 @@ def run_upstream(
 
     base = {
         "CODECOV_BIN": str(stub),
+        # Verification OFF by default, and off rather than pointed at an empty
+        # fixture. An empty one made every default run emit its own
+        # `::warning::e2e-`, which silently satisfied
+        # test_a_skipped_head_copy_is_raised_as_a_run_annotation from an
+        # unrelated code path — the annotation could then be deleted from the
+        # HEAD-copy failure and the suite stayed green. Tests that exercise
+        # verification turn it on themselves.
+        "VERIFY_ATTEMPTS": "0",
+        "VERIFY_DELAY_SECONDS": "0",
+        # Still set, so a test that raises VERIFY_ATTEMPTS without naming an API
+        # cannot reach the network by accident.
+        "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
         "UPSTREAM_HEAD_CHECKOUT_DIR": str(head_checkout),
         "REMAP_BIN": str(remap),
@@ -226,6 +243,45 @@ def run_upstream(
         cwd=root,
     )
     return result, stub, checkout, remap
+
+
+class TestScriptHeader:
+    """The header is long and is edited by hand a lot, and a comment that loses
+    its `#` becomes a command.
+
+    That happened: a rewrite of the --pinned-only block dropped the marker on
+    one line, and bash ran `A: command not found` on every single invocation.
+    Nothing caught it — shellcheck passes (it is valid shell), `bash -n` passes
+    (it is valid syntax), and 56 tests passed because the stray line writes to
+    stderr without changing any exit code or any assertion. Two reviewers found
+    it by reading.
+    """
+
+    SCRIPT = SCRIPTS_DIR / "upload-coverage-upstream.sh"
+
+    def test_nothing_before_the_first_command_is_executable(self):
+        for number, line in enumerate(self.SCRIPT.read_text().splitlines(), 1):
+            if line.startswith("#") or not line.strip():
+                continue
+            # The first real line, and the only one this is allowed to be.
+            assert line == "set -euo pipefail", (
+                f"line {number} sits in the header but is not a comment, so bash "
+                f"will execute it: {line!r}"
+            )
+            return
+        raise AssertionError("the script has no commands at all")
+
+    def test_a_run_emits_nothing_bash_could_not_understand(self, tmp_path):
+        """The symptom as a user sees it, rather than as the file looks."""
+        root = build_overlay(tmp_path)
+        result = run_script(
+            root / "scripts" / "upload-coverage-upstream.sh",
+            env={"CODECOV_RHDH_PLUGINS_TOKEN": "t"},
+            cwd=root,
+        )
+
+        assert "command not found" not in result.stderr
+        assert "não encontrado" not in result.stderr
 
 
 class TestInputValidation:
@@ -606,6 +662,9 @@ class TestRealClone:
             str(coverage_dir),
             env={
                 "CODECOV_BIN": str(stub),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
                 "CODECOV_RHDH_PLUGINS_TOKEN": "t",
                 "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
@@ -630,6 +689,309 @@ class TestRealClone:
         assert f"--sha {git(origin, 'rev-parse', 'HEAD').stdout.strip()}" in calls[1]
 
 
+_UPLOADS_API_SEQ = itertools.count()
+
+
+def expected_session_name(files=2):
+    """The session name the script will derive for the stub's report.
+
+    `upload_name_for` digests the lcov with `git hash-object`, which is a plain
+    git blob sha1 — so it can be computed here instead of running the script
+    once to find out. Deriving it keeps the check on the CONTRACT (the name
+    follows the content) rather than on a digest pasted into the test.
+    """
+    body = "".join(
+        f"TN:\nSF:workspaces/x/src/a{i}.ts\nDA:1,1\nend_of_record\n"
+        for i in range(1, files + 1)
+    ).encode()
+    blob = b"blob " + str(len(body)).encode() + b"\x00" + body
+    return f"overlay-e2e-{WORKSPACE}-{hashlib.sha1(blob).hexdigest()[:8]}"
+
+
+def write_uploads_api(tmp_path, names, *, pages=1):
+    """A stand-in for Codecov's uploads endpoint, served from files.
+
+    Paginated on purpose: the endpoint really does page, and not paginating it
+    is what hid the sessions during the investigation this check exists because
+    of. A fixture that returned everything on one page would let that same bug
+    back in.
+    """
+    # Its own directory per call: the harness writes an empty one for every run,
+    # and a shared path would have it clobber the fixture a test just set up.
+    api = tmp_path / f"api{next(_UPLOADS_API_SEQ)}"
+    api.mkdir(parents=True, exist_ok=True)
+    # Exactly `pages` pages, padding with empty ones when there are fewer names
+    # than pages. Sizing by names instead rounded up and silently collapsed
+    # `pages=3` into a single page whenever the names fit — so a test that named
+    # pagination in its title was walking one page and proving nothing.
+    chunks = [names[i::pages] for i in range(pages)]
+    for i, chunk in enumerate(chunks):
+        nxt = f"file://{api}/page{i + 2}.json" if i + 1 < len(chunks) else None
+        (api / f"page{i + 1}.json").write_text(
+            json.dumps({"results": [{"name": n} for n in chunk], "next": nxt})
+        )
+    return f"file://{api}/page1.json"
+
+
+@contextlib.contextmanager
+def scripted_http_server(responses):
+    """A loopback server that answers each request from `responses` in order.
+
+    For the two things a file:// fixture cannot express: a status code at all,
+    and an endpoint that works and then stops. The last entry repeats if more
+    requests arrive, so a single-entry list is a server that always answers the
+    same way.
+
+    Bound to 127.0.0.1 on an ephemeral port, so this stays as hermetic as the
+    rest of the suite — no name resolution, no route off the machine.
+    """
+
+    # Popped from the handler thread, which is safe only because HTTPServer
+    # answers one request at a time. Switching to ThreadingHTTPServer would need
+    # a lock — noted here because the failure would be a flake, not a red test.
+    remaining = list(responses)
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802 - name fixed by BaseHTTPRequestHandler
+            status, body = remaining.pop(0) if len(remaining) > 1 else remaining[0]
+            payload = body.encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            self.wfile.write(payload)
+
+        def log_message(self, *_args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/uploads"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+class TestUploadVerification:
+    """Codecov accepts an upload and returns before processing it, so "queued
+    for processing" is a receipt rather than a result. This is the last place
+    the script could publish nothing and report success."""
+
+    def _run(self, tmp_path, coverage_dir, uploads_api):
+        return run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": uploads_api,
+                "VERIFY_ATTEMPTS": "2",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+    def test_a_session_that_appears_is_confirmed(self, tmp_path, coverage_dir):
+        name = expected_session_name()
+
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, [name], pages=3)
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert f"session '{name}' is on the commit" in result.stdout
+        assert "unconfirmed" not in result.stderr
+
+    def test_a_session_that_never_appears_is_reported(self, tmp_path, coverage_dir):
+        """The upload was accepted and the report did not change — the exact
+        outcome that read as success for a day."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, ["someone-elses-session"])
+        )
+
+        assert "no session named" in result.stderr
+        assert "uploaded but unconfirmed" in result.stderr
+
+    def test_verification_can_be_switched_off_with_zero_attempts(
+        self, tmp_path, coverage_dir
+    ):
+        """VERIFY_ATTEMPTS=0 is the obvious way to turn this off, and it must
+        mean the same thing on both platforms. BSD seq counts DOWN when first >
+        last, so the loop this replaced ran TWICE on macOS for zero attempts
+        while skipping entirely on GNU."""
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "0",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "is on the commit" not in result.stdout
+        assert "no session named" not in result.stderr
+
+    def test_an_unreachable_api_is_not_reported_as_a_missing_session(
+        self, tmp_path, coverage_dir
+    ):
+        """The two read identically in a log and send whoever is debugging to
+        opposite places — Codecov, or their own network."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, f"file://{tmp_path}/nothing-here.json"
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "could not reach" in result.stderr
+        assert "no session named" not in result.stderr
+
+    def test_the_url_the_warning_prints_is_one_you_can_open(
+        self, tmp_path, coverage_dir
+    ):
+        """It is the only thread anyone gets for investigating, and it used to
+        be printed with two of its three placeholders unsubstituted.
+
+        The fixture URL carries all three placeholders on purpose. Pointing this
+        at an already-substituted path would assert the absence of something the
+        input never contained — a test that passes whatever the code does.
+        """
+        owner, repo = UPSTREAM_SLUG.split("/")
+        api = tmp_path / "tpl" / owner / repo / PINNED_REF
+        api.mkdir(parents=True)
+        (api / "page1.json").write_text(json.dumps({"results": [], "next": None}))
+        templated = f"file://{tmp_path}/tpl/%OWNER%/%REPO%/%SHA%/page1.json"
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, templated)
+
+        assert "no session named" in result.stderr, (
+            "the templated URL did not resolve, so this asserts nothing"
+        )
+        assert "%OWNER%" not in result.stderr
+        assert "%REPO%" not in result.stderr
+        assert "%SHA%" not in result.stderr
+
+    def test_an_http_error_is_not_read_as_an_empty_listing(
+        self, tmp_path, coverage_dir
+    ):
+        """Codecov answers 404 with `{"detail":"Not found."}` and 429 with its
+        own JSON. Without `curl --fail` both are a successful fetch of an error
+        body, which `jq '(.results // [])[]'` reads as "no sessions" — routing a
+        rate-limit into the loud "the report may not have changed" instead of
+        "could not reach".
+
+        Served over real HTTP on loopback, because the file:// seam every other
+        test uses has no status code: it can express "the file is there" and
+        "it is not", never "the server answered 404 with a body". A fixture
+        that cannot produce the condition cannot test the guard against it.
+        """
+        with scripted_http_server([(404, '{"detail": "Not found."}')]) as base:
+            result, _, _, _ = self._run(tmp_path, coverage_dir, base)
+
+        assert "no session named" not in result.stderr
+        assert "could not reach" in result.stderr
+
+    def test_one_reachable_poll_outweighs_a_later_blip(
+        self, tmp_path, coverage_dir
+    ):
+        """A poll that reached the API and found nothing is evidence; a blip on
+        a later attempt must not downgrade it to "could not reach", which is the
+        message an operator dismisses.
+
+        The server answers a real listing first and fails afterwards — a static
+        fixture is either always reachable or never, so it cannot produce the
+        ordering this guards. `--pinned-only` keeps it to ONE upload, so the
+        scripted responses belong to a single verification rather than being
+        split across two.
+        """
+        listing = json.dumps({"results": [{"name": "someone-elses"}], "next": None})
+        with scripted_http_server([(200, listing), (500, "boom")]) as api:
+            result, _, _, _ = run_upstream(
+                tmp_path,
+                coverage_dir,
+                "--pinned-only",
+                env={
+                    "CODECOV_UPLOADS_API": api,
+                    "VERIFY_ATTEMPTS": "2",
+                    "VERIFY_DELAY_SECONDS": "0",
+                },
+            )
+
+        assert "no session named" in result.stderr
+        assert "could not reach" not in result.stderr
+
+    def test_a_listing_that_never_ends_is_abandoned(self, tmp_path, coverage_dir):
+        """A `next` that points at itself would otherwise spin until the job's
+        own timeout kills it — turning a diagnostic into the thing that stops
+        the publish."""
+        api = tmp_path / "loop"
+        api.mkdir()
+        page = api / "page.json"
+        page.write_text(json.dumps({"results": [], "next": f"file://{page}"}))
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, f"file://{page}")
+
+        assert result.returncode == 0, result.stderr
+        assert "stopped after" in result.stderr
+
+    def test_a_warning_cannot_forge_a_second_workflow_command(
+        self, tmp_path, coverage_dir
+    ):
+        """`::warning::` is a workflow command, so a newline inside its data
+        would start a second one. Nothing reaching it today is unconstrained —
+        this closes the gap for the next caller, which is the only moment it is
+        cheap to close."""
+        # A REAL newline, in a filename — `%0A` written literally proves nothing,
+        # since the string survives either way and only its escaping changes.
+        api = tmp_path / "inject"
+        api.mkdir()
+        page = api / "p\n::error::forged.json"
+        page.write_text(json.dumps({"results": [], "next": None}))
+
+        # GITHUB_ACTIONS on, or the `::warning::` line is never emitted and the
+        # test passes without ever reaching the thing it names.
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": f"file://{page}",
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
+                "GITHUB_ACTIONS": "true",
+            },
+        )
+
+        # Unescaped, the newline ends the warning and the rest starts a command
+        # of its own on the next line.
+        for line in result.stdout.splitlines():
+            assert not line.startswith("::error::"), (
+                f"a forged workflow command reached the runner: {line!r}"
+            )
+
+    def test_an_unconfirmed_upload_does_not_fail_the_run(
+        self, tmp_path, coverage_dir
+    ):
+        """A slow processing queue is not a failed publish. Turning every merge
+        red on a timeout would be worse than the silence it replaces."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_uploads_api(tmp_path, [])
+        )
+
+        assert result.returncode == 0, result.stderr
+
+    def test_the_session_is_looked_for_beyond_the_first_page(
+        self, tmp_path, coverage_dir
+    ):
+        """The endpoint paginates, and not following `next` is precisely what
+        made these sessions look absent while they were there all along."""
+        name = expected_session_name()
+        api = write_uploads_api(tmp_path, ["filler-a", "filler-b", name], pages=3)
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, api)
+
+        assert f"session '{name}' is on the commit" in result.stdout
+
+
 class TestCloneFailure:
     """clone_at's failure contract, which the two-checkout change created.
 
@@ -650,6 +1012,9 @@ class TestCloneFailure:
         stub = write_stub_cli(tmp_path / "codecov", [0])
         env = {
             "CODECOV_BIN": str(stub),
+            "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+            "VERIFY_ATTEMPTS": "1",
+            "VERIFY_DELAY_SECONDS": "0",
             "REMAP_BIN": str(write_stub_remap(tmp_path / "remap.sh")),
             "CODECOV_RHDH_PLUGINS_TOKEN": "t",
             "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
@@ -830,6 +1195,11 @@ class TestTargetSelection:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(
+                    tmp_path, [expected_session_name()]
+                ),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(
@@ -843,6 +1213,9 @@ class TestTargetSelection:
 
         assert result.returncode == 0, result.stderr
         assert call_count(stub) == 1
+        # Nothing at all, not "nothing about the HEAD copy": the session the
+        # upload creates is in the fixture, so a clean run here has to be
+        # clean end to end.
         assert "[WARN]" not in result.stderr
         assert "will not be visible" not in result.stderr
 
@@ -938,6 +1311,9 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(
@@ -970,6 +1346,9 @@ class TestFailureHandling:
             env={
                 "CODECOV_BIN": str(stub),
                 "UPSTREAM_CHECKOUT_DIR": str(checkout),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
                 # Without this the HEAD copy clones from github.com, and the
                 # test's outcome starts depending on the network.
                 "UPSTREAM_HEAD_CHECKOUT_DIR": str(

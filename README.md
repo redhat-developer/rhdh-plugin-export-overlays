@@ -222,7 +222,11 @@ The anchor keeps the percentage and loses the detail: you cannot click into a pl
 ./scripts/upload-coverage-upstream.sh <workspace> <coverage-dir-or-gcsweb-url> --dry-run
 ```
 
-`.github/workflows/publish-coverage-upstream.yaml` runs it from CI. It is `workflow_dispatch` only: the input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts, and the artifact URL is only derivable from the job's own build id — so paste the `coverage/` listing URL from the run you want published. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+`.github/workflows/publish-coverage-upstream.yaml` runs it from CI, on every push to `main` that touches a workspace. It resolves the merged PR, reads the e2e bot's PASSING comment, and takes the artifact URL from the build-log link already in that comment — the same place `refresh-stale-coverage-snapshots.yaml` reads it from. Only a passing run publishes, and a run whose comment predates the merged commit is skipped rather than attributed to a tree it never measured. `workflow_dispatch` is kept for backfilling a specific run by hand.
+
+The input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+
+After each upload the script checks that the session it just sent is on the commit, through the uploads endpoint — which paginates. Codecov accepts an upload and returns before processing it, so "queued for processing" is a receipt rather than a result, and without this check a run could publish nothing and still report success. An unconfirmed upload is raised as a run annotation, never a failure: a slow processing queue is not a failed publish.
 
 Four things make this work, each of which is easy to get wrong:
 
