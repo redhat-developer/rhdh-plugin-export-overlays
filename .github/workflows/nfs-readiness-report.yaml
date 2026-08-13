@@ -1,0 +1,116 @@
+name: NFS Readiness Report
+on:
+  workflow_dispatch: {}
+
+  schedule:
+    - cron: '0 6 * * 1'  # Monday at 06:00 UTC
+    - cron: '0 6 * * 3'  # Wednesday at 06:00 UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    name: Generate NFS Readiness Report
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install oras
+        env:
+          ORAS_VERSION: "1.2.2"
+          ORAS_SHA256: "bff970346470e5ef888e9f2c0bf7f8ee47283f5a45207d6e7a037da1fb0eae0d"
+        run: |
+          curl -fsSL --proto '=https' --tlsv1.2 \
+            "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_amd64.tar.gz" \
+            -o oras.tar.gz
+          echo "${ORAS_SHA256}  oras.tar.gz" | sha256sum -c -
+          tar xzf oras.tar.gz -C /usr/local/bin oras
+          rm -f oras.tar.gz
+          oras version
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: echo "${GHCR_TOKEN}" | oras login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+      - name: Generate report
+        run: |
+          bash scripts/nfs-readiness-report.sh --markdown --oci > nfs-readiness-report.md
+
+      - name: Write job summary
+        run: cat nfs-readiness-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nfs-readiness-report
+          path: nfs-readiness-report.md
+          retention-days: 30
+
+  update-wiki:
+    needs:
+      - generate-report
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout wiki
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download NFS readiness report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nfs-readiness-report
+          path: ./
+
+      - name: Verify report
+        run: |
+          if [ -f "nfs-readiness-report.md" ]; then
+            echo "Successfully downloaded nfs-readiness-report.md"
+          else
+            echo "nfs-readiness-report.md not found, failing workflow"
+            exit 1
+          fi
+
+      - name: Update wiki page
+        run: |
+          set -euo pipefail
+          cd wiki
+
+          default_branch=$(git remote show origin | awk '/HEAD branch/ {print $NF}')
+          if [[ -z "${default_branch}" ]]; then
+            echo "Unable to determine wiki default branch"
+            exit 1
+          fi
+
+          git checkout "${default_branch}"
+          git config user.name "GitHub Actions Bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          cp ../nfs-readiness-report.md "NFS-Readiness-Report.md"
+          git add "NFS-Readiness-Report.md"
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Update NFS Readiness Report
+
+          Generated from: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${{ github.run_id }}"
+            git push origin "${default_branch}"
+            echo "Wiki page updated successfully"
+          else
+            git restore --staged "NFS-Readiness-Report.md"
+            echo "No changes detected, wiki page is up to date"
+          fi
+        env:
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}

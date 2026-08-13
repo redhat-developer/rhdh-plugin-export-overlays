@@ -17,11 +17,11 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.49.4__2.7.8
-  version: 2.7.8
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira:bs_1.52.0__4.1.0
+  version: 4.1.0
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: Red Hat
   support: dev-preview
   lifecycle: active
@@ -64,9 +64,9 @@ spec:
           baseUrl: ${JIRA_URL}
           token: ${JIRA_TOKEN}
         scorecard:
-          plugins:
+          metricProviders:
             jira:
-              open_issues:
+              openIssues:
                 options:
                   # Optional: use mandatoryFilter to replace the default filter "type = Bug AND resolution = Unresolved"
                   mandatoryFilter: type = Task AND resolution = Unresolved
@@ -79,9 +79,9 @@ spec:
           baseUrl: ${JIRA_URL}
           token: ${JIRA_TOKEN}
         scorecard:
-          plugins:
+          metricProviders:
             jira:
-              open_issues:
+              openIssues:
                 thresholds:
                   rules:
                     - key: success

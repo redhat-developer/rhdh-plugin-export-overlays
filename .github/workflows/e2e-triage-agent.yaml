@@ -106,10 +106,28 @@ jobs:
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
 
+      # Use a bot PAT so the issues:labeled event triggers fullsend.yaml.
+      # GITHUB_TOKEN events are suppressed by GitHub's anti-recursion
+      # safety (see fullsend ADR 0033). Previously used the fullsend mint
+      # service (OIDC → app token), which broke due to a server-side trust
+      # policy change (HTTP 401 since 2026-08-07).
+      - name: Set triage token
+        if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
+        id: mint
+        env:
+          TOKEN: ${{ secrets.E2E_TRIAGE_TOKEN }}
+        run: |
+          if [[ -z "${TOKEN}" ]]; then
+            echo "::error::E2E_TRIAGE_TOKEN secret is not configured — see PR #3211"
+            exit 1
+          fi
+          echo "::add-mask::${TOKEN}"
+          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.mint.outputs.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
           BRANCH: ${{ matrix.branch }}
           REPO: ${{ github.repository }}

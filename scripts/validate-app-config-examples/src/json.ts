@@ -33,3 +33,18 @@ export function errorProperty(error: unknown, key: string): unknown {
   }
   return (error as Record<string, unknown>)[key];
 }
+
+/**
+ * Codepoint order, matching Python's `sorted()`.
+ *
+ * Deliberately not `localeCompare`, whatever a linter suggests: it is
+ * locale-dependent and case-insensitive in several locales, so it would reorder
+ * the report and break the byte-identical parity with the script this replaced.
+ * Shared so the report order and the patch application order cannot drift.
+ */
+export function byCodepoint(a: string, b: string): number {
+  if (a < b) {
+    return -1;
+  }
+  return a > b ? 1 : 0;
+}
