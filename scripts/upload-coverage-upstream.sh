@@ -123,6 +123,13 @@
 #       Path to the remap step. remap-lcov.sh npm-installs the istanbul
 #       libraries on every run, which is too heavy and too networked for a unit
 #       test; the remap itself is covered separately against a fixture.
+#   CODECOV_UPLOADS_API
+#       Template for the endpoint the post-upload check reads, with %OWNER%,
+#       %REPO% and %SHA% substituted. Tests point it at local files so the check
+#       never reaches Codecov.
+#   VERIFY_ATTEMPTS / VERIFY_DELAY_SECONDS
+#       How hard that check tries. 0 attempts disables it entirely and says
+#       nothing, which is what the tests that are not about it use.
 
 set -euo pipefail
 
@@ -497,10 +504,20 @@ uploads_url_for() {
 # The caller tells those apart through the EXIT STATUS, not a variable: this is
 # consumed through a command substitution, which is a subshell, so anything
 # assigned in here is gone by the time the caller looks. The status survives.
+# A `next` that repeats itself, or a listing that never ends, would otherwise
+# spin until the job's own timeout — turning a diagnostic into the thing that
+# kills the publish. Codecov pages 50 at a time and no commit here comes close.
+readonly MAX_UPLOAD_PAGES=50
+
 session_names_on() {
-  local sha="$1" url next page
+  local sha="$1" url next page pages=0
   url="$(uploads_url_for "$sha")"
   while [[ -n "$url" && "$url" != "null" ]]; do
+    pages=$((pages + 1))
+    if [[ "$pages" -gt "$MAX_UPLOAD_PAGES" ]]; then
+      echo "[WARN] stopped after $MAX_UPLOAD_PAGES pages of $sha's upload listing." >&2
+      return 1
+    fi
     # --fail, because without it an HTTP error IS a successful fetch of an
     # error body: Codecov answers 404 with `{"detail":"Not found."}` and 429
     # with its own JSON, both of which `jq '(.results // [])[]'` reads as an
@@ -538,6 +555,12 @@ session_names_on() {
 readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
 readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
 
+# What this proves: a session with this report's content is on the commit. What
+# it does not prove: that THIS run put it there. The name is a digest of the
+# report precisely so a retry collapses onto one session, so an identical
+# re-upload confirms the earlier one — which is the right answer for the
+# question that matters ("is this coverage on the commit?") and the wrong one
+# for "did my upload do something", a question nothing here asks.
 verify_landed() {
   local sha="$1" name="$2" attempt=1 names lookup_failed="false" where
   # Nothing was asked, so nothing can be claimed either way — warning here would

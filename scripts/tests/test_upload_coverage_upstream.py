@@ -720,8 +720,11 @@ def write_uploads_api(tmp_path, names, *, pages=1):
     # and a shared path would have it clobber the fixture a test just set up.
     api = tmp_path / f"api{next(_UPLOADS_API_SEQ)}"
     api.mkdir(parents=True, exist_ok=True)
-    per_page = max(1, (len(names) + pages - 1) // pages) if names else 1
-    chunks = [names[i : i + per_page] for i in range(0, len(names), per_page)] or [[]]
+    # Exactly `pages` pages, padding with empty ones when there are fewer names
+    # than pages. Sizing by names instead rounded up and silently collapsed
+    # `pages=3` into a single page whenever the names fit — so a test that named
+    # pagination in its title was walking one page and proving nothing.
+    chunks = [names[i::pages] for i in range(pages)]
     for i, chunk in enumerate(chunks):
         nxt = f"file://{api}/page{i + 2}.json" if i + 1 < len(chunks) else None
         (api / f"page{i + 1}.json").write_text(
@@ -913,6 +916,20 @@ class TestUploadVerification:
 
         assert "no session named" in result.stderr
         assert "could not reach" not in result.stderr
+
+    def test_a_listing_that_never_ends_is_abandoned(self, tmp_path, coverage_dir):
+        """A `next` that points at itself would otherwise spin until the job's
+        own timeout kills it — turning a diagnostic into the thing that stops
+        the publish."""
+        api = tmp_path / "loop"
+        api.mkdir()
+        page = api / "page.json"
+        page.write_text(json.dumps({"results": [], "next": f"file://{page}"}))
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, f"file://{page}")
+
+        assert result.returncode == 0, result.stderr
+        assert "stopped after" in result.stderr
 
     def test_an_unconfirmed_upload_does_not_fail_the_run(
         self, tmp_path, coverage_dir

@@ -154,6 +154,12 @@ jobs:
           TARGETS: ${{ steps.resolve.outputs.targets }}
           INPUT_DRY_RUN: ${{ inputs.dry-run }}
           INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
+          # Pinned here rather than left to the script's defaults, because this
+          # job carries `timeout-minutes: 30` and the check polls. Worst case is
+          # 4 x 15s per upload target, so under two minutes for both — a budget
+          # that stays clear of the clone and remap either side of it.
+          VERIFY_ATTEMPTS: "4"
+          VERIFY_DELAY_SECONDS: "15"
         run: |
           set -euo pipefail
 
