@@ -112,7 +112,7 @@ while IFS= read -r plugin_path; do
   # A plugin can reach the browser through either of two builds, which name the
   # webpack remote differently, and which one serves it is not visible from
   # here. Both names get an anchor; they are empty files, so covering both costs
-  # nothing. See scripts/plugin-remotes.sh for the derivation and why emitting
+  # nothing. See scripts/print-plugin-remotes.sh for the derivation and why emitting
   # only one silently cost app-defaults every byte of its coverage.
   DECLARED_NAME=$(echo "$PKG_JSON" | jq -r '.scalprum.name // empty')
 
