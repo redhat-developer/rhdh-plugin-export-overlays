@@ -128,6 +128,8 @@ test.describe("Bulk Import via Scaffolder Template", () => {
       page.getByRole("button", { name: "Create", exact: true }),
     ).toBeVisible();
 
-    // test might continue here with finishing the gitlab import
+    // Intentionally partial: completing a real GitLab import requires a
+    // logged-in GitLab session/token, which this suite does not set up
+    // (only GitHub OAuth is configured in app-config-rhdh-scaffolder-template.yaml).
   });
 });
