@@ -1,6 +1,7 @@
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { RepositoryParameters } from "../test-data/template-repository-data";
 
+/** Fills the scaffolder "Repository Details" step with the given repository parameters. */
 export async function fillFormFields(
   uiHelper: UIhelper,
   repoParams: RepositoryParameters,
