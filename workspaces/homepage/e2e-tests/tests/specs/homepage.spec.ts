@@ -70,11 +70,6 @@ test.describe.serial("Dynamic home page customization", () => {
       await rhdh.deploy();
     });
 
-    // Keycloak users are cluster-scoped — create once so parallel legacy/app-next
-    // projects do not race on delete/create of the same users.
-    await test.runOnce("homepage-keycloak-groups", async () => {
-      await setupKeycloakGroups();
-    });
     baseURL = rhdh.rhdhUrl;
     context = await browser.newContext({ baseURL });
     page = await context.newPage();
