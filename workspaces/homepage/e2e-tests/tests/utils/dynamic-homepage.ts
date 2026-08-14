@@ -236,29 +236,33 @@ export class DynamicHomePagePo {
     );
   }
 
-  private readonly editButton = () => this.page.getByText("Edit");
+  private readonly editButton = () =>
+    this.page.getByRole("button", { name: "Edit", exact: true });
   private readonly saveButton = () =>
-    this.page.getByText("Save", {
-      exact: true,
-    });
+    this.page.getByRole("button", { name: "Save", exact: true });
+  private readonly cancelButton = () =>
+    this.page.getByRole("button", { name: "Cancel", exact: true });
   private readonly clearAllButton = () =>
     this.page.getByRole("button", { name: "Clear all" });
   private readonly restoreDefaultsButton = () =>
     this.page.getByText("Restore defaults");
   private readonly addWidgetButton = () =>
     this.page.getByRole("button", { name: "Add widget" });
-  private readonly resizeHandles = () =>
-    this.page.locator(".react-resizable-handle");
   private readonly deleteButtons = () =>
     this.page.getByRole("button", { name: "Delete widget" });
   private readonly greetingText = () =>
     this.page.getByText(/Good (morning|afternoon|evening)/);
 
-  async verifyHomePageLoaded(): Promise<void> {
+  async verifyHomePageLoaded(options?: {
+    requireWidgets?: boolean;
+  }): Promise<void> {
     await this.ui.verifyHeading("Welcome back");
-    await expect(
-      this.page.locator('[class*="react-grid-item"]').first(),
-    ).toBeVisible({ timeout: 15_000 });
+    const requireWidgets = options?.requireWidgets ?? true;
+    if (requireWidgets) {
+      await expect(
+        this.page.locator('[class*="react-grid-item"]').first(),
+      ).toBeVisible({ timeout: 15_000 });
+    }
     await this.dismissQuickstart();
   }
 
@@ -299,54 +303,114 @@ export class DynamicHomePagePo {
 
   async enterEditMode(): Promise<void> {
     await this.ui.clickButton("Edit");
-    await expect(this.saveButton()).toBeVisible();
+    // NFS shows both Cancel and Save in edit mode; .or() + toBeVisible() hits strict mode
+    // when both match — wait for either via .first().
+    await this.saveButton()
+      .or(this.cancelButton())
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
   }
 
   async exitEditMode(): Promise<void> {
-    await this.ui.clickButton("Save");
-    await expect(this.editButton()).toBeVisible();
+    await this.dismissAddWidgetDialog();
+
+    // NFS only surfaces Save after a layout dimension change; add/remove alone leaves
+    // Save hidden and Cancel reverts to the last persisted layout.
+    if (this.isAppNext && !(await this.saveButton().isVisible())) {
+      await this.nudgeLayoutToEnableSave();
+    }
+
+    if (await this.saveButton().isVisible()) {
+      await this.saveButton().click();
+    } else if (await this.cancelButton().isVisible()) {
+      await this.cancelButton().click();
+    }
+    await expect(this.editButton()).toBeVisible({ timeout: 10_000 });
+  }
+
+  private async dismissAddWidgetDialog(): Promise<void> {
+    const dialog = this.page.getByRole("dialog");
+    if (await dialog.isVisible()) {
+      await this.page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden({ timeout: 5_000 });
+    }
+  }
+
+  /** Small resize so NFS edit toolbar exposes Save after widget add/remove. */
+  private async nudgeLayoutToEnableSave(): Promise<void> {
+    const gridItem = this.editableGridItem();
+    if ((await gridItem.count()) === 0) {
+      return;
+    }
+    const handle = gridItem
+      .locator(".react-resizable-handle-se, .react-resizable-handle")
+      .last();
+    if (!(await handle.isVisible())) {
+      return;
+    }
+    await this.dragResizeHandle(handle, { widthDelta: 0, heightDelta: 40 });
+    await this.saveButton().waitFor({ state: "visible", timeout: 10_000 });
+  }
+
+  /** Grid item that contains a real widget (not an empty NFS placeholder row). */
+  private editableGridItem(): Locator {
+    return this.page
+      .locator('[class*="react-grid-item"]')
+      .filter({ has: this.deleteButtons() })
+      .last();
   }
 
   /**
-   * Resizes one card via the first visible resize handle (while still in edit
-   * mode, before Save). Call after `enterEditMode` and adding a widget.
+   * Resizes one card via the SE resize handle (while still in edit mode, before Save).
+   * Call after `enterEditMode` and adding a widget.
    */
   async resizeFirstCard(): Promise<void> {
-    const handle = this.resizeHandles().first();
+    const gridItem = this.editableGridItem();
+    await expect(gridItem).toBeVisible({ timeout: 10_000 });
+
+    const handle = gridItem
+      .locator(".react-resizable-handle-se, .react-resizable-handle")
+      .last();
     await expect(handle).toBeVisible();
-    const panel = this.resizablePanelForHandle(handle);
-    const initialBox = await panel.boundingBox();
+
+    const initialBox = await gridItem.boundingBox();
     expect(initialBox).not.toBeNull();
 
     await this.dragResizeHandle(handle);
 
-    const finalBox = await panel.boundingBox();
-    expect(finalBox).not.toBeNull();
-    const widthChanged = finalBox!.width !== initialBox!.width;
-    const heightChanged = finalBox!.height !== initialBox!.height;
-    expect(widthChanged || heightChanged).toBe(true);
+    // Measure the grid item — NFS widgets are full width so only height changes.
+    await expect
+      .poll(async () => {
+        const box = await gridItem.boundingBox();
+        if (!box || !initialBox) {
+          return false;
+        }
+        return (
+          Math.abs(box.height - initialBox.height) > 5 ||
+          Math.abs(box.width - initialBox.width) > 5
+        );
+      })
+      .toBe(true);
   }
 
-  /** Nearest `react-resizable` root for a handle (`.react-resizable-handle`). */
-  private resizablePanelForHandle(handle: Locator): Locator {
-    return handle.locator(
-      'xpath=ancestor::*[contains(@class,"react-resizable")][1]',
-    );
-  }
-
-  private async dragResizeHandle(handle: Locator): Promise<void> {
+  private async dragResizeHandle(
+    handle: Locator,
+    deltas?: { widthDelta?: number; heightDelta?: number },
+  ): Promise<void> {
     await handle.scrollIntoViewIfNeeded();
     const box = await handle.boundingBox();
     expect(box).not.toBeNull();
     const startX = box!.x + box!.width / 2;
     const startY = box!.y + box!.height / 2;
-    const delta = 160;
+    // NFS home widgets default to full grid width — drag vertically to resize height.
+    const widthDelta = deltas?.widthDelta ?? (this.isAppNext ? 0 : 160);
+    const heightDelta = deltas?.heightDelta ?? (this.isAppNext ? 220 : 160);
     await this.page.mouse.move(startX, startY);
     await this.page.mouse.down();
-    await this.page.mouse.move(startX + delta, startY + delta, { steps: 12 });
+    await this.page.mouse.move(startX + widthDelta, startY + heightDelta, {
+      steps: 24,
+    });
     await this.page.mouse.up();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- layout after resize
-    await this.page.waitForTimeout(500);
   }
 
   async deleteAllCards(): Promise<void> {
@@ -366,6 +430,14 @@ export class DynamicHomePagePo {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for edit mode to stabilize
     await this.page.waitForTimeout(500);
     await this.clearAllButton().click();
+  }
+
+  /** Clear all only when the grid has cards (NFS users may start with an empty home). */
+  async clearAllCardsIfPresent(): Promise<void> {
+    if (await this.clearAllButton().isVisible()) {
+      await this.clearAllCardsWithButton();
+      await this.verifyCardsDeleted();
+    }
   }
 
   async verifyCardsDeleted(): Promise<void> {
@@ -397,12 +469,17 @@ export class DynamicHomePagePo {
 
   async addWidget(widgetType: string): Promise<void> {
     const label = this.widgetDialogLabel(widgetType);
+    const gridItems = this.page.locator('[class*="react-grid-item"]');
+    const countBefore = await gridItems.count();
+
     await this.ui.clickButton("Add widget");
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
-    await this.page.waitForTimeout(1000);
-    await this.page.getByRole("button", { name: label }).click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- widget mount
-    await this.page.waitForTimeout(1000);
+    const widgetOption = this.page.getByRole("button", { name: label });
+    await widgetOption.waitFor({ state: "visible", timeout: 30_000 });
+    await widgetOption.click();
+
+    await expect(gridItems).toHaveCount(countBefore + 1, { timeout: 30_000 });
+    await expect(gridItems.last()).toBeVisible({ timeout: 30_000 });
+    await this.dismissAddWidgetDialog();
   }
 
   /** Returns count of visible widget cards on the homepage grid. */

@@ -83,6 +83,13 @@ test.describe.serial("Dynamic home page customization", () => {
     home.setBaseURL(baseURL);
   });
 
+  test.beforeEach(() => {
+    // NFS login + widget seeding can exceed the default 90s per test.
+    if (isAppNext) {
+      test.setTimeout(10 * 60 * 1000);
+    }
+  });
+
   test.afterAll(async () => {
     await context?.close();
   });
@@ -104,7 +111,7 @@ test.describe.serial("Dynamic home page customization", () => {
     // eslint-disable-next-line playwright/no-conditional-in-test -- NFS skips the prior login test
     if (isAppNext) {
       await loginAsKeycloakUser(page);
-      await home.verifyHomePageLoaded();
+      await home.verifyHomePageLoaded({ requireWidgets: false });
     }
     await home.seedHomePageWidgets();
     await home.verifyHomePageLoaded();
@@ -278,7 +285,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,
       });
-      await home.verifyHomePageLoaded();
+      await home.verifyHomePageLoaded({ requireWidgets: false });
       await home.seedHomePageWidgets();
       const seededCount = await home.getVisibleCardCount();
       expect(seededCount).toBe(home.availableWidgets.length);
@@ -286,16 +293,16 @@ test.describe.serial("Dynamic home page customization", () => {
       await home.reloginAsKeycloakUser("test2", "test2@123", {
         clearHomeStorage: true,
       });
-      await home.verifyHomePageLoaded();
+      // test2 has no server defaultWidgets on NFS — home can load empty.
+      await home.verifyHomePageLoaded({ requireWidgets: false });
       await home.enterEditMode();
-      await home.clearAllCardsWithButton();
-      await home.verifyCardsDeleted();
+      await home.clearAllCardsIfPresent();
       await home.exitEditMode();
 
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,
       });
-      await home.verifyHomePageLoaded();
+      await home.verifyHomePageLoaded({ requireWidgets: false });
       await home.seedHomePageWidgets();
       expect(await home.getVisibleCardCount()).toBe(
         home.availableWidgets.length,
