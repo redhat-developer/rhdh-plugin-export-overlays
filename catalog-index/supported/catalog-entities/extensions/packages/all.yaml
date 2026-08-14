@@ -161,6 +161,8 @@ spec:
     - ./rhdh-backstage-plugin-scorecard-backend.yaml
     - ./rhdh-backstage-plugin-scorecard.yaml
     - ./rhdh-bs-plugin-catalog-backend-module-ai-model-server.yaml
+    - ./rhdh-bs-plugin-catalog-backend-module-ai-resource-agent.yaml
+    - ./rhdh-bs-plugin-catalog-backend-module-ai-resource-extensions.yaml
     - ./rhdh-bs-plugin-catalog-backend-module-model-catalog.yaml
     - ./rhdh-bs-plugin-catalog-techdoc-url-reader-backend.yaml
     - ./rhdh-bs-plugin-kserve-kubeflow-connector-backend.yaml
