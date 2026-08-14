@@ -23,6 +23,9 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 1
+  # Version from workspaces/backstage export: backstage-plugin-home
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
     enabled: true
     pluginConfig:

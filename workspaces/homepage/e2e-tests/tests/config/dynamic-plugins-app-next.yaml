@@ -30,16 +30,13 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 1
-  # e2e-test-utils NFS layer still pins app-auth / app-integrations at bs_1.49.4.
-  # Merge is by exact package string, so disable those and enable current metadata tags.
+  # e2e-test-utils NFS layer pins app-auth / app-integrations at bs_1.49.4.
+  # dynamic-plugins.default.yaml (catalog index includes) already ships bs_1.52.0 —
+  # do not add those OCIs here or InstallException reports duplicates.
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.49.4__0.0.1
     disabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.1
-    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.49.4__0.0.1
     disabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.1
-    disabled: false
   # Catalog / DPDY enables app-defaults from quay midstream 2.0.0--0.0.2, which lacks
   # the io.backstage.dynamic-packages annotation (InstallException). Disable it and use
   # the community GHCR artifact from workspaces/app-defaults metadata instead.
