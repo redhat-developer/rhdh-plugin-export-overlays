@@ -11,11 +11,6 @@ import {
 } from "../utils/workflow-deployment-helpers.js";
 
 test.describe("Bulk import tests orchestrator mode", () => {
-  test.skip(
-    !!process.env.E2E_NIGHTLY_MODE,
-    "orchestrator backend plugin crashes at startup — incompatible with RHDH 1.11",
-  );
-
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetailsForOrchestrator = {
     name: catalogRepoName,
