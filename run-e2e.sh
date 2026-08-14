@@ -43,8 +43,7 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-# Revert back to 1.11 when https://redhat.atlassian.net/browse/RHDHBUGS-3515 is fixed
-export RHDH_VERSION="1.11-57-CI"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="2.0"             # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
@@ -80,7 +79,7 @@ E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
 # Pin specific e2e-test-utils version.
 E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 # Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
-E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
+E2E_TEST_UTILS_GIT_REF="jrichter1/rhdh-e2e-test-utils#dpdy-quay"
 
 if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
     CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
