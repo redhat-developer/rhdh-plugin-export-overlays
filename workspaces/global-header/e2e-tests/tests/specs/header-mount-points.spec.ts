@@ -8,20 +8,9 @@ test.describe("Header mount points", () => {
       isAppNext,
       "test plugin uses npm wrapper packaging which is incompatible with NFS module federation",
     );
-    const isNightlyMode =
-      process.env.E2E_NIGHTLY_MODE === "true" ||
-      process.env.E2E_NIGHTLY_MODE === "1" ||
-      (process.env.JOB_NAME?.includes("periodic-") ?? false);
-
     await rhdh.configure({
       auth: "keycloak",
-      ...(isNightlyMode
-        ? {}
-        : {
-            disablePlugins: [
-              "red-hat-developer-hub-backstage-plugin-global-header",
-            ],
-          }),
+      disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
       dynamicPlugins: WorkspacePaths.resolve(
         isAppNext
           ? "tests/config/dynamic-plugins-nfs.yaml"
