@@ -10,7 +10,6 @@
 #   mixed              — Some NFS entry points, some legacy/unrecognized
 #   legacy-only        — Entry points present but none are NFS types
 #   no-features        — backstage.features field absent or empty in OCI artifact
-#   baked-in           — Ships inside the RHDH container image (local path, not OCI)
 #   unknown            — Could not determine status (no --oci flag or OCI pull failed)
 #   backend-only       — Plugin role is backend-plugin (not applicable)
 #
@@ -193,9 +192,62 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     status="backend-only"
     features_json="{}"
   elif [[ -z "$oci_ref" || "$oci_ref" == "./"* ]]; then
-    # Plugin ships inside the RHDH container image (local path)
-    status="baked-in"
+    # Plugin ships inside the RHDH container image (local path).
+    # Infer NFS readiness from source package.json exports field.
     features_json="{}"
+    source_json="$REPO_ROOT/workspaces/$workspace/source.json"
+    if [[ -f "$source_json" ]]; then
+      repo_url=$(jq -r '.repo // empty' "$source_json" 2>/dev/null) || repo_url=""
+      repo_ref=$(jq -r '."repo-ref" // empty' "$source_json" 2>/dev/null) || repo_ref=""
+      repo_flat=$(jq -r '."repo-flat" // empty' "$source_json" 2>/dev/null) || repo_flat=""
+
+      if [[ -n "$repo_url" && -n "$repo_ref" && "$repo_url" == *"github.com"* ]]; then
+        # Convert GitHub URL to raw content URL
+        raw_base=$(echo "$repo_url" | sed 's|github.com|raw.githubusercontent.com|')
+
+        # Build path to source package.json
+        load_plugin_paths "$workspace"
+        baked_paths="${PLUGINS_LIST_CACHE[$workspace]:-}"
+        baked_bare="${package_name#@*/}"
+        baked_stripped_plugin="${baked_bare#plugin-}"
+        baked_stripped_backstage="${baked_bare#backstage-plugin-}"
+        matched_pp=""
+        for pp in $baked_paths; do
+          folder="${pp##*/}"
+          if [[ "$folder" == "$baked_bare" || "$folder" == "$baked_stripped_plugin" || "$folder" == "$baked_stripped_backstage" ]]; then
+            matched_pp="$pp"
+            break
+          fi
+        done
+
+        if [[ -n "$matched_pp" ]]; then
+          if [[ "$repo_flat" == "true" ]]; then
+            pkg_url="$raw_base/$repo_ref/$matched_pp/package.json"
+          else
+            pkg_url="$raw_base/$repo_ref/workspaces/$workspace/$matched_pp/package.json"
+          fi
+
+          src_exports=$(curl -fsSL --proto '=https' --tlsv1.2 "$pkg_url" 2>/dev/null | jq -c '.exports // {}' 2>/dev/null || echo '{}')
+          if [[ -n "$src_exports" && "$src_exports" != "{}" ]]; then
+            # Build inferred features from exports keys that look like NFS entry points
+            inferred=$(echo "$src_exports" | jq -c '
+              [to_entries[]
+               | select((.key | startswith("./")) and .key != "./package.json")
+              ]
+              | map({(.key): "@backstage/FrontendPlugin"})
+              | add // {}
+            ' 2>/dev/null || echo '{}')
+            features_json="$inferred"
+          fi
+        fi
+      fi
+    fi
+    if [[ "$features_json" == "{}" || -z "$features_json" ]]; then
+      # Inference failed or no exports found — can't determine status
+      status="unknown"
+    else
+      status=$(classify_features "$features_json")
+    fi
   elif [[ "$USE_OCI" == "true" ]]; then
     # Pull OCI artifact and extract backstage.features
     mkdir -p "$WORKDIR"
@@ -268,7 +320,6 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   mixed=$(echo "$RESULTS" | jq '[.[] | select(.status == "mixed")] | length')
   legacy_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "legacy-only")] | length')
   no_features=$(echo "$RESULTS" | jq '[.[] | select(.status == "no-features")] | length')
-  baked_in=$(echo "$RESULTS" | jq '[.[] | select(.status == "baked-in")] | length')
   unknown=$(echo "$RESULTS" | jq '[.[] | select(.status == "unknown")] | length')
   backend_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "backend-only")] | length')
 
@@ -285,7 +336,6 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 | :yellow_circle: mixed | $mixed | Some NFS entry points, some legacy/unrecognized |
 | :orange_circle: legacy-only | $legacy_only | Entry points present but none are NFS types |
 | :red_circle: no-features | $no_features | \`backstage.features\` field absent or empty in OCI artifact |
-| :large_blue_circle: baked-in | $baked_in | Ships inside the RHDH container image (local path, not OCI) |
 | :white_circle: unknown | $unknown | Could not determine status (no \`--oci\` flag or pull failed) |
 | — backend-only | $backend_only | Backend plugin (not applicable) |
 
@@ -325,7 +375,6 @@ EOF
                  elif .status == "mixed" then ":yellow_circle:"
                  elif .status == "legacy-only" then ":orange_circle:"
                  elif .status == "no-features" then ":red_circle:"
-                 elif .status == "baked-in" then ":large_blue_circle:"
                  else ":white_circle:" end),
           features_str: (if (.features | length) == 0 then "—"
                          else (.features | to_entries | map("`\(.key)` → \(.value)") | join(", ")) end)
@@ -369,9 +418,6 @@ logic in RHDH, which recognizes these NFS feature types:
 
 Plugins classified as **no-features** were exported with \`rhdh-cli >= 1.11.3\` but don't
 have standard Module Federation exports that the CLI can detect.
-
-Plugins classified as **baked-in** ship inside the RHDH container image and are not
-published as separate OCI artifacts.
 
 
 EOF
