@@ -380,3 +380,33 @@ test("a remoteEntry.path escaping the bundle is reported as a bundle fault", () 
   assert.match(error ?? "", /servable but its bundle is broken/);
   assert.equal(mf?.servable, true);
 });
+
+test("a package.json that cannot be read warns instead of reading as 'declares nothing'", () => {
+  // The catch in readNfsFeatures is unreachable for malformed JSON — discoverPlugins skips
+  // those and warns first — so only a real I/O error gets here. Returning [] silently used
+  // to be harmless; it is not any more, because an empty nfsFeatures now drives the
+  // "declares no backstage.features" message. An EISDIR would print that as a fact.
+  const dir = tempDir(join(tmpdir(), "bundle-"));
+  // A directory where package.json should be: existsSync passes, readFileSync throws EISDIR.
+  mkdirSync(join(dir, "package.json"));
+  mkdirSync(join(dir, "dist"));
+  writeFileSync(join(dir, "dist/mf-manifest.json"), mfManifest());
+  writeFileSync(join(dir, "dist/remoteEntry.js"), "");
+
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (msg: unknown) => warnings.push(String(msg));
+  try {
+    validateFrontendBundle({
+      name: "test",
+      version: "1.0.0",
+      dirName: "test",
+      path: dir,
+      role: "frontend",
+    });
+  } finally {
+    console.warn = original;
+  }
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /could not read package\.json/);
+});

@@ -18,6 +18,7 @@ import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import type { BackendFeature } from "@backstage/backend-plugin-api";
 import { resolveContained } from "./paths";
+import { errorMessage } from "./util";
 
 // The package is ESM ("type": "module"), so the global `require` is undefined.
 // createRequire gives us a CommonJS require to load the extracted (CJS) plugins.
@@ -218,7 +219,16 @@ function readNfsFeatures(pluginPath: string): string[] {
         ([, type]) => typeof type === "string" && NFS_FEATURE_TYPES.has(type),
       )
       .map(([entryPoint]) => entryPoint);
-  } catch {
+  } catch (err) {
+    // Unreachable for malformed JSON — discoverPlugins skips those and warns before this
+    // runs — so this is a real I/O error. It must not read as "declares nothing": an empty
+    // result now drives the "declares no backstage.features" verdict, and stating an I/O
+    // failure as a fact about the artifact is the mistake this check exists to avoid.
+    // Warn loudly, matching discoverPlugins' handling of the same class of problem.
+    console.warn(
+      `⚠ could not read package.json in '${pluginPath}' to determine NFS entry ` +
+        `points (${errorMessage(err)}); treating as none declared`,
+    );
     return [];
   }
 }
