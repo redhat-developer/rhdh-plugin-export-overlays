@@ -410,3 +410,21 @@ test("a package.json that cannot be read warns instead of reading as 'declares n
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /could not read package\.json/);
 });
+
+test("an exposes entry with an empty name is servable but not a usable module", () => {
+  // Verified against the router's guard: `"name" in {name: ""}` is true, so it does NOT
+  // skip the remote — it advertises `[""]` as an exposed module. So `servable` must stay
+  // true to mirror it, while the empty name is dropped from the usable list, because NFS
+  // has nothing to resolve for it. This pins both halves of that boundary.
+  const { mf, error } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({
+        exposes: [{ name: "." }, { name: "" }],
+      }),
+    }),
+  );
+  assert.equal(error, null);
+  assert.equal(mf?.servable, true);
+  assert.deepEqual(mf?.exposes, ["."]);
+});

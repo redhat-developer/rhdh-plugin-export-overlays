@@ -284,7 +284,7 @@ function readManifestFields(manifest: unknown): MfManifestFields {
  * field is documented as the router's verdict, so folding anything else into it would put
  * a false value in the one signal `results.json` publishes as such.
  */
-function routerGuardProblems(fields: MfManifestFields): string[] {
+function findRouterGuardProblems(fields: MfManifestFields): string[] {
   const problems: string[] = [];
   if (!fields.name) problems.push("`name` missing");
   if (!fields.remoteEntry) {
@@ -303,7 +303,7 @@ function routerGuardProblems(fields: MfManifestFields): string[] {
  * `metaData.remoteEntry.path` — it serves these remotes, and the breakage surfaces in the
  * browser's Module Federation runtime instead.
  */
-function bundleAssetProblems(
+function findBundleAssetProblems(
   pluginPath: string,
   fields: MfManifestFields,
 ): string[] {
@@ -359,8 +359,8 @@ function inspectMfRemote(pluginPath: string): {
   }
 
   const fields = readManifestFields(manifest);
-  const routerProblems = routerGuardProblems(fields);
-  const bundleProblems = bundleAssetProblems(pluginPath, fields);
+  const routerProblems = findRouterGuardProblems(fields);
+  const bundleProblems = findBundleAssetProblems(pluginPath, fields);
   const exposedSet = new Set(fields.exposes.map(canonicalEntryPoint));
 
   const mf: MfRemoteInfo = {
