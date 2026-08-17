@@ -188,7 +188,11 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
 
   support_tier=$(get_support_tier "$workspace" "$package_name")
 
-  if [[ "$role" != "frontend-plugin" ]]; then
+  # frontend-plugin-module counts as frontend surface: those packages carry
+  # backstage.features and load through the same module-federation remote. Filtering on
+  # frontend-plugin alone bucketed them as backend-only, understating the denominator
+  # (80 frontend packages reported as 75) and hiding 4 already-NFS-ready modules.
+  if [[ "$role" != "frontend-plugin" && "$role" != "frontend-plugin-module" ]]; then
     status="backend-only"
     features_json="{}"
   elif [[ -z "$oci_ref" || "$oci_ref" == "./"* ]]; then
@@ -315,7 +319,7 @@ fi
 
 if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   # Generate markdown report
-  total_frontend=$(echo "$RESULTS" | jq '[.[] | select(.role == "frontend-plugin")] | length')
+  total_frontend=$(echo "$RESULTS" | jq '[.[] | select((.role | startswith("frontend-plugin")))] | length')
   nfs_ready=$(echo "$RESULTS" | jq '[.[] | select(.status == "nfs-ready")] | length')
   mixed=$(echo "$RESULTS" | jq '[.[] | select(.status == "mixed")] | length')
   legacy_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "legacy-only")] | length')
@@ -352,7 +356,7 @@ EOF
       other)     tier_label="Other" ;;
       *)         tier_label="$tier" ;;
     esac
-    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .role == "frontend-plugin")] | length')
+    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and (.role | startswith("frontend-plugin")))] | length')
     tier_ready=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .status == "nfs-ready")] | length')
 
     [[ "$tier_frontend" -eq 0 ]] && continue
@@ -364,7 +368,7 @@ EOF
     echo "|--------|-----------|--------|----------|"
 
     echo "$RESULTS" | jq -r --arg t "$tier" '
-      [.[] | select(.supportTier == $t and .role == "frontend-plugin")]
+      [.[] | select(.supportTier == $t and (.role | startswith("frontend-plugin")))]
       | sort_by(.status, .workspace, .packageName)
       | .[]
       | {
@@ -419,6 +423,22 @@ logic in RHDH, which recognizes these NFS feature types:
 Plugins classified as **no-features** were exported with \`rhdh-cli >= 1.11.3\` but don't
 have standard Module Federation exports that the CLI can detect.
 
+#### Reading the counts
+
+Only **nfs-ready** and **no-features** are informative here. **mixed** and
+**legacy-only** require \`backstage.features\` to be non-empty while containing no NFS
+type — but the CLI populates that field *from* the Module Federation entry points it
+detects, so a plugin with no NFS entry point ends up with an empty field and lands in
+**no-features** instead. A \`mixed: 0 / legacy-only: 0\` line therefore is not evidence
+of anything; it is the expected output shape. Read **no-features** as "not migrated".
+
+**no-features** also merges two states worth telling apart, which this report cannot
+distinguish on its own: a package that ships no Module Federation bundle at all, and a
+package that ships a servable remote whose exposed modules simply are not NFS feature
+types (\`@roadiehq/backstage-plugin-{argo-cd,datadog,github-insights}\` expose an
+\`alpha\` module in their MF manifest but declare no features). The second group is much
+closer to ready than the first. \`smoke-tests-native\` reports that distinction per
+package as \`frontend.bundles[].mf\` in its \`results.json\`.
 
 EOF
 fi
