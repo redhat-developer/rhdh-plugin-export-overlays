@@ -196,10 +196,17 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     # Infer NFS readiness from source package.json exports field.
     features_json="{}"
     source_json="$REPO_ROOT/workspaces/$workspace/source.json"
-    if [[ -f "$source_json" && "$USE_OCI" == "true" ]]; then
-      repo_url=$(jq -r '.repo' "$source_json")
-      repo_ref=$(jq -r '."repo-ref"' "$source_json")
-      repo_flat=$(jq -r '."repo-flat"' "$source_json")
+    if [[ -f "$source_json" ]]; then
+      repo_url=$(jq -r '.repo // empty' "$source_json" 2>/dev/null) || repo_url=""
+      repo_ref=$(jq -r '."repo-ref" // empty' "$source_json" 2>/dev/null) || repo_ref=""
+      repo_flat=$(jq -r '."repo-flat" // empty' "$source_json" 2>/dev/null) || repo_flat=""
+
+      if [[ -z "$repo_url" || -z "$repo_ref" || "$repo_url" != *"github.com"* ]]; then
+        # Can only infer from GitHub-hosted repos
+        status="unknown"
+        features_json="{}"
+        continue
+      fi
 
       # Convert GitHub URL to raw content URL
       raw_base=$(echo "$repo_url" | sed 's|github.com|raw.githubusercontent.com|')
