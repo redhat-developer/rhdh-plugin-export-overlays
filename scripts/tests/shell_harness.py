@@ -1,4 +1,4 @@
-"""Shared helpers for driving the coverage shell scripts from pytest.
+"""Shared helpers for driving the repo's shell scripts from pytest.
 
 The scripts are exercised as subprocesses rather than sourced, because their
 contract with CI *is* the exit code and the stdout/stderr they emit — that is
@@ -9,6 +9,7 @@ Seams keep the runs hermetic (no network, no shared /tmp state):
   CODECOV_BIN            - path to a stub standing in for the Codecov CLI
   UPSTREAM_CHECKOUT_DIR  - a local checkout instead of a shallow clone
   REMAP_BIN              - a stub instead of an npm-installing remap
+  REPO_ROOT              - a fixture tree instead of the real workspaces/ (nfs-readiness)
 """
 
 import os

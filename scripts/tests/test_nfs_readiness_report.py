@@ -31,6 +31,11 @@ from tests.shell_harness import NFS_SCRIPT, run_script
 # regression: they were classified as backend-only.
 FRONTEND_ROLES = ["frontend-plugin", "frontend-plugin-module"]
 BACKEND_ROLES = ["backend-plugin", "backend-plugin-module"]
+# Not a real Backstage role. It exists to pin the predicate as an EXACT match: a prefix or
+# glob comparison would admit it as frontend surface while the classifier still called it
+# backend-only, putting the same package in both tables under a bogus tier ratio. That
+# double-counting is the whole reason the predicate was consolidated.
+UNKNOWN_PREFIXED_ROLE = "frontend-plugin-widget"
 
 
 def _metadata(package_name: str, role: str, artifact: str) -> str:
@@ -64,7 +69,9 @@ def _repo(tmp_path, packages):
 
 
 def _run(repo_root, *args):
-    result = run_script(NFS_SCRIPT, *args, env={"REPO_ROOT": str(repo_root)})
+    result = run_script(
+        NFS_SCRIPT, *args, env={"REPO_ROOT": str(repo_root)}, cwd=repo_root
+    )
     assert result.returncode == 0, result.stderr
     return result
 
@@ -74,6 +81,10 @@ def _classified(repo_root):
         entry["packageName"]: entry
         for entry in json.loads(_run(repo_root, "--json").stdout)
     }
+
+
+def _markdown(repo_root):
+    return _run(repo_root, "--markdown").stdout
 
 
 @pytest.mark.parametrize("role", FRONTEND_ROLES)
@@ -103,6 +114,23 @@ def test_backend_roles_are_classified_backend_only(tmp_path, role):
     entry = _classified(root)["@scope/plugin-y"]
     assert entry["status"] == "backend-only"
     assert entry["frontend"] is False
+
+
+def test_a_role_merely_prefixed_frontend_plugin_is_not_frontend_surface(tmp_path):
+    """The membership test must be exact, not a prefix match.
+
+    Nothing else pins this, and it is the property the consolidation was for: a looser
+    comparison would count the package in the frontend denominator while the classifier
+    bucketed it backend-only, so it would appear in both tables at once.
+    """
+    root = _repo(
+        tmp_path,
+        [("@scope/plugin-w", UNKNOWN_PREFIXED_ROLE, "oci://ghcr.io/example/w:1.0.0")],
+    )
+    entry = _classified(root)["@scope/plugin-w"]
+    assert entry["frontend"] is False
+    assert entry["status"] == "backend-only"
+    assert "**Frontend plugins:** 0 total" in _markdown(root)
 
 
 def test_a_frontend_module_shipping_a_local_path_is_baked_in_not_backend_only(tmp_path):
@@ -142,7 +170,7 @@ def test_the_markdown_denominator_counts_both_frontend_roles(tmp_path):
     leave it out of the count printed beside it. Both backend roles are in the fixture so
     a filter that merely excluded ``backend-plugin`` would show up here as a total of 3.
     """
-    stdout = _run(_repo(tmp_path, MIXED), "--markdown").stdout
+    stdout = _markdown(_repo(tmp_path, MIXED))
     assert "**Frontend plugins:** 2 total" in stdout
     assert "| — backend-only | 2 |" in stdout
 
@@ -153,7 +181,7 @@ def test_the_per_tier_table_counts_and_lists_both_frontend_roles(tmp_path):
     Nothing else asserts them, and a narrowed filter here is invisible: the header count
     silently drops by one and the module's row silently vanishes from the table.
     """
-    stdout = _run(_repo(tmp_path, MIXED), "--markdown").stdout
+    stdout = _markdown(_repo(tmp_path, MIXED))
     # With both tier files empty every package falls to the "other" tier.
     assert "#### Other (0/2 frontend plugins NFS-ready — 0%)" in stdout
     assert "| @scope/plugin-b | sample |" in stdout

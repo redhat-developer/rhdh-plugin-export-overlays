@@ -55,25 +55,22 @@ NFS_FEATURE_TYPES=("@backstage/FrontendPlugin" "@backstage/FrontendModule")
 # browser through the same module-federation remote.
 FRONTEND_ROLES=("frontend-plugin" "frontend-plugin-module")
 
-is_frontend_role() {
-  local role="$1"
-  for frontend_role in "${FRONTEND_ROLES[@]}"; do
-    if [[ "$role" == "$frontend_role" ]]; then
+# Exact membership, not a prefix or glob match: `frontend-plugin` must not admit a
+# hypothetical `frontend-plugin-widget` that the classifier would then call backend-only.
+contains_exact() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    if [[ "$needle" == "$item" ]]; then
       return 0
     fi
   done
   return 1
 }
 
-is_nfs_type() {
-  local type="$1"
-  for nfs_type in "${NFS_FEATURE_TYPES[@]}"; do
-    if [[ "$type" == "$nfs_type" ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
+is_frontend_role() { contains_exact "$1" "${FRONTEND_ROLES[@]}"; }
+is_nfs_type() { contains_exact "$1" "${NFS_FEATURE_TYPES[@]}"; }
 
 # Read support tier files into associative arrays
 declare -A TIER_MAP
@@ -207,17 +204,12 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
   # frontend-plugin alone bucketed them as backend-only, understating the denominator
   # (80 frontend packages reported as 75) and hiding 4 already-NFS-ready modules.
   #
-  # This is the ONE place the question is decided. The answer travels in the emitted
-  # JSON as `frontend`, so the markdown filters below select on it rather than
-  # re-deriving it — a second expression of the same predicate is how the classifier and
-  # the denominator drifted apart in the first place.
-  if is_frontend_role "$role"; then
-    is_frontend=true
-  else
+  # One decision, taken once. It travels in the emitted JSON as `frontend` so the markdown
+  # filters select on it rather than re-deriving it — a second expression of the same
+  # predicate is how the classifier and the denominator drifted apart in the first place.
+  is_frontend=true
+  if ! is_frontend_role "$role"; then
     is_frontend=false
-  fi
-
-  if [[ "$is_frontend" == "false" ]]; then
     status="backend-only"
     features_json="{}"
   elif [[ -z "$oci_ref" || "$oci_ref" == "./"* ]]; then
