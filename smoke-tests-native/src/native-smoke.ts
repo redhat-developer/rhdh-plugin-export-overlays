@@ -67,7 +67,7 @@ import {
 import {
   computeStatus,
   describeInstallShortfall,
-  isServableWithoutNfsEntryPoint,
+  describeNfsShortfall,
   partitionBootable,
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
@@ -420,16 +420,12 @@ function validateFrontends(frontend: PluginEntry[]): {
     else {
       valid += 1;
       console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
-      // A served remote that mounts nothing under the new frontend system does so
-      // without a single error at runtime. It is not an artifact defect — it is
-      // migration state — so it warns rather than failing.
-      if (isServableWithoutNfsEntryPoint(mf)) {
-        console.warn(
-          `    ⚠ no new-frontend-system entry point reachable: the remote is served, ` +
-            `but none of the modules it exposes carries a @backstage/FrontendPlugin ` +
-            `or @backstage/FrontendModule feature type — NFS will mount nothing`,
-        );
-      }
+      // A served remote may still contribute nothing to the new frontend system, and it
+      // does so without a single error at runtime. Not an artifact defect — migration
+      // state — so it warns rather than failing. The message text lives in harness-logic
+      // so it is covered; see describeNfsShortfall for why the two cases read differently.
+      const shortfall = describeNfsShortfall(mf);
+      if (shortfall) console.warn(`    ⚠ ${shortfall}`);
     }
   }
   return { valid, errors, bundles };

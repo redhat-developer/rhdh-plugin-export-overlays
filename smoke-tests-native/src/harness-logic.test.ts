@@ -9,7 +9,7 @@ import { strict as assert } from "node:assert";
 import {
   computeStatus,
   describeInstallShortfall,
-  isServableWithoutNfsEntryPoint,
+  describeNfsShortfall,
   partitionBootable,
 } from "./harness-logic";
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
@@ -91,36 +91,39 @@ const mfRemote = (over: Partial<MfRemoteInfo> = {}): MfRemoteInfo => ({
   ...over,
 });
 
-test("a bundle with no mf remote is not flagged", () => {
-  assert.equal(isServableWithoutNfsEntryPoint(null), false);
+test("a bundle with no mf remote has nothing to report", () => {
+  assert.equal(describeNfsShortfall(null), null);
 });
 
-test("an unservable remote is not flagged — it already failed the run", () => {
-  assert.equal(
-    isServableWithoutNfsEntryPoint(mfRemote({ servable: false })),
-    false,
+test("an unservable remote is not reported — it already failed the run", () => {
+  assert.equal(describeNfsShortfall(mfRemote({ servable: false })), null);
+});
+
+test("a servable remote declaring no features says the runtime decides", () => {
+  // nfsModuleFilter.for() returns undefined when backstage.features is absent or empty,
+  // so no override is installed and the router advertises EVERY exposed module — the
+  // frontend loader then mounts whatever's default export carries an NFS $$type. So this
+  // case is "cannot tell from metadata", not "mounts nothing".
+  const msg = describeNfsShortfall(mfRemote());
+  assert.match(msg ?? "", /declares no backstage\.features/);
+  assert.match(msg ?? "", /cannot be determined without executing/);
+});
+
+test("a servable remote whose declared features are not exposed mounts nothing", () => {
+  // Here backstage.features IS non-empty, so the filter installs and keeps only exposed
+  // modules with an NFS type — none of them. This one is definitive.
+  const msg = describeNfsShortfall(
+    mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
   );
+  assert.match(msg ?? "", /will mount nothing/);
+  assert.match(msg ?? "", /does not expose/);
 });
 
-test("a servable remote exposing no NFS entry point is flagged", () => {
-  assert.equal(isServableWithoutNfsEntryPoint(mfRemote()), true);
-});
-
-test("a servable remote exposing an NFS entry point is not flagged", () => {
+test("a servable remote exposing an NFS entry point has nothing to report", () => {
   assert.equal(
-    isServableWithoutNfsEntryPoint(
+    describeNfsShortfall(
       mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: ["./alpha"] }),
     ),
-    false,
-  );
-});
-
-test("declaring an NFS feature the remote does not expose is still flagged", () => {
-  // servable and nfsFeatures both look healthy; only the exposed subset shows the gap.
-  assert.equal(
-    isServableWithoutNfsEntryPoint(
-      mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
-    ),
-    true,
+    null,
   );
 });

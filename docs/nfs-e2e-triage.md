@@ -80,10 +80,18 @@ string `name`, a string `metaData.remoteEntry.name`, and an `exposes` array whos
 entry carries a `name`. Note the router does **not** require `exposes` to be non-empty —
 `[]` passes its check and the remote is still served, it just exposes nothing.
 
-Worth separating from "not migrated": `@roadiehq/backstage-plugin-{argo-cd,datadog,github-insights}`
-**do expose an `alpha` module** in their MF manifest — the entry point exists, its default
-export just is not a `@backstage/FrontendPlugin`/`FrontendModule`. They are closer to ready
-than the other six.
+**What "no NFS entry point" does and does not mean.** It means the artifact carries no
+`backstage.features`, so the readiness report cannot classify it. It does **not** mean the
+plugin fails to load under NFS: RHDH's `nfsModuleFilter` returns no resolver at all when
+`backstage.features` is absent or empty (`rhdh:packages/backend/src/modules/nfsModuleFilter.ts`),
+so the router then advertises **every** exposed module and
+`@backstage/frontend-dynamic-feature-loader` decides at runtime by the `$$type` of each
+module's default export. Whether these 9 mount anything cannot be told from metadata — only
+by executing the bundle. `@roadiehq/backstage-plugin-{argo-cd,datadog,github-insights}` do
+expose an `alpha` module, so they are the likeliest of the nine to mount already.
+
+The practical consequence for a ticket: do not assume a lane for these workspaces will show
+an empty page, and do not assume it will work either. Run it and look.
 
 ### 2.3 What is still genuinely blocked
 
@@ -216,10 +224,11 @@ Neither produces an error. A suite that only checks "the page loaded" passes thr
    shape rather than its presence and reports it as `frontend.bundles[].mf` in
    `results.json`.
 
-2. **The remote is served but contributes nothing.** Either its exposed modules carry no NFS
-   feature type (the 9 packages in §2.2), or its extensions attach to a host plugin the app
-   does not have — orphaned extensions are collected and never reported. `mf.servable: true`
-   with `mf.nfsFeatures: []` is exactly this state.
+2. **The remote is served but contributes nothing.** Its extensions attach to a host plugin
+   the app does not have — orphaned extensions are collected and never reported — or it
+   declares NFS entry points the manifest never exposes, in which case `nfsModuleFilter`
+   keeps no modules. `mf.servable: true` with a non-empty `mf.nfsFeatures` and an empty
+   `mf.nfsFeaturesExposed` is that second state.
 
 So assert a positive DOM fact, not the absence of errors.
 
