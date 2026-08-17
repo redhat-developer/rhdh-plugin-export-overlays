@@ -859,7 +859,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:21d90157dad6fc5291805648cc949366fe9e37236ac850ffc0312dae5f7aff1c"
+          "digest": "sha256:21d90157dad6fc5291805648cc949366fe9e37236ac850ffc0312dae5f7aff1c",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.4.1",
+          "resolvedTag": "bs_1.52.0__1.4.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
@@ -885,7 +888,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:efcf552e7d9d146cbf7f28e6ed5025b6cdb47439ab59f8e7607c72a29f3f4ff7"
+          "digest": "sha256:efcf552e7d9d146cbf7f28e6ed5025b6cdb47439ab59f8e7607c72a29f3f4ff7",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__8.12.1",
+          "resolvedTag": "bs_1.52.0__8.11.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -911,7 +917,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3db0cf92a653bccd08a9862f1cb44d8a2f1779ab1cb31c693e69faa354d2d1ac"
+          "digest": "sha256:3db0cf92a653bccd08a9862f1cb44d8a2f1779ab1cb31c693e69faa354d2d1ac",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__2.0.0",
+          "resolvedTag": "bs_1.52.0__1.12.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -937,7 +946,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:698959805fbafbc1316cbcbea1daf0b5906a6b5cf8bba8b6b1cda64f775d839e"
+          "digest": "sha256:698959805fbafbc1316cbcbea1daf0b5906a6b5cf8bba8b6b1cda64f775d839e",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__6.0.0",
+          "resolvedTag": "bs_1.52.0__5.10.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -963,7 +975,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:003e4a0a8d7b10b366c17e8bb4b87536b0bb9b54c19c72277bbfa4c2483b1e92"
+          "digest": "sha256:003e4a0a8d7b10b366c17e8bb4b87536b0bb9b54c19c72277bbfa4c2483b1e92",
+          "fallback": true,
+          "requestedTag": "bs_1.52.0__1.7.2",
+          "resolvedTag": "bs_1.52.0__1.7.0"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
