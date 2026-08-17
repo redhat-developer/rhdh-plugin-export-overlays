@@ -133,11 +133,18 @@ def test_a_role_merely_prefixed_frontend_plugin_is_not_frontend_surface(tmp_path
     assert "**Frontend plugins:** 0 total" in _markdown(root)
 
 
-def test_a_frontend_module_shipping_a_local_path_is_baked_in_not_backend_only(tmp_path):
+def test_a_frontend_module_shipping_a_local_path_still_reaches_classification(tmp_path):
     """A local dist path means the package ships in the RHDH image, for modules too.
 
-    The old filter reached ``backend-only`` first and so could never report ``baked-in``
-    for a module, hiding the fact that the artifact is not published at all.
+    The old filter reached ``backend-only`` first, so a module with a local path could never
+    reach the branch that handles that case at all. That branch is what #3284 turned into
+    source-based inference, replacing the former ``baked-in`` status: the script now fetches
+    the upstream package.json and infers ``backstage.features`` from its exports.
+
+    This fixture has no ``source.json``, so inference cannot run and the honest answer is
+    ``unknown``. The property being pinned is that the package gets there — not the label,
+    which is #3284's to define. Exercising a successful inference would need network access
+    to raw.githubusercontent.com, which this hermetic suite deliberately does not have.
     """
     root = _repo(
         tmp_path,
@@ -149,7 +156,9 @@ def test_a_frontend_module_shipping_a_local_path_is_baked_in_not_backend_only(tm
             )
         ],
     )
-    assert _classified(root)["@scope/plugin-z"]["status"] == "baked-in"
+    entry = _classified(root)["@scope/plugin-z"]
+    assert entry["frontend"] is True
+    assert entry["status"] == "unknown"
 
 
 # A mixed set: one plugin, one module, and both backend roles. Every count the markdown

@@ -72,7 +72,7 @@ manifest against what that router requires:
 |---|---|---|
 | **servable MF remote with an NFS entry point** | **35** | everything not listed below |
 | servable remote, **no NFS entry point** | 9 | `argocd`, `@backstage/plugin-techdocs-module-addons-contrib`, all 6 `@roadiehq/*`, `qe-theme` |
-| not published as OCI (**baked-in**) | 1 | `extensions` |
+| not published as OCI, so unreachable for this check | 1 | `extensions` |
 
 Every artifact checked ships **both** layouts (`dist-scalprum/` *and* `dist/remoteEntry.js`
 + `dist/mf-manifest.json`), and every `mf-manifest.json` satisfies the router's guards: a
@@ -116,7 +116,10 @@ an empty page, and do not assume it will work either. Run it and look.
   ConfigMap-patch-and-restart cycle. Stays on Prow.
 
 **`artifact`** — whether the suite exercises the artifact this repo publishes (`oci`), the
-copy baked into the RHDH image (`baked-in`), or both (`mixed`). `scalprum` counts config
+copy baked into the RHDH image (`baked-in`), or both (`mixed`). This is about which copy the
+e2e suite loads and is **not** the readiness report's classification — that report dropped
+its own `baked-in` status in #3284 and now infers such plugins' features from upstream
+source instead. `scalprum` counts config
 keys NFS does not read (`mountPoints`, `dynamicRoutes`, `menuItems`, `appIcons`, `themes`,
 `entityTabs`, `importName`) — each one needs an `app.extensions` equivalent before an NFS
 lane means anything.
@@ -132,7 +135,7 @@ lane means anything.
 | `bulk-import` | 2 | 9 | — | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
 | `quickstart` | 1 | 2 | — | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
 | `global-header` | 2 | 10 | — | keycloak | **ctr** | Keycloak | mixed | 22 | ready |
-| `extensions` | 1 | 11 | — | keycloak | **ctr** | Keycloak + the catalog index image | baked-in | 6 | **baked-in, no OCI artifact** |
+| `extensions` | 1 | 11 | — | keycloak | **ctr** | Keycloak + the catalog index image | baked-in | 6 | **no OCI artifact**; the readiness report infers `nfs-ready` from upstream source since #3284 |
 | `adoption-insights` | 1 | 7 | — | keycloak | **ctr** | Keycloak users + the analytics DB | oci | 0 | ready (+1 module) |
 | `tech-radar` | 2 | 1 | ✅ (skipped) | keycloak | **ctr** | an in-cluster HTTP customization-provider | oci | 0 | ready, ships dual |
 | `keycloak` | 1 | 2 | — | keycloak | **ctr** | a real Keycloak; metrics via port-forward | n/a | 0 | backend-only |
