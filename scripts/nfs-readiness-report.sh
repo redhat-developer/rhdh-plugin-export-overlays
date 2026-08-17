@@ -231,7 +231,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
           # Build inferred features from exports keys that look like NFS entry points
           inferred=$(echo "$src_exports" | jq -c '
             [to_entries[]
-             | select(.key == "./alpha" or ((.key | startswith("./")) and .key != "./package.json"))
+             | select((.key | startswith("./")) and .key != "./package.json")
             ]
             | map({(.key): "@backstage/FrontendPlugin"})
             | add // {}
