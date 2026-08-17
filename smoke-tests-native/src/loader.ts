@@ -354,9 +354,7 @@ function inspectMfRemote(pluginPath: string): {
         nfsFeaturesExposed: [],
         servable: false,
       },
-      error: `dist/mf-manifest.json is not valid JSON (${
-        err instanceof Error ? err.message : String(err)
-      })`,
+      error: `dist/mf-manifest.json is not valid JSON (${errorMessage(err)})`,
     };
   }
 
