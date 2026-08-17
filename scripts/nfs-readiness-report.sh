@@ -201,49 +201,44 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       repo_ref=$(jq -r '."repo-ref" // empty' "$source_json" 2>/dev/null) || repo_ref=""
       repo_flat=$(jq -r '."repo-flat" // empty' "$source_json" 2>/dev/null) || repo_flat=""
 
-      if [[ -z "$repo_url" || -z "$repo_ref" || "$repo_url" != *"github.com"* ]]; then
-        # Can only infer from GitHub-hosted repos
-        status="unknown"
-        features_json="{}"
-        continue
-      fi
+      if [[ -n "$repo_url" && -n "$repo_ref" && "$repo_url" == *"github.com"* ]]; then
+        # Convert GitHub URL to raw content URL
+        raw_base=$(echo "$repo_url" | sed 's|github.com|raw.githubusercontent.com|')
 
-      # Convert GitHub URL to raw content URL
-      raw_base=$(echo "$repo_url" | sed 's|github.com|raw.githubusercontent.com|')
+        # Build path to source package.json
+        load_plugin_paths "$workspace"
+        baked_paths="${PLUGINS_LIST_CACHE[$workspace]:-}"
+        baked_bare="${package_name#@*/}"
+        baked_stripped_plugin="${baked_bare#plugin-}"
+        baked_stripped_backstage="${baked_bare#backstage-plugin-}"
+        matched_pp=""
+        for pp in $baked_paths; do
+          folder="${pp##*/}"
+          if [[ "$folder" == "$baked_bare" || "$folder" == "$baked_stripped_plugin" || "$folder" == "$baked_stripped_backstage" ]]; then
+            matched_pp="$pp"
+            break
+          fi
+        done
 
-      # Build path to source package.json
-      load_plugin_paths "$workspace"
-      baked_paths="${PLUGINS_LIST_CACHE[$workspace]:-}"
-      baked_bare="${package_name#@*/}"
-      baked_stripped_plugin="${baked_bare#plugin-}"
-      baked_stripped_backstage="${baked_bare#backstage-plugin-}"
-      matched_pp=""
-      for pp in $baked_paths; do
-        folder="${pp##*/}"
-        if [[ "$folder" == "$baked_bare" || "$folder" == "$baked_stripped_plugin" || "$folder" == "$baked_stripped_backstage" ]]; then
-          matched_pp="$pp"
-          break
-        fi
-      done
+        if [[ -n "$matched_pp" ]]; then
+          if [[ "$repo_flat" == "true" ]]; then
+            pkg_url="$raw_base/$repo_ref/$matched_pp/package.json"
+          else
+            pkg_url="$raw_base/$repo_ref/workspaces/$workspace/$matched_pp/package.json"
+          fi
 
-      if [[ -n "$matched_pp" ]]; then
-        if [[ "$repo_flat" == "true" ]]; then
-          pkg_url="$raw_base/$repo_ref/$matched_pp/package.json"
-        else
-          pkg_url="$raw_base/$repo_ref/workspaces/$workspace/$matched_pp/package.json"
-        fi
-
-        src_exports=$(curl -fsSL --proto '=https' --tlsv1.2 "$pkg_url" 2>/dev/null | jq -c '.exports // {}' 2>/dev/null || echo '{}')
-        if [[ -n "$src_exports" && "$src_exports" != "{}" ]]; then
-          # Build inferred features from exports keys that look like NFS entry points
-          inferred=$(echo "$src_exports" | jq -c '
-            [to_entries[]
-             | select((.key | startswith("./")) and .key != "./package.json")
-            ]
-            | map({(.key): "@backstage/FrontendPlugin"})
-            | add // {}
-          ' 2>/dev/null || echo '{}')
-          features_json="$inferred"
+          src_exports=$(curl -fsSL --proto '=https' --tlsv1.2 "$pkg_url" 2>/dev/null | jq -c '.exports // {}' 2>/dev/null || echo '{}')
+          if [[ -n "$src_exports" && "$src_exports" != "{}" ]]; then
+            # Build inferred features from exports keys that look like NFS entry points
+            inferred=$(echo "$src_exports" | jq -c '
+              [to_entries[]
+               | select((.key | startswith("./")) and .key != "./package.json")
+              ]
+              | map({(.key): "@backstage/FrontendPlugin"})
+              | add // {}
+            ' 2>/dev/null || echo '{}')
+            features_json="$inferred"
+          fi
         fi
       fi
     fi
