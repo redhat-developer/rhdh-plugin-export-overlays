@@ -862,18 +862,19 @@ plugins:
           red-hat-developer-hub.backstage-plugin-bulk-import:
             translationResources:
               - importName: bulkImportTranslations
-                module: Alpha
+                module: Legacy
                 ref: bulkImportTranslationRef
             appIcons:
               - name: bulkImportIcon
+                module: Legacy
                 importName: BulkImportIcon
             dynamicRoutes:
               - path: /bulk-import
                 importName: BulkImportPage
+                module: Legacy
                 menuItem:
                   icon: bulkImportIcon
                   text: Bulk import
-                  textKey: menuItem.bulkImport
   # Tag: bs_1.52.0__8.0.0, Build date: 2026-05-22T15:13:40Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:2d44eec422749d7b74854afab3b69a02ea589d456b36da954ab21082e860bbae
     enabled: false
@@ -946,8 +947,8 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  # Tag: bs_1.52.0__5.10.0, Build date: 2026-06-02T17:21:47Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:698959805fbafbc1316cbcbea1daf0b5906a6b5cf8bba8b6b1cda64f775d839e
+  # Tag: bs_1.52.0__6.0.0, Build date: 2026-06-02T17:21:47Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:9bf346736138bd3e803623bbcf202da2cfc7d187277fdf308ea7927588560cf0
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -989,15 +990,15 @@ plugins:
                   if:
                     anyOf:
                       - hasAnnotation: orchestrator.io/workflows
-  # Tag: bs_1.52.0__8.11.0, Build date: 2026-05-22T15:16:41Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:efcf552e7d9d146cbf7f28e6ed5025b6cdb47439ab59f8e7607c72a29f3f4ff7
+  # Tag: bs_1.52.0__8.12.1, Build date: 2026-05-22T15:16:41Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:fba17c18f3c7654241401a13ed023612df13ad5954fdc70f608b53f0b9c89b1c
     enabled: false
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.52.0__1.4.0, Build date: 2026-05-22T15:15:55Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:21d90157dad6fc5291805648cc949366fe9e37236ac850ffc0312dae5f7aff1c
+  # Tag: bs_1.52.0__1.4.1, Build date: 2026-05-22T15:15:55Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:e720b40957336e73b931afba05432e6509a3e964337a7f1315f31c35c493b02f
     enabled: false
     pluginConfig:
       orchestrator:
@@ -1005,8 +1006,8 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  # Tag: bs_1.52.0__1.12.0, Build date: 2026-06-02T17:28:54Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:3db0cf92a653bccd08a9862f1cb44d8a2f1779ab1cb31c693e69faa354d2d1ac
+  # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-02T17:28:54Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:b0722a7da632d38439d479ee61a2e91402c3a27e6a801de218f91ea3b577e33b
     enabled: false
     pluginConfig:
       dynamicPlugins:
@@ -1014,8 +1015,8 @@ plugins:
           # OFS loads BackstagePlugin from Legacy after NFS graduation (PluginRoot is NFS).
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets:
             pluginModule: Legacy
-  # Tag: bs_1.52.0__1.7.0, Build date: 2026-05-26T12:41:42Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:003e4a0a8d7b10b366c17e8bb4b87536b0bb9b54c19c72277bbfa4c2483b1e92
+  # Tag: bs_1.52.0__1.7.2, Build date: 2026-05-26T12:41:42Z
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:2c1fd0c1b204cde636fbb15b57da1fd561812de6d22c153141f9576425a287e4
     enabled: false
     pluginConfig:
       orchestrator:
