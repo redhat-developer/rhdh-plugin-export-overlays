@@ -10,6 +10,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { validateFrontendBundle, type PluginEntry } from "./loader";
+import { describeNfsShortfall } from "./harness-logic";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
 // $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
@@ -377,7 +378,7 @@ test("a remoteEntry.path escaping the bundle is reported as a bundle fault", () 
     }),
   );
   assert.match(error ?? "", /escapes the bundle's dist\/ directory/);
-  assert.match(error ?? "", /servable but its bundle is broken/);
+  assert.match(error ?? "", /has bundle problems/);
   assert.equal(mf?.servable, true);
 });
 
@@ -409,6 +410,36 @@ test("a package.json that cannot be read warns instead of reading as 'declares n
   }
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /could not read package\.json/);
+});
+
+test("an unreadable package.json fails instead of yielding an NFS verdict", () => {
+  // The warning alone was not enough: readNfsFeatures returned [] and describeNfsShortfall
+  // then said "declares no backstage.features" — a verdict about the artifact derived from
+  // an I/O failure. Since an unreadable package.json means the artifact cannot be judged at
+  // all, the honest outcome is a failure naming the read error, not a verdict.
+  const dir = tempDir(join(tmpdir(), "bundle-"));
+  mkdirSync(join(dir, "package.json"));
+  mkdirSync(join(dir, "dist"));
+  writeFileSync(join(dir, "dist/mf-manifest.json"), mfManifest());
+  writeFileSync(join(dir, "dist/remoteEntry.js"), "");
+
+  const original = console.warn;
+  console.warn = () => {};
+  let result;
+  try {
+    result = validateFrontendBundle({
+      name: "test",
+      version: "1.0.0",
+      dirName: "test",
+      path: dir,
+      role: "frontend",
+    });
+  } finally {
+    console.warn = original;
+  }
+  assert.match(result.error ?? "", /could not read package\.json/);
+  // And no shortfall verdict is reachable, because the run already failed.
+  assert.equal(describeNfsShortfall(result.mf), null);
 });
 
 test("an exposes entry with an empty name is servable but not a usable module", () => {

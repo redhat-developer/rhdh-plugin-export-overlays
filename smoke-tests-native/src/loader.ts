@@ -186,6 +186,15 @@ export type MfRemoteInfo = {
   /** Entry points whose `backstage.features` type the new frontend system mounts. */
   nfsFeatures: string[];
   /**
+   * Why `backstage.features` could not be read, when it could not. Null normally.
+   *
+   * Without this, an I/O failure and a package that genuinely declares nothing are the
+   * same record — `nfsFeatures: []` with `servable: true` — and both this file's own
+   * consumers and anyone reading results.json would derive the same verdict from either.
+   * The field exists so a failure to look is never recorded as a finding.
+   */
+  nfsFeaturesError: string | null;
+  /**
    * The subset of `nfsFeatures` the manifest actually exposes. Declaring a feature the
    * remote does not expose leaves nothing for NFS to resolve, and neither `servable`
    * nor `nfsFeatures` shows it on its own — so this is the field to judge "will NFS
@@ -206,30 +215,40 @@ export type FrontendBundleResult = {
   error: string | null;
 };
 
-/** Read the NFS-recognised entry points a package declares in backstage.features. */
-function readNfsFeatures(pluginPath: string): string[] {
+/**
+ * Read the NFS-recognised entry points a package declares in backstage.features.
+ *
+ * Returns the read failure rather than an empty list, because an empty list is a
+ * *verdict* downstream — `describeNfsShortfall` reads it as "declares no
+ * backstage.features". Deriving that from an I/O error would state a fact about the
+ * artifact that nobody established.
+ */
+function readNfsFeatures(pluginPath: string): {
+  features: string[];
+  error: string | null;
+} {
   try {
     const pkg = JSON.parse(
       readFileSync(join(pluginPath, "package.json"), "utf8"),
     );
     const features: unknown = pkg?.backstage?.features;
-    if (typeof features !== "object" || features === null) return [];
-    return Object.entries(features as Record<string, unknown>)
+    if (typeof features !== "object" || features === null) {
+      return { features: [], error: null };
+    }
+    const declared = Object.entries(features as Record<string, unknown>)
       .filter(
         ([, type]) => typeof type === "string" && NFS_FEATURE_TYPES.has(type),
       )
       .map(([entryPoint]) => entryPoint);
+    return { features: declared, error: null };
   } catch (err) {
     // Unreachable for malformed JSON — discoverPlugins skips those and warns before this
-    // runs — so this is a real I/O error. It must not read as "declares nothing": an empty
-    // result now drives the "declares no backstage.features" verdict, and stating an I/O
-    // failure as a fact about the artifact is the mistake this check exists to avoid.
-    // Warn loudly, matching discoverPlugins' handling of the same class of problem.
-    console.warn(
-      `⚠ could not read package.json in '${pluginPath}' to determine NFS entry ` +
-        `points (${errorMessage(err)}); treating as none declared`,
-    );
-    return [];
+    // runs — so this is a real I/O error, which means the artifact cannot be judged at all.
+    // Warn loudly, matching discoverPlugins' handling of the same class of problem, and
+    // report the failure so no NFS verdict is derived from it.
+    const detail = `could not read package.json (${errorMessage(err)})`;
+    console.warn(`⚠ ${detail} in '${pluginPath}'`);
+    return { features: [], error: detail };
   }
 }
 
@@ -337,7 +356,8 @@ function inspectMfRemote(pluginPath: string): {
   mf: MfRemoteInfo;
   error: string | null;
 } {
-  const nfsFeatures = readNfsFeatures(pluginPath);
+  const { features: nfsFeatures, error: featuresError } =
+    readNfsFeatures(pluginPath);
 
   let manifest: unknown;
   try {
@@ -351,6 +371,7 @@ function inspectMfRemote(pluginPath: string): {
         remoteEntry: null,
         exposes: [],
         nfsFeatures,
+        nfsFeaturesError: featuresError,
         nfsFeaturesExposed: [],
         servable: false,
       },
@@ -360,7 +381,10 @@ function inspectMfRemote(pluginPath: string): {
 
   const fields = readManifestFields(manifest);
   const routerProblems = findRouterGuardProblems(fields);
-  const bundleProblems = findBundleAssetProblems(pluginPath, fields);
+  const bundleProblems = [
+    ...(featuresError ? [featuresError] : []),
+    ...findBundleAssetProblems(pluginPath, fields),
+  ];
   const exposedSet = new Set(fields.exposes.map(canonicalEntryPoint));
 
   const mf: MfRemoteInfo = {
@@ -368,6 +392,7 @@ function inspectMfRemote(pluginPath: string): {
     remoteEntry: fields.remoteEntry,
     exposes: fields.exposes,
     nfsFeatures,
+    nfsFeaturesError: featuresError,
     nfsFeaturesExposed: nfsFeatures.filter((f) =>
       exposedSet.has(canonicalEntryPoint(f)),
     ),
@@ -378,7 +403,10 @@ function inspectMfRemote(pluginPath: string): {
       ? `dist/mf-manifest.json would be skipped by the remotes router: ${routerProblems.join(", ")}`
       : null,
     bundleProblems.length
-      ? `dist/mf-manifest.json is servable but its bundle is broken: ${bundleProblems.join(", ")}`
+      ? // Deliberately does not claim the remote is servable: when the router guards also
+        // failed, both messages appear together and "servable but broken" contradicts the
+        // first half. Whether it is servable is `mf.servable`, not this string's job.
+        `dist/mf-manifest.json has bundle problems: ${bundleProblems.join(", ")}`
       : null,
   ].filter((m): m is string => m !== null);
   return { mf, error: messages.length ? messages.join("; ") : null };

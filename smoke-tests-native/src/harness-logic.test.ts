@@ -86,6 +86,7 @@ const mfRemote = (over: Partial<MfRemoteInfo> = {}): MfRemoteInfo => ({
   remoteEntry: "remoteEntry.js",
   exposes: ["."],
   nfsFeatures: [],
+  nfsFeaturesError: null,
   nfsFeaturesExposed: [],
   servable: true,
   ...over,
@@ -100,11 +101,17 @@ test("an unservable remote is not reported — it already failed the run", () =>
 });
 
 test("a servable remote declaring no features says the runtime decides", () => {
+  // Assert the inputs this case is about, rather than relying on the factory defaults:
+  // if those changed, the regex below would still match a message about a different state.
   // nfsModuleFilter.for() returns undefined when backstage.features is absent or empty,
   // so no override is installed and the router advertises EVERY exposed module — the
   // frontend loader then mounts whatever's default export carries an NFS $$type. So this
   // case is "cannot tell from metadata", not "mounts nothing".
-  const msg = describeNfsShortfall(mfRemote());
+  const subject = mfRemote();
+  assert.equal(subject.servable, true);
+  assert.deepEqual(subject.nfsFeatures, []);
+  assert.equal(subject.nfsFeaturesError, null);
+  const msg = describeNfsShortfall(subject);
   assert.match(msg ?? "", /declares no backstage\.features/);
   assert.match(msg ?? "", /cannot be determined without executing/);
 });
@@ -123,6 +130,19 @@ test("a servable remote exposing an NFS entry point has nothing to report", () =
   assert.equal(
     describeNfsShortfall(
       mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: ["./alpha"] }),
+    ),
+    null,
+  );
+});
+
+test("a failure to read backstage.features yields no verdict at all", () => {
+  // "We could not look" must never be recorded as "it declares nothing" — the record in
+  // results.json is indistinguishable otherwise, since both give nfsFeatures: [].
+  assert.equal(
+    describeNfsShortfall(
+      mfRemote({
+        nfsFeaturesError: "could not read package.json (EISDIR: ...)",
+      }),
     ),
     null,
   );

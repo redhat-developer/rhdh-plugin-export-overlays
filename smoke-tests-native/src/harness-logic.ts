@@ -93,6 +93,9 @@ export function partitionBootable<T>(
  */
 export function describeNfsShortfall(mf: MfRemoteInfo | null): string | null {
   if (!mf?.servable) return null;
+  // A failure to read backstage.features is not a finding about the artifact. Saying
+  // anything here would turn "we could not look" into "it declares nothing".
+  if (mf.nfsFeaturesError) return null;
   if (mf.nfsFeatures.length === 0) {
     return (
       "the remote is served but declares no backstage.features, so nfsModuleFilter " +

@@ -34,8 +34,10 @@ import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
  * 4: added `mf` on each frontend bundle (module-federation remote shape).
+ * 5: added `mf.nfsFeaturesError`, so a failure to read backstage.features is not
+ *    recorded as the artifact declaring none.
  */
-export const REPORT_SCHEMA_VERSION = 4;
+export const REPORT_SCHEMA_VERSION = 5;
 
 export type Status =
   | "pass"
