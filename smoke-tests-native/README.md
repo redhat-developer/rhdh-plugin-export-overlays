@@ -24,14 +24,14 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
-  → validateFrontendBundle()  # legacy and/or new-FE bundle present (not executed)
+  → validateFrontendBundle()  # legacy bundle present; new-FE remote servable (not executed)
   → results.json + exit code
 ```
 
 ### Frontend bundle validation (both frontend systems)
 
-The presence check recognizes both packagings and records which one(s) each plugin
-ships in `results.json` (`frontend.bundles[].systems`):
+The check recognizes both packagings and records which one(s) each plugin ships in
+`results.json` (`frontend.bundles[].systems`):
 
 | System                                  | Required artifacts                              | Example plugin           |
 | --------------------------------------- | ----------------------------------------------- | ------------------------ |
@@ -40,6 +40,29 @@ ships in `results.json` (`frontend.bundles[].systems`):
 | Dual                                    | both layouts                                    | `tech-radar`             |
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
+
+The Scalprum half is a presence check. The module-federation half also validates the
+manifest's **shape**, because presence is not enough there: the remotes router in
+`@backstage/backend-dynamic-feature-service` logs and `continue`s past a manifest missing
+any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers `200 []`
+and the browser gets an app that boots cleanly with no plugins. It is reported per package
+as `frontend.bundles[].mf`:
+
+| Field         | Meaning                                                                     |
+| ------------- | --------------------------------------------------------------------------- |
+| `name`        | `mf-manifest.json` `name` — the host registers the remote under this        |
+| `remoteEntry` | `metaData.remoteEntry.name` — the asset the host fetches, must exist        |
+| `exposes`     | module names the remote exposes; empty is a failure                         |
+| `nfsFeatures` | entry points whose `backstage.features` type the new frontend system mounts |
+| `servable`    | whether the router will serve the remote rather than skipping it            |
+
+`servable` and `nfsFeatures` are reported apart because they are two different problems and
+both are silent at runtime. `servable: false` is an artifact defect and **fails** the run.
+`nfsFeatures: []` on a servable remote is upstream migration state — the remote is served,
+but nothing it exposes is something NFS mounts — so it **warns**. Nine published frontend
+packages are in that second state today (`argocd`, `qe-theme`, the six `@roadiehq/*`, and
+`@backstage/plugin-techdocs-module-addons-contrib`); failing them would turn six workspaces
+red for work that belongs upstream. See [`docs/nfs-e2e-triage.md`](../docs/nfs-e2e-triage.md).
 
 `src/loader.ts` and `src/{module-resolution,plugin-config}.ts` are ported from RHDH
 PR #4967; `discoverPlugins()` replaces RHDH's `loadManifest()` because this CLI version

@@ -12,7 +12,7 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem, PluginError } from "./loader";
+import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
 
 /**
  * Bump when the results.json shape changes — downstream tooling (the sweep
@@ -24,8 +24,9 @@ import type { FrontendSystem, PluginError } from "./loader";
  *
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
+ * 4: added `mf` on each frontend bundle (module-federation remote shape).
  */
-export const REPORT_SCHEMA_VERSION = 3;
+export const REPORT_SCHEMA_VERSION = 4;
 
 export type Status =
   | "pass"
@@ -50,6 +51,13 @@ export type FrontendBundleInfo = {
   name: string;
   version: string;
   systems: FrontendSystem[];
+  /**
+   * The module-federation remote as the backend's remotes router sees it. Null when
+   * the bundle ships no (parseable) mf-manifest.json. `mf.nfsFeatures` being empty
+   * while `mf.servable` is true is the NFS migration gap — a served remote the new
+   * frontend system will not mount anything from.
+   */
+  mf?: MfRemoteInfo | null;
 };
 
 /**

@@ -398,8 +398,9 @@ async function startBackend(
   }
 }
 
-// Check frontend bundles are present (presence check only — the bundle is not
-// executed), recording which frontend system(s) each one ships.
+// Check frontend bundles (the bundle is never executed), recording which frontend
+// system(s) each one ships and — for module federation — whether the remote is in a
+// shape the backend's remotes router will actually serve.
 function validateFrontends(frontend: PluginEntry[]): {
   valid: number;
   errors: PluginError[];
@@ -409,12 +410,22 @@ function validateFrontends(frontend: PluginEntry[]): {
   const bundles: FrontendBundleInfo[] = [];
   let valid = 0;
   for (const plugin of frontend) {
-    const { systems, error } = validateFrontendBundle(plugin);
-    bundles.push({ name: plugin.name, version: plugin.version, systems });
+    const { systems, mf, error } = validateFrontendBundle(plugin);
+    bundles.push({ name: plugin.name, version: plugin.version, systems, mf });
     if (error) errors.push({ plugin, error });
     else {
       valid += 1;
       console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
+      // A served remote exposing no NFS entry point mounts nothing under the new
+      // frontend system, and does so without a single error at runtime. It is not an
+      // artifact defect — it is migration state — so it warns rather than failing.
+      if (mf?.servable && mf.nfsFeatures.length === 0) {
+        console.warn(
+          `    ⚠ no new-frontend-system entry point: the remote is served but ` +
+            `backstage.features declares none of @backstage/FrontendPlugin, ` +
+            `@backstage/FrontendModule — NFS will mount nothing from it`,
+        );
+      }
     }
   }
   return { valid, errors, bundles };
