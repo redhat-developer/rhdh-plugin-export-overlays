@@ -53,11 +53,11 @@ export type FrontendBundleInfo = {
   systems: FrontendSystem[];
   /**
    * The module-federation remote as the backend's remotes router sees it. Null when
-   * the bundle ships no (parseable) mf-manifest.json. `mf.nfsFeatures` being empty
-   * while `mf.servable` is true is the NFS migration gap — a served remote the new
-   * frontend system will not mount anything from.
+   * the bundle ships no mf-manifest.json. `mf.nfsFeaturesExposed` being empty while
+   * `mf.servable` is true is the NFS migration gap — a served remote the new frontend
+   * system will not mount anything from.
    */
-  mf?: MfRemoteInfo | null;
+  mf: MfRemoteInfo | null;
 };
 
 /**

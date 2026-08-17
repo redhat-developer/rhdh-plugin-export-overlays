@@ -10,7 +10,7 @@
  * unreachable from a test runner.
  */
 
-import type { PluginEntry, PluginError } from "./loader";
+import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { Status } from "./report";
 
 /**
@@ -74,4 +74,23 @@ export function partitionBootable<T>(
     else bootable.push(entry);
   }
   return { skipped, excluded, bootable };
+}
+
+/**
+ * Whether a bundle's module-federation remote is served but mounts nothing under the new
+ * frontend system.
+ *
+ * This is deliberately not a failure. The remote is a valid artifact — the router serves
+ * it — and what is missing is an NFS entry point the plugin's own source has to declare.
+ * Nine published frontend packages are in this state today, so failing it would turn
+ * several workspaces red for work that belongs upstream.
+ *
+ * It reads `nfsFeaturesExposed` rather than `nfsFeatures` because declaring a feature the
+ * remote does not expose leaves nothing for NFS to resolve either, and that case looks
+ * healthy in both `servable` and `nfsFeatures`.
+ */
+export function isServableWithoutNfsEntryPoint(
+  mf: MfRemoteInfo | null,
+): boolean {
+  return mf !== null && mf.servable && mf.nfsFeaturesExposed.length === 0;
 }

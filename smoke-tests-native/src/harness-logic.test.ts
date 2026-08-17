@@ -9,9 +9,10 @@ import { strict as assert } from "node:assert";
 import {
   computeStatus,
   describeInstallShortfall,
+  isServableWithoutNfsEntryPoint,
   partitionBootable,
 } from "./harness-logic";
-import type { PluginEntry, PluginError } from "./loader";
+import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 
 function entry(name: string, dirName = name): PluginEntry {
   return {
@@ -76,4 +77,50 @@ test("partitionBootable keeps the skipped and bootable lists complementary", () 
   assert.deepEqual(skipped, ["@s/a", "@s/b"]);
   assert.deepEqual(excluded, [{ ticket: "RHIDP-1" }]);
   assert.equal(skipped.length + bootable.length, entries.length);
+});
+
+// isServableWithoutNfsEntryPoint — the "served but mounts nothing" signal. Extracted from
+// native-smoke.ts because that file ends in process.exit() and cannot be imported.
+const mfRemote = (over: Partial<MfRemoteInfo> = {}): MfRemoteInfo => ({
+  name: "x",
+  remoteEntry: "remoteEntry.js",
+  exposes: ["."],
+  nfsFeatures: [],
+  nfsFeaturesExposed: [],
+  servable: true,
+  ...over,
+});
+
+test("a bundle with no mf remote is not flagged", () => {
+  assert.equal(isServableWithoutNfsEntryPoint(null), false);
+});
+
+test("an unservable remote is not flagged — it already failed the run", () => {
+  assert.equal(
+    isServableWithoutNfsEntryPoint(mfRemote({ servable: false })),
+    false,
+  );
+});
+
+test("a servable remote exposing no NFS entry point is flagged", () => {
+  assert.equal(isServableWithoutNfsEntryPoint(mfRemote()), true);
+});
+
+test("a servable remote exposing an NFS entry point is not flagged", () => {
+  assert.equal(
+    isServableWithoutNfsEntryPoint(
+      mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: ["./alpha"] }),
+    ),
+    false,
+  );
+});
+
+test("declaring an NFS feature the remote does not expose is still flagged", () => {
+  // servable and nfsFeatures both look healthy; only the exposed subset shows the gap.
+  assert.equal(
+    isServableWithoutNfsEntryPoint(
+      mfRemote({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
+    ),
+    true,
+  );
 });

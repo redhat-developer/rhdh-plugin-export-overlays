@@ -16,8 +16,11 @@
  *   1. Run the install CLI to extract OCI plugins into a temp dynamic-plugins-root.
  *   2. Load each backend plugin and assert a default BackendFeature export.
  *   3. Boot startTestBackend with core features + loaded features → confirms they integrate.
- *   4. Check frontend plugin bundles exist for the legacy (Scalprum) and/or new
- *      (module federation) frontend system — presence only, never executed.
+ *   4. Check frontend plugin bundles for the legacy (Scalprum) and/or new (module
+ *      federation) frontend system. Scalprum is a presence check; the module-federation
+ *      half also validates the manifest's shape against what the remotes router requires,
+ *      because a malformed manifest is skipped with a log line and still answers 200 [].
+ *      Neither bundle is ever loaded or executed.
  *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
@@ -64,6 +67,7 @@ import {
 import {
   computeStatus,
   describeInstallShortfall,
+  isServableWithoutNfsEntryPoint,
   partitionBootable,
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
@@ -416,14 +420,14 @@ function validateFrontends(frontend: PluginEntry[]): {
     else {
       valid += 1;
       console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
-      // A served remote exposing no NFS entry point mounts nothing under the new
-      // frontend system, and does so without a single error at runtime. It is not an
-      // artifact defect — it is migration state — so it warns rather than failing.
-      if (mf?.servable && mf.nfsFeatures.length === 0) {
+      // A served remote that mounts nothing under the new frontend system does so
+      // without a single error at runtime. It is not an artifact defect — it is
+      // migration state — so it warns rather than failing.
+      if (isServableWithoutNfsEntryPoint(mf)) {
         console.warn(
-          `    ⚠ no new-frontend-system entry point: the remote is served but ` +
-            `backstage.features declares none of @backstage/FrontendPlugin, ` +
-            `@backstage/FrontendModule — NFS will mount nothing from it`,
+          `    ⚠ no new-frontend-system entry point reachable: the remote is served, ` +
+            `but none of the modules it exposes carries a @backstage/FrontendPlugin ` +
+            `or @backstage/FrontendModule feature type — NFS will mount nothing`,
         );
       }
     }
