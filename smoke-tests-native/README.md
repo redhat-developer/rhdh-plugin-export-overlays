@@ -33,11 +33,11 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
 The check recognizes both packagings and records which one(s) each plugin ships in
 `results.json` (`frontend.bundles[].systems`):
 
-| System                                  | Required artifacts                              | Example plugin           |
-| --------------------------------------- | ----------------------------------------------- | ------------------------ |
-| Legacy (Scalprum)                       | `dist-scalprum/` + `plugin-manifest.json`       | most current plugins     |
-| New frontend system (module federation) | `dist/remoteEntry.js` + `dist/mf-manifest.json` | `app-auth` (new-FE only) |
-| Dual                                    | both layouts                                    | `tech-radar`             |
+| System                                  | Required artifacts                                                        | Example plugin           |
+| --------------------------------------- | ------------------------------------------------------------------------- | ------------------------ |
+| Legacy (Scalprum)                       | `dist-scalprum/` + `plugin-manifest.json`                                 | most current plugins     |
+| New frontend system (module federation) | `dist/mf-manifest.json` (the asset it names need not be `remoteEntry.js`) | `app-auth` (new-FE only) |
+| Dual                                    | both layouts                                                              | `tech-radar`             |
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
 
@@ -48,21 +48,30 @@ any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers 
 and the browser gets an app that boots cleanly with no plugins. It is reported per package
 as `frontend.bundles[].mf`:
 
-| Field         | Meaning                                                                                                                                                                                                               |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `mf-manifest.json` `name` — the host registers the remote under this                                                                                                                                                  |
-| `remoteEntry` | `metaData.remoteEntry.name` — must exist on disk. The router itself serves the manifest as the entry (its default `getRemoteEntryType()` is `"manifest"`); this asset is what the MF runtime fetches after reading it |
-| `exposes`     | module names the remote exposes; every entry must carry a `name`, but an empty list is valid                                                                                                                          |
-| `nfsFeatures` | entry points whose `backstage.features` type the new frontend system mounts                                                                                                                                           |
-| `servable`    | whether the router will serve the remote rather than skipping it                                                                                                                                                      |
+| Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | `mf-manifest.json` `name` — the host registers the remote under this                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `remoteEntry`        | `metaData.remoteEntry.name` — must exist on disk, under `metaData.remoteEntry.path` when that is set and contained within `dist/`. A missing or escaping asset is a **bundle** fault, not a router one — `servable` stays true, because the router resolves its own entry from `name` alone and never reads `path`. The router itself serves the manifest as the entry (its default `getRemoteEntryType()` is `"manifest"`); this asset is what the MF runtime fetches after reading it |
+| `exposes`            | module names the remote exposes; every entry must carry a `name`, but an empty list is valid                                                                                                                                                                                                                                                                                                                                                                                            |
+| `nfsFeatures`        | entry points whose `backstage.features` type the new frontend system mounts                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `nfsFeaturesExposed` | the subset of `nfsFeatures` the manifest actually exposes. Empty while `nfsFeatures` is not means NFS will definitively mount nothing; both empty means metadata cannot say (see below)                                                                                                                                                                                                                                                                                                 |
+| `servable`           | whether the **router** will serve the remote rather than skipping it — set only by the router's own guards, so a broken bundle does not flip it                                                                                                                                                                                                                                                                                                                                         |
 
-`servable` and `nfsFeatures` are reported apart because they are two different problems and
-both are silent at runtime. `servable: false` is an artifact defect and **fails** the run.
-`nfsFeatures: []` on a servable remote is upstream migration state — the remote is served,
-but nothing it exposes is something NFS mounts — so it **warns**. Nine published frontend
-packages are in that second state today (`argocd`, `qe-theme`, the six `@roadiehq/*`, and
-`@backstage/plugin-techdocs-module-addons-contrib`); failing them would turn six workspaces
-red for work that belongs upstream. See [`docs/nfs-e2e-triage.md`](../docs/nfs-e2e-triage.md).
+`servable` and the feature fields are reported apart because they are two different
+problems and both are silent at runtime. `servable: false` is an artifact defect and
+**fails** the run. A served remote that may contribute nothing **warns**, and the two
+cases read differently on purpose:
+
+- **declares NFS entry points but does not expose them** — `nfsModuleFilter` installs a
+  filter that keeps no modules, so NFS mounts nothing. Definitive.
+- **declares no `backstage.features` at all** — `nfsModuleFilter` returns no resolver, so
+  every exposed module is advertised and the frontend loader decides at runtime by each
+  module's `$$type`. Whether anything mounts **cannot be told from metadata**, and the
+  harness says so rather than guessing.
+
+Nine published frontend packages are in the second state today (`argocd`, `qe-theme`, the
+six `@roadiehq/*`, and `@backstage/plugin-techdocs-module-addons-contrib`). Failing either would turn six
+workspaces red for work that belongs upstream. See [`docs/nfs-e2e-triage.md`](../docs/nfs-e2e-triage.md).
 
 `src/loader.ts` and `src/{module-resolution,plugin-config}.ts` are ported from RHDH
 PR #4967; `discoverPlugins()` replaces RHDH's `loadManifest()` because this CLI version

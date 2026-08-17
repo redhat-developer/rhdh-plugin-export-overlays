@@ -14,9 +14,10 @@
  */
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import type { BackendFeature } from "@backstage/backend-plugin-api";
+import { resolveContained } from "./paths";
 
 // The package is ESM ("type": "module"), so the global `require` is undefined.
 // createRequire gives us a CommonJS require to load the extracted (CJS) plugins.
@@ -146,11 +147,15 @@ const NFS_FEATURE_TYPES: readonly string[] = [
 ];
 
 /**
- * Map a `backstage.features` entry point onto the module name the manifest exposes:
- * `"./alpha"` is exposed as `"alpha"`, while the root `"."` stays `"."`.
+ * Put an entry-point name into one form so the two sides can be compared.
+ *
+ * `backstage.features` keys are `./`-prefixed (`"./alpha"`, or `"."` for the root) while
+ * manifests expose bare names (`"alpha"`, `"."`). Normalising both ways round rather than
+ * stripping one side means a manifest that does emit the prefixed form still matches — the
+ * alternative silently reports a correctly-migrated package as exposing nothing.
  */
-function exposedNameOf(entryPoint: string): string {
-  return entryPoint === "." ? "." : entryPoint.replace(/^\.\//, "");
+function canonicalEntryPoint(name: string): string {
+  return name === "." || name.startsWith("./") ? name : `./${name}`;
 }
 
 /**
@@ -192,7 +197,10 @@ export type MfRemoteInfo = {
 
 export type FrontendBundleResult = {
   systems: FrontendSystem[];
-  /** Present whenever dist/mf-manifest.json exists and parses. */
+  /**
+   * Present whenever dist/mf-manifest.json exists. An unparseable one still yields an
+   * `mf` — blank, with `servable: false` — so the reason travels with the failure.
+   */
   mf: MfRemoteInfo | null;
   error: string | null;
 };
@@ -280,49 +288,76 @@ function inspectMfRemote(pluginPath: string): {
     .map((e) => (e as { name?: unknown })?.name)
     .filter((n): n is string => typeof n === "string" && n.length > 0);
 
-  const problems: string[] = [];
-  if (!name) problems.push("`name` missing");
-  if (!remoteEntry) problems.push("`metaData.remoteEntry.name` missing");
-  if (!exposesRaw) problems.push("`exposes` is not an array");
+  // Split deliberately. `routerProblems` are the guards in the remotes router itself, and
+  // only those may set `servable: false` — that field is documented as the router's
+  // verdict, so folding anything else into it puts a false value in the one signal
+  // results.json publishes as such.
+  const routerProblems: string[] = [];
+  if (!name) routerProblems.push("`name` missing");
+  if (!remoteEntry) routerProblems.push("`metaData.remoteEntry.name` missing");
+  if (!exposesRaw) routerProblems.push("`exposes` is not an array");
   else if (!exposesAllNamed) {
-    problems.push("`exposes` has an entry without a `name`");
+    routerProblems.push("`exposes` has an entry without a `name`");
   }
+
+  // Real faults, but not the router's: on the default path it probes mf-manifest.json
+  // itself (getRemoteEntryType() returns "manifest"), so it serves these remotes and the
+  // breakage surfaces in the browser's MF runtime instead.
+  const bundleProblems: string[] = [];
   // Not something the router checks on the default path: with the default resolver
   // `getRemoteEntryType()` returns "manifest", so the asset it probes for existence is
   // mf-manifest.json itself. This asset is what the Module Federation runtime in the
   // browser fetches after reading the manifest, which is why it still has to be there.
-  const remoteEntryRel = join("dist", remoteEntryDir, remoteEntry ?? "");
-  if (remoteEntry && !existsSync(join(pluginPath, remoteEntryRel))) {
-    problems.push(
-      `remote entry asset ${remoteEntryRel} not present (needed by the MF runtime)`,
+  if (remoteEntry) {
+    // `path` is untrusted: it comes from JSON inside a published OCI artifact. Contain it
+    // before touching the filesystem, per the rule src/paths.ts documents — otherwise a
+    // manifest declaring `../../..` probes outside its own package.
+    const distDir = join(pluginPath, "dist");
+    const resolved = resolveContained(
+      join(remoteEntryDir, remoteEntry),
+      distDir,
     );
+    if (!resolved) {
+      bundleProblems.push(
+        `metaData.remoteEntry path '${join(remoteEntryDir, remoteEntry)}' ` +
+          `escapes the bundle's dist/ directory`,
+      );
+    } else if (!existsSync(resolved)) {
+      bundleProblems.push(
+        `remote entry asset dist/${relative(distDir, resolved)} not present ` +
+          `(needed by the MF runtime)`,
+      );
+    }
   }
 
+  const exposedSet = new Set(exposes.map(canonicalEntryPoint));
   const mf: MfRemoteInfo = {
     name,
     remoteEntry,
     exposes,
     nfsFeatures,
     nfsFeaturesExposed: nfsFeatures.filter((f) =>
-      exposes.includes(exposedNameOf(f)),
+      exposedSet.has(canonicalEntryPoint(f)),
     ),
-    servable: problems.length === 0,
+    servable: routerProblems.length === 0,
   };
-  return {
-    mf,
-    error: problems.length
-      ? `dist/mf-manifest.json would be skipped by the remotes router: ${problems.join(
-          ", ",
-        )}`
+  const messages = [
+    routerProblems.length
+      ? `dist/mf-manifest.json would be skipped by the remotes router: ${routerProblems.join(", ")}`
       : null,
-  };
+    bundleProblems.length
+      ? `dist/mf-manifest.json is servable but its bundle is broken: ${bundleProblems.join(", ")}`
+      : null,
+  ].filter((m): m is string => m !== null);
+  return { mf, error: messages.length ? messages.join("; ") : null };
 }
 
 /**
  * Check a frontend plugin's bundle artifacts for at least one frontend system:
  * - legacy frontend system: `dist-scalprum/` + `plugin-manifest.json` (Scalprum)
- * - new frontend system: `dist/remoteEntry.js` + `dist/mf-manifest.json` (module
- *   federation remote, loaded by @backstage/frontend-dynamic-feature-loader)
+ * - new frontend system: `dist/mf-manifest.json` (a module-federation remote, loaded by
+ *   @backstage/frontend-dynamic-feature-loader). The manifest alone is the marker — the
+ *   router serves it as the entry, so the asset it names need not be `remoteEntry.js`.
  *
  * Dual-system plugins (e.g. tech-radar) ship both layouts; new-system-only plugins
  * (e.g. app-auth) ship only the module-federation one. A present-but-incomplete
@@ -376,7 +411,7 @@ export function validateFrontendBundle(
       mf,
       error:
         "no frontend bundle found — needs dist-scalprum/ (legacy frontend system) " +
-        "and/or dist/remoteEntry.js (new frontend system)",
+        "and/or dist/mf-manifest.json (new frontend system)",
     };
   }
   return { systems, mf, error: null };

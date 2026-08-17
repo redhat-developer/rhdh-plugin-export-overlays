@@ -154,7 +154,11 @@ test("an exposes entry without a name is not servable", () => {
     makePlugin(NEW_FE, {
       ...NEW_FE_BODIES,
       "dist/mf-manifest.json": mfManifest({
-        exposes: [{ name: "." }, { notName: "alpha" }],
+        // Each of these fails a different conjunct of the router's guard. `null` and the
+        // bare string are the ones that would throw rather than fail if the guard were
+        // reduced — `"name" in null` is a TypeError, and nothing here catches it, so a
+        // single bad manifest would abort the whole sweep instead of failing one package.
+        exposes: [{ name: "." }, null, "alpha", { notName: "x" }],
       }),
     }),
   );
@@ -162,7 +166,12 @@ test("an exposes entry without a name is not servable", () => {
   assert.equal(mf?.servable, false);
 });
 
-test("a manifest naming a remote entry asset that is absent fails", () => {
+test("a missing entry asset fails the bundle without claiming the router skips it", () => {
+  // `servable` means "the router will serve this remote". The router probes
+  // mf-manifest.json itself on the default path (getRemoteEntryType() === "manifest"), so
+  // a missing remoteEntry asset does NOT stop it serving — it breaks the MF runtime in the
+  // browser instead. Reporting servable: false here would put a false value in the one
+  // field results.json documents as the router's verdict.
   const { mf, error } = validateFrontendBundle(
     makePlugin(NEW_FE, {
       ...NEW_FE_BODIES,
@@ -172,7 +181,26 @@ test("a manifest naming a remote entry asset that is absent fails", () => {
     }),
   );
   assert.match(error ?? "", /dist\/otherEntry\.js not present/);
-  assert.equal(mf?.servable, false);
+  assert.doesNotMatch(error ?? "", /skipped by the remotes router/);
+  assert.equal(mf?.servable, true);
+});
+
+test("a remoteEntry.path of '..' escapes the bundle without leaving the package", () => {
+  // The containment root is dist/, not the plugin directory: `..` resolves to
+  // <plugin>/remoteEntry.js, which is inside the package but outside the bundle. Naming
+  // the boundary wrongly would send a reader looking for the wrong problem.
+  const { mf, error } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({
+        metaData: { remoteEntry: { name: "remoteEntry.js", path: ".." } },
+      }),
+    }),
+  );
+  assert.match(error ?? "", /escapes the bundle's dist\/ directory/);
+  // The router resolves its asset from `name` alone and never reads `path`, so it still
+  // serves this remote — the fault is in the bundle, not in what the router will do.
+  assert.equal(mf?.servable, true);
 });
 
 test("unparseable mf-manifest.json says so rather than throwing", () => {
@@ -254,6 +282,37 @@ test("an NFS feature the manifest does expose is counted as exposed", () => {
   assert.deepEqual(mf?.nfsFeaturesExposed, ["./alpha"]);
 });
 
+test("the root entry point '.' maps to the exposed module '.'", () => {
+  // 12 of the 44 published frontend artifacts declare "." as their NFS entry point, so
+  // this half of the mapping is on the hot path for a quarter of the catalog.
+  const { mf } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      "dist/mf-manifest.json": mfManifest({ exposes: [{ name: "." }] }),
+      "package.json": JSON.stringify({
+        name: "test",
+        backstage: {
+          role: "frontend-plugin",
+          features: { ".": "@backstage/FrontendPlugin" },
+        },
+      }),
+    }),
+  );
+  assert.deepEqual(mf?.nfsFeatures, ["."]);
+  assert.deepEqual(mf?.nfsFeaturesExposed, ["."]);
+});
+
+test("a manifest exposing the './'-prefixed form still matches", () => {
+  // The two sides need not agree on the prefix; matching has to be prefix-insensitive or
+  // a correctly-migrated package would be reported as exposing nothing.
+  const { mf } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({ exposes: [{ name: "./alpha" }] }),
+    }),
+  );
+  assert.deepEqual(mf?.nfsFeaturesExposed, ["./alpha"]);
+});
+
 test("a servable remote with no NFS feature type is reported, not failed", () => {
   // The real state of argocd, qe-theme and the roadie packages: a served remote the
   // new frontend system mounts nothing from. That is upstream migration state, not a
@@ -267,6 +326,7 @@ test("a servable remote with no NFS feature type is reported, not failed", () =>
   assert.equal(error, null);
   assert.equal(mf?.servable, true);
   assert.deepEqual(mf?.nfsFeatures, []);
+  assert.deepEqual(mf?.nfsFeaturesExposed, []);
 });
 
 test("incomplete legacy layout fails even when the new-FE layout is valid", () => {
@@ -294,10 +354,29 @@ test("no bundle at all names both expected layouts in the error", () => {
   );
   assert.deepEqual(systems, []);
   assert.match(error ?? "", /dist-scalprum/);
-  assert.match(error ?? "", /remoteEntry\.js/);
+  // Names the manifest, not remoteEntry.js: gating on that filename is exactly what this
+  // PR stopped doing, so pointing a reader at it would be stale advice.
+  assert.match(error ?? "", /dist\/mf-manifest\.json/);
 });
 
 test("missing package.json is its own error", () => {
   const { error } = validateFrontendBundle(makePlugin([]));
   assert.equal(error, "missing package.json");
+});
+
+test("a remoteEntry.path escaping the bundle is reported as a bundle fault", () => {
+  // `path` comes from JSON inside a published OCI artifact, so it is untrusted input.
+  // Joining it unchecked lets a manifest probe the filesystem outside its own package —
+  // the containment rule src/paths.ts exists to enforce.
+  const { mf, error } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({
+        metaData: { remoteEntry: { name: "passwd", path: "../../../../etc" } },
+      }),
+    }),
+  );
+  assert.match(error ?? "", /escapes the bundle's dist\/ directory/);
+  assert.match(error ?? "", /servable but its bundle is broken/);
+  assert.equal(mf?.servable, true);
 });
