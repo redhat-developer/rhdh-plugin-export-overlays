@@ -52,12 +52,21 @@ const MF_MANIFEST = JSON.stringify({
   metaData: { remoteEntry: { name: "remoteEntry.js", type: "global" } },
   exposes: [{ name: "." }, { name: "alpha" }],
 });
+// A second, non-NFS entry point so the NFS_FEATURE_TYPES filter has something to
+// discriminate — with a single NFS-typed feature the filter can never be observed.
 const PKG_WITH_NFS = JSON.stringify({
   name: "test",
   backstage: {
     role: "frontend-plugin",
-    features: { "./alpha": "@backstage/FrontendPlugin" },
+    features: {
+      "./alpha": "@backstage/FrontendPlugin",
+      "./legacy": "@backstage/BackendFeature",
+    },
   },
+});
+const PKG_WITHOUT_NFS = JSON.stringify({
+  name: "test",
+  backstage: { role: "frontend-plugin" },
 });
 
 const LEGACY = ["package.json", "dist-scalprum/plugin-manifest.json"];
@@ -67,10 +76,20 @@ const NEW_FE_BODIES = {
   "package.json": PKG_WITH_NFS,
 };
 
-test("legacy-only bundle validates as legacy", () => {
-  const { systems, error } = validateFrontendBundle(makePlugin(LEGACY));
+/** A valid manifest with the given fields overridden — keeps each test to its variable. */
+const mfManifest = (overrides: Record<string, unknown> = {}) =>
+  JSON.stringify({
+    name: "x",
+    metaData: { remoteEntry: { name: "remoteEntry.js", path: "" } },
+    exposes: [{ name: "." }],
+    ...overrides,
+  });
+
+test("legacy-only bundle validates as legacy, with no mf detail to report", () => {
+  const { systems, mf, error } = validateFrontendBundle(makePlugin(LEGACY));
   assert.equal(error, null);
   assert.deepEqual(systems, ["legacy"]);
+  assert.equal(mf, null);
 });
 
 test("new-frontend-system-only bundle validates as new-frontend-system", () => {
@@ -113,28 +132,42 @@ test("an mf-manifest.json without the router's required fields fails", () => {
   assert.equal(mf?.servable, false);
 });
 
-test("an empty exposes array is reported distinctly from a missing one", () => {
-  const { error } = validateFrontendBundle(
+test("an empty exposes array is servable — the router accepts it", () => {
+  // The router's guard is `!exposes || !Array.isArray(exposes) || !exposes.every(...)`.
+  // `[]` is truthy, is an array, and `[].every()` is vacuously true, so an empty
+  // exposes list is served. Failing it here would fail an artifact that works.
+  const { mf, error } = validateFrontendBundle(
     makePlugin(NEW_FE, {
       ...NEW_FE_BODIES,
-      "dist/mf-manifest.json": JSON.stringify({
-        name: "x",
-        metaData: { remoteEntry: { name: "remoteEntry.js" } },
-        exposes: [],
+      "dist/mf-manifest.json": mfManifest({ exposes: [] }),
+    }),
+  );
+  assert.equal(error, null);
+  assert.equal(mf?.servable, true);
+  assert.deepEqual(mf?.exposes, []);
+});
+
+test("an exposes entry without a name is not servable", () => {
+  // This is the case the router does reject: every entry must be a non-null object
+  // with a `name` key.
+  const { mf, error } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({
+        exposes: [{ name: "." }, { notName: "alpha" }],
       }),
     }),
   );
-  assert.match(error ?? "", /`exposes` is empty/);
+  assert.match(error ?? "", /`exposes` has an entry without a `name`/);
+  assert.equal(mf?.servable, false);
 });
 
 test("a manifest naming a remote entry asset that is absent fails", () => {
   const { mf, error } = validateFrontendBundle(
     makePlugin(NEW_FE, {
       ...NEW_FE_BODIES,
-      "dist/mf-manifest.json": JSON.stringify({
-        name: "x",
-        metaData: { remoteEntry: { name: "otherEntry.js" } },
-        exposes: [{ name: "." }],
+      "dist/mf-manifest.json": mfManifest({
+        metaData: { remoteEntry: { name: "otherEntry.js", path: "" } },
       }),
     }),
   );
@@ -150,6 +183,77 @@ test("unparseable mf-manifest.json says so rather than throwing", () => {
   assert.equal(mf?.servable, false);
 });
 
+test("a remote entry under metaData.remoteEntry.path is found there", () => {
+  // Real manifests carry `path` alongside `name` (empty for a root-level entry). Joining
+  // only `dist` + `name` reports "not present" for an artifact the MF runtime loads fine.
+  const plugin = makePlugin(
+    ["package.json", "dist/mf-manifest.json", "dist/static/remoteEntry.js"],
+    {
+      "package.json": PKG_WITH_NFS,
+      "dist/mf-manifest.json": mfManifest({
+        metaData: { remoteEntry: { name: "remoteEntry.js", path: "static" } },
+      }),
+    },
+  );
+  const { mf, error } = validateFrontendBundle(plugin);
+  assert.equal(error, null);
+  assert.equal(mf?.servable, true);
+});
+
+test("a manifest without remoteEntry.js is still inspected", () => {
+  // The router's default getRemoteEntryType() is "manifest", so it serves mf-manifest.json
+  // as the entry and never requires a file literally named remoteEntry.js. Gating the
+  // whole MF branch on that filename hid such remotes entirely — the same undercount the
+  // readiness report's role filter was making.
+  const plugin = makePlugin(
+    ["package.json", "dist/mf-manifest.json", "dist/main.js"],
+    {
+      "package.json": PKG_WITH_NFS,
+      "dist/mf-manifest.json": mfManifest({
+        metaData: { remoteEntry: { name: "main.js", path: "" } },
+      }),
+    },
+  );
+  const { systems, mf, error } = validateFrontendBundle(plugin);
+  assert.equal(error, null);
+  assert.deepEqual(systems, ["new-frontend-system"]);
+  assert.equal(mf?.servable, true);
+});
+
+test("two independent problems are both reported", () => {
+  // A broken Scalprum layout and an unservable MF remote are separate faults; reporting
+  // only the first hides the other from whoever reads the failure.
+  const plugin = makePlugin([...NEW_FE, "dist-scalprum/some-chunk.js"], {
+    ...NEW_FE_BODIES,
+    "dist/mf-manifest.json": "{}",
+  });
+  const { error } = validateFrontendBundle(plugin);
+  assert.match(error ?? "", /missing plugin-manifest\.json/);
+  assert.match(error ?? "", /skipped by the remotes router/);
+});
+
+test("NFS features that the manifest does not expose are reported separately", () => {
+  // backstage.features says "./alpha" is a FrontendPlugin, but the remote exposes only
+  // ".". NFS resolves entry points through the exposed modules, so it mounts nothing —
+  // and both `servable` and `nfsFeatures` look healthy on their own.
+  const { mf, error } = validateFrontendBundle(
+    makePlugin(NEW_FE, {
+      ...NEW_FE_BODIES,
+      "dist/mf-manifest.json": mfManifest({ exposes: [{ name: "." }] }),
+    }),
+  );
+  assert.equal(error, null);
+  assert.equal(mf?.servable, true);
+  assert.deepEqual(mf?.nfsFeatures, ["./alpha"]);
+  assert.deepEqual(mf?.nfsFeaturesExposed, []);
+});
+
+test("an NFS feature the manifest does expose is counted as exposed", () => {
+  const { mf } = validateFrontendBundle(makePlugin(NEW_FE, NEW_FE_BODIES));
+  // "./alpha" in backstage.features maps to the exposed module named "alpha".
+  assert.deepEqual(mf?.nfsFeaturesExposed, ["./alpha"]);
+});
+
 test("a servable remote with no NFS feature type is reported, not failed", () => {
   // The real state of argocd, qe-theme and the roadie packages: a served remote the
   // new frontend system mounts nothing from. That is upstream migration state, not a
@@ -157,21 +261,12 @@ test("a servable remote with no NFS feature type is reported, not failed", () =>
   const { mf, error } = validateFrontendBundle(
     makePlugin(NEW_FE, {
       "dist/mf-manifest.json": MF_MANIFEST,
-      "package.json": JSON.stringify({
-        name: "test",
-        backstage: { role: "frontend-plugin" },
-      }),
+      "package.json": PKG_WITHOUT_NFS,
     }),
   );
   assert.equal(error, null);
   assert.equal(mf?.servable, true);
   assert.deepEqual(mf?.nfsFeatures, []);
-});
-
-test("legacy-only bundle has no mf detail to report", () => {
-  const { mf, error } = validateFrontendBundle(makePlugin(LEGACY));
-  assert.equal(error, null);
-  assert.equal(mf, null);
 });
 
 test("incomplete legacy layout fails even when the new-FE layout is valid", () => {

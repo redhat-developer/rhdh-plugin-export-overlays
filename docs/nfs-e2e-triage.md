@@ -12,10 +12,13 @@ OpenShift cluster once it is migrated, and what its assertions are really about.
 whose subject *is* OpenShift stay on Prow. Where it says a suite "does not need a cluster",
 that is a statement about where the suite can run, not about whether it should exist.
 
-The layer vocabulary (L1/L2/L3/L4a/L4b) is defined in
-[`rhdh:docs/e2e-tests/layer-migration-matrix.md`](https://github.com/redhat-developer/rhdh/blob/main/docs/e2e-tests/layer-migration-matrix.md);
-the per-support-level requirements in
+This sheet deliberately does not classify by test layer. The layer vocabulary
+(L1/L2/L3/L4a/L4b) lives in
+[`rhdh:docs/e2e-tests/layer-migration-matrix.md`](https://github.com/redhat-developer/rhdh/blob/main/docs/e2e-tests/layer-migration-matrix.md),
+and the per-support-level requirements in
 [`rhdh:docs/testing-requirements-matrix.md`](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md).
+Every suite here is L4b today; what the tickets need to know is not which layer it is but
+**what pins it there**, which is why the classification below is by blocker.
 
 ---
 
@@ -72,9 +75,10 @@ manifest against what that router requires:
 | not published as OCI (**baked-in**) | 1 | `extensions` |
 
 Every artifact checked ships **both** layouts (`dist-scalprum/` *and* `dist/remoteEntry.js`
-+ `dist/mf-manifest.json`), and every `mf-manifest.json` has the `name`,
-`metaData.remoteEntry.name` and non-empty `exposes` the router requires, with the entry
-asset present.
++ `dist/mf-manifest.json`), and every `mf-manifest.json` satisfies the router's guards: a
+string `name`, a string `metaData.remoteEntry.name`, and an `exposes` array whose every
+entry carries a `name`. Note the router does **not** require `exposes` to be non-empty —
+`[]` passes its check and the remote is still served, it just exposes nothing.
 
 Worth separating from "not migrated": `@roadiehq/backstage-plugin-{argo-cd,datadog,github-insights}`
 **do expose an `alpha` module** in their MF manifest — the entry point exists, its default
@@ -224,14 +228,24 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects, app-next lanes, spec and test counts
+# Playwright projects (46) and the app-next lanes among them (6)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
+
+# Spec files (42)
+ls workspaces/*/e2e-tests/tests/**/*.spec.ts | wc -l
+
+# Static tests (246). Counting only *.spec.ts undercounts: orchestrator registers 26 of
+# its tests from tests/specs/*.tests.ts modules imported by one spec. The lookbehind
+# drops method calls such as `.test(` that are not test declarations. Needs GNU grep -P
+# (`ggrep` on macOS).
+grep -rhoP '(?<![\w.])test\s*\(' workspaces/*/e2e-tests --include='*.ts' \
+  | grep -v node_modules | wc -l
 
 # NFS readiness across the whole catalog (needs oras + a GHCR login)
 ./scripts/nfs-readiness-report.sh --markdown --oci
 
-# Manifest shape for one workspace's artifacts, with the backend boot
+# Manifest shape for one workspace's artifacts, plus the backend boot
 yarn --cwd smoke-tests-native smoke --workspace <workspace>
 ```
 

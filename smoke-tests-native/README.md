@@ -48,13 +48,13 @@ any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers 
 and the browser gets an app that boots cleanly with no plugins. It is reported per package
 as `frontend.bundles[].mf`:
 
-| Field         | Meaning                                                                     |
-| ------------- | --------------------------------------------------------------------------- |
-| `name`        | `mf-manifest.json` `name` — the host registers the remote under this        |
-| `remoteEntry` | `metaData.remoteEntry.name` — the asset the host fetches, must exist        |
-| `exposes`     | module names the remote exposes; empty is a failure                         |
-| `nfsFeatures` | entry points whose `backstage.features` type the new frontend system mounts |
-| `servable`    | whether the router will serve the remote rather than skipping it            |
+| Field         | Meaning                                                                                                                                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | `mf-manifest.json` `name` — the host registers the remote under this                                                                                                                                                  |
+| `remoteEntry` | `metaData.remoteEntry.name` — must exist on disk. The router itself serves the manifest as the entry (its default `getRemoteEntryType()` is `"manifest"`); this asset is what the MF runtime fetches after reading it |
+| `exposes`     | module names the remote exposes; every entry must carry a `name`, but an empty list is valid                                                                                                                          |
+| `nfsFeatures` | entry points whose `backstage.features` type the new frontend system mounts                                                                                                                                           |
+| `servable`    | whether the router will serve the remote rather than skipping it                                                                                                                                                      |
 
 `servable` and `nfsFeatures` are reported apart because they are two different problems and
 both are silent at runtime. `servable: false` is an artifact defect and **fails** the run.
