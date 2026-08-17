@@ -59,6 +59,10 @@ test.describe("Test Topology plugin", () => {
     loginHelper,
     uiHelper,
   }, testInfo) => {
+    test.skip(
+      test.info().project.name === "topology-app-next",
+      "topology plugin does not support New Frontend System — no FrontendFeature export (backstage-community/plugin-topology v2.16.0)",
+    );
     test.setTimeout(150000 + testInfo.retry * 30000);
     await loginHelper.loginAsKeycloakUser("test1", "test1@123");
     topology = new Topology(page);
@@ -137,6 +141,10 @@ test.describe("Test Topology plugin", () => {
       page,
       uiHelper,
     }) => {
+      test.skip(
+        test.info().project.name === "topology-app-next",
+        "topology plugin does not support New Frontend System — no FrontendFeature export (backstage-community/plugin-topology v2.16.0)",
+      );
       const topo = new Topology(page);
 
       await loginHelper.loginAsGuest();
@@ -149,6 +157,10 @@ test.describe("Test Topology plugin", () => {
       page,
       uiHelper,
     }) => {
+      test.skip(
+        test.info().project.name === "topology-app-next",
+        "topology plugin does not support New Frontend System — no FrontendFeature export (backstage-community/plugin-topology v2.16.0)",
+      );
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test2", "test2@123");
@@ -163,6 +175,10 @@ test.describe("Test Topology plugin", () => {
       page,
       uiHelper,
     }) => {
+      test.skip(
+        test.info().project.name === "topology-app-next",
+        "topology plugin does not support New Frontend System — no FrontendFeature export (backstage-community/plugin-topology v2.16.0)",
+      );
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test1", "test1@123");
