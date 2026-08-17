@@ -79,6 +79,12 @@ frontend — that is the **NFS / app-next** path (RHIDP-15082), intentionally ou
 Requires Node 24 and Yarn 4 (matching the repo's `versions.json` and the sibling
 `workspaces/*/e2e-tests`), plus registry access to pull the OCI plugin images.
 
+`better-sqlite3` is opted into building via `dependenciesMeta` in `package.json`: Yarn
+4.17.1 made `enableScripts: false` the default, and without its native binding every
+`startTestBackend()` boot fails with `Could not locate the bindings file`. The opt-in is
+per package rather than a blanket `enableScripts: true`, so nothing else in the tree runs
+install scripts.
+
 ```bash
 yarn install
 
