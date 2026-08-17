@@ -19,6 +19,11 @@ const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
 
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils nightly mode converts OCI refs to {{inherit}} but plugin is not in catalog index defaults (DPDY)",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;

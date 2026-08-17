@@ -88,6 +88,11 @@ async function createNotificationWhenCatalogReady(
 }
 
 test.describe("Notifications email processor", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils nightly mode converts OCI refs to {{inherit}} but plugin is not in catalog index defaults (DPDY)",
+  );
+
   let mailpitApi: MailpitApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {
