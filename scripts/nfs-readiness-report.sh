@@ -51,6 +51,20 @@ fi
 # NFS feature types (must match nfsModuleFilter.ts)
 NFS_FEATURE_TYPES=("@backstage/FrontendPlugin" "@backstage/FrontendModule")
 
+# Roles that constitute frontend surface. Both carry backstage.features and reach the
+# browser through the same module-federation remote.
+FRONTEND_ROLES=("frontend-plugin" "frontend-plugin-module")
+
+is_frontend_role() {
+  local role="$1"
+  for frontend_role in "${FRONTEND_ROLES[@]}"; do
+    if [[ "$role" == "$frontend_role" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 is_nfs_type() {
   local type="$1"
   for nfs_type in "${NFS_FEATURE_TYPES[@]}"; do
@@ -192,7 +206,18 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
   # backstage.features and load through the same module-federation remote. Filtering on
   # frontend-plugin alone bucketed them as backend-only, understating the denominator
   # (80 frontend packages reported as 75) and hiding 4 already-NFS-ready modules.
-  if [[ "$role" != "frontend-plugin" && "$role" != "frontend-plugin-module" ]]; then
+  #
+  # This is the ONE place the question is decided. The answer travels in the emitted
+  # JSON as `frontend`, so the markdown filters below select on it rather than
+  # re-deriving it — a second expression of the same predicate is how the classifier and
+  # the denominator drifted apart in the first place.
+  if is_frontend_role "$role"; then
+    is_frontend=true
+  else
+    is_frontend=false
+  fi
+
+  if [[ "$is_frontend" == "false" ]]; then
     status="backend-only"
     features_json="{}"
   elif [[ -z "$oci_ref" || "$oci_ref" == "./"* ]]; then
@@ -299,10 +324,12 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     --arg tier "$support_tier" \
     --arg oci "$oci_ref" \
     --argjson features "$features_json" \
+    --argjson frontend "$is_frontend" \
     '{
       workspace: $ws,
       packageName: $pkg,
       role: $role,
+      frontend: $frontend,
       status: $status,
       supportTier: $tier,
       ociRef: $oci,
@@ -319,7 +346,7 @@ fi
 
 if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   # Generate markdown report
-  total_frontend=$(echo "$RESULTS" | jq '[.[] | select((.role | startswith("frontend-plugin")))] | length')
+  total_frontend=$(echo "$RESULTS" | jq '[.[] | select(.frontend)] | length')
   nfs_ready=$(echo "$RESULTS" | jq '[.[] | select(.status == "nfs-ready")] | length')
   mixed=$(echo "$RESULTS" | jq '[.[] | select(.status == "mixed")] | length')
   legacy_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "legacy-only")] | length')
@@ -356,7 +383,7 @@ EOF
       other)     tier_label="Other" ;;
       *)         tier_label="$tier" ;;
     esac
-    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and (.role | startswith("frontend-plugin")))] | length')
+    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .frontend)] | length')
     tier_ready=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .status == "nfs-ready")] | length')
 
     [[ "$tier_frontend" -eq 0 ]] && continue
@@ -368,7 +395,7 @@ EOF
     echo "|--------|-----------|--------|----------|"
 
     echo "$RESULTS" | jq -r --arg t "$tier" '
-      [.[] | select(.supportTier == $t and (.role | startswith("frontend-plugin")))]
+      [.[] | select(.supportTier == $t and .frontend)]
       | sort_by(.status, .workspace, .packageName)
       | .[]
       | {
