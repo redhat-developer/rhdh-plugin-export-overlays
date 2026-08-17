@@ -15,12 +15,21 @@ import type { ExclusionRecord } from "./exclusions";
 import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
 
 /**
- * Bump when the results.json shape changes — downstream tooling (the sweep
- * aggregator, and the parity runs comparing native vs Docker verdicts) parses this
- * file.
+ * Bump when the results.json shape changes.
  *
  * isReport/isSweepSummary below require an EXACT match, so every bump is breaking for
- * every consumer even when the shape only grew — update them in the same change.
+ * every consumer even when the shape only grew — update them in the same change. The
+ * full consumer list, so the next bump starts from a checklist rather than a guess:
+ *
+ * - `sweep.ts`, via isReport, on each per-workspace results file.
+ * - `aggregate.ts` via isSweepSummary, and `aggregate-report.ts` which reads
+ *   `report.frontend.bundles[]`.
+ *
+ * That is the whole list. `native-smoke.yaml` and `community-plugin-sweep.yaml` move these
+ * files around as artifacts but never parse `schemaVersion`, and the sweep's
+ * download-artifact has no `run-id`, so a shard artifact is never read across runs — an
+ * older schema cannot reach a newer aggregator. Everything else in the repo called
+ * `results.json` is Playwright's report, which is unrelated.
  *
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
