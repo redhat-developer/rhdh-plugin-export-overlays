@@ -69,8 +69,15 @@ contains_exact() {
   return 1
 }
 
-is_frontend_role() { contains_exact "$1" "${FRONTEND_ROLES[@]}"; }
-is_nfs_type() { contains_exact "$1" "${NFS_FEATURE_TYPES[@]}"; }
+is_frontend_role() {
+  local role="$1"
+  contains_exact "$role" "${FRONTEND_ROLES[@]}"
+}
+
+is_nfs_type() {
+  local feature_type="$1"
+  contains_exact "$feature_type" "${NFS_FEATURE_TYPES[@]}"
+}
 
 # Read support tier files into associative arrays
 declare -A TIER_MAP

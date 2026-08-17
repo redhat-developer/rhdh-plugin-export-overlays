@@ -92,7 +92,7 @@ export function partitionBootable<T>(
  * a guess as a fact.
  */
 export function describeNfsShortfall(mf: MfRemoteInfo | null): string | null {
-  if (mf === null || !mf.servable) return null;
+  if (!mf?.servable) return null;
   if (mf.nfsFeatures.length === 0) {
     return (
       "the remote is served but declares no backstage.features, so nfsModuleFilter " +

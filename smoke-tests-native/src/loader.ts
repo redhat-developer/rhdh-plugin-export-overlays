@@ -141,10 +141,10 @@ export function loadBackendPlugins(plugins: PluginEntry[]): {
 export type FrontendSystem = "legacy" | "new-frontend-system";
 
 /** Entry-point feature types the new frontend system recognises. */
-const NFS_FEATURE_TYPES: readonly string[] = [
+const NFS_FEATURE_TYPES = new Set([
   "@backstage/FrontendPlugin",
   "@backstage/FrontendModule",
-];
+]);
 
 /**
  * Put an entry-point name into one form so the two sides can be compared.
@@ -215,8 +215,7 @@ function readNfsFeatures(pluginPath: string): string[] {
     if (typeof features !== "object" || features === null) return [];
     return Object.entries(features as Record<string, unknown>)
       .filter(
-        ([, type]) =>
-          typeof type === "string" && NFS_FEATURE_TYPES.includes(type),
+        ([, type]) => typeof type === "string" && NFS_FEATURE_TYPES.has(type),
       )
       .map(([entryPoint]) => entryPoint);
   } catch {
@@ -224,39 +223,21 @@ function readNfsFeatures(pluginPath: string): string[] {
   }
 }
 
-/**
- * Validate the module-federation manifest against what the remotes router requires,
- * returning the reason it would be skipped rather than a bare boolean — a skipped
- * remote is invisible at runtime, so the reason is the whole value of this check.
- */
-function inspectMfRemote(pluginPath: string): {
-  mf: MfRemoteInfo;
-  error: string | null;
-} {
-  const nfsFeatures = readNfsFeatures(pluginPath);
-  const blank: MfRemoteInfo = {
-    name: null,
-    remoteEntry: null,
-    exposes: [],
-    nfsFeatures,
-    nfsFeaturesExposed: [],
-    servable: false,
-  };
+/** The manifest fields the router and the MF runtime each care about. */
+type MfManifestFields = {
+  name: string | null;
+  remoteEntry: string | null;
+  /** `metaData.remoteEntry.path` — "" for a root-level entry. */
+  remoteEntryDir: string;
+  /** Null when `exposes` is not an array at all, which the router rejects outright. */
+  exposesRaw: unknown[] | null;
+  /** Whether every entry satisfies the router's per-entry predicate. */
+  exposesAllNamed: boolean;
+  /** The usable module names, for the NFS intersection. */
+  exposes: string[];
+};
 
-  let manifest: unknown;
-  try {
-    manifest = JSON.parse(
-      readFileSync(join(pluginPath, "dist/mf-manifest.json"), "utf8"),
-    );
-  } catch (err) {
-    return {
-      mf: blank,
-      error: `dist/mf-manifest.json is not valid JSON (${
-        err instanceof Error ? err.message : String(err)
-      })`,
-    };
-  }
-
+function readManifestFields(manifest: unknown): MfManifestFields {
   const parsed = (manifest ?? {}) as {
     name?: unknown;
     metaData?: { remoteEntry?: { name?: unknown; path?: unknown } };
@@ -265,76 +246,119 @@ function inspectMfRemote(pluginPath: string): {
   const name =
     typeof parsed.name === "string" && parsed.name ? parsed.name : null;
   const remoteEntryName = parsed.metaData?.remoteEntry?.name;
-  const remoteEntry =
-    typeof remoteEntryName === "string" && remoteEntryName
-      ? remoteEntryName
-      : null;
-  // Manifests emit `path` alongside `name` — empty for a root-level entry, a subdirectory
-  // otherwise. Resolving only `dist/<name>` reports a missing asset for a bundle that
-  // loads fine.
   const remoteEntryPath = parsed.metaData?.remoteEntry?.path;
-  const remoteEntryDir =
-    typeof remoteEntryPath === "string" ? remoteEntryPath : "";
-  // Mirror the router's own guard exactly: every entry must be a non-null object with a
-  // `name` key. Note it does NOT require the list to be non-empty — `[]` is truthy, is
-  // an array, and `[].every()` is vacuously true, so an empty exposes list is served.
-  // Requiring non-empty here would fail an artifact that works.
   const exposesRaw = Array.isArray(parsed.exposes) ? parsed.exposes : null;
-  const exposesAllNamed =
-    exposesRaw?.every(
-      (e) => e !== null && typeof e === "object" && "name" in e,
-    ) ?? false;
-  const exposes = (exposesRaw ?? [])
-    .map((e) => (e as { name?: unknown })?.name)
-    .filter((n): n is string => typeof n === "string" && n.length > 0);
-
-  // Split deliberately. `routerProblems` are the guards in the remotes router itself, and
-  // only those may set `servable: false` — that field is documented as the router's
-  // verdict, so folding anything else into it puts a false value in the one signal
-  // results.json publishes as such.
-  const routerProblems: string[] = [];
-  if (!name) routerProblems.push("`name` missing");
-  if (!remoteEntry) routerProblems.push("`metaData.remoteEntry.name` missing");
-  if (!exposesRaw) routerProblems.push("`exposes` is not an array");
-  else if (!exposesAllNamed) {
-    routerProblems.push("`exposes` has an entry without a `name`");
-  }
-
-  // Real faults, but not the router's: on the default path it probes mf-manifest.json
-  // itself (getRemoteEntryType() returns "manifest"), so it serves these remotes and the
-  // breakage surfaces in the browser's MF runtime instead.
-  const bundleProblems: string[] = [];
-  // Not something the router checks on the default path: with the default resolver
-  // `getRemoteEntryType()` returns "manifest", so the asset it probes for existence is
-  // mf-manifest.json itself. This asset is what the Module Federation runtime in the
-  // browser fetches after reading the manifest, which is why it still has to be there.
-  if (remoteEntry) {
-    // `path` is untrusted: it comes from JSON inside a published OCI artifact. Contain it
-    // before touching the filesystem, per the rule src/paths.ts documents — otherwise a
-    // manifest declaring `../../..` probes outside its own package.
-    const distDir = join(pluginPath, "dist");
-    const resolved = resolveContained(
-      join(remoteEntryDir, remoteEntry),
-      distDir,
-    );
-    if (!resolved) {
-      bundleProblems.push(
-        `metaData.remoteEntry path '${join(remoteEntryDir, remoteEntry)}' ` +
-          `escapes the bundle's dist/ directory`,
-      );
-    } else if (!existsSync(resolved)) {
-      bundleProblems.push(
-        `remote entry asset dist/${relative(distDir, resolved)} not present ` +
-          `(needed by the MF runtime)`,
-      );
-    }
-  }
-
-  const exposedSet = new Set(exposes.map(canonicalEntryPoint));
-  const mf: MfRemoteInfo = {
+  return {
     name,
-    remoteEntry,
-    exposes,
+    remoteEntry:
+      typeof remoteEntryName === "string" && remoteEntryName
+        ? remoteEntryName
+        : null,
+    remoteEntryDir: typeof remoteEntryPath === "string" ? remoteEntryPath : "",
+    exposesRaw,
+    // Mirrors the router's own predicate. Note it does NOT require the list to be
+    // non-empty — `[]` is truthy, is an array, and `[].every()` is vacuously true, so an
+    // empty exposes list is served. Requiring non-empty would fail an artifact that works.
+    exposesAllNamed:
+      exposesRaw?.every(
+        (e) => e !== null && typeof e === "object" && "name" in e,
+      ) ?? false,
+    exposes: (exposesRaw ?? [])
+      .map((e) => (e as { name?: unknown })?.name)
+      .filter((n): n is string => typeof n === "string" && n.length > 0),
+  };
+}
+
+/**
+ * The guards in the remotes router itself. Only these may set `servable: false` — that
+ * field is documented as the router's verdict, so folding anything else into it would put
+ * a false value in the one signal `results.json` publishes as such.
+ */
+function routerGuardProblems(fields: MfManifestFields): string[] {
+  const problems: string[] = [];
+  if (!fields.name) problems.push("`name` missing");
+  if (!fields.remoteEntry) {
+    problems.push("`metaData.remoteEntry.name` missing");
+  }
+  if (!fields.exposesRaw) problems.push("`exposes` is not an array");
+  else if (!fields.exposesAllNamed) {
+    problems.push("`exposes` has an entry without a `name`");
+  }
+  return problems;
+}
+
+/**
+ * Faults the router does not check. On the default path `getRemoteEntryType()` returns
+ * "manifest", so the router probes mf-manifest.json itself and never reads
+ * `metaData.remoteEntry.path` — it serves these remotes, and the breakage surfaces in the
+ * browser's Module Federation runtime instead.
+ */
+function bundleAssetProblems(
+  pluginPath: string,
+  fields: MfManifestFields,
+): string[] {
+  if (!fields.remoteEntry) return [];
+  const rel = join(fields.remoteEntryDir, fields.remoteEntry);
+  // `path` is untrusted: it comes from JSON inside a published OCI artifact. Contain it
+  // before touching the filesystem, per the rule src/paths.ts documents — otherwise a
+  // manifest declaring `../../..` probes outside its own bundle.
+  const distDir = join(pluginPath, "dist");
+  const resolved = resolveContained(rel, distDir);
+  if (!resolved) {
+    return [
+      `metaData.remoteEntry path '${rel}' escapes the bundle's dist/ directory`,
+    ];
+  }
+  if (!existsSync(resolved)) {
+    return [
+      `remote entry asset dist/${relative(distDir, resolved)} not present ` +
+        `(needed by the MF runtime)`,
+    ];
+  }
+  return [];
+}
+
+/**
+ * Inspect the module-federation manifest, reporting why a remote would be skipped rather
+ * than a bare boolean — a skipped remote is invisible at runtime, so the reason is the
+ * whole value of this check.
+ */
+function inspectMfRemote(pluginPath: string): {
+  mf: MfRemoteInfo;
+  error: string | null;
+} {
+  const nfsFeatures = readNfsFeatures(pluginPath);
+
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(
+      readFileSync(join(pluginPath, "dist/mf-manifest.json"), "utf8"),
+    );
+  } catch (err) {
+    return {
+      mf: {
+        name: null,
+        remoteEntry: null,
+        exposes: [],
+        nfsFeatures,
+        nfsFeaturesExposed: [],
+        servable: false,
+      },
+      error: `dist/mf-manifest.json is not valid JSON (${
+        err instanceof Error ? err.message : String(err)
+      })`,
+    };
+  }
+
+  const fields = readManifestFields(manifest);
+  const routerProblems = routerGuardProblems(fields);
+  const bundleProblems = bundleAssetProblems(pluginPath, fields);
+  const exposedSet = new Set(fields.exposes.map(canonicalEntryPoint));
+
+  const mf: MfRemoteInfo = {
+    name: fields.name,
+    remoteEntry: fields.remoteEntry,
+    exposes: fields.exposes,
     nfsFeatures,
     nfsFeaturesExposed: nfsFeatures.filter((f) =>
       exposedSet.has(canonicalEntryPoint(f)),
