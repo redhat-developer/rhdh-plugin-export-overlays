@@ -106,28 +106,25 @@ jobs:
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
 
-      # Use a bot PAT so the issues:labeled event triggers fullsend.yaml.
-      # GITHUB_TOKEN events are suppressed by GitHub's anti-recursion
-      # safety (see fullsend ADR 0033). Previously used the fullsend mint
-      # service (OIDC → app token), which broke due to a server-side trust
-      # policy change (HTTP 401 since 2026-08-07).
-      - name: Set triage token
+      # Use a GitHub App installation token so the issues:labeled event
+      # triggers fullsend.yaml. GITHUB_TOKEN events are suppressed by
+      # GitHub's anti-recursion safety (see fullsend ADR 0033). Replaces
+      # the E2E_TRIAGE_TOKEN PAT stopgap (PR #3211 / RHIDP-16167).
+      # create-github-app-token resolves the installation from this repo;
+      # RHDH_GH_APP_INSTALLATION_ID is not an input to this action.
+      - name: Generate GitHub App token
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
-        id: mint
-        env:
-          TOKEN: ${{ secrets.E2E_TRIAGE_TOKEN }}
-        run: |
-          if [[ -z "${TOKEN}" ]]; then
-            echo "::error::E2E_TRIAGE_TOKEN secret is not configured — see PR #3211"
-            exit 1
-          fi
-          echo "::add-mask::${TOKEN}"
-          echo "token=${TOKEN}" >> "$GITHUB_OUTPUT"
+        id: generate-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          permission-issues: write
 
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         env:
-          GH_TOKEN: ${{ steps.mint.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
           BRANCH: ${{ matrix.branch }}
           REPO: ${{ github.repository }}

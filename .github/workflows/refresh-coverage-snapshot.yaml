@@ -78,6 +78,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Before the parse step, because that step requires a module from the
+      # checkout — and specifically BEFORE the PR branch is checked out below.
+      # An issue_comment run checks out the default branch here, so the parser
+      # is the one on main. Taking it from the PR head instead would mean
+      # `require`-ing code the PR author wrote into a job holding a write token,
+      # which is the thing the fork guard further down exists to prevent.
+      - name: Checkout the default branch for the comment parser
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # Its own directory, so the PR-branch checkout below lands on a clean
+          # workspace and this copy of the parser cannot be replaced by the PR's.
+          path: .trusted
+          # One file off the tip is all this step needs, and it runs on every
+          # passing e2e comment. Sparse is safe precisely BECAUSE of `path`
+          # above: the sparse state belongs to this checkout's own .git, so it
+          # cannot leave the PR checkout below partially populated.
+          fetch-depth: 1
+          sparse-checkout: scripts/e2e-comment.cjs
+          sparse-checkout-cone-mode: false
+
       - name: Parse the e2e result comment
         id: parse
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -88,6 +109,15 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
         with:
           script: |
+            // The shape of the bot's comment is owned by one module, tested in
+            // scripts/tests/test_e2e_comment.py. This step used to carry its own
+            // copy of the same patterns, and the copies had drifted: this one
+            // matched the gcsweb host as `gcsweb-ci\.apps\.[\w.-]+`, which admits
+            // any host somebody can put under a domain they own. Nothing but the
+            // author pin above stood in the way, and one guard is not two.
+            const { parsePassedE2eComment } =
+              require(`${process.env.GITHUB_WORKSPACE}/.trusted/scripts/e2e-comment.cjs`);
+
             const body = process.env.COMMENT_BODY || "";
             // One place for the skip contract: log + set the output later steps
             // gate on. Format drift warns (surfaces as a run annotation); an
@@ -96,40 +126,18 @@ jobs:
               core[level](msg);
               core.setOutput("skip", "true");
             };
-            // "✅ Passed E2E Tests - `<workspace>`"
-            const ws = body.match(/Passed E2E Tests\s*-\s*`([^`]+)`/);
-            // The build-log link sits next to the workspace's Prow artifacts; the
-            // coverage dir is a fixed sibling path under it. Pin the host + /gcs/
-            // path shape so a tampered comment can't redirect the download.
-            const log = body.match(
-              /\((https:\/\/gcsweb-ci\.apps\.[\w.-]+\/gcs\/[^)\s]+\/build-log\.txt)\)/,
-            );
-            // The job-level `if` already confirmed this is a bot "Passed E2E Tests"
-            // comment, so failing to extract the workspace or coverage URL here
-            // means the comment format drifted — warn so it surfaces instead of
-            // the refresh silently going quiet and snapshots never updating again.
-            if (!ws || !log) {
-              skip("Passed-e2e comment didn't match the expected workspace/coverage-URL format; skipping (comment format may have drifted).");
+
+            // The job-level `if` already confirmed this is a bot "Passed E2E
+            // Tests" comment, so any refusal here means the comment format
+            // drifted — warn so it surfaces instead of the refresh silently going
+            // quiet and snapshots never updating again.
+            const parsed = parsePassedE2eComment(body);
+            if (parsed.reason !== null) {
+              const named = parsed.rejected ? ` naming '${parsed.rejected}'` : "";
+              skip(`Passed-e2e comment${named} could not be read (${parsed.reason}); skipping (comment format may have drifted).`);
               return;
             }
-            // The name flows into file paths and a script argument — reject
-            // anything that isn't a plain directory slug (no traversal, no shell
-            // metacharacters, max 50 chars), don't rely on the bot staying trusted.
-            if (!/^[a-z0-9][a-z0-9-]{0,49}$/.test(ws[1]) || ws[1].endsWith("-")) {
-              skip(`Workspace name '${ws[1]}' is not a valid slug; skipping (comment format may have drifted).`);
-              return;
-            }
-            const coverageUrl = log[1].replace(
-              /\/build-log\.txt$/,
-              "/artifacts/e2e-test-results/coverage/",
-            );
-            // The host/prefix is already pinned by the regex, so the suffix is the
-            // only part the rewrite could get wrong — assert it produced the
-            // coverage path it was supposed to.
-            if (!coverageUrl.endsWith("/artifacts/e2e-test-results/coverage/")) {
-              skip("Coverage URL rewrite didn't yield the expected coverage path; skipping.");
-              return;
-            }
+            const { workspace, coverageUrl } = parsed;
             const pr = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -142,7 +150,7 @@ jobs:
               return;
             }
             core.setOutput("skip", "false");
-            core.setOutput("workspace", ws[1]);
+            core.setOutput("workspace", workspace);
             core.setOutput("coverage_url", coverageUrl);
             core.setOutput("head_ref", pr.data.head.ref);
 

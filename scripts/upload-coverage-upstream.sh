@@ -11,14 +11,27 @@
 # coverage/ listing, which is downloaded for you.
 #
 # Flags:
-#   --dry-run      resolve and remap everything, upload nothing.
+#   --dry-run      resolve and remap everything, upload nothing. That is both
+#                  checkouts and both remaps, on purpose: the copy anyone
+#                  actually sees is the HEAD one, and a dry run that skipped it
+#                  would not tell you what a real run would publish. It costs
+#                  roughly twice what a single-target run does.
 #   --pinned-only  upload to the pinned repo-ref but NOT to the default-branch
 #                  HEAD. The HEAD copy is a one-way door: once the flag exists
 #                  there, carryforward keeps it on every later commit and
 #                  removing it needs Codecov UI access on a repo we may not
-#                  administer. The pinned-ref copy has no such reach, so a first
-#                  real run against a shared project can be staged behind this
-#                  flag and reviewed before the visible copy is published.
+#                  administer.
+#
+#                  A pinned-only upload DOES land — the session is on the
+#                  commit, in state `merged`, with its own totals. An earlier
+#                  version of this comment said otherwise; see point 3 for how
+#                  that mistake was made and how to check for yourself.
+#
+#                  What it does not do is make the flag reachable from the
+#                  default branch, which is the whole reason the HEAD copy
+#                  exists. So this stages a run in the sense of publishing it
+#                  where nobody is looking, not in the sense of previewing what
+#                  the visible copy will say.
 #
 # This complements scripts/upload-coverage.sh; it never replaces it. That one
 # publishes to this repo's own project against a committed anchor, which keeps
@@ -60,6 +73,38 @@
 #      Source drift between the two measured 0-14% per workspace, and does not
 #      track the ref's age — churn does.
 #
+#      HOW TO TELL WHETHER AN UPLOAD LANDED, because getting this wrong cost a
+#      day. The commit endpoint does not expose sessions; the uploads one does,
+#      and it PAGINATES:
+#
+#        /api/v2/github/redhat-developer/repos/rhdh-plugins/commits/<sha>/uploads
+#
+#      Look for a session named `overlay-<flag>-<digest>`. If it is there with
+#      totals, the upload landed, whatever the numbers look like.
+#
+#      Every run checks this for itself now and says so when it cannot confirm,
+#      which retires the standing caution this block used to carry about not
+#      reading a green run as proof. The caution applies again wherever
+#      VERIFY_ATTEMPTS is 0: verification off means nothing was asked, and the
+#      run says nothing either way on purpose.
+#
+#      Two things make a landed upload look like a lost one, and both were
+#      mistaken for "the report did not change" on 2026-08-12:
+#
+#      1. The numbers are counted differently at each end. lcov reports a line
+#         as covered or not; Codecov splits it into hits, misses and PARTIALS.
+#         extensions remapped to 995/1179 lines here and arrived as 906 hits +
+#         260 misses + 292 partials = 1458. A file this side calls 1/1 can read
+#         0/1 there with partials=1. Same measurement, finer classification —
+#         not, as it first appeared, somebody else's data.
+#
+#      2. The destination repo's own codecov.yml `ignore:` block drops files
+#         after upload. rhdh-plugins ignores `**/src/index.ts` and plugin wiring
+#         deliberately, which is why 78 resolved files arrive as 76. The drift
+#         warning below compares OUR two remaps and cannot see this, so a gap
+#         between "N resolved" and the flag's file count is expected and is not
+#         a defect to chase.
+#
 # Required environment:
 #   CODECOV_RHDH_PLUGINS_TOKEN
 #       Codecov upload token for the redhat-developer/rhdh-plugins project — the
@@ -74,12 +119,23 @@
 #       Path to the Codecov CLI, so tests stub it instead of downloading and
 #       calling the real one.
 #   UPSTREAM_CHECKOUT_DIR
-#       Reuse an existing checkout instead of cloning, so tests never reach
-#       GitHub.
+#       Reuse an existing checkout of the PINNED ref instead of cloning it.
+#   UPSTREAM_HEAD_CHECKOUT_DIR
+#       The same for the default-branch HEAD checkout. Both are needed to keep a
+#       run off the network: setting only the first leaves the HEAD copy cloning
+#       from github.com, which is how a "hermetic" test quietly grows a network
+#       dependency.
 #   REMAP_BIN
 #       Path to the remap step. remap-lcov.sh npm-installs the istanbul
 #       libraries on every run, which is too heavy and too networked for a unit
 #       test; the remap itself is covered separately against a fixture.
+#   CODECOV_UPLOADS_API
+#       Template for the endpoint the post-upload check reads, with %OWNER%,
+#       %REPO% and %SHA% substituted. Tests point it at local files so the check
+#       never reaches Codecov.
+#   VERIFY_ATTEMPTS / VERIFY_DELAY_SECONDS
+#       How hard that check tries. 0 attempts disables it entirely and says
+#       nothing, which is what the tests that are not about it use.
 
 set -euo pipefail
 
@@ -112,7 +168,13 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # The workspace name becomes the Codecov flag verbatim — validate it so a typo
 # cannot create a ghost e2e-<typo> flag that carryforward then keeps alive in a
 # shared project we do not administer.
-if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+#
+# Deliberately the SAME shape scripts/e2e-comment.cjs enforces, cap and trailing
+# hyphen included. This used to be the looser of the two on the reasoning that
+# the module always runs first — but this script is a documented entry point on
+# its own, and the guard whose stated job is stopping a ghost flag should not be
+# the weakest place the name can enter from.
+if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]{0,49}$ || "$WORKSPACE" == *- ]]; then
   echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
   exit 1
 fi
@@ -218,20 +280,60 @@ if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
   exit 0
 fi
 
-if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
-  echo ""
-  echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
+# A shallow checkout of one commit. Used twice — see the HEAD checkout further
+# down — because the Codecov CLI sends the file network of the tree it is run
+# from, so each upload target needs a tree that IS that commit.
+clone_at() {
+  local ref="$1" dir="$2"
   # A pinned SHA is not a ref, so it cannot be cloned with --branch. Fetching it
   # by SHA into an empty repo keeps the download to one commit instead of the
   # full history a plain clone would pull.
-  git init -q "$UPSTREAM_CHECKOUT"
-  git -C "$UPSTREAM_CHECKOUT" remote add origin "https://github.com/$SLUG"
-  if ! git -C "$UPSTREAM_CHECKOUT" fetch -q --depth 1 origin "$PINNED_REF"; then
-    echo "ERROR: could not fetch $PINNED_REF from $SLUG." >&2
+  git init -q "$dir"
+  git -C "$dir" remote add origin "https://github.com/$SLUG"
+  if ! git -C "$dir" fetch -q --depth 1 origin "$ref"; then
+    echo "ERROR: could not fetch $ref from $SLUG." >&2
     echo "       The ref may have been garbage-collected or force-pushed away." >&2
-    exit 1
+    return 1
   fi
-  git -C "$UPSTREAM_CHECKOUT" checkout -q FETCH_HEAD
+  git -C "$dir" checkout -q FETCH_HEAD
+}
+
+# A warning nobody is expected to go looking for.
+#
+# This job used to be dispatched by hand, so stderr reached the person who ran
+# it. It now fires on every merge, unattended, and every HEAD-copy failure below
+# still exits 0 on purpose — the exactly-attributed copy is worth publishing
+# without it. That combination is "published nothing anyone can see, reported
+# success", which is the failure this whole change exists to remove, so the
+# HEAD-copy failures are raised to run annotations rather than left in the log.
+warn_loudly() {
+  local message="$1" escaped
+  echo "[WARN] $message" >&2
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    # Escaped the way GitHub documents for workflow command DATA. Every value
+    # reaching here today is already constrained — a 40-char SHA, an allowlisted
+    # slug, a content digest — so this closes the gap for the next caller rather
+    # than a live one, which is the only time it is cheap to close.
+    escaped="${message//\%/%25}"
+    escaped="${escaped//$'\r'/%0D}"
+    escaped="${escaped//$'\n'/%0A}"
+    echo "::warning::$FLAG: $escaped"
+  fi
+}
+
+# The remap, once per upload target. Same reason clone_at exists: each target
+# resolves its report paths against ITS OWN tree, so this runs twice with
+# different arguments and nothing else different.
+remap_onto() {
+  local out_dir="$1" root="$2"
+  "${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$out_dir" \
+    --upstream-root "$root" --upstream-workspace "$WORKSPACE"
+}
+
+if [[ -z "${UPSTREAM_CHECKOUT_DIR:-}" ]]; then
+  echo ""
+  echo "--- Shallow clone of $SLUG at $PINNED_REF ---"
+  clone_at "$PINNED_REF" "$UPSTREAM_CHECKOUT" || exit 1
 fi
 
 # Both upload targets are resolved before the remap, so a lookup failure costs a
@@ -262,8 +364,7 @@ echo "  Branch:      $DEFAULT_BRANCH"
 
 echo ""
 echo "--- Remapping onto upstream source paths ---"
-"${REMAP_BIN:-$SCRIPT_DIR/remap-lcov.sh}" "$JSON_DIR" "$REPORT_DIR" \
-  --upstream-root "$UPSTREAM_CHECKOUT" --upstream-workspace "$WORKSPACE"
+remap_onto "$REPORT_DIR" "$UPSTREAM_CHECKOUT"
 
 LCOV_FILE="$REPORT_DIR/lcov.info"
 if [[ ! -s "$LCOV_FILE" ]]; then
@@ -286,13 +387,79 @@ elif [[ "$DEFAULT_BRANCH_SHA" == "$PINNED_REF" ]]; then
   echo "[INFO] the pinned ref is already $DEFAULT_BRANCH HEAD — one upload covers"
   echo "       both the exact attribution and the default-branch view."
 elif [[ "$DEFAULT_BRANCH_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-  UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
+  # The HEAD copy needs its OWN checkout and its OWN remap, and getting this
+  # wrong is silent. The CLI sends the file network of the tree it runs in, so
+  # uploading the pinned tree's network against the HEAD sha declares a set of
+  # files that is not what that commit contains; Codecov drops the report and
+  # the run still reports success. Measured: extensions, pinned 201 commits
+  # behind HEAD, uploaded cleanly and changed nothing, while
+  # intelligent-assistant at 101 commits behind landed — the difference was how
+  # far the workspace had moved, which is not something to leave to luck.
+  #
+  # Remapping again is not optional either: the paths are resolved against the
+  # tree, and a file that moved or was deleted since the pinned ref has no place
+  # in the HEAD report.
+  echo ""
+  echo "--- Shallow clone of $SLUG at $DEFAULT_BRANCH ($DEFAULT_BRANCH_SHA) ---"
+  # Absolutised for the same reason the pinned checkout is, and under the same
+  # contract: remap-lcov.sh runs the remap from the repo root, so a relative
+  # --upstream-root resolves against that root instead of the caller's
+  # directory. The default is already absolute; a seam handed in by a caller
+  # need not be.
+  if [[ -n "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]]; then
+    HEAD_CHECKOUT="$(cd "$UPSTREAM_HEAD_CHECKOUT_DIR" && pwd)"
+  else
+    HEAD_CHECKOUT="$WORK_DIR/src-head"
+  fi
+  # No mkdir: remap-lcov.sh creates its own report dir, which is why the pinned
+  # path does not pre-create one either.
+  HEAD_REPORT_DIR="$WORK_DIR/report-head"
+  if [[ -z "${UPSTREAM_HEAD_CHECKOUT_DIR:-}" ]] && ! clone_at "$DEFAULT_BRANCH_SHA" "$HEAD_CHECKOUT"; then
+    warn_loudly "could not check out $DEFAULT_BRANCH HEAD — uploaded to the pinned ref only, so the flag will not be visible on the default branch."
+  else
+    echo ""
+    echo "--- Remapping onto $DEFAULT_BRANCH HEAD paths ---"
+    # Guarded, and the guard is the point. remap-coverage.cjs EXITS 1 when
+    # nothing resolves against a tree (and on a missing workspace directory) —
+    # it does not write an empty lcov. Called bare, that status propagates
+    # through `set -e` and kills the run here, before any upload: the
+    # exactly-attributed pinned copy this branch says is "still worth
+    # publishing" would be lost too, and every later merge touching the
+    # workspace would go red for a condition the code below is written to treat
+    # as survivable.
+    HEAD_LCOV="$HEAD_REPORT_DIR/lcov.info"
+    if ! remap_onto "$HEAD_REPORT_DIR" "$HEAD_CHECKOUT" || [[ ! -s "$HEAD_LCOV" ]]; then
+      # Every path the run measured has moved or gone since the pinned ref. The
+      # pinned copy is still worth publishing; going quiet here is not.
+      warn_loudly "the remap resolved nothing against $DEFAULT_BRANCH HEAD — the workspace has moved too far from its pinned ref. Uploaded to the pinned ref only, so the flag will not be visible on the default branch."
+    else
+      # Reported because it is the number that says how stale the pinned ref has
+      # become, and it is invisible otherwise.
+      # Compared as SETS, not counts. Churn that removes one measured file and
+      # adds another leaves the counts equal while the visible copy is missing
+      # something the run measured — the exact drift this is here to surface.
+      PINNED_PATHS="$WORK_DIR/pinned-paths"
+      HEAD_PATHS="$WORK_DIR/head-paths"
+      grep '^SF:' "$LCOV_FILE" | sort -u > "$PINNED_PATHS" || true
+      grep '^SF:' "$HEAD_LCOV" | sort -u > "$HEAD_PATHS" || true
+      PINNED_FILES="$(wc -l < "$PINNED_PATHS" | tr -d ' ')"
+      HEAD_FILES="$(wc -l < "$HEAD_PATHS" | tr -d ' ')"
+      LOST="$(comm -23 "$PINNED_PATHS" "$HEAD_PATHS" | wc -l | tr -d ' ')"
+      # Not phrased as a subset: both remaps run over the same coverage JSONs
+      # against different trees, so HEAD can resolve a file the pinned ref did
+      # not have — a plugin added upstream since the ref was pinned.
+      echo "[INFO] pinned ref resolved $PINNED_FILES file(s); $DEFAULT_BRANCH HEAD resolved $HEAD_FILES."
+      if [[ "$LOST" -gt 0 ]]; then
+        warn_loudly "$LOST file(s) measured at the pinned ref no longer resolve at $DEFAULT_BRANCH HEAD and are absent from the copy anyone sees."
+      fi
+      UPLOAD_SHAS+=("$DEFAULT_BRANCH_SHA")
+    fi
+  fi
 else
   # Not fatal: the exactly-attributed copy is still worth publishing, and a
   # later run will carry the HEAD copy. Silence here would hide why the flag
   # never appears on the default branch, which is the whole point of the copy.
-  echo "[WARN] could not resolve $SLUG $DEFAULT_BRANCH HEAD — uploading to the" >&2
-  echo "       pinned ref only. The flag will not be visible on the default branch." >&2
+  warn_loudly "could not resolve $SLUG $DEFAULT_BRANCH HEAD — uploaded to the pinned ref only, so the flag will not be visible on the default branch."
 fi
 
 # Codecov treats an upload whose --name matches an existing session on the same
@@ -307,24 +474,173 @@ fi
 # second copy of the sha256sum/shasum fallback that ensure-codecov-cli.sh needs.
 # Any content-stable digest works — this one only has to differ when the report
 # does.
-LCOV_DIGEST="$(git hash-object "$LCOV_FILE" | cut -c1-8)"
-readonly UPLOAD_NAME="overlay-$FLAG-$LCOV_DIGEST"
+upload_name_for() {
+  # Assigned rather than echoed inline: `echo "$(cmd)"` makes the function's
+  # status echo's, so a failed hash-object would yield "overlay-<flag>-" and
+  # every target would upload under one colliding constant name — Codecov reads
+  # a matching name on a commit as a REPLACEMENT for that session.
+  local lcov="$1" digest
+  digest="$(git hash-object "$lcov" | cut -c1-8)"
+  if [[ -z "$digest" ]]; then
+    echo "ERROR: could not digest $lcov for the upload session name." >&2
+    return 1
+  fi
+  echo "overlay-$FLAG-$digest"
+}
 
 CODECOV_BIN="${CODECOV_BIN:-/tmp/codecov}"
 if [[ "$DRY_RUN" != "true" && ! -x "$CODECOV_BIN" ]]; then
   "$SCRIPT_DIR/ensure-codecov-cli.sh" "$CODECOV_BIN"
 fi
 
+# Whether a session with this name is on the commit yet.
+#
+# Codecov accepts an upload and returns before it has processed it, so "queued
+# for processing" is a receipt, not a result — the CLI says it whether or not
+# the report ever changes. Everything else in this script guards against
+# publishing nothing while reporting success; this is the last place that could
+# still happen, and it is the exact blindness that made a landed upload
+# indistinguishable from a swallowed one for a day.
+#
+# Only the uploads endpoint lists sessions, and it PAGINATES — the omission that
+# hid them. Read-only and unauthenticated: the destination project is public.
+UPLOADS_API="${CODECOV_UPLOADS_API:-https://api.codecov.io/api/v2/github/%OWNER%/repos/%REPO%/commits/%SHA%/uploads}"
+
+uploads_url_for() {
+  local sha="$1" owner="${SLUG%%/*}" repo="${SLUG##*/}" url
+  url="${UPLOADS_API//%OWNER%/$owner}"
+  url="${url//%REPO%/$repo}"
+  echo "${url//%SHA%/$sha}"
+}
+
+# Prints one session name per line and FAILS if the listing could not be read.
+# The caller tells those apart through the EXIT STATUS, not a variable: this is
+# consumed through a command substitution, which is a subshell, so anything
+# assigned in here is gone by the time the caller looks. The status survives.
+# A `next` that repeats itself, or a listing that never ends, would otherwise
+# spin until the job's own timeout — turning a diagnostic into the thing that
+# kills the publish. Codecov pages 50 at a time and no commit here comes close.
+readonly MAX_UPLOAD_PAGES=50
+
+session_names_on() {
+  local sha="$1" url next page pages=0
+  url="$(uploads_url_for "$sha")"
+  while [[ -n "$url" && "$url" != "null" ]]; do
+    pages=$((pages + 1))
+    if [[ "$pages" -gt "$MAX_UPLOAD_PAGES" ]]; then
+      echo "[WARN] stopped after $MAX_UPLOAD_PAGES pages of $sha's upload listing." >&2
+      return 1
+    fi
+    # --fail, because without it an HTTP error IS a successful fetch of an
+    # error body: Codecov answers 404 with `{"detail":"Not found."}` and 429
+    # with its own JSON, both of which `jq '(.results // [])[]'` reads as an
+    # empty listing and exits 0. That routes a rate-limit or a moved endpoint
+    # into "no session is on the commit" — the loud message — instead of
+    # "could not reach", which is the whole distinction this function draws.
+    if ! page="$(curl -sfL --max-time 30 "$url" 2>/dev/null)"; then
+      return 1
+    fi
+    if ! jq -r '(.results // [])[] | .name // empty' <<<"$page" 2>/dev/null; then
+      return 1
+    fi
+    next="$(jq -r '.next // "null"' <<<"$page" 2>/dev/null)"
+    # Codecov hands `next` back on the insecure scheme even when asked over TLS.
+    # The host is the one we chose, so the scheme is forced rather than
+    # followed — written as a swap rather than a literal so nothing here spells
+    # out a clear-text URL. file:// is the test seam and is taken as given.
+    #
+    # Only the file:// arm is covered: the tests serve pages from disk, so no
+    # test reaches the scheme-forcing arm, and mutating that arm alone leaves
+    # the suite green. Covering it would need a local TLS server, which buys
+    # less than it costs — but do not read a green suite as proof of this line.
+    case "$next" in
+      null | "") url="" ;;
+      file://*) url="$next" ;;
+      *://*) url="https://${next#*://}" ;;
+      *) url="$next" ;;
+    esac
+  done
+}
+
+# Bounded and non-fatal. A slow processing queue is not a failed publish, and
+# turning every merge red on a timeout would be worse than the silence it
+# replaces — so an unconfirmed upload is raised as an annotation, not an error.
+readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
+readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
+
+# What this proves: a session with this report's content is on the commit. What
+# it does not prove: that THIS run put it there. The name is a digest of the
+# report precisely so a retry collapses onto one session, so an identical
+# re-upload confirms the earlier one — which is the right answer for the
+# question that matters ("is this coverage on the commit?") and the wrong one
+# for "did my upload do something", a question nothing here asks.
+verify_landed() {
+  local sha="$1" name="$2" attempt=1 names lookup_failed="false" where
+  # Nothing was asked, so nothing can be claimed either way — warning here would
+  # report a session that was never looked for.
+  if [[ "$VERIFY_ATTEMPTS" -le 0 ]]; then
+    return 0
+  fi
+
+  # An arithmetic loop rather than `seq 1 "$VERIFY_ATTEMPTS"`: BSD seq counts
+  # DOWN when first > last, so `seq 1 0` yields "1 0" on macOS and nothing on
+  # GNU. The guard above already makes zero unreachable, so this is
+  # belt-and-braces — kept because that trap has already cost this repo a
+  # fixture that meant opposite things on the two platforms.
+  while [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]]; do
+    if names="$(session_names_on "$sha")"; then
+      # Sticky in the useful direction: one reachable poll that showed the
+      # session absent is real evidence, and a blip on a later attempt must not
+      # erase it. Last-poll-wins turned four definitive observations into "could
+      # not reach", which is the dismissible message and would be false.
+      lookup_failed="reached"
+      if grep -qxF "$name" <<<"$names"; then
+        echo "[OK]   $sha: session '$name' is on the commit."
+        return 0
+      fi
+    elif [[ "$lookup_failed" != "reached" ]]; then
+      lookup_failed="true"
+    fi
+    attempt=$((attempt + 1))
+    [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
+  done
+
+  where="$(uploads_url_for "$sha")"
+  if [[ "$lookup_failed" == "true" ]]; then
+    warn_loudly "uploaded to $sha but could not reach $where to confirm it — this says nothing about whether the report changed."
+  else
+    warn_loudly "uploaded to $sha but no session named '$name' is on the commit — the report may not have changed. Check $where (it paginates)."
+  fi
+  return 1
+}
+
 FAILED_SHAS=()
+UNVERIFIED_SHAS=()
 for sha in "${UPLOAD_SHAS[@]}"; do
-  label="pinned ref"
-  [[ "$sha" != "$PINNED_REF" ]] && label="$DEFAULT_BRANCH HEAD"
+  # Each target uploads ITS OWN tree and ITS OWN remap. Reusing the pinned pair
+  # for the HEAD sha is exactly the silent failure this loop was changed to fix.
+  if [[ "$sha" == "$PINNED_REF" ]]; then
+    label="pinned ref"
+    target_root="$UPSTREAM_CHECKOUT"
+    target_lcov="$LCOV_FILE"
+  else
+    label="$DEFAULT_BRANCH HEAD"
+    target_root="$HEAD_CHECKOUT"
+    target_lcov="$HEAD_LCOV"
+  fi
+  # Guarded like every other per-target step: a digest failure is one target's
+  # problem, and under `set -e` an unguarded assignment here would take the
+  # other target down with it — the opposite of what this loop is for.
+  if ! upload_name="$(upload_name_for "$target_lcov")"; then
+    FAILED_SHAS+=("$sha")
+    continue
+  fi
   echo ""
   echo "--- Upload to $sha ($label) ---"
 
   if [[ "$DRY_RUN" == "true" ]]; then
-    echo "[DRY-RUN] would upload $LCOV_FILE"
-    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $UPLOAD_NAME"
+    echo "[DRY-RUN] would upload $target_lcov from $target_root"
+    echo "[DRY-RUN]   --slug $SLUG --sha $sha --flag $FLAG --branch $DEFAULT_BRANCH --name $upload_name"
     continue
   fi
 
@@ -335,16 +651,16 @@ for sha in "${UPLOAD_SHAS[@]}"; do
   uploaded="false"
   for attempt in $(seq 1 "$UPLOAD_ATTEMPTS"); do
     # Run from inside the checkout — see constraint 1 at the top.
-    if (cd "$UPSTREAM_CHECKOUT" && "$CODECOV_BIN" upload-process \
+    if (cd "$target_root" && "$CODECOV_BIN" upload-process \
       --token "$CODECOV_RHDH_PLUGINS_TOKEN" \
       --slug "$SLUG" \
       --sha "$sha" \
       --branch "$DEFAULT_BRANCH" \
       --git-service github \
       --flag "$FLAG" \
-      --file "$LCOV_FILE" \
+      --file "$target_lcov" \
       --disable-search \
-      --name "$UPLOAD_NAME" \
+      --name "$upload_name" \
       --fail-on-error); then
       uploaded="true"
       break
@@ -361,10 +677,15 @@ for sha in "${UPLOAD_SHAS[@]}"; do
   if [[ "$uploaded" != "true" ]]; then
     echo "ERROR: upload to $sha failed" >&2
     FAILED_SHAS+=("$sha")
+  elif ! verify_landed "$sha" "$upload_name"; then
+    UNVERIFIED_SHAS+=("$sha")
   fi
 done
 
 echo ""
+if [[ ${#UNVERIFIED_SHAS[@]} -gt 0 ]]; then
+  echo "[WARN] uploaded but unconfirmed: ${UNVERIFIED_SHAS[*]}" >&2
+fi
 if [[ ${#FAILED_SHAS[@]} -gt 0 ]]; then
   echo "ERROR: ${#FAILED_SHAS[@]} of ${#UPLOAD_SHAS[@]} upload(s) failed: ${FAILED_SHAS[*]}" >&2
   exit 1
