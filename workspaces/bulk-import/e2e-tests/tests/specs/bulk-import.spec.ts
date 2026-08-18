@@ -24,7 +24,7 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
-  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
+  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}-${process.pid}`;
   const catalogRepoDetails = {
     name: catalogRepoName,
     url: `github.com/${GITHUB_ORG}/${catalogRepoName}`,
@@ -43,7 +43,7 @@ spec:
   lifecycle: unknown
   owner: user:default/${GITHUB_CATALOG_OWNER}`;
 
-  const newRepoName = `bulk-import-${Date.now()}`;
+  const newRepoName = `bulk-import-${Date.now()}-${process.pid}`;
   const newRepoDetails = {
     owner: `${GITHUB_ORG}`,
     repoName: newRepoName,
@@ -53,6 +53,18 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
+    const namespace = rhdh.deploymentConfig.namespace;
+    const isAppNext = namespace.endsWith("-app-next");
+
+    // In nightly mode the DPDY inherit rewrites both bulk-import packages to
+    // `oci://<registry>/...:{{inherit}}` because they are in default.packages.yaml, so
+    // the lane would load whatever build ships in the RHDH image rather than the
+    // artifact this repo pins. Same reason app-defaults skips nightly (RHIDP-15482).
+    test.skip(
+      isAppNext && process.env.E2E_NIGHTLY_MODE === "true",
+      "DPDY inherit resolves bulk-import to {{inherit}}; the image build is not known to expose the NFS entry point",
+    );
+
     // Scope the key by namespace, mirroring what deploy() does internally
     // (`deploy-${namespace}`). runOnce keys a flag file by the string alone, in a
     // directory shared by every project in the run, so a literal key would let the
@@ -68,6 +80,14 @@ spec:
         });
       },
     );
+
+    // Without this, a lane that silently failed to enable NFS would just re-run the
+    // legacy suite and stay green — a false pass on the only thing this lane adds.
+    // Only the forward direction is asserted: USE_NEW_FRONTEND_SYSTEM=true can legally
+    // turn NFS on for every lane, so the legacy lane is not constrained here.
+    if (isAppNext) {
+      expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
+    }
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
