@@ -176,15 +176,16 @@ const res = await fetch(`${server.url()}/api/catalog/entities?filter=kind=user`)
 expect(res.status).toBe(200);
 ```
 
-In-memory SQLite, ~2 seconds, no cluster. Already used in **31 files in `rhdh-plugins`** and 32
-in `community-plugins` — the pattern is established, not new. (The strategy's "only 4 files"
-figure counts the `rhdh` repo alone.)
+In-memory SQLite, ~2 seconds, no cluster. Already used in **27 source files in each** of
+`rhdh-plugins` and `community-plugins` — the pattern is established, not new. (The strategy's
+"only 4 files" figure counts the `rhdh` repo alone.)
 
 ### Recipe C — component behaviour with a mocked API (L3)
 
-`renderInTestApp` is used in **71 files in `rhdh-plugins`** and **283 in `community-plugins`**.
-For any assertion about a table, a filter, a form, a dialog or an error state, this is the
-established path, and every one of these workspaces already has neighbours doing it.
+`renderInTestApp` is used in **69 source files in `rhdh-plugins`** and **256 in
+`community-plugins`**. For any assertion about a table, a filter, a form, a dialog or an error
+state, this is the established path, and every one of these workspaces already has neighbours
+doing it.
 
 Use `registerMswTestHooks` when the component fetches over HTTP rather than through an API ref —
 32 files in `community-plugins` do, only 1 in `rhdh-plugins`, which is the bigger gap of the two.
@@ -200,6 +201,12 @@ is a browser pointed at an app that loads that remote.
 Prior art to reuse rather than reinvent: `rhdh` PR #4523 (Playwright `webServer` against a local
 Backstage), and `@backstage/e2e-test-utils/playwright`, which the strategy flags as still needing
 evaluation.
+
+> **How the adoption counts here were measured.** `grep -rl --include='*.ts' --include='*.tsx'`
+> over full checkouts of `redhat-developer/rhdh-plugins` at `b6e0f31` and
+> `backstage/community-plugins` at `7f8712b`, counting source files only. An earlier revision
+> quoted GitHub's code-search totals (71/283 and 31/32); those count every file type, markdown
+> included, and did not reproduce locally. The numbers above are the ones that do.
 
 ## 5. Per workspace
 
