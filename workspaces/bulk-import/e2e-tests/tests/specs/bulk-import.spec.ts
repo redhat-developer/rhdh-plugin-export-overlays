@@ -53,13 +53,21 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce("bulk-import-rhdh-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
-        appConfig: "tests/config/app-config-rhdh.yaml",
-        dynamicPlugins: "tests/config/dynamic-plugins.yaml",
-        valueFile: "tests/config/values.yaml",
-      });
-    });
+    // Scope the key by namespace, mirroring what deploy() does internally
+    // (`deploy-${namespace}`). runOnce keys a flag file by the string alone, in a
+    // directory shared by every project in the run, so a literal key would let the
+    // first project's setup satisfy the second one and the app-next lane would never
+    // deploy into its own namespace.
+    await test.runOnce(
+      `bulk-import-rhdh-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        await setupBulkImportRhdh(rhdh, {
+          appConfig: "tests/config/app-config-rhdh.yaml",
+          dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+          valueFile: "tests/config/values.yaml",
+        });
+      },
+    );
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
