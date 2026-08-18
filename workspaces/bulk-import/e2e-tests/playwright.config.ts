@@ -3,6 +3,17 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
 /**
  * Bulk import plugin e2e test configuration.
  * Extends the base config from rhdh-e2e-test-utils.
+ *
+ * Projects:
+ * - bulk-import — legacy app shell (default RHIDP merge layers).
+ * - bulk-import-orchestrator — legacy shell, orchestrator-mode config.
+ * - bulk-import-app-next — namespace ends with -app-next, so e2e-test-utils merges
+ *   NFS (app-next) secrets and default app-auth / app-integrations automatically.
+ *
+ * The NFS lane needs no locator branching: the plugin's own PageBlueprint declares
+ * `path: '/bulk-import'` and `title: 'Bulk import'`, which are the same values the
+ * legacy lane gets from the Scalprum `dynamicRoutes` / `menuItem` config. So
+ * BULK_IMPORT_ROUTE and BULK_IMPORT_HEADING hold for both.
  */
 export default defineConfig({
   projects: [
@@ -14,6 +25,11 @@ export default defineConfig({
     {
       name: "bulk-import-orchestrator",
       testMatch: "bulk-import-orchestrator.spec.ts",
+      timeout: 30 * 60 * 1000,
+    },
+    {
+      name: "bulk-import-app-next",
+      testMatch: "bulk-import.spec.ts",
       timeout: 30 * 60 * 1000,
     },
   ],
