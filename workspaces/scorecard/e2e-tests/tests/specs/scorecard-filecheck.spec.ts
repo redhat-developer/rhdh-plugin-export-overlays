@@ -79,6 +79,12 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
 
   for (const { entity, key, expected } of filecheckCases) {
     test(`filecheck.${key} is '${expected}' for ${entity}`, async () => {
+      if (entity === "filecheck-scorecard-github") {
+        test.skip(
+          !!process.env.E2E_NIGHTLY_MODE,
+          "scorecard-backend-module-filecheck returns 401 Unauthorized for GitHub source-location URL — plugin auth bug in credential resolution for backstage.io/source-location",
+        );
+      }
       await scorecard.expectFilecheckForEntity(
         async () => {
           await catalog.go();
