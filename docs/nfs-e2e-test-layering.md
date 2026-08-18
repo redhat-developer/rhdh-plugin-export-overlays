@@ -125,37 +125,83 @@ Real code, from the repos these plugins live in.
 
 ### Recipe A — does the NFS extension mount? (L3)
 
-The one every workspace needs, and the one 16 of them are missing. Template:
-[`community-plugins:workspaces/github/plugins/github-actions/src/alpha/entityContent.test.tsx`](https://github.com/backstage/community-plugins/blob/main/workspaces/github/plugins/github-actions/src/alpha/entityContent.test.tsx).
+The one 16 workspaces are missing. **This was run, not written from the API docs** — against
+`community-plugins/workspaces/acr`, whose `acrImagesEntityContent` is exported at `alpha.tsx:60`
+and has no test. Final state: 5 tests passing, 3 mutations each caught by exactly one assertion.
+
+First, the prerequisite: `createExtensionTester` lives in `@backstage/frontend-test-utils`, and
+several of these plugins carry only `@backstage/test-utils`. It has to be added as a
+devDependency.
 
 ```tsx
 // workspaces/acr/plugins/acr/src/alpha.test.tsx   (community-plugins)
 import { screen } from '@testing-library/react';
-import {
-  createExtensionTester,
-  renderInTestApp,
-  TestApiProvider,
-} from '@backstage/frontend-test-utils';
+import { createExtensionTester, renderInTestApp } from '@backstage/frontend-test-utils';
+import { coreExtensionData } from '@backstage/frontend-plugin-api';
+import { EntityContentBlueprint } from '@backstage/plugin-catalog-react/alpha';
 import { EntityProvider } from '@backstage/plugin-catalog-react';
-import { acrImagesEntityContent } from './alpha';   // the real export, alpha.tsx:60
-import { acrApiRef } from './api';
+import nfsPlugin, { acrImagesEntityContent } from './alpha';
+import { AzureContainerRegistryApiRef } from './api';
 
-it('mounts the ACR entity content and renders the image table', async () => {
+// The wiring assertions. No browser, no DOM, no cluster — these read the extension's
+// declared output directly, which is what the e2e suite's "ACR IMAGES" vs "Image
+// Registry" tab-title branch is really about.
+it('declares the tab title the catalog will render', () => {
+  const tester = createExtensionTester(acrImagesEntityContent);
+  expect(tester.get(EntityContentBlueprint.dataRefs.title)).toBe('ACR images');
+});
+
+it('declares the route path the tab mounts at', () => {
+  const tester = createExtensionTester(acrImagesEntityContent);
+  expect(tester.get(coreExtensionData.routePath)).toBe('acr-images');
+});
+
+// NOT optional. createExtensionTester instantiates the extension in ISOLATION, so it
+// cannot see whether the plugin registers it: removing acrImagesEntityContent from the
+// plugin's extensions[] leaves both assertions above green. "The plugin forgot the
+// extension" is one of the two silent NFS failure modes, so it needs its own assertion.
+it('is registered by the plugin, and the plugin is an NFS feature', () => {
+  const ids = (nfsPlugin as any).extensions.map((e: any) => e.id);
+  expect(ids).toContain('entity-content:acr/acrImagesEntityContent');
+  expect((nfsPlugin as any).$$type).toBe('@backstage/FrontendPlugin');
+});
+
+// The render assertion. `apis` goes on renderInTestApp, NOT on createExtensionTester —
+// see the note below.
+it('renders through the extension, with the API mocked', async () => {
   renderInTestApp(
-    <TestApiProvider apis={[[acrApiRef, { getTags: async () => fixtureTags }]] as const}>
-      <EntityProvider entity={sampleEntity}>
-        {createExtensionTester(acrImagesEntityContent).reactElement()}
-      </EntityProvider>
-    </TestApiProvider>,
+    <EntityProvider entity={entity}>
+      {createExtensionTester(acrImagesEntityContent).reactElement()}
+    </EntityProvider>,
+    { apis: [[AzureContainerRegistryApiRef, { getTags: async () => fixtureTags }]] },
   );
-
-  // A positive DOM fact — see §6. Never assert only that nothing threw.
-  await expect(screen.findByText('latest')).resolves.toBeInTheDocument();
+  expect(await screen.findByText(/latest/)).toBeInTheDocument();
 });
 ```
 
-`createExtensionTester` also takes `{ config: {...} }`, which is how you assert the extension's
+**What the mutations proved:**
+
+| Mutation | Caught by |
+|---|---|
+| `title: 'ACR images'` → `'Image Registry'` | `.get(EntityContentBlueprint.dataRefs.title)` |
+| `path: 'acr-images'` → `'acr'` | `.get(coreExtensionData.routePath)` |
+| extension removed from `extensions: [...]` | **only** the plugin-composition assertion |
+
+**Three details that each cost a debugging cycle:**
+
+- **`apis` belongs on `renderInTestApp`, not on `createExtensionTester`,** when the tester's
+  element is nested inside it. `createExtensionTester` does accept an `apis` option, and the
+  package's own docs recommend it over wrapping in `TestApiProvider` — but in this composition
+  the app's registry wins and the tester's option is silently ignored. The symptom is
+  `NotImplementedError: No implementation available for apiRef{plugin.acr.service}`.
+- It is `coreExtensionData.routePath`, not `coreExtensionData.routing.path`.
+- `.snapshot().id` carries **no plugin-id prefix** when the extension is tested in isolation:
+  `entity-content:acrImagesEntityContent`, not `entity-content:acr/...`.
+
+`createExtensionTester` also accepts `{ config: {...} }`, which is how you assert the extension's
 config schema — the NFS replacement for the Scalprum `config:` block the e2e suite sets today.
+`.snapshot()` returns the extension tree for inline snapshot testing, and `.add(ext, {config})`
+brings sibling extensions into the tree when you need to test composition.
 
 ### Recipe B — does the backend plugin start, route, and enforce auth? (L2)
 
@@ -192,26 +238,102 @@ Use `registerMswTestHooks` when the component fetches over HTTP rather than thro
 
 ### Recipe D — a real browser without a cluster (L4a)
 
-Does not exist here yet, and is the one piece worth building **once** for all 24 workspaces.
-`smoke-tests-native/` already does the hard part: it installs the published OCI artifact, boots
-a real backend with no Docker and no cluster, and since #3282 validates that the artifact's
-module-federation remote is servable and exposes its declared NFS entry points. What is missing
-is a browser pointed at an app that loads that remote.
+**An earlier revision of this document said Layer 4a "does not exist yet". That was wrong**, and
+the correction changes the shape of the work. Layer 4a exists, it is larger than the cluster
+suite, and it runs on localhost.
 
-Prior art to reuse rather than reinvent: `rhdh` PR #4523 (Playwright `webServer` against a local
-Backstage), and `@backstage/e2e-test-utils/playwright`, which the strategy flags as still needing
-evaluation.
+All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
+`playwright.config.ts` with a `webServer` block starting a local instance on ports 3000-3002,
+`testDir: 'e2e-tests'`, and specs named `*.test.ts` — which is why an earlier sweep for
+`*.spec.ts` missed them entirely:
 
-> **How the adoption counts here were measured.** `grep -rl --include='*.ts' --include='*.tsx'`
-> over full checkouts of `redhat-developer/rhdh-plugins` at `b6e0f31` and
-> `backstage/community-plugins` at `7f8712b`, counting source files only. An earlier revision
-> quoted GitHub's code-search totals (71/283 and 31/32); those count every file type, markdown
-> included, and did not reproduce locally. The numbers above are the ones that do.
+| Workspace | 4a upstream (no cluster) | 4b here (cluster) | Identical test names |
+|---|---|---|---|
+| `intelligent-assistant` | 92 | 34 | 7 |
+| `scorecard` | 47 | 15 | 0 |
+| `homepage` | 16 | 18 | 1 |
+| `extensions` | 12 | 11 | 5 |
+| `orchestrator` | 11 | 24 | 0 |
+| `adoption-insights` | 10 | 7 | 1 |
+| `global-header` | 8 | 10 | 0 |
+| `bulk-import` | 6 | 9 | 0 |
+| `theme` | 4 | 5 | 1 |
+| `quickstart` | 3 | 2 | 2 (all) |
+| **Total** | **209** | **135** | **17** |
+
+No upstream `e2e-tests` directory references `RHDHDeployment`, `oc`, `kubectl`, `helm` or
+`INSTALLATION_METHOD`, so the lane is genuinely cluster-free. `homepage` already parameterises
+legacy versus NFS in it through an `appMode` variable — the switch this epic is building across
+OpenShift namespaces already exists there as an environment variable. Six of the 11
+`community-plugins` workspaces have an equivalent lane, and `acr`, `github` and `tech-radar`
+ship a local `packages/app-next` host.
+
+There is also **no Backstage utility that boots an instance**. `@backstage/e2e-test-utils@0.1.2`
+exports `generateProjects()` — which returns one Playwright project per monorepo package with an
+`e2e-tests` directory — and `failOnBrowserErrors()`. Its only runtime dependencies are `fs-extra`
+and `@manypkg/get-packages`. Playwright's own `webServer` is the mechanism, which is what these
+workspaces already use. (The parent Test Strategy said otherwise; it was corrected on
+2026-08-18, as was `rhdh:docs/testing-requirements-matrix.md`.)
+
+#### So what is actually missing
+
+Not a browser lane. **A browser lane against the published OCI artifact.** That distinction is
+the whole remaining gap, and it is narrow:
+
+| | Upstream 4a lane | What this repo would need |
+|---|---|---|
+| What is exercised | workspace **source**, via `yarn start` | the **published OCI artifact**, installed as a dynamic plugin |
+| Loading path | the app imports the plugin directly | `install-dynamic-plugins` → MF remote → `dynamicPluginsFeatureLoader` |
+
+`smoke-tests-native/` covers more of that than it first appears, but less than an earlier
+revision of this document claimed. What it does today: installs the published artifact, boots a
+real backend in-process via `startTestBackend` (no Docker, no cluster), and since #3282 validates
+the MF manifest against the guards the remotes router applies. What it does **not** do: it calls
+`backend.stop()` immediately, so it never serves a request; it has no
+`@backstage/backend-dynamic-feature-service` dependency, so it never serves
+`/.backstage/dynamic-features/remotes`; and the frontend bundle is inspected as a static file,
+never executed.
+
+Closing that is four steps, three of them small: keep the backend alive (`startTestBackend`
+already exposes `server.url()`), add the dynamic feature loader so the remotes router answers,
+serve an app-next host, and point Playwright at it with `webServer`. **Step three is the one
+with real unknowns** and the only place the estimate is soft.
 
 ## 5. Per workspace
 
 `sup` = `spec.support`. `up` = test files in the upstream plugin workspace. `α` = does its NFS
 surface have a `createExtensionTester` test. **Cluster after** = tests that would still need 4b.
+
+### First, a question that comes before the layer of any individual assertion
+
+For all 10 workspaces in the table below, a cluster-free Playwright lane **already exists
+upstream** — 209 tests against the 135 here, with 17 test names byte-identical (see Recipe D).
+`quickstart` is identical in both of two: upstream has `test.describe('Test Quick Start plugin')`
+with `test('Access Quick start as Guest or Admin')` and `test('Access Quick start as User')`, and
+so does the suite here.
+
+So before asking "what layer does this assertion belong at", there is a prior question: **is this
+test already covered, cluster-free, upstream?**
+
+**This document does not answer it, and should not.** Exact-name matching is a floor, not the real
+overlap — a reworded test will not match — and the two lanes are not equivalent:
+
+| | Upstream 4a | This repo's 4b |
+|---|---|---|
+| Exercises | workspace **source** | the **published OCI artifact**, loaded as a dynamic plugin |
+
+Two tests with the same name can therefore be testing genuinely different things. A 4b test that
+looks redundant may be the only thing covering a ConfigMap mount, a real operator, or the
+dynamic-plugin loading path itself. Only the person who owns the plugin and its tests can tell
+which, so each duplicate has three honest readings and the owner picks:
+
+- redundant — removing it reclaims a namespace;
+- superficially redundant, but covering something the local lane structurally cannot;
+- worth keeping while 4a coverage is still being established.
+
+What is worth asking of every one of them is the thing the matrix already requires: that a 4b test
+**carry its rationale**. Where that rationale turns out to be "the upstream lane already covers
+this", the owner decides whether the copy goes.
 
 ### Ours — `redhat-developer/rhdh-plugins`
 
@@ -227,7 +349,7 @@ surface have a `createExtensionTester` test. **Cluster after** = tests that woul
 | `extensions` | TP | 11 | 39 | **no** | 0 | Filters, badges, search, tables are **L3** on `extensionsPage`; enable-disable and edit-package are **L2** (3 `startTestBackend` files present). Publishes no OCI artifact — it is baked into the image — so a cluster-free *artifact* lane cannot cover it either way. |
 | `app-defaults` | TP | 3 | 6 | **no** | 0 | A real IdP is the subject, but a container is a real IdP: **L4a with Keycloak in a container**. Blocked by RHIDP-15482. Note this is the only workspace whose *only* project is `-app-next`. |
 | `scorecard` | **dev-preview** | 16 | 145 | yes | 0 | The matrix requires **nothing** at this tier, and the plugin already has 145 upstream test files and the only `createExtensionTester` test in `rhdh-plugins` besides `boost`. Empty, error and invalid-threshold states cannot be produced from live GitHub or Jira, so the suite is already faking them one layer too high. Move the lot to **L3** beside `ScorecardLayoutBlueprint.test.tsx`. |
-| `theme` | **community** | 5 | 21 | **no** | 0 | Palette, gradient and border are **L1** — a palette is data. Favicon, logo and title want a real app shell but no external dependency, making this the natural **L4a** pilot. Two blockers: neither `plugins/theme` nor `plugins/qe-theme` has an `alpha` surface at all (the four that do are the `bui-test` / `bcc-test` / `mui4-test` / `mui5-test` fixtures), and NFS has no `app.extensions` equivalent for the `themes:` / `appIcons:` config surface. |
+| `theme` | **community** | 5 | 21 | **no** | 0 | Palette, gradient and border are **L1** — a palette is data. Favicon, logo and title want a real app shell but no external dependency. Note the upstream workspace already has a cluster-free lane with 4 tests, so this is not a greenfield 4a case — check what those cover first. Two blockers: neither `plugins/theme` nor `plugins/qe-theme` has an `alpha` surface at all (the four that do are the `bui-test` / `bcc-test` / `mui4-test` / `mui5-test` fixtures), and NFS has no `app.extensions` equivalent for the `themes:` / `appIcons:` config surface. |
 
 ### Not ours — verify integration, do not rewrite their coverage
 
@@ -236,7 +358,7 @@ surface have a `createExtensionTester` test. **Cluster after** = tests that woul
 | `backstage` | mixed | 47 | — | — | ~10 | 12 of the epic's 46 projects, the largest single consumer. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
 | `rbac` | GA | 27 | 71 | **no** | ~3 | Most of the 27 assert policy enforcement — **L2**, where every role runs in one process instead of one namespace each. Nav gating is **L3**. Keep 2–3 walking identity to token to policy to UI. `src/alpha/index.ts` exists and is untested. |
 | `topology` | GA | 4 | 32 | **no** | **4** | OpenShift is the subject. **Stays 4b** — and it is one of the few suites that can document a 4b rationale as the matrix requires. Add Recipe A upstream anyway: `topologyPlugin` and `isTopologyAvailable` are exported and untested. |
-| `tech-radar` | GA | 1 | 17 | **yes** | 0 | One test: open sidebar, verify heading — and `alpha.test.tsx` upstream already asserts the NFS page renders. The overlay test adds only "the OCI artifact loads", which `smoke-tests-native/` already checks. Cheapest 4a candidate in the epic; blocked only by the baked-in wrapper. **Has no Jira ticket.** |
+| `tech-radar` | GA | 1 | 17 | **yes** | 0 | One test: open sidebar, verify heading — and `alpha.test.tsx` upstream already asserts the NFS page renders. The overlay test adds only "the OCI artifact loads", which `smoke-tests-native/` already checks. Cheapest candidate for a 4a lane against the *published artifact* (it has an upstream `packages/app-next` host but no Playwright config); blocked only by the baked-in wrapper. **Has no Jira ticket.** |
 | `keycloak` | GA | 2 | 8 | n/a | 0 | Backend-only — **NFS does not apply to this workspace**, and the ticket may reduce to recording that. Both tests are **L2**: `startTestBackend` plus Keycloak in a testcontainer, no cluster and no port-forward. 2 `startTestBackend` files upstream already. |
 | `scaffolder-backend-module-kubernetes` | GA | 1 | 2 | n/a | **1** | The API call is the assertion. Irreducible, stays 4b. Also backend-only, so NFS does not apply — likely a no-op ticket. |
 | `argocd` | community | 7 | 61 | **no** | ~3 | Drawer and the Kind/Name/Sync/Health filters are **L3**. Blue-green and canary rollouts with analysis runs stay 4b. Tier requires no E2E at all, so scope this behind the GA workspaces. Ships no `backstage.features` — see the correction already on that ticket for what that does and does not imply. |
@@ -255,6 +377,12 @@ surface have a `createExtensionTester` test. **Cluster after** = tests that woul
 | Namespaces per full run | 46 (heading for ~65 as lanes double) | ~10 |
 | Plugins whose NFS surface has a test | 3 of 22 | 22 of 22 |
 
+The `~54` is an aggregate of the per-assertion judgements above and nothing more; the table's
+arithmetic is checked against it, but the inputs are proposals. It also does **not** net off the
+duplicate-coverage question, because that is the owner's to settle: if a meaningful share of the
+17 exact-name matches turn out to be genuinely redundant, the real figure is lower, and if they
+turn out to be covering the artifact-loading path the upstream lane cannot reach, it is not.
+
 ## 6. Assert a positive fact, not the absence of an error
 
 Under NFS a plugin that fails to contribute produces **a clean boot with nothing on the page** —
@@ -270,4 +398,18 @@ mounted.
   confirmation.
 - **Not a proposal to delete coverage.** Everything moves down a layer. `topology`, `tekton` and
   `scaffolder-backend-module-kubernetes` stay exactly where they are.
-- **Not a change to either governing document.** Sections 1.1 and 1.2 are quotations.
+- **Not a change to either governing document.** Sections 1.1 and 1.2 are quotations. Both
+  documents were separately corrected on 2026-08-18 on one point of fact — that
+  `@backstage/e2e-test-utils/playwright` boots a local instance, which it does not — and
+  `rhdh:docs/testing-requirements-matrix.md` gained the measured state recorded here.
+
+### Corrections this document has already needed
+
+Recorded because both were load-bearing, and a reader who saw an earlier revision should know:
+
+- **L2 and L3 were swapped.** The matrix defines L2 as integration (`startTestBackend`) and L3 as
+  component (RTL). The first revision had them the other way round, which inverted every backend
+  recommendation.
+- **"Layer 4a does not exist yet" was wrong.** It exists in 16 of the 22 workspaces, cluster-free,
+  today. What does not exist is a 4a lane against the *published artifact* — a much narrower gap.
+  The mistake came from sweeping for `*.spec.ts` when the upstream specs are named `*.test.ts`.
