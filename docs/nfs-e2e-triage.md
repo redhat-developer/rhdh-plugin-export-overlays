@@ -156,11 +156,11 @@ lane means anything.
 | Class | Projects | Meaning |
 |---|---|---|
 | `none` | 3 | needs nothing but the app |
-| `svc` | 9 + 8 of `backstage` | needs the internet, not a cluster |
+| `svc` | 10 + 8 of `backstage` | needs the internet, not a cluster |
 | `ctr` | 13 + 2 of `backstage` | needs a container, not a cluster |
 | `ocp` | 8 + 2 of `backstage` | OpenShift is the subject; stays on Prow |
 
-**About 29 of the 46 projects do not need OpenShift.** Three need no external dependency at
+**About 30 of the 47 projects do not need OpenShift.** Three need no external dependency at
 all. That is the ceiling on what a cluster-free lane could ever cover — not a plan, a bound.
 
 ---
@@ -240,7 +240,7 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (46) and the app-next lanes among them (6)
+# Playwright projects (47) and the app-next lanes among them (7)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
