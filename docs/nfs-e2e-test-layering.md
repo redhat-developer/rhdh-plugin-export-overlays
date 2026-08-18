@@ -247,7 +247,7 @@ All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
 `testDir: 'e2e-tests'`, and specs named `*.test.ts` — which is why an earlier sweep for
 `*.spec.ts` missed them entirely:
 
-| Workspace | 4a upstream (no cluster) | 4b here (cluster) | Identical test names |
+| Workspace | 4a in plugin repo (no cluster) | 4b here (cluster) | Identical test names |
 |---|---|---|---|
 | `intelligent-assistant` | 92 | 34 | 7 |
 | `scorecard` | 47 | 15 | 0 |
@@ -261,7 +261,13 @@ All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
 | `quickstart` | 3 | 2 | 2 (all) |
 | **Total** | **209** | **135** | **17** |
 
-No upstream `e2e-tests` directory references `RHDHDeployment`, `oc`, `kubectl`, `helm` or
+**These are tests that exist, not tests that pass.** Health varies per workspace and only two
+were checked: on 2026-08-18 `global-header` reported `48 passed (1.1m)`, while `orchestrator`'s
+step on rhdh-plugins#4371 ran 08:41→11:53 — 3h11m — until the job timed out, with real assertion
+failures. The lane's mechanism is proven cluster-free; its state is not uniform. Do not read the
+count as available coverage before checking each lane's CI status.
+
+No `e2e-tests` directory in those repos references `RHDHDeployment`, `oc`, `kubectl`, `helm` or
 `INSTALLATION_METHOD`, so the lane is genuinely cluster-free. `homepage` already parameterises
 legacy versus NFS in it through an `appMode` variable — the switch this epic is building across
 OpenShift namespaces already exists there as an environment variable. Six of the 11
@@ -301,13 +307,13 @@ with real unknowns** and the only place the estimate is soft.
 
 ## 5. Per workspace
 
-`sup` = `spec.support`. `up` = test files in the upstream plugin workspace. `α` = does its NFS
+`sup` = `spec.support`. `up` = test files in the plugin's own repo (all layers, not a test count). `α` = does its NFS
 surface have a `createExtensionTester` test. **Cluster after** = tests that would still need 4b.
 
 ### First, a question that comes before the layer of any individual assertion
 
-For all 10 workspaces in the table below, a cluster-free Playwright lane **already exists
-upstream** — 209 tests against the 135 here, with 17 test names byte-identical (see Recipe D).
+For all 10 workspaces in the table below, a cluster-free Playwright lane **already exists in the
+plugin's own repo** — 209 tests against the 135 here, with 17 test names byte-identical (see Recipe D).
 `quickstart` is identical in both of two: upstream has `test.describe('Test Quick Start plugin')`
 with `test('Access Quick start as Guest or Admin')` and `test('Access Quick start as User')`, and
 so does the suite here.
