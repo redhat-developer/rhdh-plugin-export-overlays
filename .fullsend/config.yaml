@@ -29,5 +29,9 @@ allowed_remote_resources:
 create_issues:
     allow_targets:
         repos:
-            - redhat-developer/rhdh-plugin-export-overlays
+            - rhdh-parasol/rhdh-plugin-export-overlays
             - fullsend-ai/fullsend
+mint_url: https://mint.fullsend.sh
+inference:
+    project: rhdh-sidekick-167988
+    wif_provider: projects/189673402608/locations/global/workloadIdentityPools/fullsend-inference/providers/gh-rhdh-parasol-rhdh-plugin-expo
