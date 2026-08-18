@@ -1,6 +1,6 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
-import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+import { $, requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
@@ -16,6 +16,8 @@ import {
 /** Static token from tests/config/microsoft/value-file.yaml */
 const CATALOG_TOKEN = "microsoft-e2e-token";
 const APP_CONFIG_PATH = "tests/config/microsoft/app-config-rhdh.yaml";
+const HOMEPAGE_WRAPPER_DIST_NAME =
+  "red-hat-developer-hub-backstage-plugin-homepage";
 
 type AppConfig = Record<string, unknown>;
 
@@ -46,10 +48,46 @@ function loadAppConfigFromFile(): AppConfig {
   return parsed as AppConfig;
 }
 
+function getMicrosoftResolvers(config: AppConfig): unknown {
+  const auth = config.auth as
+    | {
+        providers?: {
+          microsoft?: {
+            production?: { signIn?: { resolvers?: unknown } };
+          };
+        };
+      }
+    | undefined;
+  return auth?.providers?.microsoft?.production?.signIn?.resolvers;
+}
+
+async function readLiveAppConfig(
+  rhdh: RHDHDeployment,
+): Promise<AppConfig | undefined> {
+  const ns = rhdh.deploymentConfig.namespace;
+  const result = await $({
+    stdio: ["pipe", "pipe", "pipe"],
+  })`oc get configmap app-config-rhdh -n ${ns} -o json`;
+  const data = (JSON.parse(result.stdout) as { data?: Record<string, string> })
+    .data;
+  const yamlText =
+    data?.["app-config-rhdh.yaml"] ??
+    data?.["app-config.yaml"] ??
+    Object.values(data ?? {})[0];
+  if (!yamlText) {
+    return undefined;
+  }
+  const parsed: unknown = loadYaml(yamlText);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return undefined;
+  }
+  return parsed as AppConfig;
+}
+
 /**
  * Mid-suite app-config update (e.g. switching Microsoft sign-in resolvers).
- * Uses scaleDownAndRestart + waitUntilReady — same restart path as
- * RHDHDeployment.applyConfigAndRestart() and Helm deploy() upgrades.
+ * Uses scaleDownAndRestart, rollout status, then waitUntilReady — same restart
+ * path as Helm deploy() upgrades.
  *
  * @see https://redhat-developer.github.io/rhdh-e2e-test-utils/api/deployment/rhdh-deployment.html#scaledownandrestart
  */
@@ -57,12 +95,15 @@ async function applyAppConfigAndRestart(
   rhdh: RHDHDeployment,
   appConfig: AppConfig,
 ): Promise<void> {
+  const ns = rhdh.deploymentConfig.namespace;
   await rhdh.k8sClient.applyConfigMapFromObject(
     "app-config-rhdh",
     appConfig,
-    rhdh.deploymentConfig.namespace,
+    ns,
   );
   await rhdh.scaleDownAndRestart();
+  // waitUntilReady() is true while the old pod still serves; gate on rollout completion.
+  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -100,15 +141,15 @@ test.describe(
           secrets: "tests/config/microsoft/rhdh-secrets.yaml",
           dynamicPlugins: "tests/config/microsoft/dynamic-plugins.yaml",
           valueFile: "tests/config/microsoft/value-file.yaml",
+          disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
         });
-
-        const setupRedirectUrl = `${rhdh.rhdhUrl}/api/auth/microsoft/handler/frame`;
-        await graphClient.addAppRedirectUrlsAsync([setupRedirectUrl]);
-        await rhdh.deploy();
       });
 
+      redirectUrl = `${rhdh.rhdhUrl}/api/auth/microsoft/handler/frame`;
+      await graphClient.addAppRedirectUrlsAsync([redirectUrl]);
+      await rhdh.deploy();
+
       baseUrl = rhdh.rhdhUrl;
-      redirectUrl = `${baseUrl}/api/auth/microsoft/handler/frame`;
     });
 
     test.beforeEach(async ({ page }) => {
@@ -116,13 +157,15 @@ test.describe(
     });
 
     test.afterAll(async () => {
-      try {
-        await graphClient.removeAppRedirectUrlsAsync([redirectUrl]);
-      } catch (error) {
-        console.error(
-          "[TEST] Failed to cleanup Microsoft Azure App Registration:",
-          error,
-        );
+      if (redirectUrl) {
+        try {
+          await graphClient.removeAppRedirectUrlsAsync([redirectUrl]);
+        } catch (error) {
+          console.error(
+            "[TEST] Failed to cleanup Microsoft Azure App Registration:",
+            error,
+          );
+        }
       }
       await CatalogApiHelper.dispose();
     });
@@ -132,13 +175,135 @@ test.describe(
       dangerouslyAllowSignInWithoutUserInCatalog = false,
     ): Promise<void> {
       const config = loadAppConfigFromFile();
+      const desiredResolvers = [
+        { resolver, dangerouslyAllowSignInWithoutUserInCatalog },
+      ];
       setNestedProperty(
         config,
         "auth.providers.microsoft.production.signIn.resolvers",
-        [{ resolver, dangerouslyAllowSignInWithoutUserInCatalog }],
+        desiredResolvers,
       );
+
+      const liveConfig = await readLiveAppConfig(rhdhDeployment);
+      if (
+        liveConfig &&
+        JSON.stringify(getMicrosoftResolvers(liveConfig)) ===
+          JSON.stringify(desiredResolvers)
+      ) {
+        return;
+      }
+
       await applyAppConfigAndRestart(rhdhDeployment, config);
     }
+
+    test("Ingestion of Microsoft users and groups", async () => {
+      test.setTimeout(300_000);
+
+      await expect
+        .poll(
+          () =>
+            checkUserDisplayNamesInCatalog(baseUrl, [
+              "TEST Admin",
+              "TEST Atena",
+              "TEST Elio",
+              "TEST Tyke",
+              "TEST Zeus",
+            ]),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          () =>
+            checkGroupDisplayNamesInCatalog(baseUrl, [
+              "TEST_admins",
+              "TEST_goddesses",
+              "TEST_gods",
+              "TEST_all",
+            ]),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          async () => {
+            const members = await CatalogApiHelper.getGroupMembers(
+              baseUrl,
+              CATALOG_TOKEN,
+              "TEST_admins",
+            );
+            return (
+              members.includes("admin_rhdhtesting.onmicrosoft.com") &&
+              members.includes("zeus_rhdhtesting.onmicrosoft.com")
+            );
+          },
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          async () => {
+            const members = await CatalogApiHelper.getGroupMembers(
+              baseUrl,
+              CATALOG_TOKEN,
+              "TEST_goddesses",
+            );
+            return (
+              members.includes("atena_rhdhtesting.onmicrosoft.com") &&
+              members.includes("tiche_rhdhtesting.onmicrosoft.com")
+            );
+          },
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          async () => {
+            const members = await CatalogApiHelper.getGroupMembers(
+              baseUrl,
+              CATALOG_TOKEN,
+              "TEST_gods",
+            );
+            return (
+              members.includes("elio_rhdhtesting.onmicrosoft.com") &&
+              members.includes("zeus_rhdhtesting.onmicrosoft.com")
+            );
+          },
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+
+      await expect
+        .poll(
+          () => groupHasRelation(baseUrl, "test_gods", "childOf", "test_all"),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () =>
+            groupHasRelation(baseUrl, "test_goddesses", "childOf", "test_all"),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () => groupHasRelation(baseUrl, "test_all", "parentOf", "test_gods"),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () =>
+            groupHasRelation(baseUrl, "test_all", "parentOf", "test_goddesses"),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+    });
 
     // Upstream microsoft auth provider: omitting signIn.resolvers disables
     // identity resolution (no implicit default). Always set a resolver explicitly.
@@ -279,93 +444,6 @@ test.describe(
       await uiHelper.verifyHeading("TEST Zeus");
       await loginHelper.signOut();
     });
-
-    test("Ingestion of Microsoft users and groups", async () => {
-      test.setTimeout(300_000);
-
-      await expect
-        .poll(
-          () =>
-            checkUserDisplayNamesInCatalog(baseUrl, [
-              "TEST Admin",
-              "TEST Atena",
-              "TEST Elio",
-              "TEST Tyke",
-              "TEST Zeus",
-            ]),
-          { timeout: 120_000 },
-        )
-        .toBe(true);
-
-      expect(
-        await checkGroupDisplayNamesInCatalog(baseUrl, [
-          "TEST_admins",
-          "TEST_goddesses",
-          "TEST_gods",
-          "TEST_all",
-        ]),
-      ).toBe(true);
-
-      expect(
-        await CatalogApiHelper.getGroupMembers(
-          baseUrl,
-          CATALOG_TOKEN,
-          "TEST_admins",
-        ),
-      ).toEqual(
-        expect.arrayContaining([
-          "admin_rhdhtesting.onmicrosoft.com",
-          "zeus_rhdhtesting.onmicrosoft.com",
-        ]),
-      );
-      expect(
-        await CatalogApiHelper.getGroupMembers(
-          baseUrl,
-          CATALOG_TOKEN,
-          "TEST_goddesses",
-        ),
-      ).toEqual(
-        expect.arrayContaining([
-          "atena_rhdhtesting.onmicrosoft.com",
-          "tiche_rhdhtesting.onmicrosoft.com",
-        ]),
-      );
-      expect(
-        await CatalogApiHelper.getGroupMembers(
-          baseUrl,
-          CATALOG_TOKEN,
-          "TEST_gods",
-        ),
-      ).toEqual(
-        expect.arrayContaining([
-          "elio_rhdhtesting.onmicrosoft.com",
-          "zeus_rhdhtesting.onmicrosoft.com",
-        ]),
-      );
-
-      expect(
-        await groupHasRelation(baseUrl, "test_gods", "childOf", "test_all"),
-      ).toBe(true);
-      expect(
-        await groupHasRelation(
-          baseUrl,
-          "test_goddesses",
-          "childOf",
-          "test_all",
-        ),
-      ).toBe(true);
-      expect(
-        await groupHasRelation(baseUrl, "test_all", "parentOf", "test_gods"),
-      ).toBe(true);
-      expect(
-        await groupHasRelation(
-          baseUrl,
-          "test_all",
-          "parentOf",
-          "test_goddesses",
-        ),
-      ).toBe(true);
-    });
   },
 );
 
@@ -380,9 +458,7 @@ async function catalogQuery(
       headers: { Authorization: `Bearer ${CATALOG_TOKEN}` },
     });
     if (!response.ok()) {
-      throw new Error(
-        `Catalog query failed (${filter}): ${response.status()} ${response.statusText()}`,
-      );
+      return [];
     }
     const body = (await response.json()) as { items?: unknown[] };
     return body.items ?? [];

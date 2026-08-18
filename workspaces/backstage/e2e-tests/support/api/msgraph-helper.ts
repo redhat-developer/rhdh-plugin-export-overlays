@@ -1,4 +1,3 @@
-import "isomorphic-fetch";
 import { ClientSecretCredential } from "@azure/identity";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js";
@@ -64,7 +63,9 @@ export class MSClient {
       .api(`/applications(appId='{${this.clientId}}')`)
       .get();
     if (!isAzureApplicationResponse(app)) {
-      return [];
+      throw new Error(
+        "Microsoft Graph application response missing expected web.redirectUris shape",
+      );
     }
     return app.web?.redirectUris ?? [];
   }

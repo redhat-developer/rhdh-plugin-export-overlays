@@ -426,9 +426,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.1.7":
-  version: 2.1.7
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.7"
+"@red-hat-developer-hub/e2e-test-utils@npm:2.1.8":
+  version: 2.1.8
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.8"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -451,7 +451,7 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10/cd7ad30421536a06bba473817fdd2e40a88ebaab534ea66f0c04752dd9009cabc428b003834da32f36fef7747b3ec5d3757d9bdf25a6dfa25dc3422836332d72
+  checksum: 10/bba18652a460b4457aac15427bcc6af6fb134138cfa97eefb8860c5212786c225425702381b18be5e6a9a9ff1faeaa0752a1b878756776bf3ef4d0a913efb2d8
   languageName: node
   linkType: hard
 
@@ -765,13 +765,12 @@ __metadata:
     "@eslint/js": "npm:10.0.1"
     "@microsoft/microsoft-graph-client": "npm:3.0.7"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.7"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.8"
     "@types/js-yaml": "npm:4.0.9"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"
     eslint-plugin-playwright: "npm:2.10.1"
-    isomorphic-fetch: "npm:3.0.0"
     js-yaml: "npm:4.1.1"
     prettier: "npm:3.8.1"
     typescript: "npm:6.0.2"
@@ -1644,16 +1643,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"isomorphic-fetch@npm:3.0.0":
-  version: 3.0.0
-  resolution: "isomorphic-fetch@npm:3.0.0"
-  dependencies:
-    node-fetch: "npm:^2.6.1"
-    whatwg-fetch: "npm:^3.4.1"
-  checksum: 10/568fe0307528c63405c44dd3873b7b6c96c0d19ff795cb15846e728b6823bdbc68cc8c97ac23324509661316f12f551e43dac2929bc7030b8bc4d6aa1158b857
-  languageName: node
-  linkType: hard
-
 "isomorphic-ws@npm:^5.0.0":
   version: 5.0.0
   resolution: "isomorphic-ws@npm:5.0.0"
@@ -2031,7 +2020,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.1, node-fetch@npm:^2.7.0":
+"node-fetch@npm:^2.7.0":
   version: 2.7.0
   resolution: "node-fetch@npm:2.7.0"
   dependencies:
@@ -2611,13 +2600,6 @@ __metadata:
   version: 3.0.1
   resolution: "webidl-conversions@npm:3.0.1"
   checksum: 10/b65b9f8d6854572a84a5c69615152b63371395f0c5dcd6729c45789052296df54314db2bc3e977df41705eacb8bc79c247cee139a63fa695192f95816ed528ad
-  languageName: node
-  linkType: hard
-
-"whatwg-fetch@npm:^3.4.1":
-  version: 3.6.20
-  resolution: "whatwg-fetch@npm:3.6.20"
-  checksum: 10/2b4ed92acd6a7ad4f626a6cb18b14ec982bbcaf1093e6fe903b131a9c6decd14d7f9c9ca3532663c2759d1bdf01d004c77a0adfb2716a5105465c20755a8c57c
   languageName: node
   linkType: hard
 
