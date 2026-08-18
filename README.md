@@ -98,7 +98,15 @@ To add a new workspace with plugins:
      - `true` if the plugins are at the root level (e.g., `backstage/backstage`)
    - `repo-backstage-version`: The backstage version of the source repository. This is used to check if the plugin is compatible with the target backstage version.
 
-### 2. Add Additional Dynamic Plugin Export Information (If Needed)
+### 2. Add a CODEOWNERS Entry
+
+Add an entry for your new workspace in [`.github/CODEOWNERS`](./.github/CODEOWNERS) so that pull requests touching the workspace require review from the right team or individuals. The list is alphabetically ordered.
+
+```
+/workspaces/<name>                                                      @your-team @your-username
+```
+
+### 3. Add Additional Dynamic Plugin Export Information (If Needed)
 
 Sometimes, additional configuration is required in the PR:
 
@@ -120,7 +128,7 @@ To add this additional configuration (excluding the patches, since the patch fil
 - Create a `plugins/` folder within the appropriate `workspace/`
 - Inside `plugins/`, create one folder per plugin you wish to enhance with additional information
 
-### 3. Test the OCI image against an RHDH instance
+### 4. Test the OCI image against an RHDH instance
 
 Plugin testing can be performed automatically via CI workflows or manually in your own RHDH environment.
 

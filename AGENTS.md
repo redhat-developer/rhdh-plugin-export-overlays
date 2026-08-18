@@ -112,6 +112,7 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
    - `repo-flat`: `true` if plugins are at repo root, `false` if inside a workspace subdirectory
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
+4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
 
 ### Overlay vs Patch
 
