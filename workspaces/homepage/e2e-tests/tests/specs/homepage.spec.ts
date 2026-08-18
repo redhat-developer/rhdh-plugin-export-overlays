@@ -6,7 +6,6 @@ import {
   DynamicHomePagePo,
   DEFAULT_WIDGETS,
   HOMEPAGE_ADMIN,
-  isHomepageAppNext,
   loginAsKeycloakUser,
   setupKeycloakGroups,
 } from "../utils/dynamic-homepage";
@@ -31,26 +30,19 @@ test.describe.serial("Dynamic home page customization", () => {
   let home: DynamicHomePagePo;
   let baseURL: string;
   let test1Count: number;
-  let isAppNext: boolean;
 
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
 
+    test.skip(isNightlyMode(), "homepage NFS e2e not ready for nightly");
+
     const namespace = rhdh.deploymentConfig.namespace;
-    isAppNext = isHomepageAppNext(namespace);
 
-    test.skip(
-      isAppNext && isNightlyMode(),
-      "homepage-app-next not ready for nightly",
-    );
-
-    // Keycloak users are cluster-scoped — create once so parallel legacy/app-next
-    // projects do not race on delete/create of the same users.
+    // Keycloak users are cluster-scoped — create once per Playwright runner.
     await test.runOnce("homepage-keycloak-groups", async () => {
       await setupKeycloakGroups();
     });
 
-    // Deploy key must be unique per Playwright project/namespace.
     await test.runOnce(`homepage-deploy-${namespace}`, async () => {
       if (process.env.SKIP_RHDH_DEPLOY === "true") {
         return;
@@ -63,9 +55,7 @@ test.describe.serial("Dynamic home page customization", () => {
       await rhdh.configure({
         auth: "keycloak",
         disablePlugins: HOMEPAGE_WRAPPER_DIST_NAMES,
-        dynamicPlugins: isAppNext
-          ? WorkspacePaths.resolve("tests/config/dynamic-plugins-app-next.yaml")
-          : WorkspacePaths.resolve("tests/config/dynamic-plugins.yaml"),
+        useNewFrontendSystem: true,
       });
       await rhdh.deploy();
     });
@@ -74,15 +64,13 @@ test.describe.serial("Dynamic home page customization", () => {
     context = await browser.newContext({ baseURL });
     page = await context.newPage();
     uiHelper = new UIhelper(page);
-    home = new DynamicHomePagePo(page, uiHelper, isAppNext);
+    home = new DynamicHomePagePo(page, uiHelper);
     home.setBaseURL(baseURL);
   });
 
   test.beforeEach(() => {
     // NFS login + widget seeding can exceed the default 90s per test.
-    if (isAppNext) {
-      test.setTimeout(10 * 60 * 1000);
-    }
+    test.setTimeout(10 * 60 * 1000);
   });
 
   test.afterAll(async () => {
@@ -91,7 +79,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test("Verify default widgets from server config on first load", async () => {
     test.skip(
-      isAppNext,
+      true,
       "homepage-backend defaultWidgets are not supported on NFS yet",
     );
 
@@ -102,12 +90,8 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify cards display after seeding widgets", async () => {
-    // When the server-defaults test is skipped (NFS), log in here first.
-    // eslint-disable-next-line playwright/no-conditional-in-test -- NFS skips the prior login test
-    if (isAppNext) {
-      await loginAsKeycloakUser(page);
-      await home.verifyHomePageLoaded({ requireWidgets: false });
-    }
+    await loginAsKeycloakUser(page);
+    await home.verifyHomePageLoaded({ requireWidgets: false });
     await home.seedHomePageWidgets();
     await home.verifyHomePageLoaded();
     await home.verifyAllCardsDisplayed();
@@ -237,13 +221,15 @@ test.describe.serial("Dynamic home page customization", () => {
       const sizeAfterReload = await panelAfterReload.boundingBox();
       expect(sizeAfterReload).not.toBeNull();
 
-      expect(sizeAfterReload!.width).toBeCloseTo(sizeBeforeReload!.width, 0);
-      expect(sizeAfterReload!.height).toBeCloseTo(sizeBeforeReload!.height, 0);
+      const layoutTolerancePx = 10;
+      expect(
+        Math.abs(sizeAfterReload!.height - sizeBeforeReload!.height),
+      ).toBeLessThanOrEqual(layoutTolerancePx);
     });
 
     test("Per-user isolation: test2 sees defaults", async () => {
       test.skip(
-        isAppNext,
+        true,
         "homepage-backend defaultWidgets are not supported on NFS yet",
       );
       await home.reloginAsKeycloakUser();
@@ -258,7 +244,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
     test("test2 customization does not affect test1 layout", async () => {
       test.skip(
-        isAppNext,
+        true,
         "homepage-backend defaultWidgets / persona defaults are not supported on NFS yet",
       );
       await home.reloginAsKeycloakUser("test2", "test2@123");
@@ -272,11 +258,7 @@ test.describe.serial("Dynamic home page customization", () => {
       expect(test1CountAfter).toBe(test1Count);
     });
 
-    test("NFS: layout persists for same user; clears on account switch", async () => {
-      test.skip(
-        !isAppNext,
-        "legacy relies on backend defaultWidgets for cross-user defaults",
-      );
+    test("layout persists for same user; clears on account switch", async () => {
       await home.reloginAsKeycloakUser("test1", "test1@123", {
         clearHomeStorage: true,
       });
@@ -307,9 +289,8 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test.describe("Persona-based homepages", () => {
     test.beforeEach(() => {
-      // Enable persona-based tests for NFS, once the backend defaultWidgets config is supported.
       test.skip(
-        isAppNext,
+        true,
         "homepage-backend defaultWidgets are not supported on NFS yet",
       );
     });

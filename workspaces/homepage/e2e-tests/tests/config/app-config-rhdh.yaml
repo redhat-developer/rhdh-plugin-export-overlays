@@ -1,6 +1,5 @@
-# Shared by legacy and app-next projects.
-# NFS (app-next) requires app.extensions so Home is registered, plus the upstream
-# backstage-plugin-home OCI (see dynamic-plugins-app-next.yaml). Legacy ignores these.
+# NFS (Backstage app) requires app.extensions so Home is registered, plus the upstream
+# backstage-plugin-home OCI (see dynamic-plugins.yaml).
 app:
   extensions:
     - page:home:

@@ -16,27 +16,16 @@ const EXPECTED_CARD_TEXTS = [
   "Top Visited",
 ] as const;
 
-/** Legacy Scalprum "Add widget" dialog labels. */
+/** Add-widget dialog labels on the NFS (Backstage app) home page. */
 export const AVAILABLE_WIDGETS = [
-  "Onboarding Section",
-  "Entity Section",
-  "Recently Visited",
-  "Top Visited",
-] as const;
-
-/**
- * NFS AddWidgetDialog labels use HomePageWidgetBlueprint title/name
- * (title || name). Onboarding/Entity have no title — dialog shows name.
- */
-export const AVAILABLE_WIDGETS_NFS = [
   "Red Hat Developer Hub - Onboarding",
   "Red Hat Developer Hub - Software Catalog",
   "Recently Visited",
   "Top Visited",
 ] as const;
 
-/** Map legacy add-widget labels to NFS dialog labels. */
-const NFS_WIDGET_LABELS = new Map<string, string>([
+/** Map stable test labels to NFS AddWidgetDialog button names. */
+const WIDGET_DIALOG_LABELS = new Map<string, string>([
   ["Onboarding Section", "Red Hat Developer Hub - Onboarding"],
   ["Entity Section", "Red Hat Developer Hub - Software Catalog"],
   ["Entity section", "Red Hat Developer Hub - Software Catalog"],
@@ -57,10 +46,6 @@ export const DEFAULT_WIDGETS = {
   developerOnly: DEVELOPER_ONLY,
 };
 
-export function isHomepageAppNext(projectOrNamespace: string): boolean {
-  return projectOrNamespace.endsWith("-app-next");
-}
-
 export const HOMEPAGE_ADMIN = {
   username: "homepage-admin",
   password: "homepage-admin@123", // gitleaks:allow
@@ -76,7 +61,7 @@ const HOMEPAGE_TEST3 = {
  *
  * Stock LoginHelper.loginAsKeycloakUser uses waitForLoad (progressbar state:hidden
  * resolves immediately if the bar is not mounted yet) then clickButton("Sign In")
- * under actionTimeout=10s. On homepage-app-next the Sign In card often appears only
+ * under actionTimeout=10s. On the NFS app shell the Sign In card often appears only
  * after ~30–60s of remote plugin loading, so login races and looks like a blank page.
  */
 export async function loginAsKeycloakUser(
@@ -157,27 +142,23 @@ export class DynamicHomePagePo {
   constructor(
     private readonly page: Page,
     private readonly ui: UIhelper,
-    private readonly isAppNext = false,
   ) {}
 
   setBaseURL(url: string): void {
     this.baseURL = url;
   }
 
-  /** Widget labels shown in the Add widget dialog for the active frontend. */
+  /** Widget labels shown in the Add widget dialog. */
   get availableWidgets(): readonly string[] {
-    return this.isAppNext ? AVAILABLE_WIDGETS_NFS : AVAILABLE_WIDGETS;
+    return AVAILABLE_WIDGETS;
   }
 
   private widgetDialogLabel(widgetType: string): string {
-    if (!this.isAppNext) {
-      return widgetType;
-    }
-    return NFS_WIDGET_LABELS.get(widgetType) ?? widgetType;
+    return WIDGET_DIALOG_LABELS.get(widgetType) ?? widgetType;
   }
 
   /**
-   * Clears the CustomHomepageGrid storage bucket used by NFS/legacy home.
+   * Clears the CustomHomepageGrid storage bucket used by the home plugin.
    * Layout is stored under storageApi bucket `home.customHomepage` (often
    * localStorage). Clear between distinct users so shared browser storage
    * cannot leak layouts when user-settings isolation is unavailable.
@@ -303,7 +284,7 @@ export class DynamicHomePagePo {
 
   async enterEditMode(): Promise<void> {
     await this.ui.clickButton("Edit");
-    // NFS shows both Cancel and Save in edit mode; .or() + toBeVisible() hits strict mode
+    // NFS edit mode shows both Cancel and Save; .or() + toBeVisible() hits strict mode
     // when both match — wait for either via .first().
     await this.saveButton()
       .or(this.cancelButton())
@@ -316,7 +297,7 @@ export class DynamicHomePagePo {
 
     // NFS only surfaces Save after a layout dimension change; add/remove alone leaves
     // Save hidden and Cancel reverts to the last persisted layout.
-    if (this.isAppNext && !(await this.saveButton().isVisible())) {
+    if (!(await this.saveButton().isVisible())) {
       await this.nudgeLayoutToEnableSave();
     }
 
@@ -352,7 +333,7 @@ export class DynamicHomePagePo {
     await this.saveButton().waitFor({ state: "visible", timeout: 10_000 });
   }
 
-  /** Grid item that contains a real widget (not an empty NFS placeholder row). */
+  /** Grid item that contains a real widget (not an empty placeholder row). */
   private editableGridItem(): Locator {
     return this.page
       .locator('[class*="react-grid-item"]')
@@ -402,9 +383,9 @@ export class DynamicHomePagePo {
     expect(box).not.toBeNull();
     const startX = box!.x + box!.width / 2;
     const startY = box!.y + box!.height / 2;
-    // NFS home widgets default to full grid width — drag vertically to resize height.
-    const widthDelta = deltas?.widthDelta ?? (this.isAppNext ? 0 : 160);
-    const heightDelta = deltas?.heightDelta ?? (this.isAppNext ? 220 : 160);
+    // NFS widgets default to full grid width — drag vertically to resize height.
+    const widthDelta = deltas?.widthDelta ?? 0;
+    const heightDelta = deltas?.heightDelta ?? 220;
     await this.page.mouse.move(startX, startY);
     await this.page.mouse.down();
     await this.page.mouse.move(startX + widthDelta, startY + heightDelta, {
@@ -432,7 +413,7 @@ export class DynamicHomePagePo {
     await this.clearAllButton().click();
   }
 
-  /** Clear all only when the grid has cards (NFS users may start with an empty home). */
+  /** Clear all only when the grid has cards (NFS home may start empty). */
   async clearAllCardsIfPresent(): Promise<void> {
     if (await this.clearAllButton().isVisible()) {
       await this.clearAllCardsWithButton();
