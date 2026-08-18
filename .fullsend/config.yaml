@@ -4,6 +4,18 @@
 # This file configures fullsend for per-repo installation mode.
 # See ADR 0033 for details.
 version: "1"
+# The reusable workflow overlays upstream defaults onto the standard layered
+# directories before every run. Keep repo-owned agents under rhdh/ so their
+# harnesses and resources remain intact.
+agents:
+    - name: code
+      source: rhdh/harness/code.yaml
+    - name: fix
+      source: rhdh/harness/fix.yaml
+    - name: review
+      source: rhdh/harness/review.yaml
+    - name: e2e-triage
+      source: rhdh/harness/e2e-triage.yaml
 roles:
     - triage
     - coder
