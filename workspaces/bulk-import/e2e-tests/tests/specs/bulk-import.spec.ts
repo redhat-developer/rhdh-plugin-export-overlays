@@ -56,14 +56,15 @@ spec:
     const namespace = rhdh.deploymentConfig.namespace;
     const isAppNext = namespace.endsWith("-app-next");
 
-    // In nightly mode the DPDY inherit rewrites both bulk-import packages to
-    // `oci://<registry>/...:{{inherit}}` because they are in default.packages.yaml, so
-    // the lane would load whatever build ships in the RHDH image rather than the
-    // artifact this repo pins. Same reason app-defaults skips nightly (RHIDP-15482).
-    test.skip(
-      isAppNext && process.env.E2E_NIGHTLY_MODE === "true",
-      "DPDY inherit resolves bulk-import to {{inherit}}; the image build is not known to expose the NFS entry point",
-    );
+    // NOTE: nightly deliberately exercises a different artifact here, and that is not a
+    // reason to skip. Because this package is in default.packages.yaml, nightly's DPDY
+    // resolution rewrites it to `oci://registry.access.redhat.com/rhdh/...:{{inherit}}`,
+    // so the lane tests the *productized* plugin rather than the ghcr artifact this repo
+    // pins. For an NFS lane that is the more useful signal, not a weaker one.
+    // `topology` is in the same position -- frontend package in the DPDY set, app-next
+    // lane, no nightly skip. The two workspaces that do skip nightly have unrelated and
+    // verified causes: app-defaults' packages are not in the image at all (RHIDP-15482),
+    // and tech-radar is shadowed by a baked-in wrapper. Neither applies here.
 
     // Scope the key by namespace, mirroring what deploy() does internally
     // (`deploy-${namespace}`). runOnce keys a flag file by the string alone, in a
