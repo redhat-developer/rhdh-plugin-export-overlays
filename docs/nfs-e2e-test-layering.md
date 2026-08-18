@@ -261,11 +261,7 @@ All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
 | `quickstart` | 3 | 2 | 2 (all) |
 | **Total** | **209** | **135** | **17** |
 
-**These are tests that exist, not tests that pass.** Health varies per workspace and only two
-were checked: on 2026-08-18 `global-header` reported `48 passed (1.1m)`, while `orchestrator`'s
-step on rhdh-plugins#4371 ran 08:41→11:53 — 3h11m — until the job timed out, with real assertion
-failures. The lane's mechanism is proven cluster-free; its state is not uniform. Do not read the
-count as available coverage before checking each lane's CI status.
+**Swept 2026-08-18 across the last 300 CI runs: 8 of the 10 lanes are green** — `global-header` 1m34s, `theme` 1m28s, `homepage` 2m24s, `quickstart` 2m52s, `extensions` 4m44s, `bulk-import` 4m47s, `scorecard` 13m30s, `intelligent-assistant` 25m35s. Two are not: `orchestrator` is **persistently red**, three consecutive runs failing after 195m, 216m and 191m against the job timeout, so it burns ~3.5h of runner time and never reports a real result. `adoption-insights` has **no signal at all** — no PR touched it in that window. Note the matrix runs only changed workspaces, so "green" means green the last time the workspace changed, not green today.
 
 No `e2e-tests` directory in those repos references `RHDHDeployment`, `oc`, `kubectl`, `helm` or
 `INSTALLATION_METHOD`, so the lane is genuinely cluster-free. `homepage` already parameterises
