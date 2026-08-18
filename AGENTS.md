@@ -475,6 +475,48 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+## Diagnosing Module/Routing Failures in Dynamic Plugins
+
+When an E2E failure reports a missing module, an import not found, or a route 404 for a dynamic plugin, the root cause is often a `scalprum-config.json` file that restricts which modules the OCI artifact exposes. Do not add module references to config files without first checking whether the module is actually available in the built artifact.
+
+### What is scalprum-config.json?
+
+Each plugin under `workspaces/<name>/plugins/<plugin>/` may contain a `scalprum-config.json` that defines the plugin's `exposedModules` — the set of module entry points available at runtime. This file overrides the upstream plugin's native module structure during OCI image packaging. If it only lists `PluginRoot`, any other module (e.g., `Legacy`, `alpha`) will be absent from the built artifact, even if the upstream source exports it.
+
+### Diagnostic procedure
+
+When investigating an E2E failure involving a missing dynamic plugin module or route 404:
+
+1. **Identify the module reference.** Find which `module:` value the config expects. Check `workspaces/<name>/metadata/*.yaml` (`spec.appConfigExamples` entries for `appIcons`, `dynamicRoutes`, `mountPoints`) and `e2e-tests/tests/config/dynamic-plugins.yaml` if it exists. The default module is `PluginRoot` — if no `module:` field is present, `PluginRoot` is assumed.
+
+2. **Check for a scalprum-config.json.** Look at `workspaces/<name>/plugins/<plugin>/scalprum-config.json`. If this file exists, read its `exposedModules` object. Each key is a module name available at runtime. Example:
+   ```json
+   {
+     "name": "backstage-community.plugin-rbac",
+     "exposedModules": {
+       "PluginRoot": "./src/index.ts",
+       "Legacy": "./src/legacy/index.ts"
+     }
+   }
+   ```
+   If the config references a module (e.g., `Legacy`) that is not listed in `exposedModules`, that module is not available in the OCI artifact — this is the root cause.
+
+3. **Compare against the upstream plugin.** Use the `repo` URL and `repo-ref` from the workspace's `source.json` to check the upstream plugin's own scalprum config. If the upstream exports the needed module but the local `scalprum-config.json` does not include it, the local file is outdated or overly restrictive.
+
+4. **Determine the fix.** There are two options:
+   - **Update the scalprum-config.json** to add the missing module to `exposedModules` — appropriate when the overlay is needed for other reasons (e.g., it customizes module paths).
+   - **Delete the scalprum-config.json** entirely — appropriate when the upstream plugin's native config already exposes all needed modules and no local override is required. This is often the correct fix when the overlay was added for an older plugin version and is now stale.
+
+### Common symptoms
+
+- `BulkImportPage` / `BulkImportIcon` not found → overlay only exposes `PluginRoot`, but these components are in the `Legacy` module
+- Route 404 for `/rbac` or similar plugin routes → the route's `dynamicRoutes` config specifies `module: Legacy` but the OCI artifact only has `PluginRoot`
+- Mount points not rendering → `mountPoints` config references a module not present in `exposedModules`
+
+### Key principle
+
+When a module or import is not found at runtime, the problem is usually in the **build-time overlay** (what the OCI artifact contains), not in the **deploy-time config** (what RHDH tries to load). Adding a `module:` reference to config files does not help if the module was never packaged into the artifact. Always check the overlay first.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
