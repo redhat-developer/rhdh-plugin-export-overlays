@@ -5,6 +5,7 @@ import {
   GITHUB_ORG,
 } from "../../support/constants/github";
 import {
+  CATALOG_IMPORT_ROUTE,
   CATALOG_FIXTURE_REPOS,
   catalogImportComponentUrl,
 } from "../../support/constants/catalog";
@@ -260,8 +261,7 @@ spec:
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
       await uiHelper.openSidebar("Catalog");
-      await uiHelper.clickButton("Self-service");
-      await uiHelper.clickButton("Import an existing Git repository");
+      await page.goto(CATALOG_IMPORT_ROUTE);
       await catalogImport.registerFromComponentUrl(catalogImportedRepo.url);
 
       await expect(async () => {
