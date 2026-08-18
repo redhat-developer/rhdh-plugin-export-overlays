@@ -6,6 +6,7 @@ export type BulkImportRhdhDeployOptions = {
   dynamicPlugins?: string;
   valueFile?: string;
   deployTimeoutMs?: number;
+  disablePlugins?: string[];
 };
 
 /** Applies tests/config/rbac-configmap.yaml (canonical user: rhdh-qe-2). */
@@ -30,6 +31,9 @@ export async function setupBulkImportRhdh(
       ? { dynamicPlugins: options.dynamicPlugins }
       : {}),
     ...(options.valueFile ? { valueFile: options.valueFile } : {}),
+    ...(options.disablePlugins
+      ? { disablePlugins: options.disablePlugins }
+      : {}),
   });
   await rhdh.deploy({
     timeout: options.deployTimeoutMs ?? 20 * 60 * 1000,

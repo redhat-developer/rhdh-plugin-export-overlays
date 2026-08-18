@@ -33,6 +33,9 @@ test.describe("Bulk import tests orchestrator mode", () => {
         await setupBulkImportRhdh(rhdh, {
           appConfig: "tests/config/app-config-rhdh-orchestrator-mode.yaml",
           dynamicPlugins: "tests/config/dynamic-plugins-with-orchestrator.yaml",
+          disablePlugins: [
+            "red-hat-developer-hub-backstage-plugin-bulk-import",
+          ],
         });
       } catch (err) {
         await logOrchestratorDeployFailureDiagnostics(rhdhNamespace);
