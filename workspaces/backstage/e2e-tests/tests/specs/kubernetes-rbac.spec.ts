@@ -12,6 +12,11 @@ import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Kubernetes", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils nightly mode converts OCI refs to {{inherit}} but plugin is not in catalog index defaults (DPDY)",
+  );
+
   let kubernetesPage: KubernetesPage;
   let clusterName: string;
 

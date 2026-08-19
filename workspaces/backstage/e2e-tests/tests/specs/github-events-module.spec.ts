@@ -13,6 +13,11 @@ import { GitHubEventsHelper } from "../../support/api/github-events";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils nightly mode converts OCI refs to {{inherit}} but plugin is not in catalog index defaults (DPDY)",
+  );
+
   let githubEventsHelper: GitHubEventsHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;

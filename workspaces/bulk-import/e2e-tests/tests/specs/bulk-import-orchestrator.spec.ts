@@ -11,6 +11,11 @@ import {
 } from "../utils/workflow-deployment-helpers.js";
 
 test.describe("Bulk import tests orchestrator mode", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils nightly mode converts OCI refs to {{inherit}} but plugin is not in catalog index defaults (DPDY)",
+  );
+
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetailsForOrchestrator = {
     name: catalogRepoName,
