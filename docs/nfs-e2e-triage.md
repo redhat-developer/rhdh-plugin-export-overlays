@@ -32,9 +32,9 @@ is the Kubernetes namespace, and a name ending in `-app-next` is what switches
 |---|---|
 | Workspaces with `e2e-tests/` | 24 |
 | **Playwright projects** (= namespaces = cluster claims) | **46** |
-| — with an `-app-next` lane today | 6 |
+| — with an `-app-next` lane today | 7 |
 | — of those, skipped in nightly | 2 (`tech-radar`, `app-defaults`) |
-| Legacy-only projects with no NFS lane yet | 40 |
+| Legacy-only projects with no NFS lane yet | 39 |
 | Spec files / static `test()` declarations | 42 / 246 |
 | Workspaces using the per-workspace `value_file-app-next.yaml` hook | 0 |
 
@@ -143,7 +143,7 @@ lane means anything.
 | `scorecard` | 2 | 16 | — | keycloak | **ctr** + svc | Keycloak + real GitHub and Jira data | mixed | 25 | ready |
 | `homepage` | 1 | 18 | — | keycloak | **ctr** | Keycloak groups + `oc apply` of an RBAC ConfigMap + DB persistence | oci | 10 | ready |
 | `app-defaults` | 1 | 3 | ✅ (NFS-only, skipped) | keycloak | **ctr** | Keycloak; the GitHub test only asserts a redirect URL | oci | 0 | ready (3 pkgs) |
-| `argocd` | 1 | 7 | — | keycloak | **ocp** | in-cluster ArgoCD via an operator subscription | mixed | 5 | **no NFS entry point** |
+| `argocd` | 1 | 7 | ✅ (NFS-only) | keycloak | **ocp** | in-cluster ArgoCD via an operator subscription | mixed | 5 | **no NFS entry point** |
 | `tekton` | 2 | 3 | ✅ | keycloak | **ocp** | OpenShift Pipelines operator + real `PipelineRun`s | mixed | 5 | ready |
 | `topology` | 2 | 4 | ✅ | keycloak | **ocp** | real pods/deployments + RBAC-gated pod logs | mixed | 4 | ready |
 | `orchestrator` | 1 | 26 | — | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
@@ -240,7 +240,7 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (46) and the app-next lanes among them (6)
+# Playwright projects (46) and the app-next lanes among them (7)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
