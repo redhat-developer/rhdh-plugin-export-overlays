@@ -1,0 +1,10 @@
+# NFS lane only (see test-helper). Lists workspace plugins so metadata
+# appConfigExamples still inject, plus app-defaults for app-root-wrapper:app/drawer.
+plugins:
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant
+    enabled: true
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend-dynamic
+    enabled: true
+  # Host drawer used by the Intelligent Assistant FAB. Cross-workspace OCI; not rewritten.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true

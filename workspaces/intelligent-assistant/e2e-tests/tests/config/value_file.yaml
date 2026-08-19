@@ -1,5 +1,8 @@
 # Helm overrides for RHDH chart built-in Lightspeed (LCS sidecar + RAG init).
 # LLM credentials: rhdh-secrets.yaml (envsubst) — not lightspeed.servers in app-config.
+#
+# Each Playwright project deploys into its own namespace, so the sidecar's
+# EmptyDir vector stores stay isolated between the legacy and NFS lanes.
 global:
   lightspeed:
     enabled: true
