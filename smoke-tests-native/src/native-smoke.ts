@@ -16,8 +16,11 @@
  *   1. Run the install CLI to extract OCI plugins into a temp dynamic-plugins-root.
  *   2. Load each backend plugin and assert a default BackendFeature export.
  *   3. Boot startTestBackend with core features + loaded features → confirms they integrate.
- *   4. Check frontend plugin bundles exist for the legacy (Scalprum) and/or new
- *      (module federation) frontend system — presence only, never executed.
+ *   4. Check frontend plugin bundles for the legacy (Scalprum) and/or new (module
+ *      federation) frontend system. Scalprum is a presence check; the module-federation
+ *      half also validates the manifest's shape against what the remotes router requires,
+ *      because a malformed manifest is skipped with a log line and still answers 200 [].
+ *      Neither bundle is ever loaded or executed.
  *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
@@ -64,6 +67,7 @@ import {
 import {
   computeStatus,
   describeInstallShortfall,
+  describeNfsShortfall,
   partitionBootable,
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
@@ -398,8 +402,9 @@ async function startBackend(
   }
 }
 
-// Check frontend bundles are present (presence check only — the bundle is not
-// executed), recording which frontend system(s) each one ships.
+// Check frontend bundles (the bundle is never executed), recording which frontend
+// system(s) each one ships and — for module federation — whether the remote is in a
+// shape the backend's remotes router will actually serve.
 function validateFrontends(frontend: PluginEntry[]): {
   valid: number;
   errors: PluginError[];
@@ -409,12 +414,18 @@ function validateFrontends(frontend: PluginEntry[]): {
   const bundles: FrontendBundleInfo[] = [];
   let valid = 0;
   for (const plugin of frontend) {
-    const { systems, error } = validateFrontendBundle(plugin);
-    bundles.push({ name: plugin.name, version: plugin.version, systems });
+    const { systems, mf, error } = validateFrontendBundle(plugin);
+    bundles.push({ name: plugin.name, version: plugin.version, systems, mf });
     if (error) errors.push({ plugin, error });
     else {
       valid += 1;
       console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
+      // A served remote may still contribute nothing to the new frontend system, and it
+      // does so without a single error at runtime. Not an artifact defect — migration
+      // state — so it warns rather than failing. The message text lives in harness-logic
+      // so it is covered; see describeNfsShortfall for why the two cases read differently.
+      const shortfall = describeNfsShortfall(mf);
+      if (shortfall) console.warn(`    ⚠ ${shortfall}`);
     }
   }
   return { valid, errors, bundles };

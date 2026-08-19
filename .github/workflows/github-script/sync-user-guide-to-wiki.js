@@ -237,6 +237,7 @@ function generateSidebar(workspaceStats, reportPages, catalogStatusPages) {
 
 ### 📊 Generated Reports
 * [Backstage Compatibility Report](Backstage-Compatibility-Report)
+* [NFS Readiness Report](NFS-Readiness-Report)
 * [Workspace Status Reports](Workspace-Status-Reports)
 ${reportLinks}
 * [Plugin Catalog Index Status](Plugin-Catalog-Index-Status)${catalogLinks}
