@@ -131,7 +131,7 @@ lane means anything.
 | `acr` | 2 | 1 | ✅ | guest | **svc** | real ACR (`rhdhqetest.azurecr.io`) + a GitHub-hosted entity | oci | 0 | ready |
 | `quay` | 1 | 3 | — | guest | **svc** | real quay.io repo + security scan | oci | 0 | ready |
 | `github` | 2 | 2 | — | github | **svc** | real GitHub Actions runs + issues | baked-in | 0 | ready (5 pkgs) |
-| `roadie-backstage-plugins` | 2 | 6 | — | github, guest | **svc** | real GitHub PR data; outbound HTTP | oci | 0 | **all 6 no NFS entry point** (3 do expose `alpha`) |
+| `roadie-backstage-plugins` | 2 | 6 | **blocked** | github, guest | **svc** | real GitHub PR data; outbound HTTP | oci | 0 | **all 6 no NFS entry point**; the e2e-tested `github-pull-requests` has an `alpha.tsx` but registers only an `ApiBlueprint`, no UI extension — see RHIDP-16301 |
 | `bulk-import` | 2 | 9 | — | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
 | `quickstart` | 1 | 2 | — | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
 | `global-header` | 2 | 10 | — | keycloak | **ctr** | Keycloak | mixed | 22 | ready |
