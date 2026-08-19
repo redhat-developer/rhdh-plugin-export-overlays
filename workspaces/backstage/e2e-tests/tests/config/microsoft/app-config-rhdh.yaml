@@ -1,0 +1,51 @@
+app:
+  baseUrl: ${RHDH_BASE_URL}
+  title: RHDH Microsoft Auth / MS Graph E2E
+
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  cors:
+    origin: ${RHDH_BASE_URL}
+
+includeTransitiveGroupOwnership: true
+
+permission:
+  enabled: false
+
+signInPage: microsoft
+
+auth:
+  environment: production
+  providers:
+    guest:
+      dangerouslyAllowOutsideDevelopment: true
+    microsoft:
+      production:
+        clientId: ${AUTH_PROVIDERS_AZURE_CLIENT_ID}
+        clientSecret: ${AUTH_PROVIDERS_AZURE_CLIENT_SECRET}
+        tenantId: ${AUTH_PROVIDERS_AZURE_TENANT_ID}
+        prompt: auto
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/microsoft/handler/frame
+        sessionDuration: 3days
+        signIn:
+          resolvers:
+            - resolver: userIdMatchingUserEntityAnnotation
+
+catalog:
+  rules:
+    - allow: [API, Component, Group, Location, Resource, System, Template, User]
+  providers:
+    microsoftGraphOrg:
+      providerId:
+        target: https://graph.microsoft.com/v1.0
+        authority: https://login.microsoftonline.com
+        tenantId: ${AUTH_PROVIDERS_AZURE_TENANT_ID}
+        clientId: ${AUTH_PROVIDERS_AZURE_CLIENT_ID}
+        clientSecret: ${AUTH_PROVIDERS_AZURE_CLIENT_SECRET}
+        user:
+          filter: "accountEnabled eq true and userType eq 'member' and startswith(displayName,'TEST')"
+        group:
+          filter: "securityEnabled eq true and mailEnabled eq false and startswith(displayName,'TEST_')"
+        schedule:
+          frequency: PT1M
+          timeout: PT1M

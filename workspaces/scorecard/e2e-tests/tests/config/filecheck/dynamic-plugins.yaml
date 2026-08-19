@@ -56,25 +56,18 @@ plugins:
                   minutes: 10
                 initialDelay:
                   seconds: 120
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1
-    disabled: false
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
-          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
+          red-hat-developer-hub.backstage-plugin-homepage:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
             mountPoints:
               - mountPoint: home.page/cards
-                importName: OnboardingSection
-                config:
-                  id: "onboarding-section"
-                  title: "Onboarding section"
-              - mountPoint: home.page/cards
                 importName: EntitySection
                 config:
                   id: "entity-section"
                   title: "Entity section"
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-    disabled: true
