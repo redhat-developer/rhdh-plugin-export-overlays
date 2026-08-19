@@ -15,9 +15,19 @@ const setupScript = path.join(
 );
 const $pipe = $({ stdio: "pipe" });
 
+const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+
 test.describe("Test ArgoCD plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
+
+    // Community plugin publishes to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: [
+        "@backstage-community/plugin-argocd",
+        "@backstage-community/plugin-argocd-backend",
+      ],
+    });
 
     await test.runOnce("argocd-infra", async () => {
       const namespace = rhdh.deploymentConfig.namespace;
@@ -43,6 +53,8 @@ test.describe("Test ArgoCD plugin", () => {
 
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy({ timeout: 900_000 });
+
+    expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
   });
 
   test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
@@ -65,13 +77,16 @@ test.describe("Test ArgoCD plugin", () => {
     await expect(card).toContainText(/Healthy|Degraded/);
   });
 
-  test("Verify app drawer shows instance details", async ({ uiHelper }) => {
+  test("Verify app drawer shows instance details", async ({
+    uiHelper,
+    rhdh,
+  }) => {
     await uiHelper.verifyHeading("test-argocd-app");
     await uiHelper.verifyText("Synced");
     await uiHelper.verifyText(/Healthy|Degraded/);
     await uiHelper.verifyText("argoInstance1");
     await uiHelper.verifyText("https://kubernetes.default.svc", false);
-    await uiHelper.verifyText("argocd");
+    await uiHelper.verifyText(rhdh.deploymentConfig.namespace);
   });
 
   test("Verify resources table lists expected resources", async ({
