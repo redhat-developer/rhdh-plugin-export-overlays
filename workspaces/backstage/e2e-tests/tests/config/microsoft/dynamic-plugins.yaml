@@ -1,0 +1,7 @@
+# Microsoft auth provider still ships statically from RHDH core (no Package metadata yet);
+# local dist path exercises the image-baked copy. MS Graph uses metadata-resolved OCI in PR mode.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-microsoft-provider-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
+    disabled: false
