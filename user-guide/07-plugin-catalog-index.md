@@ -12,6 +12,8 @@ They contain all the metadata, OCI image references, and default configuration n
 
 The catalog index generation pipeline reads workspace metadata, queries container registries, and produces a self-contained directory of catalog entities and an `index.json` file. This directory is then packaged as an OCI image and pushed to a container registry, where RHDH consumes it.
 
+Plugin entities under `catalog-entities/extensions/plugins/` can describe plugins that are exported via `workspaces/` **or** plugins whose OCI images are built elsewhere (catalog metadata only). Package bootstrap and registry verification in this pipeline are driven by workspace Package metadata / package lists — catalog-only Plugin YAMLs contribute **listing** metadata to the index, not an overlay export and not installable Package/OCI resolution. **Installable** catalog entries still require Model A workspace Package metadata (`workspaces/*/metadata/`). A future path for catalog-installable external OCI without `workspaces/` is out of scope for this document. See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
+
 ### High-Level Flow
 
 ```mermaid
@@ -100,6 +102,8 @@ Reads each `workspaces/*/metadata/*.yaml` file and constructs initial `plugin_bu
 - **quay.io/rhdh**: `{rhdh_version}--{plugin_version}` (e.g., `1.10--0.8.2`)
 
 Plugins are filtered to only those matching the provided `--packages-file` list(s).
+
+Orphan cleanup after renames/removals (e.g. lightspeed → intelligent-assistant): JSON files under `plugin_builds/` that are no longer produced from metadata are deleted, and matching orphan keys are removed from `--report-file` (`build-report.json`) so later steps and `renderCatalogStatus.py` do not keep advertising obsolete OCI refs.
 
 ### Step 2: Image Metadata Fetch (`generatePluginBuildInfo.py`)
 

@@ -4,7 +4,7 @@ test.describe("Test Quick Start plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+      disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
   });

@@ -40,7 +40,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
       await rhdh.configure({
         auth: "keycloak",
-        disableWrappers: HOMEPAGE_WRAPPER_DIST_NAMES,
+        disablePlugins: HOMEPAGE_WRAPPER_DIST_NAMES,
       });
       await rhdh.deploy();
     });

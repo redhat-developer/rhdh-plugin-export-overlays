@@ -4,14 +4,26 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 
-const dir = mkdtempSync(join(tmpdir(), "test-config-"));
+// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
+// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
+const TEMP_DIRS: string[] = [];
+function tempDir(prefix: string): string {
+  const dir = mkdtempSync(prefix);
+  TEMP_DIRS.push(dir);
+  return dir;
+}
+after(() => {
+  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
+});
+
+const dir = tempDir(join(tmpdir(), "test-config-"));
 
 function file(name: string, content: string): string {
   const path = join(dir, name);
@@ -22,7 +34,7 @@ function file(name: string, content: string): string {
 test("loadEnvFile applies KEY=VALUE lines, strips quotes, skips comments", () => {
   const path = file(
     "basic.env",
-    '# comment\nTC_FOO=bar\nTC_QUOTED="q v"\n\nTC_SINGLE=\'s v\'\n',
+    "# comment\nTC_FOO=bar\nTC_QUOTED=\"q v\"\n\nTC_SINGLE='s v'\n",
   );
   const applied = loadEnvFile(path);
   assert.deepEqual(applied.sort(), ["TC_FOO", "TC_QUOTED", "TC_SINGLE"]);
