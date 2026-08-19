@@ -5,9 +5,10 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  *
  * Projects:
  * - scaffolder-backend-module-kubernetes — legacy app shell (default RHIDP merge layers).
- * - scaffolder-backend-module-kubernetes-app-next — namespace ends with -app-next, so
- *   e2e-test-utils merges NFS (app-next) secrets and default app-auth / app-integrations
- *   automatically.
+ * - scaffolder-k8s-app-next — abbreviated name to stay within the 63-char OpenShift Route
+ *   hostname limit (redhat-developer-hub-<namespace> would exceed with the full name).
+ *   The -app-next suffix triggers e2e-test-utils to merge NFS secrets and default
+ *   app-auth / app-integrations automatically.
  */
 export default defineConfig({
   projects: [
@@ -15,7 +16,7 @@ export default defineConfig({
       name: "scaffolder-backend-module-kubernetes",
     },
     {
-      name: "scaffolder-backend-module-kubernetes-app-next",
+      name: "scaffolder-k8s-app-next",
     },
   ],
 });
