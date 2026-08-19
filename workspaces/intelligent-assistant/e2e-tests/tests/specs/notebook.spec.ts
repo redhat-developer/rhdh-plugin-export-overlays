@@ -21,6 +21,14 @@ import { ensureLightspeedDeployment } from "../support/test-helper";
 
 const RENAMED_NOTEBOOK_TITLE = "E2E Notebook Renamed";
 
+function notebookFileNameParts(fileName: string): {
+  baseName: string;
+  ext: string;
+} {
+  const baseName = fileName.replace(/\.[^.]+$/, "");
+  return { baseName, ext: fileName.slice(baseName.length) };
+}
+
 test.describe("Lightspeed notebooks", () => {
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
 
@@ -73,8 +81,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("sidebar: add file then remove", async () => {
-    const { absolutePath, fileName } =
-      localeNotebookUploadPath("en.upload2.json");
+    const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickOpenUploadDocumentModal();
     const uploadModal = notebooks.uploadDocumentModal();
@@ -89,46 +96,41 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectDocumentUploadCompletes(fileName);
     await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
     await notebooks.expectNotebookEditorUploadResourceButtonVisible();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
   });
 
   test("document sidebar: rename document via click", async () => {
-    const { absolutePath, fileName } = localeNotebookUploadPath();
+    const { fileName } = localeNotebookUploadPath();
+    const { baseName, ext } = notebookFileNameParts(fileName);
+    const renamedFileName = `${baseName}-renamed${ext}`;
 
-    await notebooks.clickOpenUploadDocumentModal();
-    const uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    await uploadModal.clickAddFilesForStagedCount(1);
-    await notebooks.expectDocumentUploadCompletes(fileName);
-
-    const baseName = fileName.replace(/\.[^.]+$/, "");
-    const ext = fileName.slice(baseName.length);
-    const newBaseName = `${baseName}-renamed`;
-    const newFileName = `${newBaseName}${ext}`;
-
-    await notebooks.renameDocumentInlineViaClick(fileName, newBaseName);
-    await notebooks.expectDocumentFileListedInSidebar(newFileName);
-
-    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
+    await notebooks.expectDocumentFileListedInSidebar(fileName);
+    await notebooks.renameDocumentInlineViaClick(
+      fileName,
+      `${baseName}-renamed`,
+    );
+    await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
   });
 
   test("document sidebar: rename document via kebab menu", async () => {
-    const { absolutePath, fileName } = localeNotebookUploadPath();
+    const { fileName } = localeNotebookUploadPath();
+    const { baseName, ext } = notebookFileNameParts(fileName);
+    const renamedFileName = `${baseName}-renamed${ext}`;
+    const kebabFileName = `${baseName}-kebab${ext}`;
 
-    await notebooks.clickOpenUploadDocumentModal();
-    const uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    await uploadModal.clickAddFilesForStagedCount(1);
-    await notebooks.expectDocumentUploadCompletes(fileName);
+    await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
+    await notebooks.renameDocumentViaKebabMenu(
+      renamedFileName,
+      `${baseName}-kebab`,
+    );
+    await notebooks.expectDocumentFileListedInSidebar(kebabFileName);
 
-    const baseName = fileName.replace(/\.[^.]+$/, "");
-    const ext = fileName.slice(baseName.length);
-    const newBaseName = `${baseName}-kebab`;
-    const newFileName = `${newBaseName}${ext}`;
-
-    await notebooks.renameDocumentViaKebabMenu(fileName, newBaseName);
-    await notebooks.expectDocumentFileListedInSidebar(newFileName);
-
-    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
+    await notebooks.renameDocumentInlineViaClick(kebabFileName, baseName);
+    await notebooks.expectDocumentFileListedInSidebar(fileName);
   });
 
   test("upload modal: eleven files rejected at cap", async () => {
@@ -186,7 +188,7 @@ test.describe("Lightspeed notebooks", () => {
     await expect(notebooks.newestUntitledNotebookCard()).toBeVisible();
 
     await notebooks.expectNotebookListShowsDocumentCountSummaryAndUpdatedToday(
-      2,
+      1,
     );
 
     await notebooks
