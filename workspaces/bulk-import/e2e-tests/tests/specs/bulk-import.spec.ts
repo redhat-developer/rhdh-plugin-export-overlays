@@ -58,6 +58,7 @@ spec:
         appConfig: "tests/config/app-config-rhdh.yaml",
         dynamicPlugins: "tests/config/dynamic-plugins.yaml",
         valueFile: "tests/config/values.yaml",
+        disablePlugins: ["red-hat-developer-hub-backstage-plugin-bulk-import"],
       });
     });
 
