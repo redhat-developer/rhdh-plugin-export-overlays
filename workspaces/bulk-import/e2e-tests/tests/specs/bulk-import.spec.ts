@@ -24,6 +24,11 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "BulkImportPage only exported from Legacy module which is absent from OCI artifact",
+  );
+
   const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
   const catalogRepoDetails = {
     name: catalogRepoName,

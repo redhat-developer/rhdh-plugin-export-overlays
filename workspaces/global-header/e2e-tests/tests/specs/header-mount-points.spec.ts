@@ -1,6 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Header mount points", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "Global header plugin v1.21.5 lacks Legacy module required by mount point config",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
