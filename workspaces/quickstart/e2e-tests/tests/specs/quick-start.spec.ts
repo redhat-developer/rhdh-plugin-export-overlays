@@ -7,6 +7,7 @@ test.describe("Test Quick Start plugin", () => {
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
+    expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
   });
 
   test("Access Quick start as Guest or Admin", async ({
