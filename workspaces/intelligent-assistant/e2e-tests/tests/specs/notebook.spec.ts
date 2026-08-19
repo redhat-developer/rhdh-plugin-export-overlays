@@ -6,6 +6,7 @@ import {
   NOTEBOOK_UNTITLED_GRID_NAME,
 } from "../support/notebook-surface-page";
 import {
+  localeNotebookUploadCopyAs,
   localeNotebookUploadPath,
   NOTEBOOK_EDITOR_URL_RE,
   NOTEBOOK_SESSION_MAX_DOCUMENTS,
@@ -96,24 +97,47 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectDocumentUploadCompletes(fileName);
     await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
     await notebooks.expectNotebookEditorUploadResourceButtonVisible();
-
-    await notebooks.clickOpenUploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    await uploadModal.clickAddFilesForStagedCount(1);
-    await notebooks.expectDocumentUploadCompletes(fileName);
   });
 
   test("document sidebar: rename document via click", async () => {
-    const { fileName } = localeNotebookUploadPath();
+    const { absolutePath, fileName } = localeNotebookUploadPath();
     const { baseName, ext } = notebookFileNameParts(fileName);
     const renamedFileName = `${baseName}-renamed${ext}`;
 
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+
     await notebooks.renameDocumentInlineViaClick(
       fileName,
       `${baseName}-renamed`,
     );
     await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
+  });
+
+  test("upload modal: duplicate file confirms overwrite then upload", async () => {
+    const { fileName: originalFileName } = localeNotebookUploadPath();
+    const { baseName, ext } = notebookFileNameParts(originalFileName);
+    const listedFileName = `${baseName}-renamed${ext}`;
+    const { absolutePath, fileName } =
+      localeNotebookUploadCopyAs(listedFileName);
+
+    await notebooks.expectDocumentFileListedInSidebar(fileName);
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+
+    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
+    await overwriteModal.expectDialogVisible();
+    await overwriteModal.expectListedOverwriteFile(fileName);
+    await overwriteModal.clickBack();
+    await expect(overwriteModal.dialog()).toBeHidden();
+    await expect(uploadModal.dialog()).toBeVisible();
+    await uploadModal.clickCancel();
   });
 
   test("document sidebar: rename document via kebab menu", async () => {
@@ -128,9 +152,6 @@ test.describe("Lightspeed notebooks", () => {
       `${baseName}-kebab`,
     );
     await notebooks.expectDocumentFileListedInSidebar(kebabFileName);
-
-    await notebooks.renameDocumentInlineViaClick(kebabFileName, baseName);
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
   });
 
   test("upload modal: eleven files rejected at cap", async () => {
@@ -158,25 +179,6 @@ test.describe("Lightspeed notebooks", () => {
         "Upload error: Unsupported file type(s) found. Please upload only supported file types.",
       ),
     ).toBeVisible();
-    await uploadModal.clickCancel();
-  });
-
-  test("upload modal: duplicate file confirms overwrite then upload", async () => {
-    const { absolutePath, fileName } = localeNotebookUploadPath();
-
-    await notebooks.expectDocumentFileListedInSidebar(fileName);
-
-    await notebooks.clickOpenUploadDocumentModal();
-    const uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    await uploadModal.clickAddFilesForStagedCount(1);
-
-    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
-    await overwriteModal.expectDialogVisible();
-    await overwriteModal.expectListedOverwriteFile(fileName);
-    await overwriteModal.clickBack();
-    await expect(overwriteModal.dialog()).toBeHidden();
-    await expect(uploadModal.dialog()).toBeVisible();
     await uploadModal.clickCancel();
   });
 

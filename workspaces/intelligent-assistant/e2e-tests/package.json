@@ -11,6 +11,7 @@
   "description": "E2E tests for Intelligent Assistant plugin",
   "scripts": {
     "test": "playwright test",
+    "test:existing": "SKIP_RHDH_DEPLOYMENT=true playwright test",
     "test:serial": "playwright test --workers=1",
     "test:ui": "playwright test --ui",
     "test:ui:serial": "playwright test --ui --workers=1",
