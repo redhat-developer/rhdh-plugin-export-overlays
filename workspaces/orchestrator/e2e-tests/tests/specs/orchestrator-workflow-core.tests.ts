@@ -14,6 +14,9 @@ type EnsureDataIndexOrSkip = (
 export function registerOrchestratorCoreWorkflowTests(
   ensureDataIndexOrSkip: EnsureDataIndexOrSkip,
 ): void {
+  // Layer 4b: greeting / failswitch run, abort, rerun, and status checks talk
+  // to a real SonataFlow instance via the published OCI artifact. Exact-name
+  // overlap with the plugin-repo 4a lane is 0.
   test.describe("Greeting workflow", () => {
     let orchestrator: OrchestratorPage;
     let orchestratorPo: OrchestratorPO;

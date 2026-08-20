@@ -300,6 +300,8 @@ async function assertTemplatePermissionScenarioOutcome(
 }
 
 export function registerOrchestratorRbacTests(): void {
+  // Layer 4b: RBAC scenarios need Keycloak users plus a live SonataFlow
+  // greeting workflow and the published orchestrator OCI artifact.
   test.describe("Orchestrator RBAC", () => {
     test.beforeAll(async ({ browser }, testInfo) => {
       await removeBaselineRole(browser, testInfo);
