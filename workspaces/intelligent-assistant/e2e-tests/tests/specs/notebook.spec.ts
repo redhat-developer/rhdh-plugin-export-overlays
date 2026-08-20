@@ -100,18 +100,20 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("document sidebar: rename document via click", async () => {
-    const { absolutePath, fileName } = localeNotebookUploadPath();
+    const { absolutePath, fileName } =
+      localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(fileName);
     const renamedFileName = `${baseName}-renamed${ext}`;
 
     await notebooks.clickOpenUploadDocumentModal();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
     const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
+    await uploadModal.expectStagedFileCountCaptionVisible(
+      1,
+      NOTEBOOK_SESSION_MAX_DOCUMENTS,
+    );
     await uploadModal.clickAddFilesForStagedCount(1);
+    await expect(uploadModal.dialog()).toBeHidden();
     await notebooks.expectDocumentUploadCompletes(fileName);
     // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(500);
@@ -126,7 +128,8 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: duplicate file confirms overwrite then upload", async () => {
-    const { fileName: originalFileName } = localeNotebookUploadPath();
+    const { fileName: originalFileName } =
+      localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(originalFileName);
     const listedFileName = `${baseName}-renamed${ext}`;
     const { absolutePath, fileName } =
@@ -149,7 +152,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("document sidebar: rename document via kebab menu", async () => {
-    const { fileName } = localeNotebookUploadPath();
+    const { fileName } = localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(fileName);
     const renamedFileName = `${baseName}-renamed${ext}`;
     const kebabFileName = `${baseName}-kebab${ext}`;

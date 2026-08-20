@@ -98,11 +98,15 @@ export class NotebookSurfacePage {
   sidebarAddDocumentButton(): Locator {
     return this.chatbotRegion()
       .getByRole("button", { name: "Add", exact: true })
-      .first();
+      .filter({ hasText: /^Add$/ });
   }
 
   async clickOpenUploadDocumentModal(): Promise<void> {
-    await this.sidebarAddDocumentButton().click();
+    await this.uploadResourceActionButton()
+      .or(this.sidebarAddDocumentButton())
+      .first()
+      .click();
+    await expect(this.uploadDocumentModal().dialog()).toBeVisible();
   }
 
   uploadDocumentModal(): NotebookAddDocumentModalPage {
