@@ -11,9 +11,6 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  *
  * Each project is its own Kubernetes namespace and RHDH install. workers: 1
  * keeps the serial chatbot/notebook specs on a single shared page per lane.
- *
- * Keep project objects self-contained: run-e2e.sh extracts only the
- * `projects: [...]` block into the generated root config.
  */
 export default defineConfig({
   projects: [
