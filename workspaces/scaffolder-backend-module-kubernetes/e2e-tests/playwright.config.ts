@@ -4,7 +4,6 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  * scaffolder-backend-module-kubernetes plugin e2e test configuration.
  *
  * Projects:
- * - scaffolder-backend-module-kubernetes — legacy app shell (default RHIDP merge layers).
  * - scaffolder-k8s-app-next — abbreviated name to stay within the 63-char OpenShift Route
  *   hostname limit (redhat-developer-hub-<namespace> would exceed with the full name).
  *   The -app-next suffix triggers e2e-test-utils to merge NFS secrets and default
@@ -12,9 +11,6 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  */
 export default defineConfig({
   projects: [
-    {
-      name: "scaffolder-backend-module-kubernetes",
-    },
     {
       name: "scaffolder-k8s-app-next",
     },
