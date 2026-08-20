@@ -48,6 +48,8 @@ test.describe("Lightspeed notebooks", () => {
     page = await context.newPage();
     await new LoginHelper(page).loginAsKeycloakUser();
     notebooks = new NotebookSurfacePage(page);
+    await notebooks.gotoFullscreenNotebooksTab();
+    await notebooks.deleteLeftoverNotebookCards();
   });
 
   test.afterAll(async () => {
@@ -392,6 +394,7 @@ test.describe("Lightspeed notebooks", () => {
 
   test("sidebar: click title to rename inside editor", async () => {
     await notebooks.clickPrimaryNotebookCreate();
+    await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
 
     await expect(notebooks.sidebarTitleText()).toBeVisible();
     await notebooks.clickSidebarTitle();
@@ -401,19 +404,19 @@ test.describe("Lightspeed notebooks", () => {
 
     const newName = "Sidebar Renamed";
     await sidebarInput.fill(newName);
+    const renamePersisted = notebooks.waitForSessionRenamePut();
     await sidebarInput.press("Enter");
+    await renamePersisted;
 
     await expect(sidebarInput).toBeHidden();
     await expect(notebooks.sidebarTitleText()).toContainText(newName);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
 
     await notebooks.clickCloseNotebookEditor();
     await expect(notebooks.myNotebooksHeading()).toBeVisible();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
 
-    await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible();
+    await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible({
+      timeout: 15_000,
+    });
 
     await notebooks
       .notebookCardOverflowMenuButton(
@@ -479,21 +482,19 @@ test.describe("Lightspeed notebooks", () => {
     await expect(sidebarInput).toBeVisible();
     const renamedName = "Renamed Persists";
     await sidebarInput.fill(renamedName);
+    const renamePersisted = notebooks.waitForSessionRenamePut();
     await sidebarInput.press("Enter");
+    await renamePersisted;
 
     await expect(sidebarInput).toBeHidden();
     await expect(notebooks.sidebarTitleText()).toContainText(renamedName);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
 
     await notebooks.clickCloseNotebookEditor();
     await expect(notebooks.myNotebooksHeading()).toBeVisible();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(500);
 
     await expect(
       notebooks.notebookCardByDisplayedName(renamedName),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
 
     await notebooks
       .notebookCardOverflowMenuButton(

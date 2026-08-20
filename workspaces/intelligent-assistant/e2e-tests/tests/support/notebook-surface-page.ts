@@ -55,6 +55,22 @@ export class NotebookSurfacePage {
     await expect(this.createNotebookFromEmptyStateButton()).toBeVisible();
   }
 
+  /** Removes leftover cards so serial tests can start from an empty list. */
+  async deleteLeftoverNotebookCards(): Promise<void> {
+    const cards = this.chatbotRegion().locator(".pf-v6-c-card");
+    while ((await cards.count()) > 0) {
+      const remaining = await cards.count();
+      const card = cards.first();
+      const title =
+        (await this.notebookCardTitleText(card).textContent())?.trim() ||
+        NOTEBOOK_UNTITLED_GRID_NAME;
+      await this.notebookCardOverflowMenuButton(card).click();
+      await this.deleteNotebookOverflowMenuItem().click();
+      await this.notebookDeleteConfirmationDialog(title).confirmDeletion();
+      await expect(cards).toHaveCount(remaining - 1, { timeout: 10_000 });
+    }
+  }
+
   async clickCreateNotebookFromEmptyList(): Promise<void> {
     await this.createNotebookFromEmptyStateButton().click();
   }
@@ -95,10 +111,24 @@ export class NotebookSurfacePage {
     });
   }
 
+  /**
+   * Sidebar Add, never the composer `+` (same accessible name).
+   * Expanded: labeled "Add" in DocumentSidebar. Collapsed: icon-only button
+   * in the expand strip (DocumentSidebar unmounts when collapsed).
+   */
   sidebarAddDocumentButton(): Locator {
-    return this.chatbotRegion()
+    const labeledAdd = this.chatbotRegion()
       .getByRole("button", { name: "Add", exact: true })
       .filter({ hasText: /^Add$/ });
+    const collapsedStripAdd = this.chatbotRegion()
+      .locator("div")
+      .filter({ has: this.sidebarExpandButton() })
+      .filter({
+        has: this.page.getByRole("button", { name: "Add", exact: true }),
+      })
+      .last()
+      .getByRole("button", { name: "Add", exact: true });
+    return labeledAdd.or(collapsedStripAdd);
   }
 
   async clickOpenUploadDocumentModal(): Promise<void> {
@@ -369,7 +399,30 @@ export class NotebookSurfacePage {
   }
 
   async clickSidebarTitle(): Promise<void> {
-    await this.sidebarTitleText().click();
+    const title = this.sidebarTitleText();
+    const input = this.inlineRenameInput();
+    await expect(title).toBeVisible();
+    await expect(async () => {
+      await title.click();
+      await expect(input).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
+  }
+
+  /**
+   * Notebook rename is optimistic in the UI; wait for PUT /v1/sessions/:id
+   * so close does not auto-delete an still-untitled backend session.
+   */
+  waitForSessionRenamePut(): Promise<unknown> {
+    return this.page.waitForResponse((response) => {
+      if (response.request().method() !== "PUT" || !response.ok()) {
+        return false;
+      }
+      try {
+        return /\/v1\/sessions\/[^/]+$/.test(new URL(response.url()).pathname);
+      } catch {
+        return false;
+      }
+    });
   }
 
   async uploadSingleDefaultDocumentForConversation(): Promise<string> {
