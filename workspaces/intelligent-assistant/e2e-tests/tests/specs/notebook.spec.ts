@@ -105,15 +105,23 @@ test.describe("Lightspeed notebooks", () => {
     const renamedFileName = `${baseName}-renamed${ext}`;
 
     await notebooks.clickOpenUploadDocumentModal();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
     const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
     await uploadModal.clickAddFilesForStagedCount(1);
     await notebooks.expectDocumentUploadCompletes(fileName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
 
     await notebooks.renameDocumentInlineViaClick(
       fileName,
       `${baseName}-renamed`,
     );
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
     await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
   });
 
@@ -392,9 +400,15 @@ test.describe("Lightspeed notebooks", () => {
     await sidebarInput.fill(newName);
     await sidebarInput.press("Enter");
 
+    await expect(sidebarInput).toBeHidden();
     await expect(notebooks.sidebarTitleText()).toContainText(newName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
 
     await notebooks.clickCloseNotebookEditor();
+    await expect(notebooks.myNotebooksHeading()).toBeVisible();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
 
     await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible();
 
@@ -434,7 +448,7 @@ test.describe("Lightspeed notebooks", () => {
     await uploadModal.clickAddFilesForStagedCount(1);
     await notebooks.expectDocumentUploadCompletes(fileName);
     // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(500);
 
     await notebooks.clickCloseNotebookEditor();
 
@@ -464,7 +478,15 @@ test.describe("Lightspeed notebooks", () => {
     await sidebarInput.fill(renamedName);
     await sidebarInput.press("Enter");
 
+    await expect(sidebarInput).toBeHidden();
+    await expect(notebooks.sidebarTitleText()).toContainText(renamedName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
+
     await notebooks.clickCloseNotebookEditor();
+    await expect(notebooks.myNotebooksHeading()).toBeVisible();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
 
     await expect(
       notebooks.notebookCardByDisplayedName(renamedName),
@@ -515,7 +537,7 @@ test.describe("Lightspeed notebooks", () => {
 
     await verifyFeedbackButtons(page);
     // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(500);
     await submitFeedback(page, "Good Response");
     await submitFeedback(page, "Bad Response");
     await assertLastBotResponseCopiedToClipboard(page);

@@ -85,33 +85,14 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   await rhdh.waitUntilReady();
 }
 
-function isSkipRhdhDeployment(): boolean {
-  const value = process.env.SKIP_RHDH_DEPLOYMENT;
-  return value === "true" || value === "1";
-}
-
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  // Always configure so RHDH_BASE_URL / namespace survive Playwright worker restarts.
-  await rhdh.configure(lightspeedDeployConfig);
-
-  if (isSkipRhdhDeployment()) {
-    if (process.env.CI) {
-      throw new Error(
-        "SKIP_RHDH_DEPLOYMENT is for local debugging only and is not allowed in CI",
-      );
-    }
-    console.warn(
-      `[intelligent-assistant] SKIP_RHDH_DEPLOYMENT is set; reusing existing RHDH at ${process.env.RHDH_BASE_URL}`,
-    );
-    await rhdh.waitUntilReady();
-    return;
-  }
-
   await test.runOnce(
     `intelligent-assistant-deploy-${lightspeedNamespace}`,
     async () => {
+      await rhdh.configure(lightspeedDeployConfig);
+
       // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
       const ns = rhdh.deploymentConfig.namespace;
       try {
