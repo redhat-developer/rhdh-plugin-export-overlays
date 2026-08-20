@@ -14,14 +14,6 @@ const HOMEPAGE_WRAPPER_DIST_NAMES: string[] = [
   "red-hat-developer-hub-backstage-plugin-homepage",
 ];
 
-function isNightlyMode(): boolean {
-  return (
-    process.env.E2E_NIGHTLY_MODE === "true" ||
-    process.env.E2E_NIGHTLY_MODE === "1" ||
-    (process.env.JOB_NAME?.includes("periodic-") ?? false)
-  );
-}
-
 /* eslint-disable playwright/expect-expect -- assertions in DynamicHomePagePo */
 test.describe.serial("Dynamic home page customization", () => {
   let context: BrowserContext | undefined;
@@ -33,8 +25,6 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
-
-    test.skip(isNightlyMode(), "homepage NFS e2e not ready for nightly");
 
     const namespace = rhdh.deploymentConfig.namespace;
 
@@ -78,6 +68,7 @@ test.describe.serial("Dynamic home page customization", () => {
   });
 
   test("Verify default widgets from server config on first load", async () => {
+    // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
     test.skip(
       true,
       "homepage-backend defaultWidgets are not supported on NFS yet",
@@ -228,6 +219,7 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Per-user isolation: test2 sees defaults", async () => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
       test.skip(
         true,
         "homepage-backend defaultWidgets are not supported on NFS yet",
@@ -243,6 +235,7 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("test2 customization does not affect test1 layout", async () => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
       test.skip(
         true,
         "homepage-backend defaultWidgets / persona defaults are not supported on NFS yet",
@@ -289,6 +282,7 @@ test.describe.serial("Dynamic home page customization", () => {
 
   test.describe("Persona-based homepages", () => {
     test.beforeEach(() => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
       test.skip(
         true,
         "homepage-backend defaultWidgets are not supported on NFS yet",
