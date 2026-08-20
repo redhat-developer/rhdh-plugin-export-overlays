@@ -10,15 +10,7 @@ import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
 import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 
-/**
- * Layer 4b: this suite deploys SonataFlow / OpenShift Serverless Logic and
- * exercises the published OCI artifact. Greeting, failswitch, abort, rerun,
- * EntityPicker, and RBAC stay here because they need that operator.
- *
- * Follow-ups outside RHIDP-16292: retry* → L3, token-propagation → L2, and
- * the persistently red plugin-repo 4a lane. Do not drop these 4b tests as
- * "duplicated upstream" until 4a is green (exact-name overlap is 0).
- */
+// Layer 4b: SonataFlow / OSL + published OCI artifact.
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.

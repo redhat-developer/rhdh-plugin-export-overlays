@@ -17,10 +17,6 @@ export function registerEntityWorkflowIntegrationTests(
   /**
    * Entity-Workflow Integration Tests
    *
-   * Layer 4b: EntityPicker, catalog annotations, and Workflows catalog control
-   * all depend on a real SonataFlow greeting workflow and the published OCI
-   * artifact. They stay on cluster until the plugin-repo 4a lane is green.
-   *
    * Test Cases: RHIDP-11833 through RHIDP-11838
    *
    * These tests verify the integration between RHDH catalog entities and
