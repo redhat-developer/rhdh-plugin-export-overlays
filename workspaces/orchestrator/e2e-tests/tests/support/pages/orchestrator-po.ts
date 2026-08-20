@@ -2,6 +2,7 @@ import {
   expect,
   Locator,
   Page,
+  test,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ORCHESTRATOR_COMPONENTS } from "./orchestrator-obj.js";
@@ -14,6 +15,26 @@ export class OrchestratorPO {
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
   ) {}
+
+  private isNfsLane(): boolean {
+    return test.info().project.name === "orchestrator-app-next";
+  }
+
+  private workflowsCatalogControl(): Locator {
+    if (this.isNfsLane()) {
+      return ORCHESTRATOR_COMPONENTS.workflowsLink(this.page);
+    }
+    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
+  }
+
+  async clickWorkflowsCatalogControl(): Promise<void> {
+    await this.workflowsCatalogControl().click();
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async verifyWorkflowsCatalogControlVisible(): Promise<void> {
+    await expect(this.workflowsCatalogControl()).toBeVisible();
+  }
 
   async openWorkflowsPage(): Promise<void> {
     await this.page.goto("/orchestrator");
@@ -392,12 +413,12 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsTabIfVisible(): Promise<boolean> {
-    const workflowsTab = ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
-    const count = await workflowsTab.count();
+    const workflowsControl = this.workflowsCatalogControl();
+    const count = await workflowsControl.count();
     if (count === 0) {
       return false;
     }
-    await workflowsTab.click();
+    await workflowsControl.click();
     await this.page.waitForLoadState("domcontentloaded");
     return true;
   }

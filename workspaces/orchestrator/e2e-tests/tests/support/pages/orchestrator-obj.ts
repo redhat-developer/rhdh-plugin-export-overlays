@@ -25,6 +25,8 @@ export const ORCHESTRATOR_COMPONENTS = {
     page.getByRole("button", { name: "Start Over" }),
   workflowsTab: (page: Page): Locator =>
     page.getByRole("tab", { name: "Workflows" }),
+  workflowsLink: (page: Page): Locator =>
+    page.getByRole("link", { name: "Workflows" }),
   nextButton: (page: Page): Locator =>
     page.getByRole("button", { name: "Next" }),
   runWorkflowButton: (page: Page): Locator =>

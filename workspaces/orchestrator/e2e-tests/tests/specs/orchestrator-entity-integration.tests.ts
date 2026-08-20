@@ -17,6 +17,10 @@ export function registerEntityWorkflowIntegrationTests(
   /**
    * Entity-Workflow Integration Tests
    *
+   * Layer 4b: EntityPicker, catalog annotations, and Workflows catalog control
+   * all depend on a real SonataFlow greeting workflow and the published OCI
+   * artifact. They stay on cluster until the plugin-repo 4a lane is green.
+   *
    * Test Cases: RHIDP-11833 through RHIDP-11838
    *
    * These tests verify the integration between RHDH catalog entities and
@@ -72,7 +76,7 @@ export function registerEntityWorkflowIntegrationTests(
         page.getByRole("heading", { name: /Greeting Test Picker/i }),
       ).toBeVisible();
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
       await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
       await expect(
         page.getByRole("link", { name: "Greeting workflow", exact: true }),
@@ -107,7 +111,7 @@ export function registerEntityWorkflowIntegrationTests(
       const orchestratorPo = new OrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
 
       await orchestratorPo.openWorkflow("Greeting workflow");
 
@@ -156,9 +160,9 @@ export function registerEntityWorkflowIntegrationTests(
       const orchestratorPo = new OrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
-      await orchestrator.verifyWorkflowsTabVisible();
+      await orchestratorPo.verifyWorkflowsCatalogControlVisible();
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
 
       const workflowsContent = page.locator("main").filter({
         has: page.getByText("Greeting workflow"),
