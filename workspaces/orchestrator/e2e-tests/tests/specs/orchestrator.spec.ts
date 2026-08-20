@@ -31,8 +31,7 @@ test.describe("Orchestrator", () => {
           logOrchestratorDeployFailureDiagnostics(project);
           throw err;
         }
-        process.env.SONATAFLOW_DATA_INDEX_URL =
-          "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+        process.env.SONATAFLOW_DATA_INDEX_URL = `http://sonataflow-platform-data-index-service.${project}.svc.cluster.local`;
         await configureOrchestratorLoki();
         try {
           await prepareRhdhHelmRedeploy(project);
