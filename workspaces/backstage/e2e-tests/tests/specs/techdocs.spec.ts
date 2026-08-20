@@ -90,7 +90,7 @@ test.describe("TechDocs", () => {
       appConfig: "tests/config/techdocs/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       secrets: "tests/config/techdocs/rhdh-secrets.yaml",
-      disableWrappers: TECHDOCS_WRAPPER_DIST_NAMES,
+      disablePlugins: TECHDOCS_WRAPPER_DIST_NAMES,
     });
 
     await rhdh.deploy();

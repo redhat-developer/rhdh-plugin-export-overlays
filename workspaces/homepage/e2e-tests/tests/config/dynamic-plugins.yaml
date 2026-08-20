@@ -1,11 +1,48 @@
 plugins:
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-homepage
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.0
     enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
-          red-hat-developer-hub.backstage-plugin-homepage: {}
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.51.0__0.2.1
+          red-hat-developer-hub.backstage-plugin-homepage:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage
+            mountPoints:
+              - mountPoint: home.page/cards
+                importName: OnboardingSection
+                config:
+                  id: onboarding-section
+                  title: Onboarding section
+              - mountPoint: home.page/cards
+                importName: EntitySection
+                config:
+                  id: entity-section
+                  title: Entity section
+              - mountPoint: home.page/cards
+                importName: TemplateSection
+                config:
+                  id: template-section
+                  title: Template section
+              - mountPoint: home.page/cards
+                importName: QuickAccessCard
+                config:
+                  id: quickaccess-card
+                  title: Quick Access
+              - mountPoint: home.page/cards
+                importName: RecentlyVisitedCard
+                config:
+                  id: recently-visited-card
+                  title: Recently Visited
+              - mountPoint: home.page/cards
+                importName: TopVisitedCard
+                config:
+                  id: top-visited-card
+                  title: Top Visited
+            translationResources:
+              - importName: homepageTranslations
+                ref: homepageTranslationRef
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.4.0
     enabled: true
     pluginConfig:
       homepage:
@@ -32,11 +69,11 @@ plugins:
           - if:
               groups: [group:default/developers]
             children:
-              - id: recently-visited
+              - id: recently-visited-card
                 ref: recently-visited-card
                 props:
                   title: Recently Visited
-              - id: top-visited
+              - id: top-visited-card
                 ref: top-visited-card
                 props:
                   title: Top Visited

@@ -7,6 +7,8 @@ host_files:
     dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
   - src: rhdh/env/yarn-proxy.env
     dest: /sandbox/workspace/.env.d/yarn-proxy.env
+runner_env:
+  CODE_ALLOWED_TARGET_BRANCHES: "main,release-1.9,release-1.10"
 skills:
   - skills/e2e-failure-analysis
   - skills/playwright-trace

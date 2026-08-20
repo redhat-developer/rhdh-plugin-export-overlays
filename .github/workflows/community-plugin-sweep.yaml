@@ -1,0 +1,298 @@
+# Copyright Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+# Load-test every community-supported plugin this repo publishes (RHIDP-13510).
+#
+# Community plugins are NOT in the RHDH image — RHIDP-13262 removed them from
+# default.packages.yaml — so they exist only as artifacts published to ghcr.io by this
+# repo, and no other check covers them. The rhdh repo's sanity check (RHIDP-13508) is
+# driven by the catalog index, which carries only generally-available quay.io packages.
+#
+# The operative definition of "load test" for this tier is: the published artifact
+# installs and boots. That is what this sweep asserts, with no cluster and no Docker:
+#
+#   - all community packages       install from OCI + valid dynamic-plugin layout
+#   - community backend packages   real boot via startTestBackend
+#   - community frontend packages  bundle-layout validation only (legacy Scalprum
+#                                  and/or module federation). No UI render — that is
+#                                  RHIDP-16009, blocked on RHIDP-15082.
+#
+# Selection is metadata-driven (spec.support), so a new workspace is covered the day
+# its metadata lands instead of waiting for someone to hand-write a smoke test.
+name: Community Plugin Sweep
+
+on:
+  schedule:
+    # Daily at 03:00 UTC. Deliberately clear of the repo's 06:00-06:15 cluster
+    # (label-mandatory-workspace-prs, seed-coverage-main, e2e-triage-agent) so six
+    # long-running shards do not compete with them for runners. update-plugins-repo-refs
+    # runs at 12:00 and 19:00 UTC, so a bump merged during the day is swept that night.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      support:
+        description: "Support level to sweep (spec.support in workspaces/*/metadata/*.yaml)."
+        type: choice
+        required: false
+        default: community
+        options:
+          - community
+          - generally-available
+          - tech-preview
+          - dev-preview
+      shards:
+        description: "Number of parallel shards. Workspaces are balanced by package count."
+        type: string
+        required: false
+        default: "6"
+
+concurrency:
+  # A sweep takes a while; never stack two of them.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.support || 'community' }}
+  cancel-in-progress: false
+
+# Least privilege at the top; only the sweep job talks to a registry, so it takes
+# packages: read for itself.
+permissions:
+  contents: read
+
+env:
+  SUPPORT: ${{ inputs.support || 'community' }}
+  SHARDS: ${{ inputs.shards || '6' }}
+  EXCLUDES: plugin-sweep-excludes.txt
+
+jobs:
+  plan:
+    # Cheap: resolves metadata only, pulls nothing. Emits the shard matrix so each
+    # sweep job knows its index, and fails early on a malformed exclusions file.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      shard-count: ${{ steps.plan.outputs.shard-count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install dependencies
+        # --mode=skip-build: this job only resolves metadata / merges JSON, so no
+        # dependency needs its install-time build script (Sonar S6505).
+        run: yarn install --immutable --mode=skip-build
+
+      - name: Resolve shard plan
+        id: plan
+        run: |
+          set -euo pipefail
+          # A fat-fingered dispatch input would otherwise launch that many 60-minute
+          # runners, or blow past GitHub's 256-job matrix cap and die in strategy
+          # evaluation with no pointer at the cause.
+          if ! [ "$SHARDS" -ge 1 ] 2>/dev/null || [ "$SHARDS" -gt 20 ]; then
+            echo "::error::--shards must be between 1 and 20, got '$SHARDS'"
+            exit 1
+          fi
+          # Build separately, then run the bundle directly: `yarn sweep` would also
+          # run the build, and anything it ever prints on stdout would land in plan.json.
+          yarn build
+          node dist/sweep.mjs --support "$SUPPORT" --shards "$SHARDS" --exclusions "$EXCLUDES" --plan > plan.json
+          cat plan.json
+          # Assign first: `set -e` keys off echo's status, so a failing command
+          # substitution inside `echo` would write an empty output and only surface a
+          # job later as `fromJSON('')` during strategy evaluation.
+          shards="$(jq -c '[.shards[].index]' plan.json)"
+          count="$(jq -r '.shards | length' plan.json)"
+          # An empty matrix is a hard strategy error ("does not contain any values"),
+          # which reads as a workflow bug rather than "this level has no packages".
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no packages found at support level '$SUPPORT'"
+            exit 1
+          fi
+          # The matrix carries only the shard indices; each job recomputes the same
+          # deterministic plan locally, so the workspace lists never travel as data.
+          { echo "shards=$shards"; echo "shard-count=$count"; } >> "$GITHUB_OUTPUT"
+
+      - name: Report plan
+        run: |
+          {
+            echo "## Sweep plan — \`$SUPPORT\`"
+            echo
+            jq -r '"\(.totals.workspaces) workspaces, \(.totals.packages) packages, \(.shardCount) shards"' plan.json
+            echo
+            echo "| Role | Packages |"
+            echo "| --- | --- |"
+            jq -r '.totals.byRole | to_entries[] | "| \(.key) | \(.value) |"' plan.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  sweep:
+    needs: plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # skopeo login ghcr.io with GITHUB_TOKEN. Artifact up/download authenticate with
+      # ACTIONS_RUNTIME_TOKEN, so they need no scope here.
+      packages: read
+    # One shard installs ~18 packages and boots each workspace's backends. Generous:
+    # a hung startTestBackend should surface as a timeout, not as a cancelled sweep.
+    timeout-minutes: 60
+    strategy:
+      # Never cancel siblings: the point of a sweep is the full picture, and one bad
+      # plugin must not hide the verdict on the other 100.
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        # Published plugins pull anonymously; authenticating only avoids rate limits,
+        # which a 100-artifact sweep is far more likely to hit than a single run.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin \
+            || echo "::warning::ghcr.io login failed — pulling anonymously; rate-limit \
+                     failures may appear as per-plugin install errors in the report"
+
+      - name: Install dependencies
+        # Booting plugins through startTestBackend needs better-sqlite3, which compiles
+        # a native binding during install — with build scripts off, every boot fails
+        # with "Could not locate the bindings file" (verified). Rather than enable
+        # lifecycle scripts for the whole tree (Sonar S6505), install with them off and
+        # rebuild only the one dependency that genuinely needs it.
+        run: |
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
+
+      - name: Run sweep shard
+        # Non-zero on any failing workspace. The shard summary is written either way,
+        # so the aggregate job sees the failures rather than an absent artifact.
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          yarn sweep \
+            --support "$SUPPORT" \
+            --shards "$SHARDS" \
+            --shard "$SHARD" \
+            --exclusions "$EXCLUDES" \
+            --out-dir "results/$SUPPORT"
+
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sweep-${{ env.SUPPORT }}-shard-${{ matrix.shard }}
+          path: smoke-tests-native/results/**/*.json
+          # `warn`, not `error`: a shard that produced nothing is already caught by the
+          # aggregate job's --expect-shards, and failing here too would just add a
+          # second red step on top of the real one.
+          if-no-files-found: warn
+          retention-days: 7
+
+  aggregate:
+    needs: [plan, sweep]
+    # Runs even when shards failed — the aggregate report is most useful precisely
+    # then, and it is what turns N red jobs into one readable list. It does need the
+    # plan, though: without shard-count there is nothing to hold the results against.
+    if: '!cancelled() && needs.plan.result == ''success'''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install dependencies
+        # --mode=skip-build: this job only resolves metadata / merges JSON, so no
+        # dependency needs its install-time build script (Sonar S6505).
+        run: yarn install --immutable --mode=skip-build
+
+      - name: Download shard results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          # One subdirectory per shard (merge-multiple defaults to false); the
+          # aggregator walks them recursively.
+          pattern: sweep-${{ env.SUPPORT }}-shard-*
+          path: smoke-tests-native/shards
+
+      - name: Aggregate
+        # --expect-shards makes a shard whose artifact never uploaded a hard failure
+        # instead of a quietly smaller total.
+        env:
+          SHARD_COUNT: ${{ needs.plan.outputs.shard-count }}
+        run: |
+          # Aggregation exits non-zero when any workspace failed. Capture that instead
+          # of letting `set -e` abort the step, so the summary — the whole point of this
+          # job — still reaches the run page, then fail with the same code.
+          set +e
+          yarn aggregate \
+            --in shards \
+            --out aggregate.json \
+            --summary summary.md \
+            --expect-shards "$SHARD_COUNT"
+          status=$?
+          set -e
+          if [ -f summary.md ]; then cat summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+          exit $status
+
+      - name: Upload aggregate
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sweep-${{ env.SUPPORT }}-aggregate
+          path: |
+            smoke-tests-native/aggregate.json
+            smoke-tests-native/summary.md
+          if-no-files-found: warn
+          retention-days: 7

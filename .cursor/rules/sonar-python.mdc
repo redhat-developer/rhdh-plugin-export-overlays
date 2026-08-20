@@ -1,0 +1,37 @@
+---
+description: SonarCloud Python maintainability habits (duplicated literals, cognitive complexity, etc.)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# SonarCloud Python conventions
+
+Write Python that stays clean under common SonarCloud rules (especially maintainability). Prefer fixing smells while authoring, not after CI.
+
+## Duplicated string literals (python:S1192)
+
+If the same non-trivial string literal appears **3+ times**, define a module-level constant and reuse it.
+
+```python
+ALL_YAML_FILENAME = "all.yaml"
+# ...
+if f.name == ALL_YAML_FILENAME:
+    continue
+path = dir_path / ALL_YAML_FILENAME
+```
+
+Short separators (`"/"`, `":"`, `"\n"`) are fine as literals.
+
+## Other high-frequency smells to avoid
+
+- **Unused imports / variables** — do not leave dead code.
+- **Cognitive complexity** — extract helpers instead of deeply nested blocks.
+- **Identical branches / duplicated blocks** — share a function.
+- **Bare `except:`** — catch specific exceptions (or at least `Exception`) and log/re-raise when appropriate.
+- **Collapsible ifs** — merge nested `if` when conditions can be combined.
+- **Mutable default args** — use `None` then assign inside the function.
+
+## After writing new Python
+
+Prefer running the local unit tests for the touched module. If a Sonar issue is known from a recent PR (e.g. duplicated literals), fix it in the same change.
+---

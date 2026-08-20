@@ -36,14 +36,27 @@ REASON_ANCHORS = {
 }
 
 
-def reason_to_link(reason: str, troubleshooting_content: str) -> str:
-    """Convert a failure reason to an in-page troubleshooting anchor link if it matches a known prefix.
-    Only links if troubleshooting content is embedded in the page."""
-    if not troubleshooting_content:
-        return reason
+def reason_to_link(
+    reason: str,
+    troubleshooting_content: str,
+    ghcr_version_ids: dict[str, int] | None = None,
+) -> str:
+    """Convert a failure reason to links for the troubleshooting section and the missing image.
+
+    For known prefixes such as ``Image not found in registry: <ref>``, returns two links:
+    one to the in-page troubleshooting anchor, and one to the 404'd OCI reference.
+    Only adds the troubleshooting anchor when troubleshooting content is embedded.
+    """
     for prefix, anchor in REASON_ANCHORS.items():
-        if reason.startswith(prefix):
-            return f"[{reason}](#{anchor})"
+        if not reason.startswith(prefix):
+            continue
+        remainder = reason[len(prefix):].lstrip()
+        if remainder.startswith(":"):
+            remainder = remainder[1:].strip()
+        error_link = f"[{prefix}](#{anchor})" if troubleshooting_content else prefix
+        if remainder:
+            return f"{error_link}: {oci_ref_to_link(remainder, ghcr_version_ids)}"
+        return error_link
     return reason
 
 
@@ -255,7 +268,7 @@ def render_tier(
             ver = p.get("version", "")
             stage_label, reason = first_failed_stage(p.get("stages", {}))
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
-            reason_link = reason_to_link(reason, troubleshooting_content)
+            reason_link = reason_to_link(reason, troubleshooting_content, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | {ver} | {stage_label} | {reason_link} |")
         lines.append("")
 

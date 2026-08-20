@@ -1,5 +1,4 @@
-# Presence of this file skips metadata auto-generation (which would enable
-# auth-backend-module-keycloak-provider and inject AUTH_KEYCLOAK_* config).
-# Catalog Keycloak comes from rhdh-e2e-test-utils auth/keycloak setup instead.
-# Login uses OIDC from that same setup — not the Keycloak auth provider module.
+# Auth provider metadata exists for publish, but E2E keeps the standard OIDC path
+# (e2e-test-utils keycloak auth profile) until RHIDP-11651. An empty list here
+# prevents metadata auto-generation from enabling the auth provider plugin.
 plugins: []
