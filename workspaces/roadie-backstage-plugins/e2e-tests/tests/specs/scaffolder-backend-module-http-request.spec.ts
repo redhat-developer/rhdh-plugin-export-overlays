@@ -25,9 +25,9 @@ test.describe("Testing scaffolder-backend-module-http-request to invoke an exter
     uiHelper,
   }) => {
     test.setTimeout(130000);
-    await uiHelper.clickLink({
-      ariaLabel: "Self-service",
-    });
+    // Navigate directly to /create instead of clicking "Self-service" link
+    // (global-header is disabled in NFS tests to avoid RHDHBUGS-3603)
+    await uiHelper.goToPageUrl("/create");
     // NFS app uses the scaffolder's default heading ("Create").
     await uiHelper.verifyHeading("Create");
     await uiHelper.verifyHeading("Templates");
