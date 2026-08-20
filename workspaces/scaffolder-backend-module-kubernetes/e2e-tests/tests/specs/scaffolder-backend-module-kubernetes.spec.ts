@@ -44,13 +44,8 @@ test.describe("Test Kubernetes Actions plugin", () => {
         0,
         63,
       );
-    // Legacy uses global-header ("Self-service"); NFS uses the scaffolder's default heading ("Create").
-    const expectedHeading =
-      // eslint-disable-next-line playwright/no-conditional-in-test -- NFS heading differs from legacy
-      testInfo.project.name === "scaffolder-k8s-app-next"
-        ? "Create"
-        : "Self-service";
-    await uiHelper.verifyHeading(expectedHeading);
+    // NFS app uses the scaffolder's default heading ("Create").
+    await uiHelper.verifyHeading("Create");
     await uiHelper.clickBtnInCard("Create a kubernetes namespace", "Choose");
     await uiHelper.waitForTitle("Create a kubernetes namespace", 2);
 
