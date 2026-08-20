@@ -2,7 +2,6 @@ import {
   expect,
   Locator,
   Page,
-  test,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ORCHESTRATOR_COMPONENTS } from "./orchestrator-obj.js";
@@ -14,10 +13,23 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
+    private readonly nfsLane: boolean,
   ) {}
 
+  static forProject(
+    page: Page,
+    uiHelper: UIhelper,
+    projectName: string,
+  ): OrchestratorPO {
+    return new OrchestratorPO(
+      page,
+      uiHelper,
+      projectName.endsWith("-app-next"),
+    );
+  }
+
   private isNfsLane(): boolean {
-    return test.info().project.name === "orchestrator-app-next";
+    return this.nfsLane;
   }
 
   private workflowsCatalogControl(): Locator {
