@@ -91,6 +91,17 @@ const getThirdPartyOwners = function(codeownersText){
 
 const thirdPartyOwners = getThirdPartyOwners(CODEOWNERS)
 
+// Returns true if `current` (major.minor) is strictly behind `target` (major.minor).
+// Compares major and minor as separate integers rather than parsing the whole
+// string as a float or number, since e.g. parseFloat("1.9") > parseFloat("1.10")
+// even though 1.10 is the newer minor version.
+const isVersionBehind = (current, target) => {
+  const [currentMajor, currentMinor] = current.split('.').map(Number)
+  const [targetMajor, targetMinor] = target.split('.').map(Number)
+
+  return currentMajor < targetMajor || (currentMajor === targetMajor && currentMinor < targetMinor)
+}
+
 // Compares each 3rd party workspace's current Backstage version (from
 // source.json) against targetBsVersion, and returns the ones that are behind.
 const getWorkspacesBsVersion = (thirdPartyWorkspaces, targetBsVersion) => {
@@ -111,7 +122,7 @@ const getWorkspacesBsVersion = (thirdPartyWorkspaces, targetBsVersion) => {
     }
     const workspaceBsVersion = currentVersion.split('.').slice(0, 2).join('.')
 
-    if (workspaceBsVersion != targetBsVersion){
+    if (isVersionBehind(workspaceBsVersion, targetBsVersion)){
       ownersToNotify.push({ workspace, owners, currentVersion, repo: source.repo })
     }
   }
