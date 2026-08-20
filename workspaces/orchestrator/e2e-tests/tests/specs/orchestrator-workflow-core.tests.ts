@@ -20,7 +20,11 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -50,7 +54,11 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -157,7 +165,11 @@ export function registerOrchestratorCoreWorkflowTests(
     let orchestratorPo: OrchestratorPO;
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await loginHelper.loginAsKeycloakUser();
     });
 

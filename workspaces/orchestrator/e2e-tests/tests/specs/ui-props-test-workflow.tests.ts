@@ -59,7 +59,11 @@ export function registerUiPropsTestWorkflowTests(): void {
 
     test("ui:props test workflow", async ({ page, uiHelper }) => {
       test.setTimeout(300_000);
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await page
         .getByRole("button", { name: "Administration" })
         .first()

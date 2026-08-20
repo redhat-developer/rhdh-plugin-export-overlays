@@ -51,7 +51,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         selectLanguage: true,
@@ -66,7 +70,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
       await expect(
         page.getByRole("heading", { name: /Greeting Test Picker/i }),
@@ -83,7 +91,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openTemplateFromCatalogByName(
         /Greeting workflow/i,
         "My Org Catalog",
@@ -104,7 +116,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
       await orchestratorPo.clickWorkflowsCatalogControl();
@@ -129,7 +145,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         submitCreate: false,
@@ -153,7 +173,11 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = OrchestratorPO.forProject(
+        page,
+        uiHelper,
+        test.info().project.name,
+      );
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
       await orchestratorPo.verifyWorkflowsCatalogControlVisible();
