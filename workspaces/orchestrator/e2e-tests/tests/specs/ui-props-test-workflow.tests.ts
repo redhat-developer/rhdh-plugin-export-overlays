@@ -9,8 +9,8 @@ import {
   globalWorkflowPolicies,
   type PolicySpec,
   waitForLokiWorkflowLogs,
+  createOrchestratorPO,
 } from "../support/utils/test-helpers.js";
-import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 
 const ensureDataIndexOrSkip = createDataIndexGuard();
 
@@ -59,16 +59,8 @@ export function registerUiPropsTestWorkflowTests(): void {
 
     test("ui:props test workflow", async ({ page, uiHelper }) => {
       test.setTimeout(300_000);
-      const orchestratorPo = OrchestratorPO.forProject(
-        page,
-        uiHelper,
-        test.info().project.name,
-      );
-      await page
-        .getByRole("button", { name: "Administration" })
-        .first()
-        .click();
-      await uiHelper.openSidebar("Orchestrator");
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
+      await orchestratorPo.openOrchestratorFromSidebar();
       await expect(
         page.getByRole("cell", { name: "Test Object Type Support" }),
       ).toBeVisible();

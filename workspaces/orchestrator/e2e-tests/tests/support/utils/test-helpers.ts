@@ -15,6 +15,8 @@ import {
   Policy,
   Response,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { OrchestratorPO } from "../pages/orchestrator-po.js";
+
 export {
   configureOrchestratorLoki,
   waitForLokiWorkflowLogs,
@@ -234,13 +236,22 @@ export async function setupAuthenticatedPage(
   return { page, uiHelper, loginHelper, apiToken };
 }
 
+export function createOrchestratorPO(
+  page: Page,
+  uiHelper: UIhelper,
+): OrchestratorPO {
+  return OrchestratorPO.forProject(page, uiHelper, test.info().project.name);
+}
+
 export async function launchGreetingTemplateFromSelfService(
   page: Page,
   uiHelper: UIhelper,
 ): Promise<void> {
-  await uiHelper.clickLink({ ariaLabel: "Self-service" });
-  await uiHelper.verifyHeading("Self-service");
+  await page.goto("/create");
   await page.waitForLoadState("domcontentloaded");
+  await expect(
+    page.getByRole("heading", { name: /Self-service|Create/i }).first(),
+  ).toBeVisible({ timeout: 30_000 });
   await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
   await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
 }

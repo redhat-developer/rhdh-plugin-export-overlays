@@ -336,9 +336,7 @@ export class OrchestratorPO {
   async openGreetingTemplateFromCatalog(
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       /Greeting Test Picker/i,
@@ -348,9 +346,11 @@ export class OrchestratorPO {
     await this.page.waitForLoadState("domcontentloaded");
   }
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await this.uiHelper.verifyHeading("Self-service");
+    await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
+    await expect(
+      this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
+    ).toBeVisible({ timeout: 30_000 });
     await this.uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
@@ -361,9 +361,7 @@ export class OrchestratorPO {
     templateName: string | RegExp,
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       templateName,
@@ -371,6 +369,15 @@ export class OrchestratorPO {
     await expect(templateLink).toBeVisible({ timeout: 30_000 });
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  private async openCatalogTemplates(
+    catalogHeading: string | RegExp,
+  ): Promise<void> {
+    await this.page.goto("/catalog");
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.uiHelper.verifyHeading(catalogHeading);
+    await this.uiHelper.selectMuiBox("Kind", "Template");
   }
 
   async fillGreetingTemplateFormAndSubmit(options?: {
