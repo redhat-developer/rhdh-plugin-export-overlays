@@ -3,6 +3,9 @@ app:
     - page:scaffolder:
         config:
           title: Self-service # TODO: Should be handled by some RHDH defaults in the future
+    - entity-content:quay:
+        config:
+          title: Image Registry # TODO: Should be handled by some RHDH defaults in the future
 proxy:
   skipInvalidProxies: true
   endpoints:
