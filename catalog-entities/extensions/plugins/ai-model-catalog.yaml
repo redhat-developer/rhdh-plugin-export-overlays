@@ -71,6 +71,8 @@ spec:
  packages: # link to the name used in the associated package documents in ../packages
    - red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog
    - red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend
+   - red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-resource-extensions
+   - red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-resource-agent
    - red-hat-developer-hub-backstage-plugin-kserve-kubeflow-connector-backend
    - red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server
 

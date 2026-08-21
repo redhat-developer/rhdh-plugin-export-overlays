@@ -243,11 +243,12 @@ test("buildAggregate sorts failures and frontend packages deterministically", ()
             valid: 2,
             errors: [],
             bundles: [
-              { name: "@s/z", version: "1", systems: ["legacy"] },
+              { name: "@s/z", version: "1", systems: ["legacy"], mf: null },
               {
                 name: "@s/a",
                 version: "1",
                 systems: ["legacy", "new-frontend-system"],
+                mf: null,
               },
             ],
           },
@@ -351,17 +352,19 @@ test("renderMarkdown puts each computed number in its own row", () => {
               valid: 3,
               errors: [],
               bundles: [
-                { name: "@s/l1", version: "1", systems: ["legacy"] },
-                { name: "@s/l2", version: "1", systems: ["legacy"] },
+                { name: "@s/l1", version: "1", systems: ["legacy"], mf: null },
+                { name: "@s/l2", version: "1", systems: ["legacy"], mf: null },
                 {
                   name: "@s/n",
                   version: "1",
                   systems: ["new-frontend-system"],
+                  mf: null,
                 },
                 {
                   name: "@s/d",
                   version: "1",
                   systems: ["legacy", "new-frontend-system"],
+                  mf: null,
                 },
               ],
             },

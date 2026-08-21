@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.52.0__1.0.0
-  version: 1.0.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.52.0__1.0.1
+  version: 1.0.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.52.0
@@ -33,4 +33,5 @@ spec:
           providers:
             modelCatalog:
               developement:
-                baseUrl: http://localhost:9090
+                my-cluster:
+                  kubeflow-model-catalog-url: http://localhost:9090

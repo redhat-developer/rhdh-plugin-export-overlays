@@ -10,7 +10,7 @@
  * unreachable from a test runner.
  */
 
-import type { PluginEntry, PluginError } from "./loader";
+import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { Status } from "./report";
 
 /**
@@ -74,4 +74,42 @@ export function partitionBootable<T>(
     else bootable.push(entry);
   }
   return { skipped, excluded, bootable };
+}
+
+/**
+ * Describe why a served module-federation remote may contribute nothing to the new
+ * frontend system, or null when there is nothing to say.
+ *
+ * Never a failure. The remote is a valid artifact — the router serves it — and what is or
+ * is not mountable is a property of the plugin's own source. Failing it would turn several
+ * workspaces red for work that belongs upstream.
+ *
+ * The two cases are worded differently on purpose, because only one of them is knowable
+ * from metadata. RHDH's `nfsModuleFilter` returns no resolver at all when
+ * `backstage.features` is absent or empty, so the router then advertises EVERY exposed
+ * module and `@backstage/frontend-dynamic-feature-loader` decides at runtime by the
+ * `$$type` of each module's default export. Reporting that as "mounts nothing" would state
+ * a guess as a fact.
+ */
+export function describeNfsShortfall(mf: MfRemoteInfo | null): string | null {
+  if (!mf?.servable) return null;
+  // A failure to read backstage.features is not a finding about the artifact. Saying
+  // anything here would turn "we could not look" into "it declares nothing".
+  if (mf.nfsFeaturesError) return null;
+  if (mf.nfsFeatures.length === 0) {
+    return (
+      "the remote is served but declares no backstage.features, so nfsModuleFilter " +
+      "installs no filter and every exposed module is advertised — whether the new " +
+      "frontend system mounts any of them cannot be determined without executing the bundle"
+    );
+  }
+  if (mf.nfsFeaturesExposed.length === 0) {
+    return (
+      "the remote is served and declares NFS entry points, but does not expose them " +
+      `(declared ${mf.nfsFeatures.join(", ")}; exposes ${
+        mf.exposes.join(", ") || "nothing"
+      }) — nfsModuleFilter will keep no modules, so the new frontend system will mount nothing`
+    );
+  }
+  return null;
 }
