@@ -32,7 +32,7 @@ function dynamicPluginsFor(namespace: string): { dynamicPlugins?: string } {
   if (nfs) {
     return { dynamicPlugins: "tests/config/dynamic-plugins-app-next.yaml" };
   }
-  return {};
+  return { dynamicPlugins: "tests/config/dynamic-plugins.yaml" };
 }
 
 function lightspeedDeployConfig(namespace: string) {

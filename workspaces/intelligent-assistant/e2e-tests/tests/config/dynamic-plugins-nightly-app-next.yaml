@@ -2,5 +2,7 @@
 # re-list it). Pin app-defaults so the host drawer is present when inherit
 # is unavailable (RHIDP-15482).
 plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-oidc-provider-dynamic
+    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
     enabled: true

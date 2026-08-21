@@ -1,6 +1,9 @@
 # NFS lane only (see test-helper). Lists workspace plugins so metadata
 # appConfigExamples still inject, plus app-defaults for app-root-wrapper:app/drawer.
 plugins:
+  # Image-baked OIDC module; catalog-index DPDY no longer enables it.
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-oidc-provider-dynamic
+    disabled: false
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend-dynamic

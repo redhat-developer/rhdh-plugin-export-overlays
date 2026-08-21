@@ -1,0 +1,10 @@
+# Legacy lane. Catalog-index DPDY no longer enables the image-baked OIDC
+# module, so Keycloak sign-in 404s with "Unknown auth provider 'oidc'".
+# Same local dist path as workspaces/backstage microsoft e2e.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-oidc-provider-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant
+    enabled: true
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend-dynamic
+    enabled: true
