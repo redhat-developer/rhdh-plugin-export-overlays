@@ -1,3 +1,7 @@
 # Intelligent-assistant is already in dynamic-plugins.default.yaml from the catalog index.
 # Do not add workspace metadata plugins here — nightly would duplicate OCI entries.
-plugins: []
+#
+# RHDH 1.11 dropped the local dist copy of oidc-provider; pin overlays OCI.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
+    disabled: false

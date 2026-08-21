@@ -1,8 +1,16 @@
 # Helm overrides for RHDH chart built-in Lightspeed (LCS sidecar + RAG init).
 # LLM credentials: rhdh-secrets.yaml (envsubst) — not lightspeed.servers in app-config.
+#
+# Each Playwright project deploys into its own namespace, so the sidecar's
+# EmptyDir vector stores stay isolated between the legacy and NFS lanes.
 global:
   lightspeed:
     enabled: true
+    # Chart default still injects plugin-lightspeed:{{inherit}}. That package is
+    # gone from dynamic-plugins.default.yaml (renamed to intelligent-assistant),
+    # so inherit fails the install-dynamic-plugins init container. Keep the
+    # sidecar; load IA from workspace metadata / catalog index instead.
+    plugins: []
     secret:
       # Use the same secret e2e applies via rhdh-secrets.yaml (includes VLLM_* keys).
       create: false
