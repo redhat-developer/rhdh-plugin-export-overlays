@@ -802,7 +802,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9b9f29f1bdcf2b6bf620ff4cc1467a469d5ba3aeca376af68b4b2a757c50228a"
+          "digest": "sha256:38bd5869be60096ab77230ca0b84b1a79f9480a6a9b3d9d7638b81f6c6495de5"
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
@@ -1238,7 +1238,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:474c4f36bbfffbc04a64e2c3b9b22436b2cc4770f067ede6c1cc0ac4d64ff5b0"
+          "digest": "sha256:52b1baff176c2da2089cb05433a9877d1652e2c3c14aaacc77c47cb0a161a62a"
         },
         "dpdy": {
           "status": "pass"
@@ -1256,11 +1256,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.2.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__4.0.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e4e4cb44742a23d74507b7343c818e75c8d3816b2697841930fbdb70b357728f"
+          "digest": "sha256:cfcc34112081909beb249507221e206a860b03e77370ee50f06efd04070d92c6"
         },
         "dpdy": {
           "status": "pass"
@@ -1270,7 +1270,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend",
-      "version": "3.2.0",
+      "version": "4.0.0",
       "workspace": "intelligent-assistant",
       "overall": "pass"
     },
@@ -1278,11 +1278,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.2.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__4.0.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2829bc8f1141e5c713108e497befc87a23d0bb291c3295fa97f20a6e7e6b16a5"
+          "digest": "sha256:983711ff556158aa8c7f73710db6156e5ced4a6eb64847ccf48a2d69b77370f0"
         },
         "dpdy": {
           "status": "pass"
@@ -1292,7 +1292,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant",
-      "version": "3.2.0",
+      "version": "4.0.0",
       "workspace": "intelligent-assistant",
       "overall": "pass"
     },
