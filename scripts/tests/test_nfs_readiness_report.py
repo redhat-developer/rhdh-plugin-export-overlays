@@ -277,3 +277,17 @@ class TestJsonOut:
         result = _run_allow_failure(root, "--json-out")
         assert result.returncode != 0
         assert "--json-out needs a path" in result.stderr
+
+    @staticmethod
+    def test_a_flag_is_not_accepted_as_the_path(tmp_path):
+        """``--json-out --oci`` must not write a file named ``--oci`` and drop the flag.
+
+        That is worse than the missing-value case it looked like: the run succeeds, the
+        report is generated *without* pulling anything, and every package comes back
+        unclassified — a scan that read nothing, reported as a scan.
+        """
+        root = _repo(tmp_path, [])
+        result = _run_allow_failure(root, "--json-out", "--oci")
+        assert result.returncode != 0
+        assert "--json-out needs a path" in result.stderr
+        assert not (root / "--oci").exists()

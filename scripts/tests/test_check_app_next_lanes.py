@@ -108,7 +108,18 @@ class TestVerdicts:
         rows = [pkg("acr", "@c/plugin-acr", "unknown")]
         v = verdict_for(evaluate(tmp_path, rows), "acr")
         assert v.verdict == UNKNOWN
-        assert "--oci" in v.reason
+        assert "unclassified" in v.reason
+
+    def test_one_unclassified_package_holds_back_a_blocked_verdict(self, tmp_path):
+        # Two packages establish no NFS surface, one is unjudged — so the workspace
+        # might still have one, and blocking would be a guess.
+        make_workspace(tmp_path, "ws", ["ws-app-next"])
+        rows = [
+            pkg("ws", "@c/a", "no-features"),
+            pkg("ws", "@c/b", "no-features"),
+            pkg("ws", "@c/c", "unknown"),
+        ]
+        assert verdict_for(evaluate(tmp_path, rows), "ws").verdict == UNKNOWN
 
     def test_a_ready_package_wins_over_an_unclassified_sibling(self, tmp_path):
         # One artifact that demonstrably exposes an entry point is enough to justify the
@@ -129,10 +140,42 @@ class TestVerdicts:
         assert v.verdict == READY
         assert "shell" in v.reason
 
-    def test_a_workspace_with_no_readiness_row_at_all_is_not_blocked(self, tmp_path):
-        # Absent from the report is absent evidence, not evidence of absence.
+    def test_a_workspace_absent_from_the_report_is_unknown_not_ready(self, tmp_path):
+        # It used to share the backend-only branch, so an empty or truncated readiness
+        # file passed every lane in the repo — the check failing open, silently.
         make_workspace(tmp_path, "ghost", ["ghost-app-next"])
-        assert verdict_for(evaluate(tmp_path, []), "ghost").verdict == READY
+        v = verdict_for(evaluate(tmp_path, []), "ghost")
+        assert v.verdict == UNKNOWN
+        assert "absent from the readiness report" in v.reason
+
+    def test_an_empty_report_does_not_pass_a_workspace_that_ships_frontends(
+        self, tmp_path
+    ):
+        make_workspace(tmp_path, "acr", ["acr-app-next"])
+        make_workspace(tmp_path, "roadie", ["roadie-app-next"])
+        assert all(v.verdict == UNKNOWN for v in evaluate(tmp_path, []))
+
+    def test_mixed_counts_as_an_nfs_surface(self, tmp_path):
+        # Some entry points NFS and some not is enough for a lane to mount something,
+        # so it must not fall through to "none of them exposes an NFS entry point".
+        make_workspace(tmp_path, "ws", ["ws-app-next"])
+        rows = [pkg("ws", "@c/p", "mixed")]
+        assert verdict_for(evaluate(tmp_path, rows), "ws").verdict == READY
+
+    def test_an_unrecognised_status_is_unclassified_rather_than_blocked(self, tmp_path):
+        # A status this check has never seen is not evidence that NFS is absent.
+        make_workspace(tmp_path, "ws", ["ws-app-next"])
+        rows = [pkg("ws", "@c/p", "some-future-status")]
+        assert verdict_for(evaluate(tmp_path, rows), "ws").verdict == UNKNOWN
+
+    def test_the_unclassified_message_does_not_blame_a_missing_oci_flag_alone(
+        self, tmp_path
+    ):
+        # In CI --oci is always passed, so unknown there means the pull failed. Advice
+        # to "run with --oci" would send the reader somewhere with nothing to find.
+        make_workspace(tmp_path, "acr", ["acr-app-next"])
+        v = verdict_for(evaluate(tmp_path, [pkg("acr", "@c/a", "unknown")]), "acr")
+        assert "or the pull failed" in v.reason
 
     def test_another_workspace_s_packages_do_not_count(self, tmp_path):
         make_workspace(tmp_path, "roadie", ["roadie-app-next"])
@@ -192,10 +235,10 @@ class TestOutput:
         assert "JSON array" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("status", ["no-features", "legacy-only", "mixed"])
-def test_only_nfs_ready_counts_as_ready(tmp_path, status):
-    # `mixed` is in the report's vocabulary but structurally unreachable today; if it
-    # ever starts appearing, it must not be silently promoted to ready.
+@pytest.mark.parametrize("status", ["no-features", "legacy-only"])
+def test_a_status_that_establishes_no_nfs_surface_blocks(tmp_path, status):
+    # These two are the report's way of saying it looked and there is nothing. Only
+    # they may produce a blocked verdict; anything else is not that claim.
     make_workspace(tmp_path, "ws", ["ws-app-next"])
     rows = [pkg("ws", "@c/p", status)]
     assert verdict_for(evaluate(tmp_path, rows), "ws").verdict == BLOCKED

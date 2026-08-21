@@ -45,7 +45,13 @@ while [[ $# -gt 0 ]]; do
     --oci) USE_OCI=true ;;
     --json-out)
       shift
-      [[ $# -gt 0 ]] || { echo "--json-out needs a path" >&2; exit 1; }
+      # Reject a flag as the value, not just a missing one: `--json-out --oci` would
+      # otherwise write a file literally named --oci and silently drop --oci, which is
+      # a scan that reads nothing reported as a successful one.
+      if [[ $# -eq 0 || "$1" == --* ]]; then
+        echo "--json-out needs a path" >&2
+        exit 1
+      fi
       JSON_OUT="$1"
       ;;
     --json-out=*) JSON_OUT="${1#--json-out=}" ;;

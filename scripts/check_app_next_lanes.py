@@ -53,6 +53,14 @@ READY = "ready"
 BLOCKED = "blocked"
 UNKNOWN = "unknown"
 
+#: Statuses that establish the workspace has an NFS surface to mount.
+#: ``mixed`` means some entry points are NFS and some are not — which is enough for a
+#: lane, so it must not fall through to "none of them exposes an NFS entry point".
+NFS_STATUSES = frozenset({"nfs-ready", "mixed"})
+
+#: Statuses that establish there is none. Anything outside both sets was not classified.
+NO_NFS_STATUSES = frozenset({"no-features", "legacy-only"})
+
 
 @dataclass
 class LaneVerdict:
@@ -84,12 +92,24 @@ def app_next_workspaces(repo_root: Path) -> dict[str, list[str]]:
 
 def judge(workspace: str, lanes: list[str], rows: list[dict]) -> LaneVerdict:
     """Decide whether this workspace's artifacts can serve an app-next lane."""
-    frontend = [r for r in rows if r.get("workspace") == workspace and r.get("frontend")]
+    mine = [r for r in rows if r.get("workspace") == workspace]
 
+    if not mine:
+        # The workspace is absent from the report entirely. That is indistinguishable
+        # from a truncated or empty input, so it cannot be read as "backend-only" —
+        # doing so let an empty readiness file pass every lane in the repo.
+        return LaneVerdict(
+            workspace,
+            lanes,
+            UNKNOWN,
+            "absent from the readiness report — nothing was classified for it",
+        )
+
+    frontend = [r for r in mine if r.get("frontend")]
     if not frontend:
-        # Backend-only workspaces legitimately run an app-next lane: it proves the
-        # backend modules still work under an NFS *shell*, which is a different claim
-        # from the packages themselves being NFS. Not a blocker.
+        # Classified, and none of it is frontend. keycloak ships only backend modules
+        # and runs keycloak-app-next: that lane proves the modules still work under an
+        # NFS *shell*, a different claim from the packages being NFS. Not a blocker.
         return LaneVerdict(
             workspace,
             lanes,
@@ -97,21 +117,27 @@ def judge(workspace: str, lanes: list[str], rows: list[dict]) -> LaneVerdict:
             "no frontend packages — the lane exercises the app-next shell, not the packages",
         )
 
-    ready = [r["packageName"] for r in frontend if r.get("status") == "nfs-ready"]
+    ready = [r["packageName"] for r in frontend if r.get("status") in NFS_STATUSES]
     if ready:
         return LaneVerdict(
-            workspace, lanes, READY, f"{len(ready)} nfs-ready package(s)", sorted(ready)
+            workspace, lanes, READY, f"{len(ready)} package(s) with an NFS surface", sorted(ready)
         )
 
-    unknown = [r["packageName"] for r in frontend if r.get("status") == UNKNOWN]
-    if unknown:
+    unclassified = [
+        r["packageName"] for r in frontend if r.get("status") not in NO_NFS_STATUSES
+    ]
+    if unclassified:
+        # Deliberately outranks blocked: with even one package unjudged the workspace
+        # might still have an NFS surface. The message names both causes because the
+        # JSON cannot tell them apart, and in CI — where --oci is always passed — it is
+        # the second one, so advising --oci alone would be wrong.
         return LaneVerdict(
             workspace,
             lanes,
             UNKNOWN,
-            f"{len(unknown)} of {len(frontend)} frontend package(s) unclassified — "
-            "run the readiness report with --oci to judge this lane",
-            sorted(unknown),
+            f"{len(unclassified)} of {len(frontend)} frontend package(s) unclassified — "
+            "the report was generated without --oci, or the pull failed for these",
+            sorted(unclassified),
         )
 
     return LaneVerdict(
