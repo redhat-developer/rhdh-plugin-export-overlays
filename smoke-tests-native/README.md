@@ -191,6 +191,22 @@ counts. Run on a schedule, that gives the NFS migration a continuously refreshed
 across the community frontend packages — data the migration has no other automated source
 for today.
 
+**Read the new-frontend-system count with its qualifier.** `systems` gains
+`new-frontend-system` from the presence of `dist/mf-manifest.json` — module-federation
+_layout_, which RHDH also uses to ship legacy Scalprum plugins — so on its own it
+overstates. Beside the counts the panel prints a `nfsSupport` split, also recorded per
+package in `aggregate.json`:
+
+|                | Meaning                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                      |
+| `undetermined` | the package declares no `backstage.features`, so `nfsModuleFilter` installs no filter, every exposed module is advertised, and the host decides at runtime — not knowable without executing the bundle |
+| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                       |
+
+Quote `confirmed` as migration progress. The 2026-08-21 community sweep was 46 dual, of
+which 19 confirmed and 27 undetermined — and ten of those 27 expose an `alpha` module, so
+calling them legacy would be as wrong as calling them migrated.
+
 #### Tracked exclusions
 
 `plugin-sweep-excludes.txt` lists packages the sweep skips, following the discipline of
