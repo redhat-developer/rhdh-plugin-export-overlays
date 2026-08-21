@@ -73,7 +73,31 @@ spec:
 
       Add the following configuration to your dynamic plugin yaml. Use the OCI image tags from the Homepage and Homepage Backend package entries in the Extensions catalog for your RHDH version if they differ from the examples below.
 
+      For the **new frontend system (app-next / NFS)**, enable the upstream Home plugin OCI and set `app.extensions` so Home is registered — legacy `dynamicRoutes` / `mountPoints` alone are not enough. The homepage alpha module extends `pluginId: home` (`page:home`, visits, layout blueprints) and requires `@backstage/plugin-home` to be loaded:
+
       ```yaml
+      plugins:
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
+          disabled: false
+        - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
+          disabled: false
+        # …homepage-backend as needed
+      ```
+
+      ```yaml
+      app:
+        extensions:
+          - page:home:
+              config:
+                path: /
+          - api:home/visits: true
+          - app-root-element:home/visit-listener: true
+          - home-page-layout:home/dynamic-homepage-layout:
+              config:
+                customizable: true
+      ```
+
+      Legacy Scalprum example:
       includes:
         - dynamic-plugins.default.yaml
       plugins:

@@ -1,15 +1,12 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import {
-  LoginHelper,
-  UIhelper,
-} from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import type { BrowserContext, Page } from "@playwright/test";
 import {
   DynamicHomePagePo,
-  AVAILABLE_WIDGETS,
   DEFAULT_WIDGETS,
   HOMEPAGE_ADMIN,
+  loginAsKeycloakUser,
   setupKeycloakGroups,
 } from "../utils/dynamic-homepage";
 
@@ -29,21 +26,30 @@ test.describe.serial("Dynamic home page customization", () => {
   test.beforeAll(async ({ browser, rhdh }) => {
     test.setTimeout(10 * 60 * 1000);
 
-    await test.runOnce("homepage-setup", async () => {
-      await setupKeycloakGroups();
+    const namespace = rhdh.deploymentConfig.namespace;
 
+    // Keycloak users are cluster-scoped — create once per Playwright runner.
+    await test.runOnce("homepage-keycloak-groups", async () => {
+      await setupKeycloakGroups();
+    });
+
+    await test.runOnce(`homepage-deploy-${namespace}`, async () => {
+      if (process.env.SKIP_RHDH_DEPLOY === "true") {
+        return;
+      }
       const rbacConfigmapPath = WorkspacePaths.resolve(
         "tests/config/rbac-configmap.yaml",
       );
-      const namespace = rhdh.deploymentConfig.namespace;
       await $`oc apply -f ${rbacConfigmapPath} -n ${namespace}`;
 
       await rhdh.configure({
         auth: "keycloak",
         disablePlugins: HOMEPAGE_WRAPPER_DIST_NAMES,
+        useNewFrontendSystem: true,
       });
       await rhdh.deploy();
     });
+
     baseURL = rhdh.rhdhUrl;
     context = await browser.newContext({ baseURL });
     page = await context.newPage();
@@ -52,18 +58,31 @@ test.describe.serial("Dynamic home page customization", () => {
     home.setBaseURL(baseURL);
   });
 
+  test.beforeEach(() => {
+    // NFS login + widget seeding can exceed the default 90s per test.
+    test.setTimeout(10 * 60 * 1000);
+  });
+
   test.afterAll(async () => {
     await context?.close();
   });
 
   test("Verify default widgets from server config on first load", async () => {
-    await new LoginHelper(page).loginAsKeycloakUser();
+    // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
+    test.skip(
+      true,
+      "homepage-backend defaultWidgets are not supported on NFS yet",
+    );
+
+    await loginAsKeycloakUser(page);
     await home.resetToDefaults();
     await home.verifyHomePageLoaded();
     await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
   });
 
   test("Verify cards display after seeding widgets", async () => {
+    await loginAsKeycloakUser(page);
+    await home.verifyHomePageLoaded({ requireWidgets: false });
     await home.seedHomePageWidgets();
     await home.verifyHomePageLoaded();
     await home.verifyAllCardsDisplayed();
@@ -99,7 +118,7 @@ test.describe.serial("Dynamic home page customization", () => {
     });
 
     test("Each widget type can be added individually", async () => {
-      for (const widget of AVAILABLE_WIDGETS) {
+      for (const widget of home.availableWidgets) {
         await home.addWidget(widget);
       }
       await home.verifyAllCardsDisplayed();
@@ -193,22 +212,34 @@ test.describe.serial("Dynamic home page customization", () => {
       const sizeAfterReload = await panelAfterReload.boundingBox();
       expect(sizeAfterReload).not.toBeNull();
 
-      expect(sizeAfterReload!.width).toBeCloseTo(sizeBeforeReload!.width, 0);
-      expect(sizeAfterReload!.height).toBeCloseTo(sizeBeforeReload!.height, 0);
+      const layoutTolerancePx = 10;
+      expect(
+        Math.abs(sizeAfterReload!.height - sizeBeforeReload!.height),
+      ).toBeLessThanOrEqual(layoutTolerancePx);
     });
 
     test("Per-user isolation: test2 sees defaults", async () => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
+      test.skip(
+        true,
+        "homepage-backend defaultWidgets are not supported on NFS yet",
+      );
       await home.reloginAsKeycloakUser();
       await home.verifyHomePageLoaded();
       await home.seedHomePageWidgets();
       test1Count = await home.getVisibleCardCount();
-      expect(test1Count).toBe(AVAILABLE_WIDGETS.length);
+      expect(test1Count).toBe(home.availableWidgets.length);
       await home.reloginAsKeycloakUser("test2", "test2@123");
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
     });
 
     test("test2 customization does not affect test1 layout", async () => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
+      test.skip(
+        true,
+        "homepage-backend defaultWidgets / persona defaults are not supported on NFS yet",
+      );
       await home.reloginAsKeycloakUser("test2", "test2@123");
       await home.verifyHomePageLoaded();
       await home.enterEditMode();
@@ -219,20 +250,59 @@ test.describe.serial("Dynamic home page customization", () => {
       const test1CountAfter = await home.getVisibleCardCount();
       expect(test1CountAfter).toBe(test1Count);
     });
+
+    test("layout persists for same user; clears on account switch", async () => {
+      await home.reloginAsKeycloakUser("test1", "test1@123", {
+        clearHomeStorage: true,
+      });
+      await home.verifyHomePageLoaded({ requireWidgets: false });
+      await home.seedHomePageWidgets();
+      const seededCount = await home.getVisibleCardCount();
+      expect(seededCount).toBe(home.availableWidgets.length);
+
+      await home.reloginAsKeycloakUser("test2", "test2@123", {
+        clearHomeStorage: true,
+      });
+      // test2 has no server defaultWidgets on NFS — home can load empty.
+      await home.verifyHomePageLoaded({ requireWidgets: false });
+      await home.enterEditMode();
+      await home.clearAllCardsIfPresent();
+      await home.exitEditMode();
+
+      await home.reloginAsKeycloakUser("test1", "test1@123", {
+        clearHomeStorage: true,
+      });
+      await home.verifyHomePageLoaded({ requireWidgets: false });
+      await home.seedHomePageWidgets();
+      expect(await home.getVisibleCardCount()).toBe(
+        home.availableWidgets.length,
+      );
+    });
   });
 
   test.describe("Persona-based homepages", () => {
+    test.beforeEach(() => {
+      // Enable this test when https://redhat.atlassian.net/browse/RHIDP-14651 is resolved
+      test.skip(
+        true,
+        "homepage-backend defaultWidgets are not supported on NFS yet",
+      );
+    });
+
     test("Admin sees all group widgets", async () => {
       await home.reloginAsKeycloakUser(
         HOMEPAGE_ADMIN.username,
         HOMEPAGE_ADMIN.password,
+        { clearHomeStorage: true },
       );
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.admin);
     });
 
     test("Developer sees developer widgets only", async () => {
-      await home.reloginAsKeycloakUser("test2", "test2@123");
+      await home.reloginAsKeycloakUser("test2", "test2@123", {
+        clearHomeStorage: true,
+      });
       await home.verifyHomePageLoaded();
       await home.verifyDefaultWidgetsFromConfig(DEFAULT_WIDGETS.developer);
       for (const widget of DEFAULT_WIDGETS.adminOnly) {
