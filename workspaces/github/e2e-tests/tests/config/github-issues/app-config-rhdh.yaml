@@ -1,3 +1,11 @@
+auth:
+  providers:
+    github:
+      production:
+        signIn:
+          resolvers:
+            - resolver: usernameMatchingUserEntityName
+
 catalog:
   import:
     entityFilename: catalog-info.yaml
