@@ -1,7 +1,8 @@
-# Microsoft auth provider still ships statically from RHDH core (no Package metadata yet);
-# local dist path exercises the image-baked copy. MS Graph uses metadata-resolved OCI in PR mode.
+# Microsoft auth provider and MS Graph catalog module — OCI refs from the backstage
+# workspace publish pipeline. The framework resolves these to PR-built images when
+# GIT_PR_NUMBER is set.
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-microsoft-provider-dynamic
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider:bs_1.52.0__0.3.16
     disabled: false
-  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph:bs_1.52.0__0.10.3
     disabled: false
