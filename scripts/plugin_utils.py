@@ -705,6 +705,25 @@ class BuildReport:
         for plugin_name in self._data.get("plugins", {}):
             self.set_stage(plugin_name, stage, status, **details)
 
+    def remove_stale_plugins(self, expected_plugins: set[str]) -> list[str]:
+        """Drop report plugins not in ``expected_plugins`` (renames/removals).
+
+        Mirrors ``remove_stale_plugin_builds``: when a package is renamed
+        (e.g. lightspeed → intelligent-assistant) or removed, bootstrap still
+        upserts the new keys into an existing ``build-report.json`` and would
+        otherwise leave orphan entries forever. Call this after the current
+        run's expected set is known.
+
+        Returns the sorted list of removed plugin names.
+        """
+        if not self.enabled:
+            return []
+        plugins = self._data.setdefault("plugins", {})
+        stale = sorted(name for name in plugins if name not in expected_plugins)
+        for name in stale:
+            del plugins[name]
+        return stale
+
     def save(self) -> None:
         """Compute per-plugin overall status and summary counts, then write to disk."""
         if not self.enabled:

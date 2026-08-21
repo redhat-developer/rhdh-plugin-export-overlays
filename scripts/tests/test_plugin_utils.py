@@ -412,3 +412,41 @@ class TestBuildReport:
 
         data = json.loads(report_path.read_text())
         assert data["status"] == "success"
+
+    def test_remove_stale_plugins_drops_renamed_entries(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("red-hat-developer-hub-backstage-plugin-lightspeed")
+        report.set_stage(
+            "red-hat-developer-hub-backstage-plugin-lightspeed",
+            "bootstrap",
+            "pass",
+            oci_ref="registry.access.redhat.com/rhdh/lightspeed:old",
+        )
+        report.add_plugin("red-hat-developer-hub-backstage-plugin-intelligent-assistant")
+        report.set_stage(
+            "red-hat-developer-hub-backstage-plugin-intelligent-assistant",
+            "bootstrap",
+            "pass",
+        )
+        removed = report.remove_stale_plugins(
+            {"red-hat-developer-hub-backstage-plugin-intelligent-assistant"}
+        )
+        report.save()
+
+        assert removed == ["red-hat-developer-hub-backstage-plugin-lightspeed"]
+        data = json.loads(report_path.read_text())
+        assert "red-hat-developer-hub-backstage-plugin-lightspeed" not in data["plugins"]
+        assert "red-hat-developer-hub-backstage-plugin-intelligent-assistant" in data["plugins"]
+        assert data["summary"]["total"] == 1
+
+    def test_remove_stale_plugins_noop_when_expected(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("plugin-a")
+        report.set_stage("plugin-a", "bootstrap", "pass")
+        assert report.remove_stale_plugins({"plugin-a"}) == []
+
+    def test_remove_stale_plugins_disabled_report(self):
+        report = BuildReport(None)
+        assert report.remove_stale_plugins({"anything"}) == []

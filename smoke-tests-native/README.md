@@ -5,7 +5,8 @@ Validates RHDH dynamic **backend** plugins in-process — install via the publis
 container and no cluster**. About **20x faster** than the per-workspace `docker run rhdh`
 smoke-test it replaces for that scope.
 
-**Tickets:** RHIDP-15075, RHIDP-15076, RHIDP-13530 (epic RHIDP-13501).
+**Tickets:** RHIDP-15075, RHIDP-15076, RHIDP-13530 (epic RHIDP-13501);
+RHIDP-13510 for the support-level sweep (epic RHIDP-13497).
 
 ## Why
 
@@ -23,22 +24,54 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
-  → validateFrontendBundle()  # legacy and/or new-FE bundle present (not executed)
+  → validateFrontendBundle()  # legacy bundle present; new-FE remote servable (not executed)
   → results.json + exit code
 ```
 
 ### Frontend bundle validation (both frontend systems)
 
-The presence check recognizes both packagings and records which one(s) each plugin
-ships in `results.json` (`frontend.bundles[].systems`):
+The check recognizes both packagings and records which one(s) each plugin ships in
+`results.json` (`frontend.bundles[].systems`):
 
-| System                                  | Required artifacts                              | Example plugin           |
-| --------------------------------------- | ----------------------------------------------- | ------------------------ |
-| Legacy (Scalprum)                       | `dist-scalprum/` + `plugin-manifest.json`       | most current plugins     |
-| New frontend system (module federation) | `dist/remoteEntry.js` + `dist/mf-manifest.json` | `app-auth` (new-FE only) |
-| Dual                                    | both layouts                                    | `tech-radar`             |
+| System                                  | Required artifacts                                                        | Example plugin           |
+| --------------------------------------- | ------------------------------------------------------------------------- | ------------------------ |
+| Legacy (Scalprum)                       | `dist-scalprum/` + `plugin-manifest.json`                                 | most current plugins     |
+| New frontend system (module federation) | `dist/mf-manifest.json` (the asset it names need not be `remoteEntry.js`) | `app-auth` (new-FE only) |
+| Dual                                    | both layouts                                                              | `tech-radar`             |
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
+
+The Scalprum half is a presence check. The module-federation half also validates the
+manifest's **shape**, because presence is not enough there: the remotes router in
+`@backstage/backend-dynamic-feature-service` logs and `continue`s past a manifest missing
+any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers `200 []`
+and the browser gets an app that boots cleanly with no plugins. It is reported per package
+as `frontend.bundles[].mf`:
+
+| Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | `mf-manifest.json` `name` — the host registers the remote under this                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `remoteEntry`        | `metaData.remoteEntry.name` — must exist on disk, under `metaData.remoteEntry.path` when that is set and contained within `dist/`. A missing or escaping asset is a **bundle** fault, not a router one — `servable` stays true, because the router resolves its own entry from `name` alone and never reads `path`. The router itself serves the manifest as the entry (its default `getRemoteEntryType()` is `"manifest"`); this asset is what the MF runtime fetches after reading it |
+| `exposes`            | module names the remote exposes; every entry must carry a `name`, but an empty list is valid                                                                                                                                                                                                                                                                                                                                                                                            |
+| `nfsFeatures`        | entry points whose `backstage.features` type the new frontend system mounts                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `nfsFeaturesExposed` | the subset of `nfsFeatures` the manifest actually exposes. Empty while `nfsFeatures` is not means NFS will definitively mount nothing; both empty means metadata cannot say (see below)                                                                                                                                                                                                                                                                                                 |
+| `servable`           | whether the **router** will serve the remote rather than skipping it — set only by the router's own guards, so a broken bundle does not flip it                                                                                                                                                                                                                                                                                                                                         |
+
+`servable` and the feature fields are reported apart because they are two different
+problems and both are silent at runtime. `servable: false` is an artifact defect and
+**fails** the run. A served remote that may contribute nothing **warns**, and the two
+cases read differently on purpose:
+
+- **declares NFS entry points but does not expose them** — `nfsModuleFilter` installs a
+  filter that keeps no modules, so NFS mounts nothing. Definitive.
+- **declares no `backstage.features` at all** — `nfsModuleFilter` returns no resolver, so
+  every exposed module is advertised and the frontend loader decides at runtime by each
+  module's `$$type`. Whether anything mounts **cannot be told from metadata**, and the
+  harness says so rather than guessing.
+
+Nine published frontend packages are in the second state today (`argocd`, `qe-theme`, the
+six `@roadiehq/*`, and `@backstage/plugin-techdocs-module-addons-contrib`). Failing either would turn six
+workspaces red for work that belongs upstream. See [`docs/nfs-e2e-triage.md`](../docs/nfs-e2e-triage.md).
 
 `src/loader.ts` and `src/{module-resolution,plugin-config}.ts` are ported from RHDH
 PR #4967; `discoverPlugins()` replaces RHDH's `loadManifest()` because this CLI version
@@ -54,6 +87,12 @@ frontend — that is the **NFS / app-next** path (RHIDP-15082), intentionally ou
 
 Requires Node 24 and Yarn 4 (matching the repo's `versions.json` and the sibling
 `workspaces/*/e2e-tests`), plus registry access to pull the OCI plugin images.
+
+`better-sqlite3` is opted into building via `dependenciesMeta` in `package.json`: Yarn
+4.17.1 made `enableScripts: false` the default, and without its native binding every
+`startTestBackend()` boot fails with `Could not locate the bindings file`. The opt-in is
+per package rather than a blanket `enableScripts: true`, so nothing else in the tree runs
+install scripts.
 
 ```bash
 yarn install
@@ -87,6 +126,88 @@ Workspace mode also auto-discovers the workspace's Docker-smoke test config —
 `workspaces/<name>/smoke-tests/app-config.test.yaml` and `smoke-tests/test.env` —
 when present. Explicit `--app-config`/`--test-env` flags win over discovered files.
 
+### Support-level sweep (RHIDP-13510)
+
+Community-supported plugins are **not in the RHDH image** — RHIDP-13262 removed them from
+`default.packages.yaml` — so they exist only as artifacts this repo publishes to ghcr.io,
+and nothing else validates them. The rhdh repo's sanity check (RHIDP-13508) sweeps the
+catalog index, which by design carries only generally-available `quay.io/rhdh` packages:
+zero overlap.
+
+`yarn sweep` closes that gap by selecting packages from metadata and driving the harness
+once per workspace:
+
+```bash
+yarn sweep --support community --shards 6 --plan      # print the shard plan, run nothing
+yarn sweep --support community --shards 6 --shard 0   # run one shard
+yarn sweep --support community                        # run everything in one shard
+yarn aggregate --in results --summary summary.md \
+  --expect-shards 6                                   # merge; fail if a shard is missing
+```
+
+The selection reads `spec.support` from the workspace metadata rather than the
+repo-root `rhdh-community-packages.txt` that AGENTS.md describes: the metadata is what
+the build actually publishes from, and the two disagree today (41 workspaces carry a
+community package; the txt file names 20).
+
+**`spec.support` is the classifier, not the npm scope.** `@backstage-community/plugin-topology`
+and `-tech-radar` are generally-available; `quay`, `tekton` and `3scale` are community.
+Selecting by npm org resolves the wrong set. Because selection is metadata-driven, a new
+workspace is covered the day its metadata lands rather than when someone hand-writes a
+smoke test — which matters given that 15 of the 41 community workspaces have neither
+`smoke-tests/` nor `e2e-tests/`.
+
+The workspace is the unit of work: its plugins share the `smoke-tests/` config the harness
+auto-discovers, and it is the unit the Docker smoke already uses. Each workspace runs as
+its own harness **process**, so a plugin that crashes Node costs one workspace's result
+rather than the shard's. `planShards` balances on package count and is deterministic, so
+the planning job and each sharded job compute the same plan without passing lists around.
+
+#### What this sweep can and cannot assert
+
+The operative requirement for this tier is **"the published artifact installs and boots"**
+(rhdh's `docs/testing-requirements-matrix.md`, reworded in rhdh#5212 — the old phrasing, "loads
+without error in a default RHDH instance", was orphaned when community plugins left the
+image).
+
+| Scope                             | Coverage                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| All community packages            | OCI install + dynamic-plugin layout validation                                   |
+| Community backend packages        | real boot via `startTestBackend`                                                 |
+| Catalog-extending backend modules | install + bundle layout, no boot — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
+| Community frontend packages       | bundle-layout validation only                                                    |
+
+**This is breadth, not depth.** Frontend plugins get no UI render — that is RHIDP-16009,
+blocked on RHIDP-15082. The layout check stays because it costs nothing extra (the install
+already produces it) and it is the only automated detector of a half-migrated frontend
+plugin: it fails a present-but-incomplete layout even when the other system's layout is
+valid.
+
+#### Frontend-system migration panel
+
+Every run records which system each frontend bundle ships (`frontend.bundles[].systems`),
+and `yarn aggregate` rolls that up into legacy-only / new-frontend-system-only / dual
+counts. Run on a schedule, that gives the NFS migration a continuously refreshed view
+across the community frontend packages — data the migration has no other automated source
+for today.
+
+#### Tracked exclusions
+
+`plugin-sweep-excludes.txt` lists packages the sweep skips, following the discipline of
+RHDH's `e2e-tests/local-harness/plugin-sanity-excludes.txt` (PR #4967): **every entry
+carries a `TODO(TICKET)`, and a pattern with no ticket is a parse error.** The goal is to
+delete entries, not accumulate them.
+
+Two scopes, because collapsing them would throw away coverage that costs nothing:
+
+- `install` — the artifact is not pulled at all. Loses everything.
+- `boot` — the artifact **is** pulled and layout-validated; the plugin is just not loaded
+  into `startTestBackend`. Loses only the boot signal.
+
+Patterns match the npm package name, and see through the dynamic export's `-dynamic`
+suffix so one pattern is valid at both scopes (metadata says `@scope/plugin-a`, the
+installed `package.json` says `@scope/plugin-a-dynamic`).
+
 ### Test config (parity with the Docker smoke)
 
 Workspaces that ship `smoke-tests/app-config.test.yaml` and/or `smoke-tests/test.env`
@@ -108,9 +229,15 @@ yarn smoke --dynamic-plugins dp.yaml \
   referencing an unset variable with no default is dropped (with a warning), not
   replaced by an empty string.
 
-`yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace
-resolution, name validation, env/app-config substitution, frontend bundle matrix);
-`yarn check` runs `tsc --noEmit` + the tests. This is a standalone tool dir, not a
+`yarn test` runs the unit tests (`node:test` over `src/*.test.ts` — workspace and
+support-level resolution, shard planning, exclusion parsing, path containment, report
+schema guards, config merging, aggregation and Markdown rendering, env/app-config
+substitution, frontend bundle matrix); `yarn check` runs `tsc --noEmit` + lint +
+prettier + the tests.
+
+The two CLIs keep their logic in `src/sweep-plan.ts` and `src/aggregate-report.ts`
+rather than beside their entry points: a module ending in `process.exit(main())` cannot
+be imported by a test, so anything living there is untestable by construction. This is a standalone tool dir, not a
 `workspaces/*/e2e-tests` one, so it is outside `e2e-code-quality.yaml` (which only scans
 `workspaces/*/e2e-tests/**`).
 
@@ -126,6 +253,13 @@ resolution, name validation, env/app-config substitution, frontend bundle matrix
 
 It installs skopeo, builds, runs `yarn smoke`, uploads `results.json`, and fails the job on
 a non-passing plugin.
+
+`.github/workflows/community-plugin-sweep.yaml` runs the sweep daily at 03:00 UTC (and on
+demand, with a `support` / `shards` choice). Three jobs: `plan` resolves the shard matrix
+from metadata and pulls nothing, `sweep` runs the shards with `fail-fast: false` so one bad
+plugin cannot hide the verdict on the rest, and `aggregate` merges the shard summaries into
+one step summary — it runs unless the run was cancelled (`!cancelled()`), since the aggregate report is
+most useful exactly when shards failed — but a cancelled sweep is not a failed one.
 
 Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail-start` /
 `fail-bundle`.

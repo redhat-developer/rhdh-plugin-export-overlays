@@ -1,0 +1,43 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-auth-backend-module-keycloak-provider
+  namespace: rhdh
+  title: "Auth Backend Module Keycloak Provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/keycloak/plugins/auth-backend-module-keycloak
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/keycloak/plugins/auth-backend-module-keycloak
+  tags:
+    - authentication
+spec:
+  packageName: "@backstage-community/plugin-auth-backend-module-keycloak-provider"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
+  version: 0.4.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.52.0
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - backstage-community-plugin-auth-backend-module-keycloak-provider
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        auth:
+          providers:
+            keycloak:
+              development:
+                clientId: ${KEYCLOAK_CLIENT_ID}
+                clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+                baseUrl: ${KEYCLOAK_BASE_URL}
+                realm: ${KEYCLOAK_REALM}
+                signIn:
+                  resolvers:
+                    - resolver: emailMatchingUserEntityProfileEmail

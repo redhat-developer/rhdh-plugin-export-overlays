@@ -130,28 +130,6 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 20
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page:bs_1.49.4__1.13.1
-    enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-dynamic-home-page:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
-            mountPoints:
-              - mountPoint: home.page/cards
-                importName: OnboardingSection
-                config:
-                  id: "onboarding-section"
-                  title: "Onboarding section"
-              - mountPoint: home.page/cards
-                importName: EntitySection
-                config:
-                  id: "entity-section"
-                  title: "Entity section"
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
-    enabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf:bs_1.52.0__1.0.1
     enabled: true
     pluginConfig:
@@ -302,3 +280,12 @@ plugins:
                   minutes: 15
                 initialDelay:
                   seconds: 25
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:{{inherit}}
+    enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-homepage:
+            dynamicRoutes:
+              - path: /
+                importName: DynamicCustomizableHomePage

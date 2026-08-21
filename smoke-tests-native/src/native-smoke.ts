@@ -16,8 +16,11 @@
  *   1. Run the install CLI to extract OCI plugins into a temp dynamic-plugins-root.
  *   2. Load each backend plugin and assert a default BackendFeature export.
  *   3. Boot startTestBackend with core features + loaded features → confirms they integrate.
- *   4. Check frontend plugin bundles exist for the legacy (Scalprum) and/or new
- *      (module federation) frontend system — presence only, never executed.
+ *   4. Check frontend plugin bundles for the legacy (Scalprum) and/or new (module
+ *      federation) frontend system. Scalprum is a presence check; the module-federation
+ *      half also validates the manifest's shape against what the remotes router requires,
+ *      because a malformed manifest is skipped with a log line and still answers 200 [].
+ *      Neither bundle is ever loaded or executed.
  *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
@@ -25,11 +28,14 @@
  *
  * Usage:
  *   yarn smoke --dynamic-plugins <dynamic-plugins.yaml> [--out results.json]
- *   yarn smoke --workspace <name>                       [--out results.json]
+ *   yarn smoke --workspace <name> [--support community] [--out results.json]
  *   ... either form also takes [--app-config <app-config.test.yaml>] [--test-env <test.env>]
+ *                             [--exclusions <plugin-sweep-excludes.txt>]
  *
  * Workspace mode resolves ALL of `workspaces/<name>/metadata/*.yaml`'s oci://
  * dynamicArtifact refs and validates them together (the Docker smoke's unit).
+ * `--support <level>` narrows that to one `spec.support` tier — how the community
+ * sweep (src/sweep.ts, RHIDP-13510) drives this harness one workspace at a time.
  *
  * --app-config / --test-env mirror what the Docker smoke passes to the container
  * (an extra --config mount and docker run --env-file) — see src/test-config.ts.
@@ -40,26 +46,48 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
-import { join, dirname, resolve, sep } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
+import searchPlugin from "@backstage/plugin-search-backend";
 import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
   loadBackendPlugins,
   validateFrontendBundle,
-  type FrontendSystem,
   type PluginEntry,
   type LoadedPlugin,
   type PluginError,
 } from "./loader";
+import {
+  computeStatus,
+  describeInstallShortfall,
+  describeNfsShortfall,
+  partitionBootable,
+} from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
+import { resolveContained } from "./paths";
+import { errorMessage } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
+import {
+  excluderFor,
+  loadExclusions,
+  type Exclusion,
+  type ExclusionRecord,
+} from "./exclusions";
+import {
+  REPORT_SCHEMA_VERSION,
+  type BackendStartResult,
+  type FrontendBundleInfo,
+  type Report,
+  type WorkspaceInfo,
+} from "./report";
 import {
   collectWorkspaceRefs,
   discoverSmokeTestConfig,
@@ -75,6 +103,11 @@ const REPO_ROOT = dirname(HARNESS_ROOT);
 
 const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 
+// Bounded so a genuinely broken artifact still fails the sweep promptly rather than
+// costing three pulls per workspace.
+const INSTALL_ATTEMPTS = 3;
+const INSTALL_RETRY_BASE_MS = 2000;
+
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
 // binary (process.execPath), so the executable is never looked up via PATH (Sonar
 // S4036). require.resolve(CLI) returns the package main (dist/index.cjs.js); its
@@ -86,64 +119,21 @@ const CLI_BIN = join(
 );
 
 // Bundled core plugins so dynamic plugins/modules can attach to their extension points.
+// searchPlugin was added for the community sweep (RHIDP-13510): without it, every
+// search-backend module fails to even LOAD — its bare
+// `@backstage/plugin-search-backend-node/alpha` import has nothing to resolve against —
+// so a whole class of community backend modules reported a load error that said nothing
+// about the plugin.
 // catalogPlugin is intentionally NOT here: @backstage/plugin-catalog-backend does not boot
 // cleanly in this minimal standalone harness yet (needs more service wiring than RHDH's
-// full e2e env provides), so the dep is left out until that gap is closed (Path A / the
-// catalog follow-up). Scaffolder + scaffolder/other modules boot fine today.
-const coreFeatures = [scaffolderPlugin];
-
-type Status = "pass" | "fail-load" | "fail-start" | "fail-bundle" | "error";
-type BackendStartResult = { ok: boolean; skipped?: boolean; error?: string };
-// Which frontend system(s) each bundle ships — the signal for tracking migration to
-// the new frontend system across the catalog.
-type FrontendBundleInfo = {
-  name: string;
-  version: string;
-  systems: FrontendSystem[];
-};
-// Bump when the results.json shape changes — downstream tooling (e.g. the parity
-// runs comparing native vs Docker verdicts) parses this file.
-const REPORT_SCHEMA_VERSION = 1;
-
-// Workspace-mode provenance: which metadata files were skipped (non-oci artifacts),
-// so a "pass" can't silently hide that part of the workspace was never validated.
-type WorkspaceInfo = {
-  name: string;
-  refCount: number;
-  skippedMetadata: string[];
-};
-type Report = {
-  schemaVersion: number;
-  cliVersion: string;
-  workspace?: WorkspaceInfo;
-  backend: {
-    total: number;
-    loaded: number;
-    skipped: string[];
-    errors: PluginError[];
-  };
-  backendStart: BackendStartResult;
-  frontend: {
-    total: number;
-    valid: number;
-    errors: PluginError[];
-    bundles: FrontendBundleInfo[];
-  };
-  status: Status;
-};
+// full e2e env provides), so the dep is left out until RHIDP-16017 closes that gap.
+// Catalog-extending modules are boot-excluded in plugin-sweep-excludes.txt meanwhile.
+const coreFeatures = [scaffolderPlugin, searchPlugin];
 
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
-}
-
-// --out comes from the CLI; constrain it to the working directory so a faulty
-// argument can never write outside it (Sonar S8707). Returns the resolved absolute
-// path, or null when the argument escapes the working directory.
-function resolveOutPath(outArg: string): string | null {
-  const resolved = resolve(outArg);
-  return resolved.startsWith(process.cwd() + sep) ? resolved : null;
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -175,29 +165,30 @@ function resolveTestConfig(
 async function materializeWorkspaceConfig(
   workspace: string,
   destDir: string,
-): Promise<{ path: string; info: WorkspaceInfo }> {
-  const { refs, skipped } = collectWorkspaceRefs(REPO_ROOT, workspace);
-  console.log(`▶ workspace '${workspace}': ${refs.length} oci plugin ref(s)`);
+  support: string | undefined,
+  exclusions: Exclusion[],
+): Promise<{ path: string; info: WorkspaceInfo; excluded: ExclusionRecord[] }> {
+  const { refs, skipped, excluded, outOfScope } = collectWorkspaceRefs(
+    REPO_ROOT,
+    workspace,
+    { support, installExcluded: excluderFor(exclusions, "install") },
+  );
+  console.log(
+    `▶ workspace '${workspace}': ${refs.length} oci plugin ref(s)` +
+      (support ? ` at support '${support}' (${outOfScope} out of scope)` : ""),
+  );
   const path = await writeDynamicPluginsConfig(refs, destDir);
   return {
     path,
-    info: { name: workspace, refCount: refs.length, skippedMetadata: skipped },
+    info: {
+      name: workspace,
+      refCount: refs.length,
+      skippedMetadata: skipped,
+      support,
+      outOfScope: support ? outOfScope : undefined,
+    },
+    excluded,
   };
-}
-
-// Partition backend entries into known-failure skips and loadable plugins in one
-// pass, so the two lists stay complementary.
-function partitionKnownFailures(entries: PluginEntry[]): {
-  skipped: string[];
-  backendPlugins: PluginEntry[];
-} {
-  const skipped: string[] = [];
-  const backendPlugins: PluginEntry[] = [];
-  for (const entry of entries) {
-    if (KNOWN_FAILURES.has(entry.dirName)) skipped.push(entry.dirName);
-    else backendPlugins.push(entry);
-  }
-  return { skipped, backendPlugins };
 }
 
 // Any failure — bad args, install CLI crash, boot error before the report is built —
@@ -214,6 +205,7 @@ async function writeErrorReport(
     backend: { total: 0, loaded: 0, skipped: [], errors: [] },
     backendStart: { ok: false, error: message },
     frontend: { total: 0, valid: 0, errors: [], bundles: [] },
+    exclusions: [],
     status: "error",
   };
   await writeFile(out, JSON.stringify(report, null, 2));
@@ -228,17 +220,22 @@ type CliInputs = {
   source?: SmokeSource;
   appConfig?: string;
   envFile?: string;
+  support?: string;
+  exclusions: Exclusion[];
   usageError?: string;
 };
 
 // Validate the CLI arguments up front: a sane --out, exactly one plugin source
-// (--dynamic-plugins <file> XOR --workspace <name>), and the optional
-// --app-config/--test-env test-config inputs (see test-config.ts).
+// (--dynamic-plugins <file> XOR --workspace <name>), the optional
+// --app-config/--test-env test-config inputs (see test-config.ts), and the sweep's
+// --support / --exclusions filters.
 function parseCliInputs(): CliInputs {
   const { values } = parseArgs({
     options: {
       "dynamic-plugins": { type: "string" },
       workspace: { type: "string" },
+      support: { type: "string" },
+      exclusions: { type: "string" },
       "app-config": { type: "string" },
       "test-env": { type: "string" },
       out: { type: "string" },
@@ -246,10 +243,13 @@ function parseCliInputs(): CliInputs {
   });
 
   const outArg = values.out ?? "results.json";
-  const out = resolveOutPath(outArg);
+  // Contain --out to the working directory (Sonar S8707); sweep.ts and
+  // aggregate.ts enforce the same rule via the same helper.
+  const out = resolveContained(outArg);
   if (!out) {
     return {
       out: null,
+      exclusions: [],
       usageError: `--out must resolve inside the working directory: ${outArg}`,
     };
   }
@@ -257,56 +257,87 @@ function parseCliInputs(): CliInputs {
   const optionalFiles: Array<[flag: string, file: string | undefined]> = [
     ["--app-config", values["app-config"]],
     ["--test-env", values["test-env"]],
+    ["--exclusions", values.exclusions],
   ];
   for (const [flag, file] of optionalFiles) {
     if (file && !existsSync(file)) {
-      return { out, usageError: `${flag} file not found: ${file}` };
+      return {
+        out,
+        exclusions: [],
+        usageError: `${flag} file not found: ${file}`,
+      };
     }
   }
+
+  // Parsed here so a malformed exclusions file — a pattern with no ticket, above all —
+  // fails before anything is pulled, with the same message wherever it is loaded from.
+  let exclusions: Exclusion[] = [];
+  if (values.exclusions) {
+    try {
+      exclusions = loadExclusions(values.exclusions);
+    } catch (err) {
+      return {
+        out,
+        exclusions: [],
+        usageError: errorMessage(err),
+      };
+    }
+  }
+
   const common = {
     out,
+    exclusions,
     appConfig: values["app-config"],
     envFile: values["test-env"],
   };
 
-  const file = values["dynamic-plugins"];
-  const workspace = values.workspace;
+  return {
+    ...common,
+    ...resolveSource(
+      values["dynamic-plugins"],
+      values.workspace,
+      values.support,
+    ),
+  };
+}
+
+/**
+ * Pick the plugin source from the mutually exclusive `--dynamic-plugins` /
+ * `--workspace` pair, and validate the flags that only apply to one of them.
+ */
+function resolveSource(
+  file: string | undefined,
+  workspace: string | undefined,
+  support: string | undefined,
+): { source: SmokeSource; support?: string } | { usageError: string } {
   if (file && workspace) {
     return {
-      out,
       usageError: "Provide only one of --dynamic-plugins or --workspace.",
     };
+  }
+  // --support filters metadata by spec.support, which only workspace mode reads; an
+  // explicit dynamic-plugins.yaml has no metadata to filter, so silently ignoring it
+  // would produce a run that looks scoped but is not.
+  if (support && !workspace) {
+    return { usageError: "--support requires --workspace." };
   }
   if (workspace) {
     // Validated here, before ANY filesystem consumer (auto-discovery runs early).
     if (!isValidWorkspaceName(workspace)) {
-      return { out, usageError: `invalid workspace name: '${workspace}'` };
+      return { usageError: `invalid workspace name: '${workspace}'` };
     }
-    return { ...common, source: { kind: "workspace", name: workspace } };
+    return { support, source: { kind: "workspace", name: workspace } };
   }
   if (!file) {
     return {
-      out,
       usageError:
         "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>.",
     };
   }
   if (!existsSync(file)) {
-    return { out, usageError: `dynamic-plugins file not found: ${file}` };
+    return { usageError: `dynamic-plugins file not found: ${file}` };
   }
-  return { ...common, source: { kind: "file", path: file } };
-}
-
-function computeStatus(
-  loadErrors: PluginError[],
-  startOk: boolean,
-  loadedCount: number,
-  frontendErrors: PluginError[],
-): Status {
-  if (loadErrors.length > 0) return "fail-load";
-  if (!startOk && loadedCount > 0) return "fail-start";
-  if (frontendErrors.length > 0) return "fail-bundle";
-  return "pass";
+  return { source: { kind: "file", path: file } };
 }
 
 // Copy the dynamic-plugins.yaml the CLI consumes, then extract (the part PR #2231
@@ -317,12 +348,29 @@ async function extractPlugins(
 ): Promise<void> {
   await copyFile(dynamicPlugins, join(root, "dynamic-plugins.yaml"));
   console.log("▶ extracting plugins via CLI…");
-  // The CLI reads dynamic-plugins.yaml from its CWD, so run it inside `root`
-  // (where we just wrote the config) and extract into the same dir.
-  execFileSync(process.execPath, [CLI_BIN, "install", root], {
-    stdio: "inherit",
-    cwd: root,
-  });
+  // Retry the pull: a scheduled sweep makes ~100 registry requests, and a transient
+  // ghcr throttle or reset otherwise lands as a red workspace that reads exactly like
+  // a broken plugin. Observed on a full local run — three workspaces failed and all
+  // three passed on retry. A job that cries wolf daily stops being read.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      // The CLI reads dynamic-plugins.yaml from its CWD, so run it inside `root`
+      // (where we just wrote the config) and extract into the same dir.
+      execFileSync(process.execPath, [CLI_BIN, "install", root], {
+        stdio: "inherit",
+        cwd: root,
+      });
+      return;
+    } catch (err) {
+      if (attempt >= INSTALL_ATTEMPTS) throw err;
+      const backoffMs = INSTALL_RETRY_BASE_MS * 2 ** (attempt - 1);
+      console.warn(
+        `⚠ install failed (attempt ${attempt}/${INSTALL_ATTEMPTS}): ${errorMessage(err)}\n` +
+          `  retrying in ${backoffMs / 1000}s`,
+      );
+      await setTimeout(backoffMs);
+    }
+  }
 }
 
 // Boot the loaded backend features in-process to confirm they integrate.
@@ -349,13 +397,14 @@ async function startBackend(
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     };
   }
 }
 
-// Check frontend bundles are present (presence check only — the bundle is not
-// executed), recording which frontend system(s) each one ships.
+// Check frontend bundles (the bundle is never executed), recording which frontend
+// system(s) each one ships and — for module federation — whether the remote is in a
+// shape the backend's remotes router will actually serve.
 function validateFrontends(frontend: PluginEntry[]): {
   valid: number;
   errors: PluginError[];
@@ -365,12 +414,18 @@ function validateFrontends(frontend: PluginEntry[]): {
   const bundles: FrontendBundleInfo[] = [];
   let valid = 0;
   for (const plugin of frontend) {
-    const { systems, error } = validateFrontendBundle(plugin);
-    bundles.push({ name: plugin.name, version: plugin.version, systems });
+    const { systems, mf, error } = validateFrontendBundle(plugin);
+    bundles.push({ name: plugin.name, version: plugin.version, systems, mf });
     if (error) errors.push({ plugin, error });
     else {
       valid += 1;
       console.log(`  frontend '${plugin.name}': ${systems.join(" + ")}`);
+      // A served remote may still contribute nothing to the new frontend system, and it
+      // does so without a single error at runtime. Not an artifact defect — migration
+      // state — so it warns rather than failing. The message text lives in harness-logic
+      // so it is covered; see describeNfsShortfall for why the two cases read differently.
+      const shortfall = describeNfsShortfall(mf);
+      if (shortfall) console.warn(`    ⚠ ${shortfall}`);
     }
   }
   return { valid, errors, bundles };
@@ -411,8 +466,13 @@ async function main(): Promise<number> {
 
     const materialized =
       source.kind === "workspace"
-        ? await materializeWorkspaceConfig(source.name, tempDir)
-        : { path: source.path, info: undefined };
+        ? await materializeWorkspaceConfig(
+            source.name,
+            tempDir,
+            inputs.support,
+            inputs.exclusions,
+          )
+        : { path: source.path, info: undefined, excluded: [] };
     await extractPlugins(root, materialized.path);
 
     const manifest = discoverPlugins(root);
@@ -420,29 +480,39 @@ async function main(): Promise<number> {
       `▶ manifest: ${manifest.backend.length} backend, ${manifest.frontend.length} frontend`,
     );
 
+    // The install CLI can exit 0 having laid out fewer plugins than asked for, and
+    // discoverPlugins drops any directory without a backstage.role. Left unchecked, a
+    // workspace whose artifacts half-materialized reports a clean pass over packages
+    // nothing looked at. Recorded rather than thrown: a throw lands in writeErrorReport,
+    // which zeroes every count and would discard the per-plugin errors, the frontend
+    // bundle systems and the exclusions this run did establish.
+    const installShortfall = describeInstallShortfall(
+      manifest.backend.length + manifest.frontend.length,
+      materialized.info?.refCount,
+    );
+    if (installShortfall) console.error(`✗ ${installShortfall}`);
+
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
 
-    const { skipped, backendPlugins } = partitionKnownFailures(
+    const { skipped, excluded, bootable } = partitionBootable(
       manifest.backend,
+      excluderFor(inputs.exclusions, "boot"),
+      (dirName) => KNOWN_FAILURES.has(dirName),
     );
     if (skipped.length > 0) {
       console.warn(
-        `⚠ skipped ${skipped.length} known-failure backend plugin(s): ${skipped.join(", ")}`,
+        `⚠ not booted (installed and layout-validated): ${skipped.length} backend plugin(s): ${skipped.join(", ")}`,
       );
     }
-    const { loaded, errors: loadErrors } = loadBackendPlugins(backendPlugins);
+    for (const record of excluded) {
+      console.warn(
+        `  ${record.packageName}: boot excluded by ${record.patternSource} (${record.ticket})`,
+      );
+    }
+    const { loaded, errors: loadErrors } = loadBackendPlugins(bootable);
     const start = await startBackend(loaded, appConfig);
     const frontend = validateFrontends(manifest.frontend);
-
-    // A workspace whose only backend plugin is a known failure would otherwise pass
-    // silently having validated nothing — make that visible.
-    if (loaded.length === 0 && manifest.frontend.length === 0) {
-      console.warn(
-        `⚠ nothing validated: 0 plugins loaded ` +
-          `(${manifest.backend.length} backend found, ${skipped.length} skipped)`,
-      );
-    }
 
     const report: Report = {
       schemaVersion: REPORT_SCHEMA_VERSION,
@@ -462,12 +532,11 @@ async function main(): Promise<number> {
         errors: frontend.errors,
         bundles: frontend.bundles,
       },
-      status: computeStatus(
-        loadErrors,
-        start.ok,
-        loaded.length,
-        frontend.errors,
-      ),
+      exclusions: [...materialized.excluded, ...excluded],
+      installShortfall: installShortfall ?? undefined,
+      status: installShortfall
+        ? "fail-install"
+        : computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));
@@ -483,11 +552,7 @@ async function main(): Promise<number> {
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
     // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(
-      out,
-      cliVersion,
-      err instanceof Error ? err.message : String(err),
-    );
+    await writeErrorReport(out, cliVersion, errorMessage(err));
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });

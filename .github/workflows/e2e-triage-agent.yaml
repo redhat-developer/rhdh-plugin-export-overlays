@@ -39,7 +39,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
   issues: write
 
 jobs:
@@ -107,22 +106,25 @@ jobs:
           echo "prow_url=${PROW}/${RUN_ID}" >> "${GITHUB_OUTPUT}"
           echo "should_file=true" >> "${GITHUB_OUTPUT}"
 
-      # Mint a triage-role token so the issues:labeled event triggers
-      # fullsend.yaml. GITHUB_TOKEN events are suppressed by GitHub's
-      # anti-recursion safety (see fullsend ADR 0033).
-      - name: Mint triage token
+      # Use a GitHub App installation token so the issues:labeled event
+      # triggers fullsend.yaml. GITHUB_TOKEN events are suppressed by
+      # GitHub's anti-recursion safety (see fullsend ADR 0033). Replaces
+      # the E2E_TRIAGE_TOKEN PAT stopgap (PR #3211 / RHIDP-16167).
+      # create-github-app-token resolves the installation from this repo;
+      # RHDH_GH_APP_INSTALLATION_ID is not an input to this action.
+      - name: Generate GitHub App token
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
-        id: mint
-        uses: fullsend-ai/fullsend/.github/actions/mint-token@3cfa255ab4cc8190670585ea42da529119251632 # v0.32.0
+        id: generate-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         with:
-          role: triage
-          repos: rhdh-plugin-export-overlays
-          mint_url: ${{ vars.FULLSEND_MINT_URL }}
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          permission-issues: write
 
       - name: Create issue and trigger agent
         if: steps.discover.outputs.should_file == 'true' && (inputs.dry_run || 'false') != 'true'
         env:
-          GH_TOKEN: ${{ steps.mint.outputs.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           PROW_URL: ${{ steps.discover.outputs.prow_url }}
           BRANCH: ${{ matrix.branch }}
           REPO: ${{ github.repository }}

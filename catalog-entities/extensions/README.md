@@ -10,6 +10,8 @@ The latest of these index images will be published to quay. For example, see <ht
 
 Below are some practical instructions that might help you in the process of creating and updating plugins and packages for use in the RHDH Extensions catalog plugin.
 
+> **Before you list a plugin**: the `spec.support` level you declare here carries testing expectations, and they are the same for every owner. See [Getting a Plugin Listed in the Extensions Catalog](https://github.com/redhat-developer/rhdh/blob/main/docs/testing-requirements-matrix.md#getting-a-plugin-listed-in-the-extensions-catalog) for what each level asks for and what counts as evidence, and [Plugin Owner Responsibilities](../../user-guide/03-plugin-owner-responsibilities.md) for the surrounding process.
+
 ## `packages/`
 
 Packages describe the frontend and backend packages that form part of a plugin. The packages folder contains the individual `package.yaml` files where you can set various details about your plugin packages. For example, see the 3scale package details in `packages/backstage-community-plugin-3scale-backend.yaml`
