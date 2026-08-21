@@ -143,6 +143,13 @@ import { EntityProvider } from '@backstage/plugin-catalog-react';
 import nfsPlugin, { acrImagesEntityContent } from './alpha';
 import { AzureContainerRegistryApiRef } from './api';
 
+const fixtureTags = [{ name: 'latest' }];
+const entity = {
+  apiVersion: 'backstage.io/v1alpha1',
+  kind: 'Component',
+  metadata: { name: 'acr-demo', annotations: { 'azure-container-registry/repository-name': 'demo' } },
+} as any;
+
 // The wiring assertions. No browser, no DOM, no cluster — these read the extension's
 // declared output directly, which is what the e2e suite's "ACR IMAGES" vs "Image
 // Registry" tab-title branch is really about.
@@ -173,7 +180,7 @@ it('renders through the extension, with the API mocked', async () => {
     <EntityProvider entity={entity}>
       {createExtensionTester(acrImagesEntityContent).reactElement()}
     </EntityProvider>,
-    { apis: [[AzureContainerRegistryApiRef, { getTags: async () => fixtureTags }]] },
+    { apis: [[AzureContainerRegistryApiRef, { getTags: async () => ({ tags: fixtureTags }) }]] },
   );
   expect(await screen.findByText(/latest/)).toBeInTheDocument();
 });
@@ -228,7 +235,7 @@ In-memory SQLite, ~2 seconds, no cluster. Already used in **27 source files in e
 
 ### Recipe C — component behaviour with a mocked API (L3)
 
-`renderInTestApp` is used in **69 source files in `rhdh-plugins`** and **256 in
+`renderInTestApp` is used in **70 source files in `rhdh-plugins`** and **256 in
 `community-plugins`**. For any assertion about a table, a filter, a form, a dialog or an error
 state, this is the established path, and every one of these workspaces already has neighbours
 doing it.
@@ -250,16 +257,23 @@ All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
 | Workspace | 4a in plugin repo (no cluster) | 4b here (cluster) | Identical test names |
 |---|---|---|---|
 | `intelligent-assistant` | 92 | 34 | 7 |
-| `scorecard` | 47 | 15 | 0 |
+| `scorecard` | 47 | 16 | 0 |
 | `homepage` | 16 | 18 | 1 |
 | `extensions` | 12 | 11 | 5 |
-| `orchestrator` | 11 | 24 | 0 |
+| `orchestrator` | 11 | 26 | 0 |
 | `adoption-insights` | 10 | 7 | 1 |
 | `global-header` | 8 | 10 | 0 |
 | `bulk-import` | 6 | 9 | 0 |
 | `theme` | 4 | 5 | 1 |
 | `quickstart` | 3 | 2 | 2 (all) |
-| **Total** | **209** | **135** | **17** |
+| **Total** | **209** | **138** | **17** |
+
+Both test columns count **statically declared `test()` blocks**, so the two sides are
+comparable to each other but are a floor, not a run count: Playwright expands
+parametrised tests at collection time, and `npx playwright test --list` reports 19 for
+`scorecard` against the 16 declared, 32 for `orchestrator` against 26. They are also a
+snapshot — the suites move — so re-derive rather than quote them if a decision turns on
+the exact figure.
 
 **Swept 2026-08-18 across the last 300 CI runs: 8 of the 10 lanes are green** — `global-header` 1m34s, `theme` 1m28s, `homepage` 2m24s, `quickstart` 2m52s, `extensions` 4m44s, `bulk-import` 4m47s, `scorecard` 13m30s, `intelligent-assistant` 25m35s. Two are not: `orchestrator` is **persistently red**, three consecutive runs failing after 195m, 216m and 191m against the job timeout, so it burns ~3.5h of runner time and never reports a real result. `adoption-insights` has **no signal at all** — no PR touched it in that window. Note the matrix runs only changed workspaces, so "green" means green the last time the workspace changed, not green today.
 
@@ -305,11 +319,14 @@ with real unknowns** and the only place the estimate is soft.
 
 `sup` = `spec.support`. `up` = test files in the plugin's own repo (all layers, not a test count). `α` = does its NFS
 surface have a `createExtensionTester` test. **Cluster after** = tests that would still need 4b.
+`Tests` carries over the count from [`nfs-e2e-triage.md`](./nfs-e2e-triage.md), so the two
+documents add up to the same 246; see the note under Recipe D for what it counts and why
+it drifts from what Playwright reports today.
 
 ### First, a question that comes before the layer of any individual assertion
 
 For all 10 workspaces in the table below, a cluster-free Playwright lane **already exists in the
-plugin's own repo** — 209 tests against the 135 here, with 17 test names byte-identical (see Recipe D).
+plugin's own repo** — 209 tests against the 138 here, with 17 test names byte-identical (see Recipe D).
 `quickstart` is identical in both of two: upstream has `test.describe('Test Quick Start plugin')`
 with `test('Access Quick start as Guest or Admin')` and `test('Access Quick start as User')`, and
 so does the suite here.
@@ -364,7 +381,7 @@ this", the owner decides whether the copy goes.
 | `keycloak` | GA | 2 | 8 | n/a | 0 | Backend-only — **NFS does not apply to this workspace**, and the ticket may reduce to recording that. Both tests are **L2**: `startTestBackend` plus Keycloak in a testcontainer, no cluster and no port-forward. 2 `startTestBackend` files upstream already. |
 | `scaffolder-backend-module-kubernetes` | GA | 1 | 2 | n/a | **1** | The API call is the assertion. Irreducible, stays 4b. Also backend-only, so NFS does not apply — likely a no-op ticket. |
 | `argocd` | community | 7 | 61 | **no** | ~3 | Drawer and the Kind/Name/Sync/Health filters are **L3**. Blue-green and canary rollouts with analysis runs stay 4b. Tier requires no E2E at all, so scope this behind the GA workspaces. Ships no `backstage.features` — see the correction already on that ticket for what that does and does not imply. |
-| `github` | community | 2 | 25 | **yes** | 0 | **Already covered upstream**: 7 `createExtensionTester` tests across 5 `alpha/` directories, including `entityContent.test.tsx` for exactly the mounting this suite checks. The two overlay tests are redundant at that layer; what they uniquely add is "the published artifact loads", which is a load check. Also uses the baked-in copy rather than this repo's artifact — confirm which is exercised before calling a pass coverage. |
+| `github` | community | 2 | 25 | **yes** | 0 | **Already covered upstream**: 7 `createExtensionTester` tests across 4 of its 5 `alpha/` directories, including `entityContent.test.tsx` for exactly the mounting this suite checks. The fifth, `github-discussions`, ships an NFS surface with no test — so "covered" is 4 of 5, not all of it. The two overlay tests are redundant at that layer; what they uniquely add is "the published artifact loads", which is a load check. Also uses the baked-in copy rather than this repo's artifact — confirm which is exercised before calling a pass coverage. |
 | `roadie-backstage-plugins` | mixed | 6 | — | — | 0 | Third-party. Pagination, per-page and OPEN/CLOSED/ALL filters are the vendor's to test, and "the 5 most recently updated PRs" is non-deterministic against live GitHub by construction. Our responsibility is Recipe B levels 1–2. The `http-request` scaffolder test is an action test. |
 | `quay` | community | 3 | 17 | n/a | 0 | No NFS surface upstream yet, so Recipe A is blocked until one exists. Tab and scan rendering are **L3**; "Creates Quay repository" writes to a real quay.io registry from CI to test a scaffolder action — **L2** with msw (2 msw files present). |
 | `acr` | community | 1 | 8 | **no** | 0 | Already migrated, and its diff is the clearest evidence in the epic: the `"ACR IMAGES"` / `"Image Registry"` branch is pure wiring. `acrImagesEntityContent` is exported at `alpha.tsx:60` and untested — Recipe A verbatim. Only 8 upstream test files, the thinnest of the community set. |
@@ -377,7 +394,7 @@ this", the owner decides whether the copy goes.
 |---|---|---|
 | Tests needing a cluster | 246 | ~54 |
 | Namespaces per full run | 46 (heading for ~65 as lanes double) | ~10 |
-| Plugins whose NFS surface has a test | 3 of 22 | 22 of 22 |
+| Plugins whose NFS surface has a test | 3 of 19 | 19 of 19 |
 
 The `~54` is an aggregate of the per-assertion judgements above and nothing more; the table's
 arithmetic is checked against it, but the inputs are proposals. It also does **not** net off the
