@@ -1581,6 +1581,39 @@ class TestFlagVisibility:
         assert "could not reach" in result.stderr
         assert "deleted the flag" not in result.stderr
 
+    def test_an_unconfirmed_session_is_not_reported_as_a_deleted_flag(
+        self, tmp_path, coverage_dir
+    ):
+        """The window between "upload accepted" and "upload processed".
+
+        Codecov creates the RepositoryFlag row when it PROCESSES an upload, so
+        in that window a perfectly healthy new flag genuinely is not in the
+        visible list. Asking during it answers "a Codecov admin has deleted the
+        flag ... re-running this job will not fix it" — categorical, actionable
+        and false, and it would send someone to open a support ticket over a
+        slow queue.
+
+        Both fixtures here say "not there": the session never appears, and
+        neither does the flag. The first is what must silence the second.
+        """
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "CODECOV_GRAPHQL_API": write_graphql_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        # verify_landed still says its piece — the upload IS unconfirmed.
+        assert "no session named" in result.stderr
+        # But nothing accuses anyone of deleting a flag on that evidence.
+        assert "deleted the flag" not in result.stderr
+        assert "is visible" not in result.stdout
+
     def test_a_dry_run_asks_nothing(self, tmp_path, coverage_dir):
         """Nothing reached Codecov, so there is no published flag to have an
         opinion about. The fixture says "not visible", which is the answer that

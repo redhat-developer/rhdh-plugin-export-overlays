@@ -678,10 +678,15 @@ visible_flag_names() {
 #
 # Runs once per script run rather than once per upload, because visibility is a
 # property of the flag on the destination project — the same answer for both
-# SHAs. It runs AFTER verify_landed has confirmed a session, which is also what
+# SHAs.
+#
+# It runs only after verify_landed has CONFIRMED a session, and that is what
 # makes it safe for a genuinely new flag: the RepositoryFlag row is created when
-# the upload is processed, so by the time a session is on the commit the flag
-# exists, and an absence here means deleted rather than not-yet-created.
+# the upload is processed, so once a session is on the commit the flag exists,
+# and an absence here means deleted rather than not-yet-created. The call site
+# enforces that by requiring UNVERIFIED_SHAS to be short of every target — do
+# not relax it to "the upload was accepted", which is a different and much
+# weaker claim. See the comment there for what that costs.
 verify_flag_visible() {
   local names attempt=1 lookup_failed="false"
   # Verification off means nothing was asked; claiming anything would be a
@@ -784,7 +789,20 @@ echo ""
 # Only worth asking when something was actually published: on a dry run nothing
 # reached Codecov, and when every upload failed the flag's visibility is not the
 # problem to report.
-if [[ "$DRY_RUN" != "true" && ${#FAILED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} ]]; then
+#
+# A CONFIRMED session is required, not merely an accepted upload — the
+# difference is the whole safety of the check. The RepositoryFlag row is created
+# when Codecov PROCESSES an upload, so between "accepted" and "processed" a
+# perfectly healthy new flag does not exist yet. Gating on FAILED_SHAS alone
+# would ask during exactly that window whenever the queue ran slow enough for
+# verify_landed to give up, and answer "a Codecov admin has deleted the flag …
+# re-running this job will not fix it" — categorical, actionable and false,
+# sending someone to open a support ticket over a slow queue. Worse than not
+# checking at all, and the same "could not ask" vs "it is gone" confusion this
+# file keeps apart everywhere else.
+if [[ "$DRY_RUN" != "true" \
+  && ${#FAILED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} \
+  && ${#UNVERIFIED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} ]]; then
   verify_flag_visible || true
 fi
 
