@@ -242,3 +242,42 @@ def test_a_status_that_establishes_no_nfs_surface_blocks(tmp_path, status):
     make_workspace(tmp_path, "ws", ["ws-app-next"])
     rows = [pkg("ws", "@c/p", status)]
     assert verdict_for(evaluate(tmp_path, rows), "ws").verdict == BLOCKED
+
+
+class TestPathContainment:
+    """The readiness path comes from a CLI argument, assembled from workflow inputs."""
+
+    @staticmethod
+    def test_a_path_outside_the_working_directory_is_refused(tmp_path, capsys):
+        make_workspace(tmp_path, "ws", ["ws-app-next"])
+        assert (
+            main(
+                [
+                    "--readiness",
+                    "../../../etc/passwd",
+                    "--repo-root",
+                    str(tmp_path),
+                ]
+            )
+            == 2
+        )
+        assert "must stay inside" in capsys.readouterr().err
+
+    @staticmethod
+    def test_a_path_inside_the_repo_still_works(tmp_path, capsys):
+        make_workspace(tmp_path, "ws", ["ws-app-next"])
+        (tmp_path / "r.json").write_text(json.dumps([pkg("ws", "@c/p", "nfs-ready")]))
+        # Both the relative form CI uses and the absolute one a human would type.
+        assert main(["--readiness", "r.json", "--repo-root", str(tmp_path)]) == 0
+        assert (
+            main(
+                [
+                    "--readiness",
+                    str(tmp_path / "r.json"),
+                    "--repo-root",
+                    str(tmp_path),
+                ]
+            )
+            == 0
+        )
+        capsys.readouterr()

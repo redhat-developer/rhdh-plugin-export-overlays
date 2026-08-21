@@ -49,6 +49,26 @@ APP_NEXT_SUFFIX = "-app-next"
 #: Matches `name: "<project>"` in a playwright.config.ts.
 PROJECT_NAME = re.compile(r'name:\s*"([^"]+)"')
 
+def contained(candidate: str, root: Path) -> Path:
+    """Resolve ``candidate`` under ``root``, refusing to step outside it.
+
+    The path comes from a CLI argument, and this runs in CI where that argument is
+    assembled from workflow inputs. Reading an arbitrary file would not corrupt the
+    verdict — the JSON would simply not parse — but it would let a crafted argument
+    make the job read something it has no business reading.
+
+    The root is the repository being checked, not the working directory: a readiness
+    report describes one repo's artifacts, so one from outside it is meaningless
+    whether or not it is reachable.
+    """
+    resolved = (root / candidate).resolve()
+    if not resolved.is_relative_to(root.resolve()):
+        raise ValueError(
+            f"readiness path must stay inside the repo root ({root}): {candidate}"
+        )
+    return resolved
+
+
 READY = "ready"
 BLOCKED = "blocked"
 UNKNOWN = "unknown"
@@ -186,7 +206,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo-root", default=".")
     args = parser.parse_args(argv)
 
-    raw = sys.stdin.read() if args.readiness == "-" else Path(args.readiness).read_text()
+    try:
+        raw = (
+            sys.stdin.read()
+            if args.readiness == "-"
+            else contained(args.readiness, Path(args.repo_root)).read_text(
+                encoding="utf-8"
+            )
+        )
+    except ValueError as err:
+        print(err, file=sys.stderr)
+        return 2
     rows = json.loads(raw)
     if not isinstance(rows, list):
         print("readiness input must be the JSON array the report emits", file=sys.stderr)
