@@ -2,6 +2,9 @@
 # Includes: scorecard frontend/backend, filecheck backend module, and dynamic home page.
 # GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
 plugins:
+  # RHDH 2.0 disables this module by default; re-enable for OIDC auth to work.
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.52.0__4.1.0
     disabled: false
     pluginConfig:

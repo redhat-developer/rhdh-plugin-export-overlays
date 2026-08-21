@@ -1,0 +1,16 @@
+# RHDH 2.0 disables the OIDC auth backend module by default; re-enable it
+# so that keycloak auth works. Orchestrator plugins are also disabled by
+# default and must be explicitly enabled.
+plugins:
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets
+    disabled: false
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator-dynamic
+    disabled: false
