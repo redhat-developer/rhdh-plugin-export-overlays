@@ -1024,7 +1024,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c804c4cb74d88b3dc4d9e0443252bbd0f387858dcf87a9141404f51ad0d738b1"
+          "digest": "sha256:c804c4cb74d88b3dc4d9e0443252bbd0f387858dcf87a9141404f51ad0d738b1",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__1.52.5",
+          "resolvedTag": "bs_1.49.4__1.52.4"
         },
         "dpdy": {
           "status": "pass"
