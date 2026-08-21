@@ -1,0 +1,6 @@
+# RHDH 2.0 disables the OIDC auth backend module by default; re-enable it
+# so that keycloak auth works. Adoption Insights plugins are enabled by
+# default in the RHDH image and do not need explicit entries here.
+plugins:
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false

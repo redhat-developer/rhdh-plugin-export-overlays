@@ -1,4 +1,8 @@
 # Auth provider metadata exists for publish, but E2E keeps the standard OIDC path
-# (e2e-test-utils keycloak auth profile) until RHIDP-11651. An empty list here
-# prevents metadata auto-generation from enabling the auth provider plugin.
-plugins: []
+# (e2e-test-utils keycloak auth profile) until RHIDP-11651. This list only enables
+# the OIDC auth backend module (disabled by default in RHDH 2.0) and prevents
+# metadata auto-generation from enabling the full auth provider plugin config.
+plugins:
+  # RHDH 2.0 disables this module by default; re-enable for OIDC auth to work.
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false

@@ -1,0 +1,10 @@
+# RHDH 2.0 disables the OIDC auth backend module by default; re-enable it
+# so that keycloak auth works. Tech Radar plugins are also disabled by
+# default and must be explicitly enabled.
+plugins:
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar-backend-dynamic
+    disabled: false

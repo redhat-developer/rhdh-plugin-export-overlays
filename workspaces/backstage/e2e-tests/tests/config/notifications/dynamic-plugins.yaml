@@ -1,4 +1,7 @@
 plugins:
+  # RHDH 2.0 disables this module by default; re-enable for OIDC auth to work.
+  - package: oci://quay.io/rhdh/backstage-community-plugin-auth-backend-module-keycloak-provider:{{inherit}}
+    disabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications
     disabled: false
   - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
