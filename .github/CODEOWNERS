@@ -16,6 +16,17 @@
 
 *                                                                       @redhat-developer/rhdh-cope @gashcrumb @kadel
 
+# Coverage snapshots — mirror workspace ownership to allow automated updates
+/coverage-snapshots/acr.lcov                                            @redhat-developer/rhdh-ui
+/coverage-snapshots/bulk-import.lcov                                    @redhat-developer/rhdh-plugins @rm3l   @redhat-developer/rhdh-ui @debsmita1 @its-mitesh-kumar
+/coverage-snapshots/global-header.lcov                                  @redhat-developer/rhdh-ui @ciiay @divyanshiGupta
+/coverage-snapshots/intelligent-assistant.lcov                          @redhat-developer/rhdh-ui @karthikjeeyar @rohitkrai03 @redhat-developer/rhdh-ai
+/coverage-snapshots/orchestrator.lcov                                   @batzionb @mareklibra @gciavarrini
+/coverage-snapshots/tech-radar.lcov                                     @redhat-developer/rhdh-cope @gashcrumb @kadel
+/coverage-snapshots/tekton.lcov                                         @caugello @cryptorodeo
+/coverage-snapshots/theme.lcov                                          @redhat-developer/rhdh-ui @ciiay   @logonoff
+/coverage-snapshots/topology.lcov                                       @redhat-developer/rhdh-ui
+
 /workspaces/3scale                                                      @redhat-developer/rhdh-plugins @AndrienkoAleksandr
 /workspaces/acr                                                         @redhat-developer/rhdh-ui
 # /workspaces/acs

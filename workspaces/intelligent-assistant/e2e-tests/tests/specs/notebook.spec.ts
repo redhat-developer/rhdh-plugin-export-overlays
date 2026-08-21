@@ -6,6 +6,7 @@ import {
   NOTEBOOK_UNTITLED_GRID_NAME,
 } from "../support/notebook-surface-page";
 import {
+  localeNotebookUploadCopyAs,
   localeNotebookUploadPath,
   NOTEBOOK_EDITOR_URL_RE,
   NOTEBOOK_SESSION_MAX_DOCUMENTS,
@@ -20,6 +21,14 @@ import {
 import { ensureLightspeedDeployment } from "../support/test-helper";
 
 const RENAMED_NOTEBOOK_TITLE = "E2E Notebook Renamed";
+
+function notebookFileNameParts(fileName: string): {
+  baseName: string;
+  ext: string;
+} {
+  const baseName = fileName.replace(/\.[^.]+$/, "");
+  return { baseName, ext: fileName.slice(baseName.length) };
+}
 
 test.describe("Lightspeed notebooks", () => {
   test.describe.configure({ mode: "serial", timeout: 7 * 60 * 1000 });
@@ -39,6 +48,8 @@ test.describe("Lightspeed notebooks", () => {
     page = await context.newPage();
     await new LoginHelper(page).loginAsKeycloakUser();
     notebooks = new NotebookSurfacePage(page);
+    await notebooks.gotoFullscreenNotebooksTab();
+    await notebooks.deleteLeftoverNotebookCards();
   });
 
   test.afterAll(async () => {
@@ -58,16 +69,46 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectNewNotebookEditorEmptyStateOnboarding();
   });
 
-  test("upload modal: drop zone, disabled add, and duplicate file prompt", async () => {
-    const { absolutePath, fileName } = localeNotebookUploadPath();
-
+  test("upload modal: drop zone and disabled add", async () => {
     await notebooks.clickOpenUploadDocumentModal();
-    let uploadModal = notebooks.uploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
 
     await uploadModal.expectUploadAreaFullyDescribed();
     await uploadModal.expectModalTitleBarMatchesAriaSnapshot();
     await uploadModal.expectAddFilesButtonDisabled(0);
+    await uploadModal.clickCancel();
+  });
 
+  test("document sidebar: collapse and expand", async () => {
+    await notebooks.collapseThenExpandDocumentSidebar();
+  });
+
+  test("sidebar: add file then remove", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+
+    await uploadModal.expectStagedFileCountCaptionVisible(
+      1,
+      NOTEBOOK_SESSION_MAX_DOCUMENTS,
+    );
+    await uploadModal.clickAddFilesForStagedCount(1);
+
+    await notebooks.expectDocumentUploadCompletes(fileName);
+    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
+    await notebooks.expectNotebookEditorUploadResourceButtonVisible();
+  });
+
+  test("document sidebar: rename document via click", async () => {
+    const { absolutePath, fileName } =
+      localeNotebookUploadPath("en.upload2.json");
+    const { baseName, ext } = notebookFileNameParts(fileName);
+    const renamedFileName = `${baseName}-renamed${ext}`;
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
     await uploadModal.expectStagedFileCountCaptionVisible(
       1,
@@ -76,44 +117,54 @@ test.describe("Lightspeed notebooks", () => {
     await uploadModal.clickAddFilesForStagedCount(1);
     await expect(uploadModal.dialog()).toBeHidden();
     await notebooks.expectDocumentUploadCompletes(fileName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
 
-    await notebooks.clickOpenUploadDocumentModal();
-    uploadModal = notebooks.uploadDocumentModal();
-    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-
-    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
-    await overwriteModal.expectDialogVisible();
-    await overwriteModal.expectListedOverwriteFile(fileName);
-    await overwriteModal.clickCancel();
-    await expect(overwriteModal.dialog()).toBeHidden();
-    await expect(uploadModal.dialog()).toBeVisible();
-    await uploadModal.clickCancel();
-
-    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
-    await notebooks.expectNotebookEditorUploadResourceButtonVisible();
+    await notebooks.renameDocumentInlineViaClick(
+      fileName,
+      `${baseName}-renamed`,
+    );
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
+    await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
   });
 
-  test("document sidebar: collapse and expand", async () => {
-    await notebooks.collapseThenExpandDocumentSidebar();
-  });
-
-  test("sidebar: add file then remove", async () => {
-    const { absolutePath, fileName } =
+  test("upload modal: duplicate file confirms overwrite then upload", async () => {
+    const { fileName: originalFileName } =
       localeNotebookUploadPath("en.upload2.json");
+    const { baseName, ext } = notebookFileNameParts(originalFileName);
+    const listedFileName = `${baseName}-renamed${ext}`;
+    const { absolutePath, fileName } =
+      localeNotebookUploadCopyAs(listedFileName);
+
+    await notebooks.expectDocumentFileListedInSidebar(fileName);
 
     await notebooks.clickOpenUploadDocumentModal();
     const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
-
-    await uploadModal.expectStagedFileCountCaptionVisible(
-      1,
-      NOTEBOOK_SESSION_MAX_DOCUMENTS,
-    );
     await uploadModal.clickAddFilesForStagedCount(1);
 
-    await notebooks.expectDocumentUploadCompletes(fileName);
-    await notebooks.deleteFirstListedDocumentFromSidebarOverflowMenu();
-    await notebooks.expectNotebookEditorUploadResourceButtonVisible();
+    const overwriteModal = notebooks.notebookOverwriteConfirmModal();
+    await overwriteModal.expectDialogVisible();
+    await overwriteModal.expectListedOverwriteFile(fileName);
+    await overwriteModal.clickBack();
+    await expect(overwriteModal.dialog()).toBeHidden();
+    await expect(uploadModal.dialog()).toBeVisible();
+    await uploadModal.clickCancel();
+  });
+
+  test("document sidebar: rename document via kebab menu", async () => {
+    const { fileName } = localeNotebookUploadPath("en.upload2.json");
+    const { baseName, ext } = notebookFileNameParts(fileName);
+    const renamedFileName = `${baseName}-renamed${ext}`;
+    const kebabFileName = `${baseName}-kebab${ext}`;
+
+    await notebooks.expectDocumentFileListedInSidebar(renamedFileName);
+    await notebooks.renameDocumentViaKebabMenu(
+      renamedFileName,
+      `${baseName}-kebab`,
+    );
+    await notebooks.expectDocumentFileListedInSidebar(kebabFileName);
   });
 
   test("upload modal: eleven files rejected at cap", async () => {
@@ -122,9 +173,11 @@ test.describe("Lightspeed notebooks", () => {
     await uploadModal.selectFilesViaBrowsePicker(
       notebookElevenFileStagingPaths(),
     );
-    await expect(uploadModal.dialog().getByRole("alert")).toContainText(
-      `Upload error: Maximum of ${NOTEBOOK_SESSION_MAX_DOCUMENTS} files allowed.`,
-    );
+    await expect(
+      uploadModal.errorAlert(
+        `Upload error: Maximum of ${NOTEBOOK_SESSION_MAX_DOCUMENTS} files allowed.`,
+      ),
+    ).toBeVisible();
     await uploadModal.clickCancel();
   });
 
@@ -134,9 +187,11 @@ test.describe("Lightspeed notebooks", () => {
     await uploadModal.selectFilesViaBrowsePicker([
       notebookUnsupportedTypeFixturePath(),
     ]);
-    await expect(uploadModal.dialog().getByRole("alert")).toContainText(
-      "Upload error: Unsupported file type(s) found. Please upload only supported file types.",
-    );
+    await expect(
+      uploadModal.errorAlert(
+        "Upload error: Unsupported file type(s) found. Please upload only supported file types.",
+      ),
+    ).toBeVisible();
     await uploadModal.clickCancel();
   });
 
@@ -148,21 +203,18 @@ test.describe("Lightspeed notebooks", () => {
     await expect(notebooks.newestUntitledNotebookCard()).toBeVisible();
 
     await notebooks.expectNotebookListShowsDocumentCountSummaryAndUpdatedToday(
-      0,
+      1,
     );
 
     await notebooks
       .notebookCardOverflowMenuButton(notebooks.newestUntitledNotebookCard())
       .click();
     await notebooks.renameNotebookOverflowMenuItem().click();
+    await notebooks.renameNotebookInline(RENAMED_NOTEBOOK_TITLE);
 
-    const renameModal = notebooks.renameNotebookDialog(
-      NOTEBOOK_UNTITLED_GRID_NAME,
-    );
-    await renameModal.expectDialogVisible();
-    await renameModal.enterNewDisplayedNameAndSubmit(RENAMED_NOTEBOOK_TITLE);
-
-    await expect(page.getByText(RENAMED_NOTEBOOK_TITLE)).toBeVisible();
+    await expect(
+      notebooks.notebookCardByDisplayedName(RENAMED_NOTEBOOK_TITLE),
+    ).toBeVisible();
 
     await notebooks
       .notebookCardOverflowMenuButton(
@@ -180,7 +232,280 @@ test.describe("Lightspeed notebooks", () => {
 
     await notebooks.expectNotebookCardAbsent(RENAMED_NOTEBOOK_TITLE);
     await notebooks.expectUntitledNotebookCardCount(untitledBefore);
-    await expect(page.getByText(RENAMED_NOTEBOOK_TITLE)).toBeHidden();
+  });
+
+  test("grid: click card title triggers inline rename", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+
+    await notebooks.clickPrimaryNotebookCreate();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    const card = notebooks.newestUntitledNotebookCard();
+    await expect(card).toBeVisible();
+
+    await notebooks.clickCardTitle(card);
+    await expect(notebooks.inlineRenameInput()).toBeVisible();
+
+    const newName = "DoubleClick Renamed";
+    await notebooks.inlineRenameInput().fill(newName);
+    await notebooks.inlineRenameInput().press("Enter");
+
+    await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible();
+
+    await notebooks
+      .notebookCardOverflowMenuButton(
+        notebooks.notebookCardByDisplayedName(newName),
+      )
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(newName);
+    await confirmDelete.confirmDeletion();
+    await notebooks.expectNotebookCardAbsent(newName);
+  });
+
+  test("grid: Escape cancels inline rename", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+
+    await notebooks.clickPrimaryNotebookCreate();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    const card = notebooks.newestUntitledNotebookCard();
+    await expect(card).toBeVisible();
+
+    await notebooks.notebookCardOverflowMenuButton(card).click();
+    await notebooks.renameNotebookOverflowMenuItem().click();
+    await expect(notebooks.inlineRenameInput()).toBeVisible();
+
+    await notebooks.inlineRenameInput().fill("Should Not Save");
+    await notebooks.inlineRenameInput().press("Escape");
+
+    await expect(notebooks.inlineRenameInput()).toBeHidden();
+    await expect(
+      notebooks.notebookCardByDisplayedName(NOTEBOOK_UNTITLED_GRID_NAME),
+    ).toBeVisible();
+    await notebooks.expectNotebookCardAbsent("Should Not Save");
+
+    await notebooks
+      .notebookCardOverflowMenuButton(notebooks.newestUntitledNotebookCard())
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(
+      NOTEBOOK_UNTITLED_GRID_NAME,
+    );
+    await confirmDelete.confirmDeletion();
+  });
+
+  test("grid: blur saves inline rename", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+
+    await notebooks.clickPrimaryNotebookCreate();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    const card = notebooks.newestUntitledNotebookCard();
+    await expect(card).toBeVisible();
+
+    await notebooks.clickCardTitle(card);
+    await expect(notebooks.inlineRenameInput()).toBeVisible();
+
+    const newName = "Blur Saved Name";
+    await notebooks.inlineRenameInput().fill(newName);
+    await notebooks.myNotebooksHeading().click();
+
+    await expect(notebooks.inlineRenameInput()).toBeHidden();
+    await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible();
+
+    await notebooks
+      .notebookCardOverflowMenuButton(
+        notebooks.notebookCardByDisplayedName(newName),
+      )
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(newName);
+    await confirmDelete.confirmDeletion();
+    await notebooks.expectNotebookCardAbsent(newName);
+  });
+
+  test("grid: empty or unchanged name cancels rename", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+
+    await notebooks.clickPrimaryNotebookCreate();
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    const card = notebooks.newestUntitledNotebookCard();
+    await expect(card).toBeVisible();
+
+    await notebooks.clickCardTitle(card);
+    await expect(notebooks.inlineRenameInput()).toBeVisible();
+
+    await notebooks.inlineRenameInput().fill("");
+    await notebooks.inlineRenameInput().press("Enter");
+
+    await expect(notebooks.inlineRenameInput()).toBeHidden();
+    await expect(
+      notebooks.notebookCardByDisplayedName(NOTEBOOK_UNTITLED_GRID_NAME),
+    ).toBeVisible();
+
+    await notebooks.clickCardTitle(notebooks.newestUntitledNotebookCard());
+    await expect(notebooks.inlineRenameInput()).toBeVisible();
+    await notebooks.inlineRenameInput().press("Enter");
+
+    await expect(notebooks.inlineRenameInput()).toBeHidden();
+    await expect(
+      notebooks.notebookCardByDisplayedName(NOTEBOOK_UNTITLED_GRID_NAME),
+    ).toBeVisible();
+
+    await notebooks
+      .notebookCardOverflowMenuButton(notebooks.newestUntitledNotebookCard())
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(
+      NOTEBOOK_UNTITLED_GRID_NAME,
+    );
+    await confirmDelete.confirmDeletion();
+  });
+
+  test("sidebar: click title to rename inside editor", async () => {
+    await notebooks.clickPrimaryNotebookCreate();
+    await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
+
+    await expect(notebooks.sidebarTitleText()).toBeVisible();
+    await notebooks.clickSidebarTitle();
+
+    const sidebarInput = notebooks.inlineRenameInput();
+    await expect(sidebarInput).toBeVisible();
+
+    const newName = "Sidebar Renamed";
+    await sidebarInput.fill(newName);
+    const renamePersisted = notebooks.waitForSessionRenamePut();
+    await sidebarInput.press("Enter");
+    await renamePersisted;
+
+    await expect(sidebarInput).toBeHidden();
+    await expect(notebooks.sidebarTitleText()).toContainText(newName);
+
+    await notebooks.clickCloseNotebookEditor();
+    await expect(notebooks.myNotebooksHeading()).toBeVisible();
+
+    await expect(notebooks.notebookCardByDisplayedName(newName)).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await notebooks
+      .notebookCardOverflowMenuButton(
+        notebooks.notebookCardByDisplayedName(newName),
+      )
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(newName);
+    await confirmDelete.confirmDeletion();
+    await notebooks.expectNotebookCardAbsent(newName);
+  });
+
+  test("auto-delete: empty untitled notebook is discarded on close", async () => {
+    await notebooks.gotoFullscreenNotebooksTab();
+    const cardsBefore = await notebooks.untitledNotebookCards().count();
+
+    await notebooks.clickCreateNotebookFromEmptyList();
+    await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    await notebooks.expectUntitledNotebookCardCount(cardsBefore);
+  });
+
+  test("auto-delete: notebook with uploaded file persists on close", async () => {
+    const { absolutePath, fileName } = localeNotebookUploadPath();
+    const cardsBefore = await notebooks.untitledNotebookCards().count();
+
+    await notebooks.clickCreateNotebookFromEmptyList();
+    await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
+
+    await notebooks.clickOpenUploadDocumentModal();
+    const uploadModal = notebooks.uploadDocumentModal();
+    await uploadModal.selectFilesViaBrowsePicker([absolutePath]);
+    await uploadModal.clickAddFilesForStagedCount(1);
+    await notebooks.expectDocumentUploadCompletes(fileName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await page.waitForTimeout(500);
+
+    await notebooks.clickCloseNotebookEditor();
+
+    await notebooks.expectUntitledNotebookCardCount(cardsBefore + 1);
+
+    await notebooks
+      .notebookCardOverflowMenuButton(notebooks.newestUntitledNotebookCard())
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete = notebooks.notebookDeleteConfirmationDialog(
+      NOTEBOOK_UNTITLED_GRID_NAME,
+    );
+    await confirmDelete.confirmDeletion();
+    await notebooks.expectUntitledNotebookCardCount(cardsBefore);
+  });
+
+  test("auto-delete: renamed notebook persists on close", async () => {
+    await notebooks.gotoFullscreenNotebooksTab();
+
+    await notebooks.clickCreateNotebookFromEmptyList();
+    await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
+
+    await notebooks.clickSidebarTitle();
+    const sidebarInput = notebooks.inlineRenameInput();
+    await expect(sidebarInput).toBeVisible();
+    const renamedName = "Renamed Persists";
+    await sidebarInput.fill(renamedName);
+    const renamePersisted = notebooks.waitForSessionRenamePut();
+    await sidebarInput.press("Enter");
+    await renamePersisted;
+
+    await expect(sidebarInput).toBeHidden();
+    await expect(notebooks.sidebarTitleText()).toContainText(renamedName);
+
+    await notebooks.clickCloseNotebookEditor();
+    await expect(notebooks.myNotebooksHeading()).toBeVisible();
+
+    await expect(
+      notebooks.notebookCardByDisplayedName(renamedName),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await notebooks
+      .notebookCardOverflowMenuButton(
+        notebooks.notebookCardByDisplayedName(renamedName),
+      )
+      .click();
+    await notebooks.deleteNotebookOverflowMenuItem().click();
+    const confirmDelete =
+      notebooks.notebookDeleteConfirmationDialog(renamedName);
+    await confirmDelete.confirmDeletion();
+    await notebooks.expectNotebookCardAbsent(renamedName);
   });
 
   test("notebook tab: conversation, feedback, clipboard, and delete notebook", async () => {
@@ -193,7 +518,7 @@ test.describe("Lightspeed notebooks", () => {
 
     const prompt = `Tell me about ${uploadedFile} in one short sentence.`;
     const notebookInput = page.getByRole("textbox", {
-      name: "Ask about your documents...",
+      name: "Ask about your resources...",
     });
     await expect(notebookInput).toBeEnabled({ timeout: 120_000 });
     await notebookInput.fill(prompt);
@@ -216,7 +541,7 @@ test.describe("Lightspeed notebooks", () => {
 
     await verifyFeedbackButtons(page);
     // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(500);
     await submitFeedback(page, "Good Response");
     await submitFeedback(page, "Bad Response");
     await assertLastBotResponseCopiedToClipboard(page);
