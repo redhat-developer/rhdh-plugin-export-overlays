@@ -16,8 +16,7 @@ import {
   findSummaries,
   oneLine,
   packagingOf,
-  servesNewFrontendSystem,
-  mfWithoutNfsEntryPoint,
+  nfsSupportOf,
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
@@ -74,7 +73,12 @@ function summary(workspaces: SweepWorkspaceResult[], index = 0): SweepSummary {
   };
 }
 
-/** An mf record the new frontend system can mount from. */
+/**
+ * An mf record the new frontend system can mount from.
+ *
+ * Deliberately not cast: the fixture has to stop compiling when MfRemoteInfo grows a
+ * field, which is the drift this file already fixes three other fixtures for.
+ */
 function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
   return {
     name: "plugin",
@@ -84,9 +88,8 @@ function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
     nfsFeaturesError: null,
     nfsFeaturesExposed: ["./alpha"],
     servable: true,
-    problems: [],
     ...over,
-  } as MfRemoteInfo;
+  };
 }
 
 test("packagingOf classifies every system combination", () => {
@@ -105,40 +108,55 @@ test("packagingOf classifies every system combination", () => {
   assert.equal(packagingOf({ systems: [], mf: null }), "none");
 });
 
-test("a module-federation layout alone does not count as new frontend system", () => {
-  // `systems` gains "new-frontend-system" from the presence of dist/mf-manifest.json,
-  // which RHDH also uses to ship legacy Scalprum plugins. Counting that as migrated is
-  // what overstated the rollup.
-  const shipsMfOnly = {
+test("declaring no backstage.features is undetermined, not legacy", () => {
+  // The state 27 of 47 bundles are actually in. nfsModuleFilter installs no filter,
+  // every exposed module is advertised, and the loader decides at runtime from each
+  // module's $$type — so calling it legacy states a guess as a fact. Ten of those 27
+  // expose an `alpha` module, the same shape as bundles that are unambiguously NFS.
+  const declaresNothing = {
     systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
     mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
   };
-  assert.equal(packagingOf(shipsMfOnly), "legacy-only");
-  assert.equal(servesNewFrontendSystem(shipsMfOnly), false);
-  assert.equal(mfWithoutNfsEntryPoint(shipsMfOnly), true);
+  assert.equal(nfsSupportOf(declaresNothing), "undetermined");
+  assert.equal(packagingOf(declaresNothing), "dual");
 });
 
-test("a declared NFS entry point the remote never exposes does not count", () => {
-  // Nothing for the host to resolve. Neither `servable` nor `nfsFeatures` shows this
-  // on its own, which is why the intersection is the field to judge by.
+test("a failure to read backstage.features is undetermined, not a finding", () => {
+  // REPORT_SCHEMA_VERSION was bumped to 5 precisely so this is not recorded as the
+  // artifact declaring none. Reading only nfsFeaturesExposed.length would lose that.
+  const couldNotLook = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({
+      nfsFeatures: [],
+      nfsFeaturesExposed: [],
+      nfsFeaturesError: "could not read package.json (EACCES)",
+    }),
+  };
+  assert.equal(nfsSupportOf(couldNotLook), "undetermined");
+  assert.equal(packagingOf(couldNotLook), "dual");
+});
+
+test("a declared NFS entry point the remote never exposes is a real no", () => {
+  // Here the filter IS installed and keeps nothing, so the host mounts nothing. That
+  // is knowable, unlike the declares-nothing case above.
   const declaredButUnexposed = {
     systems: ["new-frontend-system"] as FrontendSystem[],
     mf: usableMf({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
   };
+  assert.equal(nfsSupportOf(declaredButUnexposed), "none");
   assert.equal(packagingOf(declaredButUnexposed), "none");
-  assert.equal(mfWithoutNfsEntryPoint(declaredButUnexposed), true);
 });
 
-test("an unservable remote does not count however much it declares", () => {
+test("an unservable remote mounts nothing however much it declares", () => {
   const unservable = {
     systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
     mf: usableMf({ servable: false }),
   };
+  assert.equal(nfsSupportOf(unservable), "none");
   assert.equal(packagingOf(unservable), "legacy-only");
-  assert.equal(mfWithoutNfsEntryPoint(unservable), true);
 });
 
-test("renderMarkdown explains the module-federation shortfall behind the counts", () => {
+test("renderMarkdown qualifies the new-frontend-system figure it prints", () => {
   const markdown = renderMarkdown(
     buildAggregate([
       summary([
@@ -169,18 +187,20 @@ test("renderMarkdown explains the module-federation shortfall behind the counts"
       ]),
     ]),
   );
-  // Without this line the drop from the previous classification reads as coverage
-  // disappearing rather than as a number being corrected.
-  assert.match(markdown, /Of these, \*\*1\*\* ship a module-federation layout/);
-  assert.match(markdown, /\| Dual \| 1 \|/);
-  assert.match(markdown, /\| Legacy \(Scalprum\) only \| 1 \|/);
+  // Both bundles still count as dual, which is the point: the figure is unchanged and
+  // qualified, rather than quietly replaced by a smaller one that is wrong the other way.
+  assert.match(markdown, /\| Dual \| 2 \|/);
+  assert.match(markdown, /\*\*1\*\* are confirmed/);
+  assert.match(markdown, /\*\*1\*\* are undetermined/);
+  assert.match(markdown, /Read the migration figure as the confirmed count/);
 });
 
-test("a missing mf-manifest is not counted as a shortfall", () => {
-  // No module-federation layout at all is a plain legacy bundle, not a bundle whose
-  // NFS support fell short — lumping the two together would inflate the new figure.
+test("a bundle with no module-federation layout is not undetermined", () => {
+  // Absent layout is a plain legacy bundle. Calling it undetermined would pad the very
+  // figure the split exists to qualify.
   const legacyOnly = { systems: ["legacy"] as FrontendSystem[], mf: null };
-  assert.equal(mfWithoutNfsEntryPoint(legacyOnly), false);
+  assert.equal(nfsSupportOf(legacyOnly), "none");
+  assert.equal(packagingOf(legacyOnly), "legacy-only");
 });
 
 test("oneLine flattens whitespace and truncates at the limit", () => {

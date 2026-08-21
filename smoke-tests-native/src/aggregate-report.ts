@@ -30,6 +30,8 @@ export type FrontendPackaging = {
   workspace: string;
   version: string;
   packaging: Packaging;
+  /** See {@link nfsSupportOf}. Recorded per package so the aggregate is auditable. */
+  nfsSupport: NfsSupport;
 };
 
 export type Aggregate = {
@@ -66,11 +68,11 @@ export type Aggregate = {
     counts: Record<Packaging, number>;
     packages: FrontendPackaging[];
     /**
-     * Bundles shipping a module-federation layout the new frontend system cannot
-     * mount from. Not a separate `Packaging` — they are already counted by the
-     * legacy system they do serve — but reported so the counts are explainable.
+     * How much of the new-frontend-system count is established rather than merely
+     * not ruled out. `undetermined` bundles declare no `backstage.features`, so the
+     * host decides at runtime and the sweep cannot say — see {@link nfsSupportOf}.
      */
-    mfWithoutNfsEntryPoint: number;
+    nfsSupport: Record<NfsSupport, number>;
   };
   failures: Array<{ workspace: string; status: string; detail: string }>;
   exclusions: ExclusionRecord[];
@@ -152,60 +154,65 @@ export function describeShardCoverage(
 }
 
 /**
- * Whether the new frontend system would actually mount anything from this bundle.
+ * How much the sweep can say about a bundle's new-frontend-system support.
  *
- * `systems` says only that `dist/mf-manifest.json` exists — module-federation
- * *layout*, which RHDH now also uses to ship legacy Scalprum plugins. Counting that
- * as "ships NFS" is what made the rollup report 46 of 47 bundles migrated when the
- * number of bundles a new-frontend-system host can mount from is far smaller.
+ * Three states, not two, because the data has three. `systems` says only that
+ * `dist/mf-manifest.json` exists — module-federation *layout*, which RHDH also uses to
+ * ship legacy Scalprum plugins — so it overstates. But the obvious correction,
+ * "count it only when `nfsFeaturesExposed` is non-empty", understates by exactly as
+ * much: that array is empty both when a package declares entry points its remote never
+ * exposes *and* when it declares no `backstage.features` at all, and those are not the
+ * same fact.
  *
- * `mf.nfsFeaturesExposed` is the field to judge by: it is the intersection of the
- * NFS entry points the package declares in `backstage.features` and the modules the
- * manifest actually exposes. Either half alone is not enough — a package can declare
- * a feature the remote never exposes, leaving nothing for NFS to resolve.
+ * `describeNfsShortfall` in harness-logic.ts already draws that line and explains why:
+ * with `backstage.features` absent, RHDH's `nfsModuleFilter` installs no filter at all,
+ * the router advertises every exposed module, and the dynamic feature loader decides at
+ * runtime from each module's `$$type`. Whether NFS mounts anything then cannot be known
+ * without executing the bundle. Over the 2026-08-21 community sweep that is the state of
+ * 27 of 47 bundles — ten of which expose an `alpha` module, the same shape as bundles
+ * that are unambiguously NFS. Publishing those as legacy would be a guess stated as a
+ * fact, in the opposite direction from the one this function exists to fix.
  */
-export function servesNewFrontendSystem(bundle: {
+export type NfsSupport = "confirmed" | "none" | "undetermined";
+
+export function nfsSupportOf(bundle: {
   systems: FrontendSystem[];
   mf: MfRemoteInfo | null;
-}): boolean {
-  if (!bundle.systems.includes("new-frontend-system")) return false;
+}): NfsSupport {
+  if (!bundle.systems.includes("new-frontend-system")) return "none";
   const mf = bundle.mf;
-  return Boolean(mf?.servable && mf.nfsFeaturesExposed.length > 0);
+  // A layout the router will not serve mounts nothing, whatever it declares.
+  if (!mf || !mf.servable) return "none";
+  // Nothing declared. Two ways to arrive here — the package declares no
+  // backstage.features, or reading it failed (readNfsFeatures returns an empty list
+  // beside the error) — and for a three-way verdict they give the same answer, so
+  // nfsFeaturesError needs no branch of its own. describeNfsShortfall separates them
+  // only because it emits prose, where "declares none" and "we could not look" have to
+  // read differently.
+  if (mf.nfsFeatures.length === 0) return "undetermined";
+  // Declared and exposed is the only combination that establishes support: declaring an
+  // entry point the remote never exposes leaves nothing for the host to resolve.
+  return mf.nfsFeaturesExposed.length > 0 ? "confirmed" : "none";
 }
 
 /**
- * Classify a bundle by the frontend systems it can actually serve.
+ * Classify a bundle by the frontend systems it can serve.
  *
- * Takes the whole bundle rather than `systems` alone because the module-federation
- * layout on its own does not establish NFS support — see {@link servesNewFrontendSystem}.
+ * Undetermined counts toward the new frontend system, which keeps this number where it
+ * was for those bundles rather than replacing an overstatement with an understatement.
+ * What the panel gains is the confirmed/undetermined split beside it, so the reader can
+ * see how much of the figure is established and how much is merely not ruled out.
  */
 export function packagingOf(bundle: {
   systems: FrontendSystem[];
   mf: MfRemoteInfo | null;
 }): Packaging {
   const legacy = bundle.systems.includes("legacy");
-  const modern = servesNewFrontendSystem(bundle);
+  const modern = nfsSupportOf(bundle) !== "none";
   if (legacy && modern) return "dual";
   if (legacy) return "legacy-only";
   if (modern) return "new-frontend-system-only";
   return "none";
-}
-
-/**
- * Bundles that ship a module-federation layout the new frontend system cannot use.
- *
- * Reported alongside the counts so the drop from the old classification is
- * explainable rather than mysterious: these are packages whose export toolchain is
- * ready and whose plugin code is not.
- */
-export function mfWithoutNfsEntryPoint(bundle: {
-  systems: FrontendSystem[];
-  mf: MfRemoteInfo | null;
-}): boolean {
-  return (
-    bundle.systems.includes("new-frontend-system") &&
-    !servesNewFrontendSystem(bundle)
-  );
 }
 
 /**
@@ -278,7 +285,7 @@ function emptyAggregate(support: string): Aggregate {
         none: 0,
       },
       packages: [],
-      mfWithoutNfsEntryPoint: 0,
+      nfsSupport: { confirmed: 0, none: 0, undetermined: 0 },
     },
     failures: [],
     exclusions: [],
@@ -309,15 +316,17 @@ function accumulateWorkspaceResult(
   accumulatePackageCounts(result.report, aggregate);
   for (const bundle of result.report.frontend.bundles ?? []) {
     const packaging = packagingOf(bundle);
+    const nfsSupport = nfsSupportOf(bundle);
     aggregate.frontendSystems.counts[packaging] += 1;
-    if (mfWithoutNfsEntryPoint(bundle)) {
-      aggregate.frontendSystems.mfWithoutNfsEntryPoint += 1;
-    }
+    aggregate.frontendSystems.nfsSupport[nfsSupport] += 1;
     aggregate.frontendSystems.packages.push({
       packageName: bundle.name,
       workspace: result.workspace,
       version: bundle.version,
       packaging,
+      // Per package as well as in aggregate, so a reader of aggregate.json can list
+      // which bundles are undetermined without re-running the sweep.
+      nfsSupport,
     });
   }
 }
@@ -389,10 +398,14 @@ export function renderMarkdown(aggregate: Aggregate): string {
     `| Dual | ${frontendSystems.counts.dual} |`,
     `| No recognized layout | ${frontendSystems.counts.none} |`,
     "",
-    `Of these, **${frontendSystems.mfWithoutNfsEntryPoint}** ship a module-federation ` +
-      "layout that the new frontend system cannot mount from — the remote is not " +
-      "servable, or it exposes none of the NFS entry points the package declares. " +
-      "They are counted by the legacy system they do serve.",
+    `Of the bundles counted above as shipping the new frontend system, ` +
+      `**${frontendSystems.nfsSupport.confirmed}** are confirmed — the remote is ` +
+      `servable and exposes an NFS entry point it declares — and ` +
+      `**${frontendSystems.nfsSupport.undetermined}** are undetermined: they declare ` +
+      "no `backstage.features`, so `nfsModuleFilter` installs no filter, every exposed " +
+      "module is advertised, and whether the new frontend system mounts any of them " +
+      "cannot be known without executing the bundle. Read the migration figure as the " +
+      "confirmed count, not the total.",
     "",
   ];
 
