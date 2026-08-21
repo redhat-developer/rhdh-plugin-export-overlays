@@ -1614,6 +1614,37 @@ class TestFlagVisibility:
         assert "deleted the flag" not in result.stderr
         assert "is visible" not in result.stdout
 
+    def test_one_failed_and_one_unconfirmed_still_confirms_nothing(
+        self, tmp_path, coverage_dir
+    ):
+        """The gap two independent comparisons leave open.
+
+        A target lands in exactly one of FAILED_SHAS or UNVERIFIED_SHAS, so with
+        two targets a failed upload plus an unconfirmed session satisfies
+        `FAILED < 2` and `UNVERIFIED < 2` separately while confirming nothing —
+        and the check would then run with no evidence the flag was ever
+        registered. The gate has to be combined.
+
+        exit_codes=(1, 1, 0) is the shape: UPLOAD_ATTEMPTS is 2, so the first
+        target exhausts both attempts and fails, and the second uploads fine but
+        never has its session confirmed by the empty uploads fixture.
+        """
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            exit_codes=(1, 1, 0),
+            env={
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "CODECOV_GRAPHQL_API": write_graphql_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "1",
+                "VERIFY_DELAY_SECONDS": "0",
+            },
+        )
+
+        # The run fails on the failed upload, which is correct and separate.
+        assert result.returncode == 1
+        assert "deleted the flag" not in result.stderr
+
     def test_a_dry_run_asks_nothing(self, tmp_path, coverage_dir):
         """Nothing reached Codecov, so there is no published flag to have an
         opinion about. The fixture says "not visible", which is the answer that

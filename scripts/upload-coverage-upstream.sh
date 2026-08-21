@@ -800,9 +800,12 @@ echo ""
 # sending someone to open a support ticket over a slow queue. Worse than not
 # checking at all, and the same "could not ask" vs "it is gone" confusion this
 # file keeps apart everywhere else.
+# COMBINED, not two independent comparisons. A target lands in exactly one of
+# the two arrays, so what this needs is "at least one target in neither" — and
+# with two targets, one failed upload plus one unconfirmed session satisfies
+# `FAILED < 2` and `UNVERIFIED < 2` separately while confirming nothing.
 if [[ "$DRY_RUN" != "true" \
-  && ${#FAILED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} \
-  && ${#UNVERIFIED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} ]]; then
+  && $(( ${#FAILED_SHAS[@]} + ${#UNVERIFIED_SHAS[@]} )) -lt ${#UPLOAD_SHAS[@]} ]]; then
   verify_flag_visible || true
 fi
 
