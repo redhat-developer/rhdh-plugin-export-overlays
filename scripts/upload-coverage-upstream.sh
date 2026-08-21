@@ -165,9 +165,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# The workspace name becomes the Codecov flag verbatim — validate it so a typo
-# cannot create a ghost e2e-<typo> flag that carryforward then keeps alive in a
-# shared project we do not administer.
+# The workspace name is what the flag is normally built from — validate it so a
+# typo cannot create a ghost e2e-<typo> flag that carryforward then keeps alive
+# in a shared project we do not administer. `upstream_flag_for` below can
+# override the derived name, and carries its own guard for the same reason.
 #
 # Deliberately the SAME shape scripts/e2e-comment.cjs enforces, cap and trailing
 # hyphen included. This used to be the looser of the two on the reasoning that
@@ -197,24 +198,32 @@ fi
 # silently reverts that workspace to a name Codecov will accept, process, and
 # then hide — which is precisely the failure it was added for.
 #
-# And do NOT mirror this into scripts/upload-coverage.sh. Flags are per project:
-# this repo's OWN Codecov project still has a healthy, visible e2e-orchestrator
-# (46.73% measured 2026-08-21). Renaming there would orphan a good history to
-# fix a problem that exists only on the destination project.
-flag_for_workspace() {
-  case "$1" in
+# And do NOT mirror this into scripts/upload-coverage.sh or
+# scripts/seed-main-coverage.sh. Both derive `e2e-<workspace>` for THIS repo's
+# own Codecov project, where e2e-orchestrator is healthy and visible (46.73%
+# measured 2026-08-21) — and seed-main-coverage.sh is the one that sets the
+# default-branch value the dashboard displays, so it is the more costly of the
+# two to get wrong. Renaming there would orphan a good history to fix a problem
+# that exists only on the destination project.
+upstream_flag_for() {
+  # Named rather than used as "$1" throughout, matching every other function in
+  # this script (`local sha="$1"`, `local lcov="$1"`, `local out_dir="$1"`).
+  local workspace="$1"
+  case "$workspace" in
     # e2e-orchestrator was deleted on redhat-developer/rhdh-plugins some time
     # after 2026-08-17. Its data is still there — 142 files, 49.51% at main HEAD
     # b37abc01 — and invisible to everyone. The suffix is NOT a plugin version;
     # orchestrator 6.0.0 has nothing to do with it. It is here because the plain
-    # name is burned.
+    # name is burned. Registered upstream by redhat-developer/rhdh-plugins#4436.
     orchestrator) echo "e2e-orchestrator-plugin" ;;
-    *) echo "e2e-$1" ;;
+    *) echo "e2e-$workspace" ;;
   esac
 }
-# Assigned then marked readonly, rather than `readonly FLAG="$(...)"`: that form
-# makes the exit status the builtin's, hiding a failing substitution from set -e.
-FLAG="$(flag_for_workspace "$WORKSPACE")"
+# Split assignment rather than `readonly FLAG="$(...)"`, matching upload_name_for
+# below — where the shape is load-bearing, because `readonly` would make the exit
+# status its own and hide a failing substitution from set -e. A `case` plus
+# `echo` has no failure path, so here it is the convention, not a live hazard.
+FLAG="$(upstream_flag_for "$WORKSPACE")"
 readonly FLAG
 
 SOURCE_JSON="$REPO_ROOT/workspaces/$WORKSPACE/source.json"
