@@ -16,10 +16,13 @@ import {
   findSummaries,
   oneLine,
   packagingOf,
+  servesNewFrontendSystem,
+  mfWithoutNfsEntryPoint,
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
 import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type { FrontendSystem, MfRemoteInfo } from "./loader";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
 // $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
@@ -71,14 +74,113 @@ function summary(workspaces: SweepWorkspaceResult[], index = 0): SweepSummary {
   };
 }
 
+/** An mf record the new frontend system can mount from. */
+function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
+  return {
+    name: "plugin",
+    remoteEntry: "remoteEntry.js",
+    exposes: ["./alpha"],
+    nfsFeatures: ["./alpha"],
+    nfsFeaturesError: null,
+    nfsFeaturesExposed: ["./alpha"],
+    servable: true,
+    problems: [],
+    ...over,
+  } as MfRemoteInfo;
+}
+
 test("packagingOf classifies every system combination", () => {
-  assert.equal(packagingOf(["legacy"]), "legacy-only");
+  assert.equal(packagingOf({ systems: ["legacy"], mf: null }), "legacy-only");
   assert.equal(
-    packagingOf(["new-frontend-system"]),
+    packagingOf({ systems: ["new-frontend-system"], mf: usableMf() }),
     "new-frontend-system-only",
   );
-  assert.equal(packagingOf(["legacy", "new-frontend-system"]), "dual");
-  assert.equal(packagingOf([]), "none");
+  assert.equal(
+    packagingOf({
+      systems: ["legacy", "new-frontend-system"],
+      mf: usableMf(),
+    }),
+    "dual",
+  );
+  assert.equal(packagingOf({ systems: [], mf: null }), "none");
+});
+
+test("a module-federation layout alone does not count as new frontend system", () => {
+  // `systems` gains "new-frontend-system" from the presence of dist/mf-manifest.json,
+  // which RHDH also uses to ship legacy Scalprum plugins. Counting that as migrated is
+  // what overstated the rollup.
+  const shipsMfOnly = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(packagingOf(shipsMfOnly), "legacy-only");
+  assert.equal(servesNewFrontendSystem(shipsMfOnly), false);
+  assert.equal(mfWithoutNfsEntryPoint(shipsMfOnly), true);
+});
+
+test("a declared NFS entry point the remote never exposes does not count", () => {
+  // Nothing for the host to resolve. Neither `servable` nor `nfsFeatures` shows this
+  // on its own, which is why the intersection is the field to judge by.
+  const declaredButUnexposed = {
+    systems: ["new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(packagingOf(declaredButUnexposed), "none");
+  assert.equal(mfWithoutNfsEntryPoint(declaredButUnexposed), true);
+});
+
+test("an unservable remote does not count however much it declares", () => {
+  const unservable = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ servable: false }),
+  };
+  assert.equal(packagingOf(unservable), "legacy-only");
+  assert.equal(mfWithoutNfsEntryPoint(unservable), true);
+});
+
+test("renderMarkdown explains the module-federation shortfall behind the counts", () => {
+  const markdown = renderMarkdown(
+    buildAggregate([
+      summary([
+        result({
+          workspace: "ws",
+          report: report({
+            frontend: {
+              total: 2,
+              valid: 2,
+              errors: [],
+              bundles: [
+                {
+                  name: "@s/ships-mf-only",
+                  version: "1",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+                },
+                {
+                  name: "@s/really-nfs",
+                  version: "1",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf(),
+                },
+              ],
+            },
+          }),
+        }),
+      ]),
+    ]),
+  );
+  // Without this line the drop from the previous classification reads as coverage
+  // disappearing rather than as a number being corrected.
+  assert.match(markdown, /Of these, \*\*1\*\* ship a module-federation layout/);
+  assert.match(markdown, /\| Dual \| 1 \|/);
+  assert.match(markdown, /\| Legacy \(Scalprum\) only \| 1 \|/);
+});
+
+test("a missing mf-manifest is not counted as a shortfall", () => {
+  // No module-federation layout at all is a plain legacy bundle, not a bundle whose
+  // NFS support fell short — lumping the two together would inflate the new figure.
+  const legacyOnly = { systems: ["legacy"] as FrontendSystem[], mf: null };
+  assert.equal(mfWithoutNfsEntryPoint(legacyOnly), false);
 });
 
 test("oneLine flattens whitespace and truncates at the limit", () => {
@@ -248,7 +350,7 @@ test("buildAggregate sorts failures and frontend packages deterministically", ()
                 name: "@s/a",
                 version: "1",
                 systems: ["legacy", "new-frontend-system"],
-                mf: null,
+                mf: usableMf(),
               },
             ],
           },
@@ -358,13 +460,13 @@ test("renderMarkdown puts each computed number in its own row", () => {
                   name: "@s/n",
                   version: "1",
                   systems: ["new-frontend-system"],
-                  mf: null,
+                  mf: usableMf(),
                 },
                 {
                   name: "@s/d",
                   version: "1",
                   systems: ["legacy", "new-frontend-system"],
-                  mf: null,
+                  mf: usableMf(),
                 },
               ],
             },

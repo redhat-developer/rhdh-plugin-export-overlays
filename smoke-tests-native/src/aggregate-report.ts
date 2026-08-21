@@ -17,7 +17,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem } from "./loader";
+import type { FrontendSystem, MfRemoteInfo } from "./loader";
 import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
 import { compareStrings } from "./util";
 
@@ -65,6 +65,12 @@ export type Aggregate = {
   frontendSystems: {
     counts: Record<Packaging, number>;
     packages: FrontendPackaging[];
+    /**
+     * Bundles shipping a module-federation layout the new frontend system cannot
+     * mount from. Not a separate `Packaging` — they are already counted by the
+     * legacy system they do serve — but reported so the counts are explainable.
+     */
+    mfWithoutNfsEntryPoint: number;
   };
   failures: Array<{ workspace: string; status: string; detail: string }>;
   exclusions: ExclusionRecord[];
@@ -145,13 +151,61 @@ export function describeShardCoverage(
   );
 }
 
-export function packagingOf(systems: FrontendSystem[]): Packaging {
-  const legacy = systems.includes("legacy");
-  const modern = systems.includes("new-frontend-system");
+/**
+ * Whether the new frontend system would actually mount anything from this bundle.
+ *
+ * `systems` says only that `dist/mf-manifest.json` exists — module-federation
+ * *layout*, which RHDH now also uses to ship legacy Scalprum plugins. Counting that
+ * as "ships NFS" is what made the rollup report 46 of 47 bundles migrated when the
+ * number of bundles a new-frontend-system host can mount from is far smaller.
+ *
+ * `mf.nfsFeaturesExposed` is the field to judge by: it is the intersection of the
+ * NFS entry points the package declares in `backstage.features` and the modules the
+ * manifest actually exposes. Either half alone is not enough — a package can declare
+ * a feature the remote never exposes, leaving nothing for NFS to resolve.
+ */
+export function servesNewFrontendSystem(bundle: {
+  systems: FrontendSystem[];
+  mf: MfRemoteInfo | null;
+}): boolean {
+  if (!bundle.systems.includes("new-frontend-system")) return false;
+  const mf = bundle.mf;
+  return Boolean(mf?.servable && mf.nfsFeaturesExposed.length > 0);
+}
+
+/**
+ * Classify a bundle by the frontend systems it can actually serve.
+ *
+ * Takes the whole bundle rather than `systems` alone because the module-federation
+ * layout on its own does not establish NFS support — see {@link servesNewFrontendSystem}.
+ */
+export function packagingOf(bundle: {
+  systems: FrontendSystem[];
+  mf: MfRemoteInfo | null;
+}): Packaging {
+  const legacy = bundle.systems.includes("legacy");
+  const modern = servesNewFrontendSystem(bundle);
   if (legacy && modern) return "dual";
   if (legacy) return "legacy-only";
   if (modern) return "new-frontend-system-only";
   return "none";
+}
+
+/**
+ * Bundles that ship a module-federation layout the new frontend system cannot use.
+ *
+ * Reported alongside the counts so the drop from the old classification is
+ * explainable rather than mysterious: these are packages whose export toolchain is
+ * ready and whose plugin code is not.
+ */
+export function mfWithoutNfsEntryPoint(bundle: {
+  systems: FrontendSystem[];
+  mf: MfRemoteInfo | null;
+}): boolean {
+  return (
+    bundle.systems.includes("new-frontend-system") &&
+    !servesNewFrontendSystem(bundle)
+  );
 }
 
 /**
@@ -224,6 +278,7 @@ function emptyAggregate(support: string): Aggregate {
         none: 0,
       },
       packages: [],
+      mfWithoutNfsEntryPoint: 0,
     },
     failures: [],
     exclusions: [],
@@ -253,8 +308,11 @@ function accumulateWorkspaceResult(
   if (!result.report) return;
   accumulatePackageCounts(result.report, aggregate);
   for (const bundle of result.report.frontend.bundles ?? []) {
-    const packaging = packagingOf(bundle.systems);
+    const packaging = packagingOf(bundle);
     aggregate.frontendSystems.counts[packaging] += 1;
+    if (mfWithoutNfsEntryPoint(bundle)) {
+      aggregate.frontendSystems.mfWithoutNfsEntryPoint += 1;
+    }
     aggregate.frontendSystems.packages.push({
       packageName: bundle.name,
       workspace: result.workspace,
@@ -330,6 +388,11 @@ export function renderMarkdown(aggregate: Aggregate): string {
     `| New frontend system only | ${frontendSystems.counts["new-frontend-system-only"]} |`,
     `| Dual | ${frontendSystems.counts.dual} |`,
     `| No recognized layout | ${frontendSystems.counts.none} |`,
+    "",
+    `Of these, **${frontendSystems.mfWithoutNfsEntryPoint}** ship a module-federation ` +
+      "layout that the new frontend system cannot mount from — the remote is not " +
+      "servable, or it exposes none of the NFS entry points the package declares. " +
+      "They are counted by the legacy system they do serve.",
     "",
   ];
 
