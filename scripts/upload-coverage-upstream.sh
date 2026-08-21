@@ -138,8 +138,9 @@
 #       local file; curl serves a file:// URL and ignores the POST body, so one
 #       fixture shape covers both seams.
 #   VERIFY_ATTEMPTS / VERIFY_DELAY_SECONDS
-#       How hard that check tries. 0 attempts disables it entirely and says
-#       nothing, which is what the tests that are not about it use.
+#       How hard the two post-upload checks try — the session check above and
+#       the flag-visibility check. 0 attempts disables both entirely and says
+#       nothing, which is what the tests that are not about them use.
 
 set -euo pipefail
 
