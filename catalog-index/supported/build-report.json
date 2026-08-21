@@ -1022,7 +1022,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__2.1.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__2.1.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1036,14 +1036,11 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ae241bd5ae04411fa4f14e73f82c9365d43c446e8a5b401e025a9e5cc859134c",
-          "fallback": true,
-          "requestedTag": "bs_1.52.0__2.1.2",
-          "resolvedTag": "bs_1.52.0__2.1.0"
+          "digest": "sha256:b41cce6a05dced1a0f1a326f2d4f45e00657b7b084fb4a63178e19bb3886ae9a"
         }
       },
       "package": "@backstage-community/plugin-rbac",
-      "version": "2.1.0",
+      "version": "2.1.2",
       "workspace": "rbac",
       "overall": "pass"
     },
