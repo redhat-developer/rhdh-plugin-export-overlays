@@ -133,6 +133,10 @@
 #       Template for the endpoint the post-upload check reads, with %OWNER%,
 #       %REPO% and %SHA% substituted. Tests point it at local files so the check
 #       never reaches Codecov.
+#   CODECOV_GRAPHQL_API
+#       The endpoint the flag-visibility check posts to. Tests point it at a
+#       local file; curl serves a file:// URL and ignores the POST body, so one
+#       fixture shape covers both seams.
 #   VERIFY_ATTEMPTS / VERIFY_DELAY_SECONDS
 #       How hard that check tries. 0 attempts disables it entirely and says
 #       nothing, which is what the tests that are not about it use.
@@ -614,6 +618,93 @@ verify_landed() {
   return 1
 }
 
+# Whether the flag is VISIBLE, which is a different question from whether the
+# upload landed — and the one this script could not answer until 2026-08-21.
+#
+# A flag that a Codecov admin has deleted keeps accepting uploads, keeps its
+# data in the report, and still returns from the v2 REST listing this script
+# already reads. It vanishes only from the UI, because the GraphQL resolver
+# behind every UI surface filters `deleted__isnot=True` and the REST one does
+# not. So `verify_landed` says [OK] twice, the report says 49.51%, and the
+# dashboard's flag picker does not offer the flag at all.
+#
+# That is exactly what happened to e2e-orchestrator on redhat-developer/
+# rhdh-plugins: two green publishes (2026-08-13 and 2026-08-17), 142 files on
+# main HEAD, and absent from the picker. The deletion is a soft delete that
+# Codecov documents as not undoable, with the name unusable afterwards — so
+# this cannot heal itself and the only useful response is to say so loudly.
+GRAPHQL_API="${CODECOV_GRAPHQL_API:-https://api.codecov.io/graphql/gh}"
+
+# Prints the visible flag names matching $FLAG, one per line, and FAILS if the
+# listing could not be read. Same split as session_names_on, for the same
+# reason: "the flag is gone" and "I could not ask" read alike in a log and send
+# whoever is debugging to opposite places.
+visible_flag_names() {
+  local owner="${SLUG%%/*}" repo="${SLUG##*/}" payload response
+  # `term` is a substring match server-side, so passing the whole flag name
+  # keeps the answer small without having to page a repo's entire flag list.
+  payload="$(jq -n --arg owner "$owner" --arg repo "$repo" --arg term "$FLAG" \
+    '{query: "query($owner:String!,$repo:String!,$term:String!){owner(username:$owner){repository(name:$repo){... on Repository{coverageAnalytics{flags(filters:{term:$term},first:100){edges{node{name}}}}}}}}",
+      variables: {owner: $owner, repo: $repo, term: $term}}')" || return 1
+  if ! response="$(curl -sfL --max-time 30 -X POST \
+    -H 'Content-Type: application/json' --data "$payload" "$GRAPHQL_API" 2>/dev/null)"; then
+    return 1
+  fi
+  # A GraphQL error is an HTTP 200 carrying an `errors` array and a null `data`,
+  # which --fail cannot see. Reading that as an empty flag list would report a
+  # perfectly live flag as deleted — the loudest wrong answer available here.
+  # `.errors // empty` would be wrong here and silently so: on the happy path
+  # `.errors` is absent, `// empty` yields `empty`, and `if empty then` makes the
+  # WHOLE expression produce nothing — so every healthy response read as "err".
+  # Compared against null explicitly instead.
+  if [[ "$(jq -r '
+        if (.errors != null) then "err"
+        elif ((.data.owner.repository.coverageAnalytics.flags.edges | type) == "array") then "ok"
+        else "err" end' <<<"$response" 2>/dev/null)" != "ok" ]]; then
+    return 1
+  fi
+  jq -r '.data.owner.repository.coverageAnalytics.flags.edges[].node.name' <<<"$response" 2>/dev/null
+}
+
+# Non-fatal, like verify_landed: the coverage IS published either way, and a
+# deleted flag needs a human with Codecov admin rights, not a red merge.
+#
+# Runs once per script run rather than once per upload, because visibility is a
+# property of the flag on the destination project — the same answer for both
+# SHAs. It runs AFTER verify_landed has confirmed a session, which is also what
+# makes it safe for a genuinely new flag: the RepositoryFlag row is created when
+# the upload is processed, so by the time a session is on the commit the flag
+# exists, and an absence here means deleted rather than not-yet-created.
+verify_flag_visible() {
+  local names attempt=1 lookup_failed="false"
+  # Verification off means nothing was asked; claiming anything would be a
+  # finding nobody looked for.
+  if [[ "$VERIFY_ATTEMPTS" -le 0 ]]; then
+    return 0
+  fi
+
+  while [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]]; do
+    if names="$(visible_flag_names)"; then
+      lookup_failed="reached"
+      if grep -qxF "$FLAG" <<<"$names"; then
+        echo "[OK]   flag '$FLAG' is visible on $SLUG."
+        return 0
+      fi
+    elif [[ "$lookup_failed" != "reached" ]]; then
+      lookup_failed="true"
+    fi
+    attempt=$((attempt + 1))
+    [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
+  done
+
+  if [[ "$lookup_failed" == "true" ]]; then
+    warn_loudly "could not reach $GRAPHQL_API to check whether '$FLAG' is still visible on $SLUG — this says nothing either way."
+  else
+    warn_loudly "the upload landed but '$FLAG' is NOT in $SLUG's visible flag list, which means a Codecov admin has deleted the flag. The coverage is still in the report and in the v2 REST listing; every UI surface hides it. Deletion is a soft delete Codecov documents as not undoable — this needs a Codecov admin or a new flag name, and re-running this job will not fix it."
+  fi
+  return 1
+}
+
 FAILED_SHAS=()
 UNVERIFIED_SHAS=()
 for sha in "${UPLOAD_SHAS[@]}"; do
@@ -683,6 +774,13 @@ for sha in "${UPLOAD_SHAS[@]}"; do
 done
 
 echo ""
+# Only worth asking when something was actually published: on a dry run nothing
+# reached Codecov, and when every upload failed the flag's visibility is not the
+# problem to report.
+if [[ "$DRY_RUN" != "true" && ${#FAILED_SHAS[@]} -lt ${#UPLOAD_SHAS[@]} ]]; then
+  verify_flag_visible || true
+fi
+
 if [[ ${#UNVERIFIED_SHAS[@]} -gt 0 ]]; then
   echo "[WARN] uploaded but unconfirmed: ${UNVERIFIED_SHAS[*]}" >&2
 fi

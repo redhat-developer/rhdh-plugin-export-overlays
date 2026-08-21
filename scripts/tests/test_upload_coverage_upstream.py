@@ -227,6 +227,10 @@ def run_upstream(
         # Still set, so a test that raises VERIFY_ATTEMPTS without naming an API
         # cannot reach the network by accident.
         "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+        # Same reasoning for the flag-visibility check. It answers "flag not
+        # visible" from this fixture rather than asking Codecov, and the
+        # VERIFY_ATTEMPTS=0 default keeps it from running at all.
+        "CODECOV_GRAPHQL_API": write_graphql_api(tmp_path, []),
         "UPSTREAM_CHECKOUT_DIR": str(checkout),
         "UPSTREAM_HEAD_CHECKOUT_DIR": str(head_checkout),
         "REMAP_BIN": str(remap),
@@ -690,6 +694,7 @@ class TestRealClone:
 
 
 _UPLOADS_API_SEQ = itertools.count()
+_GRAPHQL_API_SEQ = itertools.count()
 
 
 def expected_session_name(files=2):
@@ -731,6 +736,34 @@ def write_uploads_api(tmp_path, names, *, pages=1):
             json.dumps({"results": [{"name": n} for n in chunk], "next": nxt})
         )
     return f"file://{api}/page1.json"
+
+
+def write_graphql_api(tmp_path, names):
+    """A stand-in for Codecov's GraphQL endpoint, served from a file.
+
+    curl serves a file:// URL and ignores the POST body, so the same seam shape
+    works for an endpoint the script only ever POSTs to. Not paginated: the
+    query asks for the flag by name, so a real answer is one edge or none.
+    """
+    api = tmp_path / f"gql{next(_GRAPHQL_API_SEQ)}.json"
+    api.write_text(
+        json.dumps(
+            {
+                "data": {
+                    "owner": {
+                        "repository": {
+                            "coverageAnalytics": {
+                                "flags": {
+                                    "edges": [{"node": {"name": n}} for n in names]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    )
+    return f"file://{api}"
 
 
 @contextlib.contextmanager
@@ -1459,6 +1492,128 @@ class TestDryRun:
         assert call_count(stub) == 0
         assert result.stdout.count("[DRY-RUN] would upload") == 1
         assert f"--sha {PINNED_REF}" in result.stdout
+
+
+class TestFlagVisibility:
+    """A landed upload is not the same as a visible flag.
+
+    A Codecov admin can DELETE a flag. The deletion is soft: uploads keep being
+    accepted, the coverage stays in the report, and the v2 REST listing the
+    upload check reads still returns the flag — but every UI surface hides it,
+    because the GraphQL resolver behind them filters `deleted__isnot=True` and
+    the REST one does not.
+
+    That combination published e2e-orchestrator green twice while it was absent
+    from the rhdh-plugins flag picker, and nothing in this script could tell.
+    """
+
+    FLAG = f"e2e-{WORKSPACE}"
+
+    def _run(self, tmp_path, coverage_dir, graphql_api, **env):
+        return run_upstream(
+            tmp_path,
+            coverage_dir,
+            env={
+                "CODECOV_UPLOADS_API": write_uploads_api(
+                    tmp_path, [expected_session_name()]
+                ),
+                "CODECOV_GRAPHQL_API": graphql_api,
+                "VERIFY_ATTEMPTS": "2",
+                "VERIFY_DELAY_SECONDS": "0",
+                **env,
+            },
+        )
+
+    def test_a_visible_flag_is_confirmed(self, tmp_path, coverage_dir):
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_graphql_api(tmp_path, [self.FLAG])
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert f"flag '{self.FLAG}' is visible" in result.stdout
+        assert "deleted the flag" not in result.stderr
+
+    def test_a_deleted_flag_is_reported(self, tmp_path, coverage_dir):
+        """The upload landed and the dashboard shows nothing — the outcome that
+        went unnoticed from 2026-08-17 to 2026-08-21."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_graphql_api(tmp_path, [])
+        )
+
+        assert "deleted the flag" in result.stderr
+        # Loud, but not fatal: the coverage IS published, and this needs a human
+        # with Codecov admin rights rather than a red merge on main.
+        assert result.returncode == 0, result.stderr
+
+    def test_a_near_miss_name_does_not_count_as_visible(self, tmp_path, coverage_dir):
+        """`term` is a SUBSTRING match server-side, so the answer can carry
+        flags that merely contain the name. Matching loosely here would call a
+        deleted `e2e-foo` visible on the strength of an `e2e-foo-legacy`."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, write_graphql_api(tmp_path, [f"{self.FLAG}-legacy"])
+        )
+
+        assert "deleted the flag" in result.stderr
+
+    def test_an_unreachable_endpoint_is_not_reported_as_a_deleted_flag(
+        self, tmp_path, coverage_dir
+    ):
+        """The two read alike in a log and send whoever is debugging to opposite
+        places — Codecov admin, or their own network."""
+        result, _, _, _ = self._run(
+            tmp_path, coverage_dir, f"file://{tmp_path}/no-such-endpoint.json"
+        )
+
+        assert "could not reach" in result.stderr
+        assert "deleted the flag" not in result.stderr
+
+    def test_a_graphql_error_is_not_reported_as_a_deleted_flag(
+        self, tmp_path, coverage_dir
+    ):
+        """GraphQL answers its own errors with HTTP 200, a null `data` and an
+        `errors` array — which curl --fail cannot see. Reading that as an empty
+        flag list would accuse Codecov of deleting a perfectly live flag."""
+        api = tmp_path / "gql-error.json"
+        api.write_text(json.dumps({"errors": [{"message": "INTERNAL SERVER ERROR"}]}))
+
+        result, _, _, _ = self._run(tmp_path, coverage_dir, f"file://{api}")
+
+        assert "could not reach" in result.stderr
+        assert "deleted the flag" not in result.stderr
+
+    def test_a_dry_run_asks_nothing(self, tmp_path, coverage_dir):
+        """Nothing reached Codecov, so there is no published flag to have an
+        opinion about. The fixture says "not visible", which is the answer that
+        WOULD warn — so a dry run that still asked would fail this."""
+        result, _, _, _ = run_upstream(
+            tmp_path,
+            coverage_dir,
+            "--dry-run",
+            env={
+                "CODECOV_GRAPHQL_API": write_graphql_api(tmp_path, []),
+                "CODECOV_UPLOADS_API": write_uploads_api(tmp_path, []),
+                "VERIFY_ATTEMPTS": "2",
+                "VERIFY_DELAY_SECONDS": "0",
+                "CODECOV_RHDH_PLUGINS_TOKEN": "",
+            },
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "deleted the flag" not in result.stderr
+
+    def test_zero_attempts_switches_the_check_off(self, tmp_path, coverage_dir):
+        """Same switch as the session check, and it has to mean the same thing:
+        nothing was asked, so nothing is claimed either way."""
+        result, _, _, _ = self._run(
+            tmp_path,
+            coverage_dir,
+            write_graphql_api(tmp_path, []),
+            VERIFY_ATTEMPTS="0",
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "deleted the flag" not in result.stderr
+        assert "is visible" not in result.stdout
 
 
 def test_a_caller_supplied_checkout_survives_the_run(tmp_path, coverage_dir):
