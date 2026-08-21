@@ -19,6 +19,9 @@
 # Options:
 #   --json       Output raw JSON classification (default if no format specified)
 #   --markdown   Output markdown report
+#   --json-out F Also write the JSON classification to F. Lets one --oci scan feed
+#                both the wiki report on stdout and a machine-readable consumer,
+#                instead of paying for the OCI pulls twice.
 #   --oci        Pull OCI artifacts to check backstage.features (slow, requires oras)
 #                Without --oci, classifies from metadata role only (backend-only vs unknown)
 #
@@ -33,18 +36,34 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 OUTPUT_JSON=false
 OUTPUT_MARKDOWN=false
 USE_OCI=false
+JSON_OUT=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --json) OUTPUT_JSON=true ;;
     --markdown) OUTPUT_MARKDOWN=true ;;
     --oci) USE_OCI=true ;;
-    *) echo "Unknown argument: $arg" >&2; exit 1 ;;
+    --json-out)
+      shift
+      # Reject a flag as the value, not just a missing one: `--json-out --oci` would
+      # otherwise write a file literally named --oci and silently drop --oci, which is
+      # a scan that reads nothing reported as a successful one.
+      if [[ $# -eq 0 || "$1" == --* ]]; then
+        echo "--json-out needs a path" >&2
+        exit 1
+      fi
+      JSON_OUT="$1"
+      ;;
+    --json-out=*) JSON_OUT="${1#--json-out=}" ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
+  shift
 done
 
-# Default to JSON if no format specified
-if [[ "$OUTPUT_JSON" == "false" && "$OUTPUT_MARKDOWN" == "false" ]]; then
+# Default to JSON if no format specified. --json-out counts as a format: asking only
+# for the file and getting the JSON on stdout as well would corrupt a caller that is
+# redirecting stdout somewhere else.
+if [[ "$OUTPUT_JSON" == "false" && "$OUTPUT_MARKDOWN" == "false" && -z "$JSON_OUT" ]]; then
   OUTPUT_JSON=true
 fi
 
@@ -338,6 +357,10 @@ done
 
 # Convert JSONL to JSON array
 RESULTS=$(jq -s '.' "$RESULTS_FILE")
+
+if [[ -n "$JSON_OUT" ]]; then
+  echo "$RESULTS" | jq . > "$JSON_OUT"
+fi
 
 if [[ "$OUTPUT_JSON" == "true" ]]; then
   echo "$RESULTS" | jq .
