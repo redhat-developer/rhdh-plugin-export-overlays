@@ -256,8 +256,9 @@ earlier revision of it did not run: it passed a module with no plugin and called
 
 ### Recipe C — component behaviour with a mocked API (L3)
 
-`renderInTestApp` is used in **70 source files in `rhdh-plugins`** and **256 in
-`community-plugins`**. For any assertion about a table, a filter, a form, a dialog or an error
+`renderInTestApp` is used in **70 source files in `rhdh-plugins`** and **284 in
+`community-plugins`** (working-tree grep and GitHub code search respectively, both
+re-counted 2026-08-21). For any assertion about a table, a filter, a form, a dialog or an error
 state, this is the established path, and every one of these workspaces already has neighbours
 doing it.
 
