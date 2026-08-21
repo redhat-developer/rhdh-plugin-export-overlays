@@ -34,7 +34,7 @@ Every suite in this repo is 4b. None of them documents a 4b rationale, because t
 postdates them. Applying it is not a new proposal — it is bringing the suites up to the
 standard already written.
 
-### 1.2 Testing depth scales with `spec.support`, and four of these workspaces are over-tested by policy
+### 1.2 Testing depth scales with `spec.support`, and seven of these workspaces are over-tested by policy
 
 The matrix requires **no E2E at all** for Community, and **nothing at all** for Dev Preview —
 Community owes only a load test, which `smoke-tests-native/` already performs off-cluster.
@@ -68,8 +68,11 @@ Which splits the 24 workspaces in two, and the two halves get different advice:
 
 ## 2. What the merged migrations actually did
 
-Five workspaces have an `-app-next` lane today. Their diffs are the epic's own evidence of what
-the work costs, and it tracks the Scalprum-key count from the triage sheet almost exactly:
+Six workspaces have an `-app-next` lane today. Five got there by migration, and those five
+diffs are the epic's own evidence of what the work costs — tracking the Scalprum-key count
+from the triage sheet almost exactly. (The sixth, `app-defaults`, was never migrated: it has
+only an `-app-next` project and no legacy lane, so it is the one counterexample to the
+doubling described below.)
 
 | Workspace | Scalprum keys | Diff | What was needed |
 |---|---|---|---|
@@ -103,7 +106,7 @@ anything tests it (`createExtensionTester`):
 |---|---|
 | NFS surface exists, **has a test** | 3 — `github` (7 tests), `tech-radar` (1), `scorecard` (1) |
 | NFS surface exists, **no test at all** | **16** |
-| No NFS surface upstream yet | 3 — `keycloak`, `quay`, `scaffolder-backend-module-kubernetes` (two are backend-only, so none is due) |
+| No NFS surface upstream yet | 3 — `keycloak` and `scaffolder-backend-module-kubernetes`, both backend-only so NFS does not apply; and `quay`, which is a frontend plugin and *is* due, just blocked until a surface exists |
 
 **Sixteen plugins ship an NFS extension that nothing anywhere tests.** The epic's plan is to
 verify them by deploying RHDH to OpenShift and looking for a tab. When one of them fails to
@@ -223,15 +226,33 @@ own it says stop at these:
 
 ```ts
 import { startTestBackend } from '@backstage/backend-test-utils';
+import catalogPlugin from '@backstage/plugin-catalog-backend';
+import { keycloakCatalogModule } from '../src/module';
 
-const { server } = await startTestBackend({ features: [keycloakCatalogModule] });
-const res = await fetch(`${server.url()}/api/catalog/entities?filter=kind=user`);
+// The module has to be started with the plugin that owns the extension point it
+// registers into. startTestBackend does create a stub plugin for an orphan module,
+// but that stub registers no routes, so a module on its own can never answer
+// level 2 — it would 404 on a URL the assertion expects to be 200.
+const backend = await startTestBackend({
+  features: [catalogPlugin, keycloakCatalogModule],
+});
+
+// There is no `server.url()`. `TestBackend.server` is an `ExtendedHttpServer`, whose
+// public surface is `start()`, `stop()` and `port()` — Backstage builds its own
+// `backend.baseUrl` the same way.
+const base = `http://localhost:${backend.server.port()}`;
+const res = await fetch(`${base}/api/catalog/entities?filter=kind=user`);
 expect(res.status).toBe(200);
 ```
 
 In-memory SQLite, ~2 seconds, no cluster. Already used in **27 source files in each** of
 `rhdh-plugins` and `community-plugins` — the pattern is established, not new. (The strategy's
 "only 4 files" figure counts the `rhdh` repo alone.)
+
+Unlike Recipe A this one was **not executed** — it is checked against the published types of
+`@backstage/backend-test-utils@1.11.6` and `@backstage/plugin-catalog-backend@3.9.0`, and an
+earlier revision of it did not run: it passed a module with no plugin and called a
+`server.url()` that does not exist. Treat it as a shape to copy, not as a green test.
 
 ### Recipe C — component behaviour with a mocked API (L3)
 
@@ -249,10 +270,11 @@ Use `registerMswTestHooks` when the component fetches over HTTP rather than thro
 the correction changes the shape of the work. Layer 4a exists, it is larger than the cluster
 suite, and it runs on localhost.
 
-All 10 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
+Ten of the 11 `rhdh-plugins` workspaces that also carry an overlay e2e suite have a
 `playwright.config.ts` with a `webServer` block starting a local instance on ports 3000-3002,
 `testDir: 'e2e-tests'`, and specs named `*.test.ts` — which is why an earlier sweep for
-`*.spec.ts` missed them entirely:
+`*.spec.ts` missed them entirely. The eleventh, `app-defaults`, has no upstream lane, which
+is why it is absent here and why its row in section 5 proposes building one:
 
 | Workspace | 4a in plugin repo (no cluster) | 4b here (cluster) | Identical test names |
 |---|---|---|---|
@@ -311,22 +333,24 @@ the MF manifest against the guards the remotes router applies. What it does **no
 never executed.
 
 Closing that is four steps, three of them small: keep the backend alive (`startTestBackend`
-already exposes `server.url()`), add the dynamic feature loader so the remotes router answers,
+already exposes `server.port()`), add the dynamic feature loader so the remotes router answers,
 serve an app-next host, and point Playwright at it with `webServer`. **Step three is the one
 with real unknowns** and the only place the estimate is soft.
 
 ## 5. Per workspace
 
 `sup` = `spec.support`. `up` = test files in the plugin's own repo (all layers, not a test count). `α` = does its NFS
-surface have a `createExtensionTester` test. **Cluster after** = tests that would still need 4b.
+surface have a `createExtensionTester` test — `n/a` means the workspace is backend-only so NFS
+does not apply, `blocked` means it is due but has no surface to test yet.
+**Cluster after** = tests that would still need 4b.
 `Tests` carries over the count from [`nfs-e2e-triage.md`](./nfs-e2e-triage.md), so the two
 documents add up to the same 246; see the note under Recipe D for what it counts and why
 it drifts from what Playwright reports today.
 
 ### First, a question that comes before the layer of any individual assertion
 
-For all 10 workspaces in the table below, a cluster-free Playwright lane **already exists in the
-plugin's own repo** — 209 tests against the 138 here, with 17 test names byte-identical (see Recipe D).
+For 10 of the 11 workspaces in the table below — every one except `app-defaults` — a
+cluster-free Playwright lane **already exists in the plugin's own repo** — 209 tests against the 138 here, with 17 test names byte-identical (see Recipe D).
 `quickstart` is identical in both of two: upstream has `test.describe('Test Quick Start plugin')`
 with `test('Access Quick start as Guest or Admin')` and `test('Access Quick start as User')`, and
 so does the suite here.
@@ -372,6 +396,12 @@ this", the owner decides whether the copy goes.
 
 ### Not ours — verify integration, do not rewrite their coverage
 
+With two exceptions the table itself then contradicts: `rbac` and `topology` are hosted in
+`backstage/community-plugins` but are `generally-available` and both listed in
+`rhdh-supported-packages.txt`, so we own their quality whoever hosts them. Read the split as
+keyed on support tier, not on the hosting org — the repo is only a proxy for it, and these
+two are where the proxy breaks.
+
 | Workspace | sup | Tests | up | α | Cluster after | Do this |
 |---|---|---|---|---|---|---|
 | `backstage` | mixed | 47 | — | — | ~10 | 12 of the epic's 46 projects, the largest single consumer. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
@@ -383,7 +413,7 @@ this", the owner decides whether the copy goes.
 | `argocd` | community | 7 | 61 | **no** | ~3 | Drawer and the Kind/Name/Sync/Health filters are **L3**. Blue-green and canary rollouts with analysis runs stay 4b. Tier requires no E2E at all, so scope this behind the GA workspaces. Ships no `backstage.features` — see the correction already on that ticket for what that does and does not imply. |
 | `github` | community | 2 | 25 | **yes** | 0 | **Already covered upstream**: 7 `createExtensionTester` tests across 4 of its 5 `alpha/` directories, including `entityContent.test.tsx` for exactly the mounting this suite checks. The fifth, `github-discussions`, ships an NFS surface with no test — so "covered" is 4 of 5, not all of it. The two overlay tests are redundant at that layer; what they uniquely add is "the published artifact loads", which is a load check. Also uses the baked-in copy rather than this repo's artifact — confirm which is exercised before calling a pass coverage. |
 | `roadie-backstage-plugins` | mixed | 6 | — | — | 0 | Third-party. Pagination, per-page and OPEN/CLOSED/ALL filters are the vendor's to test, and "the 5 most recently updated PRs" is non-deterministic against live GitHub by construction. Our responsibility is Recipe B levels 1–2. The `http-request` scaffolder test is an action test. |
-| `quay` | community | 3 | 17 | n/a | 0 | No NFS surface upstream yet, so Recipe A is blocked until one exists. Tab and scan rendering are **L3**; "Creates Quay repository" writes to a real quay.io registry from CI to test a scaffolder action — **L2** with msw (2 msw files present). |
+| `quay` | community | 3 | 17 | **blocked** | 0 | No NFS surface upstream yet, so Recipe A is blocked until one exists. Tab and scan rendering are **L3**; "Creates Quay repository" writes to a real quay.io registry from CI to test a scaffolder action — **L2** with msw (2 msw files present). |
 | `acr` | community | 1 | 8 | **no** | 0 | Already migrated, and its diff is the clearest evidence in the epic: the `"ACR IMAGES"` / `"Image Registry"` branch is pure wiring. `acrImagesEntityContent` is exported at `alpha.tsx:60` and untested — Recipe A verbatim. Only 8 upstream test files, the thinnest of the community set. |
 | `tekton` | community | 3 | 30 | **no** | **3** | Real `PipelineRun`s from the operator. Stays 4b, with a documented rationale. Reference recipe alongside `topology`. |
 | `analytics` | mixed | 1 | 4 | **no** | 0 | Already dependency-free — Segment fully mocked with `page.route` — and the cheapest existing 4a-shaped lane. Keep as the reference: it is the only coverage anywhere that a frontend *module* (not a plugin) mounts under NFS. Four untested `alpha.ts` surfaces upstream, on only 4 test files. |
