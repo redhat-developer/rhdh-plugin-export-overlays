@@ -1,7 +1,10 @@
 # What each e2e workspace tests today, and where it belongs
 
-Companion to [`nfs-e2e-triage.md`](./nfs-e2e-triage.md), which measured the epic's *cost*
-(46 Playwright projects, 246 tests, 24 workspaces). This one asks what those tests assert, at
+Companion to [`nfs-e2e-triage.md`](./nfs-e2e-triage.md), which measured the epic's *cost* in
+Playwright projects, tests and workspaces. That count moves as lanes are added — it was 46
+projects when this was written and 48 three days later — so it is not restated here; the
+triage doc's §6 gives the one-line commands that regenerate it. This one asks what those
+tests assert, at
 which layer each assertion belongs, and **exactly how to write it there** — file path, package,
 export symbol.
 
@@ -68,11 +71,11 @@ Which splits the 24 workspaces in two, and the two halves get different advice:
 
 ## 2. What the merged migrations actually did
 
-Six workspaces have an `-app-next` lane today. Five got there by migration, and those five
-diffs are the epic's own evidence of what the work costs — tracking the Scalprum-key count
-from the triage sheet almost exactly. (The sixth, `app-defaults`, was never migrated: it has
-only an `-app-next` project and no legacy lane, so it is the one counterexample to the
-doubling described below.)
+Eight workspaces have an `-app-next` lane as of 2026-08-21, up from six when this was
+written — `grep -l app-next workspaces/*/e2e-tests/playwright.config.ts` is the current
+answer. Five of the first six got there by migration, and those five diffs are the epic's own
+evidence of what the work costs, tracking the Scalprum-key count from the triage sheet almost
+exactly:
 
 | Workspace | Scalprum keys | Diff | What was needed |
 |---|---|---|---|
@@ -91,10 +94,12 @@ Two things follow.
 construction, testing declarative wiring** — not the external service it claims to test. That
 is the single most reusable signal in this epic, and the Scalprum-key column predicts it.
 
-**The migration as executed increases cluster cost.** The `-app-next` project is added *beside*
-the legacy one, not in place of it — `acr`, `tekton`, `topology`, `tech-radar` and `analytics`
-all run two projects, so two namespaces. Carried across all 24 workspaces that takes the epic
-from 46 projects to roughly 65. Whatever else is decided, that doubling should be a conscious
+**The migration as executed usually increases cluster cost.** In `acr`, `tekton`, `topology`,
+`tech-radar`, `analytics` and `bulk-import` the `-app-next` project was added *beside* the
+legacy one, so each runs two projects and claims two namespaces. Carried across all 24
+workspaces that is roughly a 40% increase in namespaces per run. Two workspaces did it the
+other way — `app-defaults` and `keycloak` have an `-app-next` project and no legacy one — and
+that is the shape worth copying. Whatever else is decided, the doubling should be a conscious
 choice with an end date, not a side effect.
 
 ## 3. The finding that reorders the whole epic
@@ -405,11 +410,11 @@ two are where the proxy breaks.
 
 | Workspace | sup | Tests | up | α | Cluster after | Do this |
 |---|---|---|---|---|---|---|
-| `backstage` | mixed | 47 | — | — | ~10 | 12 of the epic's 46 projects, the largest single consumer. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
+| `backstage` | mixed | 47 | — | — | ~10 | 12 projects, the largest single consumer of the epic's cluster budget. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
 | `rbac` | GA | 27 | 71 | **no** | ~3 | Most of the 27 assert policy enforcement — **L2**, where every role runs in one process instead of one namespace each. Nav gating is **L3**. Keep 2–3 walking identity to token to policy to UI. `src/alpha/index.ts` exists and is untested. |
 | `topology` | GA | 4 | 32 | **no** | **4** | OpenShift is the subject. **Stays 4b** — and it is one of the few suites that can document a 4b rationale as the matrix requires. Add Recipe A upstream anyway: `topologyPlugin` and `isTopologyAvailable` are exported and untested. |
 | `tech-radar` | GA | 1 | 17 | **yes** | 0 | One test: open sidebar, verify heading — and `alpha.test.tsx` upstream already asserts the NFS page renders. The overlay test adds only "the OCI artifact loads", which `smoke-tests-native/` already checks. Cheapest candidate for a 4a lane against the *published artifact* (it has an upstream `packages/app-next` host but no Playwright config); blocked only by the baked-in wrapper. **Has no Jira ticket.** |
-| `keycloak` | GA | 2 | 8 | n/a | 0 | Backend-only — **NFS does not apply to this workspace**, and the ticket may reduce to recording that. Both tests are **L2**: `startTestBackend` plus Keycloak in a testcontainer, no cluster and no port-forward. 2 `startTestBackend` files upstream already. |
+| `keycloak` | GA | 2 | 8 | n/a | 0 | Backend-only — both packages are `backend-plugin-module`, so **NFS does not apply to the packages themselves**. It nonetheless now has a `keycloak-app-next` project and no legacy one, which tests that the backend modules still work under an NFS *shell* — a different claim, and one nothing in the suite currently asserts (see [RHIDP-16457](https://redhat.atlassian.net/browse/RHIDP-16457)). Both tests are **L2**: `startTestBackend` plus Keycloak in a testcontainer, no cluster and no port-forward. 2 `startTestBackend` files upstream already. |
 | `scaffolder-backend-module-kubernetes` | GA | 1 | 2 | n/a | **1** | The API call is the assertion. Irreducible, stays 4b. Also backend-only, so NFS does not apply — likely a no-op ticket. |
 | `argocd` | community | 7 | 61 | **no** | ~3 | Drawer and the Kind/Name/Sync/Health filters are **L3**. Blue-green and canary rollouts with analysis runs stay 4b. Tier requires no E2E at all, so scope this behind the GA workspaces. Ships no `backstage.features` — see the correction already on that ticket for what that does and does not imply. |
 | `github` | community | 2 | 25 | **yes** | 0 | **Already covered upstream**: 7 `createExtensionTester` tests across 4 of its 5 `alpha/` directories, including `entityContent.test.tsx` for exactly the mounting this suite checks. The fifth, `github-discussions`, ships an NFS surface with no test — so "covered" is 4 of 5, not all of it. The two overlay tests are redundant at that layer; what they uniquely add is "the published artifact loads", which is a load check. Also uses the baked-in copy rather than this repo's artifact — confirm which is exercised before calling a pass coverage. |
@@ -424,7 +429,7 @@ two are where the proxy breaks.
 | | Now | Proposed |
 |---|---|---|
 | Tests needing a cluster | 246 | ~54 |
-| Namespaces per full run | 46 (heading for ~65 as lanes double) | ~10 |
+| Namespaces per full run | one per project, and rising as lanes double | ~10 |
 | Plugins whose NFS surface has a test | 3 of 19 | 19 of 19 |
 
 The `~54` is an aggregate of the per-assertion judgements above and nothing more; the table's
