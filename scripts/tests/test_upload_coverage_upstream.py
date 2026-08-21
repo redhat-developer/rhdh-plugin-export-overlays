@@ -555,10 +555,17 @@ class TestFlagOverrides:
             "an entry is written in a shape this test cannot read, so it goes unchecked"
         )
 
+        # Split rather than one composite assertion, so a failure names which
+        # rule the entry broke instead of only that it broke one.
         valid = re.compile(r"^e2e-[a-z0-9][a-z0-9-]{0,49}$")
         for workspace, flag in overrides:
-            assert valid.match(flag) and not flag.endswith("-"), (
+            assert valid.match(flag), (
                 f"override for '{workspace}' is not a usable flag: {flag!r}"
+            )
+            # The character class above permits a trailing hyphen; Codecov and
+            # the workspace guard both reject one.
+            assert not flag.endswith("-"), (
+                f"override for '{workspace}' ends in a hyphen: {flag!r}"
             )
 
     def test_a_workspace_with_no_override_keeps_the_derived_name(
