@@ -178,7 +178,44 @@ if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]{0,49}$ || "$WORKSPACE" == *- ]]; then
   echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
   exit 1
 fi
-readonly FLAG="e2e-$WORKSPACE"
+# Normally the flag IS `e2e-<workspace>`, derived rather than configured so a
+# new workspace needs no bookkeeping here. The exceptions below exist only
+# because Codecov has DELETED the derived name.
+#
+# Deleting a flag on Codecov is a soft delete with no inverse: the GraphQL API
+# exposes `deleteFlag` and nothing to undo it, the UI offers no restore, and the
+# name stays unusable afterwards. The data does not go anywhere — it stays in
+# the report and in the v2 REST listing — but every UI surface hides it, because
+# the resolver behind them filters `deleted__isnot=True` while REST does not.
+# So a deleted flag can only be replaced, never recovered.
+#
+# Each entry needs a matching `flag_management.individual_flags` entry in the
+# DESTINATION repo's codecov.yml, or the flag loses the path scoping every other
+# e2e flag has.
+#
+# Do not "tidy" an entry away because the suffix looks redundant. Removing one
+# silently reverts that workspace to a name Codecov will accept, process, and
+# then hide — which is precisely the failure it was added for.
+#
+# And do NOT mirror this into scripts/upload-coverage.sh. Flags are per project:
+# this repo's OWN Codecov project still has a healthy, visible e2e-orchestrator
+# (46.73% measured 2026-08-21). Renaming there would orphan a good history to
+# fix a problem that exists only on the destination project.
+flag_for_workspace() {
+  case "$1" in
+    # e2e-orchestrator was deleted on redhat-developer/rhdh-plugins some time
+    # after 2026-08-17. Its data is still there — 142 files, 49.51% at main HEAD
+    # b37abc01 — and invisible to everyone. The suffix is NOT a plugin version;
+    # orchestrator 6.0.0 has nothing to do with it. It is here because the plain
+    # name is burned.
+    orchestrator) echo "e2e-orchestrator-plugin" ;;
+    *) echo "e2e-$1" ;;
+  esac
+}
+# Assigned then marked readonly, rather than `readonly FLAG="$(...)"`: that form
+# makes the exit status the builtin's, hiding a failing substitution from set -e.
+FLAG="$(flag_for_workspace "$WORKSPACE")"
+readonly FLAG
 
 SOURCE_JSON="$REPO_ROOT/workspaces/$WORKSPACE/source.json"
 if [[ ! -f "$SOURCE_JSON" ]]; then

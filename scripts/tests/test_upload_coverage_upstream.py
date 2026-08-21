@@ -51,17 +51,25 @@ LINKED_SCRIPTS = (
 )
 
 
-def build_overlay(tmp_path: Path, repo_url=f"https://github.com/{UPSTREAM_SLUG}"):
+def build_overlay(
+    tmp_path: Path,
+    repo_url=f"https://github.com/{UPSTREAM_SLUG}",
+    workspace=WORKSPACE,
+):
     """An overlay checkout with one workspace and its source.json.
 
     The script derives its repo root from its own location, so linking it into
     <root>/scripts/ relocates every path it reads.
+
+    `workspace` is parameterised for the flag-override tests: the flag a
+    workspace publishes under is normally derived from its name, and the
+    exceptions can only be exercised by naming the workspace they apply to.
     """
     root = tmp_path / "overlay"
     for name in LINKED_SCRIPTS:
         link_script(root, name)
 
-    ws = root / "workspaces" / WORKSPACE
+    ws = root / "workspaces" / workspace
     ws.mkdir(parents=True)
     (ws / "source.json").write_text(
         json.dumps({"repo": repo_url, "repo-ref": PINNED_REF})
@@ -202,7 +210,7 @@ def run_upstream(
     Collapses the four-part fixture setup every test needs; the sibling suites
     (test_upload_coverage.py, test_seed_main_coverage.py) use the same shape.
     """
-    root = build_overlay(tmp_path, repo_url=repo_url)
+    root = build_overlay(tmp_path, repo_url=repo_url, workspace=workspace)
     checkout = build_upstream_checkout(tmp_path, branch=branch)
     # The HEAD copy gets its OWN checkout, because the Codecov CLI sends the file
     # network of the tree it runs in — uploading the pinned tree against the HEAD
@@ -439,6 +447,71 @@ class TestEligibility:
         assert result.returncode == 0, result.stderr
         assert "[SKIP]" not in result.stdout
         assert f"--slug {UPSTREAM_SLUG}" in recorded(stub, ".calls")
+
+
+class TestFlagOverrides:
+    """The flag is derived from the workspace name, except where Codecov has
+    deleted the derived name.
+
+    Deletion is a soft delete with no inverse — `deleteFlag` exists, nothing
+    undoes it, and the name stays unusable. So the only repair is to publish
+    under a different one, and these tests pin which name that is. Getting this
+    wrong is invisible in the run: the upload succeeds under either name, and
+    only the dashboard knows the difference.
+    """
+
+    def test_orchestrator_publishes_under_the_replacement_flag(
+        self, tmp_path, coverage_dir
+    ):
+        """e2e-orchestrator was deleted on redhat-developer/rhdh-plugins. An
+        upload under that name is still accepted and still processed — and
+        still invisible to everyone looking at the dashboard."""
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, workspace="orchestrator"
+        )
+
+        assert result.returncode == 0, result.stderr
+        calls = recorded(stub, ".calls")
+        assert "--flag e2e-orchestrator-plugin" in calls
+        # Spaced on both sides so the replacement's own name cannot satisfy the
+        # check that the dead name is gone.
+        assert " --flag e2e-orchestrator " not in f"{calls} "
+
+    def test_both_uploads_use_the_replacement_flag(self, tmp_path, coverage_dir):
+        """The pinned ref and the branch tip are separate uploads. One of each
+        would split orchestrator's coverage across a live flag and a dead one,
+        which reads as half the coverage rather than as a bug."""
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, workspace="orchestrator"
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert call_count(stub) == 2
+        assert recorded(stub, ".calls").count("--flag e2e-orchestrator-plugin") == 2
+
+    def test_the_session_name_follows_the_replacement_flag(
+        self, tmp_path, coverage_dir
+    ):
+        """Session names are `overlay-<flag>-<digest>`, and the post-upload
+        check looks the session up by that name. A session still spelled with
+        the dead flag would be looked for under a name nothing wrote."""
+        result, stub, _, _ = run_upstream(
+            tmp_path, coverage_dir, workspace="orchestrator"
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "--name overlay-e2e-orchestrator-plugin-" in recorded(stub, ".calls")
+
+    def test_a_workspace_with_no_override_keeps_the_derived_name(
+        self, tmp_path, coverage_dir
+    ):
+        """The override list is an exception list, not a lookup table. A
+        workspace that is not on it must need no entry at all — otherwise every
+        new workspace acquires bookkeeping there."""
+        result, stub, _, _ = run_upstream(tmp_path, coverage_dir)
+
+        assert result.returncode == 0, result.stderr
+        assert f"--flag e2e-{WORKSPACE}" in recorded(stub, ".calls")
 
 
 class TestUploadContract:
