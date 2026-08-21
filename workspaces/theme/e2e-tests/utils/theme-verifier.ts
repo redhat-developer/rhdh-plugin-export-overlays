@@ -12,6 +12,7 @@ export class ThemeVerifier {
   ) {
     await this.goToSettingsPage();
     await this.uiHelper.clickBtnByTitleIfNotPressed(`Select ${theme}`);
+    await this.page.waitForLoadState("load");
     const themeButton = this.page.getByRole("button", {
       name: theme,
       exact: true,
