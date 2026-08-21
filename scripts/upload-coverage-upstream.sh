@@ -170,9 +170,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# The workspace name becomes the Codecov flag verbatim — validate it so a typo
-# cannot create a ghost e2e-<typo> flag that carryforward then keeps alive in a
-# shared project we do not administer.
+# The workspace name is what the flag is normally built from — validate it so a
+# typo cannot create a ghost e2e-<typo> flag that carryforward then keeps alive
+# in a shared project we do not administer. `upstream_flag_for` below can
+# override the derived name, and carries its own guard for the same reason.
 #
 # Deliberately the SAME shape scripts/e2e-comment.cjs enforces, cap and trailing
 # hyphen included. This used to be the looser of the two on the reasoning that
@@ -183,7 +184,52 @@ if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]{0,49}$ || "$WORKSPACE" == *- ]]; then
   echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
   exit 1
 fi
-readonly FLAG="e2e-$WORKSPACE"
+# Normally the flag IS `e2e-<workspace>`, derived rather than configured so a
+# new workspace needs no bookkeeping here. The exceptions below exist only
+# because Codecov has DELETED the derived name.
+#
+# Deleting a flag on Codecov is a soft delete with no inverse: the GraphQL API
+# exposes `deleteFlag` and nothing to undo it, the UI offers no restore, and the
+# name stays unusable afterwards. The data does not go anywhere — it stays in
+# the report and in the v2 REST listing — but every UI surface hides it, because
+# the resolver behind them filters `deleted__isnot=True` while REST does not.
+# So a deleted flag can only be replaced, never recovered.
+#
+# Each entry needs a matching `flag_management.individual_flags` entry in the
+# DESTINATION repo's codecov.yml, or the flag loses the path scoping every other
+# e2e flag has.
+#
+# Do not "tidy" an entry away because the suffix looks redundant. Removing one
+# silently reverts that workspace to a name Codecov will accept, process, and
+# then hide — which is precisely the failure it was added for.
+#
+# And do NOT mirror this into scripts/upload-coverage.sh or
+# scripts/seed-main-coverage.sh. Both derive `e2e-<workspace>` for THIS repo's
+# own Codecov project, where e2e-orchestrator is healthy and visible (46.73%
+# measured 2026-08-21) — and seed-main-coverage.sh is the one that sets the
+# default-branch value the dashboard displays, so it is the more costly of the
+# two to get wrong. Renaming there would orphan a good history to fix a problem
+# that exists only on the destination project.
+upstream_flag_for() {
+  # Named rather than used as "$1" throughout, matching every other function in
+  # this script (`local sha="$1"`, `local lcov="$1"`, `local out_dir="$1"`).
+  local workspace="$1"
+  case "$workspace" in
+    # e2e-orchestrator was deleted on redhat-developer/rhdh-plugins some time
+    # after 2026-08-17. Its data is still there — 142 files, 49.51% at main HEAD
+    # b37abc01 — and invisible to everyone. The suffix is NOT a plugin version;
+    # orchestrator 6.0.0 has nothing to do with it. It is here because the plain
+    # name is burned. Registered upstream by redhat-developer/rhdh-plugins#4436.
+    orchestrator) echo "e2e-orchestrator-plugin" ;;
+    *) echo "e2e-$workspace" ;;
+  esac
+}
+# Split assignment rather than `readonly FLAG="$(...)"`, matching upload_name_for
+# below — where the shape is load-bearing, because `readonly` would make the exit
+# status its own and hide a failing substitution from set -e. A `case` plus
+# `echo` has no failure path, so here it is the convention, not a live hazard.
+FLAG="$(upstream_flag_for "$WORKSPACE")"
+readonly FLAG
 
 SOURCE_JSON="$REPO_ROOT/workspaces/$WORKSPACE/source.json"
 if [[ ! -f "$SOURCE_JSON" ]]; then
