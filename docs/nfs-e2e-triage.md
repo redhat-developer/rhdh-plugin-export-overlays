@@ -1,10 +1,10 @@
 # NFS e2e triage: what each workspace needs, and what no longer needs a cluster
 
-**Epic**: RHIDP-15286 — Migrate e2e-tests in the overlay repository to NFS
+**Epic**: [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286) — Migrate e2e-tests in the overlay repository to NFS
 **Verified against `main`**: 2026-08-17
 **Status**: reference material for the epic's per-workspace tickets
 
-This is the input sheet for the tickets under RHIDP-15286. It answers three questions per
+This is the input sheet for the tickets under [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286). It answers three questions per
 workspace: what the NFS migration actually requires, whether the suite still needs an
 OpenShift cluster once it is migrated, and what its assertions are really about.
 
@@ -98,7 +98,7 @@ an empty page, and do not assume it will work either. Run it and look.
 | Blocker | State |
 |---|---|
 | `rhdh:packages/app-next` ships only catalog, scaffolder, search, user-settings + the dynamic loader | **open** — no home page, global header, theme, notifications, techdocs, signals or auth-provider UI. A `createFrontendModule({pluginId: 'home'})` plugin attached to a host that lacks `plugin-home` is silently orphaned, not an error. |
-| RHIDP-15482 — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
+| [RHIDP-15482](https://redhat.atlassian.net/browse/RHIDP-15482) — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
 | The wrapper overlap | **open** — RHDH bakes ~43 plugins into its image. Several suites load the baked-in copy rather than this repo's OCI artifact (see the `artifact` column in §3). `tech-radar`'s app-next skip reason is literally "once the tech-radar wrapper is removed". |
 | Scalprum-only config surfaces with no `app.extensions` equivalent | **open** — notably `themes:`/`appIcons:`/`importName:` (`theme`) and the 22 header config keys in `global-header`. |
 
