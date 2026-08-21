@@ -137,6 +137,10 @@ test.describe.serial("Scorecard Plugin Tests", () => {
     });
 
     test("Display error state for invalid threshold config while rendering metrics", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "External test data entity updated to v4.0.0 annotation format (github.openPRs) but release-1.10 deploys v2.7.8 (github.open_prs) — annotation silently ignored",
+      );
       await catalog.go();
       await catalog.goToByName("invalid-threshold");
       await scorecard.openTab();
