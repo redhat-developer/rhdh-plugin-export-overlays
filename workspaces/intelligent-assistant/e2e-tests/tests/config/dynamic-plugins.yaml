@@ -1,0 +1,11 @@
+# Explicit OCI refs (not ./dynamic-plugins/dist wrappers). Listing packages here
+# skips metadata auto-generation, so IA must be included for PR/local injection +
+# OCI resolution, and for nightly until the catalog index ships IA (1.11 still
+# has lightspeed). Segment is disabled to avoid outbound analytics that slow RHDH.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.52.0__1.30.0
+    disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__3.0.3!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__3.0.3!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
+    disabled: false

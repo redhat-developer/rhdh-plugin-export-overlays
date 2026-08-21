@@ -11,19 +11,6 @@ import path from "path";
 export const lightspeedNamespace =
   process.env.RHDH_NAMESPACE ?? "intelligent-assistant";
 
-function isNightlyMode(): boolean {
-  if (process.env.GIT_PR_NUMBER) {
-    return false;
-  }
-  if (
-    process.env.E2E_NIGHTLY_MODE === "true" ||
-    process.env.E2E_NIGHTLY_MODE === "1"
-  ) {
-    return true;
-  }
-  return process.env.JOB_NAME?.includes("periodic-") ?? false;
-}
-
 export const lightspeedDeployConfig = {
   auth: "keycloak" as const,
   version: process.env.RHDH_VERSION ?? "1.11",
@@ -31,9 +18,7 @@ export const lightspeedDeployConfig = {
   appConfig: "tests/config/app-config-rhdh.yaml",
   secrets: "tests/config/rhdh-secrets.yaml",
   valueFile: "tests/config/value_file.yaml",
-  ...(isNightlyMode()
-    ? { dynamicPlugins: "tests/config/dynamic-plugins-nightly.yaml" }
-    : {}),
+  dynamicPlugins: "tests/config/dynamic-plugins.yaml",
 };
 
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
