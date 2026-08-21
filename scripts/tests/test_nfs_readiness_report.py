@@ -88,6 +88,13 @@ def _run(repo_root, *args):
     return result
 
 
+def _run_allow_failure(repo_root, *args):
+    """Like ``_run`` but for the cases whose point is a non-zero exit."""
+    return run_script(
+        NFS_SCRIPT, *args, env={"REPO_ROOT": str(repo_root)}, cwd=repo_root
+    )
+
+
 def _classified(repo_root):
     return {
         entry["packageName"]: entry
@@ -212,3 +219,61 @@ class TestMarkdownOutput:
         # With both tier files empty every package falls to the "other" tier.
         assert "#### Other (0/2 frontend plugins NFS-ready — 0%)" in stdout
         assert "| @scope/plugin-b | sample |" in stdout
+
+
+class TestJsonOut:
+    """``--json-out``: one scan feeding both the wiki report and a machine consumer.
+
+    The OCI pulls are the slow part of this script, so the alternative — running it once
+    for markdown and once for JSON — pays for every artifact twice. The workflow uses this
+    to feed ``check_app_next_lanes.py`` (RHIDP-16463) from the same scan that renders the
+    report.
+    """
+
+    @staticmethod
+    def test_it_writes_the_same_classification_it_renders(tmp_path):
+        root = _repo(
+            tmp_path,
+            [("@scope/plugin-x", "frontend-plugin", "oci://ghcr.io/x/plugin-x:1.0.0")],
+        )
+        out = tmp_path / "readiness.json"
+        stdout = _run(root, "--markdown", "--json-out", str(out)).stdout
+
+        assert "## NFS Readiness Report" in stdout
+        entries = json.loads(out.read_text())
+        assert [e["packageName"] for e in entries] == ["@scope/plugin-x"]
+
+    @staticmethod
+    def test_the_file_does_not_leak_into_stdout(tmp_path):
+        """Asking only for the file must not also print JSON.
+
+        The caller is redirecting stdout to the markdown report; JSON landing there too
+        would corrupt it, and the default-to-JSON branch is exactly where that happens.
+        """
+        root = _repo(
+            tmp_path,
+            [("@scope/plugin-x", "frontend-plugin", "oci://ghcr.io/x/plugin-x:1.0.0")],
+        )
+        out = tmp_path / "readiness.json"
+        stdout = _run(root, "--json-out", str(out)).stdout
+
+        assert stdout.strip() == ""
+        assert json.loads(out.read_text())
+
+    @staticmethod
+    def test_both_forms_of_the_flag_are_accepted(tmp_path):
+        root = _repo(
+            tmp_path,
+            [("@scope/plugin-x", "frontend-plugin", "oci://ghcr.io/x/plugin-x:1.0.0")],
+        )
+        equals = tmp_path / "a.json"
+        _run(root, f"--json-out={equals}")
+        assert json.loads(equals.read_text())
+
+    @staticmethod
+    def test_a_missing_path_is_rejected_rather_than_swallowing_the_next_flag(tmp_path):
+        """``--json-out --oci`` must not quietly write a file called ``--oci``."""
+        root = _repo(tmp_path, [])
+        result = _run_allow_failure(root, "--json-out")
+        assert result.returncode != 0
+        assert "--json-out needs a path" in result.stderr

@@ -38,12 +38,37 @@ jobs:
           GHCR_USER: ${{ github.actor }}
         run: echo "${GHCR_TOKEN}" | oras login ghcr.io -u "${GHCR_USER}" --password-stdin
 
+      # One scan, both outputs: the OCI pulls are the slow part and running the script
+      # twice would pay for them twice.
       - name: Generate report
         run: |
-          bash scripts/nfs-readiness-report.sh --markdown --oci > nfs-readiness-report.md
+          bash scripts/nfs-readiness-report.sh --markdown --oci \
+            --json-out nfs-readiness.json > nfs-readiness-report.md
 
       - name: Write job summary
         run: cat nfs-readiness-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      # An -app-next lane claims a whole namespace to prove a workspace works under the
+      # new frontend system. When none of its artifacts exposes an NFS entry point there
+      # is nothing to mount, and the lane passes against an empty page rather than
+      # failing — so this is checked here, where the classification already exists,
+      # instead of being discovered one ticket at a time. RHIDP-16463.
+      - name: Check app-next lanes against the readiness data
+        run: |
+          set +e
+          output=$(python3 scripts/check_app_next_lanes.py --readiness nfs-readiness.json)
+          status=$?
+          set -e
+          {
+            echo
+            echo '### app-next lanes'
+            echo
+            echo '```'
+            echo "$output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$output"
+          exit "$status"
 
       - name: Upload report artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
