@@ -573,6 +573,12 @@ session_names_on() {
 readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
 readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
 
+# The sticky state both post-upload checks share: "the endpoint answered at least
+# once, so whatever it said is evidence". Named because the two checks have to agree
+# on it — a typo in one of the four comparisons would silently turn a definitive
+# observation into "could not reach", which is the dismissible message.
+readonly LOOKUP_REACHED="reached"
+
 # What this proves: a session with this report's content is on the commit. What
 # it does not prove: that THIS run put it there. The name is a digest of the
 # report precisely so a retry collapses onto one session, so an identical
@@ -598,12 +604,12 @@ verify_landed() {
       # session absent is real evidence, and a blip on a later attempt must not
       # erase it. Last-poll-wins turned four definitive observations into "could
       # not reach", which is the dismissible message and would be false.
-      lookup_failed="reached"
+      lookup_failed="$LOOKUP_REACHED"
       if grep -qxF "$name" <<<"$names"; then
         echo "[OK]   $sha: session '$name' is on the commit."
         return 0
       fi
-    elif [[ "$lookup_failed" != "reached" ]]; then
+    elif [[ "$lookup_failed" != "$LOOKUP_REACHED" ]]; then
       lookup_failed="true"
     fi
     attempt=$((attempt + 1))
@@ -686,12 +692,12 @@ verify_flag_visible() {
 
   while [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]]; do
     if names="$(visible_flag_names)"; then
-      lookup_failed="reached"
+      lookup_failed="$LOOKUP_REACHED"
       if grep -qxF "$FLAG" <<<"$names"; then
         echo "[OK]   flag '$FLAG' is visible on $SLUG."
         return 0
       fi
-    elif [[ "$lookup_failed" != "reached" ]]; then
+    elif [[ "$lookup_failed" != "$LOOKUP_REACHED" ]]; then
       lookup_failed="true"
     fi
     attempt=$((attempt + 1))
