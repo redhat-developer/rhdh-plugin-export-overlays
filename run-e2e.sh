@@ -38,7 +38,7 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="${RHDH_VERSION:-1.10}"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="${RHDH_VERSION:-1.10-143-CI}"       # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright
@@ -53,7 +53,7 @@ export JOB_NAME="${JOB_NAME:-}"                          # If contains "periodic
 export GIT_PR_NUMBER="${GIT_PR_NUMBER:-}"                 # PR number for OCI URL generation
 
 # Catalog index image — only set if you need to override the default baked into the RHDH chart
-export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
+export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-quay.io/rhdh/plugin-catalog-index:1.10-84}"
 
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
@@ -63,7 +63,7 @@ E2E_TEST_UTILS_PATH="${E2E_TEST_UTILS_PATH:-}"
 # Pin specific e2e-test-utils version.
 E2E_TEST_UTILS_VERSION="${E2E_TEST_UTILS_VERSION:-}"
 # Git ref for e2e-test-utils: "owner/repo#branch" — clones and sets E2E_TEST_UTILS_PATH
-E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-}"
+E2E_TEST_UTILS_GIT_REF="${E2E_TEST_UTILS_GIT_REF:-subhashkhileri/rhdh-e2e-test-utils#testing-config-update}"
 
 if [[ -n "$E2E_TEST_UTILS_GIT_REF" ]]; then
     CLONE_DIR="/tmp/rhdh-e2e-test-utils-${E2E_TEST_UTILS_GIT_REF##*#}"
@@ -123,6 +123,16 @@ echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
+
+    # Extract OpenShift router CA so Playwright validates TLS instead of bypassing it
+    if oc get secret router-ca -n openshift-ingress-operator &>/dev/null; then
+        oc get secret router-ca -n openshift-ingress-operator \
+          -o jsonpath='{.data.tls\.crt}' | base64 -d > /tmp/cluster-router-ca.pem
+        export NODE_EXTRA_CA_CERTS=/tmp/cluster-router-ca.pem
+        echo "[INFO] Loaded cluster router CA for TLS validation"
+    else
+        echo "[INFO] No OpenShift router CA found — TLS bypass will be used for cluster routes"
+    fi
 elif [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" ]]; then
     echo "[ERROR] Not logged into a cluster. Login with 'oc login' first."
     exit 1
