@@ -135,7 +135,9 @@ Real code, from the repos these plugins live in.
 
 The one 16 workspaces are missing. **This was run, not written from the API docs** — against
 `community-plugins/workspaces/acr`, whose `acrImagesEntityContent` is exported at `alpha.tsx:60`
-and has no test. Final state: 5 tests passing, 3 mutations each caught by exactly one assertion.
+and has no test. Final state: **6 tests passing, 5 mutations, each caught by exactly one
+assertion** (the `pluginId` mutation by one assertion in two places, since the extension ids
+move with it).
 
 First, the prerequisite: `createExtensionTester` lives in `@backstage/frontend-test-utils`, and
 several of these plugins carry only `@backstage/test-utils`. It has to be added as a
@@ -176,9 +178,24 @@ it('declares the route path the tab mounts at', () => {
 // plugin's extensions[] leaves both assertions above green. "The plugin forgot the
 // extension" is one of the two silent NFS failure modes, so it needs its own assertion.
 it('is registered by the plugin, and the plugin is an NFS feature', () => {
-  const ids = (nfsPlugin as any).extensions.map((e: any) => e.id);
-  expect(ids).toContain('entity-content:acr/acrImagesEntityContent');
-  expect((nfsPlugin as any).$$type).toBe('@backstage/FrontendPlugin');
+  // getExtension, $$type and pluginId are all public API — no cast needed.
+  expect(nfsPlugin.getExtension('entity-content:acr/acrImagesEntityContent'))
+    .toBeDefined();
+  expect(nfsPlugin.$$type).toBe('@backstage/FrontendPlugin');
+  expect(nfsPlugin.pluginId).toBe('acr');
+});
+
+// The filter the catalog uses to decide which entities get the tab. This is the
+// assertion an e2e test is really making when it navigates to an annotated entity
+// and looks for the tab — and it is the one the earlier draft of this recipe
+// missed, because `filterFunction` only shows up if you enumerate dataRefs.
+it('shows the tab only for entities that have the ACR annotation', () => {
+  const filter = createExtensionTester(acrImagesEntityContent)
+    .get(EntityContentBlueprint.dataRefs.filterFunction);
+  if (!filter) throw new Error('the extension declares no entity filter');
+  expect(filter(entity)).toBe(true);
+  expect(filter({ ...entity, metadata: { ...entity.metadata, annotations: {} } }))
+    .toBe(false);
 });
 
 // The render assertion. `apis` goes on renderInTestApp, NOT on createExtensionTester —
@@ -200,10 +217,20 @@ it('renders through the extension, with the API mocked', async () => {
 |---|---|
 | `title: 'ACR images'` → `'Image Registry'` | `.get(EntityContentBlueprint.dataRefs.title)` |
 | `path: 'acr-images'` → `'acr'` | `.get(coreExtensionData.routePath)` |
+| `filter: isAcrAvailable` → `() => true` | `.get(EntityContentBlueprint.dataRefs.filterFunction)` |
 | extension removed from `extensions: [...]` | **only** the plugin-composition assertion |
+| `pluginId: 'acr'` → `'acr2'` | the composition assertion, twice (the ids move with it) |
 
-**Three details that each cost a debugging cycle:**
+**Four details that each cost a debugging cycle:**
 
+- **`EntityContentBlueprint.dataRefs` carries more than `title`.** It also exposes
+  `filterFunction`, `filterExpression`, `group` and `icon`; `coreExtensionData` adds
+  `routePath`, `routeRef`, `reactElement` and `icon`. Enumerate them once rather than
+  guessing — `filterFunction` is the highest-value assertion of the set and is easy
+  to miss.
+- **`getExtension(id)`, `$$type` and `pluginId` are public**, so the composition
+  assertion needs no `as any`. Ids are namespaced: `entity-content:acr/acrImagesEntityContent`,
+  not the bare extension name.
 - **`apis` belongs on `renderInTestApp`, not on `createExtensionTester`,** when the tester's
   element is nested inside it. `createExtensionTester` does accept an `apis` option, and the
   package's own docs recommend it over wrapping in `TestApiProvider` — but in this composition
