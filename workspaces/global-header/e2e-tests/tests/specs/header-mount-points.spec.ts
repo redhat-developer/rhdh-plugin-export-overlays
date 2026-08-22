@@ -1,10 +1,21 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("Header mount points", () => {
   test.beforeAll(async ({ rhdh }) => {
+    const isAppNext = test.info().project.name.endsWith("-app-next");
+    test.skip(
+      isAppNext,
+      "test plugin uses npm wrapper packaging which is incompatible with NFS module federation",
+    );
     await rhdh.configure({
       auth: "keycloak",
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
+      dynamicPlugins: WorkspacePaths.resolve(
+        isAppNext
+          ? "tests/config/dynamic-plugins-nfs.yaml"
+          : "tests/config/dynamic-plugins.yaml",
+      ),
     });
     await rhdh.deploy();
   });
