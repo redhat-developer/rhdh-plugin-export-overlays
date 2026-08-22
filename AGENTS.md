@@ -113,6 +113,22 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
 
+### Updating a Workspace (Version Bump)
+
+When updating a workspace to a new upstream release, follow this procedure to ensure all metadata stays consistent:
+
+1. **Read `versions.json`** at the repo root to get the current target `backstage` version (e.g., `1.52.0`).
+2. **Update `source.json`**: set `repo-ref` to the target commit or tag, and set `repo-backstage-version` to the upstream source's actual backstage version.
+3. **Update each `metadata/*.yaml` file** for plugins whose versions changed upstream:
+   - Set `spec.version` to the new plugin version.
+   - Set `spec.backstage.supportedVersions` to the `backstage` version from `versions.json` (NOT `repo-backstage-version` from `source.json`).
+   - Set the OCI tag in `spec.dynamicArtifact` to `bs_<versions.json backstage>__<plugin version>` format (e.g., `bs_1.52.0__0.17.3`).
+4. **Verify consistency**: confirm that all metadata files in the workspace use the same `supportedVersions` value and OCI tag `bs_` prefix, and that both match the `backstage` value from `versions.json`.
+
+#### Important: supportedVersions alignment
+
+The `spec.backstage.supportedVersions` field and the `bs_` prefix in `spec.dynamicArtifact` OCI tags must always match the `backstage` version from `versions.json` at the repo root — NOT the `repo-backstage-version` from `source.json`. The `repo-backstage-version` records the upstream source's backstage compatibility, while `supportedVersions` records the version the plugin is built and published against in this repo. These two values are often different (e.g., `source.json` may say `1.51.0` while `versions.json` says `1.52.0`).
+
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
