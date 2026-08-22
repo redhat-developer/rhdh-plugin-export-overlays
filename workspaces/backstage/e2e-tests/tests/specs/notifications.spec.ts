@@ -1,4 +1,4 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import * as path from "node:path";
 import { createNotification } from "../../support/api/notifications-helper";
@@ -15,6 +15,7 @@ test.describe("Backstage Notifications Plugin", () => {
       valueFile: `${configBase}/value-file.yaml`,
       dynamicPlugins: `${configBase}/dynamic-plugins.yaml`,
       auth: "keycloak",
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
@@ -79,7 +80,9 @@ test.describe("Backstage Notifications Plugin", () => {
       );
       await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
-      await notificationPage.selectNotification(notificationId);
+      await expect(async () => {
+        await notificationPage.selectNotification(notificationId);
+      }).toPass({ timeout: 3000 });
       await notificationPage.saveSelected();
       await notificationPage.viewSaved();
       await notificationPage.notificationContains(

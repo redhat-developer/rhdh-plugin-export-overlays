@@ -91,6 +91,7 @@ test.describe("TechDocs", () => {
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       secrets: "tests/config/techdocs/rhdh-secrets.yaml",
       disablePlugins: TECHDOCS_WRAPPER_DIST_NAMES,
+      useNewFrontendSystem: true,
     });
 
     await rhdh.deploy();
@@ -128,7 +129,8 @@ test.describe("TechDocs", () => {
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
   });
 
-  test("Verify that TechDocs Docs page for ReportIssue addon works", async ({
+  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
+  test.skip("Verify that TechDocs Docs page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
@@ -138,7 +140,8 @@ test.describe("TechDocs", () => {
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
 
-  test("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
+  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
+  test.skip("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
