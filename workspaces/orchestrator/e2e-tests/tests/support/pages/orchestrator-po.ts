@@ -13,7 +13,40 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
+    private readonly nfsLane: boolean,
   ) {}
+
+  static forProject(
+    page: Page,
+    uiHelper: UIhelper,
+    projectName: string,
+  ): OrchestratorPO {
+    return new OrchestratorPO(
+      page,
+      uiHelper,
+      projectName.endsWith("-app-next"),
+    );
+  }
+
+  private isNfsLane(): boolean {
+    return this.nfsLane;
+  }
+
+  private workflowsCatalogControl(): Locator {
+    if (this.isNfsLane()) {
+      return ORCHESTRATOR_COMPONENTS.workflowsLink(this.page);
+    }
+    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
+  }
+
+  async clickWorkflowsCatalogControl(): Promise<void> {
+    await this.workflowsCatalogControl().click();
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async verifyWorkflowsCatalogControlVisible(): Promise<void> {
+    await expect(this.workflowsCatalogControl()).toBeVisible();
+  }
 
   async openWorkflowsPage(): Promise<void> {
     await this.page.goto("/orchestrator");
@@ -303,9 +336,7 @@ export class OrchestratorPO {
   async openGreetingTemplateFromCatalog(
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       /Greeting Test Picker/i,
@@ -315,9 +346,11 @@ export class OrchestratorPO {
     await this.page.waitForLoadState("domcontentloaded");
   }
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await this.uiHelper.verifyHeading("Self-service");
+    await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
+    await expect(
+      this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
+    ).toBeVisible({ timeout: 30_000 });
     await this.uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
@@ -328,9 +361,7 @@ export class OrchestratorPO {
     templateName: string | RegExp,
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       templateName,
@@ -338,6 +369,15 @@ export class OrchestratorPO {
     await expect(templateLink).toBeVisible({ timeout: 30_000 });
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  private async openCatalogTemplates(
+    catalogHeading: string | RegExp,
+  ): Promise<void> {
+    await this.page.goto("/catalog");
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.uiHelper.verifyHeading(catalogHeading);
+    await this.uiHelper.selectMuiBox("Kind", "Template");
   }
 
   async fillGreetingTemplateFormAndSubmit(options?: {
@@ -392,12 +432,12 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsTabIfVisible(): Promise<boolean> {
-    const workflowsTab = ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
-    const count = await workflowsTab.count();
+    const workflowsControl = this.workflowsCatalogControl();
+    const count = await workflowsControl.count();
     if (count === 0) {
       return false;
     }
-    await workflowsTab.click();
+    await workflowsControl.click();
     await this.page.waitForLoadState("domcontentloaded");
     return true;
   }

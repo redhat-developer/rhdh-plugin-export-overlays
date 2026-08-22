@@ -5,5 +5,8 @@ export default defineConfig({
     {
       name: "orchestrator",
     },
+    {
+      name: "orchestrator-app-next",
+    },
   ],
 });

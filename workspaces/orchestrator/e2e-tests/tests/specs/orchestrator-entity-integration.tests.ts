@@ -1,9 +1,9 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   cleanupGreetingComponentEntity,
   clickCreateAndWaitForScaffolderTerminalState,
+  createOrchestratorPO,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -51,7 +51,7 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         selectLanguage: true,
@@ -66,13 +66,13 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
       await expect(
         page.getByRole("heading", { name: /Greeting Test Picker/i }),
       ).toBeVisible();
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
       await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
       await expect(
         page.getByRole("link", { name: "Greeting workflow", exact: true }),
@@ -83,7 +83,7 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openTemplateFromCatalogByName(
         /Greeting workflow/i,
         "My Org Catalog",
@@ -104,10 +104,10 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
 
       await orchestratorPo.openWorkflow("Greeting workflow");
 
@@ -129,18 +129,14 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromSelfService();
       await orchestratorPo.fillGreetingTemplateFormAndSubmit({
         submitCreate: false,
       });
       await clickCreateAndWaitForScaffolderTerminalState(page);
 
-      await page
-        .getByRole("button", { name: "Administration" })
-        .first()
-        .click();
-      await uiHelper.openSidebar("Orchestrator");
+      await orchestratorPo.openOrchestratorFromSidebar();
       await expect(page.getByText(/Workflows \(\d+\)/).last()).toBeVisible();
 
       const greetingWorkflow = page.getByRole("link", {
@@ -153,12 +149,12 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
-      await orchestrator.verifyWorkflowsTabVisible();
+      await orchestratorPo.verifyWorkflowsCatalogControlVisible();
 
-      await orchestrator.clickWorkflowsTab();
+      await orchestratorPo.clickWorkflowsCatalogControl();
 
       const workflowsContent = page.locator("main").filter({
         has: page.getByText("Greeting workflow"),

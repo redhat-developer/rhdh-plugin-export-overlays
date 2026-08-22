@@ -2,7 +2,10 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
-import { restoreBaselineRole } from "../support/utils/test-helpers.js";
+import {
+  restoreBaselineRole,
+  createOrchestratorPO,
+} from "../support/utils/test-helpers.js";
 
 const ensureDataIndexOrSkip = createDataIndexGuard();
 
@@ -149,8 +152,8 @@ export function registerRetryWorkflowTests(): void {
 }
 
 async function openSampleRetryTestRunForm(page: Page, uiHelper: UIhelper) {
-  await page.getByRole("button", { name: "Administration" }).first().click();
-  await uiHelper.openSidebar("Orchestrator");
+  const orchestratorPo = createOrchestratorPO(page, uiHelper);
+  await orchestratorPo.openOrchestratorFromSidebar();
   const heading = page.getByText(/Workflows \(\d+\)/).last();
   await expect(heading).toBeVisible({ timeout: 60_000 });
   const workflowLink = page.getByRole("link", { name: /Sample Retry Test/ });

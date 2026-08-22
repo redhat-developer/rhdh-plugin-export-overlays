@@ -9,6 +9,7 @@ import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   removeBaselineRole,
   setupAuthenticatedPage,
+  createOrchestratorPO,
   deleteRoleAndPolicies,
   createRoleWithPolicies,
   verifyRoleWithPolicies,
@@ -92,7 +93,7 @@ async function assertRbacScenario(
   uiHelper: UIhelper,
   scenario: RbacScenario,
 ): Promise<void> {
-  const orchestratorPo = new OrchestratorPO(page, uiHelper);
+  const orchestratorPo = createOrchestratorPO(page, uiHelper);
   await page.reload();
   await orchestratorPo.openWorkflowsPage();
 
@@ -374,7 +375,7 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Primary user runs greeting workflow and captures instance ID", async ({}) => {
-        const orchestratorPo = new OrchestratorPO(page, uiHelper);
+        const orchestratorPo = createOrchestratorPO(page, uiHelper);
         await orchestratorPo.openGreetingWorkflowFromSidebar();
         await orchestratorPo.verifyRunButtonState("enabled");
         workflowInstanceId =
@@ -383,7 +384,7 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Secondary user cannot access instance before admin grant", async ({}) => {
-        const orchestratorPo = new OrchestratorPO(page, uiHelper);
+        const orchestratorPo = createOrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
         await page.waitForLoadState("load");
@@ -400,7 +401,7 @@ export function registerOrchestratorRbacTests(): void {
       });
 
       test("Grant admin role and verify secondary user access", async ({}) => {
-        const orchestratorPo = new OrchestratorPO(page, uiHelper);
+        const orchestratorPo = createOrchestratorPO(page, uiHelper);
         await page.context().clearCookies();
         await page.goto("/");
         await loginAsKeycloakUserWithRetry(page, loginHelper);
@@ -488,7 +489,7 @@ export function registerOrchestratorRbacTests(): void {
 
         test(`Validate ${scenario.id} behavior`, async ({}) => {
           test.setTimeout(scenario.testTimeoutMs);
-          const orchestratorPo = new OrchestratorPO(page, uiHelper);
+          const orchestratorPo = createOrchestratorPO(page, uiHelper);
 
           await runGreetingTemplateAndWaitForScaffolderTerminal(
             page,
