@@ -138,6 +138,21 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Fixing appConfigExamples Structure Across Sibling Files
+
+When fixing a structural issue in any `metadata/*.yaml` file's `appConfigExamples` (e.g., correcting nesting, fixing schema violations, replacing flat values with nested objects), always check ALL other `metadata/*.yaml` files in the same workspace for the same pattern. All plugins in a workspace contribute to the merged `app-config.dynamic-plugins.yaml` at deployment time — a structural bug in any one file can break the entire deployment even if other files are correct.
+
+Before considering the fix complete:
+
+1. Identify the broken pattern in the file you are fixing.
+2. Search all sibling metadata files in `workspaces/<name>/metadata/` for the same pattern:
+   ```bash
+   grep -r '<broken-pattern>' workspaces/<name>/metadata/
+   ```
+3. Apply the same structural fix to every file that has the broken pattern.
+
+**Why this matters:** PR #3225 fixed a flat `baseUrl` string (instead of a nested cluster object) in one metadata file but missed two sibling files with the identical broken pattern. The unfixed files caused 8 days of continuous smoke test failures because all three files' `appConfigExamples` are merged at deployment time, and one broken file poisons the merged config.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
