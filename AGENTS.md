@@ -318,6 +318,8 @@ MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY
 
 `envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
 
+**Check sibling config variants.** Some workspaces have multiple YAML variants in `tests/config/` that share the same plugin entries (e.g., `dynamic-plugins.yaml` and `dynamic-plugins-with-orchestrator.yaml`, or `app-config-rhdh.yaml` and `app-config-rhdh-orchestrator-mode.yaml`). When modifying any file in `workspaces/<name>/e2e-tests/tests/config/`, list all YAML files in that directory and check whether sibling files contain similar sections that require the same change — a change to one variant typically requires the same change to all variants. Similarly, check whether `workspaces/<name>/metadata/*.yaml` files contain `spec.appConfigExamples` sections with the same entries, which should be kept consistent with the E2E config.
+
 ### WorkspacePaths
 
 Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
