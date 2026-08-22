@@ -19,7 +19,7 @@ test.describe("Default Global Header", () => {
       process.env.GH_USER2_ID,
       process.env.GH_USER2_PASS,
     );
-    await expect(page.getByRole("navigation").first()).toBeVisible();
+    await expect(page.locator("nav[id='global-header']")).toBeVisible();
   });
 
   test("Verify that global header and default header components are visible", async ({
@@ -29,7 +29,7 @@ test.describe("Default Global Header", () => {
     await expect(page.getByPlaceholder("Search")).toBeVisible();
     await uiHelper.verifyLink({ label: "Self-service" });
 
-    const globalHeader = page.getByRole("navigation").first();
+    const globalHeader = page.locator("nav[id='global-header']");
     const helpDropdownButton = globalHeader
       .getByRole("button", {
         name: "Help",
@@ -65,7 +65,7 @@ test.describe("Default Global Header", () => {
     context,
     page,
   }) => {
-    const globalHeader = page.getByRole("navigation").first();
+    const globalHeader = page.locator("nav[id='global-header']");
 
     const helpDropdownButton = globalHeader
       .getByRole("button", {
@@ -147,8 +147,7 @@ test.describe("Default Global Header", () => {
     page,
   }) => {
     const notificationsBadge = page
-      .getByRole("navigation")
-      .first()
+      .locator("nav[id='global-header']")
       .getByRole("link", {
         name: "Notifications",
       });
@@ -183,7 +182,7 @@ test.describe("Default Global Header", () => {
     expect(postResponse.status()).toBe(200);
 
     await page.reload();
-    await expect(page.getByRole("navigation").first()).toBeVisible();
+    await expect(page.locator("nav[id='global-header']")).toBeVisible();
     await expect(notificationsBadge).toHaveText("1", { timeout: 15000 });
   });
 });
