@@ -100,6 +100,45 @@ export class OrchestratorPO {
     await runButton.click();
   }
 
+  async openLockFlowWorkflowFromSidebar(): Promise<void> {
+    // SonataFlow CR is lock-flow; Data Index / UI catalog name is callback-flow.
+    await this.openWorkflowFromSidebar(/callback-flow|lock-flow/i);
+  }
+
+  /**
+   * On the execute/review page, click Run as Event (not the HTTP Run submit).
+   * Event-only workflows reject plain Run with "no start node that matches the trigger none".
+   */
+  async clickRunAsEvent(): Promise<void> {
+    const runAsEvent = ORCHESTRATOR_COMPONENTS.runAsEventButton(this.page);
+    await expect(runAsEvent).toBeVisible({ timeout: 30_000 });
+    await expect(runAsEvent).toBeEnabled();
+    await runAsEvent.click();
+  }
+
+  /**
+   * After Run as Event: accept either kafkaEvent redirect alert or a visible run status.
+   */
+  async expectEventTriggeredOrRunVisible(timeoutMs = 600_000): Promise<void> {
+    const alert = ORCHESTRATOR_COMPONENTS.eventTriggeredAlert(this.page);
+    const completed = ORCHESTRATOR_COMPONENTS.completedStatus(this.page);
+    const running = ORCHESTRATOR_COMPONENTS.runningStatus(this.page);
+    // Without instanceAdminView, event-started runs redirect to Access Denied but still prove trigger.
+    const accessDenied = ORCHESTRATOR_COMPONENTS.eventInstanceAccessDenied(
+      this.page,
+    );
+    await expect(alert.or(completed).or(running).or(accessDenied)).toBeVisible({
+      timeout: timeoutMs,
+    });
+  }
+
+  async runLockFlowAsEvent(): Promise<void> {
+    await this.openLockFlowWorkflowFromSidebar();
+    await this.runWorkflowInDetailsPage();
+    await this.clickRunAsEvent();
+    await this.expectEventTriggeredOrRunVisible();
+  }
+
   async runGreetingWorkflow(
     language = "English",
     status = "Completed",
