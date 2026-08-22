@@ -1,0 +1,40 @@
+# Smoke-test overrides for the x2a workspace.
+#
+# The x2a-backend and x2a-mcp-extras plugins register a "x2a-kubernetes"
+# service that creates a @kubernetes/client-node KubeConfig at startup.
+# When no KUBECONFIG file and no in-cluster token exist, the library falls
+# back to http://localhost:8080 and then rejects the HTTP URL with:
+#
+#   "HTTP protocol is not allowed when skipTLSVerify is not set or false"
+#
+# By pointing KUBECONFIG (set in test.env) at this file, the client-node
+# library parses the kubeconfig keys below instead of falling back to HTTP.
+# The Backstage config reader ignores the kubeconfig keys, and client-node
+# ignores the Backstage keys, so the same file serves both purposes.
+
+# -- Backstage app-config keys (read by RHDH) --
+x2a:
+  kubernetes:
+    # Not consumed by the current plugin, but documents the intent: the
+    # smoke-test cluster stub uses insecure-skip-tls-verify.
+    skipTLSVerify: true
+
+# -- kubeconfig keys (read by @kubernetes/client-node via KUBECONFIG) --
+apiVersion: v1
+kind: Config
+clusters:
+  - cluster:
+      server: https://localhost:9443
+      insecure-skip-tls-verify: true
+    name: smoke-test
+contexts:
+  - context:
+      cluster: smoke-test
+      user: smoke-test
+      namespace: smoke-test-namespace
+    name: smoke-test
+current-context: smoke-test
+users:
+  - name: smoke-test
+    user:
+      token: smoke-test-token
