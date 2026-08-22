@@ -1,3 +1,7 @@
+# Guest auth backend module — RHDH 2.0 no longer bundles it; must be
+# loaded explicitly for auth: "guest" tests to work.
 plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider:bs_1.52.0__0.2.20
+    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org:bs_1.45.3__0.3.16
     disabled: false
