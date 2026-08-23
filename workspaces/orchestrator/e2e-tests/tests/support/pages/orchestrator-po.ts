@@ -13,39 +13,30 @@ export class OrchestratorPO {
   constructor(
     private readonly page: Page,
     private readonly uiHelper: UIhelper,
-    private readonly nfsLane: boolean,
   ) {}
 
   static forProject(
     page: Page,
     uiHelper: UIhelper,
-    projectName: string,
+    _projectName: string,
   ): OrchestratorPO {
-    return new OrchestratorPO(
-      page,
-      uiHelper,
-      projectName.endsWith("-app-next"),
-    );
-  }
-
-  private isNfsLane(): boolean {
-    return this.nfsLane;
+    return new OrchestratorPO(page, uiHelper);
   }
 
   private workflowsCatalogControl(): Locator {
-    if (this.isNfsLane()) {
-      return ORCHESTRATOR_COMPONENTS.workflowsLink(this.page);
-    }
+    // Entity pages keep a Workflows tab on both legacy and NFS (CI screenshot).
     return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
   }
 
   async clickWorkflowsCatalogControl(): Promise<void> {
-    await this.workflowsCatalogControl().click();
+    await this.workflowsCatalogControl().click({ timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
   }
 
   async verifyWorkflowsCatalogControlVisible(): Promise<void> {
-    await expect(this.workflowsCatalogControl()).toBeVisible();
+    await expect(this.workflowsCatalogControl()).toBeVisible({
+      timeout: 30_000,
+    });
   }
 
   async openWorkflowsPage(): Promise<void> {
@@ -345,13 +336,26 @@ export class OrchestratorPO {
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
+  private async clickChooseOnTemplateCard(
+    templateTitle: string,
+  ): Promise<void> {
+    const chooseButton = this.page
+      .locator(".MuiCard-root")
+      .filter({ hasText: templateTitle })
+      .getByRole("button", { name: /Choose/i })
+      .first();
+    await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+    await chooseButton.click();
+  }
+
   async openGreetingTemplateFromSelfService(): Promise<void> {
     await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
     ).toBeVisible({ timeout: 30_000 });
-    await this.uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+    // clickBtnInCard can detach under NFS re-renders; click Choose directly.
+    await this.clickChooseOnTemplateCard("Greeting Test Picker");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
     await this.uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);

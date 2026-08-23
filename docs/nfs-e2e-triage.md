@@ -155,7 +155,7 @@ lane means anything.
 | `argocd` | 1 | 7 | — | keycloak | **ocp** | in-cluster ArgoCD via an operator subscription | mixed | 5 | **no NFS entry point** |
 | `tekton` | 2 | 3 | ✅ | keycloak | **ocp** | OpenShift Pipelines operator + real `PipelineRun`s | mixed | 5 | ready |
 | `topology` | 2 | 4 | ✅ | keycloak | **ocp** | real pods/deployments + RBAC-gated pod logs | mixed | 4 | ready |
-| `orchestrator` | 1 | 26 | — | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
+| `orchestrator` | 2 | 26 | ✅ | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
 | `scaffolder-backend-module-kubernetes` | 1 | 1 | — | keycloak | **ocp** | creates and deletes a real namespace — the API call *is* the assertion | n/a | 0 | backend-only |
 | `intelligent-assistant` | 1 | 34 | — | keycloak | **ocp** | a `lightspeed-core` sidecar with EmptyDir vector stores; ConfigMap patch + `oc rollout restart` | oci | 2 | ready |
 | `backstage` | **13** | 47 | ✅ (`configure`, names unchanged) | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`); `-microsoft-auth` not yet classified | mixed | 2 | ready (6 pkgs) |

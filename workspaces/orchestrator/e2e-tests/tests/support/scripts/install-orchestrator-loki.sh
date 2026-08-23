@@ -569,13 +569,21 @@ create_loki_object_storage_secret() {
   fi
 
   log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
-  oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
+  if oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
     --from-literal=bucketnames="${MINIO_BUCKET}" \
     --from-literal=endpoint="${MINIO_ENDPOINT}" \
     --from-literal=access_key_id="${MINIO_ACCESS_KEY}" \
     --from-literal=access_key_secret="${MINIO_SECRET_KEY}" \
     --from-literal=region="${MINIO_REGION}" \
-    --from-literal=forcepathstyle="true"
+    --from-literal=forcepathstyle="true"; then
+    return 0
+  fi
+  if oc get secret "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" &>/dev/null; then
+    log "Secret ${LOKI_SECRET_NAME} already exists; continuing"
+    return 0
+  fi
+  log "ERROR: failed to create secret ${LOKI_SECRET_NAME}"
+  return 1
 }
 
 lokistack_ready() {
@@ -668,7 +676,13 @@ ensure_collector_service_account() {
 
   if ! oc get sa "${sa}" -n "${LOKI_NS}" &>/dev/null; then
     log "Creating collector ServiceAccount in ${LOKI_NS}..."
-    oc create sa "${sa}" -n "${LOKI_NS}"
+    if ! oc create sa "${sa}" -n "${LOKI_NS}"; then
+      if ! oc get sa "${sa}" -n "${LOKI_NS}" &>/dev/null; then
+        log "ERROR: failed to create ServiceAccount ${sa}"
+        return 1
+      fi
+      log "ServiceAccount ${sa} already exists; continuing"
+    fi
   fi
 
   for role in \

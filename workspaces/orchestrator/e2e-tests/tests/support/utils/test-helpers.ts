@@ -387,13 +387,10 @@ export async function launchGreetingTemplateFromSelfService(
   page: Page,
   uiHelper: UIhelper,
 ): Promise<void> {
-  await page.goto("/create");
-  await page.waitForLoadState("domcontentloaded");
-  await expect(
-    page.getByRole("heading", { name: /Self-service|Create/i }).first(),
-  ).toBeVisible({ timeout: 30_000 });
-  await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-  await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
+  await createOrchestratorPO(
+    page,
+    uiHelper,
+  ).openGreetingTemplateFromSelfService();
 }
 
 export async function waitForScaffolderTerminalState(
