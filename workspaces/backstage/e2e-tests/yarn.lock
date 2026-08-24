@@ -426,9 +426,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.1.10":
-  version: 2.1.10
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.10"
+"@red-hat-developer-hub/e2e-test-utils@npm:2.1.11":
+  version: 2.1.11
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.11"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -451,7 +451,7 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10/a8e4fb266387779dbfc0fae104378acd83ceb2b811cc3c583b59c654375332a08d7e050d927546563a7988cdfc8926c9d5c6a5df225ad7ec298f91babec45ba6
+  checksum: 10/86e37a7689fca892233382bd4a21b2cb4d520898479ad9ff54f1c141e74e115e11ebaad55c2af7b4308952d58219ddf08148da20d00b1bc538c7ca1617b1970d
   languageName: node
   linkType: hard
 
@@ -765,7 +765,7 @@ __metadata:
     "@eslint/js": "npm:10.0.1"
     "@microsoft/microsoft-graph-client": "npm:3.0.7"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.10"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.11"
     "@types/js-yaml": "npm:4.0.9"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
