@@ -189,6 +189,31 @@ async function runLokiInstallScript(): Promise<{
   };
 }
 
+/** Parallel Playwright projects share openshift-logging; tolerate create races. */
+function isParallelLokiInstallRace(output: string): boolean {
+  return /already exists/i.test(output);
+}
+
+async function runLokiInstallScriptWithRaceRetry(): Promise<{
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}> {
+  let result = await runLokiInstallScript();
+  if (result.exitCode === 0) {
+    return result;
+  }
+  const output = `${result.stdout}${result.stderr}`;
+  if (!isParallelLokiInstallRace(output)) {
+    return result;
+  }
+  console.warn(
+    "[configureOrchestratorLoki] Parallel Loki install race; retrying once",
+  );
+  result = await runLokiInstallScript();
+  return result;
+}
+
 function buildLokiQueryRangeProbeUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/loki/api/v1/query_range?query=${encodeURIComponent('{openshift_log_type="application"}')}&limit=1`;
 }
@@ -319,7 +344,7 @@ export async function configureOrchestratorLoki(): Promise<void> {
   process.env.AUTH_TOKEN = await resolveOpenShiftAuthToken();
 
   try {
-    const result = await runLokiInstallScript();
+    const result = await runLokiInstallScriptWithRaceRetry();
     const output = `${result.stdout}${result.stderr}`.trim();
     if (result.exitCode !== 0) {
       throw new Error(
