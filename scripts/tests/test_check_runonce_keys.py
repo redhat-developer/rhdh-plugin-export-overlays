@@ -161,6 +161,18 @@ class TestParsingFailsLoudly:
         assert [f.key for f in find(tmp_path)] == ["ws-setup"]
 
     @staticmethod
+    def test_a_root_that_is_not_a_directory_is_rejected(tmp_path):
+        # A typo'd --repo-root would otherwise glob nothing and read as a clean tree,
+        # which is the same silence this whole check exists to remove.
+        with pytest.raises(ParseError, match="not a directory"):
+            find(tmp_path / "does-not-exist")
+
+        a_file = tmp_path / "root.txt"
+        a_file.write_text("")
+        with pytest.raises(ParseError, match="not a directory"):
+            find(a_file)
+
+    @staticmethod
     def test_a_repo_with_no_configs_is_not_a_clean_repo(tmp_path):
         # Scanning nothing and finding nothing are different answers. The workflow step
         # relies on the default --repo-root, so a future working-directory change would

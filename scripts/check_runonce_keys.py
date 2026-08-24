@@ -63,7 +63,7 @@ TEST_MATCH_VALUE = re.compile(r"testMatch\s*:\s*(.+)")
 
 #: A `runOnce(` call and whatever its first argument is — not only a literal. Extracting
 #: the key to a `const` is the natural refactor and must not become a way past this.
-RUN_ONCE_CALL = re.compile(r"runOnce\(\s*([^,]+?)\s*,", re.DOTALL)
+RUN_ONCE_CALL = re.compile(r"runOnce\(([^,]*),", re.DOTALL)
 
 #: A quoted key, either style, on one line. A TypeScript string literal cannot contain a
 #: raw newline, so a multi-line match is a parse artefact rather than a key — and
@@ -156,20 +156,20 @@ def project_entries(text: str) -> tuple[list[str], str]:
     end = len(text)
     for index in range(start + 1, len(text)):
         char = text[index]
-        if char == "]" and depth == 0:
-            end = index
-            break
         if char == "{":
-            if depth == 0:
-                begin = index + 1
             depth += 1
+            if depth == 1:
+                begin = index + 1
         elif char == "}":
             depth -= 1
             if depth == 0:
                 entries.append(text[begin:index])
-            elif depth < 0:
-                end = index
-                break
+        elif char == "]" and depth == 0:
+            end = index
+            break
+        if depth < 0:
+            end = index
+            break
     return entries, text[start:end]
 
 
@@ -230,11 +230,53 @@ def classify(argument: str) -> tuple[str, str] | None:
     )
 
 
+def keys_in(
+    source: Path, e2e_root: Path, projects: list[Project]
+) -> list[tuple[str, str | None, int, bool]]:
+    """Every runOnce key in one file: `(key, reason-or-None, line, is-quoted)`.
+
+    `reason` is `None` when only one project reaches the file, which makes the key
+    uninteresting here — but it is still returned, because a quoted key participates in
+    the cross-workspace comparison whatever its own workspace looks like.
+    """
+    relative = source.relative_to(e2e_root)
+    reaching = [p.name for p in projects if p.matches(relative)]
+    # A file no project's testMatch names is not a spec — it is a helper, imported by
+    # specs from every project. backstage gives all 13 of its projects a testMatch, so
+    # without this a literal key in its shared helpers would be invisible.
+    if not reaching:
+        reaching = [p.name for p in projects]
+
+    text = source.read_text(encoding="utf-8")
+    out = []
+    for match in RUN_ONCE_CALL.finditer(text):
+        argument = match.group(1).strip()
+        classified = classify(argument)
+        if not classified:
+            continue
+        key, reason = classified
+        shared = f"{', '.join(reaching)} all run this file, and {reason}"
+        out.append(
+            (
+                key,
+                shared if len(reaching) >= 2 else None,
+                text.count("\n", 0, match.start()) + 1,
+                bool(QUOTED_KEY.match(argument)),
+            )
+        )
+    return out
+
+
 def find(repo_root: Path) -> list[Finding]:
-    configs = sorted(repo_root.glob("workspaces/*/e2e-tests/playwright.config.ts"))
+    # Resolved and checked before anything is globbed from it: a typo'd root would
+    # otherwise glob nothing and read as a clean tree.
+    root = repo_root.resolve()
+    if not root.is_dir():
+        raise ParseError(f"not a directory: {repo_root}")
+    configs = sorted(root.glob("workspaces/*/e2e-tests/playwright.config.ts"))
     if not configs:
         raise ParseError(
-            f"no workspaces/*/e2e-tests/playwright.config.ts under {repo_root}. "
+            f"no workspaces/*/e2e-tests/playwright.config.ts under {root}. "
             "Nothing was scanned, which is not the same as nothing being wrong."
         )
 
@@ -249,34 +291,20 @@ def find(repo_root: Path) -> list[Finding]:
         for source in sorted(e2e_root.rglob("*.ts")):
             if "node_modules" in source.parts:
                 continue
-            relative = source.relative_to(e2e_root)
-            reaching = [p.name for p in projects if p.matches(relative)]
-            # A file no project's testMatch names is not a spec — it is a helper, and a
-            # helper is imported by specs from every project. backstage gives all 13 of
-            # its projects a testMatch, so without this a literal key in its shared
-            # helpers would be invisible.
-            if not reaching:
-                reaching = [p.name for p in projects]
-
-            text = source.read_text(encoding="utf-8")
-            for match in RUN_ONCE_CALL.finditer(text):
-                classified = classify(match.group(1))
-                if not classified:
-                    continue
-                key, reason = classified
-                # Only a quoted key is a stable string to compare across workspaces; a
-                # template or an identifier is already reported on its own line.
-                if QUOTED_KEY.match(match.group(1)):
+            for key, reason, line, quoted in keys_in(source, e2e_root, projects):
+                if quoted:
+                    # Only a quoted key is a stable string to compare across workspaces;
+                    # a template or an identifier is reported on its own line anyway.
                     keys_by_workspace[key].add(workspace)
-                if len(reaching) < 2:
+                if reason is None:
                     continue
                 findings.append(
                     Finding(
                         workspace=workspace,
-                        file=source.relative_to(repo_root),
-                        line=text.count("\n", 0, match.start()) + 1,
+                        file=source.relative_to(root),
+                        line=line,
                         key=key,
-                        reason=f"{', '.join(reaching)} all run this file, and {reason}",
+                        reason=reason,
                     )
                 )
 
