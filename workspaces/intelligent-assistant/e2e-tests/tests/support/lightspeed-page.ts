@@ -1,10 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export type DisplayMode = "Overlay" | "Dock to window" | "Fullscreen";
-
-function isNfsLane(): boolean {
-  return test.info().project.name.endsWith("-app-next");
-}
 
 /** Default OpenAI model for conversation e2e tests (matches app-config queryDefaults). */
 export const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
@@ -73,14 +69,13 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
-  // app-next has no homepage plugin (welcome-back). Catalog is present in both
-  // shells; overlay/dock keep it visible and fullscreen covers it.
-  const shell = isNfsLane()
-    ? page
-        .getByRole("heading", { name: /catalog/i })
-        .or(page.getByRole("link", { name: /^catalog$/i }))
-        .or(page.getByText("My Org Catalog"))
-    : page.getByText(/welcome back!/i).or(page.getByText("My Org Catalog"));
+  // Overlay/dock leave homepage or catalog page content in place. Fullscreen
+  // replaces that content. Do not use the sidebar Catalog link: NFS fullscreen
+  // keeps RHDH nav visible while covering only the main page.
+  const shell = page
+    .getByText(/welcome back!/i)
+    .or(page.getByText("My Org Catalog"))
+    .or(page.getByRole("main").getByRole("heading", { name: /^catalog$/i }));
 
   if (visible) {
     await expect(shell.first()).toBeVisible({ timeout: 30_000 });
