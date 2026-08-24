@@ -295,20 +295,36 @@ def find(repo_root: Path) -> list[Finding]:
     keys_by_workspace: dict[str, set[str]] = collections.defaultdict(set)
 
     for config in configs:
-        e2e_root = config.parent
-        workspace = e2e_root.parent.name
-        projects = projects_in(config)
+        found, quoted = scan_workspace(config, root)
+        findings.extend(found)
+        for key in quoted:
+            # Only a quoted key is a stable string to compare across workspaces; a
+            # template or an identifier is reported on its own line anyway.
+            keys_by_workspace[key].add(config.parent.parent.name)
 
-        for source in sorted(e2e_root.rglob("*.ts")):
-            if "node_modules" in source.parts:
-                continue
-            for key, reason, line, quoted in keys_in(source, e2e_root, projects):
-                if quoted:
-                    # Only a quoted key is a stable string to compare across workspaces;
-                    # a template or an identifier is reported on its own line anyway.
-                    keys_by_workspace[key].add(workspace)
-                if reason is None:
-                    continue
+    return findings + cross_workspace(keys_by_workspace, {f.key for f in findings})
+
+
+def scan_workspace(config: Path, root: Path) -> tuple[list[Finding], set[str]]:
+    """One workspace's findings, and every quoted key it uses.
+
+    The quoted keys come back even when the workspace has nothing wrong on its own: they
+    are what the cross-workspace comparison needs, and a single-project workspace still
+    contributes to it.
+    """
+    e2e_root = config.parent
+    workspace = e2e_root.parent.name
+    projects = projects_in(config)
+
+    findings: list[Finding] = []
+    quoted_keys: set[str] = set()
+    for source in sorted(e2e_root.rglob("*.ts")):
+        if "node_modules" in source.parts:
+            continue
+        for key, reason, line, quoted in keys_in(source, e2e_root, projects):
+            if quoted:
+                quoted_keys.add(key)
+            if reason is not None:
                 findings.append(
                     Finding(
                         workspace=workspace,
@@ -318,8 +334,7 @@ def find(repo_root: Path) -> list[Finding]:
                         reason=reason,
                     )
                 )
-
-    return findings + cross_workspace(keys_by_workspace, {f.key for f in findings})
+    return findings, quoted_keys
 
 
 def cross_workspace(
