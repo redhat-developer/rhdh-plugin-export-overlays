@@ -313,6 +313,19 @@ class TestAllowing:
         capsys.readouterr()
 
     @staticmethod
+    def test_an_allow_file_reached_through_a_symlink_is_refused(tmp_path, capsys):
+        # The file name is a constant, so the only way out of the root is a symlinked
+        # scripts/ — which is exactly why the join is checked rather than trusted.
+        workspace(tmp_path, "ws", BOTH, {"specs/ws.spec.ts": literal()})
+        outside = tmp_path.parent / f"outside-{tmp_path.name}"
+        outside.mkdir()
+        (outside / "runonce-shared-keys.txt").write_text("ws-setup\n")
+        (tmp_path / "scripts").symlink_to(outside, target_is_directory=True)
+
+        assert main(["--repo-root", str(tmp_path)]) == 2
+        assert "must sit inside" in capsys.readouterr().err
+
+    @staticmethod
     def test_allowing_one_key_does_not_allow_another(tmp_path, capsys):
         spec = literal() + literal("ws-other-setup")
         workspace(tmp_path, "ws", BOTH, {"specs/ws.spec.ts": spec})
