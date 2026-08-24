@@ -18,62 +18,82 @@ pointing back at the cause. It cost a review round on
 (``deploy-${namespace}``). The fix at a call site is the same: end the key with the
 namespace. This check finds the call sites that have not.
 
-It is deliberately conservative. A key is only reported when **both** of these hold:
+**It fails loudly rather than quietly.** Parsing TypeScript with regexes is only ever
+approximate, and the entire value of this check is that it does not pass in silence. So
+every place the parse is uncertain — a project entry it cannot read, a ``testMatch`` it
+cannot interpret, a key that is not a literal — is reported or raised, never skipped. A
+finding to read costs a minute; a collision that ships costs a deployment that never
+happened.
 
-* the workspace declares two or more Playwright projects that match the same spec — with
-  ``testMatch`` on every project, the specs are already partitioned and no key is shared;
-* the key is a plain string literal, so it cannot vary by project.
+Three shapes count as shared:
+
+* a spec matched by two or more projects;
+* any file **no** project's ``testMatch`` names — a shared helper is imported by specs
+  from every project, so its keys are shared by all of them;
+* the same key in two workspaces, because ``run-e2e.sh`` runs every workspace in one
+  Playwright process and therefore one flag directory.
 
 A literal key is not wrong in itself: setup that is genuinely shared — an operator
 installed once into a fixed namespace every project then uses — *should* have one. That
-is why the reason is printed with the file and line rather than the check simply
-failing: the reader has to decide which of the two intents applies. Passing
-``--allow <key>`` records that decision so the check stays quiet about it.
+is why a finding prints its reason rather than the check forbidding literals outright,
+and why ``--allow`` and ``scripts/runonce-shared-keys.txt`` record the decision.
 
 Usage::
 
     scripts/check_runonce_keys.py [--repo-root .] [--allow KEY ...]
 
-Exits 1 when a shared-project key is found that is not allowed, 0 otherwise.
+Exits 1 when a shared key is found that is not allowed, 2 when the tree cannot be read.
 """
 
 from __future__ import annotations
 
 import argparse
+import collections
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-#: One `{ ... }` entry in the `projects` array. Entries are flat in every config here —
-#: name, testMatch, timeout — so a non-greedy match to the closing brace is enough.
-PROJECT_ENTRY = re.compile(r"\{([^{}]*)\}")
+#: `name: "<project>"`, either quote style. Accepting only one is how a whole workspace
+#: disappears from the scan without a word.
+PROJECT_NAME = re.compile(r"""name:\s*["']([^"']+)["']""")
 
-#: `name: "<project>"` inside such an entry.
-PROJECT_NAME = re.compile(r'name:\s*"([^"]+)"')
-
-#: The value of a `testMatch:`, whatever its form — string, array or regex — to the end
-#: of the line. Compared as text, so two projects naming the same spec are seen to.
+#: The value of a `testMatch:`, to the end of the line.
 TEST_MATCH_VALUE = re.compile(r"testMatch\s*:\s*(.+)")
 
-#: `runOnce("literal"` or `runOnce('literal'`, with any whitespace — newlines included —
-#: between the paren and the key. Prettier puts a long key on its own line, which is the
-#: shape the bug appeared in, so this must not be matched line by line. Both quote
-#: styles, because a check whose whole value is not passing silently must not be
-#: defeated by a quote character. A template literal never matches, which is the point:
-#: `${namespace}` is what makes a key vary by project. The key may not span lines: a
-#: TypeScript string literal cannot contain a raw newline, so a multi-line match is a
-#: parse artefact rather than a key — and printing one would put a pull request's own
-#: text at the start of a line in CI output, where `::error::` is a workflow command
-#: rather than a string.
-RUN_ONCE_LITERAL = re.compile(r"""runOnce\(\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)')""")
+#: A `runOnce(` call and whatever its first argument is — not only a literal. Extracting
+#: the key to a `const` is the natural refactor and must not become a way past this.
+RUN_ONCE_CALL = re.compile(r"runOnce\(\s*([^,]+?)\s*,", re.DOTALL)
+
+#: A quoted key, either style, on one line. A TypeScript string literal cannot contain a
+#: raw newline, so a multi-line match is a parse artefact rather than a key — and
+#: printing one would put a pull request's own text at the start of a line in CI output,
+#: where `::error::` is a workflow command and not a string.
+QUOTED_KEY = re.compile(r"""^["']([^"'\r\n]+)["']$""")
+
+#: What makes a template literal vary by project. `deploy()` keys on the namespace, and
+#: the namespace *is* the project name, so either reads as per-project.
+VARIES_BY_PROJECT = re.compile(r"namespace|project\.name", re.IGNORECASE)
+
+#: Glob and regex metacharacters. A matcher still carrying one after the literal parts
+#: are taken was not understood, and pretending otherwise yields a fragment that matches
+#: nothing — which silently removes the project from every file.
+METACHARACTER = re.compile(r"[*?+()|\[\]]")
+
+#: Optional companion to `--allow`, so a deliberately shared key is recorded next to the
+#: code rather than in the workflow that runs this.
+ALLOW_FILE = Path("scripts/runonce-shared-keys.txt")
+
+
+class ParseError(Exception):
+    """The tree could not be read well enough to answer. Never a silent skip."""
 
 
 @dataclass
 class Project:
     name: str
-    #: `testMatch` values as written; empty when the project declares none, which in
-    #: Playwright means it matches every spec.
+    #: `testMatch` fragments; empty when the project declares none or when its matcher
+    #: could not be read — both mean "assume it matches everything".
     matchers: list[str]
 
     def matches(self, path: Path) -> bool:
@@ -89,97 +109,224 @@ class Finding:
     file: Path
     line: int
     key: str
-    projects: list[str]
+    reason: str
 
 
 def parse_matcher(value: str) -> list[str]:
     """The path fragments a `testMatch` value would match on.
 
-    Three forms appear in this repo and all reduce to the same thing — a fragment of the
-    spec's path: a bare string (`"bulk-import.spec.ts"`), a glob
-    (`"**/tests/specs/x.spec.ts"`), and a regex literal (`/tests\\/specs\\/x\\.spec\\.ts/`).
-    Globs and regex escapes are stripped rather than interpreted: the question here is
-    only whether two projects can reach the same file, and every matcher in this repo
-    names its spec literally. A matcher this cannot read yields nothing, which makes the
-    project match everything — the cautious direction, since the cost is a finding to
-    read rather than a collision that ships.
+    Three forms appear in this repo and all reduce to a fragment of the spec's path: a
+    bare string, a glob, and a regex literal. They are compared as text rather than
+    interpreted, which answers the only question here — whether two projects can reach
+    the same file.
+
+    A value this cannot reduce to a plain fragment yields nothing, which makes the
+    project match everything. That is the cautious direction and it has to be reached
+    deliberately: stripping `*` out of `**/specs/*.spec.ts` leaves `specs/.spec.ts`,
+    which matches no real path and would quietly drop the project from every file.
     """
     fragments = re.findall(r"""["']([^"']+)["']|/((?:[^/\\]|\\.)+)/""", value)
     out = []
     for quoted, regex in fragments:
-        raw = quoted or regex.replace("\\", "")
-        out.append(raw.replace("**/", "").replace("*", "").strip("/"))
+        raw = (quoted or regex.replace("\\", "")).replace("**/", "").strip("/")
+        if METACHARACTER.search(raw):
+            return []
+        out.append(raw)
     return [f for f in out if f]
 
 
+def project_entries(text: str) -> tuple[list[str], str]:
+    """Each top-level `{ ... }` body in the `projects` array, and the array itself.
+
+    Brace counting rather than a regex. A regex that stops at the first `}` drops an
+    entry carrying `use: { ... }`; one that spans a nested pair instead swallows the
+    whole `defineConfig({ ... })` object and reads every project as one. Both fail
+    toward silence, which is the outcome this file exists to avoid.
+    """
+    start = text.find("projects")
+    if start < 0:
+        return [], ""
+    start = text.find("[", start)
+    if start < 0:
+        return [], ""
+
+    entries: list[str] = []
+    depth = 0
+    begin = 0
+    end = len(text)
+    for index in range(start + 1, len(text)):
+        char = text[index]
+        if char == "]" and depth == 0:
+            end = index
+            break
+        if char == "{":
+            if depth == 0:
+                begin = index + 1
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                entries.append(text[begin:index])
+            elif depth < 0:
+                end = index
+                break
+    return entries, text[start:end]
+
+
 def projects_in(config: Path) -> list[Project]:
-    """Every Playwright project the config declares, with what it matches on."""
+    """Every Playwright project the config declares, with what it matches on.
+
+    Raises when fewer projects come out than the file plainly declares. A nested object
+    the entry regex cannot span would otherwise drop a project, and a dropped project is
+    a workspace that quietly stops being checked.
+    """
     text = config.read_text(encoding="utf-8")
     projects: list[Project] = []
-    for entry in PROJECT_ENTRY.finditer(text):
-        body = entry.group(1)
-        name = PROJECT_NAME.search(body)
+    entries, region = project_entries(text)
+    for entry in entries:
+        name = PROJECT_NAME.search(entry)
         if not name:
             continue
-        matcher = TEST_MATCH_VALUE.search(body)
+        matcher = TEST_MATCH_VALUE.search(entry)
         projects.append(
             Project(
                 name=name.group(1),
                 matchers=parse_matcher(matcher.group(1)) if matcher else [],
             )
         )
+
+    # Counted inside the projects array, not the whole file: a `name:` elsewhere is
+    # not a project and must not make this raise.
+    declared = len(PROJECT_NAME.findall(region))
+    if len(projects) < declared:
+        raise ParseError(
+            f"{config}: read {len(projects)} project(s) but the file names {declared}. "
+            "An entry this could not parse would silently drop out of the check."
+        )
     return projects
 
 
+def classify(argument: str) -> tuple[str, str] | None:
+    """The key and why it risks colliding, or ``None`` when it is safe.
+
+    A quoted key is the same string in every project. A template is safe only if
+    something in it varies by project — `` `${WORKSPACE}-setup` `` is a template and is
+    just as shared as a literal. Anything else is a name this cannot follow, and unknown
+    is reported rather than assumed safe.
+    """
+    quoted = QUOTED_KEY.match(argument)
+    if quoted:
+        return quoted.group(1), "the key is the same string in every project"
+    if argument.startswith("`"):
+        if VARIES_BY_PROJECT.search(argument):
+            return None
+        return (
+            " ".join(argument.split()),
+            "the key is a template that does not vary by project or namespace",
+        )
+    return (
+        " ".join(argument.split()),
+        "the key is not a literal, so this cannot tell whether it varies by project",
+    )
+
+
 def find(repo_root: Path) -> list[Finding]:
+    configs = sorted(repo_root.glob("workspaces/*/e2e-tests/playwright.config.ts"))
+    if not configs:
+        raise ParseError(
+            f"no workspaces/*/e2e-tests/playwright.config.ts under {repo_root}. "
+            "Nothing was scanned, which is not the same as nothing being wrong."
+        )
+
     findings: list[Finding] = []
-    for config in sorted(repo_root.glob("workspaces/*/e2e-tests/playwright.config.ts")):
+    keys_by_workspace: dict[str, set[str]] = collections.defaultdict(set)
+
+    for config in configs:
         e2e_root = config.parent
+        workspace = e2e_root.parent.name
         projects = projects_in(config)
-        if len(projects) < 2:
-            continue
+
         for source in sorted(e2e_root.rglob("*.ts")):
             if "node_modules" in source.parts:
                 continue
-            # Per file, not per workspace. bulk-import runs three projects, but only two
-            # of them reach bulk-import.spec.ts — a key in the orchestrator spec is not
-            # shared with anything, and reporting it would be noise that costs the check
-            # its credibility.
             relative = source.relative_to(e2e_root)
             reaching = [p.name for p in projects if p.matches(relative)]
-            if len(reaching) < 2:
-                continue
+            # A file no project's testMatch names is not a spec — it is a helper, and a
+            # helper is imported by specs from every project. backstage gives all 13 of
+            # its projects a testMatch, so without this a literal key in its shared
+            # helpers would be invisible.
+            if not reaching:
+                reaching = [p.name for p in projects]
+
             text = source.read_text(encoding="utf-8")
-            # Searched over the whole file, not line by line: Prettier moves a long key
-            # onto its own line, and that is the shape the bug actually appeared in.
-            for match in RUN_ONCE_LITERAL.finditer(text):
+            for match in RUN_ONCE_CALL.finditer(text):
+                classified = classify(match.group(1))
+                if not classified:
+                    continue
+                key, reason = classified
+                # Only a quoted key is a stable string to compare across workspaces; a
+                # template or an identifier is already reported on its own line.
+                if QUOTED_KEY.match(match.group(1)):
+                    keys_by_workspace[key].add(workspace)
+                if len(reaching) < 2:
+                    continue
                 findings.append(
                     Finding(
-                        workspace=e2e_root.parent.name,
+                        workspace=workspace,
                         file=source.relative_to(repo_root),
                         line=text.count("\n", 0, match.start()) + 1,
-                        key=match.group(1) or match.group(2),
-                        projects=reaching,
+                        key=key,
+                        reason=f"{', '.join(reaching)} all run this file, and {reason}",
                     )
                 )
+
+    # run-e2e.sh runs every workspace in one Playwright process, so one flag directory
+    # covers all of them. A key repeated across workspaces collides there even when each
+    # workspace has a single project.
+    already = {f.key for f in findings}
+    for key, workspaces in sorted(keys_by_workspace.items()):
+        # Reported in-file already: a second entry for the same key is noise.
+        if len(workspaces) < 2 or key in already:
+            continue
+        findings.append(
+            Finding(
+                workspace=", ".join(sorted(workspaces)),
+                file=Path("(across workspaces)"),
+                line=0,
+                key=key,
+                reason=(
+                    f"{', '.join(sorted(workspaces))} all use this key, and run-e2e.sh "
+                    "runs them in one Playwright process with one flag directory"
+                ),
+            )
+        )
     return findings
 
 
 def render(findings: list[Finding]) -> str:
     lines = []
     for f in findings:
-        lines.append(f'{f.file}:{f.line}  runOnce("{f.key}")')
-        lines.append(
-            f"    {f.workspace} runs {len(f.projects)} projects over the same specs "
-            f"({', '.join(f.projects)}), so this key is shared between them."
-        )
+        where = f"{f.file}:{f.line}" if f.line else f"{f.file}"
+        lines.append(f'{where}  runOnce("{f.key}")')
+        lines.append(f"    {f.reason}.")
         lines.append(
             "    If the setup belongs to one project, end the key with "
             "`-${rhdh.deploymentConfig.namespace}`, as deploy() does. If it is genuinely "
-            "shared, pass --allow to record that."
+            "shared, record it with --allow or in scripts/runonce-shared-keys.txt."
         )
         lines.append("")
     return "\n".join(lines)
+
+
+def allowed_keys(repo_root: Path, from_flags: list[str]) -> set[str]:
+    allow = set(from_flags)
+    listed = repo_root / ALLOW_FILE
+    if listed.is_file():
+        for line in listed.read_text(encoding="utf-8").splitlines():
+            entry = line.split("#", 1)[0].strip()
+            if entry:
+                allow.add(entry)
+    return allow
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -190,19 +337,27 @@ def main(argv: list[str] | None = None) -> int:
         action="append",
         default=[],
         metavar="KEY",
-        help="a key that is deliberately shared by every project; repeatable",
+        help="a key deliberately shared by every project; repeatable",
     )
     args = parser.parse_args(argv)
+    repo_root = Path(args.repo_root)
 
-    findings = [f for f in find(Path(args.repo_root)) if f.key not in args.allow]
+    try:
+        found = find(repo_root)
+    except ParseError as err:
+        print(err, file=sys.stderr)
+        return 2
+
+    allow = allowed_keys(repo_root, args.allow)
+    findings = [f for f in found if f.key not in allow]
     if not findings:
         print("no runOnce key is shared between projects that run the same specs")
         return 0
 
     print(render(findings), end="")
     print(
-        f"{len(findings)} runOnce key(s) would be shared across projects. "
-        "The second project skips the setup and reports nothing."
+        f"{len(findings)} runOnce key(s) would be shared. The second project skips the "
+        "setup and reports nothing."
     )
     return 1
 
