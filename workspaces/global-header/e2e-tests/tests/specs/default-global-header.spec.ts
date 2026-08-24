@@ -4,20 +4,13 @@ import {
   request,
 } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
-    const isAppNext = test.info().project.name.endsWith("-app-next");
-
     await rhdh.configure({
       auth: "keycloak",
+      useNewFrontendSystem: true,
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
-      dynamicPlugins: WorkspacePaths.resolve(
-        isAppNext
-          ? "tests/config/dynamic-plugins-nfs.yaml"
-          : "tests/config/dynamic-plugins.yaml",
-      ),
     });
     await rhdh.deploy();
   });
@@ -62,14 +55,13 @@ test.describe("Default Global Header", () => {
   });
 
   test("Verify that clicking on Self-service button opens the Templates page", async ({
+    page,
     uiHelper,
   }) => {
     await uiHelper.clickLink({ ariaLabel: "Self-service" });
-    const isAppNext = test.info().project.name.endsWith("-app-next");
-    // eslint-disable-next-line playwright/no-conditional-in-test, @typescript-eslint/no-unused-expressions
-    isAppNext
-      ? await uiHelper.verifyLink({ label: "Self-service" })
-      : await uiHelper.verifyHeading("Self-service");
+    await expect(
+      page.getByRole("link", { name: "Self-service" }),
+    ).toBeVisible();
   });
 
   test("Verify that clicking on Support button in HelpDropdown opens a new tab", async ({
@@ -113,14 +105,10 @@ test.describe("Default Global Header", () => {
     page,
     uiHelper,
   }) => {
-    const isAppNext = test.info().project.name.endsWith("-app-next");
     await uiHelper.openProfileDropdown();
-    // eslint-disable-next-line playwright/no-conditional-in-test, @typescript-eslint/no-unused-expressions
-    isAppNext
-      ? await page
-          .getByRole("menuitem", { name: "Settings" })
-          .waitFor({ state: "visible", timeout: 10000 })
-      : await uiHelper.verifyLinkVisible("Settings");
+    await page
+      .getByRole("menuitem", { name: "Settings" })
+      .waitFor({ state: "visible", timeout: 10000 });
     await uiHelper.verifyTextVisible("Sign out");
 
     await page
