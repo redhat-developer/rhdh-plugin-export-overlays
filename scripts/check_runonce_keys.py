@@ -135,6 +135,12 @@ def parse_matcher(value: str) -> list[str]:
     return [f for f in out if f]
 
 
+def projects_array_start(text: str) -> int:
+    """Index of the `[` opening the `projects` array, or -1."""
+    at = text.find("projects")
+    return text.find("[", at) if at >= 0 else -1
+
+
 def project_entries(text: str) -> tuple[list[str], str]:
     """Each top-level `{ ... }` body in the `projects` array, and the array itself.
 
@@ -143,10 +149,7 @@ def project_entries(text: str) -> tuple[list[str], str]:
     whole `defineConfig({ ... })` object and reads every project as one. Both fail
     toward silence, which is the outcome this file exists to avoid.
     """
-    start = text.find("projects")
-    if start < 0:
-        return [], ""
-    start = text.find("[", start)
+    start = projects_array_start(text)
     if start < 0:
         return [], ""
 
@@ -267,12 +270,20 @@ def keys_in(
     return out
 
 
-def find(repo_root: Path) -> list[Finding]:
-    # Resolved and checked before anything is globbed from it: a typo'd root would
-    # otherwise glob nothing and read as a clean tree.
+def resolved_root(repo_root: Path) -> Path:
+    """The scan root, resolved and confirmed to be a directory.
+
+    A typo'd `--repo-root` would otherwise glob nothing and read as a clean tree, which
+    is exactly the silence this check exists to remove.
+    """
     root = repo_root.resolve()
     if not root.is_dir():
         raise ParseError(f"not a directory: {repo_root}")
+    return root
+
+
+def find(repo_root: Path) -> list[Finding]:
+    root = resolved_root(repo_root)
     configs = sorted(root.glob("workspaces/*/e2e-tests/playwright.config.ts"))
     if not configs:
         raise ParseError(
@@ -308,27 +319,32 @@ def find(repo_root: Path) -> list[Finding]:
                     )
                 )
 
-    # run-e2e.sh runs every workspace in one Playwright process, so one flag directory
-    # covers all of them. A key repeated across workspaces collides there even when each
-    # workspace has a single project.
-    already = {f.key for f in findings}
-    for key, workspaces in sorted(keys_by_workspace.items()):
-        # Reported in-file already: a second entry for the same key is noise.
-        if len(workspaces) < 2 or key in already:
-            continue
-        findings.append(
-            Finding(
-                workspace=", ".join(sorted(workspaces)),
-                file=Path("(across workspaces)"),
-                line=0,
-                key=key,
-                reason=(
-                    f"{', '.join(sorted(workspaces))} all use this key, and run-e2e.sh "
-                    "runs them in one Playwright process with one flag directory"
-                ),
-            )
+    return findings + cross_workspace(keys_by_workspace, {f.key for f in findings})
+
+
+def cross_workspace(
+    keys_by_workspace: dict[str, set[str]], already_reported: set[str]
+) -> list[Finding]:
+    """Keys used in more than one workspace.
+
+    `run-e2e.sh` runs every workspace in one Playwright process, so one flag directory
+    covers all of them and two single-project workspaces collide there. A key already
+    reported against its own file is skipped — a second entry for it is noise.
+    """
+    return [
+        Finding(
+            workspace=", ".join(sorted(workspaces)),
+            file=Path("(across workspaces)"),
+            line=0,
+            key=key,
+            reason=(
+                f"{', '.join(sorted(workspaces))} all use this key, and run-e2e.sh "
+                "runs them in one Playwright process with one flag directory"
+            ),
         )
-    return findings
+        for key, workspaces in sorted(keys_by_workspace.items())
+        if len(workspaces) >= 2 and key not in already_reported
+    ]
 
 
 def render(findings: list[Finding]) -> str:
@@ -346,9 +362,17 @@ def render(findings: list[Finding]) -> str:
     return "\n".join(lines)
 
 
-def allowed_keys(repo_root: Path, from_flags: list[str]) -> set[str]:
+def allowed_keys(root: Path, from_flags: list[str]) -> set[str]:
+    """Keys recorded as deliberately shared, from the flags and the companion file.
+
+    `root` is the already-resolved directory `find` validated. The file name is a
+    constant, and the join is checked against the root anyway rather than trusted —
+    the root is the one part that came from a command line.
+    """
     allow = set(from_flags)
-    listed = repo_root / ALLOW_FILE
+    listed = (root / ALLOW_FILE).resolve()
+    if not listed.is_relative_to(root):
+        raise ParseError(f"allow list must sit inside {root}: {listed}")
     if listed.is_file():
         for line in listed.read_text(encoding="utf-8").splitlines():
             entry = line.split("#", 1)[0].strip()
@@ -371,12 +395,13 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path(args.repo_root)
 
     try:
-        found = find(repo_root)
+        root = resolved_root(repo_root)
+        found = find(root)
+        allow = allowed_keys(root, args.allow)
     except ParseError as err:
         print(err, file=sys.stderr)
         return 2
 
-    allow = allowed_keys(repo_root, args.allow)
     findings = [f for f in found if f.key not in allow]
     if not findings:
         print("no runOnce key is shared between projects that run the same specs")
