@@ -569,6 +569,8 @@ create_loki_object_storage_secret() {
   fi
 
   log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
+  # In-cluster MinIO has no TLS; cleartext HTTP is required for the Loki S3 secret.
+  # NOSONAR
   if oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
     --from-literal=bucketnames="${MINIO_BUCKET}" \
     --from-literal=endpoint="${MINIO_ENDPOINT}" \
