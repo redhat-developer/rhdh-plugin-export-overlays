@@ -33,4 +33,5 @@ spec:
           providers:
             modelCatalog:
               developement:
-                baseUrl: http://localhost:9090
+                my-cluster:
+                  kubeflow-model-catalog-url: http://localhost:9090

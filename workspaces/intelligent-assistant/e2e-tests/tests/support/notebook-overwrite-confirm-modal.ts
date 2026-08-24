@@ -6,7 +6,7 @@ export class NotebookOverwriteConfirmModalPage {
   dialog(): Locator {
     return this.page.getByRole("dialog").filter({
       has: this.page.getByRole("heading", {
-        name: "Overwrite Files?",
+        name: "File already exists",
         level: 2,
       }),
     });
@@ -14,12 +14,6 @@ export class NotebookOverwriteConfirmModalPage {
 
   async expectDialogVisible(timeout = 15_000): Promise<void> {
     await expect(this.dialog()).toBeVisible({ timeout });
-    await expect(
-      this.dialog().getByText(
-        "The following files already exist in this notebook. Do you want to overwrite them with the new versions?",
-        { exact: true },
-      ),
-    ).toBeVisible();
   }
 
   async expectListedOverwriteFile(fileName: string): Promise<void> {
@@ -28,9 +22,19 @@ export class NotebookOverwriteConfirmModalPage {
     ).toBeVisible();
   }
 
-  async clickCancel(): Promise<void> {
+  async clickBack(): Promise<void> {
     await this.dialog()
-      .getByRole("button", { name: "Cancel", exact: true })
+      .getByRole("button", { name: "Back", exact: true })
+      .click();
+  }
+
+  uploadButtonPattern(): RegExp {
+    return /Upload \(\d+\)/;
+  }
+
+  async clickUpload(): Promise<void> {
+    await this.dialog()
+      .getByRole("button", { name: this.uploadButtonPattern() })
       .click();
   }
 }
