@@ -50,3 +50,9 @@ jobs:
           echo ""
 
           bash scripts/e2e-code-quality.sh "${WORKSPACES[@]}"
+
+      # Repo-wide, not per-workspace: it reads each workspace's playwright.config.ts
+      # to know whether two projects run the same specs, so a change to a config can
+      # make a key in an untouched spec start colliding.
+      - name: Check for runOnce keys two projects would share
+        run: python3 scripts/check_runonce_keys.py
