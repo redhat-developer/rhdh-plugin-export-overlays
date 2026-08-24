@@ -133,9 +133,14 @@
 #       Template for the endpoint the post-upload check reads, with %OWNER%,
 #       %REPO% and %SHA% substituted. Tests point it at local files so the check
 #       never reaches Codecov.
+#   CODECOV_GRAPHQL_API
+#       The endpoint the flag-visibility check posts to. Tests point it at a
+#       local file; curl serves a file:// URL and ignores the POST body, so one
+#       fixture shape covers both seams.
 #   VERIFY_ATTEMPTS / VERIFY_DELAY_SECONDS
-#       How hard that check tries. 0 attempts disables it entirely and says
-#       nothing, which is what the tests that are not about it use.
+#       How hard the two post-upload checks try — the session check above and
+#       the flag-visibility check. 0 attempts disables both entirely and says
+#       nothing, which is what the tests that are not about them use.
 
 set -euo pipefail
 
@@ -165,9 +170,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# The workspace name becomes the Codecov flag verbatim — validate it so a typo
-# cannot create a ghost e2e-<typo> flag that carryforward then keeps alive in a
-# shared project we do not administer.
+# The workspace name is what the flag is normally built from — validate it so a
+# typo cannot create a ghost e2e-<typo> flag that carryforward then keeps alive
+# in a shared project we do not administer. `upstream_flag_for` below can
+# override the derived name, and carries its own guard for the same reason.
 #
 # Deliberately the SAME shape scripts/e2e-comment.cjs enforces, cap and trailing
 # hyphen included. This used to be the looser of the two on the reasoning that
@@ -178,7 +184,52 @@ if [[ ! "$WORKSPACE" =~ ^[a-z0-9][a-z0-9-]{0,49}$ || "$WORKSPACE" == *- ]]; then
   echo "ERROR: invalid workspace name '$WORKSPACE'" >&2
   exit 1
 fi
-readonly FLAG="e2e-$WORKSPACE"
+# Normally the flag IS `e2e-<workspace>`, derived rather than configured so a
+# new workspace needs no bookkeeping here. The exceptions below exist only
+# because Codecov has DELETED the derived name.
+#
+# Deleting a flag on Codecov is a soft delete with no inverse: the GraphQL API
+# exposes `deleteFlag` and nothing to undo it, the UI offers no restore, and the
+# name stays unusable afterwards. The data does not go anywhere — it stays in
+# the report and in the v2 REST listing — but every UI surface hides it, because
+# the resolver behind them filters `deleted__isnot=True` while REST does not.
+# So a deleted flag can only be replaced, never recovered.
+#
+# Each entry needs a matching `flag_management.individual_flags` entry in the
+# DESTINATION repo's codecov.yml, or the flag loses the path scoping every other
+# e2e flag has.
+#
+# Do not "tidy" an entry away because the suffix looks redundant. Removing one
+# silently reverts that workspace to a name Codecov will accept, process, and
+# then hide — which is precisely the failure it was added for.
+#
+# And do NOT mirror this into scripts/upload-coverage.sh or
+# scripts/seed-main-coverage.sh. Both derive `e2e-<workspace>` for THIS repo's
+# own Codecov project, where e2e-orchestrator is healthy and visible (46.73%
+# measured 2026-08-21) — and seed-main-coverage.sh is the one that sets the
+# default-branch value the dashboard displays, so it is the more costly of the
+# two to get wrong. Renaming there would orphan a good history to fix a problem
+# that exists only on the destination project.
+upstream_flag_for() {
+  # Named rather than used as "$1" throughout, matching every other function in
+  # this script (`local sha="$1"`, `local lcov="$1"`, `local out_dir="$1"`).
+  local workspace="$1"
+  case "$workspace" in
+    # e2e-orchestrator was deleted on redhat-developer/rhdh-plugins some time
+    # after 2026-08-17. Its data is still there — 142 files, 49.51% at main HEAD
+    # b37abc01 — and invisible to everyone. The suffix is NOT a plugin version;
+    # orchestrator 6.0.0 has nothing to do with it. It is here because the plain
+    # name is burned. Registered upstream by redhat-developer/rhdh-plugins#4436.
+    orchestrator) echo "e2e-orchestrator-plugin" ;;
+    *) echo "e2e-$workspace" ;;
+  esac
+}
+# Split assignment rather than `readonly FLAG="$(...)"`, matching upload_name_for
+# below — where the shape is load-bearing, because `readonly` would make the exit
+# status its own and hide a failing substitution from set -e. A `case` plus
+# `echo` has no failure path, so here it is the convention, not a live hazard.
+FLAG="$(upstream_flag_for "$WORKSPACE")"
+readonly FLAG
 
 SOURCE_JSON="$REPO_ROOT/workspaces/$WORKSPACE/source.json"
 if [[ ! -f "$SOURCE_JSON" ]]; then
@@ -568,6 +619,12 @@ session_names_on() {
 readonly VERIFY_ATTEMPTS="${VERIFY_ATTEMPTS:-5}"
 readonly VERIFY_DELAY_SECONDS="${VERIFY_DELAY_SECONDS:-20}"
 
+# The sticky state both post-upload checks share: "the endpoint answered at least
+# once, so whatever it said is evidence". Named because the two checks have to agree
+# on it — a typo in one of the four comparisons would silently turn a definitive
+# observation into "could not reach", which is the dismissible message.
+readonly LOOKUP_REACHED="reached"
+
 # What this proves: a session with this report's content is on the commit. What
 # it does not prove: that THIS run put it there. The name is a digest of the
 # report precisely so a retry collapses onto one session, so an identical
@@ -593,12 +650,12 @@ verify_landed() {
       # session absent is real evidence, and a blip on a later attempt must not
       # erase it. Last-poll-wins turned four definitive observations into "could
       # not reach", which is the dismissible message and would be false.
-      lookup_failed="reached"
+      lookup_failed="$LOOKUP_REACHED"
       if grep -qxF "$name" <<<"$names"; then
         echo "[OK]   $sha: session '$name' is on the commit."
         return 0
       fi
-    elif [[ "$lookup_failed" != "reached" ]]; then
+    elif [[ "$lookup_failed" != "$LOOKUP_REACHED" ]]; then
       lookup_failed="true"
     fi
     attempt=$((attempt + 1))
@@ -610,6 +667,98 @@ verify_landed() {
     warn_loudly "uploaded to $sha but could not reach $where to confirm it — this says nothing about whether the report changed."
   else
     warn_loudly "uploaded to $sha but no session named '$name' is on the commit — the report may not have changed. Check $where (it paginates)."
+  fi
+  return 1
+}
+
+# Whether the flag is VISIBLE, which is a different question from whether the
+# upload landed — and the one this script could not answer until 2026-08-21.
+#
+# A flag that a Codecov admin has deleted keeps accepting uploads, keeps its
+# data in the report, and still returns from the v2 REST listing this script
+# already reads. It vanishes only from the UI, because the GraphQL resolver
+# behind every UI surface filters `deleted__isnot=True` and the REST one does
+# not. So `verify_landed` says [OK] twice, the report says 49.51%, and the
+# dashboard's flag picker does not offer the flag at all.
+#
+# That is exactly what happened to e2e-orchestrator on redhat-developer/
+# rhdh-plugins: two green publishes (2026-08-13 and 2026-08-17), 142 files on
+# main HEAD, and absent from the picker. The deletion is a soft delete that
+# Codecov documents as not undoable, with the name unusable afterwards — so
+# this cannot heal itself and the only useful response is to say so loudly.
+GRAPHQL_API="${CODECOV_GRAPHQL_API:-https://api.codecov.io/graphql/gh}"
+
+# Prints the visible flag names matching $FLAG, one per line, and FAILS if the
+# listing could not be read. Same split as session_names_on, for the same
+# reason: "the flag is gone" and "I could not ask" read alike in a log and send
+# whoever is debugging to opposite places.
+visible_flag_names() {
+  local owner="${SLUG%%/*}" repo="${SLUG##*/}" payload response
+  # `term` is a substring match server-side, so passing the whole flag name
+  # keeps the answer small without having to page a repo's entire flag list.
+  payload="$(jq -n --arg owner "$owner" --arg repo "$repo" --arg term "$FLAG" \
+    '{query: "query($owner:String!,$repo:String!,$term:String!){owner(username:$owner){repository(name:$repo){... on Repository{coverageAnalytics{flags(filters:{term:$term},first:100){edges{node{name}}}}}}}}",
+      variables: {owner: $owner, repo: $repo, term: $term}}')" || return 1
+  if ! response="$(curl -sfL --max-time 30 -X POST \
+    -H 'Content-Type: application/json' --data "$payload" "$GRAPHQL_API" 2>/dev/null)"; then
+    return 1
+  fi
+  # A GraphQL error is an HTTP 200 carrying an `errors` array and a null `data`,
+  # which --fail cannot see. Reading that as an empty flag list would report a
+  # perfectly live flag as deleted — the loudest wrong answer available here.
+  # `.errors // empty` would be wrong here and silently so: on the happy path
+  # `.errors` is absent, `// empty` yields `empty`, and `if empty then` makes the
+  # WHOLE expression produce nothing — so every healthy response read as "err".
+  # Compared against null explicitly instead.
+  if [[ "$(jq -r '
+        if (.errors != null) then "err"
+        elif ((.data.owner.repository.coverageAnalytics.flags.edges | type) == "array") then "ok"
+        else "err" end' <<<"$response" 2>/dev/null)" != "ok" ]]; then
+    return 1
+  fi
+  jq -r '.data.owner.repository.coverageAnalytics.flags.edges[].node.name' <<<"$response" 2>/dev/null
+}
+
+# Non-fatal, like verify_landed: the coverage IS published either way, and a
+# deleted flag needs a human with Codecov admin rights, not a red merge.
+#
+# Runs once per script run rather than once per upload, because visibility is a
+# property of the flag on the destination project — the same answer for both
+# SHAs.
+#
+# It runs only after verify_landed has CONFIRMED a session, and that is what
+# makes it safe for a genuinely new flag: the RepositoryFlag row is created when
+# the upload is processed, so once a session is on the commit the flag exists,
+# and an absence here means deleted rather than not-yet-created. The call site
+# enforces that by requiring UNVERIFIED_SHAS to be short of every target — do
+# not relax it to "the upload was accepted", which is a different and much
+# weaker claim. See the comment there for what that costs.
+verify_flag_visible() {
+  local names attempt=1 lookup_failed="false"
+  # Verification off means nothing was asked; claiming anything would be a
+  # finding nobody looked for.
+  if [[ "$VERIFY_ATTEMPTS" -le 0 ]]; then
+    return 0
+  fi
+
+  while [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]]; do
+    if names="$(visible_flag_names)"; then
+      lookup_failed="$LOOKUP_REACHED"
+      if grep -qxF "$FLAG" <<<"$names"; then
+        echo "[OK]   flag '$FLAG' is visible on $SLUG."
+        return 0
+      fi
+    elif [[ "$lookup_failed" != "$LOOKUP_REACHED" ]]; then
+      lookup_failed="true"
+    fi
+    attempt=$((attempt + 1))
+    [[ "$attempt" -le "$VERIFY_ATTEMPTS" ]] && { sleep "$VERIFY_DELAY_SECONDS" || true; }
+  done
+
+  if [[ "$lookup_failed" == "true" ]]; then
+    warn_loudly "could not reach $GRAPHQL_API to check whether '$FLAG' is still visible on $SLUG — this says nothing either way."
+  else
+    warn_loudly "the upload landed but '$FLAG' is NOT in $SLUG's visible flag list, which means a Codecov admin has deleted the flag. The coverage is still in the report and in the v2 REST listing; every UI surface hides it. Deletion is a soft delete Codecov documents as not undoable — this needs a Codecov admin or a new flag name, and re-running this job will not fix it."
   fi
   return 1
 }
@@ -683,6 +832,29 @@ for sha in "${UPLOAD_SHAS[@]}"; do
 done
 
 echo ""
+# Only worth asking when something was actually published: on a dry run nothing
+# reached Codecov, and when every upload failed the flag's visibility is not the
+# problem to report.
+#
+# A CONFIRMED session is required, not merely an accepted upload — the
+# difference is the whole safety of the check. The RepositoryFlag row is created
+# when Codecov PROCESSES an upload, so between "accepted" and "processed" a
+# perfectly healthy new flag does not exist yet. Gating on FAILED_SHAS alone
+# would ask during exactly that window whenever the queue ran slow enough for
+# verify_landed to give up, and answer "a Codecov admin has deleted the flag …
+# re-running this job will not fix it" — categorical, actionable and false,
+# sending someone to open a support ticket over a slow queue. Worse than not
+# checking at all, and the same "could not ask" vs "it is gone" confusion this
+# file keeps apart everywhere else.
+# COMBINED, not two independent comparisons. A target lands in exactly one of
+# the two arrays, so what this needs is "at least one target in neither" — and
+# with two targets, one failed upload plus one unconfirmed session satisfies
+# `FAILED < 2` and `UNVERIFIED < 2` separately while confirming nothing.
+if [[ "$DRY_RUN" != "true" \
+  && $(( ${#FAILED_SHAS[@]} + ${#UNVERIFIED_SHAS[@]} )) -lt ${#UPLOAD_SHAS[@]} ]]; then
+  verify_flag_visible || true
+fi
+
 if [[ ${#UNVERIFIED_SHAS[@]} -gt 0 ]]; then
   echo "[WARN] uploaded but unconfirmed: ${UNVERIFIED_SHAS[*]}" >&2
 fi

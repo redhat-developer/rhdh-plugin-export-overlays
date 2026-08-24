@@ -2,12 +2,15 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
 
 /**
  * Keycloak catalog integration e2e test configuration.
- * Extends the base config from e2e-test-utils.
+ *
+ * Projects:
+ * - keycloak-app-next — namespace ends with -app-next, so e2e-test-utils merges
+ *   NFS (app-next) secrets and default app-auth / app-integrations automatically.
  */
 export default defineConfig({
   projects: [
     {
-      name: "keycloak",
+      name: "keycloak-app-next",
     },
   ],
 });
