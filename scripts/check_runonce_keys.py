@@ -61,8 +61,12 @@ TEST_MATCH_VALUE = re.compile(r"testMatch\s*:\s*(.+)")
 #: shape the bug appeared in, so this must not be matched line by line. Both quote
 #: styles, because a check whose whole value is not passing silently must not be
 #: defeated by a quote character. A template literal never matches, which is the point:
-#: `${namespace}` is what makes a key vary by project.
-RUN_ONCE_LITERAL = re.compile(r"""runOnce\(\s*(?:"([^"]+)"|'([^']+)')""")
+#: `${namespace}` is what makes a key vary by project. The key may not span lines: a
+#: TypeScript string literal cannot contain a raw newline, so a multi-line match is a
+#: parse artefact rather than a key — and printing one would put a pull request's own
+#: text at the start of a line in CI output, where `::error::` is a workflow command
+#: rather than a string.
+RUN_ONCE_LITERAL = re.compile(r"""runOnce\(\s*(?:"([^"\r\n]+)"|'([^'\r\n]+)')""")
 
 
 @dataclass

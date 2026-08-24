@@ -172,6 +172,16 @@ class TestWhenItStaysQuiet:
         assert find(tmp_path) == []
 
     @staticmethod
+    def test_a_match_spanning_lines_is_not_a_key(tmp_path):
+        # A TypeScript string literal cannot contain a raw newline, so this is a parse
+        # artefact rather than a key. Printing it would put a pull request's own text at
+        # the start of a line in CI output, where `::error::` is a workflow command and
+        # not a string — verified before the fix by emitting a forged annotation.
+        spec = 'await test.runOnce("x\n::error::forged\n", async () => {});\n'
+        workspace(tmp_path, "ws", BOTH, {"ws.spec.ts": spec})
+        assert find(tmp_path) == []
+
+    @staticmethod
     def test_node_modules_is_not_scanned(tmp_path):
         workspace(tmp_path, "ws", BOTH, {})
         vendored = tmp_path / "workspaces/ws/e2e-tests/node_modules/pkg"
