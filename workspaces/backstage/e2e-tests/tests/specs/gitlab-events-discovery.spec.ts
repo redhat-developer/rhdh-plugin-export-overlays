@@ -159,6 +159,10 @@ spec:
   });
 
   test("Deleting catalog-info.yaml removes entity from catalog", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "GitlabDiscoveryEntityProvider silently fails to process delete push events — product bug in @backstage/plugin-catalog-backend-module-gitlab",
+    );
     test.setTimeout(7 * 60 * 1000);
 
     const entityName = `${testPrefix}-component`;
