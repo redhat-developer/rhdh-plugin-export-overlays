@@ -203,7 +203,10 @@ cat > package.json <<EOF
 }
 EOF
 
-cat > .yarnrc.yml <<< 'nodeLinker: node-modules'
+cat > .yarnrc.yml <<EOF
+nodeLinker: node-modules
+npmMinimalAgeGate: 0
+EOF
 GENERATED_FILES+=("package.json" ".yarnrc.yml")
 
 # Clean all node_modules and yarn.lock to ensure fresh resolution
