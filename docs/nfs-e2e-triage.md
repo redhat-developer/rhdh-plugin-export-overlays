@@ -31,10 +31,10 @@ is the Kubernetes namespace, and a name ending in `-app-next` is what switches
 | | Count |
 |---|---|
 | Workspaces with `e2e-tests/` | 24 |
-| **Playwright projects** (= namespaces = cluster claims) | **46** |
-| — with an `-app-next` lane today | 6 |
+| **Playwright projects** (= namespaces = cluster claims) | **47** |
+| — with an `-app-next` lane today | 7 |
 | — of those, skipped in nightly | 2 (`tech-radar`, `app-defaults`) |
-| Legacy-only projects with no NFS lane yet | 40 |
+| Legacy-only projects with no NFS lane yet | 39 |
 | Spec files / static `test()` declarations | 42 / 246 |
 | Workspaces using the per-workspace `value_file-app-next.yaml` hook | 0 |
 
@@ -132,7 +132,7 @@ lane means anything.
 | `quay` | 1 | 3 | — | guest | **svc** | real quay.io repo + security scan | oci | 0 | ready |
 | `github` | 2 | 2 | — | github | **svc** | real GitHub Actions runs + issues | baked-in | 0 | ready (5 pkgs) |
 | `roadie-backstage-plugins` | 2 | 6 | — | github, guest | **svc** | real GitHub PR data; outbound HTTP | oci | 0 | **all 6 no NFS entry point** (3 do expose `alpha`) |
-| `bulk-import` | 2 | 9 | — | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
+| `bulk-import` | 3 | 9 | ✅ | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
 | `quickstart` | 1 | 2 | — | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
 | `global-header` | 2 | 10 | — | keycloak | **ctr** | Keycloak | mixed | 22 | ready |
 | `extensions` | 1 | 11 | — | keycloak | **ctr** | Keycloak + the catalog index image | baked-in | 6 | **no OCI artifact**; the readiness report infers `nfs-ready` from upstream source since #3284 |
@@ -156,11 +156,11 @@ lane means anything.
 | Class | Projects | Meaning |
 |---|---|---|
 | `none` | 3 | needs nothing but the app |
-| `svc` | 9 + 8 of `backstage` | needs the internet, not a cluster |
+| `svc` | 10 + 8 of `backstage` | needs the internet, not a cluster |
 | `ctr` | 13 + 2 of `backstage` | needs a container, not a cluster |
 | `ocp` | 8 + 2 of `backstage` | OpenShift is the subject; stays on Prow |
 
-**About 29 of the 46 projects do not need OpenShift.** Three need no external dependency at
+**About 30 of the 47 projects do not need OpenShift.** Three need no external dependency at
 all. That is the ceiling on what a cluster-free lane could ever cover — not a plan, a bound.
 
 ---
@@ -240,7 +240,7 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (46) and the app-next lanes among them (6)
+# Playwright projects (47) and the app-next lanes among them (7)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
