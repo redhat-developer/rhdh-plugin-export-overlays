@@ -75,6 +75,14 @@ QUOTED_KEY = re.compile(r"""^["']([^"'\r\n]+)["']$""")
 #: the namespace *is* the project name, so either reads as per-project.
 VARIES_BY_PROJECT = re.compile(r"namespace|project\.name", re.IGNORECASE)
 
+#: A local alias for the namespace: `const ns = rhdh.deploymentConfig.namespace`. Real
+#: specs do this and then interpolate the short name, so matching only the literal word
+#: "namespace" rejects a key that is perfectly per-project — intelligent-assistant#3324
+#: is exactly that, and calling it a collision would block a correct PR.
+NAMESPACE_ALIAS = re.compile(
+    r"(?:const|let|var)\s+(\w+)\s*=\s*[^;\n]*(?:namespace|project\.name)", re.IGNORECASE
+)
+
 #: Glob and regex metacharacters. A matcher still carrying one after the literal parts
 #: are taken was not understood, and pretending otherwise yields a fragment that matches
 #: nothing — which silently removes the project from every file.
@@ -209,7 +217,7 @@ def projects_in(config: Path) -> list[Project]:
     return projects
 
 
-def classify(argument: str) -> tuple[str, str] | None:
+def classify(argument: str, aliases: frozenset[str] = frozenset()) -> tuple[str, str] | None:
     """The key and why it risks colliding, or ``None`` when it is safe.
 
     A quoted key is the same string in every project. A template is safe only if
@@ -221,7 +229,8 @@ def classify(argument: str) -> tuple[str, str] | None:
     if quoted:
         return quoted.group(1), "the key is the same string in every project"
     if argument.startswith("`"):
-        if VARIES_BY_PROJECT.search(argument):
+        interpolated = set(re.findall(r"\$\{\s*(\w+)", argument))
+        if VARIES_BY_PROJECT.search(argument) or interpolated & aliases:
             return None
         return (
             " ".join(argument.split()),
@@ -251,10 +260,11 @@ def keys_in(
         reaching = [p.name for p in projects]
 
     text = source.read_text(encoding="utf-8")
+    aliases = frozenset(NAMESPACE_ALIAS.findall(text))
     out = []
     for match in RUN_ONCE_CALL.finditer(text):
         argument = match.group(1).strip()
-        classified = classify(argument)
+        classified = classify(argument, aliases)
         if not classified:
             continue
         key, reason = classified

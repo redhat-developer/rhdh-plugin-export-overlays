@@ -215,6 +215,32 @@ class TestKeysThatAreNotLiterals:
         assert find(tmp_path) == []
 
     @staticmethod
+    def test_a_namespace_held_in_a_local_alias_still_counts(tmp_path):
+        # intelligent-assistant does exactly this, and matching only the literal word
+        # "namespace" called a correct key a collision — a false positive on an open PR
+        # is how a check like this loses the room.
+        spec = (
+            "const ns = rhdh.deploymentConfig.namespace;\n"
+            "await test.runOnce(`ws-deploy-${ns}`, async () => {});\n"
+        )
+        workspace(tmp_path, "ws", BOTH, {"support/helper.ts": spec})
+        assert find(tmp_path) == []
+
+    @staticmethod
+    def test_an_alias_from_another_file_does_not_count(tmp_path):
+        # The alias has to be visible where the key is written; otherwise any file that
+        # names a variable `ns` would launder an unrelated key.
+        workspace(
+            tmp_path,
+            "ws",
+            BOTH,
+            {
+                "support/other.ts": "const ns = rhdh.deploymentConfig.namespace;\n",
+                "support/helper.ts": "await test.runOnce(`ws-deploy-${ns}`, async () => {});\n",
+            },
+        )
+        assert len(find(tmp_path)) == 1
+    @staticmethod
     def test_a_key_spanning_lines_cannot_forge_ci_output(tmp_path, capsys):
         # A TypeScript string cannot contain a raw newline, so this is not a key — it is
         # reported as unreadable, which is the loud direction. What it must not do is
