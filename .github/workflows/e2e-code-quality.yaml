@@ -7,6 +7,11 @@ on:
       - 'release-*'
     paths:
       - 'workspaces/*/e2e-tests/**'
+      # The runOnce key check reads every playwright.config.ts, so a change to the
+      # check itself has to run it too — otherwise the PR that adds or edits it is
+      # the one PR it never guards.
+      - 'scripts/check_runonce_keys.py'
+      - 'scripts/tests/test_check_runonce_keys.py'
 
 concurrency:
   group: e2e-code-quality-${{ github.event.pull_request.number }}

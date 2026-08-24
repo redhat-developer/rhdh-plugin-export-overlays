@@ -45,17 +45,38 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-#: `name: "<project>"` in a playwright.config.ts.
+#: One `{ ... }` entry in the `projects` array. Entries are flat in every config here —
+#: name, testMatch, timeout — so a non-greedy match to the closing brace is enough.
+PROJECT_ENTRY = re.compile(r"\{([^{}]*)\}")
+
+#: `name: "<project>"` inside such an entry.
 PROJECT_NAME = re.compile(r'name:\s*"([^"]+)"')
 
-#: Any `testMatch:` entry, whatever its form (string, array or regex).
-TEST_MATCH = re.compile(r"\btestMatch\s*:")
+#: The value of a `testMatch:`, whatever its form — string, array or regex — to the end
+#: of the line. Compared as text, so two projects naming the same spec are seen to.
+TEST_MATCH_VALUE = re.compile(r"testMatch\s*:\s*(.+)")
 
-#: `runOnce("literal"` — with any whitespace, including newlines, between the paren and
-#: the key. Prettier puts a long key on its own line, which is exactly the shape the
-#: bug appeared in, so this must not be matched line by line. A template literal never
-#: matches, which is the point: `${namespace}` is what makes a key vary by project.
-RUN_ONCE_LITERAL = re.compile(r'runOnce\(\s*"([^"]+)"')
+#: `runOnce("literal"` or `runOnce('literal'`, with any whitespace — newlines included —
+#: between the paren and the key. Prettier puts a long key on its own line, which is the
+#: shape the bug appeared in, so this must not be matched line by line. Both quote
+#: styles, because a check whose whole value is not passing silently must not be
+#: defeated by a quote character. A template literal never matches, which is the point:
+#: `${namespace}` is what makes a key vary by project.
+RUN_ONCE_LITERAL = re.compile(r"""runOnce\(\s*(?:"([^"]+)"|'([^']+)')""")
+
+
+@dataclass
+class Project:
+    name: str
+    #: `testMatch` values as written; empty when the project declares none, which in
+    #: Playwright means it matches every spec.
+    matchers: list[str]
+
+    def matches(self, path: Path) -> bool:
+        if not self.matchers:
+            return True
+        posix = path.as_posix()
+        return any(needle in posix for needle in self.matchers)
 
 
 @dataclass
@@ -67,31 +88,62 @@ class Finding:
     projects: list[str]
 
 
-def projects_sharing_specs(config: Path) -> list[str] | None:
-    """The project names, when they all match the same specs; ``None`` otherwise.
+def parse_matcher(value: str) -> list[str]:
+    """The path fragments a `testMatch` value would match on.
 
-    A config that gives every project a ``testMatch`` has already partitioned its specs,
-    so no two projects run the same file and no key can be shared. A single project
-    cannot collide with itself.
+    Three forms appear in this repo and all reduce to the same thing — a fragment of the
+    spec's path: a bare string (`"bulk-import.spec.ts"`), a glob
+    (`"**/tests/specs/x.spec.ts"`), and a regex literal (`/tests\\/specs\\/x\\.spec\\.ts/`).
+    Globs and regex escapes are stripped rather than interpreted: the question here is
+    only whether two projects can reach the same file, and every matcher in this repo
+    names its spec literally. A matcher this cannot read yields nothing, which makes the
+    project match everything — the cautious direction, since the cost is a finding to
+    read rather than a collision that ships.
     """
+    fragments = re.findall(r"""["']([^"']+)["']|/((?:[^/\\]|\\.)+)/""", value)
+    out = []
+    for quoted, regex in fragments:
+        raw = quoted or regex.replace("\\", "")
+        out.append(raw.replace("**/", "").replace("*", "").strip("/"))
+    return [f for f in out if f]
+
+
+def projects_in(config: Path) -> list[Project]:
+    """Every Playwright project the config declares, with what it matches on."""
     text = config.read_text(encoding="utf-8")
-    names = PROJECT_NAME.findall(text)
-    if len(names) < 2:
-        return None
-    if len(TEST_MATCH.findall(text)) >= len(names):
-        return None
-    return names
+    projects: list[Project] = []
+    for entry in PROJECT_ENTRY.finditer(text):
+        body = entry.group(1)
+        name = PROJECT_NAME.search(body)
+        if not name:
+            continue
+        matcher = TEST_MATCH_VALUE.search(body)
+        projects.append(
+            Project(
+                name=name.group(1),
+                matchers=parse_matcher(matcher.group(1)) if matcher else [],
+            )
+        )
+    return projects
 
 
 def find(repo_root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for config in sorted(repo_root.glob("workspaces/*/e2e-tests/playwright.config.ts")):
         e2e_root = config.parent
-        projects = projects_sharing_specs(config)
-        if not projects:
+        projects = projects_in(config)
+        if len(projects) < 2:
             continue
         for source in sorted(e2e_root.rglob("*.ts")):
             if "node_modules" in source.parts:
+                continue
+            # Per file, not per workspace. bulk-import runs three projects, but only two
+            # of them reach bulk-import.spec.ts — a key in the orchestrator spec is not
+            # shared with anything, and reporting it would be noise that costs the check
+            # its credibility.
+            relative = source.relative_to(e2e_root)
+            reaching = [p.name for p in projects if p.matches(relative)]
+            if len(reaching) < 2:
                 continue
             text = source.read_text(encoding="utf-8")
             # Searched over the whole file, not line by line: Prettier moves a long key
@@ -102,8 +154,8 @@ def find(repo_root: Path) -> list[Finding]:
                         workspace=e2e_root.parent.name,
                         file=source.relative_to(repo_root),
                         line=text.count("\n", 0, match.start()) + 1,
-                        key=match.group(1),
-                        projects=projects,
+                        key=match.group(1) or match.group(2),
+                        projects=reaching,
                     )
                 )
     return findings
