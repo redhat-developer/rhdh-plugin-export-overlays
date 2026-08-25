@@ -43,8 +43,9 @@ import type {
  * 5: added `mf.nfsFeaturesError`, so a failure to read backstage.features is not
  *    recorded as the artifact declaring none.
  * 6: added `scalprum` and `configSchema` on each frontend bundle (RHIDP-16229).
+ * 7: added `catalogIndex`, the provenance block catalog-index mode records.
  */
-export const REPORT_SCHEMA_VERSION = 6;
+export const REPORT_SCHEMA_VERSION = 7;
 
 export type Status =
   | "pass"
@@ -109,10 +110,26 @@ export type WorkspaceInfo = {
   outOfScope?: number;
 };
 
+/**
+ * Catalog-index-mode provenance: which index was validated and how its declared
+ * packages split, so a "pass" cannot hide that most of the index was never installed.
+ * `refCount` is what the install is measured against (see `installShortfall`);
+ * `enabledInIndex` is recorded because it is the number people expect to see and it is
+ * deliberately NOT the number this mode validates — see src/catalog-index.ts.
+ */
+export type CatalogIndexInfo = {
+  source: string;
+  declared: number;
+  refCount: number;
+  inImage: number;
+  enabledInIndex: number;
+};
+
 export type Report = {
   schemaVersion: number;
   cliVersion: string;
   workspace?: WorkspaceInfo;
+  catalogIndex?: CatalogIndexInfo;
   backend: {
     total: number;
     loaded: number;

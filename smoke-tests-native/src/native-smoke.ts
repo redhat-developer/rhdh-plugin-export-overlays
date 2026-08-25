@@ -32,13 +32,19 @@
  * Usage:
  *   yarn smoke --dynamic-plugins <dynamic-plugins.yaml> [--out results.json]
  *   yarn smoke --workspace <name> [--support community] [--out results.json]
- *   ... either form also takes [--app-config <app-config.test.yaml>] [--test-env <test.env>]
- *                             [--exclusions <plugin-sweep-excludes.txt>]
+ *   yarn smoke --catalog-index <dynamic-plugins.default.yaml> [--out results.json]
+ *   ... any form also takes [--app-config <app-config.test.yaml>] [--test-env <test.env>]
+ *                           [--exclusions <plugin-sweep-excludes.txt>]
  *
  * Workspace mode resolves ALL of `workspaces/<name>/metadata/*.yaml`'s oci://
  * dynamicArtifact refs and validates them together (the Docker smoke's unit).
  * `--support <level>` narrows that to one `spec.support` tier — how the community
  * sweep (src/sweep.ts, RHIDP-13510) drives this harness one workspace at a time.
+ *
+ * Catalog-index mode installs and boots EVERY package a generated catalog index
+ * declares — the upstream half of RHDH's cluster-free plugin sanity check
+ * (RHIDP-13508), running against the index update-index.sh has just written rather
+ * than against a published index image. See src/catalog-index.ts.
  *
  * --app-config / --test-env mirror what the Docker smoke passes to the container
  * (an extra --config mount and docker run --env-file) — see src/test-config.ts.
@@ -88,6 +94,7 @@ import {
 import {
   REPORT_SCHEMA_VERSION,
   type BackendStartResult,
+  type CatalogIndexInfo,
   type FrontendBundleInfo,
   type Report,
   type WorkspaceInfo,
@@ -98,6 +105,7 @@ import {
   isValidWorkspaceName,
   writeDynamicPluginsConfig,
 } from "./workspace";
+import { readCatalogIndexRefs, writeCatalogIndexConfig } from "./catalog-index";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // This harness's own node_modules — extracted plugins resolve @backstage/* against it.
@@ -171,7 +179,7 @@ async function materializeWorkspaceConfig(
   destDir: string,
   support: string | undefined,
   exclusions: Exclusion[],
-): Promise<{ path: string; info: WorkspaceInfo; excluded: ExclusionRecord[] }> {
+): Promise<MaterializedSource> {
   const { refs, skipped, excluded, outOfScope } = collectWorkspaceRefs(
     REPO_ROOT,
     workspace,
@@ -184,7 +192,8 @@ async function materializeWorkspaceConfig(
   const path = await writeDynamicPluginsConfig(refs, destDir);
   return {
     path,
-    info: {
+    refCount: refs.length,
+    workspace: {
       name: workspace,
       refCount: refs.length,
       skippedMetadata: skipped,
@@ -193,6 +202,70 @@ async function materializeWorkspaceConfig(
     },
     excluded,
   };
+}
+
+/**
+ * Turn a generated catalog index into the enable-everything config the install CLI
+ * consumes. See src/catalog-index.ts for why the index's own `enabled:` flags and
+ * `pluginConfig` blocks are deliberately not carried over.
+ */
+async function materializeCatalogIndexConfig(
+  indexPath: string,
+  destDir: string,
+  exclusions: Exclusion[],
+): Promise<MaterializedSource> {
+  const { refs, inImage, excluded, declared, enabledInIndex } =
+    readCatalogIndexRefs(indexPath, {
+      installExcluded: excluderFor(exclusions, "install"),
+    });
+  console.log(
+    `▶ catalog index '${indexPath}': ${refs.length} oci package(s) of ${declared} ` +
+      `declared (${enabledInIndex} enabled by default, ${inImage.length} bundled in ` +
+      `the RHDH image, ${excluded.length} excluded)`,
+  );
+  const path = await writeCatalogIndexConfig(refs, destDir);
+  return {
+    path,
+    refCount: refs.length,
+    catalogIndex: {
+      source: indexPath,
+      declared,
+      refCount: refs.length,
+      inImage: inImage.length,
+      enabledInIndex,
+    },
+    excluded,
+  };
+}
+
+/**
+ * Resolve whichever source the CLI selected into the config the install CLI consumes.
+ *
+ * `--dynamic-plugins` is passed through untouched: it is already the CLI's own format,
+ * and rewriting it would silently drop whatever the caller put in it.
+ */
+async function materializeSource(
+  source: SmokeSource,
+  tempDir: string,
+  inputs: CliInputs,
+): Promise<MaterializedSource> {
+  switch (source.kind) {
+    case "workspace":
+      return materializeWorkspaceConfig(
+        source.name,
+        tempDir,
+        inputs.support,
+        inputs.exclusions,
+      );
+    case "catalog-index":
+      return materializeCatalogIndexConfig(
+        source.path,
+        tempDir,
+        inputs.exclusions,
+      );
+    default:
+      return { path: source.path, excluded: [] };
+  }
 }
 
 // Any failure — bad args, install CLI crash, boot error before the report is built —
@@ -217,7 +290,22 @@ async function writeErrorReport(
 }
 
 type SmokeSource =
-  { kind: "file"; path: string } | { kind: "workspace"; name: string };
+  | { kind: "file"; path: string }
+  | { kind: "workspace"; name: string }
+  | { kind: "catalog-index"; path: string };
+
+/**
+ * What a source resolved to: the config the install CLI consumes, how many refs it
+ * declares (so a short install is detectable), the provenance block for results.json,
+ * and the exclusions that fired while resolving.
+ */
+type MaterializedSource = {
+  path: string;
+  refCount?: number;
+  workspace?: WorkspaceInfo;
+  catalogIndex?: CatalogIndexInfo;
+  excluded: ExclusionRecord[];
+};
 
 type CliInputs = {
   out: string | null;
@@ -238,6 +326,7 @@ function parseCliInputs(): CliInputs {
     options: {
       "dynamic-plugins": { type: "string" },
       workspace: { type: "string" },
+      "catalog-index": { type: "string" },
       support: { type: "string" },
       exclusions: { type: "string" },
       "app-config": { type: "string" },
@@ -300,6 +389,7 @@ function parseCliInputs(): CliInputs {
     ...resolveSource(
       values["dynamic-plugins"],
       values.workspace,
+      values["catalog-index"],
       values.support,
     ),
   };
@@ -307,21 +397,29 @@ function parseCliInputs(): CliInputs {
 
 /**
  * Pick the plugin source from the mutually exclusive `--dynamic-plugins` /
- * `--workspace` pair, and validate the flags that only apply to one of them.
+ * `--workspace` / `--catalog-index` trio, and validate the flags that only apply to
+ * one of them.
  */
 function resolveSource(
   file: string | undefined,
   workspace: string | undefined,
+  catalogIndex: string | undefined,
   support: string | undefined,
 ): { source: SmokeSource; support?: string } | { usageError: string } {
-  if (file && workspace) {
+  const given = [
+    ["--dynamic-plugins", file],
+    ["--workspace", workspace],
+    ["--catalog-index", catalogIndex],
+  ].filter(([, value]) => value) as Array<[string, string]>;
+  if (given.length > 1) {
     return {
-      usageError: "Provide only one of --dynamic-plugins or --workspace.",
+      usageError: `Provide only one of ${given.map(([flag]) => flag).join(", ")}.`,
     };
   }
   // --support filters metadata by spec.support, which only workspace mode reads; an
-  // explicit dynamic-plugins.yaml has no metadata to filter, so silently ignoring it
-  // would produce a run that looks scoped but is not.
+  // explicit dynamic-plugins.yaml has no metadata to filter, and a catalog index
+  // carries no support level per package, so silently ignoring it would produce a run
+  // that looks scoped but is not.
   if (support && !workspace) {
     return { usageError: "--support requires --workspace." };
   }
@@ -332,10 +430,17 @@ function resolveSource(
     }
     return { support, source: { kind: "workspace", name: workspace } };
   }
+  if (catalogIndex) {
+    if (!existsSync(catalogIndex)) {
+      return { usageError: `catalog index file not found: ${catalogIndex}` };
+    }
+    return { source: { kind: "catalog-index", path: catalogIndex } };
+  }
   if (!file) {
     return {
       usageError:
-        "Provide --dynamic-plugins <dynamic-plugins.yaml> or --workspace <name>.",
+        "Provide --dynamic-plugins <dynamic-plugins.yaml>, --workspace <name> or " +
+        "--catalog-index <dynamic-plugins.default.yaml>.",
     };
   }
   if (!existsSync(file)) {
@@ -476,15 +581,11 @@ async function main(): Promise<number> {
     const root = join(tempDir, "dynamic-plugins-root");
     await mkdir(root, { recursive: true });
 
-    const materialized =
-      source.kind === "workspace"
-        ? await materializeWorkspaceConfig(
-            source.name,
-            tempDir,
-            inputs.support,
-            inputs.exclusions,
-          )
-        : { path: source.path, info: undefined, excluded: [] };
+    const materialized: MaterializedSource = await materializeSource(
+      source,
+      tempDir,
+      inputs,
+    );
     await extractPlugins(root, materialized.path);
 
     const manifest = discoverPlugins(root);
@@ -500,7 +601,7 @@ async function main(): Promise<number> {
     // bundle systems and the exclusions this run did establish.
     const installShortfall = describeInstallShortfall(
       manifest.backend.length + manifest.frontend.length,
-      materialized.info?.refCount,
+      materialized.refCount,
     );
     if (installShortfall) console.error(`✗ ${installShortfall}`);
 
@@ -529,8 +630,9 @@ async function main(): Promise<number> {
     const report: Report = {
       schemaVersion: REPORT_SCHEMA_VERSION,
       cliVersion,
-      // undefined outside workspace mode — JSON.stringify omits it.
-      workspace: materialized.info,
+      // Each is undefined outside its own mode — JSON.stringify omits it.
+      workspace: materialized.workspace,
+      catalogIndex: materialized.catalogIndex,
       backend: {
         total: manifest.backend.length,
         loaded: loaded.length,
