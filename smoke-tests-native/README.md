@@ -207,6 +207,9 @@ YAML
 yarn smoke --dynamic-plugins dp.yaml
 ```
 
+Three mutually exclusive plugin sources: `--dynamic-plugins <file>` (above),
+`--workspace <name>` and `--catalog-index <dynamic-plugins.default.yaml>`.
+
 ### Workspace mode
 
 Validate ALL published plugins of a workspace together — the same unit the Docker
@@ -229,13 +232,59 @@ Workspace mode also auto-discovers the workspace's Docker-smoke test config —
 `workspaces/<name>/smoke-tests/app-config.test.yaml` and `smoke-tests/test.env` —
 when present. Explicit `--app-config`/`--test-env` flags win over discovered files.
 
+### Catalog-index mode
+
+Validate every package a generated catalog index declares — the upstream half of RHDH's
+cluster-free plugin sanity check (RHIDP-13508):
+
+```bash
+# Against an index this repo is about to publish
+yarn smoke --catalog-index ../catalog-index/dynamic-plugins.default.yaml
+
+# Against an index that is already published
+../scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
+yarn smoke --catalog-index /tmp/dpdy.yaml --exclusions catalog-index-sanity-excludes.txt
+```
+
+RHDH's check has to `skopeo copy` the published `plugin-catalog-index` image and walk its
+layers just to recover `dynamic-plugins.default.yaml`. Run from
+`scripts/update-index.sh --sanity-check`, that file is already on disk and the failure
+lands **before** the image is built rather than a day after it shipped.
+
+Two deliberate differences from feeding the index straight to the install CLI:
+
+- **The index's `enabled:` flags are ignored.** It ships most packages `enabled: false` —
+  RHDH's out-of-the-box default, which says nothing about whether the artifact works.
+  Honouring them would validate almost nothing, so this generates an enable-everything
+  config, the same thing RHDH's `populate-catalog-index.sh` does and for the same reason.
+- **`pluginConfig` blocks are dropped.** They carry `${SEGMENT_WRITE_KEY}`-style
+  placeholders for env vars that exist in a deployed RHDH and nowhere here, and a plugin
+  that validates config at boot fails on the empty substitution. The harness's own dummy
+  root config (`src/plugin-config.ts`) plus `--app-config` cover that instead.
+
+`./dynamic-plugins/dist/…` packages are skipped: they ship inside the RHDH image and have
+no artifact to pull. `results.json` records the split in `catalogIndex`
+(`declared` / `refCount` / `inImage` / `enabledInIndex`), so a pass cannot hide that most
+of the index was never installed.
+
+Exclusions for this mode live in `catalog-index-sanity-excludes.txt` and are written
+against the **OCI image name** (`backstage-community-plugin-quay`), because a catalog index
+carries no npm names. `candidateNames()` in `src/exclusions.ts` normalizes an installed
+package.json name to the same form, so one pattern is valid at both `install` and `boot`
+scope.
+
+On a schedule this runs as `.github/workflows/catalog-index-sanity.yaml` (04:00 UTC, plus
+`workflow_dispatch` with a `catalog_index_image` input for RC verification). The static,
+network-free half — refs that do not resolve, digest drift, fallback tags, a registry leak
+— is `scripts/validateCatalogIndex.py`, which runs on every index generation.
+
 ### Support-level sweep (RHIDP-13510)
 
 Community-supported plugins are **not in the RHDH image** — RHIDP-13262 removed them from
 `default.packages.yaml` — so they exist only as artifacts this repo publishes to ghcr.io,
-and nothing else validates them. The rhdh repo's sanity check (RHIDP-13508) sweeps the
-catalog index, which by design carries only generally-available `quay.io/rhdh` packages:
-zero overlap.
+and nothing else validated them. The catalog index, by design, carries only
+generally-available `quay.io/rhdh` packages: zero overlap with this sweep. The index side
+is covered separately, by catalog-index mode below.
 
 `yarn sweep` closes that gap by selecting packages from metadata and driving the harness
 once per workspace:
