@@ -203,7 +203,12 @@ cat > package.json <<EOF
 }
 EOF
 
-cat > .yarnrc.yml <<< 'nodeLinker: node-modules'
+cat > .yarnrc.yml <<EOF
+nodeLinker: node-modules
+npmPreapprovedPackages:
+  - "@red-hat-developer-hub/e2e-test-utils"
+EOF
+
 GENERATED_FILES+=("package.json" ".yarnrc.yml")
 
 # Clean all node_modules and yarn.lock to ensure fresh resolution
