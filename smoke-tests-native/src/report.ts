@@ -31,11 +31,16 @@ import type {
  * - `aggregate.ts` via isSweepSummary, and `aggregate-report.ts` which reads
  *   `report.frontend.bundles[]`.
  *
- * That is the whole list. `native-smoke.yaml` and `community-plugin-sweep.yaml` move these
- * files around as artifacts but never parse `schemaVersion`, and the sweep's
- * download-artifact has no `run-id`, so a shard artifact is never read across runs — an
- * older schema cannot reach a newer aggregator. Everything else in the repo called
- * `results.json` is Playwright's report, which is unrelated.
+ * That is the whole list of code consumers. Three workflows move these files around as
+ * artifacts — `native-smoke.yaml`, `community-plugin-sweep.yaml` and
+ * `catalog-index-sanity.yaml` — and none reads `schemaVersion`, so a bump does not
+ * break them. `catalog-index-sanity.yaml` is the one that jq's FIELDS out of a report
+ * (`catalogIndex.*`, `backend.*`, `backendStart.ok`, `frontend.*`) for its job summary,
+ * so renaming one of those degrades that summary to nulls without failing anything —
+ * check it when you change those shapes. The sweep's download-artifact has no `run-id`,
+ * so a shard artifact is never read across runs and an older schema cannot reach a newer
+ * aggregator. Everything else in the repo called `results.json` is Playwright's report,
+ * which is unrelated.
  *
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
@@ -52,7 +57,7 @@ export type Status =
   | "fail-load"
   | "fail-start"
   | "fail-bundle"
-  /** The install produced fewer plugins than the workspace declared. */
+  /** The install produced fewer plugins than the source declared. */
   | "fail-install"
   | "error";
 
@@ -146,7 +151,7 @@ export type Report = {
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
-  /** Set when the install laid out fewer plugins than the workspace declared. */
+  /** Set when the install laid out fewer plugins than the source declared. */
   installShortfall?: string;
   status: Status;
 };

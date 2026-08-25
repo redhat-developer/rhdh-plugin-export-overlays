@@ -84,6 +84,12 @@ type IndexEntry = {
 export function imageNameFromRef(ref: string): string | undefined {
   if (!ref.startsWith(OCI_PREFIX)) return undefined;
   const body = ref.slice(OCI_PREFIX.length).split("!")[0];
+  // Taking the last `/` segment is what makes a registry with a port work
+  // (`localhost:5000/foo/plugin-a`), and it is also what would let a ref naming no
+  // image at all — `oci://plugin-a`, `oci://localhost:5000` — pass with the HOST read
+  // as the image name. Require a separator so those are rejected as malformed, which
+  // is what the sibling validator (scripts/validateCatalogIndex.py) does too.
+  if (!body.includes("/")) return undefined;
   const lastSegment = body.split("/").pop();
   if (!lastSegment) return undefined;
   // Strip the digest first: a ref can carry `:tag@sha256:…`, and splitting on ":"
@@ -174,6 +180,14 @@ export function readCatalogIndexRefs(
       );
     }
 
+    // Dedup BEFORE the exclusion check. An index legitimately lists the same ref twice
+    // (a package and a wrapper entry pointing at it); installing it twice is wasted
+    // pulls, not a defect — reporting the duplicate is the static validator's job. And
+    // a second sighting of the same ref is not a second exclusion EVENT: counting it as
+    // one put a duplicate ExclusionRecord in results.json and printed the warning twice.
+    if (seen.has(pkg)) continue;
+    seen.add(pkg);
+
     const exclusion = options.installExcluded?.(image);
     if (exclusion) {
       excluded.push(exclusion);
@@ -184,11 +198,6 @@ export function readCatalogIndexRefs(
       continue;
     }
 
-    // An index legitimately lists the same image twice (a package and a wrapper entry
-    // pointing at it). Installing it twice is wasted pulls, not a defect — the static
-    // validator is what reports a duplicate as a finding.
-    if (seen.has(pkg)) continue;
-    seen.add(pkg);
     refs.push(pkg);
   }
 

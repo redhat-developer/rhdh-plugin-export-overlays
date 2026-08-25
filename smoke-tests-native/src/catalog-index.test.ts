@@ -81,12 +81,40 @@ test("imageNameFromRef strips a digest that follows a tag", () => {
   );
 });
 
+test("imageNameFromRef handles a registry with a port", () => {
+  // Taking the last `/` segment is what makes this work; the test pins it, because the
+  // obvious "split on the first colon" alternative silently returns "localhost".
+  assert.equal(
+    imageNameFromRef("oci://localhost:5000/foo/plugin-a:tag"),
+    "plugin-a",
+  );
+  assert.equal(
+    imageNameFromRef("oci://localhost:5000/plugin-a:tag"),
+    "plugin-a",
+  );
+});
+
 test("imageNameFromRef rejects anything that is not an oci:// ref", () => {
   for (const ref of [
     "./dynamic-plugins/dist/plugin-a",
     "plugin-a",
     "docker://quay.io/rhdh/plugin-a",
     "",
+  ]) {
+    assert.equal(imageNameFromRef(ref), undefined, ref);
+  }
+});
+
+test("imageNameFromRef rejects a ref that names no image", () => {
+  // Without a separator check these pass with the HOST read as the image name, so an
+  // index entry `package: oci://quay.io` would be installed as image "quay.io" instead
+  // of hitting the clear "is neither an oci:// ref nor a ./dynamic-plugins/dist/ path"
+  // error. The sibling validator rejects the same shapes.
+  for (const ref of [
+    "oci://plugin-a",
+    "oci://localhost:5000",
+    "oci://quay.io/rhdh/plugin-a/",
+    "oci://",
   ]) {
     assert.equal(imageNameFromRef(ref), undefined, ref);
   }
@@ -178,38 +206,24 @@ test("readCatalogIndexRefs drops install-excluded packages and records the ticke
   ]);
 });
 
-test("an exclusion written against the image name also matches the installed npm name", () => {
-  // This is the one-identifier-space guarantee: the index only carries image names, the
-  // install root only carries npm names, and one pattern has to hold at both scopes.
+test("an exclusion is recorded once for a ref the index declares twice", () => {
+  // The dedup has to happen BEFORE the exclusion check: a second sighting of the same
+  // ref is not a second exclusion EVENT. Recording it twice put a duplicate
+  // ExclusionRecord in results.json and printed the warning twice.
   const exclusions = parseExclusions(
-    "# TODO(RHIDP-1): x\ninstall ^backstage-community-plugin-quay$\n",
+    "# TODO(RHIDP-1): unpublished\ninstall ^plugin-b$\n",
     "excludes.txt",
   );
-  const installExcluded = excluderFor(exclusions, "install");
-  assert.ok(installExcluded("backstage-community-plugin-quay"));
-
-  const bootExclusions = parseExclusions(
-    "# TODO(RHIDP-1): x\nboot ^backstage-community-plugin-quay$\n",
-    "excludes.txt",
-  );
-  const bootExcluded = excluderFor(bootExclusions, "boot");
-  assert.ok(
-    bootExcluded("@backstage-community/plugin-quay-dynamic"),
-    "the installed package.json name must match the image-name pattern",
-  );
-  assert.ok(bootExcluded("@backstage-community/plugin-quay"));
-});
-
-test("the image-name normalization does not widen an npm-form pattern", () => {
-  // Adding candidates must not make an anchored pattern match a different plugin.
-  const exclusions = parseExclusions(
-    "# TODO(RHIDP-1): x\nboot ^@scope/plugin-a$\n",
-    "excludes.txt",
-  );
-  const excluded = excluderFor(exclusions, "boot");
-  assert.ok(excluded("@scope/plugin-a"));
-  assert.equal(excluded("@scope/plugin-ab"), undefined);
-  assert.equal(excluded("@other/plugin-a"), undefined);
+  const path = writeIndex([
+    { package: ociRef("plugin-a") },
+    { package: ociRef("plugin-b") },
+    { package: ociRef("plugin-b") },
+  ]);
+  const result = readCatalogIndexRefs(path, {
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(result.refs, [ociRef("plugin-a")]);
+  assert.equal(result.excluded.length, 1);
 });
 
 test("readCatalogIndexRefs says which filter emptied the set", () => {

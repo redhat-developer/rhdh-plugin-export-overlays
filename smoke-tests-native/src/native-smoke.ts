@@ -79,6 +79,7 @@ import {
   describeInstallShortfall,
   describeNfsShortfall,
   partitionBootable,
+  type ShortfallOptions,
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
 import { resolveContained } from "./paths";
@@ -193,6 +194,7 @@ async function materializeWorkspaceConfig(
   return {
     path,
     refCount: refs.length,
+    shortfall: { subject: "workspace" },
     workspace: {
       name: workspace,
       refCount: refs.length,
@@ -227,6 +229,12 @@ async function materializeCatalogIndexConfig(
   return {
     path,
     refCount: refs.length,
+    // The ref list is deduplicated, so it is a LOWER BOUND on the plugin count: one
+    // image can carry several plugins, and two packages in this repo already share a
+    // single ref (workspaces/cost-management/metadata/* both point at
+    // oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.1). Without
+    // allowExtra an index carrying both would fail a perfectly healthy run.
+    shortfall: { subject: "catalog index", allowExtra: true },
     catalogIndex: {
       source: indexPath,
       declared,
@@ -263,8 +271,16 @@ async function materializeSource(
         tempDir,
         inputs.exclusions,
       );
-    default:
+    case "file":
       return { path: source.path, excluded: [] };
+    default: {
+      // Exhaustiveness guard: a fourth SmokeSource that happens to carry a `path`
+      // would otherwise compile and be silently treated as a raw dynamic-plugins.yaml.
+      const unreachable: never = source;
+      throw new Error(
+        `unhandled plugin source: ${JSON.stringify(unreachable)}`,
+      );
+    }
   }
 }
 
@@ -302,6 +318,8 @@ type SmokeSource =
 type MaterializedSource = {
   path: string;
   refCount?: number;
+  /** How `refCount` is compared against what installed — see ShortfallOptions. */
+  shortfall?: ShortfallOptions;
   workspace?: WorkspaceInfo;
   catalogIndex?: CatalogIndexInfo;
   excluded: ExclusionRecord[];
@@ -602,6 +620,7 @@ async function main(): Promise<number> {
     const installShortfall = describeInstallShortfall(
       manifest.backend.length + manifest.frontend.length,
       materialized.refCount,
+      materialized.shortfall,
     );
     if (installShortfall) console.error(`✗ ${installShortfall}`);
 
