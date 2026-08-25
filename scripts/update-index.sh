@@ -403,13 +403,7 @@ else
         VALIDATE_ARGS+=("$DEBUG_FLAG")
     fi
 
-    if python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}"; then
-        VALIDATION_STATUS="pass"
-    else
-        VALIDATION_STATUS="fail"
-    fi
-
-    if [[ "$VALIDATION_STATUS" == "fail" ]]; then
+    if ! python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}"; then
         if [[ "$VALIDATE_MODE" == "gate" ]]; then
             echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode gate)${norm}" >&2
             exit 1

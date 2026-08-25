@@ -16,6 +16,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import tarfile
 from pathlib import Path
@@ -48,13 +49,10 @@ def build_image_dir(root: Path, layers: list[bytes]) -> None:
     for blob in layers:
         digest = hashlib.sha256(blob).hexdigest()
         (root / digest).write_bytes(blob)
-        manifest_layers.append(
-            {
-                "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-                "digest": f"sha256:{digest}",
-                "size": len(blob),
-            }
-        )
+        # Only `.layers[].digest` is read by the script, so the fixture states only
+        # that — a mediaType claiming gzip on an uncompressed blob would be the fixture
+        # asserting something no code checks.
+        manifest_layers.append({"digest": f"sha256:{digest}"})
     (root / "manifest.json").write_text(
         json.dumps({"schemaVersion": 2, "layers": manifest_layers})
     )
@@ -88,25 +86,19 @@ def missing_tool_bindir(bindir: Path, missing: str) -> None:
     for tool in ("bash", "skopeo", "jq", "tar"):
         if tool == missing:
             continue
-        real = _which(tool)
+        real = shutil.which(tool)
         if real:
             (bindir / tool).symlink_to(real)
 
 
-def _which(tool: str) -> str | None:
-    for directory in os.environ.get("PATH", "").split(os.pathsep):
-        candidate = Path(directory) / tool
-        if candidate.is_file() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
 
 
-def run_extract(tmp_path, layers, dest_name="out.yaml", extra_path=True, bindir=None):
+
+def run_extract(tmp_path, layers, dest_name="out.yaml"):
     image_dir = tmp_path / "image"
     build_image_dir(image_dir, layers)
-    bindir = bindir or (tmp_path / "bin")
-    if extra_path:
-        stub_skopeo(bindir, image_dir)
+    bindir = tmp_path / "bin"
+    stub_skopeo(bindir, image_dir)
     dest = tmp_path / dest_name
     env = {
         "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",

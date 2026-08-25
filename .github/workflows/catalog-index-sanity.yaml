@@ -121,7 +121,10 @@ jobs:
       - name: Extract dynamic-plugins.default.yaml from the index
         env:
           IMAGE: ${{ steps.index.outputs.image }}
-        run: ./scripts/extractCatalogIndex.sh "$IMAGE" catalog-index-published.yaml
+        run: |
+          # Straight to the layout the validator reads: extractCatalogIndex.sh already
+          # creates the destination directory, so there is nothing to copy afterwards.
+          ./scripts/extractCatalogIndex.sh "$IMAGE" published/dynamic-plugins.default.yaml
 
       - name: Validate the index statically
         id: validate
@@ -142,8 +145,6 @@ jobs:
           STRICT: ${{ inputs.strict_validation }}
         run: |
           set -euo pipefail
-          mkdir -p published
-          cp catalog-index-published.yaml published/dynamic-plugins.default.yaml
           ARGS=(
             --output-dir published
             --registry quay.io/rhdh
@@ -162,7 +163,7 @@ jobs:
           set -euo pipefail
           yarn install --immutable
           yarn smoke \
-            --catalog-index ../catalog-index-published.yaml \
+            --catalog-index ../published/dynamic-plugins.default.yaml \
             --exclusions catalog-index-sanity-excludes.txt \
             --out results-catalog-index.json 2>&1 | tee sanity.log
 
@@ -205,7 +206,7 @@ jobs:
         with:
           name: catalog-index-sanity
           path: |
-            catalog-index-published.yaml
+            published/dynamic-plugins.default.yaml
             validation.json
             validation.log
             smoke-tests-native/results-catalog-index.json

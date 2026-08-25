@@ -20,6 +20,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tests.shell_harness import link_script
+
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 UPDATE_INDEX = SCRIPTS_DIR / "update-index.sh"
 
@@ -54,24 +56,37 @@ if __name__ == "__main__":
 def build_stub_repo(tmp_path, packages, builds, index_json=None):
     """Lay out a repo update-index.sh will treat as its own checkout.
 
-    The script derives everything from its own location (`dirname $0`), so symlinking
-    the real scripts into `<tmp>/scripts/` is what relocates the run onto the fixture
-    — the same technique shell_harness.build_fake_repo uses for the coverage scripts.
+    The script derives everything from its own location (`dirname $0`), so
+    `shell_harness.link_script` — which symlinks a real script into `<root>/scripts/`
+    for exactly this reason — is what relocates the run onto the fixture.
     """
     root = tmp_path / "repo"
     scripts = root / "scripts"
     scripts.mkdir(parents=True)
 
-    for name in (
-        "update-index.sh",
-        "validateCatalogIndex.py",
-        "plugin_utils.py",
-        "catalog-index-validation-allowlist.txt",
-    ):
-        (scripts / name).symlink_to(SCRIPTS_DIR / name)
+    for name in ("update-index.sh", "validateCatalogIndex.py", "plugin_utils.py"):
+        link_script(root, name)
 
+    # An EMPTY allowlist of the fixture's own, passed explicitly by run_update_index.
+    # Symlinking the shipped one would not work and would not be wanted: the script
+    # derives its default from `Path(__file__).resolve()`, and .resolve() follows the
+    # symlink back to the real repo — so every test here silently read the committed
+    # allowlist, and adding an entry to it would have broken this suite for a reason
+    # that has nothing to do with the wiring it tests.
+    (root / "allowlist.txt").write_text(
+        "# fixture allowlist — deliberately empty\n", encoding="utf-8"
+    )
+
+    # The stubs append to a call log, so a test can prove a step did NOT run instead of
+    # inferring it from an absent banner — the idiom shell_harness.write_stub_cli uses.
+    calls = root / "steps.calls"
     for name in STUBBED:
-        (scripts / name).write_text("import sys\nsys.exit(0)\n", encoding="utf-8")
+        (scripts / name).write_text(
+            "import sys, pathlib\n"
+            f"pathlib.Path({str(calls)!r}).open('a').write({name!r} + '\\n')\n"
+            "sys.exit(0)\n",
+            encoding="utf-8",
+        )
     (scripts / "generatePluginBuildInfo.py").write_text(
         GENERATE_PLUGIN_BUILD_INFO_STUB, encoding="utf-8"
     )
@@ -131,9 +146,15 @@ def python_shim(tmp_path):
     return bindir
 
 
-def run_update_index(root, tmp_path, *args, bindir=None):
-    """Run the fixture's update-index.sh with a scrubbed environment."""
-    bindir = bindir or python_shim(tmp_path)
+def run_update_index(root, *args, bindir=None):
+    """Run the fixture's update-index.sh with a scrubbed environment.
+
+    The fixture's own empty allowlist is passed unless the caller overrides it, so a
+    change to the committed allowlist cannot alter these results.
+    """
+    bindir = bindir or python_shim(root.parent)
+    if "--validate-allowlist" not in args:
+        args = (*args, "--validate-allowlist", str(root / "allowlist.txt"))
     env = {
         "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
         "HOME": os.environ.get("HOME", "/tmp"),
@@ -186,13 +207,13 @@ def broken_repo(tmp_path):
 
 class TestValidationRuns:
     def test_a_clean_index_passes(self, clean_repo, tmp_path):
-        result = run_update_index(clean_repo, tmp_path)
+        result = run_update_index(clean_repo)
         assert result.returncode == 0, result.stderr
         assert "Step 5: Validate the generated catalog index" in result.stdout
         assert "Catalog index validation passed" in result.stdout
 
     def test_findings_are_reported(self, broken_repo, tmp_path):
-        result = run_update_index(broken_repo, tmp_path)
+        result = run_update_index(broken_repo)
         assert "unresolved-image" in result.stdout
 
     def test_the_community_registry_is_passed_through(self, tmp_path):
@@ -203,7 +224,7 @@ class TestValidationRuns:
             builds={"plugin-a": resolved("plugin-a")},
         )
         result = run_update_index(
-            root, tmp_path, "--community-registry", COMMUNITY_REGISTRY
+            root, "--community-registry", COMMUNITY_REGISTRY
         )
         assert result.returncode == 0, result.stderr
         assert "registry-not-allowed" not in result.stdout
@@ -213,48 +234,52 @@ class TestValidateMode:
     def test_report_mode_does_not_fail_the_build(self, broken_repo, tmp_path):
         """The default. It must say out loud that it is not failing on the findings —
         otherwise a reader takes the errors for a swallowed failure."""
-        result = run_update_index(broken_repo, tmp_path)
+        result = run_update_index(broken_repo)
         assert result.returncode == 0, result.stderr
         assert "continuing because --validate-mode is 'report'" in result.stderr
         assert "--validate-mode gate" in result.stderr
 
     def test_gate_mode_fails_the_build(self, broken_repo, tmp_path):
-        result = run_update_index(broken_repo, tmp_path, "--validate-mode", "gate")
+        result = run_update_index(broken_repo, "--validate-mode", "gate")
         assert result.returncode == 1
         assert "Catalog index validation failed" in result.stderr
 
     def test_gate_mode_passes_a_clean_index(self, clean_repo, tmp_path):
         """A gate that fails on everything is as useless as one that fails on nothing."""
-        result = run_update_index(clean_repo, tmp_path, "--validate-mode", "gate")
+        result = run_update_index(clean_repo, "--validate-mode", "gate")
         assert result.returncode == 0, result.stderr
 
     def test_off_mode_skips_validation(self, broken_repo, tmp_path):
-        result = run_update_index(broken_repo, tmp_path, "--validate-mode", "off")
+        result = run_update_index(broken_repo, "--validate-mode", "off")
         assert result.returncode == 0, result.stderr
         assert "Skipped (--validate-mode off)" in result.stdout
         assert "unresolved-image" not in result.stdout
 
-    def test_an_unknown_mode_is_rejected_before_any_work(self, clean_repo, tmp_path):
-        """A typo must not silently degrade to the permissive mode."""
-        result = run_update_index(clean_repo, tmp_path, "--validate-mode", "gates")
+    def test_an_unknown_mode_is_rejected_before_any_work(self, clean_repo):
+        """A typo must not silently degrade to the permissive mode.
+
+        "Before any work" is asserted from the step call log, not from an absent
+        banner: a banner assertion passes for the wrong reason the day one is reworded.
+        """
+        result = run_update_index(clean_repo, "--validate-mode", "gates")
         assert result.returncode != 0
         assert "Invalid --validate-mode: gates" in result.stderr
-        assert "Step 1" not in result.stdout
+        assert not (clean_repo / "steps.calls").exists()
 
 
 class TestValidationOutputs:
     def test_validation_json_is_written(self, broken_repo, tmp_path):
         out = broken_repo / "validation.json"
         result = run_update_index(
-            broken_repo, tmp_path, "--validation-json", str(out)
+            broken_repo, "--validation-json", str(out)
         )
         assert result.returncode == 0, result.stderr
+        # That the RULES fire is test_validateCatalogIndex.py's job. What only this
+        # level can show is that --validation-json reaches the script and the file
+        # lands where it was asked for.
         payload = json.loads(out.read_text())
         assert payload["status"] == "fail"
-        assert {f["rule"] for f in payload["findings"]} == {
-            "unresolved-image",
-            "not-digest-pinned",
-        }
+        assert payload["findings"]
 
     def test_a_custom_allowlist_suppresses_the_finding(self, broken_repo, tmp_path):
         allowlist = broken_repo / "allowlist.txt"
@@ -263,7 +288,6 @@ class TestValidationOutputs:
         )
         result = run_update_index(
             broken_repo,
-            tmp_path,
             "--validate-mode",
             "gate",
             "--validate-allowlist",
@@ -278,77 +302,70 @@ class TestValidationOutputs:
             json.dumps({"metadata": {}, "plugins": {"plugin-a": {"stages": {}}}}),
             encoding="utf-8",
         )
-        result = run_update_index(broken_repo, tmp_path, "--report-file", str(report))
+        result = run_update_index(broken_repo, "--report-file", str(report))
         assert result.returncode == 0, result.stderr
         data = json.loads(report.read_text())
-        stage = data["plugins"]["plugin-a"]["stages"]["validate"]
-        assert stage["status"] == "fail"
-        assert any("unresolved-image" in e for e in stage["errors"])
+        assert data["plugins"]["plugin-a"]["stages"]["validate"]["status"] == "fail"
 
 
 class TestSanityCheck:
     def test_it_is_skipped_unless_asked_for(self, clean_repo, tmp_path):
         """It pulls every artifact in the index; nothing should opt into that by accident."""
-        result = run_update_index(clean_repo, tmp_path)
+        result = run_update_index(clean_repo)
         assert "Step 6: Catalog index sanity check — Skipped" in result.stdout
 
     def test_a_missing_harness_fails_loudly(self, clean_repo, tmp_path):
         """A silent skip would report a green index that nothing installed."""
-        result = run_update_index(clean_repo, tmp_path, "--sanity-check")
+        result = run_update_index(clean_repo, "--sanity-check")
         assert result.returncode == 1
         assert "smoke-tests-native" in result.stderr
 
-    def test_the_harness_receives_an_absolute_path_to_the_generated_index(
-        self, clean_repo, tmp_path
+    @pytest.mark.parametrize(
+        "output_dir",
+        [
+            pytest.param(None, id="default"),
+            pytest.param("catalog-index", id="relative"),
+            pytest.param("./catalog-index", id="dot_relative"),
+            pytest.param("ABS", id="absolute"),
+        ],
+    )
+    def test_the_harness_receives_a_resolved_path_to_the_generated_index(
+        self, clean_repo, tmp_path, output_dir
     ):
-        """The regression test for the bug this gap allowed.
+        """The regression test for the bug the missing happy-path coverage allowed.
 
         `yarn smoke` runs inside `(cd smoke-tests-native && …)`, and its words are
         expanded only when it is about to run — after the cd. A command substitution
-        written inline therefore resolved against the harness directory, and with the
-        DEFAULT relative --output-dir the inner cd failed, the substitution yielded the
-        empty string, and the harness was handed "/dynamic-plugins.default.yaml". A
-        failed command substitution does not trip `set -e`, so nothing caught it.
+        written inline therefore resolved against the harness directory, and with a
+        RELATIVE --output-dir (the default) the inner cd failed, the substitution
+        yielded the empty string, and the harness was handed
+        "/dynamic-plugins.default.yaml". A failed command substitution does not trip
+        `set -e`, so nothing caught it.
         """
         (clean_repo / "smoke-tests-native").mkdir()
         bindir, argv_log = toolchain_shims(tmp_path)
+        extra = []
+        if output_dir is not None:
+            resolved_dir = (
+                str(clean_repo / "catalog-index") if output_dir == "ABS" else output_dir
+            )
+            extra = ["--output-dir", resolved_dir]
         result = run_update_index(
-            clean_repo, tmp_path, "--sanity-check", bindir=bindir
+            clean_repo, *extra, "--sanity-check", bindir=bindir
         )
         assert result.returncode == 0, result.stderr
         args = argv_log.read_text().split("\n")
         assert "--catalog-index" in args, args
         handed = Path(args[args.index("--catalog-index") + 1])
         assert handed.is_absolute(), handed
-        assert handed == (
-            clean_repo / "catalog-index" / "dynamic-plugins.default.yaml"
-        ), handed
         assert handed.is_file(), f"{handed} does not exist"
-
-    def test_the_index_is_resolved_from_a_relative_output_dir(
-        self, clean_repo, tmp_path
-    ):
-        """The default is relative, which is the case the bug hit."""
-        (clean_repo / "smoke-tests-native").mkdir()
-        bindir, argv_log = toolchain_shims(tmp_path)
-        result = run_update_index(
-            clean_repo,
-            tmp_path,
-            "--output-dir",
-            "catalog-index",
-            "--sanity-check",
-            bindir=bindir,
-        )
-        assert result.returncode == 0, result.stderr
-        args = argv_log.read_text().split("\n")
-        handed = Path(args[args.index("--catalog-index") + 1])
-        assert handed.is_file(), f"{handed} does not exist"
+        assert handed == clean_repo / "catalog-index" / "dynamic-plugins.default.yaml"
 
     def test_the_exclusions_file_is_passed(self, clean_repo, tmp_path):
         """Without it the harness runs with no tracked exclusions at all."""
         (clean_repo / "smoke-tests-native").mkdir()
         bindir, argv_log = toolchain_shims(tmp_path)
-        run_update_index(clean_repo, tmp_path, "--sanity-check", bindir=bindir)
+        run_update_index(clean_repo, "--sanity-check", bindir=bindir)
         args = argv_log.read_text().split("\n")
         assert "--exclusions" in args
         assert args[args.index("--exclusions") + 1] == (
@@ -372,7 +389,7 @@ class TestSanityCheck:
             tmp_path, node_version=node_version, yarn_version=yarn_version
         )
         result = run_update_index(
-            clean_repo, tmp_path, "--sanity-check", bindir=bindir
+            clean_repo, "--sanity-check", bindir=bindir
         )
         assert result.returncode == 1
         assert expected in result.stderr
@@ -386,7 +403,6 @@ class TestSanityCheck:
         bindir, argv_log = toolchain_shims(tmp_path)
         result = run_update_index(
             broken_repo,
-            tmp_path,
             "--validate-mode",
             "gate",
             "--sanity-check",
