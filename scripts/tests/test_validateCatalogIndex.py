@@ -8,15 +8,16 @@ tests catch the over-broad rule.
 """
 
 import json
+import re
+from pathlib import Path
 
 import pytest
 import yaml
 
 from validateCatalogIndex import (
-    BUILD_METADATA_RULES,
-    INDEX_RULES_NEEDING_BUILDS,
     ERROR,
     RULES,
+    RULES_NEEDING_BUILDS,
     WARNING,
     AllowlistEntry,
     Finding,
@@ -89,8 +90,13 @@ def resolved(image, digest=DIGEST, **extra):
     }
 
 
+SHIPPED_ALLOWLIST = (
+    Path(__file__).resolve().parent.parent / "catalog-index-validation-allowlist.txt"
+)
+
+
 def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
-        registries=None, build_metadata=True):
+        registries=None, has_build_metadata=True):
     output_dir, plugin_builds_dir = write_index(
         tmp_path, packages, builds=builds, index_json=index_json
     )
@@ -99,7 +105,14 @@ def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
         plugin_builds_dir,
         registries or {REGISTRY},
         allowlist or [],
-        build_metadata=build_metadata,
+        has_build_metadata=has_build_metadata,
+    )
+
+
+def allowlist_entry(rule, pattern, ticket="RHIDP-1"):
+    """An AllowlistEntry without the positional noise at the call site."""
+    return AllowlistEntry(
+        rule=rule, pattern=re.compile(pattern), ticket=ticket, pattern_source=pattern
     )
 
 
@@ -305,13 +318,14 @@ class TestRules:
         assert result.stats == {
             "packages": 2,
             "oci_refs": 1,
+            "oci_images": 1,
             "local_refs": 1,
             "enabled": 1,
             "plugin_builds": 1,
             "index_entries": 1,
         }
 
-    def test_ref_form(self, tmp_path):
+    def test_a_non_oci_scheme_is_reported(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": "docker://quay.io/rhdh/plugin-a:1.0"}],
@@ -319,7 +333,7 @@ class TestRules:
         )
         assert rules_of(result) == ["ref-form"]
 
-    def test_duplicate_ref(self, tmp_path):
+    def test_the_same_ref_declared_twice_is_reported(self, tmp_path):
         ref = f"oci://{REGISTRY}/plugin-a@{DIGEST}"
         result = run(
             tmp_path,
@@ -344,7 +358,7 @@ class TestRules:
         assert "duplicate-ref" not in rules_of(result)
         assert "digest-mismatch" in rules_of(result)
 
-    def test_registry_not_allowed(self, tmp_path):
+    def test_a_ref_from_an_undeclared_registry_is_reported(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
@@ -362,7 +376,7 @@ class TestRules:
         )
         assert "registry-not-allowed" not in rules_of(result)
 
-    def test_unknown_image(self, tmp_path):
+    def test_an_image_with_no_build_entry_is_reported(self, tmp_path):
         result = run(
             tmp_path, [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}], builds={}
         )
@@ -389,7 +403,7 @@ class TestRules:
         )
         assert rules_of(result) == ["unknown-image"]
 
-    def test_digest_mismatch(self, tmp_path):
+    def test_a_digest_disagreeing_with_plugin_builds_is_reported(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a@{OTHER_DIGEST}"}],
@@ -418,7 +432,7 @@ class TestRules:
         assert "unresolved-image" in rules_of(result)
         assert next(f for f in result.findings if f.rule == "unresolved-image").severity == ERROR
 
-    def test_not_digest_pinned(self, tmp_path):
+    def test_a_tag_only_ref_is_a_warning_not_an_error(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a:2.0.0--1.2.3"}],
@@ -427,7 +441,7 @@ class TestRules:
         finding = next(f for f in result.findings if f.rule == "not-digest-pinned")
         assert finding.severity == WARNING
 
-    def test_fallback_tag(self, tmp_path):
+    def test_a_substituted_older_build_is_a_warning(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
@@ -446,7 +460,7 @@ class TestRules:
         # can see which build was wanted and which one landed.
         assert "2.0.0--1.7.0" in finding.message and "2.0.0--1.7.2" in finding.message
 
-    def test_index_missing_entry(self, tmp_path):
+    def test_a_resolved_package_absent_from_index_json_is_reported(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
@@ -468,7 +482,7 @@ class TestRules:
         assert "index-missing-entry" not in rules_of(result)
         assert "unresolved-image" in rules_of(result)
 
-    def test_index_ref_mismatch(self, tmp_path):
+    def test_index_json_and_the_dpdy_disagreeing_is_reported(self, tmp_path):
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
@@ -594,22 +608,8 @@ class TestAllowlist:
     def test_a_missing_file_means_no_exceptions(self, tmp_path):
         assert load_allowlist(tmp_path / "absent.txt") == []
 
-    def test_the_shipped_allowlist_parses(self):
-        """The committed file is loaded on every run; a typo there breaks every build."""
-        from pathlib import Path
-
-        shipped = (
-            Path(__file__).resolve().parent.parent
-            / "catalog-index-validation-allowlist.txt"
-        )
-        assert shipped.is_file()
-        load_allowlist(shipped)
-
     def test_suppresses_only_the_named_rule(self):
-        allowlist = [
-            AllowlistEntry("unresolved-image", __import__("re").compile("^plugin-a$"),
-                           "RHIDP-1", "^plugin-a$", 2)
-        ]
+        allowlist = [allowlist_entry("unresolved-image", "^plugin-a$")]
         findings = [
             Finding("unresolved-image", "m", "plugin-a"),
             Finding("fallback-tag", "m", "plugin-a"),
@@ -624,9 +624,7 @@ class TestAllowlist:
 
     def test_a_structural_finding_is_never_suppressed(self):
         """`ref-form` is about the file, not a package — an image regex cannot judge it."""
-        allowlist = [
-            AllowlistEntry("ref-form", __import__("re").compile(".*"), "RHIDP-1", ".*", 2)
-        ]
+        allowlist = [allowlist_entry("ref-form", ".*")]
         kept, suppressed = apply_allowlist([Finding("ref-form", "m")], allowlist)
         assert len(kept) == 1 and suppressed == []
 
@@ -652,9 +650,9 @@ class TestOutputs:
     def test_every_rule_has_a_documented_severity(self):
         """`--list-rules`, the allowlist parser and Finding.severity all read RULES."""
         assert RULES
-        for rule, (severity, description) in RULES.items():
-            assert severity in (ERROR, WARNING), rule
-            assert description, rule
+        for rule, spec in RULES.items():
+            assert spec.severity in (ERROR, WARNING), rule
+            assert spec.description, rule
 
     def test_errors_and_warnings_are_partitioned(self, tmp_path):
         result = run(
@@ -725,26 +723,28 @@ class TestNoBuildMetadata:
         A published catalog index image carries dynamic-plugins.default.yaml and not
         the plugin_builds/ tree that produced it, so there is nothing to cross-check.
         """
-        result = run(tmp_path, self.PUBLISHED, builds={}, build_metadata=False)
-        assert not (set(rules_of(result)) & BUILD_METADATA_RULES)
+        result = run(tmp_path, self.PUBLISHED, builds={}, has_build_metadata=False)
+        assert not (set(rules_of(result)) & set(RULES_NEEDING_BUILDS))
 
     def test_without_the_flag_the_same_input_is_all_errors(self, tmp_path):
         result = run(tmp_path, self.PUBLISHED, builds={})
         assert sorted(set(rules_of(result))) == ["not-digest-pinned", "unknown-image"]
         assert len([f for f in result.findings if f.rule == "unknown-image"]) == 2
 
-    def test_the_ref_only_rules_still_run(self, tmp_path):
-        """Registry and pinning are properties of the ref itself — still answerable."""
-        result = run(tmp_path, self.PUBLISHED, builds={}, build_metadata=False)
+    def test_pinning_is_still_checked(self, tmp_path):
+        """Pinning is a property of the ref itself — still answerable."""
+        result = run(tmp_path, self.PUBLISHED, builds={}, has_build_metadata=False)
         assert rules_of(result) == ["not-digest-pinned"]
 
-        offsite = run(
+    def test_the_registry_is_still_checked(self, tmp_path):
+        """So is the registry — and a failure here should not read as a pinning fault."""
+        result = run(
             tmp_path,
             [{"package": f"oci://{COMMUNITY_REGISTRY}/plugin-a@{DIGEST}"}],
             builds={},
-            build_metadata=False,
+            has_build_metadata=False,
         )
-        assert "registry-not-allowed" in rules_of(offsite)
+        assert "registry-not-allowed" in rules_of(result)
 
     def test_the_skipped_rules_are_named(self, tmp_path):
         """A pass must not read as "everything was checked".
@@ -755,8 +755,8 @@ class TestNoBuildMetadata:
         `index-ref-mismatch`, which needs no build metadata at all — without naming
         either, which is exactly the overstated pass this field exists to prevent.
         """
-        expected = sorted(BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS)
-        result = run(tmp_path, self.PUBLISHED, builds={}, build_metadata=False)
+        expected = RULES_NEEDING_BUILDS
+        result = run(tmp_path, self.PUBLISHED, builds={}, has_build_metadata=False)
         assert result.skipped_rules == expected
         assert "Not checked (no build metadata)" in render(result)
         assert to_json(result, False)["skippedRules"] == expected
@@ -770,7 +770,7 @@ class TestNoBuildMetadata:
             index_json={
                 "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{OTHER_DIGEST}"}
             },
-            build_metadata=False,
+            has_build_metadata=False,
         )
         assert "index-ref-mismatch" in rules_of(result)
 
@@ -790,13 +790,20 @@ class TestNoBuildMetadata:
             [{"package": f"oci://{REGISTRY}/plugin-b@{DIGEST}"}],
             builds={},
             index_json={},
-            build_metadata=False,
+            has_build_metadata=False,
         )
         assert "index-missing-entry" not in rules_of(result)
 
-    def test_every_skipped_rule_is_a_real_rule(self):
-        """A typo in either constant would silently skip nothing."""
-        assert (BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS) <= set(RULES)
+    def test_the_skipped_set_is_derived_from_the_rule_table(self):
+        """It used to be two hand-maintained frozensets, and they drifted.
+
+        Deriving it means a rule cannot be skipped without saying so in its own row,
+        and a typo can no longer name a rule that does not exist.
+        """
+        assert RULES_NEEDING_BUILDS == sorted(
+            r for r, spec in RULES.items() if spec.needs_builds
+        )
+        assert set(RULES_NEEDING_BUILDS) <= set(RULES)
 
 
 # ---------------------------------------------------------------------------
@@ -900,27 +907,21 @@ class TestRecordInReport:
 
 
 # ---------------------------------------------------------------------------
-# The shipped allowlist stays honest
+# The shipped allowlist
 # ---------------------------------------------------------------------------
 class TestShippedAllowlist:
-    def test_no_entry_is_stale(self):
-        """An allowlisted rule that no longer fires is invisible debt.
+    """The committed file is loaded on every run; a typo breaks every generation."""
 
-        Mirrors the sweep's "exclusions matching no package in the repo" guard. The file
-        ships empty, so this is trivially true today — which is the point: it goes red
-        the moment an entry outlives its finding, rather than the entry surviving until
-        someone thinks to re-read the file.
+    def test_it_parses(self):
+        load_allowlist(SHIPPED_ALLOWLIST)
+
+    def test_every_entry_names_a_live_rule_and_carries_a_ticket(self):
+        """An entry naming a deleted rule suppresses nothing, silently, forever.
+
+        Trivially true while the file ships empty — which is the point: it goes red the
+        first time an entry outlives the rule it was written against, rather than the
+        entry surviving until someone thinks to re-read the file.
         """
-        from pathlib import Path
-
-        shipped = (
-            Path(__file__).resolve().parent.parent
-            / "catalog-index-validation-allowlist.txt"
-        )
-        entries = load_allowlist(shipped)
-        # Nothing to cross-check against without a generated index, so the invariant
-        # asserted here is the one that is checkable offline: every entry names a rule
-        # that still exists, and carries a ticket.
-        for entry in entries:
+        for entry in load_allowlist(SHIPPED_ALLOWLIST):
             assert entry.rule in RULES, entry.pattern_source
             assert entry.ticket, entry.pattern_source

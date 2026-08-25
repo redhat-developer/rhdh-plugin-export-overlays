@@ -37,6 +37,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import NamedTuple
 
 import yaml
 
@@ -54,83 +55,85 @@ from plugin_utils import (
 ERROR = "error"
 WARNING = "warning"
 
-# Every rule this validator can report, and how bad it is. Severities live in one table
-# so `--list-rules` and the allowlist parser agree with the checks by construction — a
-# rule id that is not here cannot be allowlisted, which is what stops a typo in the
-# allowlist from silently disabling nothing.
-RULES: dict[str, tuple[str, str]] = {
-    "ref-form": (
+
+class Rule(NamedTuple):
+    """What a rule is: how bad it is, what it means, and what it needs to run."""
+
+    severity: str
+    description: str
+    #: True when the rule can only be answered from plugin_builds/. Kept here rather
+    #: than in a parallel set so `--no-build-metadata`, the "not checked" line and the
+    #: checks themselves cannot disagree — they all read this one table. An earlier
+    #: version maintained two frozensets by hand and they drifted: the index.json pass
+    #: was skipped wholesale, including a rule that needs no build metadata at all,
+    #: and the skipped list never said so.
+    needs_builds: bool = False
+
+
+# Every rule this validator can report. Severities live in one table so `--list-rules`
+# and the allowlist parser agree with the checks by construction — a rule id that is not
+# here cannot be allowlisted, which is what stops a typo in the allowlist from silently
+# disabling nothing.
+RULES: dict[str, Rule] = {
+    "ref-form": Rule(
         ERROR,
         "a plugins[].package value is neither an oci:// ref nor a "
         "./dynamic-plugins/dist/ path",
     ),
-    "duplicate-ref": (
+    "duplicate-ref": Rule(
         ERROR,
         "the same package ref appears more than once — the later entry silently "
         "shadows the earlier one's pluginConfig",
     ),
-    "registry-not-allowed": (
+    "registry-not-allowed": Rule(
         ERROR,
         "an oci:// ref points at a registry this index is not built against",
     ),
-    "unknown-image": (
+    "unknown-image": Rule(
         ERROR,
         "an oci:// ref names an image with no plugin_builds/ entry — the index and "
         "the build metadata disagree",
+        needs_builds=True,
     ),
-    "digest-mismatch": (
+    "digest-mismatch": Rule(
         ERROR,
         "a digest-pinned ref does not match the digest plugin_builds/ recorded",
+        needs_builds=True,
     ),
-    "unresolved-image": (
+    "unresolved-image": Rule(
         ERROR,
         "the index ships a package whose image was never found in the registry "
         "(no digest was resolved) — enabling it fails at pull time",
+        needs_builds=True,
     ),
-    "not-digest-pinned": (
+    "not-digest-pinned": Rule(
         WARNING,
         "an oci:// ref carries a tag rather than a digest, so what it resolves to "
         "can change under the index",
     ),
-    "fallback-tag": (
+    "fallback-tag": Rule(
         WARNING,
         "the requested build was missing and an older tag was substituted — the "
         "index ships a stale build of this plugin",
+        needs_builds=True,
     ),
-    "index-missing-entry": (
+    "index-missing-entry": Rule(
         WARNING,
         "a resolved package is in dynamic-plugins.default.yaml but absent from "
         "index.json, so the Extensions UI will not list it",
+        # Needs plugin_builds/ to tell a package that failed to resolve — and is
+        # legitimately absent from the index — from one that went missing.
+        needs_builds=True,
     ),
-    "index-ref-mismatch": (
+    "index-ref-mismatch": Rule(
         ERROR,
         "index.json and dynamic-plugins.default.yaml disagree on a package's "
         "registry reference",
     ),
 }
 
-# The rules that can only be answered from plugin_builds/, for the case where the caller
-# has a PUBLISHED index and nothing else — an index image carries
-# dynamic-plugins.default.yaml, never the build metadata that produced it.
-#
-# Split in two because they are skipped from two different places, and an earlier
-# version listed only the first set while silently skipping more: `--no-build-metadata`
-# disabled the whole index.json pass, including `index-ref-mismatch`, which needs no
-# build metadata at all. `skipped_rules` is DERIVED from these constants rather than
-# hand-listed, so the "not checked" line cannot drift from what actually ran.
-BUILD_METADATA_RULES = frozenset(
-    {"unknown-image", "unresolved-image", "digest-mismatch", "fallback-tag"}
-)
-# An index.json rule that still needs plugin_builds/ (to tell a package that failed to
-# resolve, and is legitimately absent from the index, from one that went missing).
-INDEX_RULES_NEEDING_BUILDS = frozenset({"index-missing-entry"})
-
-
-def skipped_rules_for(build_metadata: bool) -> list[str]:
-    """Every rule that cannot run in this configuration, sorted."""
-    if build_metadata:
-        return []
-    return sorted(BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS)
+#: The rules `--no-build-metadata` cannot run, derived rather than listed.
+RULES_NEEDING_BUILDS = sorted(r for r, spec in RULES.items() if spec.needs_builds)
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
@@ -159,7 +162,9 @@ class Finding:
 
     @property
     def severity(self) -> str:
-        return RULES[self.rule][0]
+        # KeyError on an unknown id, deliberately: a typo in a rule name explodes when
+        # the finding is built rather than being silently classified.
+        return RULES[self.rule].severity
 
 
 @dataclass(frozen=True)
@@ -170,10 +175,9 @@ class AllowlistEntry:
     pattern: re.Pattern
     ticket: str
     pattern_source: str
-    line: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class ParsedRef:
     """An `oci://` package ref broken into the parts the rules reason about."""
 
@@ -183,7 +187,7 @@ class ParsedRef:
     tag: str = ""
 
 
-@dataclass
+@dataclass(frozen=True)
 class DpdyEntry:
     """One `plugins[]` entry of dynamic-plugins.default.yaml."""
 
@@ -244,6 +248,10 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
 def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
     """Read the `plugins[]` list of dynamic-plugins.default.yaml.
 
+    Mirrors `readIndexEntries`/`isEnabled` in
+    smoke-tests-native/src/catalog-index.ts, which reads the same file for the sanity
+    check. They cannot share code across languages; keep the accepted shapes in step.
+
     A malformed file raises: every other rule reads this list, so continuing with an
     empty one would report a clean index for a file that could not be parsed.
     """
@@ -286,9 +294,18 @@ def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
 def load_plugin_builds(plugin_builds_dir: Path) -> dict[str, dict]:
     """Flatten `plugin_builds/<workspace>/<image>.json` into `{image: fields}`.
 
-    Each file holds a single-key mapping whose key is the image name, so the flattening
-    is what lets every rule look a ref's image up in one dict rather than walking the
-    tree per finding.
+    TODO(RHIDP-XXXXX): this is the fourth reader of that tree. The others are
+    `collect_fallback_entries` (generatePluginBuildInfo.py), `load_tag_by_key`
+    (injectDpdyTagComments.py) and the loop in generateCatalogIndex.py —
+    bootstrapPluginBuilds.py only deletes from it, so it does not count. The shared part
+    is ~8 lines (sorted glob, open, json.load, isinstance guard, OSError/JSONDecodeError
+    catch); everything that differs is the error policy (warn / silent / fatal) and the
+    shape each caller wants. So the extraction that works is a generator with an explicit
+    policy — `iter_plugin_builds(dir, on_error="warn")` yielding
+    (file, workspace, name, data) — not a function returning one caller's dict.
+    Deliberately NOT done here: converting one caller adds a plugin_utils API with a
+    single consumer, and converting all four touches three files this change does not,
+    and would silently turn `collect_fallback_entries`' silent skip into a warning.
     """
     builds: dict[str, dict] = {}
     if not plugin_builds_dir.exists():
@@ -396,11 +413,7 @@ def _parse_allowlist_entry(
             f"{file_path}:{line}: invalid regex '{pattern_source}': {exc}"
         ) from exc
     return AllowlistEntry(
-        rule=rule,
-        pattern=pattern,
-        ticket=ticket,
-        pattern_source=pattern_source,
-        line=line,
+        rule=rule, pattern=pattern, ticket=ticket, pattern_source=pattern_source
     )
 
 
@@ -422,11 +435,14 @@ def apply_allowlist(
     kept: list[Finding] = []
     suppressed: list[tuple[Finding, AllowlistEntry]] = []
     for finding in findings:
+        if not finding.image:
+            kept.append(finding)
+            continue
         entry = next(
             (
                 e
                 for e in allowlist
-                if e.rule == finding.rule and finding.image and e.pattern.search(finding.image)
+                if e.rule == finding.rule and e.pattern.search(finding.image)
             ),
             None,
         )
@@ -441,7 +457,7 @@ def check_dpdy(
     entries: list[DpdyEntry],
     builds: dict[str, dict],
     allowed_registries: set[str],
-    build_metadata: bool = True,
+    has_build_metadata: bool,
 ) -> tuple[list[Finding], dict[str, ParsedRef]]:
     """Validate every dynamic-plugins.default.yaml entry against plugin_builds/.
 
@@ -488,30 +504,44 @@ def check_dpdy(
 
         by_image[ref.image] = ref
         findings.extend(
-            _check_ref(ref, builds, allowed_registries, build_metadata)
+            _check_ref(ref, builds, allowed_registries, has_build_metadata)
         )
 
     return findings, by_image
 
 
 def _image_of(package: str) -> str:
-    """Best-effort image name for attribution, even on a ref that does not parse.
+    """Image name for attribution, whether or not the ref is well formed.
 
-    The fallback strips the selector for the same reason parse_oci_ref does: an image
-    name carrying a `!plugin-path` tail matches no allowlist pattern.
+    The selector is stripped for the same reason parse_oci_ref strips it: an image name
+    carrying a `!plugin-path` tail matches no allowlist pattern.
     """
-    ref = parse_oci_ref(package)
-    if ref:
-        return ref.image
-    body = package.split("!", 1)[0]
-    return body.rsplit("/", 1)[-1].split("@")[0].split(":")[0]
+    body = package.removeprefix(OCI_PREFIX).split("!", 1)[0]
+    name, _, _ = parse_image_reference(body)
+    return name.rsplit("/", 1)[-1]
+
+
+def _resolved_tag(build: dict) -> str:
+    """The tag a plugin_builds entry actually resolved to."""
+    _, tag, _ = parse_image_reference(str(build.get("registryReference", "")))
+    return tag or "<unknown>"
+
+
+def _label(finding: "Finding") -> str:
+    """How a finding reads wherever it is written.
+
+    One definition, because the copy in build-report.json is what
+    renderCatalogStatus.py puts on the status page and the copy on stdout is what CI
+    shows — the two drifting apart is the failure that matters.
+    """
+    return f"[{finding.rule}] {finding.message}"
 
 
 def _check_ref(
     ref: ParsedRef,
     builds: dict[str, dict],
     allowed_registries: set[str],
-    build_metadata: bool = True,
+    has_build_metadata: bool,
 ) -> list[Finding]:
     """The per-ref rules: registry, pinning, then plugin_builds agreement.
 
@@ -548,7 +578,7 @@ def _check_ref(
             )
         )
 
-    if not build_metadata:
+    if not has_build_metadata:
         return findings
 
     build = builds.get(ref.image)
@@ -595,8 +625,7 @@ def _check_ref(
             Finding(
                 rule="fallback-tag",
                 message=(
-                    f"'{ref.image}' resolved to "
-                    f"{str(build.get('registryReference', '')).rsplit(':', 1)[-1] or '<unknown>'} "
+                    f"'{ref.image}' resolved to {_resolved_tag(build)} "
                     f"after {build.get('requestedTag') or '<unknown>'} was not found — "
                     f"the index ships an older build"
                 ),
@@ -611,14 +640,14 @@ def check_index_json(
     index: dict[str, dict] | None,
     by_image: dict[str, ParsedRef],
     builds: dict[str, dict],
-    build_metadata: bool = True,
+    has_build_metadata: bool,
 ) -> list[Finding]:
     """Cross-check index.json against the refs dynamic-plugins.default.yaml declares.
 
     `index` is None when the tier ships no index.json, which disables these rules
     rather than reporting every package as missing from it.
 
-    `build_metadata=False` disables only `index-missing-entry` (see
+    `has_build_metadata=False` disables only `index-missing-entry` (see
     INDEX_RULES_NEEDING_BUILDS). `index-ref-mismatch` reads nothing but index.json and
     the DPDY, so it keeps running — skipping it was lost coverage the "not checked" line
     did not even admit to.
@@ -633,7 +662,7 @@ def check_index_json(
             # An unresolved image is legitimately left out of index.json, and
             # `unresolved-image` already reports it — flagging it twice would make the
             # allowlist need two entries for one root cause.
-            if build_metadata and builds.get(image, {}).get("digest"):
+            if has_build_metadata and builds.get(image, {}).get("digest"):
                 findings.append(
                     Finding(
                         rule="index-missing-entry",
@@ -671,37 +700,42 @@ def validate(
     plugin_builds_dir: Path,
     allowed_registries: set[str],
     allowlist: list[AllowlistEntry],
-    build_metadata: bool = True,
+    has_build_metadata: bool,
 ) -> ValidationResult:
     """Run every rule and return the surviving findings plus run statistics.
 
-    `build_metadata=False` drops the rules in BUILD_METADATA_RULES, for a published
+    `has_build_metadata=False` drops the rules RULES_NEEDING_BUILDS names, for a published
     index that ships without the plugin_builds/ tree that produced it.
     """
     entries = load_dpdy_entries(output_dir / "dynamic-plugins.default.yaml")
-    builds = load_plugin_builds(plugin_builds_dir) if build_metadata else {}
+    builds = load_plugin_builds(plugin_builds_dir) if has_build_metadata else {}
     index = load_index_json(output_dir / "index.json")
 
     findings, by_image = check_dpdy(
-        entries, builds, allowed_registries, build_metadata
+        entries, builds, allowed_registries, has_build_metadata
     )
-    findings.extend(check_index_json(index, by_image, builds, build_metadata))
+    findings.extend(check_index_json(index, by_image, builds, has_build_metadata))
 
     kept, suppressed = apply_allowlist(findings, allowlist)
 
     local_refs = sum(1 for e in entries if e.package.startswith(LOCAL_PREFIX))
+    # Counted from the entries, not from `by_image`: that dict collapses a repeated ref,
+    # the same image at two refs, and drops a malformed one entirely, so using its
+    # length made the rendered summary fail to add up.
+    oci_refs = len(entries) - local_refs
     return ValidationResult(
         findings=kept,
         suppressed=suppressed,
         stats={
             "packages": len(entries),
-            "oci_refs": len(by_image),
+            "oci_refs": oci_refs,
+            "oci_images": len(by_image),
             "local_refs": local_refs,
             "enabled": sum(1 for e in entries if e.enabled),
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
         },
-        skipped_rules=skipped_rules_for(build_metadata),
+        skipped_rules=[] if has_build_metadata else RULES_NEEDING_BUILDS,
     )
 
 
@@ -711,10 +745,11 @@ def render(result: ValidationResult) -> str:
     stats = result.stats
     lines.append(
         f"{stats.get('packages', 0)} package(s) declared "
-        f"({stats.get('oci_refs', 0)} oci, {stats.get('local_refs', 0)} in-image, "
+        f"({stats.get('oci_refs', 0)} oci over {stats.get('oci_images', 0)} distinct "
+        f"image(s), {stats.get('local_refs', 0)} in-image, "
         f"{stats.get('enabled', 0)} enabled) against "
-        f"{stats.get('plugin_builds', 0)} plugin_builds entr(ies) and "
-        f"{stats.get('index_entries', 0)} index.json entr(ies)"
+        f"{stats.get('plugin_builds', 0)} plugin_builds entries and "
+        f"{stats.get('index_entries', 0)} index.json entries"
     )
 
     if result.skipped_rules:
@@ -729,7 +764,7 @@ def render(result: ValidationResult) -> str:
         lines.append(f"Allowlisted ({len(result.suppressed)}):")
         for finding, entry in result.suppressed:
             lines.append(
-                f"  - [{finding.rule}] {finding.message} "
+                f"  - {_label(finding)} "
                 f"(allowlisted by {entry.pattern_source}, {entry.ticket})"
             )
 
@@ -742,7 +777,7 @@ def render(result: ValidationResult) -> str:
         lines.append("")
         lines.append(f"{colour}{severity.upper()}S ({len(bucket)}){Colors.NORM}:")
         for finding in bucket:
-            lines.append(f"  - [{finding.rule}] {finding.message}")
+            lines.append(f"  - {_label(finding)}")
 
     return "\n".join(lines)
 
@@ -816,10 +851,10 @@ def record_in_report(result: ValidationResult, report: BuildReport) -> None:
         warnings = [f for f in findings if f.severity == WARNING]
         details: dict = {}
         if errors:
-            details["errors"] = [f"[{f.rule}] {f.message}" for f in errors]
-            details["reason"] = f"[{errors[0].rule}] {errors[0].message}"
+            details["errors"] = [_label(f) for f in errors]
+            details["reason"] = _label(errors[0])
         if warnings:
-            details["warnings"] = [f"[{f.rule}] {f.message}" for f in warnings]
+            details["warnings"] = [_label(f) for f in warnings]
         report.set_stage(image, "validate", "fail" if errors else "pass", **details)
 
 
@@ -903,9 +938,9 @@ Examples:
     parser.add_argument(
         "--no-build-metadata", action="store_true",
         help="Skip the rules that need plugin_builds/ "
-             f"({', '.join(sorted(BUILD_METADATA_RULES))}). Use when validating a "
-             "PUBLISHED index, which ships dynamic-plugins.default.yaml without the "
-             "build metadata that produced it.",
+             f"({', '.join(RULES_NEEDING_BUILDS)}). Use when validating a PUBLISHED "
+             "index, which ships dynamic-plugins.default.yaml without the build "
+             "metadata that produced it.",
     )
     parser.add_argument(
         "--list-rules", action="store_true",
@@ -917,8 +952,9 @@ Examples:
     set_debug(args.debug)
 
     if args.list_rules:
-        for rule, (severity, description) in sorted(RULES.items()):
-            print(f"{rule:24} {severity:8} {description}")
+        for rule, spec in sorted(RULES.items()):
+            needs = " (needs plugin_builds/)" if spec.needs_builds else ""
+            print(f"{rule:24} {spec.severity:8} {spec.description}{needs}")
         return 0
 
     if not args.registry:
@@ -945,7 +981,7 @@ Examples:
             plugin_builds_dir,
             allowed,
             allowlist,
-            build_metadata=not args.no_build_metadata,
+            has_build_metadata=not args.no_build_metadata,
         )
     except (ValueError, OSError, yaml.YAMLError) as exc:
         log_error(f"Catalog index validation could not run: {exc}")

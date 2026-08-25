@@ -30,10 +30,9 @@ from plugin_utils import (
     log_info,
     log_warn,
     log_error,
-    # Re-exported: this module's own callers and tests import
-    # parse_image_reference from here. It lives in plugin_utils so
-    # validateCatalogIndex.py can share it rather than growing a fifth
-    # container-reference parser.
+    # Moved to plugin_utils so validateCatalogIndex.py can share it rather than growing
+    # another container-reference parser. Still used throughout this module, and still
+    # importable from here, which is where its tests and callers look for it.
     parse_image_reference,
     set_debug,
 )
@@ -81,7 +80,6 @@ def is_registry_rarc() -> bool:
     return REGISTRY_BASE.startswith("registry.access.redhat.com")
 
 
-
 def get_query_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for querying.
@@ -103,8 +101,6 @@ def get_ghcr_token(repository: str) -> str | None:
     except Exception as e:
         log_debug(f"Failed to get ghcr.io token for {repository}: {e}")
         return None
-
-
 
 
 TAG_COMMENT_RE = re.compile(r'^\s*# Tag: ([^,]+), Build date: (\S+)\s*$')
@@ -876,7 +872,6 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
             log_debug("dynamic-plugins.default.yaml not present, skipping DPDY updates")
 
 
-
 def regenerate_all_yaml_files(output_dir: Path) -> None:
     """Regenerate all.yaml files in plugins/ and packages/ directories"""
     extensions_dir = output_dir / "catalog-entities" / "extensions"
@@ -921,7 +916,6 @@ def _support_label_color(label: str) -> str:
         'dev-preview': Colors.ORANGE,
     }
     return colors.get(label, Colors.RED)
-
 
 
 def main():

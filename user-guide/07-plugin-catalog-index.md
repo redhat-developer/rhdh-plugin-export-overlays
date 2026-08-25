@@ -285,8 +285,9 @@ on its own, so a PR here cannot change what the job validates, and running it pe
 fail unrelated work whenever the index drifts.
 
 When validating a **published** index there is no `plugin_builds/` alongside it, so pass
-`--no-build-metadata` to `validateCatalogIndex.py`. It skips the four rules that need the
-build metadata and names them in its output, so a pass cannot be mistaken for a full check.
+`--no-build-metadata` to `validateCatalogIndex.py`. It skips the rules that need the build
+metadata — each one declares that in its own row of the rule table, so the list cannot
+drift — and names them in its output, so a pass cannot be mistaken for a full check.
 
 ---
 
