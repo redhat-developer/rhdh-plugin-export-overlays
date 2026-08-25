@@ -36,7 +36,12 @@
 #   # the generated index declares (needs Node 24, Yarn 4 and registry access)
 #   scripts/update-index.sh \
 #     --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
+#     --output-dir catalog-index/supported \
+#     --plugin-builds-dir plugin_builds/supported \
+#     --packages-file default.packages.yaml \
 #     --validate-mode gate \
+#     --validate-allowlist scripts/catalog-index-validation-allowlist.txt \
+#     --validation-json catalog-index/supported/validation.json \
 #     --sanity-check
 
 set -euo pipefail
@@ -433,16 +438,40 @@ if [[ $SANITY_CHECK -eq 1 ]]; then
         echo -e "${red}[ERROR] $SANITY_DIR not found — the sanity check needs the smoke-tests-native harness.${norm}" >&2
         exit 1
     fi
-    if ! command -v yarn >/dev/null 2>&1; then
-        # Fail loudly rather than skipping: --sanity-check was asked for explicitly, and
-        # a silent skip would report a green index nothing installed.
-        echo -e "${red}[ERROR] --sanity-check needs Yarn 4 (and Node 24) on PATH; see smoke-tests-native/README.md${norm}" >&2
+
+    # Resolve BEFORE the subshell. Inside `( cd "$SANITY_DIR" && … && yarn smoke … )`
+    # the words of `yarn smoke` are expanded only when it is about to run — that is,
+    # after the cd — so a command substitution here would resolve against
+    # smoke-tests-native/ instead of the caller's directory. With a relative
+    # --output-dir (the default) the inner cd then fails, the substitution yields the
+    # empty string, and the harness is handed "/dynamic-plugins.default.yaml". A failed
+    # command substitution does not trip `set -e`, so nothing caught it.
+    SANITY_INDEX_ABS="$(cd "$(dirname "$SANITY_INDEX")" && pwd)/$(basename "$SANITY_INDEX")"
+
+    # Check what the error message claims. `command -v yarn` passes for a globally
+    # installed Yarn 1, which then dies inside the subshell with "Unsupported option
+    # name (--immutable)" — attributed to the sanity check rather than to the toolchain.
+    SANITY_NODE_MAJOR="$(node --version 2>/dev/null | sed -n 's/^v\([0-9]*\).*/\1/p')"
+    SANITY_YARN_MAJOR="$(yarn --version 2>/dev/null | cut -d. -f1)"
+    if [[ -z "$SANITY_NODE_MAJOR" || "$SANITY_NODE_MAJOR" -lt 24 ]]; then
+        echo -e "${red}[ERROR] --sanity-check needs Node 24+ on PATH (found: ${SANITY_NODE_MAJOR:-none}); see smoke-tests-native/README.md${norm}" >&2
+        exit 1
+    fi
+    if [[ -z "$SANITY_YARN_MAJOR" || "$SANITY_YARN_MAJOR" -lt 4 ]]; then
+        echo -e "${red}[ERROR] --sanity-check needs Yarn 4+ on PATH (found: ${SANITY_YARN_MAJOR:-none}); enable corepack, see smoke-tests-native/README.md${norm}" >&2
+        exit 1
+    fi
+
+    # Split from the run so an install failure is not reported as a plugin failure
+    # pointing at a results.json that was never written.
+    if ! (cd "$SANITY_DIR" && yarn install --immutable); then
+        echo -e "${red}[ERROR] yarn install failed in $SANITY_DIR — the sanity check did not run.${norm}" >&2
         exit 1
     fi
     # --out is contained to the harness's own directory by the harness (Sonar S8707),
     # so the results file is written there and reported by path afterwards.
-    if ! (cd "$SANITY_DIR" && yarn install --immutable && yarn smoke \
-        --catalog-index "$(cd "$(dirname "$SANITY_INDEX")" && pwd)/$(basename "$SANITY_INDEX")" \
+    if ! (cd "$SANITY_DIR" && yarn smoke \
+        --catalog-index "$SANITY_INDEX_ABS" \
         --exclusions catalog-index-sanity-excludes.txt \
         --out results-catalog-index.json); then
         echo -e "${red}[ERROR] Catalog index sanity check failed — see $SANITY_DIR/results-catalog-index.json${norm}" >&2

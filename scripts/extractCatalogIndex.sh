@@ -52,8 +52,17 @@ skopeo copy --override-os linux --override-arch amd64 \
 # TOPMOST layer that carries it — an index rebuilt as an overlay keeps a stale copy in a
 # lower layer, and reading that one would validate the previous index. Walk top-down and
 # take the first hit.
+# Read the digests in a separate statement rather than inline in the `for`: a command
+# substitution that fails inside a `for` list does not trip `set -e`, so a missing or
+# malformed manifest.json would silently produce an empty loop and the run would then
+# report "not found in <image>" — pointing at the wrong cause entirely.
+if ! digests="$(jq -r '.layers | reverse | .[].digest' "${workdir}/idx/manifest.json")"; then
+    echo "could not read the layer list from ${IMAGE} (bad or missing manifest.json)" >&2
+    exit 1
+fi
+
 found=""
-for digest in $(jq -r '.layers | reverse | .[].digest' "${workdir}/idx/manifest.json"); do
+for digest in $digests; do
     layer="${workdir}/idx/${digest#sha256:}"
     [[ -f "$layer" ]] || continue
     if tar -xOf "$layer" "$FILENAME" > "${workdir}/candidate" 2> /dev/null \

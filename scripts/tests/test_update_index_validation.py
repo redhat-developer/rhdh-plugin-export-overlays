@@ -94,6 +94,28 @@ def build_stub_repo(tmp_path, packages, builds, index_json=None):
     return root
 
 
+def toolchain_shims(tmp_path, node_version="v24.18.0", yarn_version="4.17.1"):
+    """Stub `node`, `yarn` and the smoke-tests-native/ directory Step 6 needs.
+
+    `yarn` records its argv so a test can assert on the path the harness was handed.
+    That is the assertion the `--sanity-check` happy path was missing, and its absence
+    is why a command substitution that resolved to the empty string shipped: every
+    existing test stopped at a guard before `yarn smoke` was ever reached.
+    """
+    bindir = python_shim(tmp_path)
+    (bindir / "node").write_text(f'#!/usr/bin/env bash\necho "{node_version}"\n')
+    (bindir / "node").chmod(0o755)
+    argv_log = tmp_path / "yarn.argv"
+    (bindir / "yarn").write_text(
+        "#!/usr/bin/env bash\n"
+        f'if [[ "$1" == "--version" ]]; then echo "{yarn_version}"; exit 0; fi\n'
+        f'printf "%s\\n" "$@" >> "{argv_log}"\n'
+        "exit 0\n"
+    )
+    (bindir / "yarn").chmod(0o755)
+    return bindir, argv_log
+
+
 def python_shim(tmp_path):
     """A `python` on PATH.
 
@@ -109,9 +131,9 @@ def python_shim(tmp_path):
     return bindir
 
 
-def run_update_index(root, tmp_path, *args):
+def run_update_index(root, tmp_path, *args, bindir=None):
     """Run the fixture's update-index.sh with a scrubbed environment."""
-    bindir = python_shim(tmp_path)
+    bindir = bindir or python_shim(tmp_path)
     env = {
         "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
         "HOME": os.environ.get("HOME", "/tmp"),
@@ -275,3 +297,100 @@ class TestSanityCheck:
         result = run_update_index(clean_repo, tmp_path, "--sanity-check")
         assert result.returncode == 1
         assert "smoke-tests-native" in result.stderr
+
+    def test_the_harness_receives_an_absolute_path_to_the_generated_index(
+        self, clean_repo, tmp_path
+    ):
+        """The regression test for the bug this gap allowed.
+
+        `yarn smoke` runs inside `(cd smoke-tests-native && …)`, and its words are
+        expanded only when it is about to run — after the cd. A command substitution
+        written inline therefore resolved against the harness directory, and with the
+        DEFAULT relative --output-dir the inner cd failed, the substitution yielded the
+        empty string, and the harness was handed "/dynamic-plugins.default.yaml". A
+        failed command substitution does not trip `set -e`, so nothing caught it.
+        """
+        (clean_repo / "smoke-tests-native").mkdir()
+        bindir, argv_log = toolchain_shims(tmp_path)
+        result = run_update_index(
+            clean_repo, tmp_path, "--sanity-check", bindir=bindir
+        )
+        assert result.returncode == 0, result.stderr
+        args = argv_log.read_text().split("\n")
+        assert "--catalog-index" in args, args
+        handed = Path(args[args.index("--catalog-index") + 1])
+        assert handed.is_absolute(), handed
+        assert handed == (
+            clean_repo / "catalog-index" / "dynamic-plugins.default.yaml"
+        ), handed
+        assert handed.is_file(), f"{handed} does not exist"
+
+    def test_the_index_is_resolved_from_a_relative_output_dir(
+        self, clean_repo, tmp_path
+    ):
+        """The default is relative, which is the case the bug hit."""
+        (clean_repo / "smoke-tests-native").mkdir()
+        bindir, argv_log = toolchain_shims(tmp_path)
+        result = run_update_index(
+            clean_repo,
+            tmp_path,
+            "--output-dir",
+            "catalog-index",
+            "--sanity-check",
+            bindir=bindir,
+        )
+        assert result.returncode == 0, result.stderr
+        args = argv_log.read_text().split("\n")
+        handed = Path(args[args.index("--catalog-index") + 1])
+        assert handed.is_file(), f"{handed} does not exist"
+
+    def test_the_exclusions_file_is_passed(self, clean_repo, tmp_path):
+        """Without it the harness runs with no tracked exclusions at all."""
+        (clean_repo / "smoke-tests-native").mkdir()
+        bindir, argv_log = toolchain_shims(tmp_path)
+        run_update_index(clean_repo, tmp_path, "--sanity-check", bindir=bindir)
+        args = argv_log.read_text().split("\n")
+        assert "--exclusions" in args
+        assert args[args.index("--exclusions") + 1] == (
+            "catalog-index-sanity-excludes.txt"
+        )
+
+    @pytest.mark.parametrize(
+        "node_version, yarn_version, expected",
+        [
+            pytest.param("v22.21.0", "4.17.1", "Node 24+", id="node_too_old"),
+            pytest.param("v24.18.0", "1.22.22", "Yarn 4+", id="yarn_1"),
+        ],
+    )
+    def test_an_inadequate_toolchain_is_named(
+        self, clean_repo, tmp_path, node_version, yarn_version, expected
+    ):
+        """`command -v yarn` passed for Yarn 1, which then died with an opaque
+        "Unsupported option name (--immutable)" blamed on the sanity check."""
+        (clean_repo / "smoke-tests-native").mkdir()
+        bindir, _ = toolchain_shims(
+            tmp_path, node_version=node_version, yarn_version=yarn_version
+        )
+        result = run_update_index(
+            clean_repo, tmp_path, "--sanity-check", bindir=bindir
+        )
+        assert result.returncode == 1
+        assert expected in result.stderr
+
+    def test_gate_mode_stops_before_the_sanity_check_runs(
+        self, broken_repo, tmp_path
+    ):
+        """Pulling ~50 artifacts to validate an index already known to be broken is
+        wasted time, and the failure that matters is the one already reported."""
+        (broken_repo / "smoke-tests-native").mkdir()
+        bindir, argv_log = toolchain_shims(tmp_path)
+        result = run_update_index(
+            broken_repo,
+            tmp_path,
+            "--validate-mode",
+            "gate",
+            "--sanity-check",
+            bindir=bindir,
+        )
+        assert result.returncode == 1
+        assert not argv_log.exists(), "yarn should never have been invoked"
