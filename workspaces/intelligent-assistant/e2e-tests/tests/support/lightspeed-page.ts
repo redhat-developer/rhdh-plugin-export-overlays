@@ -69,12 +69,11 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
-  // Overlay/dock leave homepage or catalog page content in place. Fullscreen
-  // replaces that content. Do not use the sidebar Catalog link: NFS fullscreen
-  // keeps RHDH nav visible while covering only the main page.
+  // Overlay/dock leave catalog page content in place. Fullscreen replaces it.
+  // Do not use the sidebar Catalog link: NFS fullscreen keeps RHDH nav visible
+  // while covering only the main page. Homepage is disabled in this workspace.
   const shell = page
-    .getByText(/welcome back!/i)
-    .or(page.getByText("My Org Catalog"))
+    .getByText("My Org Catalog")
     .or(page.getByRole("main").getByRole("heading", { name: /^catalog$/i }));
 
   if (visible) {

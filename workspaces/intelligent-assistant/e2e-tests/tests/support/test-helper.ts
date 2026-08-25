@@ -20,29 +20,20 @@ function isNightlyMode(): boolean {
   return process.env.JOB_NAME?.includes("periodic-") ?? false;
 }
 
-function dynamicPluginsFor(namespace: string): { dynamicPlugins?: string } {
-  const nfs = namespace.endsWith("-app-next");
-  if (isNightlyMode()) {
-    return {
-      dynamicPlugins: nfs
-        ? "tests/config/dynamic-plugins-nightly-app-next.yaml"
-        : "tests/config/dynamic-plugins-nightly.yaml",
-    };
-  }
-  if (nfs) {
-    return { dynamicPlugins: "tests/config/dynamic-plugins-app-next.yaml" };
-  }
-  return { dynamicPlugins: "tests/config/dynamic-plugins.yaml" };
+function dynamicPluginsFile(): string {
+  return isNightlyMode()
+    ? "tests/config/dynamic-plugins-nightly.yaml"
+    : "tests/config/dynamic-plugins.yaml";
 }
 
-function lightspeedDeployConfig(namespace: string) {
+function lightspeedDeployConfig() {
   return {
     auth: "keycloak" as const,
     version: process.env.RHDH_VERSION ?? "1.11",
     appConfig: "tests/config/app-config-rhdh.yaml",
     secrets: "tests/config/rhdh-secrets.yaml",
     valueFile: "tests/config/value_file.yaml",
-    ...dynamicPluginsFor(namespace),
+    dynamicPlugins: dynamicPluginsFile(),
   };
 }
 
@@ -100,7 +91,7 @@ export async function ensureLightspeedDeployment(
 ): Promise<void> {
   const ns = rhdh.deploymentConfig.namespace;
   await test.runOnce(`intelligent-assistant-deploy-${ns}`, async () => {
-    await rhdh.configure(lightspeedDeployConfig(ns));
+    await rhdh.configure(lightspeedDeployConfig());
 
     // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
     try {
