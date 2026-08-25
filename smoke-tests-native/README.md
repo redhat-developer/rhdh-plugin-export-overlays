@@ -284,7 +284,7 @@ Community-supported plugins are **not in the RHDH image** — RHIDP-13262 remove
 `default.packages.yaml` — so they exist only as artifacts this repo publishes to ghcr.io,
 and nothing else validated them. The catalog index, by design, carries only
 generally-available `quay.io/rhdh` packages: zero overlap with this sweep. The index side
-is covered separately, by catalog-index mode below.
+is covered separately, by catalog-index mode above.
 
 `yarn sweep` closes that gap by selecting packages from metadata and driving the harness
 once per workspace:

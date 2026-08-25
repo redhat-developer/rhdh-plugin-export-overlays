@@ -42,16 +42,21 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Never stack two of these, and never cancel one that is already pulling: a manual
+  # RC-verification dispatch would otherwise kill an in-flight nightly on the same ref
+  # and lose its artifacts. Matches community-plugin-sweep.yaml.
+  cancel-in-progress: false
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   sanity:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The sweep allows 60 minutes for a shard of ~18 packages; this installs and boots
+    # ~50 on one runner. A timeout cancels the job, and the upload step is
+    # `!cancelled()`, so an under-budgeted timeout loses the artifacts too.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -90,14 +95,17 @@ jobs:
           OVERRIDE: ${{ inputs.catalog_index_image }}
         run: |
           set -euo pipefail
-          if [[ -n "${OVERRIDE}" ]]; then
+          # `:-` because these are only set on workflow_dispatch; on the schedule they
+          # are absent and `set -u` would abort with an unbound-variable error rather
+          # than taking the default branch. Matches native-smoke.yaml.
+          if [[ -n "${OVERRIDE:-}" ]]; then
             # Shape-check the dispatch input: it reaches GITHUB_OUTPUT, and a
             # multi-line value there can forge additional step outputs.
             if [[ ! "${OVERRIDE}" =~ ^[A-Za-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[a-f0-9]{64})?$ ]]; then
               echo "invalid catalog_index_image: ${OVERRIDE}" >&2
               exit 1
             fi
-            image="${OVERRIDE}"
+            image="${OVERRIDE:-}"
           elif [[ "${BRANCH}" == release-* ]]; then
             image="quay.io/rhdh/plugin-catalog-index:${BRANCH#release-}"
           else
@@ -142,7 +150,7 @@ jobs:
             --no-build-metadata
             --json validation.json
           )
-          if [[ "${STRICT}" == "true" ]]; then ARGS+=(--strict); fi
+          if [[ "${STRICT:-}" == "true" ]]; then ARGS+=(--strict); fi
           python3 scripts/validateCatalogIndex.py "${ARGS[@]}" | tee validation.log
 
       - name: Run the catalog index sanity check
@@ -161,6 +169,10 @@ jobs:
       - name: Summarise
         if: ${{ !cancelled() }}
         run: |
+          # NOT `set -e`: GitHub's default shell is `bash -e`, and an unreadable
+          # results.json would abort the step mid-block, truncating the redirect and
+          # losing the static-validation section — exactly when it is most wanted.
+          set +e
           {
             echo "### Catalog index sanity"
             echo
@@ -172,7 +184,10 @@ jobs:
                 "- frontend bundles: \(.frontend.valid)/\(.frontend.total) valid"
               ' smoke-tests-native/results-catalog-index.json
               echo
-              jq -r '.backend.errors[]? , .frontend.errors[]? | "- ✗ \(.plugin // .name // "?"): \(.error // .message // .)"' \
+              # `.plugin` is a PluginEntry OBJECT (src/loader.ts), not a name, so
+              # `.plugin // .name` never falls through and jq would interpolate the
+              # whole object — dirName, temp path and all — into the summary.
+              jq -r '.backend.errors[]? , .frontend.errors[]? | "- ✗ \(.plugin.name // "?"): \(.error // "?")"' \
                 smoke-tests-native/results-catalog-index.json || true
             else
               echo "No results.json produced — the harness did not reach the report stage."
@@ -208,6 +223,19 @@ jobs:
         env:
           SANITY: ${{ steps.sanity.outcome }}
           VALIDATION: ${{ steps.validate.outcome }}
+          STRICT: ${{ inputs.strict_validation }}
         run: |
           echo "sanity=${SANITY} static-validation=${VALIDATION}"
+          if [[ "${VALIDATION}" != "success" ]]; then
+            # continue-on-error makes the step green in the UI; without this the only
+            # trace of a validation failure is a line in the job summary.
+            echo "::warning::static validation reported findings — see the job summary"
+          fi
+          # `strict_validation` promises to "fail on warnings too". Honouring it only
+          # inside the validate step, which is continue-on-error, would leave the job
+          # green and let someone read that as "strict validation passed".
+          if [[ "${STRICT:-}" == "true" && "${VALIDATION}" != "success" ]]; then
+            echo "strict validation was requested and did not pass" >&2
+            exit 1
+          fi
           [[ "${SANITY}" == "success" ]] || exit 1

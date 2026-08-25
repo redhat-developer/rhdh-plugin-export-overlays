@@ -233,6 +233,14 @@ Findings are also recorded per plugin in `build-report.json` as a `validate` sta
 they reach the generated status page. Only errors set that stage to `fail` — a stale tag
 should not turn a plugin red and drown the ones that really are broken.
 
+**It only checks a tier that has a DPDY.** Every rule is driven by
+`dynamic-plugins.default.yaml`, and Step 3 generates that file only when a
+`default.packages.yaml` is among the `--packages-file` arguments. The community tier is
+generated with `--packages-file rhdh-community-packages.txt` alone, so for that tier
+Step 5 logs `nothing to validate` and exits 0 — including under `--validate-mode gate`.
+It says so in the log rather than passing silently, but do not read a green community
+run as a validated one.
+
 ### Step 6: Catalog Index Sanity Check (opt-in)
 
 Installs and boots **every** package the generated index declares, using the Docker-free
