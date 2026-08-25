@@ -1,3 +1,34 @@
+app:
+  extensions:
+    # Scorecard tab: entity shows tab if it matches any filter below.
+    - entity-content:scorecard/entity-content-scorecard:
+        config:
+          allowedFilters:
+            - kind: component
+              type: website
+            - kind: api
+            - type: service
+
+    # Grid layout with metric grouping
+    - scorecard-layout:scorecard/scorecard-entity-layout-grid:
+        disabled: false
+        config:
+          groups:
+            security-alerts:
+              title: Security Alerts
+              description: Security vulnerability alerts from Dependabot
+              metrics:
+                - dependabot.alertsCritical
+                - dependabot.alertsHigh
+
+            code-health:
+              title: Code Health
+              description: Development health and code quality metrics
+              metrics:
+                - github.openPRs
+                - dependabot.alertsMedium
+                - dependabot.alertsLow
+
 catalog:
   rules:
     - allow:
