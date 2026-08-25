@@ -31,6 +31,13 @@
 #     --plugin-builds-dir /path/to/plugin_builds \
 #     --packages-file /path/to/catalog-index/default.packages.yaml \
 #     --packages-file /path/to/rhdh-supported-packages.txt
+#
+#   # Fail the run on a validation error, and additionally install+boot every package
+#   # the generated index declares (needs Node 24, Yarn 4 and registry access)
+#   scripts/update-index.sh \
+#     --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
+#     --validate-mode gate \
+#     --sanity-check
 
 set -euo pipefail
 
@@ -39,6 +46,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 norm="\033[0;39m"
 green="\033[1;32m"
 red="\033[1;31m"
+yellow="\033[1;33m"
 blue="\033[1;34m"
 
 OVERLAYS_DIR="."
@@ -49,6 +57,15 @@ OUTPUT_DIR="catalog-index"
 PLUGIN_BUILDS_DIR="plugin_builds"
 PACKAGES_FILES=()
 REPORT_FILE=""
+# Step 5 (static validation) runs on every generation. It defaults to "report" rather
+# than "gate" deliberately: the check is new, and the indexes it runs against today
+# carry findings nobody has triaged yet (see user-guide/07-plugin-catalog-index.md).
+# Landing it as a hard gate would turn those into a red build for work unrelated to
+# whoever pushed. Flip to "gate" once the standing findings are fixed or allowlisted.
+VALIDATE_MODE="report"
+VALIDATE_ALLOWLIST=""
+VALIDATION_JSON=""
+SANITY_CHECK=0
 DEBUG_FLAG=""
 DEBUG=0
 
@@ -65,6 +82,9 @@ Usage:
         [-v|--rhdh-version VERSION] \
         [-p|--packages-file PATH ...] \
         [-cr|--community-registry BASE] \
+        [--validate-mode report|gate|off] \
+        [--validate-allowlist PATH] [--validation-json PATH] \
+        [--sanity-check] \
         [--debug] \
         [-h|--help]
 
@@ -85,6 +105,19 @@ Arguments:
                                and txt files with workspace paths (e.g., rhdh-supported-packages.txt).
                                DPDY generation runs only when a file named default.packages.yaml is provided.
        --report-file           Path to build-report.json for tracking generation stages (optional).
+       --validate-mode         Step 5, static validation of the generated index
+                               (no network). One of:
+                                 report (default) — always run, never fail the build
+                                 gate             — fail on any validation error
+                                 off              — skip validation entirely
+       --validate-allowlist    Ticketed exceptions file for Step 5
+                               (default: scripts/catalog-index-validation-allowlist.txt)
+       --validation-json       Write the Step 5 findings as JSON to this path (optional).
+       --sanity-check          Step 6, install and boot every package the generated
+                               index declares, via smoke-tests-native. Off by default:
+                               it pulls every artifact and needs Node 24 + Yarn 4, which
+                               the midstream update-index job has neither the budget nor
+                               the toolchain for. See the catalog-index-sanity workflow.
        --debug                 Enable debug output
   -h,  --help                  Show this help
 USAGE
@@ -125,6 +158,22 @@ while [[ "$#" -gt 0 ]]; do
         REPORT_FILE="$2"
         shift 2
         ;;
+    '--validate-mode')
+        VALIDATE_MODE="$2"
+        shift 2
+        ;;
+    '--validate-allowlist')
+        VALIDATE_ALLOWLIST="$2"
+        shift 2
+        ;;
+    '--validation-json')
+        VALIDATION_JSON="$2"
+        shift 2
+        ;;
+    '--sanity-check')
+        SANITY_CHECK=1
+        shift 1
+        ;;
     '--debug')
         DEBUG=1
         DEBUG_FLAG="--debug"
@@ -147,6 +196,17 @@ if [[ -z "$REGISTRY" ]]; then
     usage
 fi
 
+# Rejected here rather than at Step 5: a typo would otherwise be discovered after the
+# whole generation has run, and "report" is close enough to a silent skip that a
+# mistyped mode must never fall back to it.
+case "$VALIDATE_MODE" in
+    report|gate|off) ;;
+    *)
+        echo -e "${red}[ERROR] Invalid --validate-mode: $VALIDATE_MODE (expected report, gate or off)${norm}\n" >&2
+        usage
+        ;;
+esac
+
 if [[ $DEBUG -eq 1 ]]; then
     echo "#################################"
     echo "OVERLAYS_DIR       = $OVERLAYS_DIR"
@@ -157,6 +217,8 @@ if [[ $DEBUG -eq 1 ]]; then
     echo "PLUGIN_BUILDS_DIR  = $PLUGIN_BUILDS_DIR"
     echo "PACKAGES_FILES     = ${PACKAGES_FILES[*]:-<none>}"
     echo "REPORT_FILE        = ${REPORT_FILE:-<none>}"
+    echo "VALIDATE_MODE      = $VALIDATE_MODE"
+    echo "SANITY_CHECK       = $SANITY_CHECK"
     echo "#################################"
 fi
 
@@ -304,6 +366,91 @@ if ! python "$SCRIPT_DIR/generateCatalogIndex.py" \
     $REPORT_FILE_ARG \
     $DEBUG_FLAG; then
     echo -e "${red}[ERROR] generateCatalogIndex.py failed!${norm}" >&2; exit 1
+fi
+
+##############################################
+# Step 5: Validate the generated index (static, no network)
+##############################################
+if [[ "$VALIDATE_MODE" == "off" ]]; then
+    echo -e "\n${blue}=== Step 5: Validation — Skipped (--validate-mode off) ===${norm}"
+else
+    echo -e "\n${green}=== Step 5: Validate the generated catalog index ===${norm}"
+    VALIDATE_ARGS=(
+        --output-dir "$OUTPUT_DIR"
+        --plugin-builds-dir "$PLUGIN_BUILDS_DIR"
+        --registry "$REGISTRY"
+    )
+    # The supported index legitimately mixes in community-tier packages from a second
+    # registry; without this they would all read as registry-not-allowed.
+    if [[ "$COMMUNITY_REGISTRY" != "$REGISTRY" ]]; then
+        VALIDATE_ARGS+=(--community-registry "$COMMUNITY_REGISTRY")
+    fi
+    if [[ -n "$VALIDATE_ALLOWLIST" ]]; then
+        VALIDATE_ARGS+=(--allowlist "$VALIDATE_ALLOWLIST")
+    fi
+    if [[ -n "$VALIDATION_JSON" ]]; then
+        VALIDATE_ARGS+=(--json "$VALIDATION_JSON")
+    fi
+    if [[ -n "$REPORT_FILE" ]]; then
+        VALIDATE_ARGS+=(--report-file "$REPORT_FILE")
+    fi
+    if [[ -n "$DEBUG_FLAG" ]]; then
+        VALIDATE_ARGS+=("$DEBUG_FLAG")
+    fi
+
+    if python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}"; then
+        VALIDATION_STATUS="pass"
+    else
+        VALIDATION_STATUS="fail"
+    fi
+
+    if [[ "$VALIDATION_STATUS" == "fail" ]]; then
+        if [[ "$VALIDATE_MODE" == "gate" ]]; then
+            echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode gate)${norm}" >&2
+            exit 1
+        fi
+        # Deliberately not fatal in report mode — see VALIDATE_MODE above. Say so
+        # explicitly, so a reader of the log does not mistake the findings for a
+        # failure that was swallowed.
+        echo -e "${yellow}[WARN] Catalog index validation reported errors; continuing because --validate-mode is '$VALIDATE_MODE'.${norm}" >&2
+        echo -e "${yellow}[WARN] Re-run with --validate-mode gate to fail the build on these.${norm}" >&2
+    fi
+fi
+
+##############################################
+# Step 6: Catalog index sanity check (install + boot every declared package)
+##############################################
+if [[ $SANITY_CHECK -eq 1 ]]; then
+    echo -e "\n${green}=== Step 6: Catalog index sanity check ===${norm}"
+    SANITY_DIR="$SCRIPT_DIR/../smoke-tests-native"
+    SANITY_INDEX="$OUTPUT_DIR/dynamic-plugins.default.yaml"
+    if [[ ! -f "$SANITY_INDEX" ]]; then
+        echo -e "${red}[ERROR] $SANITY_INDEX not found — nothing to sanity check.${norm}" >&2
+        echo -e "${red}        (Step 3 only runs when a default.packages.yaml is passed.)${norm}" >&2
+        exit 1
+    fi
+    if [[ ! -d "$SANITY_DIR" ]]; then
+        echo -e "${red}[ERROR] $SANITY_DIR not found — the sanity check needs the smoke-tests-native harness.${norm}" >&2
+        exit 1
+    fi
+    if ! command -v yarn >/dev/null 2>&1; then
+        # Fail loudly rather than skipping: --sanity-check was asked for explicitly, and
+        # a silent skip would report a green index nothing installed.
+        echo -e "${red}[ERROR] --sanity-check needs Yarn 4 (and Node 24) on PATH; see smoke-tests-native/README.md${norm}" >&2
+        exit 1
+    fi
+    # --out is contained to the harness's own directory by the harness (Sonar S8707),
+    # so the results file is written there and reported by path afterwards.
+    if ! (cd "$SANITY_DIR" && yarn install --immutable && yarn smoke \
+        --catalog-index "$(cd "$(dirname "$SANITY_INDEX")" && pwd)/$(basename "$SANITY_INDEX")" \
+        --exclusions catalog-index-sanity-excludes.txt \
+        --out results-catalog-index.json); then
+        echo -e "${red}[ERROR] Catalog index sanity check failed — see $SANITY_DIR/results-catalog-index.json${norm}" >&2
+        exit 1
+    fi
+    echo -e "${blue}Sanity check results: $SANITY_DIR/results-catalog-index.json${norm}"
+else
+    echo -e "\n${blue}=== Step 6: Catalog index sanity check — Skipped (pass --sanity-check to run it) ===${norm}"
 fi
 
 echo -e "\n${green}=== Done ===${norm}"
