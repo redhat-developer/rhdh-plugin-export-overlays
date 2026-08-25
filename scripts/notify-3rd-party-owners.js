@@ -36,12 +36,12 @@ const getBackstageVersion = function(release){
 
 const CODEOWNERS = String(fs.readFileSync('.github/CODEOWNERS'))
 
-// Returns a Map<workspaceName, string[]> of workspaces that have external
-// (3rd party) maintainers, per the CODEOWNERS three-space convention:
-// "External or other maintainers are mentioned explicitly and separated
-// with three spaces."
-const getThirdPartyOwners = function(codeownersText){
-  const thirdPartyByWorkspace = new Map()
+// Returns a Map<workspaceName, string[]> of every workspace that has an
+// explicit CODEOWNERS entry. Per team decision, workspaces without a
+// specific owner are left blank in CODEOWNERS, so an explicit entry
+// here is an intentional opt-in to being notified, no need to distinguish external vs internal.
+const getWorkspaceOwners = function(codeownersText){
+  const ownersByWorkspace = new Map()
 
   for (const rawLine of codeownersText.split('\n')){
     const line = rawLine.trim()
@@ -59,37 +59,22 @@ const getThirdPartyOwners = function(codeownersText){
     const workspacePath = match[1]
     const ownersBlob = match[2]
 
-    // split into "primary owners" and "external/other maintainers" segments
-    const segments = ownersBlob.split(/\s{3,}/)
-    if (segments.length < 2){
-      // no 3-space separator present -> no external maintainers declared
-      continue
-    }
-
-    const externalHandles = []
-    for (let i = 1; i < segments.length; i++){
-      const handles = segments[i].split(/\s+/).filter(h => h.startsWith('@'))
-      const hasRedHatTeam = handles.some(h => h.startsWith('@redhat-developer/'))
-      if (!hasRedHatTeam){
-        externalHandles.push(...handles)
-      }
-    }
-
-    if (externalHandles.length === 0){
+    const handles = ownersBlob.split(/\s+/).filter(h => h.startsWith('@'))
+    if (handles.length === 0){
       continue
     }
 
     // normalize e.g. /workspaces/analytics/plugins/foo -> analytics
     const workspaceName = workspacePath.replace(/^\/workspaces\//, '').split('/')[0]
 
-    const existing = thirdPartyByWorkspace.get(workspaceName) || []
-    thirdPartyByWorkspace.set(workspaceName, [...new Set([...existing, ...externalHandles])])
+    const existing = ownersByWorkspace.get(workspaceName) || []
+    ownersByWorkspace.set(workspaceName, [...new Set([...existing, ...handles])])
   }
 
-  return thirdPartyByWorkspace
+  return ownersByWorkspace
 }
 
-const thirdPartyOwners = getThirdPartyOwners(CODEOWNERS)
+const workspaceOwners = getWorkspaceOwners(CODEOWNERS)
 
 // Returns true if `current` (major.minor) is strictly behind `target` (major.minor).
 // Compares major and minor as separate integers rather than parsing the whole
@@ -102,12 +87,12 @@ const isVersionBehind = (current, target) => {
   return currentMajor < targetMajor || (currentMajor === targetMajor && currentMinor < targetMinor)
 }
 
-// Compares each 3rd party workspace's current Backstage version (from
+// Compares each explicitly-owned workspace's current Backstage version (from
 // source.json) against targetBsVersion, and returns the ones that are behind.
-const getWorkspacesBsVersion = (thirdPartyWorkspaces, targetBsVersion) => {
+const getWorkspacesBsVersion = (workspaceOwners, targetBsVersion) => {
   let ownersToNotify = []
 
-  for (const [workspace, owners] of thirdPartyWorkspaces){
+  for (const [workspace, owners] of workspaceOwners){
     const sourcePath = `workspaces/${workspace}/source.json`
     if (!fs.existsSync(sourcePath)){
       console.log(`${workspace}: no source.json, skipping`)
@@ -137,7 +122,10 @@ const NOTIFICATION_LABEL = '3rd-party-notification'
 async function ensureLabelExists(github, owner, repo){
   try {
     await github.rest.issues.getLabel({ owner, repo, name: NOTIFICATION_LABEL })
-  } catch {
+  } catch (error) {
+    if (error.status !== 404){
+      throw error
+    }
     await github.rest.issues.createLabel({
       owner,
       repo,
@@ -232,10 +220,10 @@ module.exports = async ({ github, context }) => {
   }
 
   const targetBsVersion = getBackstageVersion(release)
-  const notifications = getWorkspacesBsVersion(thirdPartyOwners, targetBsVersion)
+  const notifications = getWorkspacesBsVersion(workspaceOwners, targetBsVersion)
 
   if (notifications.length === 0){
-    console.log('All 3rd party workspaces are up to date. No notifications needed.')
+    console.log('All owned workspaces are up to date. No notifications needed.')
     return
   }
 

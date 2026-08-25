@@ -5,7 +5,8 @@ on:
     inputs:
       rhdh-version:
         description: >
-          RHDH version to notify about (e.g. "1.11").
+          RHDH version to notify about. Must exactly match a "rhdh-version"
+          entry in release-schedule.yaml (e.g. "2.1.0").
           If empty, uses the next upcoming release from release-schedule.yaml.
         type: string
         required: false
