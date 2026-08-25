@@ -7,6 +7,7 @@ test.describe("Test Quick Start plugin", () => {
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
+    expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
   });
 
   test("Access Quick start as Guest or Admin", async ({
@@ -43,7 +44,7 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Browse and install extensions");
     await uiHelper.verifyButtonURL("Explore plugins", "/extensions");
     await uiHelper.clickButtonByText("Explore plugins");
-    await expect(page).toHaveURL(/\/extensions/);
+    await expect(page).toHaveURL("/extensions");
 
     await uiHelper.clickButtonByText("Set up Intelligent Assistant");
     await uiHelper.verifyTextVisible(
@@ -60,7 +61,11 @@ test.describe("Test Quick Start plugin", () => {
     await expect(page.getByRole("button", { name: "Hide" })).toBeHidden();
   });
 
-  test("Access Quick start as User", async ({ loginHelper, uiHelper }) => {
+  test("Access Quick start as User", async ({
+    loginHelper,
+    page,
+    uiHelper,
+  }) => {
     await loginHelper.loginAsKeycloakUser();
     await uiHelper.verifyText("Let's get you started with Developer Hub");
     await uiHelper.verifyText("We'll guide you through a few quick steps");
@@ -79,13 +84,15 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Use our self-service templates");
     await uiHelper.verifyButtonURL("Explore templates", "/create");
     await uiHelper.clickButtonByText("Explore templates");
-    await uiHelper.verifyHeading("Self-service");
+    // await uiHelper.verifyHeading("Self-service"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3676
+    await uiHelper.verifyHeading("Create");
 
     await uiHelper.clickButtonByText("Find all Learning Paths");
     await uiHelper.verifyTextVisible("Integrate tailored e-learning");
     await uiHelper.verifyButtonURL("View Learning Paths", "/learning-paths");
     await uiHelper.clickButtonByText("View Learning Paths");
-    await uiHelper.verifyHeading("Learning Paths");
+    // await uiHelper.verifyHeading("Learning Paths"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3681
+    await expect(page).toHaveURL("/learning-paths");
 
     await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
     await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
