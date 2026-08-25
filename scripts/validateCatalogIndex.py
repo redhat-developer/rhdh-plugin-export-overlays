@@ -47,6 +47,7 @@ from plugin_utils import (
     log_error,
     log_info,
     log_warn,
+    parse_image_reference,
     set_debug,
 )
 
@@ -108,26 +109,36 @@ RULES: dict[str, tuple[str, str]] = {
     ),
 }
 
-# The rules that can only be answered from plugin_builds/. `--no-build-metadata` skips
-# exactly these, for the case where the caller has a PUBLISHED index and nothing else —
-# an index image carries dynamic-plugins.default.yaml, never the build metadata that
-# produced it. Named once so the flag, the rendered note and the tests agree.
+# The rules that can only be answered from plugin_builds/, for the case where the caller
+# has a PUBLISHED index and nothing else — an index image carries
+# dynamic-plugins.default.yaml, never the build metadata that produced it.
+#
+# Split in two because they are skipped from two different places, and an earlier
+# version listed only the first set while silently skipping more: `--no-build-metadata`
+# disabled the whole index.json pass, including `index-ref-mismatch`, which needs no
+# build metadata at all. `skipped_rules` is DERIVED from these constants rather than
+# hand-listed, so the "not checked" line cannot drift from what actually ran.
 BUILD_METADATA_RULES = frozenset(
     {"unknown-image", "unresolved-image", "digest-mismatch", "fallback-tag"}
 )
+# An index.json rule that still needs plugin_builds/ (to tell a package that failed to
+# resolve, and is legitimately absent from the index, from one that went missing).
+INDEX_RULES_NEEDING_BUILDS = frozenset({"index-missing-entry"})
+
+
+def skipped_rules_for(build_metadata: bool) -> list[str]:
+    """Every rule that cannot run in this configuration, sorted."""
+    if build_metadata:
+        return []
+    return sorted(BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS)
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
 
-# `oci://registry/path/image@sha256:...` or `oci://registry/path/image:tag`, either
-# optionally followed by the install CLI's `!plugin-path` selector. Anchored so a
-# malformed ref is reported as such rather than partially parsed.
-OCI_REF_RE = re.compile(
-    r"^(?P<registry>[^/]+(?:/[^/]+)*)"
-    r"/(?P<image>[^/:@!]+)"
-    r"(?:@(?P<digest>sha256:[0-9a-f]{64})|:(?P<tag>[^@!]+))?"
-    r"(?:!(?P<selector>.*))?$"
-)
+# A well-formed content digest. Checked separately from the rest of the reference
+# because `not-digest-pinned` and `digest-mismatch` both key off `ref.digest`: a
+# truncated or malformed digest must not read as "pinned".
+DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 # A ticket-bearing comment opening an allowlist block, e.g.
 # `# TODO(RHDHBUGS-3515): image is not published yet`. Mirrors the grammar of
@@ -203,22 +214,31 @@ class ValidationResult:
 def parse_oci_ref(ref: str) -> ParsedRef | None:
     """Split an `oci://…` package ref, or return None when it does not parse.
 
+    The name/tag/digest split is delegated to `parse_image_reference` — the same
+    function `generateCatalogIndex.py` uses to rewrite these very refs. Writing a second
+    grammar here is what made this validator the only parser in the repo that rejected
+    the `name:tag@digest` form, and reject it as `ref-form`, an error no allowlist entry
+    can suppress because it carries no image name.
+
     The `!plugin-path` selector some refs carry selects a plugin *inside* the image and
-    says nothing about which image is pulled, so it is discarded here rather than
-    becoming part of the image identity — otherwise the same image referenced with and
-    without a selector would look like two different packages.
+    says nothing about which image is pulled, so it is stripped BEFORE parsing — both so
+    the same image with and without a selector reads as one package, and because a
+    selector containing a `/` would otherwise be mistaken for another path segment and
+    the last one would be read as the image name.
     """
     if not ref.startswith(OCI_PREFIX):
         return None
-    match = OCI_REF_RE.match(ref[len(OCI_PREFIX):])
-    if not match:
+    body = ref[len(OCI_PREFIX):].split("!", 1)[0]
+    name, tag, digest = parse_image_reference(body)
+    # A bare `oci://plugin-a` or `oci://registry:5000` names no image: registry and
+    # image are not separable, so every rule that reasons about either would be
+    # guessing. Reject it as malformed rather than treating the host as an image.
+    registry, sep, image = name.rpartition("/")
+    if not sep or not registry or not image:
         return None
-    return ParsedRef(
-        registry=match.group("registry"),
-        image=match.group("image"),
-        digest=match.group("digest") or "",
-        tag=match.group("tag") or "",
-    )
+    if digest and not DIGEST_RE.match(digest):
+        return None
+    return ParsedRef(registry=registry, image=image, digest=digest, tag=tag)
 
 
 def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
@@ -475,11 +495,16 @@ def check_dpdy(
 
 
 def _image_of(package: str) -> str:
-    """Best-effort image name for attribution, even on a ref that does not parse."""
+    """Best-effort image name for attribution, even on a ref that does not parse.
+
+    The fallback strips the selector for the same reason parse_oci_ref does: an image
+    name carrying a `!plugin-path` tail matches no allowlist pattern.
+    """
     ref = parse_oci_ref(package)
     if ref:
         return ref.image
-    return package.rsplit("/", 1)[-1].split("@")[0].split(":")[0]
+    body = package.split("!", 1)[0]
+    return body.rsplit("/", 1)[-1].split("@")[0].split(":")[0]
 
 
 def _check_ref(
@@ -488,7 +513,14 @@ def _check_ref(
     allowed_registries: set[str],
     build_metadata: bool = True,
 ) -> list[Finding]:
-    """The per-ref rules: registry, plugin_builds agreement, pinning and fallbacks."""
+    """The per-ref rules: registry, pinning, then plugin_builds agreement.
+
+    Ordered so the rules that are properties of the REF itself — registry and pinning —
+    are emitted before the build-metadata lookup, and therefore fire identically whether
+    or not plugin_builds/ is available. An earlier version returned early on
+    `unknown-image`, which meant the same tag-only ref reported `not-digest-pinned` under
+    `--no-build-metadata` and not otherwise.
+    """
     findings: list[Finding] = []
 
     if ref.registry not in allowed_registries:
@@ -504,19 +536,19 @@ def _check_ref(
             )
         )
 
-    if not build_metadata:
-        # Registry and pinning are properties of the ref itself, so they still hold.
-        if not ref.digest:
-            findings.append(
-                Finding(
-                    rule="not-digest-pinned",
-                    message=(
-                        f"'{ref.image}' is referenced by tag "
-                        f"({ref.tag or '<none>'}) rather than by digest"
-                    ),
-                    image=ref.image,
-                )
+    if not ref.digest:
+        findings.append(
+            Finding(
+                rule="not-digest-pinned",
+                message=(
+                    f"'{ref.image}' is referenced by tag "
+                    f"({ref.tag or '<none>'}) rather than by digest"
+                ),
+                image=ref.image,
             )
+        )
+
+    if not build_metadata:
         return findings
 
     build = builds.get(ref.image)
@@ -558,18 +590,6 @@ def _check_ref(
             )
         )
 
-    if not ref.digest:
-        findings.append(
-            Finding(
-                rule="not-digest-pinned",
-                message=(
-                    f"'{ref.image}' is referenced by tag "
-                    f"({ref.tag or '<none>'}) rather than by digest"
-                ),
-                image=ref.image,
-            )
-        )
-
     if build.get("fallback"):
         findings.append(
             Finding(
@@ -591,11 +611,17 @@ def check_index_json(
     index: dict[str, dict] | None,
     by_image: dict[str, ParsedRef],
     builds: dict[str, dict],
+    build_metadata: bool = True,
 ) -> list[Finding]:
     """Cross-check index.json against the refs dynamic-plugins.default.yaml declares.
 
     `index` is None when the tier ships no index.json, which disables these rules
     rather than reporting every package as missing from it.
+
+    `build_metadata=False` disables only `index-missing-entry` (see
+    INDEX_RULES_NEEDING_BUILDS). `index-ref-mismatch` reads nothing but index.json and
+    the DPDY, so it keeps running — skipping it was lost coverage the "not checked" line
+    did not even admit to.
     """
     findings: list[Finding] = []
     if index is None:
@@ -607,7 +633,7 @@ def check_index_json(
             # An unresolved image is legitimately left out of index.json, and
             # `unresolved-image` already reports it — flagging it twice would make the
             # allowlist need two entries for one root cause.
-            if builds.get(image, {}).get("digest"):
+            if build_metadata and builds.get(image, {}).get("digest"):
                 findings.append(
                     Finding(
                         rule="index-missing-entry",
@@ -659,8 +685,7 @@ def validate(
     findings, by_image = check_dpdy(
         entries, builds, allowed_registries, build_metadata
     )
-    if build_metadata:
-        findings.extend(check_index_json(index, by_image, builds))
+    findings.extend(check_index_json(index, by_image, builds, build_metadata))
 
     kept, suppressed = apply_allowlist(findings, allowlist)
 
@@ -676,7 +701,7 @@ def validate(
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
         },
-        skipped_rules=sorted(BUILD_METADATA_RULES) if not build_metadata else [],
+        skipped_rules=skipped_rules_for(build_metadata),
     )
 
 
@@ -693,7 +718,7 @@ def render(result: ValidationResult) -> str:
     )
 
     if result.skipped_rules:
-        # A pass must never read as "everything was checked" when four rules could not
+        # A pass must never read as "everything was checked" when some rules could not
         # run: the caller has an index and no build metadata to compare it against.
         lines.append(
             f"Not checked (no build metadata): {', '.join(result.skipped_rules)}"
@@ -761,6 +786,17 @@ def record_in_report(result: ValidationResult, report: BuildReport) -> None:
     Only an ERROR sets the stage to fail: BuildReport.save() derives a plugin's overall
     status from its worst stage, so recording warnings as failures would turn a stale
     tag into a red plugin on the status page and drown the ones that really are broken.
+
+    A finding's image name comes off the INDEX, not off plugin_builds/, and the two can
+    disagree — that is what `unknown-image` reports. Since ``set_stage`` upserts, writing
+    such a finding would create a plugin row that no build stage ever produced, inflating
+    ``summary.total`` and flipping the report's overall status to "partial". Those
+    findings belong to the run, not to a plugin, so they are left to the text and JSON
+    output and skipped here.
+
+    ``reason`` is written alongside ``errors`` because that is the field
+    renderCatalogStatus.first_failed_stage reads; without it a plugin whose only failing
+    stage is this one renders as "Unknown error" on the status page.
     """
     if not report.enabled:
         return
@@ -770,19 +806,21 @@ def record_in_report(result: ValidationResult, report: BuildReport) -> None:
             by_image.setdefault(finding.image, []).append(finding)
 
     for image, findings in by_image.items():
+        if not report.has_plugin(image):
+            log_debug(
+                f"Not recording a validate stage for '{image}': no such plugin in the "
+                f"build report (the index names an image plugin_builds/ does not)"
+            )
+            continue
         errors = [f for f in findings if f.severity == ERROR]
         warnings = [f for f in findings if f.severity == WARNING]
-        report.set_stage(
-            image,
-            "validate",
-            "fail" if errors else "pass",
-            **({"errors": [f"[{f.rule}] {f.message}" for f in errors]} if errors else {}),
-            **(
-                {"warnings": [f"[{f.rule}] {f.message}" for f in warnings]}
-                if warnings
-                else {}
-            ),
-        )
+        details: dict = {}
+        if errors:
+            details["errors"] = [f"[{f.rule}] {f.message}" for f in errors]
+            details["reason"] = f"[{errors[0].rule}] {errors[0].message}"
+        if warnings:
+            details["warnings"] = [f"[{f.rule}] {f.message}" for f in warnings]
+        report.set_stage(image, "validate", "fail" if errors else "pass", **details)
 
 
 def main() -> int:

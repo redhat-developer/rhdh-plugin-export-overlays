@@ -30,6 +30,11 @@ from plugin_utils import (
     log_info,
     log_warn,
     log_error,
+    # Re-exported: this module's own callers and tests import
+    # parse_image_reference from here. It lives in plugin_utils so
+    # validateCatalogIndex.py can share it rather than growing a fifth
+    # container-reference parser.
+    parse_image_reference,
     set_debug,
 )
 
@@ -100,43 +105,6 @@ def get_ghcr_token(repository: str) -> str | None:
         return None
 
 
-def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
-    """Split a container image reference into its name, tag, and digest components.
-
-    Handles all combinations of tag and digest presence, including references
-    with both (tag + digest), tag only, digest only, or empty string input.
-    Tag separators vary by registry: ghcr.io uses ``bs_{bsver}__{pluginver}``
-    while quay.io/rhdh uses ``{rhdhver}--{pluginver}``.
-
-    Args:
-        registry_reference: A container image reference string, e.g.
-            ``"quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123"``.
-
-    Returns:
-        A 3-tuple of ``(image_name, tag, digest)`` where any component may
-        be an empty string if not present in the input.
-
-    Examples:
-        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123")
-        ('quay.io/rhdh/plugin', '1.11--1.5.4', 'sha256:abc123')
-        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4")
-        ('quay.io/rhdh/plugin', '1.11--1.5.4', '')
-        >>> parse_image_reference("quay.io/rhdh/plugin@sha256:abc123")
-        ('quay.io/rhdh/plugin', '', 'sha256:abc123')
-        >>> parse_image_reference("")
-        ('', '', '')
-    """
-    if not registry_reference:
-        return "", "", ""
-
-    name_with_tag, sep, digest = registry_reference.partition('@')
-
-    last_slash = name_with_tag.rfind('/')
-    last_colon = name_with_tag.rfind(':')
-    if last_colon > last_slash:
-        return name_with_tag[:last_colon], name_with_tag[last_colon + 1 :], digest if sep else ""
-
-    return name_with_tag, "", digest if sep else ""
 
 
 TAG_COMMENT_RE = re.compile(r'^\s*# Tag: ([^,]+), Build date: (\S+)\s*$')

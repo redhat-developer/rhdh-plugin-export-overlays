@@ -14,6 +14,7 @@ import yaml
 
 from validateCatalogIndex import (
     BUILD_METADATA_RULES,
+    INDEX_RULES_NEEDING_BUILDS,
     ERROR,
     RULES,
     WARNING,
@@ -29,6 +30,7 @@ from validateCatalogIndex import (
     render,
     to_json,
     validate,
+    ValidationResult,
 )
 from plugin_utils import BuildReport
 
@@ -132,6 +134,21 @@ class TestParseOciRef:
                 REGISTRY, "plugin-a", DIGEST, "",
                 id="selector_is_not_part_of_image_identity",
             ),
+            pytest.param(
+                f"oci://{REGISTRY}/plugin-a@{DIGEST}!scope/name",
+                REGISTRY, "plugin-a", DIGEST, "",
+                id="selector_containing_a_slash",
+            ),
+            pytest.param(
+                f"oci://{REGISTRY}/plugin-a:1.11--1.5.4@{DIGEST}",
+                REGISTRY, "plugin-a", DIGEST, "1.11--1.5.4",
+                id="tag_and_digest",
+            ),
+            pytest.param(
+                "oci://localhost:5000/foo/plugin-a:1.0",
+                "localhost:5000/foo", "plugin-a", "", "1.0",
+                id="registry_with_a_port",
+            ),
         ],
     )
     def test_parses(self, ref, registry, image, digest, tag):
@@ -150,11 +167,36 @@ class TestParseOciRef:
             pytest.param("./dynamic-plugins/dist/plugin-a", id="local_path"),
             pytest.param("plugin-a", id="bare_name"),
             pytest.param("oci://plugin-a", id="no_registry_segment"),
+            pytest.param("oci://localhost:5000", id="registry_only"),
+            pytest.param("oci://", id="prefix_only"),
             pytest.param("", id="empty"),
         ],
     )
     def test_rejects(self, ref):
         assert parse_oci_ref(ref) is None
+
+    def test_agrees_with_the_repo_s_own_reference_parser(self):
+        """The grammar is delegated, not re-invented.
+
+        Writing a second grammar here is what made this the only parser in the repo
+        that rejected `name:tag@digest` — and rejected it as `ref-form`, an error no
+        allowlist entry can suppress because it carries no image name. Under
+        `--validate-mode gate` that is an inescapable red build on a shape
+        `generateCatalogIndex.py` documents as valid and writes itself.
+        """
+        from plugin_utils import parse_image_reference
+
+        for body in (
+            f"{REGISTRY}/plugin-a@{DIGEST}",
+            f"{REGISTRY}/plugin-a:1.11--1.5.4",
+            f"{REGISTRY}/plugin-a:1.11--1.5.4@{DIGEST}",
+            "localhost:5000/foo/plugin-a:1.0",
+        ):
+            name, tag, digest = parse_image_reference(body)
+            parsed = parse_oci_ref(f"oci://{body}")
+            assert parsed is not None, body
+            assert f"{parsed.registry}/{parsed.image}" == name, body
+            assert (parsed.tag, parsed.digest) == (tag, digest), body
 
     def test_a_short_digest_is_not_accepted_as_a_digest(self):
         """A truncated digest must not read as pinned.
@@ -326,10 +368,24 @@ class TestRules:
         )
         assert rules_of(result) == ["unknown-image"]
 
-    def test_unknown_image_short_circuits_the_other_build_rules(self, tmp_path):
-        """With no build entry there is nothing to compare against — one finding, not four."""
+    def test_the_ref_only_rules_fire_even_when_the_image_is_unknown(self, tmp_path):
+        """Registry and pinning are properties of the REF, so they never depend on
+        plugin_builds/.
+
+        An earlier version returned early on `unknown-image`, which made the same
+        tag-only ref report `not-digest-pinned` under `--no-build-metadata` and not
+        otherwise — the two paths disagreed about a rule neither of them needs build
+        metadata to answer.
+        """
         result = run(
             tmp_path, [{"package": f"oci://{REGISTRY}/plugin-a:1.0"}], builds={}
+        )
+        assert rules_of(result) == ["not-digest-pinned", "unknown-image"]
+
+    def test_the_build_rules_stop_at_the_first_that_cannot_proceed(self, tmp_path):
+        """With no build entry there is nothing to compare digests against."""
+        result = run(
+            tmp_path, [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}], builds={}
         )
         assert rules_of(result) == ["unknown-image"]
 
@@ -674,7 +730,8 @@ class TestNoBuildMetadata:
 
     def test_without_the_flag_the_same_input_is_all_errors(self, tmp_path):
         result = run(tmp_path, self.PUBLISHED, builds={})
-        assert rules_of(result) == ["unknown-image", "unknown-image"]
+        assert sorted(set(rules_of(result))) == ["not-digest-pinned", "unknown-image"]
+        assert len([f for f in result.findings if f.rule == "unknown-image"]) == 2
 
     def test_the_ref_only_rules_still_run(self, tmp_path):
         """Registry and pinning are properties of the ref itself — still answerable."""
@@ -690,11 +747,32 @@ class TestNoBuildMetadata:
         assert "registry-not-allowed" in rules_of(offsite)
 
     def test_the_skipped_rules_are_named(self, tmp_path):
-        """A pass must not read as "everything was checked"."""
+        """A pass must not read as "everything was checked".
+
+        `index-missing-entry` belongs here too: it needs plugin_builds/ to tell a
+        package that failed to resolve (and is legitimately absent from index.json)
+        from one that went missing. An earlier version skipped it — along with
+        `index-ref-mismatch`, which needs no build metadata at all — without naming
+        either, which is exactly the overstated pass this field exists to prevent.
+        """
+        expected = sorted(BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS)
         result = run(tmp_path, self.PUBLISHED, builds={}, build_metadata=False)
-        assert result.skipped_rules == sorted(BUILD_METADATA_RULES)
+        assert result.skipped_rules == expected
         assert "Not checked (no build metadata)" in render(result)
-        assert to_json(result, False)["skippedRules"] == sorted(BUILD_METADATA_RULES)
+        assert to_json(result, False)["skippedRules"] == expected
+
+    def test_index_ref_mismatch_still_runs_without_build_metadata(self, tmp_path):
+        """It reads index.json and the DPDY only — skipping it was lost coverage."""
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={},
+            index_json={
+                "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a@{OTHER_DIGEST}"}
+            },
+            build_metadata=False,
+        )
+        assert "index-ref-mismatch" in rules_of(result)
 
     def test_a_normal_run_names_no_skipped_rules(self, tmp_path):
         result = run(
@@ -705,8 +783,8 @@ class TestNoBuildMetadata:
         assert result.skipped_rules == []
         assert "Not checked" not in render(result)
 
-    def test_the_index_json_rules_are_skipped_too(self, tmp_path):
-        """index.json is not in the image either, so it cannot be cross-checked."""
+    def test_index_missing_entry_is_skipped_without_build_metadata(self, tmp_path):
+        """It cannot tell an unresolved package from a genuinely missing one."""
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-b@{DIGEST}"}],
@@ -717,35 +795,67 @@ class TestNoBuildMetadata:
         assert "index-missing-entry" not in rules_of(result)
 
     def test_every_skipped_rule_is_a_real_rule(self):
-        """A typo in the constant would silently skip nothing."""
-        assert BUILD_METADATA_RULES <= set(RULES)
+        """A typo in either constant would silently skip nothing."""
+        assert (BUILD_METADATA_RULES | INDEX_RULES_NEEDING_BUILDS) <= set(RULES)
 
 
 # ---------------------------------------------------------------------------
 # build-report.json integration
 # ---------------------------------------------------------------------------
 class TestRecordInReport:
-    def test_an_error_fails_the_plugins_validate_stage(self, tmp_path):
+    """`record_in_report` writes the stage renderCatalogStatus.py will read back."""
+
+    @staticmethod
+    def _report(tmp_path, plugins=("plugin-a",)):
         report_file = tmp_path / "build-report.json"
         report = BuildReport(str(report_file))
-        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        for name in plugins:
+            report.add_plugin(name, package=f"@scope/{name}")
+        return report_file, report
+
+    def test_an_error_fails_the_plugins_validate_stage(self, tmp_path):
+        report_file, report = self._report(tmp_path)
         record_in_report(
-            type("R", (), {"findings": [Finding("unresolved-image", "m", "plugin-a")]})(),
+            ValidationResult(findings=[Finding("unresolved-image", "m", "plugin-a")]),
             report,
         )
         report.save()
         data = json.loads(report_file.read_text())
         stage = data["plugins"]["plugin-a"]["stages"]["validate"]
         assert stage["status"] == "fail"
+        assert stage["errors"] == ["[unresolved-image] m"]
+        # No warnings fired, so the key must be absent rather than an empty list —
+        # a reader treats a present-but-empty list as "checked and clean".
+        assert "warnings" not in stage
         assert data["plugins"]["plugin-a"]["overall"] == "fail"
+
+    def test_an_error_writes_the_reason_the_status_page_reads(self, tmp_path):
+        """renderCatalogStatus.first_failed_stage reads `reason` and nothing else.
+
+        Without it a plugin whose only failing stage is this one renders as
+        "Unknown error" on the generated status page, however precisely the finding
+        was recorded.
+        """
+        from renderCatalogStatus import first_failed_stage
+
+        report_file, report = self._report(tmp_path)
+        record_in_report(
+            ValidationResult(
+                findings=[Finding("unresolved-image", "never resolved", "plugin-a")]
+            ),
+            report,
+        )
+        report.save()
+        stages = json.loads(report_file.read_text())["plugins"]["plugin-a"]["stages"]
+        label, reason = first_failed_stage(stages)
+        assert label == "Catalog Index Validation"
+        assert "never resolved" in reason
 
     def test_warnings_alone_keep_the_stage_passing(self, tmp_path):
         """A stale tag must not turn a plugin red and drown the genuinely broken ones."""
-        report_file = tmp_path / "build-report.json"
-        report = BuildReport(str(report_file))
-        report.add_plugin("plugin-a", package="@scope/plugin-a")
+        report_file, report = self._report(tmp_path)
         record_in_report(
-            type("R", (), {"findings": [Finding("fallback-tag", "older", "plugin-a")]})(),
+            ValidationResult(findings=[Finding("fallback-tag", "older", "plugin-a")]),
             report,
         )
         report.save()
@@ -753,10 +863,64 @@ class TestRecordInReport:
         stage = data["plugins"]["plugin-a"]["stages"]["validate"]
         assert stage["status"] == "pass"
         assert stage["warnings"] == ["[fallback-tag] older"]
+        assert "errors" not in stage and "reason" not in stage
         assert data["plugins"]["plugin-a"]["overall"] == "pass"
 
-    def test_a_disabled_report_is_a_no_op(self):
+    def test_a_finding_about_an_unknown_image_creates_no_plugin(self, tmp_path):
+        """`set_stage` upserts, so an image name the report does not track would be
+        CREATED — inflating summary.total and flipping the run to "partial".
+
+        `unknown-image` is by definition an image with no plugin_builds/ entry, so it
+        is exactly the finding that names something bootstrap never registered.
+        """
+        report_file, report = self._report(tmp_path)
         record_in_report(
-            type("R", (), {"findings": [Finding("unresolved-image", "m", "plugin-a")]})(),
+            ValidationResult(
+                findings=[
+                    Finding("unknown-image", "no build entry", "ghost-image"),
+                    Finding("unresolved-image", "m", "plugin-a"),
+                ]
+            ),
+            report,
+        )
+        report.save()
+        data = json.loads(report_file.read_text())
+        assert list(data["plugins"]) == ["plugin-a"]
+        assert data["summary"]["total"] == 1
+
+    def test_a_disabled_report_writes_nothing(self, tmp_path):
+        """The no-op has to be observable, or "it did not raise" is all that is tested."""
+        report_file = tmp_path / "build-report.json"
+        record_in_report(
+            ValidationResult(findings=[Finding("unresolved-image", "m", "plugin-a")]),
             BuildReport(None),
         )
+        assert not report_file.exists()
+        assert list(tmp_path.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# The shipped allowlist stays honest
+# ---------------------------------------------------------------------------
+class TestShippedAllowlist:
+    def test_no_entry_is_stale(self):
+        """An allowlisted rule that no longer fires is invisible debt.
+
+        Mirrors the sweep's "exclusions matching no package in the repo" guard. The file
+        ships empty, so this is trivially true today — which is the point: it goes red
+        the moment an entry outlives its finding, rather than the entry surviving until
+        someone thinks to re-read the file.
+        """
+        from pathlib import Path
+
+        shipped = (
+            Path(__file__).resolve().parent.parent
+            / "catalog-index-validation-allowlist.txt"
+        )
+        entries = load_allowlist(shipped)
+        # Nothing to cross-check against without a generated index, so the invariant
+        # asserted here is the one that is checkable offline: every entry names a rule
+        # that still exists, and carries a ticket.
+        for entry in entries:
+            assert entry.rule in RULES, entry.pattern_source
+            assert entry.ticket, entry.pattern_source
