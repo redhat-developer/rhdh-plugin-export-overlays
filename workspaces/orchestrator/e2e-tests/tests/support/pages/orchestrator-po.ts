@@ -339,8 +339,9 @@ export class OrchestratorPO {
   private async clickChooseOnTemplateCard(
     templateTitle: string,
   ): Promise<void> {
+    // Match hashed MUI classes (css-*-MuiCard-root); exact .MuiCard-root misses them.
     const chooseButton = this.page
-      .locator(".MuiCard-root")
+      .locator('[class*="MuiCard-root"]')
       .filter({ hasText: templateTitle })
       .getByRole("button", { name: /Choose/i })
       .first();

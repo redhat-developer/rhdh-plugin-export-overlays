@@ -194,6 +194,20 @@ function isParallelLokiInstallRace(output: string): boolean {
   return /already exists/i.test(output);
 }
 
+async function waitForPeerLokiInstallUrl(
+  timeoutMs = 600_000,
+): Promise<string | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const url = await resolveLokiUrlFromCluster();
+    if (url) {
+      return url;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 15_000));
+  }
+  return undefined;
+}
+
 async function runLokiInstallScriptWithRaceRetry(): Promise<{
   exitCode: number;
   stdout: string;
@@ -208,7 +222,14 @@ async function runLokiInstallScriptWithRaceRetry(): Promise<{
     return result;
   }
   console.warn(
-    "[configureOrchestratorLoki] Parallel Loki install race; retrying once",
+    "[configureOrchestratorLoki] Parallel Loki install race; waiting for peer",
+  );
+  const peerUrl = await waitForPeerLokiInstallUrl();
+  if (peerUrl) {
+    return { exitCode: 0, stdout: `${peerUrl}\n`, stderr: "" };
+  }
+  console.warn(
+    "[configureOrchestratorLoki] Peer Loki URL not ready; retrying install once",
   );
   result = await runLokiInstallScript();
   return result;
