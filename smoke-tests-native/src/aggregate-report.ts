@@ -17,8 +17,12 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem, MfRemoteInfo } from "./loader";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  FrontendBundleInfo,
+  Report,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
 import { compareStrings } from "./util";
 
 /** How a frontend bundle is packaged, from the systems its layout advertises. */
@@ -175,10 +179,15 @@ export function describeShardCoverage(
  */
 export type NfsSupport = "confirmed" | "none" | "undetermined";
 
-export function nfsSupportOf(bundle: {
-  systems: FrontendSystem[];
-  mf: MfRemoteInfo | null;
-}): NfsSupport {
+/**
+ * The part of a frontend bundle these verdicts read.
+ *
+ * Named rather than repeated inline: the two functions below have to agree on it,
+ * and a `FrontendBundleInfo` that grew a field would otherwise drift past both.
+ */
+export type BundleSystems = Pick<FrontendBundleInfo, "systems" | "mf">;
+
+export function nfsSupportOf(bundle: BundleSystems): NfsSupport {
   if (!bundle.systems.includes("new-frontend-system")) return "none";
   const mf = bundle.mf;
   // A layout the router will not serve mounts nothing, whatever it declares.
@@ -203,10 +212,7 @@ export function nfsSupportOf(bundle: {
  * What the panel gains is the confirmed/undetermined split beside it, so the reader can
  * see how much of the figure is established and how much is merely not ruled out.
  */
-export function packagingOf(bundle: {
-  systems: FrontendSystem[];
-  mf: MfRemoteInfo | null;
-}): Packaging {
+export function packagingOf(bundle: BundleSystems): Packaging {
   const legacy = bundle.systems.includes("legacy");
   const modern = nfsSupportOf(bundle) !== "none";
   if (legacy && modern) return "dual";
