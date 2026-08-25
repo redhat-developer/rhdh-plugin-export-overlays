@@ -133,7 +133,7 @@ lane means anything.
 | `github` | 2 | 2 | — | github | **svc** | real GitHub Actions runs + issues | baked-in | 0 | ready (5 pkgs) |
 | `roadie-backstage-plugins` | 2 | 6 | — | github, guest | **svc** | real GitHub PR data; outbound HTTP | oci | 0 | **all 6 no NFS entry point** (3 do expose `alpha`) |
 | `bulk-import` | 3 | 9 | ✅ | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
-| `quickstart` | 1 | 2 | — | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
+| `quickstart` | 1 | 2 | ✅ (NFS-only) | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
 | `global-header` | 2 | 10 | — | keycloak | **ctr** | Keycloak | mixed | 22 | ready |
 | `extensions` | 1 | 11 | — | keycloak | **ctr** | Keycloak + the catalog index image | baked-in | 6 | **no OCI artifact**; the readiness report infers `nfs-ready` from upstream source since #3284 |
 | `adoption-insights` | 1 | 7 | — | keycloak | **ctr** | Keycloak users + the analytics DB | oci | 0 | ready (+1 module) |
