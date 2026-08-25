@@ -1,8 +1,6 @@
 # Intelligent Assistant comes from the catalog index (do not re-list it).
 # Pin app-defaults so the host drawer is present when inherit is unavailable
-# (RHIDP-15482). RHDH 1.11 dropped the local dist copy of oidc-provider.
+# (RHIDP-15482). Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
-    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
     enabled: true

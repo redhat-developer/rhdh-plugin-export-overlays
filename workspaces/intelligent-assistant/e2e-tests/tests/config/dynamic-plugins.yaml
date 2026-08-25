@@ -3,11 +3,8 @@
 # the same image registry/repo, so remap keycloak to quay and disable the
 # RHEC inherit. Homepage 1.11.0--1.17.0 is not on Quay (manifest unknown).
 #
-# oidc-provider is not in the catalog-index DPDY and RHDH 1.11 no longer
-# ships it under dynamic-plugins/dist. Pin the overlays OCI so Keycloak
-# sign-in has auth provider id "oidc".
-#
 # app-defaults provides the host drawer used by the Intelligent Assistant FAB.
+# Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
 plugins:
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:1.11.0--1.17.0
     disabled: true
@@ -34,8 +31,6 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 1
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
-    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__4.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant
     disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__4.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
