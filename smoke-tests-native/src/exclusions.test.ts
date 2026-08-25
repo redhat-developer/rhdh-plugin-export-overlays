@@ -9,6 +9,7 @@ import { strict as assert } from "node:assert";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  candidateNames,
   excluderFor,
   loadExclusions,
   matchExclusion,
@@ -51,10 +52,12 @@ test("the image-name candidate widens no committed pattern", () => {
   const widened: string[] = [];
   for (const exclusion of parsed) {
     for (const name of names) {
-      const base = name.replace(/-dynamic$/, "");
-      const npmForms = [base, `${base}-dynamic`];
-      const imageBase = base.replace(/^@/, "").replace(/\//g, "-");
-      const imageForms = [imageBase, `${imageBase}-dynamic`];
+      // Split the real candidate list rather than re-deriving the transform here: a
+      // copy of it would keep this guard green against a candidateNames that had
+      // since grown a third form.
+      const candidates = candidateNames(name);
+      const npmForms = candidates.filter((c) => c.startsWith("@"));
+      const imageForms = candidates.filter((c) => !c.startsWith("@"));
       const byNpm = npmForms.some((n) => exclusion.pattern.test(n));
       const byImage = imageForms.some((n) => exclusion.pattern.test(n));
       if (byImage && !byNpm) {

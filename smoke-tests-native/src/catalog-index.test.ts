@@ -282,10 +282,11 @@ test("a malformed index fails the run rather than validating nothing", () => {
 // ---------------------------------------------------------------------------
 // writeCatalogIndexConfig
 // ---------------------------------------------------------------------------
-test("writeCatalogIndexConfig produces a config that enables every ref", () => {
+test("writeCatalogIndexConfig produces a config that enables every ref", async () => {
   const dest = tempDir();
   const refs = [ociRef("plugin-a"), ociRef("plugin-b")];
-  return writeCatalogIndexConfig(refs, dest).then((path) => {
+  {
+    const path = await writeCatalogIndexConfig(refs, dest);
     const doc = parse(readFileSync(path, "utf8")) as {
       plugins: Array<{ package: string; disabled: boolean }>;
       includes?: unknown;
@@ -297,10 +298,10 @@ test("writeCatalogIndexConfig produces a config that enables every ref", () => {
     // No `includes:` — it would re-import the index's own `enabled: false` defaults,
     // and the CLI resolves the path relative to its own cwd (a temp dir) anyway.
     assert.equal(doc.includes, undefined);
-  });
+  }
 });
 
-test("writeCatalogIndexConfig carries no pluginConfig from the index", () => {
+test("writeCatalogIndexConfig carries no pluginConfig from the index", async () => {
   // The index's pluginConfig blocks reference ${ENV_VAR}s that exist in a deployed
   // RHDH and nowhere here; a plugin that validates config at boot would fail on the
   // empty substitution. The harness supplies its own dummy config instead.
@@ -313,9 +314,8 @@ test("writeCatalogIndexConfig carries no pluginConfig from the index", () => {
   ]);
   const { refs } = readCatalogIndexRefs(path);
   const dest = tempDir();
-  return writeCatalogIndexConfig(refs, dest).then((out) => {
-    assert.equal(readFileSync(out, "utf8").includes("pluginConfig"), false);
-  });
+  const out = await writeCatalogIndexConfig(refs, dest);
+  assert.equal(readFileSync(out, "utf8").includes("pluginConfig"), false);
 });
 
 // ---------------------------------------------------------------------------

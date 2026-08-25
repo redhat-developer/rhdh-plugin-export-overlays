@@ -274,8 +274,9 @@ async function materializeSource(
     case "file":
       return { path: source.path, excluded: [] };
     default: {
-      // Exhaustiveness guard: a fourth SmokeSource that happens to carry a `path`
-      // would otherwise compile and be silently treated as a raw dynamic-plugins.yaml.
+      // A fourth SmokeSource now fails to COMPILE here rather than being silently
+      // treated as a raw dynamic-plugins.yaml. The throw is for a value that reached
+      // this function without passing through resolveSource.
       const unreachable: never = source;
       throw new Error(
         `unhandled plugin source: ${JSON.stringify(unreachable)}`,
@@ -424,15 +425,14 @@ function resolveSource(
   catalogIndex: string | undefined,
   support: string | undefined,
 ): { source: SmokeSource; support?: string } | { usageError: string } {
-  const given = [
+  const flags: Array<[string, string | undefined]> = [
     ["--dynamic-plugins", file],
     ["--workspace", workspace],
     ["--catalog-index", catalogIndex],
-  ].filter(([, value]) => value) as Array<[string, string]>;
+  ];
+  const given = flags.filter(([, value]) => value).map(([flag]) => flag);
   if (given.length > 1) {
-    return {
-      usageError: `Provide only one of ${given.map(([flag]) => flag).join(", ")}.`,
-    };
+    return { usageError: `Provide only one of ${given.join(", ")}.` };
   }
   // --support filters metadata by spec.support, which only workspace mode reads; an
   // explicit dynamic-plugins.yaml has no metadata to filter, and a catalog index

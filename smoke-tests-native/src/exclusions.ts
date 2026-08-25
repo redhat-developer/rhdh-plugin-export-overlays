@@ -191,7 +191,7 @@ export function loadExclusions(path: string): Exclusion[] {
  * package.json's npm name) — the same one-identifier-space guarantee the -dynamic
  * normalization gives workspace mode.
  */
-function candidateNames(packageName: string): string[] {
+export function candidateNames(packageName: string): string[] {
   const base = packageName.replace(/-dynamic$/, "");
   // Both directions. Stripping only the NAME meant a pattern written with the suffix
   // matched at boot scope (installed name) but not at install scope (metadata name) —

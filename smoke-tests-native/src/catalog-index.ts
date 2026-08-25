@@ -90,13 +90,10 @@ export function imageNameFromRef(ref: string): string | undefined {
   // as the image name. Require a separator so those are rejected as malformed, which
   // is what the sibling validator (scripts/validateCatalogIndex.py) does too.
   if (!body.includes("/")) return undefined;
-  const lastSegment = body.split("/").pop();
-  if (!lastSegment) return undefined;
-  // Strip the digest first: a ref can carry `:tag@sha256:…`, and splitting on ":"
-  // first would leave the digest glued to the name.
-  const withoutDigest = lastSegment.split("@")[0];
-  const name = withoutDigest.split(":")[0];
-  return name || undefined;
+  const lastSegment = body.slice(body.lastIndexOf("/") + 1);
+  // Strip the digest before the tag: a ref can carry `:tag@sha256:…`, and splitting on
+  // ":" first would leave the digest glued to the name.
+  return lastSegment.split("@")[0].split(":")[0] || undefined;
 }
 
 /** Read the `plugins[]` entries of a catalog index's dynamic-plugins.default.yaml. */
@@ -108,12 +105,9 @@ function readIndexEntries(path: string): IndexEntry[] {
   // `typeof [] === "object"`, so an array has to be rejected explicitly — otherwise a
   // top-level list falls through to the "no 'plugins' list" branch and the message
   // sends the reader looking for a key in a file that has no keys at all.
-  if (
-    doc === null ||
-    doc === undefined ||
-    typeof doc !== "object" ||
-    Array.isArray(doc)
-  ) {
+  // `typeof undefined` is "undefined" so the typeof test already covers it; `null` and
+  // arrays both report "object" and have to be named.
+  if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
     throw new Error(`${path}: expected a mapping at the top level`);
   }
   const plugins = doc.plugins;
@@ -228,7 +222,7 @@ function emptyRefsMessage(
   ].filter(Boolean);
   return (
     `${path} declares no installable oci:// packages ` +
-    `(${declared} entr(ies)` +
+    `(${declared} entries` +
     (filters.length ? `, ${filters.join(", ")}` : "") +
     `) — nothing to validate`
   );
