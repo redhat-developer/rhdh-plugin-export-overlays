@@ -1,5 +1,7 @@
 # Helm overrides for RHDH chart built-in Lightspeed (LCS sidecar + RAG init).
 # LLM credentials: rhdh-secrets.yaml (envsubst) — not lightspeed.servers in app-config.
+#
+# Sidecar EmptyDir vector stores are per-namespace.
 global:
   lightspeed:
     enabled: true
