@@ -189,52 +189,6 @@ async function runLokiInstallScript(): Promise<{
   };
 }
 
-/** Parallel Playwright projects share openshift-logging; tolerate create races. */
-function isParallelLokiInstallRace(output: string): boolean {
-  return /already exists/i.test(output);
-}
-
-async function waitForPeerLokiInstallUrl(
-  timeoutMs = 600_000,
-): Promise<string | undefined> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const url = await resolveLokiUrlFromCluster();
-    if (url) {
-      return url;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 15_000));
-  }
-  return undefined;
-}
-
-async function runLokiInstallScriptWithRaceRetry(): Promise<{
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}> {
-  let result = await runLokiInstallScript();
-  if (result.exitCode === 0) {
-    return result;
-  }
-  const output = `${result.stdout}${result.stderr}`;
-  if (!isParallelLokiInstallRace(output)) {
-    return result;
-  }
-  console.warn(
-    "[configureOrchestratorLoki] Parallel Loki install race; waiting for peer",
-  );
-  const peerUrl = await waitForPeerLokiInstallUrl();
-  if (peerUrl) {
-    return { exitCode: 0, stdout: `${peerUrl}\n`, stderr: "" };
-  }
-  console.warn(
-    "[configureOrchestratorLoki] Peer Loki URL not ready; retrying install once",
-  );
-  result = await runLokiInstallScript();
-  return result;
-}
-
 function buildLokiQueryRangeProbeUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/loki/api/v1/query_range?query=${encodeURIComponent('{openshift_log_type="application"}')}&limit=1`;
 }
@@ -267,33 +221,43 @@ async function verifyLokiApiReturnsJson(
 async function selectLokiBaseUrlForRhdh(
   externalUrl: string,
   token: string,
+  timeoutMs = 600_000,
 ): Promise<string> {
   const preferExternal = process.env.LOKI_USE_EXTERNAL_ROUTE === "true";
-  const internalUrl = await resolveLokiInternalUrl();
-  const candidates = preferExternal
-    ? [externalUrl, internalUrl]
-    : [internalUrl, externalUrl];
+  const deadline = Date.now() + timeoutMs;
+  let lastError: unknown;
 
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
+  while (Date.now() < deadline) {
+    const internalUrl = await resolveLokiInternalUrl();
+    const candidates = preferExternal
+      ? [externalUrl, internalUrl]
+      : [internalUrl, externalUrl];
+
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      try {
+        await verifyLokiApiReturnsJson(candidate, token);
+        console.warn(
+          `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
+        );
+        return candidate;
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
+          error instanceof Error ? error.message : error,
+        );
+      }
     }
-    try {
-      await verifyLokiApiReturnsJson(candidate, token);
-      console.warn(
-        `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
-      );
-      return candidate;
-    } catch (error) {
-      console.warn(
-        `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
-        error instanceof Error ? error.message : error,
-      );
-    }
+    await sleep(15_000);
   }
 
   throw new Error(
-    "No Loki baseUrl passed query_range probe (tried in-cluster gateway and external route)",
+    `No Loki baseUrl passed query_range probe (tried in-cluster gateway and external route): ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
   );
 }
 
@@ -365,7 +329,7 @@ export async function configureOrchestratorLoki(): Promise<void> {
   process.env.AUTH_TOKEN = await resolveOpenShiftAuthToken();
 
   try {
-    const result = await runLokiInstallScriptWithRaceRetry();
+    const result = await runLokiInstallScript();
     const output = `${result.stdout}${result.stderr}`.trim();
     if (result.exitCode !== 0) {
       throw new Error(

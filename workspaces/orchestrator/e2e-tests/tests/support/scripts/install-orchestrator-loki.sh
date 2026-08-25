@@ -56,6 +56,18 @@ log() {
   echo "[install-orchestrator-loki] $*" >&2
 }
 
+# Parallel Playwright projects (legacy + NFS) share openshift-logging. Tekton/topology
+# wait for the other worker after AlreadyExists; Loki cannot — `oc create secret` is
+# not idempotent. Hold a kernel lock for the whole script so the loser discovers a
+# Ready stack instead of racing create.
+acquire_loki_install_lock() {
+  local lock="${LOKI_INSTALL_LOCK:-/tmp/orchestrator-loki-install.lock}"
+  exec 200>"${lock}"
+  log "Waiting for Loki install lock (${lock})..."
+  flock -w "${LOKI_INSTALL_LOCK_TIMEOUT:-1800}" 200
+  log "Acquired Loki install lock"
+}
+
 loki_url_from_route() {
   local host
   host="$(oc get route "${LOKI_ROUTE}" -n "${LOKI_NS}" -o jsonpath='{.spec.host}' 2>/dev/null || true)"
@@ -842,6 +854,8 @@ recover_lokistack() {
 
 main() {
   local url
+
+  acquire_loki_install_lock
 
   if url="$(loki_url_from_route)" && loki_is_healthy; then
     ensure_log_collection
