@@ -1,0 +1,213 @@
+# Copyright Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+# Catalog index sanity check: install and boot EVERY package a published
+# plugin-catalog-index image declares, with the Docker-free smoke-tests-native harness.
+#
+# This is the upstream half of RHDH's cluster-free plugin sanity check (RHIDP-13508).
+# RHDH's job validates the index against its own `packages/backend` source; this one
+# validates the same artifacts against the install CLI + startTestBackend, in the repo
+# that produces the index — so a broken package is attributable to the change that
+# introduced it rather than discovered in a different repo's nightly.
+#
+# Not a pull_request trigger, for the same reason RHDH's is not: the index is built
+# elsewhere and changes on its own, so running this as a PR check would fail unrelated
+# work whenever the index drifts. Static validation IS on every generation — that is
+# Step 5 of scripts/update-index.sh (validateCatalogIndex.py), which costs no pulls.
+name: Catalog Index Sanity
+
+on:
+  schedule:
+    # 04:00 UTC — an hour after the community sweep (03:00), so the two ~100-artifact
+    # runs do not contend for registry bandwidth or runner capacity.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      catalog_index_image:
+        description: >-
+          Catalog index image to validate. Defaults to the productized index for the
+          branch (quay.io/rhdh/plugin-catalog-index:next on main). Use this for RC
+          verification against a specific tag or digest.
+        type: string
+        required: false
+      strict_validation:
+        description: >-
+          Fail the static validation step on warnings too (fallback tags,
+          tag-only refs, packages missing from index.json).
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # skopeo: extractCatalogIndex.sh pulls the index, and the install CLI shells
+        # out to it for every plugin artifact.
+        run: |
+          sudo apt-get update && sudo apt-get install -y skopeo
+          pip install -r scripts/requirements.txt
+
+      - name: Resolve the catalog index image
+        id: index
+        env:
+          # `next` tracks main; release branches carry their own version tag, matching
+          # how the midstream build tags the image (build/ci/update-index.sh).
+          BRANCH: ${{ github.ref_name }}
+          OVERRIDE: ${{ inputs.catalog_index_image }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${OVERRIDE}" ]]; then
+            # Shape-check the dispatch input: it reaches GITHUB_OUTPUT, and a
+            # multi-line value there can forge additional step outputs.
+            if [[ ! "${OVERRIDE}" =~ ^[A-Za-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[a-f0-9]{64})?$ ]]; then
+              echo "invalid catalog_index_image: ${OVERRIDE}" >&2
+              exit 1
+            fi
+            image="${OVERRIDE}"
+          elif [[ "${BRANCH}" == release-* ]]; then
+            image="quay.io/rhdh/plugin-catalog-index:${BRANCH#release-}"
+          else
+            image="quay.io/rhdh/plugin-catalog-index:next"
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          # The tag is a moving target; record the digest it resolved to so a later run
+          # can be traced back to the exact index it validated.
+          digest=$(skopeo inspect --no-creds --override-os linux --override-arch amd64 \
+            --format '{{.Digest}}' "docker://${image}" 2> /dev/null || echo "unresolved")
+          echo "Catalog index: \`${image}\` @ \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Extract dynamic-plugins.default.yaml from the index
+        env:
+          IMAGE: ${{ steps.index.outputs.image }}
+        run: ./scripts/extractCatalogIndex.sh "$IMAGE" catalog-index-published.yaml
+
+      - name: Validate the index statically
+        id: validate
+        # No pulls — parses what the index declares. Runs before the install so a
+        # structural defect is reported in seconds rather than after ~50 artifacts.
+        #
+        # `--no-build-metadata` because a published index image carries
+        # dynamic-plugins.default.yaml and NOT the plugin_builds/ tree that produced
+        # it. Without the flag every package reports `unknown-image` and the step is
+        # 50 lines of noise. The skipped rules are named in the output, so a pass here
+        # cannot be read as "everything was checked" — they gate at generation time
+        # instead, in Step 5 of update-index.sh where plugin_builds/ exists.
+        #
+        # `continue-on-error`: a finding here must not hide the install+boot result,
+        # which is the signal this job exists for. The verdict step re-reads it.
+        continue-on-error: true
+        env:
+          STRICT: ${{ inputs.strict_validation }}
+        run: |
+          set -euo pipefail
+          mkdir -p published
+          cp catalog-index-published.yaml published/dynamic-plugins.default.yaml
+          ARGS=(
+            --output-dir published
+            --registry quay.io/rhdh
+            --no-build-metadata
+            --json validation.json
+          )
+          if [[ "${STRICT}" == "true" ]]; then ARGS+=(--strict); fi
+          python3 scripts/validateCatalogIndex.py "${ARGS[@]}" | tee validation.log
+
+      - name: Run the catalog index sanity check
+        id: sanity
+        working-directory: smoke-tests-native
+        # Installs and boots every oci:// package the index declares. Exits non-zero on
+        # any plugin that fails to install, load, boot or ship a valid bundle.
+        run: |
+          set -euo pipefail
+          yarn install --immutable
+          yarn smoke \
+            --catalog-index ../catalog-index-published.yaml \
+            --exclusions catalog-index-sanity-excludes.txt \
+            --out results-catalog-index.json 2>&1 | tee sanity.log
+
+      - name: Summarise
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Catalog index sanity"
+            echo
+            if [[ -f smoke-tests-native/results-catalog-index.json ]]; then
+              jq -r '
+                "- status: **\(.status)**",
+                "- declared: \(.catalogIndex.declared) package(s); installed: \(.catalogIndex.refCount); bundled in the RHDH image: \(.catalogIndex.inImage)",
+                "- backend: \(.backend.loaded)/\(.backend.total) loaded, start=\(.backendStart.ok)",
+                "- frontend bundles: \(.frontend.valid)/\(.frontend.total) valid"
+              ' smoke-tests-native/results-catalog-index.json
+              echo
+              jq -r '.backend.errors[]? , .frontend.errors[]? | "- ✗ \(.plugin // .name // "?"): \(.error // .message // .)"' \
+                smoke-tests-native/results-catalog-index.json || true
+            else
+              echo "No results.json produced — the harness did not reach the report stage."
+            fi
+            echo
+            echo "### Static validation"
+            echo '```'
+            cat validation.log 2> /dev/null || echo "(not run)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: catalog-index-sanity
+          path: |
+            catalog-index-published.yaml
+            validation.json
+            validation.log
+            smoke-tests-native/results-catalog-index.json
+            smoke-tests-native/sanity.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verdict
+        # The sanity run is what fails the job. Static validation is reported but not
+        # gating here: run against a PUBLISHED index there is no plugin_builds/ to
+        # cross-check against, so the build-metadata rules cannot fire and a pass would
+        # overstate what was checked. Those rules DO gate where they can — Step 5 of
+        # update-index.sh, at generation time, where plugin_builds/ exists.
+        if: ${{ !cancelled() }}
+        env:
+          SANITY: ${{ steps.sanity.outcome }}
+          VALIDATION: ${{ steps.validate.outcome }}
+        run: |
+          echo "sanity=${SANITY} static-validation=${VALIDATION}"
+          [[ "${SANITY}" == "success" ]] || exit 1
