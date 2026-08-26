@@ -87,6 +87,35 @@ def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
     return name_with_tag, "", digest if sep else ""
 
 
+class PathNotContainedError(ValueError):
+    """A CLI-supplied path resolved outside the directory it is confined to."""
+
+
+def require_contained(flag: str, arg: str, root: Path | None = None) -> Path:
+    """Resolve a CLI-supplied path, refusing one that escapes ``root``.
+
+    Every path these scripts touch comes from an argv flag, so a bad (or hostile) value
+    could otherwise read or write anywhere the process can reach. This is the Python
+    half of the rule ``smoke-tests-native/src/paths.ts`` already applies to the
+    harness's own flags (Sonar S8707) — same contract, same error shape.
+
+    ``root`` itself is accepted; ``resolve()`` collapses any ``..`` first, so a path
+    that escapes and comes back (``a/../../b``) is judged on where it actually lands.
+
+    Only paths that came from argv should go through here. A default derived from
+    ``__file__`` is repo-controlled, not attacker-controlled, and confining it would
+    reject legitimate layouts — a script invoked through a symlink from outside the
+    working directory, which is exactly how the midstream runs these.
+    """
+    base = (root or Path.cwd()).resolve()
+    resolved = (base / arg).resolve()
+    if resolved != base and base not in resolved.parents:
+        raise PathNotContainedError(
+            f"{flag} must resolve inside {base}: {arg!r} resolves to {resolved}"
+        )
+    return resolved
+
+
 def read_plugins_list(workspace_dir: Path) -> list[str]:
     """Read plugins-list.yaml and return list of plugin paths (without trailing colon/args)."""
     plugins_list_file = workspace_dir / "plugins-list.yaml"

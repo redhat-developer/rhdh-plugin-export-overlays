@@ -308,6 +308,75 @@ class TestValidationOutputs:
         assert data["plugins"]["plugin-a"]["stages"]["validate"]["status"] == "fail"
 
 
+class TestPathContainment:
+    """CLI-supplied paths are confined to the working directory.
+
+    Every path this script touches arrives from an argv flag, so a bad or hostile value
+    could otherwise read or write anywhere the process can reach. Same rule
+    smoke-tests-native/src/paths.ts applies to the harness's own flags.
+    """
+
+    @pytest.mark.parametrize(
+        "flag, value",
+        [
+            pytest.param("--validation-json", "../escaped.json", id="json_relative_escape"),
+            pytest.param("--validation-json", "/tmp/escaped.json", id="json_absolute"),
+            pytest.param("--output-dir", "../elsewhere", id="output_dir_escape"),
+            pytest.param("--plugin-builds-dir", "/etc", id="builds_dir_absolute"),
+            pytest.param(
+                "--validate-allowlist", "/etc/passwd", id="allowlist_absolute"
+            ),
+        ],
+    )
+    def test_a_path_escaping_the_working_directory_is_refused(
+        self, clean_repo, flag, value
+    ):
+        result = run_update_index(clean_repo, flag, value)
+        assert result.returncode != 0
+        assert "must resolve inside" in (result.stdout + result.stderr)
+        # Named so the operator knows WHICH flag to fix, not just that one is bad.
+        expected_flag = {
+            "--validate-allowlist": "--allowlist",
+            "--validation-json": "--json",
+        }.get(flag, flag)
+        assert expected_flag in (result.stdout + result.stderr)
+
+    def test_a_path_that_escapes_and_returns_is_judged_on_where_it_lands(
+        self, clean_repo
+    ):
+        """`resolve()` collapses `..` first, so `a/../catalog-index` is contained."""
+        result = run_update_index(
+            clean_repo, "--output-dir", "elsewhere/../catalog-index"
+        )
+        assert result.returncode == 0, result.stderr
+
+    def test_the_allowlist_default_is_not_confined(self, clean_repo):
+        """It comes from `__file__`, not from argv, so it is not an injection vector.
+
+        Confining it would reject the midstream layout outright: there the script runs
+        from a synced overlay-repo checkout, reached through a symlink — which is
+        exactly how this fixture invokes it too.
+        """
+        result = subprocess.run(
+            [
+                str(clean_repo / "scripts" / "update-index.sh"),
+                "--registry",
+                REGISTRY,
+            ],
+            env={
+                "PATH": f"{python_shim(clean_repo.parent)}:{os.environ.get('PATH', '')}",
+                "HOME": os.environ.get("HOME", "/tmp"),
+                "PYTHONPATH": str(SCRIPTS_DIR),
+            },
+            cwd=str(clean_repo),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "must resolve inside" not in result.stdout + result.stderr
+
+
 class TestSanityCheck:
     def test_it_is_skipped_unless_asked_for(self, clean_repo, tmp_path):
         """It pulls every artifact in the index; nothing should opt into that by accident."""

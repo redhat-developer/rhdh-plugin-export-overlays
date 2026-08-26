@@ -343,7 +343,8 @@ class TestRules:
         assert "duplicate-ref" in rules_of(result)
         duplicate = next(f for f in result.findings if f.rule == "duplicate-ref")
         # Naming both positions is what makes the finding actionable in a 50-entry file.
-        assert "plugins[0]" in duplicate.message and "plugins[1]" in duplicate.message
+        assert "plugins[0]" in duplicate.message
+        assert "plugins[1]" in duplicate.message
 
     def test_the_same_image_at_two_different_digests_is_not_a_duplicate(self, tmp_path):
         """Only an identical ref shadows config; two refs are a different problem."""
@@ -458,7 +459,8 @@ class TestRules:
         assert finding.severity == WARNING
         # Both tags in the message: "ships an older build" is only actionable if you
         # can see which build was wanted and which one landed.
-        assert "2.0.0--1.7.0" in finding.message and "2.0.0--1.7.2" in finding.message
+        assert "2.0.0--1.7.0" in finding.message
+        assert "2.0.0--1.7.2" in finding.message
 
     def test_a_resolved_package_absent_from_index_json_is_reported(self, tmp_path):
         result = run(
@@ -626,7 +628,8 @@ class TestAllowlist:
         """`ref-form` is about the file, not a package — an image regex cannot judge it."""
         allowlist = [allowlist_entry("ref-form", ".*")]
         kept, suppressed = apply_allowlist([Finding("ref-form", "m")], allowlist)
-        assert len(kept) == 1 and suppressed == []
+        assert len(kept) == 1
+        assert suppressed == []
 
     def test_end_to_end_through_validate(self, tmp_path):
         allowlist_file = tmp_path / "allowlist.txt"
@@ -870,7 +873,8 @@ class TestRecordInReport:
         stage = data["plugins"]["plugin-a"]["stages"]["validate"]
         assert stage["status"] == "pass"
         assert stage["warnings"] == ["[fallback-tag] older"]
-        assert "errors" not in stage and "reason" not in stage
+        assert "errors" not in stage
+        assert "reason" not in stage
         assert data["plugins"]["plugin-a"]["overall"] == "pass"
 
     def test_a_finding_about_an_unknown_image_creates_no_plugin(self, tmp_path):

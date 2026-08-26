@@ -403,7 +403,18 @@ else
         VALIDATE_ARGS+=("$DEBUG_FLAG")
     fi
 
-    if ! python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}"; then
+    VALIDATE_RC=0
+    python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}" || VALIDATE_RC=$?
+
+    # Exit 2 is a USAGE error (a path that escapes the working directory, a missing
+    # --registry) — not a finding about the index. Report mode must not swallow it:
+    # continuing would run the rest of the pipeline on arguments the validator refused.
+    if [[ $VALIDATE_RC -ge 2 ]]; then
+        echo -e "${red}[ERROR] validateCatalogIndex.py rejected its arguments (exit $VALIDATE_RC)${norm}" >&2
+        exit 1
+    fi
+
+    if [[ $VALIDATE_RC -ne 0 ]]; then
         if [[ "$VALIDATE_MODE" == "gate" ]]; then
             echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode gate)${norm}" >&2
             exit 1

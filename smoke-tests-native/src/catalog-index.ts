@@ -108,15 +108,15 @@ function readIndexEntries(path: string): IndexEntry[] {
   // `typeof undefined` is "undefined" so the typeof test already covers it; `null` and
   // arrays both report "object" and have to be named.
   if (doc === null || typeof doc !== "object" || Array.isArray(doc)) {
-    throw new Error(`${path}: expected a mapping at the top level`);
+    throw new TypeError(`${path}: expected a mapping at the top level`);
   }
   const plugins = doc.plugins;
   if (!Array.isArray(plugins)) {
-    throw new Error(`${path}: no 'plugins' list`);
+    throw new TypeError(`${path}: no 'plugins' list`);
   }
   return plugins.map((entry, position) => {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      throw new Error(`${path}: plugins[${position}] is not a mapping`);
+      throw new TypeError(`${path}: plugins[${position}] is not a mapping`);
     }
     return entry as IndexEntry;
   });

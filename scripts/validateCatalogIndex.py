@@ -49,6 +49,7 @@ from plugin_utils import (
     log_info,
     log_warn,
     parse_image_reference,
+    require_contained,
     set_debug,
 )
 
@@ -652,47 +653,62 @@ def check_index_json(
     the DPDY, so it keeps running — skipping it was lost coverage the "not checked" line
     did not even admit to.
     """
-    findings: list[Finding] = []
     if index is None:
-        return findings
-
+        return []
+    findings: list[Finding] = []
     for image, ref in sorted(by_image.items()):
-        entry = index.get(image)
-        if entry is None:
-            # An unresolved image is legitimately left out of index.json, and
-            # `unresolved-image` already reports it — flagging it twice would make the
-            # allowlist need two entries for one root cause.
-            if has_build_metadata and builds.get(image, {}).get("digest"):
-                findings.append(
-                    Finding(
-                        rule="index-missing-entry",
-                        message=(
-                            f"'{image}' is declared in dynamic-plugins.default.yaml "
-                            f"but has no index.json entry"
-                        ),
-                        image=image,
-                    )
-                )
-            continue
-        declared = entry.get("registryReference")
-        if not isinstance(declared, str) or not ref.digest:
-            continue
-        # index.json records the digest-pinned form; compare on the digest alone so a
-        # registry rename (quay.io/rhdh -> registry.access.redhat.com/rhdh under
-        # --rhec) is not reported as a mismatch when the artifact is identical.
-        declared_digest = declared.split("@", 1)[1] if "@" in declared else ""
-        if declared_digest and declared_digest != ref.digest:
-            findings.append(
+        findings.extend(
+            _check_index_entry(
+                image, ref, index.get(image), builds, has_build_metadata
+            )
+        )
+    return findings
+
+
+def _check_index_entry(
+    image: str,
+    ref: ParsedRef,
+    entry: dict | None,
+    builds: dict[str, dict],
+    has_build_metadata: bool,
+) -> list[Finding]:
+    """The index.json rules for one declared package."""
+    if entry is None:
+        # An unresolved image is legitimately left out of index.json, and
+        # `unresolved-image` already reports it — flagging it twice would make the
+        # allowlist need two entries for one root cause.
+        if has_build_metadata and builds.get(image, {}).get("digest"):
+            return [
                 Finding(
-                    rule="index-ref-mismatch",
+                    rule="index-missing-entry",
                     message=(
-                        f"'{image}': index.json points at {declared_digest} but "
-                        f"dynamic-plugins.default.yaml pins {ref.digest}"
+                        f"'{image}' is declared in dynamic-plugins.default.yaml "
+                        f"but has no index.json entry"
                     ),
                     image=image,
                 )
-            )
-    return findings
+            ]
+        return []
+
+    declared = entry.get("registryReference")
+    if not isinstance(declared, str) or not ref.digest:
+        return []
+    # index.json records the digest-pinned form; compare on the digest alone so a
+    # registry rename (quay.io/rhdh -> registry.access.redhat.com/rhdh under
+    # --rhec) is not reported as a mismatch when the artifact is identical.
+    declared_digest = declared.split("@", 1)[1] if "@" in declared else ""
+    if not declared_digest or declared_digest == ref.digest:
+        return []
+    return [
+        Finding(
+            rule="index-ref-mismatch",
+            message=(
+                f"'{image}': index.json points at {declared_digest} but "
+                f"dynamic-plugins.default.yaml pins {ref.digest}"
+            ),
+            image=image,
+        )
+    ]
 
 
 def validate(
@@ -919,8 +935,7 @@ Examples:
              "Repeatable.",
     )
     parser.add_argument(
-        "-a", "--allowlist", type=str, metavar="FILE",
-        default=str(Path(__file__).resolve().parent / "catalog-index-validation-allowlist.txt"),
+        "-a", "--allowlist", type=str, metavar="FILE", default=None,
         help="Ticketed exceptions file (default: scripts/catalog-index-validation-allowlist.txt)",
     )
     parser.add_argument(
@@ -960,8 +975,28 @@ Examples:
     if not args.registry:
         parser.error("--registry is required")
 
-    output_dir = Path(args.output_dir)
-    plugin_builds_dir = Path(args.plugin_builds_dir)
+    # Every path below arrives from argv, so each is confined to the working directory
+    # before any filesystem call — the rule smoke-tests-native/src/paths.ts already
+    # applies to the harness's own flags. The allowlist DEFAULT is exempt: it is derived
+    # from __file__, not from argv, and confining it would reject the midstream layout,
+    # where the script is invoked from a synced overlay-repo checkout.
+    try:
+        output_dir = require_contained("--output-dir", args.output_dir)
+        plugin_builds_dir = require_contained(
+            "--plugin-builds-dir", args.plugin_builds_dir
+        )
+        allowlist_path = (
+            require_contained("--allowlist", args.allowlist)
+            if args.allowlist is not None
+            else Path(__file__).resolve().parent
+            / "catalog-index-validation-allowlist.txt"
+        )
+        json_out = (
+            require_contained("--json", args.json_out) if args.json_out else None
+        )
+    except ValueError as exc:
+        log_error(str(exc))
+        return 2
     allowed = {args.registry, *(args.community_registry or [])}
 
     dpdy = output_dir / "dynamic-plugins.default.yaml"
@@ -975,7 +1010,7 @@ Examples:
     log_debug(f"allowed registries: {', '.join(sorted(allowed))}")
 
     try:
-        allowlist = load_allowlist(Path(args.allowlist))
+        allowlist = load_allowlist(allowlist_path)
         result = validate(
             output_dir,
             plugin_builds_dir,
@@ -989,13 +1024,12 @@ Examples:
 
     print(render(result))
 
-    if args.json_out:
-        json_path = Path(args.json_out)
-        json_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(json_path, "w", encoding="utf-8") as f:
+    if json_out:
+        json_out.parent.mkdir(parents=True, exist_ok=True)
+        with open(json_out, "w", encoding="utf-8") as f:
             json.dump(to_json(result, args.strict), f, indent=2)
             f.write("\n")
-        log_debug(f"Wrote {json_path}")
+        log_debug(f"Wrote {json_out}")
 
     if args.report_file:
         record_in_report(result, BuildReport(args.report_file))

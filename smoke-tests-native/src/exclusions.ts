@@ -203,7 +203,7 @@ export function candidateNames(packageName: string): string[] {
   // `@scope/name` -> `scope-name`, the transform the export tooling uses to name the
   // published image. A name that is already in image form passes through unchanged, so
   // this only ever ADDS candidates and never removes an npm-form match.
-  const image = base.replace(/^@/, "").replace(/\//g, "-");
+  const image = base.replace(/^@/, "").replaceAll("/", "-");
   return [...new Set([...npm, image, `${image}-dynamic`])];
 }
 
