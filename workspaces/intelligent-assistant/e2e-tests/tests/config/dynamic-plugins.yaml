@@ -1,15 +1,15 @@
-# Local/PR deploy overlay. Do not use on nightly (see dynamic-plugins-nightly.yaml).
-#
 # RHDH 1.11-CI catalog index is on quay.io; e2e-test-utils 2.1.8 still emits
 # registry.access.redhat.com {{inherit}} for keycloak. inherit only matches
 # the same image registry/repo, so remap keycloak to quay and disable the
 # RHEC inherit. Homepage 1.11.0--1.17.0 is not on Quay (manifest unknown).
+#
+# app-defaults provides the host drawer used by the Intelligent Assistant FAB.
+# Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
 plugins:
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:1.11.0--1.17.0
     disabled: true
   - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:{{inherit}}
     disabled: true
-  # Same package string as e2e-test-utils 2.1.8 auth config — merge replaces it.
   - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
     disabled: true
   - package: oci://quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
@@ -35,3 +35,5 @@ plugins:
     disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__4.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
     disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true
