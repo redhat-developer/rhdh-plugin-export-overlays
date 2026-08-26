@@ -32,7 +32,6 @@ test.describe("Test github-issues", () => {
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink(component);
 
-    await uiHelper.clickTab("Issues");
     await page.getByRole("button", { name: "Log in" }).click();
     await loginHelper.checkAndReauthorizeGithubApp();
 
@@ -44,6 +43,7 @@ test.describe("Test github-issues", () => {
     const issuesCountText = new RegExp(
       `All repositories \\(${openIssues.length} Issue.*\\)`,
     );
+    await page.locator("a").getByText("Github Issues").first().click();
     await expect(page.getByText(issuesCountText)).toBeVisible();
 
     for (const issue of openIssues.slice(0, 5)) {
