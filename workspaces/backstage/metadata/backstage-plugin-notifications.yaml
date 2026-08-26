@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage/plugin-notifications"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.52.0__0.5.18!backstage-plugin-notifications
-  version: 0.5.18
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications:bs_1.54.4__0.5.20!backstage-plugin-notifications
+  version: 0.5.20
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: tech-preview
   lifecycle: active
