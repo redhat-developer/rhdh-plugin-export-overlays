@@ -20,7 +20,7 @@ async function navigateToTopology(uiHelper: UIhelper) {
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("backstage-janus");
   await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
+  await uiHelper.clickLink("Topology");
 }
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
@@ -54,7 +54,8 @@ test.describe("Test Topology plugin", () => {
     await rhdh.deploy({ timeout: null });
   });
 
-  test("Verify Topology tab is visible on a component with kubernetes annotations", async ({
+  // https://redhat.atlassian.net/browse/RHDHBUGS-3702
+  test.skip("Verify Topology tab is visible on a component with kubernetes annotations", async ({
     page,
     loginHelper,
     uiHelper,

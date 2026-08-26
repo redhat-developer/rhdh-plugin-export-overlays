@@ -14,7 +14,7 @@ export class KubernetesPage {
   async navigateToTabForComponent(componentName: string) {
     await this.uiHelper.openCatalogSidebar("Component");
     await this.uiHelper.clickLink(componentName);
-    await this.uiHelper.clickTab("Kubernetes");
+    await this.uiHelper.clickLink("Kubernetes");
   }
 
   async verifyDeployment(text: string) {
@@ -57,14 +57,9 @@ export class KubernetesPage {
         this.page.getByRole("textbox", { name: /search/i }),
       ).toBeVisible();
     } else {
-      await this.page
-        .locator(KUBERNETES_COMPONENTS.MuiSnackbarContent)
-        .waitFor({ state: "visible" });
-      expect(
-        await this.page
-          .locator(KUBERNETES_COMPONENTS.MuiSnackbarContent)
-          .textContent(),
-      ).toContain("NotAllowedError");
+      const alert = this.page.getByRole("alert");
+      await expect(alert).toBeVisible();
+      await expect(alert).toContainText("NotAllowedError");
     }
   }
 }
