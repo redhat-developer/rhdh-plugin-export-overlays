@@ -295,7 +295,10 @@ def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
 def load_plugin_builds(plugin_builds_dir: Path) -> dict[str, dict]:
     """Flatten `plugin_builds/<workspace>/<image>.json` into `{image: fields}`.
 
-    TODO(RHIDP-XXXXX): this is the fourth reader of that tree. The others are
+    NOTE (no ticket filed yet — deliberately not written as `TODO(...)`, because this
+    module's own allowlist parser rejects that marker without a well-formed key, and
+    shipping one it would refuse is not a good look in the file that enforces the rule):
+    this is the fourth reader of that tree. The others are
     `collect_fallback_entries` (generatePluginBuildInfo.py), `load_tag_by_key`
     (injectDpdyTagComments.py) and the loop in generateCatalogIndex.py —
     bootstrapPluginBuilds.py only deletes from it, so it does not count. The shared part
@@ -874,6 +877,31 @@ def record_in_report(result: ValidationResult, report: BuildReport) -> None:
         report.set_stage(image, "validate", "fail" if errors else "pass", **details)
 
 
+def _resolve_paths(args) -> tuple[Path, Path, Path, Path | None]:
+    """Confine every path that arrived from argv, and default the one that did not.
+
+    Each is resolved and required to stay inside the working directory before any
+    filesystem call — the rule smoke-tests-native/src/paths.ts already applies to the
+    harness's own flags. Raises ValueError, which main() turns into a usage exit.
+
+    The allowlist DEFAULT is exempt on purpose: it is derived from __file__, not from
+    argv, so it is not an injection vector — and confining it would reject the midstream
+    layout, where this script runs from a synced overlay-repo checkout reached through a
+    symlink.
+    """
+    return (
+        require_contained("--output-dir", args.output_dir),
+        require_contained("--plugin-builds-dir", args.plugin_builds_dir),
+        (
+            require_contained("--allowlist", args.allowlist)
+            if args.allowlist is not None
+            else Path(__file__).resolve().parent
+            / "catalog-index-validation-allowlist.txt"
+        ),
+        require_contained("--json", args.json_out) if args.json_out else None,
+    )
+
+
 def main() -> int:
     usage = """
 Usage: python3 validateCatalogIndex.py \\
@@ -975,25 +1003,8 @@ Examples:
     if not args.registry:
         parser.error("--registry is required")
 
-    # Every path below arrives from argv, so each is confined to the working directory
-    # before any filesystem call — the rule smoke-tests-native/src/paths.ts already
-    # applies to the harness's own flags. The allowlist DEFAULT is exempt: it is derived
-    # from __file__, not from argv, and confining it would reject the midstream layout,
-    # where the script is invoked from a synced overlay-repo checkout.
     try:
-        output_dir = require_contained("--output-dir", args.output_dir)
-        plugin_builds_dir = require_contained(
-            "--plugin-builds-dir", args.plugin_builds_dir
-        )
-        allowlist_path = (
-            require_contained("--allowlist", args.allowlist)
-            if args.allowlist is not None
-            else Path(__file__).resolve().parent
-            / "catalog-index-validation-allowlist.txt"
-        )
-        json_out = (
-            require_contained("--json", args.json_out) if args.json_out else None
-        )
+        output_dir, plugin_builds_dir, allowlist_path, json_out = _resolve_paths(args)
     except ValueError as exc:
         log_error(str(exc))
         return 2

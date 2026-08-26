@@ -208,7 +208,7 @@ class TestParseOciRef:
             name, tag, digest = parse_image_reference(body)
             parsed = parse_oci_ref(f"oci://{body}")
             assert parsed is not None, body
-            assert f"{parsed.registry}/{parsed.image}" == name, body
+            assert name == f"{parsed.registry}/{parsed.image}", body
             assert (parsed.tag, parsed.digest) == (tag, digest), body
 
     def test_a_short_digest_is_not_accepted_as_a_digest(self):
@@ -908,6 +908,62 @@ class TestRecordInReport:
         )
         assert not report_file.exists()
         assert list(tmp_path.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# The status page contract
+# ---------------------------------------------------------------------------
+class TestTroubleshootingAnchors:
+    """AGENTS.md: "Anchor slugs must stay in sync with REASON_ANCHORS in the renderer."
+
+    It lives here because this module is what put rule ids into that map: Step 5 writes
+    its reason as "[rule-id] message", so the rule id IS the prefix reason_to_link
+    matches on. Nothing tested that contract before, and a broken anchor is invisible —
+    the status page just renders the reason with no link.
+    """
+
+    @staticmethod
+    def _doc_ids():
+        import re
+
+        doc = (
+            Path(__file__).resolve().parent.parent.parent
+            / "user-guide"
+            / "troubleshooting-catalog-index.md"
+        ).read_text(encoding="utf-8")
+        explicit = set(re.findall(r'<a id="([^"]+)"', doc))
+        headings = {
+            re.sub(r"[^a-z0-9]+", "-", h.lower()).strip("-")
+            for h in re.findall(r"^#{2,4} (.+)$", doc, re.M)
+        }
+        return explicit | headings
+
+    def test_every_anchor_exists_in_the_troubleshooting_doc(self):
+        from renderCatalogStatus import REASON_ANCHORS
+
+        ids = self._doc_ids()
+        missing = sorted(a for a in REASON_ANCHORS.values() if a not in ids)
+        assert missing == [], "REASON_ANCHORS pointing at headings that do not exist"
+
+    def test_every_rule_id_anchor_names_a_live_rule(self):
+        """A `[rule-id]` prefix that no longer exists links a reason nothing produces."""
+        from renderCatalogStatus import REASON_ANCHORS
+
+        for prefix in REASON_ANCHORS:
+            if prefix.startswith("[") and prefix.endswith("]"):
+                assert prefix[1:-1] in RULES, prefix
+
+    def test_a_validate_reason_resolves_to_a_link(self):
+        """End to end: the reason this module writes becomes a documented link."""
+        from renderCatalogStatus import reason_to_link
+
+        doc = (
+            Path(__file__).resolve().parent.parent.parent
+            / "user-guide"
+            / "troubleshooting-catalog-index.md"
+        ).read_text(encoding="utf-8")
+        rendered = reason_to_link("[unresolved-image] 'plugin-a' was never resolved", doc)
+        assert "#validation-unresolved-image" in rendered
 
 
 # ---------------------------------------------------------------------------

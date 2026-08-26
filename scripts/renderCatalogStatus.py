@@ -34,6 +34,16 @@ STAGE_LABELS = {
 
 REASON_ANCHORS = {
     "Image not found in registry": "image-not-found-in-registry",
+    # Step 5 (validateCatalogIndex.py) writes its reason as "[rule-id] <message>", so
+    # the prefix IS the rule id. Anchor slugs must stay in sync with the headings in
+    # user-guide/troubleshooting-catalog-index.md — see AGENTS.md.
+    "[unresolved-image]": "validation-unresolved-image",
+    "[unknown-image]": "validation-unknown-image",
+    "[digest-mismatch]": "validation-digest-mismatch",
+    "[registry-not-allowed]": "validation-registry-not-allowed",
+    "[duplicate-ref]": "validation-duplicate-ref",
+    "[ref-form]": "validation-ref-form",
+    "[index-ref-mismatch]": "validation-index-ref-mismatch",
 }
 
 

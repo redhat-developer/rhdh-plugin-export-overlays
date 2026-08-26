@@ -469,7 +469,10 @@ if [[ $SANITY_CHECK -eq 1 ]]; then
 
     # Split from the run so an install failure is not reported as a plugin failure
     # pointing at a results.json that was never written.
-    if ! (cd "$SANITY_DIR" && yarn install --immutable); then
+    # --mode=skip-build so no dependency runs an install script; better-sqlite3 is then
+    # rebuilt by name because startTestBackend cannot boot without its native binding.
+    if ! (cd "$SANITY_DIR" && yarn install --immutable --mode=skip-build \
+        && yarn rebuild better-sqlite3); then
         echo -e "${red}[ERROR] yarn install failed in $SANITY_DIR — the sanity check did not run.${norm}" >&2
         exit 1
     fi

@@ -84,7 +84,11 @@ jobs:
         # out to it for every plugin artifact.
         run: |
           sudo apt-get update && sudo apt-get install -y skopeo
-          pip install -r scripts/requirements.txt
+          # Pinned and wheels-only: validateCatalogIndex.py needs PyYAML and nothing
+          # else, so this installs exactly that rather than the broader
+          # scripts/requirements.txt the generation workflows use. --only-binary keeps
+          # a source distribution from running its setup script during install.
+          pip install --only-binary :all: "PyYAML==6.0.3"
 
       - name: Resolve the catalog index image
         id: index
@@ -107,7 +111,16 @@ jobs:
             fi
             image="${OVERRIDE:-}"
           elif [[ "${BRANCH}" == release-* ]]; then
-            image="quay.io/rhdh/plugin-catalog-index:${BRANCH#release-}"
+            # Shape-check the branch for the same reason OVERRIDE is checked: it is
+            # interpolated into a value written to GITHUB_OUTPUT and the step summary.
+            # Reaching this needs repo write access, so it is defence in depth rather
+            # than a live hole — but the asymmetry with OVERRIDE was the finding.
+            version="${BRANCH#release-}"
+            if [[ ! "${version}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "unexpected release branch name: ${BRANCH}" >&2
+              exit 1
+            fi
+            image="quay.io/rhdh/plugin-catalog-index:${version}"
           else
             image="quay.io/rhdh/plugin-catalog-index:next"
           fi
@@ -161,7 +174,12 @@ jobs:
         # any plugin that fails to install, load, boot or ship a valid bundle.
         run: |
           set -euo pipefail
-          yarn install --immutable
+          # --mode=skip-build so no dependency runs an install script, then rebuild
+          # the ONE package that genuinely needs its native binding: without
+          # better-sqlite3 every startTestBackend() boot fails with "Could not locate
+          # the bindings file". Naming it is a tighter posture than a blanket install.
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
           yarn smoke \
             --catalog-index ../published/dynamic-plugins.default.yaml \
             --exclusions catalog-index-sanity-excludes.txt \
