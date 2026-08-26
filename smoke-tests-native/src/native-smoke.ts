@@ -129,7 +129,7 @@ const CLI_BIN = join(
 // mock already passed below — the earlier note here said otherwise, and booting it proved
 // that wrong. Without it, a module attaching to the catalog's extension points cannot be
 // loaded at all, so a wiring failure in one shipped as "installed, artifact valid".
-const coreFeatures = [scaffolderPlugin, searchPlugin, catalogPlugin];
+const coreFeatures = [catalogPlugin, scaffolderPlugin, searchPlugin];
 
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
