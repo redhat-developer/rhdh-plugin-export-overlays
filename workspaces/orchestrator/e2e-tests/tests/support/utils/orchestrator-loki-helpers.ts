@@ -224,7 +224,9 @@ async function tryLokiUrlCandidate(
 ): Promise<string | undefined> {
   try {
     await verifyLokiApiReturnsJson(candidate, token);
-    console.warn(`[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`);
+    console.warn(
+      `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
+    );
     return candidate;
   } catch (error) {
     console.warn(
