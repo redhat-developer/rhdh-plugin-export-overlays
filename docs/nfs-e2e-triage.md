@@ -25,20 +25,29 @@ Every suite here is L4b today; what the tickets need to know is not which layer 
 ## 1. The scope of the epic, measured
 
 The unit of cluster cost is the **Playwright project**, not the workspace: the project name
-is the Kubernetes namespace, and a name ending in `-app-next` is what switches
-`@red-hat-developer-hub/e2e-test-utils` into NFS mode.
+is the Kubernetes namespace. A name ending in `-app-next` switches
+`@red-hat-developer-hub/e2e-test-utils` into NFS mode, but it is not the only thing that
+does: `configure({ useNewFrontendSystem: true })` and `USE_NEW_FRONTEND_SYSTEM=true` do the
+same without touching the name, so counting NFS lanes by suffix alone undercounts them.
+
+All figures below measured 2026-08-26 on `origin/main`; they move as lanes migrate, so
+regenerate rather than quote them — §6 has the commands.
 
 | | Count |
 |---|---|
 | Workspaces with `e2e-tests/` | 24 |
-| **Playwright projects** (= namespaces = cluster claims) | **46** |
-| — with an `-app-next` lane today | 6 |
-| — of those, skipped in nightly | 2 (`tech-radar`, `app-defaults`) |
-| Legacy-only projects with no NFS lane yet | 40 |
-| Spec files / static `test()` declarations | 42 / 246 |
+| **Playwright projects** (= namespaces = cluster claims) | **48** |
+| — running NFS | 27 |
+| — — by the `-app-next` name | 11 |
+| — — by `configure({ useNewFrontendSystem: true })`, name unchanged | 16 |
+| — running the legacy shell | 21 |
+| NFS lanes skipped in nightly | 2 (`tech-radar-app-next`, `app-defaults-app-next`) |
+| Spec files / static `test()` declarations | 43 / 261 |
 | Workspaces using the per-workspace `value_file-app-next.yaml` hook | 0 |
 
-`backstage` alone declares 12 projects. Reproduce any of these with the commands in §6.
+`backstage` alone declares 13 projects, and all thirteen are NFS under their legacy names —
+which is why the suffix count and the NFS count differ by more than a rounding error.
+Reproduce any of these with the commands in §6.
 
 ---
 
@@ -240,14 +249,18 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (46) and the app-next lanes among them (6)
+# Playwright projects (48) and the lanes named -app-next among them (11)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
-# Spec files (42)
+# The other NFS lanes, which the line above misses because they keep their legacy names
+grep -rl 'useNewFrontendSystem: true' workspaces/*/e2e-tests --include='*.ts' \
+  | grep -v node_modules | cut -d/ -f2 | sort -u
+
+# Spec files (43)
 ls workspaces/*/e2e-tests/tests/**/*.spec.ts | wc -l
 
-# Static tests (246). Counting only *.spec.ts undercounts: orchestrator registers 26 of
+# Static tests (261). Counting only *.spec.ts undercounts: orchestrator registers 26 of
 # its tests from tests/specs/*.tests.ts modules imported by one spec. The lookbehind
 # drops method calls such as `.test(` that are not test declarations. Needs GNU grep -P
 # (`ggrep` on macOS).
