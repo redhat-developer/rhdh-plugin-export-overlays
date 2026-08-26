@@ -1,0 +1,43 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-auth-backend-module-oidc-provider
+  namespace: rhdh
+  title: "Auth Backend Module OIDC Provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-oidc-provider
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-oidc-provider
+  tags:
+    - authentication
+spec:
+  packageName: "@backstage/plugin-auth-backend-module-oidc-provider"
+  # Tag: bs_1.52.0__0.4.17
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:2e5678ed032cc9b0502e9eca2fa04620ccd0a83cd481be0a2b3ed88758be06ce"
+  version: 0.4.17
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.52.0
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - backstage-plugin-auth-backend-module-oidc-provider
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        auth:
+          providers:
+            oidc:
+              production:
+                clientId: ${OIDC_CLIENT_ID}
+                clientSecret: ${OIDC_CLIENT_SECRET}
+                metadataUrl: ${OIDC_METADATA_URL}
+                signIn:
+                  resolvers:
+                    - resolver: emailMatchingUserEntityProfileEmail

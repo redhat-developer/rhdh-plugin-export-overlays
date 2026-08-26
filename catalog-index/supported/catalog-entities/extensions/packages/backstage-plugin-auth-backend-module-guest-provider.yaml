@@ -1,0 +1,37 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-auth-backend-module-guest-provider
+  namespace: rhdh
+  title: "Auth Backend Module Guest Provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-guest-provider
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-guest-provider
+  tags:
+    - authentication
+spec:
+  packageName: "@backstage/plugin-auth-backend-module-guest-provider"
+  # Tag: bs_1.52.0__0.2.20
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:4ce58b5c87dc79e67eaad5ac41e135d1435be4fe3e80e0a8e20e53ecd71e6557"
+  version: 0.2.20
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.52.0
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - backstage-plugin-auth-backend-module-guest-provider
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        auth:
+          providers:
+            guest:
+              dangerouslyAllowOutsideDevelopment: false
