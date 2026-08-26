@@ -15,17 +15,14 @@ export function registerOrchestratorCoreWorkflowTests(
   ensureDataIndexOrSkip: EnsureDataIndexOrSkip,
 ): void {
   test.describe("Greeting workflow", () => {
-    let orchestrator: OrchestratorPage;
     let orchestratorPo: OrchestratorPO;
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
-      orchestrator = new OrchestratorPage(page);
       orchestratorPo = new OrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
 
-    // eslint-disable-next-line playwright/expect-expect
     test("Run Greeting workflow and verify Workflows tab", async ({ page }) => {
       test.setTimeout(150_000);
       await orchestratorPo.openGreetingWorkflowFromSidebar();
