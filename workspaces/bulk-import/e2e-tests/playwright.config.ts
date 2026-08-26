@@ -16,11 +16,6 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
 export default defineConfig({
   projects: [
     {
-      name: "bulk-import",
-      testMatch: "bulk-import.spec.ts",
-      timeout: 30 * 60 * 1000,
-    },
-    {
       name: "bulk-import-app-next",
       testMatch: "bulk-import.spec.ts",
       timeout: 30 * 60 * 1000,
