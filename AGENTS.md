@@ -376,7 +376,7 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
-### NFS lanes: replace the legacy lane, don't add one beside it
+### NFS Lane Migration Policy
 
 **On `main`, migrating a workspace to the new frontend system replaces its legacy Playwright project. It does not add a second one beside it.** `main` is the development line for RHDH 2.1, and RHIDP-15077 removes the legacy frontend from that release outright. The cut-over is redhat-developer/rhdh#5232: it deletes `packages/app-next/package.json` after renaming that package onto `packages/app`, and drops `ENABLE_STANDARD_MODULE_FEDERATION` entirely. There is no interim package and no opt-in path back. A legacy lane on `main` therefore spends a full cluster claim testing a configuration 2.1 will not ship. Once the cut-over lands it gets worse: both lanes boot the same shell, so the pair becomes two identical runs that no report tells apart.
 
