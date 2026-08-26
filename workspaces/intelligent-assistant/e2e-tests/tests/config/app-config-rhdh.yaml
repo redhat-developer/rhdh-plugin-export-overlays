@@ -25,6 +25,24 @@ permission:
         - name: user:default/test1
 
 backend:
+  actions:
+    pluginSources:
+      - software-catalog-mcp-extras
+      - techdocs-mcp-extras
+      - scaffolder-mcp-extras
+  auth:
+    externalAccess:
+      # Keep legacy token behavior expected by Backstage internals.
+      - type: legacy
+        options:
+          secret: ${BACKEND_SECRET}
+          subject: legacy-default-config
+      - type: static
+        options:
+          token: ${MCP_TOKEN}
+          subject: mcp-clients
+    keys:
+      - secret: ${BACKEND_SECRET}
   csp:
     upgrade-insecure-requests: false
     img-src:
@@ -36,6 +54,9 @@ backend:
       - "'self'"
       - "'unsafe-eval'"
       - https://cdn.jsdelivr.net
+
+mcpActions:
+  namespacedToolNames: false
 
 # Clears the default lightspeed frontend routes/mountPoints so they don't conflict
 # with the renamed intelligent-assistant plugin (same import names, different routes).
@@ -54,6 +75,14 @@ intelligent-assistant:
       model: ${NOTEBOOK_DEFAULT_MODEL}
       provider_id: ${NOTEBOOK_PROVIDER}
   servicePort: 8080
+  mcpServers:
+    - name: mcp-integration-tools
+      token: ${MCP_TOKEN}
+    # Intentionally no token: used by e2e to verify "token required" status.
+    - name: mcp-token-required-tools
+    # Extra configured server for multi-row MCP settings coverage.
+    - name: mcp-observability-tools
+      token: ${MCP_TOKEN}
   prompts:
     - title: Getting Started with Red Hat Developer Hub
       message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?
