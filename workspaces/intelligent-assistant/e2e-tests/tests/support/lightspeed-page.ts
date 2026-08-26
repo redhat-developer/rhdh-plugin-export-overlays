@@ -69,6 +69,14 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
+  // Fresh deployments can briefly show only a global progress bar before shell content.
+  const initialLoading = page.getByRole("progressbar").first();
+  await initialLoading
+    .waitFor({ state: "hidden", timeout: 30_000 })
+    .catch(() => {
+      /* no-op */
+    });
+
   // Overlay/dock leave catalog page content in place. Fullscreen replaces it.
   // Do not use the sidebar Catalog link: NFS fullscreen keeps RHDH nav visible
   // while covering only the main page. Homepage is disabled in this workspace.
