@@ -117,7 +117,7 @@ const getWorkspacesBsVersion = (workspaceOwners, targetBsVersion) => {
 
 // ── Issue creation ──────────────────────────────────────────────────
 
-const NOTIFICATION_LABEL = '3rd-party-notification'
+const NOTIFICATION_LABEL = 'update-notification'
 
 async function ensureLabelExists(github, owner, repo){
   try {
@@ -131,7 +131,7 @@ async function ensureLabelExists(github, owner, repo){
       repo,
       name: NOTIFICATION_LABEL,
       color: '1d76db',
-      description: 'Automated notification to 3rd party plugin owners about Backstage version bumps',
+      description: 'Automated notification about Backstage version bumps',
     })
   }
 }
@@ -150,7 +150,7 @@ function buildIssueBody(notification, release){
     ``,
     `1. Update your plugin in the upstream repository to be compatible with Backstage ${release['backstage-version']}`,
     `2. Once updated, the [daily update workflow](../../actions/workflows/update-plugins-repo-refs.yaml) will automatically create a PR in this repo to update the workspace reference`,
-    `3. Alternatively, submit a PR updating \`workspaces/${workspace}/source.json\` yourself`,
+    `3. Alternatively, you can trigger the update workflow yourself. See https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Metadata-Synchronization#automated-synchronization for more:`,
     ``,
     `### Timeline`,
     ``,
