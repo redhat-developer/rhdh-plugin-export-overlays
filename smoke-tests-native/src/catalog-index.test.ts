@@ -82,8 +82,7 @@ test("imageNameFromRef strips a digest that follows a tag", () => {
 });
 
 test("imageNameFromRef handles a registry with a port", () => {
-  // Taking the last `/` segment is what makes this work; the test pins it, because the
-  // obvious "split on the first colon" alternative silently returns "localhost".
+  // Pinned because the obvious "split on the first colon" returns "localhost".
   assert.equal(
     imageNameFromRef("oci://localhost:5000/foo/plugin-a:tag"),
     "plugin-a",
@@ -106,10 +105,7 @@ test("imageNameFromRef rejects anything that is not an oci:// ref", () => {
 });
 
 test("imageNameFromRef rejects a ref that names no image", () => {
-  // Without a separator check these pass with the HOST read as the image name, so an
-  // index entry `package: oci://quay.io` would be installed as image "quay.io" instead
-  // of hitting the clear "is neither an oci:// ref nor a ./dynamic-plugins/dist/ path"
-  // error. The sibling validator rejects the same shapes.
+  // Without the separator check these pass with the host read as the image name.
   for (const ref of [
     "oci://plugin-a",
     "oci://localhost:5000",
@@ -124,9 +120,8 @@ test("imageNameFromRef rejects a ref that names no image", () => {
 // readCatalogIndexRefs
 // ---------------------------------------------------------------------------
 test("readCatalogIndexRefs installs every declared package, not just the enabled ones", () => {
-  // The whole point of this mode: the index ships most packages `enabled: false`
-  // because that is RHDH's out-of-the-box default, which says nothing about whether
-  // the artifact works. Honouring those flags would validate almost nothing.
+  // The index ships most packages disabled as an RHDH product default; honouring that
+  // would validate almost nothing.
   const path = writeIndex([
     { package: ociRef("plugin-a"), enabled: true },
     { package: ociRef("plugin-b"), enabled: false },
@@ -147,8 +142,7 @@ test("readCatalogIndexRefs counts the install CLI's disabled: spelling as enable
 });
 
 test("readCatalogIndexRefs skips packages bundled in the RHDH image", () => {
-  // `./dynamic-plugins/dist/…` means the plugin ships inside the product image; the
-  // install CLI skips it outside that image, so there is nothing to pull.
+  // Bundled in the product image — the install CLI skips it, nothing to pull.
   const path = writeIndex([
     { package: ociRef("plugin-a") },
     { package: "./dynamic-plugins/dist/plugin-b-dynamic" },
@@ -172,8 +166,7 @@ test("readCatalogIndexRefs sorts refs so a run is byte-identical", () => {
 });
 
 test("readCatalogIndexRefs installs a repeated ref once", () => {
-  // Pulling the same artifact twice is wasted time, not a defect — reporting the
-  // duplicate is validateCatalogIndex.py's job, not this one's.
+  // Wasted pulls, not a defect — reporting the duplicate is the validator's job.
   const path = writeIndex([
     { package: ociRef("plugin-a"), enabled: true },
     { package: ociRef("plugin-a"), enabled: false },
@@ -207,9 +200,8 @@ test("readCatalogIndexRefs drops install-excluded packages and records the ticke
 });
 
 test("an exclusion is recorded once for a ref the index declares twice", () => {
-  // The dedup has to happen BEFORE the exclusion check: a second sighting of the same
-  // ref is not a second exclusion EVENT. Recording it twice put a duplicate
-  // ExclusionRecord in results.json and printed the warning twice.
+  // Dedup must precede the exclusion check: a second sighting of one ref is not a
+  // second exclusion event.
   const exclusions = parseExclusions(
     "# TODO(RHIDP-1): unpublished\ninstall ^plugin-b$\n",
     "excludes.txt",
@@ -227,8 +219,7 @@ test("an exclusion is recorded once for a ref the index declares twice", () => {
 });
 
 test("readCatalogIndexRefs says which filter emptied the set", () => {
-  // "only in-image packages" and "everything is excluded" have different fixes; one
-  // generic message sends the reader to the wrong file.
+  // The two cases have different fixes, so the message has to say which fired.
   const onlyInImage = writeIndex([
     { package: "./dynamic-plugins/dist/plugin-a" },
   ]);
@@ -295,16 +286,13 @@ test("writeCatalogIndexConfig produces a config that enables every ref", async (
       doc.plugins,
       refs.map((pkg) => ({ package: pkg, disabled: false })),
     );
-    // No `includes:` — it would re-import the index's own `enabled: false` defaults,
-    // and the CLI resolves the path relative to its own cwd (a temp dir) anyway.
+    // No `includes:` — it would re-import the defaults this mode overrides.
     assert.equal(doc.includes, undefined);
   }
 });
 
 test("writeCatalogIndexConfig carries no pluginConfig from the index", async () => {
-  // The index's pluginConfig blocks reference ${ENV_VAR}s that exist in a deployed
-  // RHDH and nowhere here; a plugin that validates config at boot would fail on the
-  // empty substitution. The harness supplies its own dummy config instead.
+  // Those blocks hold ${ENV_VAR}s that exist only in a deployed RHDH.
   const path = writeIndex([
     {
       package: ociRef("plugin-a"),
@@ -322,7 +310,6 @@ test("writeCatalogIndexConfig carries no pluginConfig from the index", async () 
 // The committed excludes file
 // ---------------------------------------------------------------------------
 test("the shipped catalog-index excludes file parses", () => {
-  // It is loaded on every run; a malformed entry there breaks the check for everyone,
-  // and the parse errors are deliberately fatal.
+  // Loaded on every run, and parse errors are fatal.
   assert.doesNotThrow(() => loadExclusions(EXCLUDES_FILE));
 });

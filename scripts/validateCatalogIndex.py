@@ -4,32 +4,18 @@
 #
 # Static validation of a generated catalog index (Step 5 of update-index.sh).
 #
-# Runs against the files update-index.sh has just written — dynamic-plugins.default.yaml,
-# index.json and plugin_builds/ — and makes NO network calls. That is deliberate: the
-# expensive install-and-boot validation lives in the catalog-index sanity check
-# (smoke-tests-native, `yarn smoke --catalog-index`), and it can only be afforded on a
-# schedule. This step is cheap enough to gate every index generation, upstream and in the
-# midstream Konflux pipeline alike.
+# Reads what update-index.sh just wrote — dynamic-plugins.default.yaml, index.json,
+# plugin_builds/ — and makes NO network calls, so it is cheap enough to gate every
+# generation. The expensive install-and-boot half is the catalog-index sanity check
+# (`yarn smoke --catalog-index`), which only runs on a schedule.
 #
-# What it catches that nothing else did:
+# It exists because the generator is forgiving: when a plugin's image is not found it
+# logs a warning and carries on, so the index can ship an oci:// ref that was never
+# confirmed to exist. Nothing downstream re-checked that.
 #
-#   * A package whose registry lookup FAILED still shipping in the index. The generator
-#     logs "Image not found in registry" and carries on, so the index goes out declaring
-#     an oci:// ref that was never confirmed to exist — a pull failure for whoever
-#     enables it. `unresolved-image` is that rule.
-#   * A fallback tag: the requested build was missing, so an OLDER one was silently
-#     substituted. `fallback-tag`.
-#   * A ref for a registry this index is not supposed to reference — the ghcr.io leak
-#     into a quay.io/rhdh index that the midstream check-no-pre-GA-in-catalog.js guards
-#     against downstream, moved upstream where the index is actually built.
-#   * dynamic-plugins.default.yaml drifting out of sync with plugin_builds/ (an image
-#     name with no build entry, or a digest that no longer matches).
-#
-# Findings carry a stable rule id and a severity. Errors fail the run; warnings do not
-# unless --strict. Known, ticketed exceptions live in the allowlist file (see
-# catalog-index-validation-allowlist.txt) using the same TODO(TICKET) discipline as the
-# smoke harness's exclusion files: an entry with no ticket is a parse error, so
-# exceptions get removed rather than accumulated.
+# Findings carry a stable rule id and severity (`--list-rules`). Errors fail the run;
+# warnings only under --strict. Ticketed exceptions go in
+# catalog-index-validation-allowlist.txt — an entry with no ticket is a parse error.
 
 import argparse
 import json
@@ -219,17 +205,12 @@ class ValidationResult:
 def parse_oci_ref(ref: str) -> ParsedRef | None:
     """Split an `oci://…` package ref, or return None when it does not parse.
 
-    The name/tag/digest split is delegated to `parse_image_reference` — the same
-    function `generateCatalogIndex.py` uses to rewrite these very refs. Writing a second
-    grammar here is what made this validator the only parser in the repo that rejected
-    the `name:tag@digest` form, and reject it as `ref-form`, an error no allowlist entry
-    can suppress because it carries no image name.
+    The grammar is delegated to `parse_image_reference` — the same function
+    generateCatalogIndex.py uses to write these refs. A second grammar here is what once
+    made this the only parser in the repo to reject `name:tag@digest`.
 
-    The `!plugin-path` selector some refs carry selects a plugin *inside* the image and
-    says nothing about which image is pulled, so it is stripped BEFORE parsing — both so
-    the same image with and without a selector reads as one package, and because a
-    selector containing a `/` would otherwise be mistaken for another path segment and
-    the last one would be read as the image name.
+    The `!plugin-path` selector is stripped BEFORE parsing: it names a plugin inside the
+    image, and a selector containing `/` would otherwise be read as a path segment.
     """
     if not ref.startswith(OCI_PREFIX):
         return None
@@ -249,12 +230,11 @@ def parse_oci_ref(ref: str) -> ParsedRef | None:
 def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
     """Read the `plugins[]` list of dynamic-plugins.default.yaml.
 
-    Mirrors `readIndexEntries`/`isEnabled` in
-    smoke-tests-native/src/catalog-index.ts, which reads the same file for the sanity
-    check. They cannot share code across languages; keep the accepted shapes in step.
+    Mirrors readIndexEntries/isEnabled in smoke-tests-native/src/catalog-index.ts, which
+    reads the same file. Cross-language, so keep the accepted shapes in step.
 
-    A malformed file raises: every other rule reads this list, so continuing with an
-    empty one would report a clean index for a file that could not be parsed.
+    A malformed file raises: continuing with an empty list would report a clean index
+    for a file that could not be parsed.
     """
     with open(dpdy_path, "r", encoding="utf-8") as f:
         doc = yaml.safe_load(f)
@@ -295,21 +275,12 @@ def load_dpdy_entries(dpdy_path: Path) -> list[DpdyEntry]:
 def load_plugin_builds(plugin_builds_dir: Path) -> dict[str, dict]:
     """Flatten `plugin_builds/<workspace>/<image>.json` into `{image: fields}`.
 
-    NOTE (no ticket filed yet — deliberately not written as `TODO(...)`, because this
-    module's own allowlist parser rejects that marker without a well-formed key, and
-    shipping one it would refuse is not a good look in the file that enforces the rule):
-    this is the fourth reader of that tree. The others are
-    `collect_fallback_entries` (generatePluginBuildInfo.py), `load_tag_by_key`
-    (injectDpdyTagComments.py) and the loop in generateCatalogIndex.py —
-    bootstrapPluginBuilds.py only deletes from it, so it does not count. The shared part
-    is ~8 lines (sorted glob, open, json.load, isinstance guard, OSError/JSONDecodeError
-    catch); everything that differs is the error policy (warn / silent / fatal) and the
-    shape each caller wants. So the extraction that works is a generator with an explicit
-    policy — `iter_plugin_builds(dir, on_error="warn")` yielding
-    (file, workspace, name, data) — not a function returning one caller's dict.
-    Deliberately NOT done here: converting one caller adds a plugin_utils API with a
-    single consumer, and converting all four touches three files this change does not,
-    and would silently turn `collect_fallback_entries`' silent skip into a warning.
+    Fourth reader of that tree, alongside collect_fallback_entries
+    (generatePluginBuildInfo.py), load_tag_by_key (injectDpdyTagComments.py) and the loop
+    in generateCatalogIndex.py. Consolidating them needs a generator with an explicit
+    error policy (warn / silent / fatal), not a function returning one caller's dict —
+    left as follow-up because converting all four touches three files this change does
+    not, and would turn collect_fallback_entries' silent skip into a warning.
     """
     builds: dict[str, dict] = {}
     if not plugin_builds_dir.exists():
@@ -335,10 +306,8 @@ def load_plugin_builds(plugin_builds_dir: Path) -> dict[str, dict]:
 def load_index_json(index_path: Path) -> dict[str, dict] | None:
     """Read index.json as `{image: entry}`, or None when the file is absent.
 
-    None and `{}` are deliberately different: an absent file means this tier does not
-    build one (and `generateCatalogIndex.py` failing is update-index.sh's problem, not a
-    finding here), while a file that IS there and empty means every declared package is
-    missing from the index — which is exactly what `index-missing-entry` reports.
+    None and `{}` differ on purpose: absent means this tier builds no index.json, while
+    present-and-empty means every declared package is missing from it.
     """
     if not index_path.exists():
         return None
@@ -353,11 +322,10 @@ def load_index_json(index_path: Path) -> dict[str, dict] | None:
 
 
 def parse_allowlist(text: str, file_path: str) -> list[AllowlistEntry]:
-    """Parse the allowlist. Throws on the first malformed entry.
+    """Parse the allowlist, throwing on the first malformed entry.
 
-    A silently dropped entry would either fail the build on something known and
-    accepted, or (worse) suppress a rule nobody meant to suppress — so both directions
-    of the mistake are refused rather than warned about.
+    A dropped entry would either fail the build on something already accepted, or
+    suppress a rule nobody meant to suppress. Both are refused rather than warned about.
     """
     entries: list[AllowlistEntry] = []
     ticket: str | None = None
@@ -433,8 +401,8 @@ def apply_allowlist(
 ) -> tuple[list[Finding], list[tuple[Finding, AllowlistEntry]]]:
     """Split findings into those that stand and those a ticketed entry covers.
 
-    A finding with no image (one about the file as a whole) is never suppressed: those
-    are structural, and an image-name regex has nothing meaningful to match against.
+    A finding with no image is structural and never suppressed — an image-name regex has
+    nothing to match against.
     """
     kept: list[Finding] = []
     suppressed: list[tuple[Finding, AllowlistEntry]] = []
@@ -549,11 +517,9 @@ def _check_ref(
 ) -> list[Finding]:
     """The per-ref rules: registry, pinning, then plugin_builds agreement.
 
-    Ordered so the rules that are properties of the REF itself — registry and pinning —
-    are emitted before the build-metadata lookup, and therefore fire identically whether
-    or not plugin_builds/ is available. An earlier version returned early on
-    `unknown-image`, which meant the same tag-only ref reported `not-digest-pinned` under
-    `--no-build-metadata` and not otherwise.
+    Registry and pinning are properties of the ref itself, so they are emitted before the
+    build lookup and fire identically with or without plugin_builds/. Returning early on
+    `unknown-image` once made the two paths disagree about pinning.
     """
     findings: list[Finding] = []
 
@@ -837,20 +803,13 @@ def _failed(result: ValidationResult, strict: bool) -> bool:
 def record_in_report(result: ValidationResult, report: BuildReport) -> None:
     """Write a per-plugin `validate` stage into build-report.json.
 
-    Only an ERROR sets the stage to fail: BuildReport.save() derives a plugin's overall
-    status from its worst stage, so recording warnings as failures would turn a stale
-    tag into a red plugin on the status page and drown the ones that really are broken.
+    Only an ERROR fails the stage: BuildReport.save() derives overall status from the
+    worst stage, so a stale tag would otherwise turn a plugin red.
 
-    A finding's image name comes off the INDEX, not off plugin_builds/, and the two can
-    disagree — that is what `unknown-image` reports. Since ``set_stage`` upserts, writing
-    such a finding would create a plugin row that no build stage ever produced, inflating
-    ``summary.total`` and flipping the report's overall status to "partial". Those
-    findings belong to the run, not to a plugin, so they are left to the text and JSON
-    output and skipped here.
-
-    ``reason`` is written alongside ``errors`` because that is the field
-    renderCatalogStatus.first_failed_stage reads; without it a plugin whose only failing
-    stage is this one renders as "Unknown error" on the status page.
+    Findings about an image with no plugin row are skipped — `set_stage` upserts, so
+    writing one would fabricate a plugin, inflate `summary.total` and flip the run to
+    "partial". `reason` is written because that is the field
+    renderCatalogStatus.first_failed_stage reads.
     """
     if not report.enabled:
         return
@@ -1034,7 +993,11 @@ Examples:
         return 1
 
     print(render(result))
+    return _emit(result, args, json_out)
 
+
+def _emit(result: ValidationResult, args, json_out: Path | None) -> int:
+    """Write the optional outputs and turn the findings into an exit code."""
     if json_out:
         json_out.parent.mkdir(parents=True, exist_ok=True)
         with open(json_out, "w", encoding="utf-8") as f:

@@ -225,7 +225,7 @@ whose artifact is a local `./dynamic-plugins/dist/…` path (plugin bundled insi
 RHDH image, no published OCI artifact — e.g. `scaffolder-backend-module-kubernetes`)
 is skipped with a warning and recorded in `results.json`
 (`workspace.skippedMetadata`); a workspace with no `oci://` refs at all reports
-`status: error` (nothing to validate). `--workspace` and `--dynamic-plugins` are
+`status: error` (nothing to validate). `--workspace`, `--dynamic-plugins` and `--catalog-index` are
 mutually exclusive.
 
 Workspace mode also auto-discovers the workspace's Docker-smoke test config —

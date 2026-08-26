@@ -41,10 +41,9 @@
  * `--support <level>` narrows that to one `spec.support` tier — how the community
  * sweep (src/sweep.ts, RHIDP-13510) drives this harness one workspace at a time.
  *
- * Catalog-index mode installs and boots EVERY package a generated catalog index
- * declares — the upstream half of RHDH's cluster-free plugin sanity check
- * (RHIDP-13508), running against the index update-index.sh has just written rather
- * than against a published index image. See src/catalog-index.ts.
+ * Catalog-index mode installs and boots EVERY package a generated index declares —
+ * the upstream half of RHDH's cluster-free sanity check (RHIDP-13508). See
+ * src/catalog-index.ts.
  *
  * --app-config / --test-env mirror what the Docker smoke passes to the container
  * (an extra --config mount and docker run --env-file) — see src/test-config.ts.
@@ -206,11 +205,7 @@ async function materializeWorkspaceConfig(
   };
 }
 
-/**
- * Turn a generated catalog index into the enable-everything config the install CLI
- * consumes. See src/catalog-index.ts for why the index's own `enabled:` flags and
- * `pluginConfig` blocks are deliberately not carried over.
- */
+/** Resolve a catalog index into the enable-everything config the install CLI consumes. */
 async function materializeCatalogIndexConfig(
   indexPath: string,
   destDir: string,
@@ -229,11 +224,8 @@ async function materializeCatalogIndexConfig(
   return {
     path,
     refCount: refs.length,
-    // The ref list is deduplicated, so it is a LOWER BOUND on the plugin count: one
-    // image can carry several plugins, and two packages in this repo already share a
-    // single ref (workspaces/cost-management/metadata/* both point at
-    // oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.1). Without
-    // allowExtra an index carrying both would fail a perfectly healthy run.
+    // Deduplicated, so a lower bound: workspaces/cost-management/metadata/* already
+    // point two packages at one ref, and without allowExtra that would fail a healthy run.
     shortfall: { subject: "catalog index", allowExtra: true },
     catalogIndex: {
       source: indexPath,
@@ -247,10 +239,8 @@ async function materializeCatalogIndexConfig(
 }
 
 /**
- * Resolve whichever source the CLI selected into the config the install CLI consumes.
- *
- * `--dynamic-plugins` is passed through untouched: it is already the CLI's own format,
- * and rewriting it would silently drop whatever the caller put in it.
+ * Resolve the selected source into the config the install CLI consumes.
+ * `--dynamic-plugins` passes through untouched — it is already the CLI's own format.
  */
 async function materializeSource(
   source: SmokeSource,
@@ -274,9 +264,8 @@ async function materializeSource(
     case "file":
       return { path: source.path, excluded: [] };
     default: {
-      // A fourth SmokeSource now fails to COMPILE here rather than being silently
-      // treated as a raw dynamic-plugins.yaml. The throw is for a value that reached
-      // this function without passing through resolveSource.
+      // A fourth SmokeSource fails to compile here; the throw covers a value that
+      // bypassed resolveSource.
       const unreachable: never = source;
       throw new Error(
         `unhandled plugin source: ${JSON.stringify(unreachable)}`,

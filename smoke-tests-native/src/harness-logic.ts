@@ -36,27 +36,17 @@ export type ShortfallOptions = {
   /** What to call the source in the message ("workspace", "catalog index"). */
   subject?: string;
   /**
-   * Accept MORE plugins than refs.
-   *
-   * Only for a source whose ref list is deduplicated, where the count is a lower bound:
-   * one OCI image can carry several plugins, so N distinct refs yield N or more plugin
-   * directories. Catalog-index mode dedups (an index legitimately lists the same ref
-   * twice) and therefore needs this; workspace mode does not dedup, and deliberately
-   * treats any mismatch as a fault — see the comment on that case in
-   * harness-logic.test.ts.
+   * Accept MORE plugins than refs. Only for a deduplicated ref list, where the count is
+   * a lower bound — one OCI image can carry several plugins. Workspace mode does not
+   * dedup and deliberately treats any mismatch as a fault.
    */
   allowExtra?: boolean;
 };
 
 /**
- * Compare what the install actually laid out against what the source declared.
- *
- * Returns null when they agree (or when there is nothing to compare against, i.e.
- * `--dynamic-plugins` file mode, where no ref count is known).
- *
- * `subject` names the source in the message: catalog-index mode has no workspace, and
- * sending its reader to `workspaces/` is a wrong turn at the exact moment they are
- * debugging a failure.
+ * Compare what the install laid out against what the source declared. Null when they
+ * agree, or when there is nothing to compare (`--dynamic-plugins` file mode).
+ * `subject` names the source: catalog-index mode has no workspace to send a reader to.
  */
 export function describeInstallShortfall(
   discovered: number,

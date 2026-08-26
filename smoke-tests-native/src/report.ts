@@ -31,16 +31,11 @@ import type {
  * - `aggregate.ts` via isSweepSummary, and `aggregate-report.ts` which reads
  *   `report.frontend.bundles[]`.
  *
- * That is the whole list of code consumers. Three workflows move these files around as
- * artifacts — `native-smoke.yaml`, `community-plugin-sweep.yaml` and
- * `catalog-index-sanity.yaml` — and none reads `schemaVersion`, so a bump does not
- * break them. `catalog-index-sanity.yaml` is the one that jq's FIELDS out of a report
- * (`catalogIndex.*`, `backend.*`, `backendStart.ok`, `frontend.*`) for its job summary,
- * so renaming one of those degrades that summary to nulls without failing anything —
- * check it when you change those shapes. The sweep's download-artifact has no `run-id`,
- * so a shard artifact is never read across runs and an older schema cannot reach a newer
- * aggregator. Everything else in the repo called `results.json` is Playwright's report,
- * which is unrelated.
+ * That is the whole list of code consumers. Three workflows move these files as
+ * artifacts without reading `schemaVersion`, so a bump does not break them — but
+ * `catalog-index-sanity.yaml` jq's FIELDS out of a report (`catalogIndex.*`,
+ * `backend.*`, `frontend.*`) for its summary, so renaming one degrades that to nulls
+ * silently. The sweep never reads a shard artifact across runs.
  *
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
