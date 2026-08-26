@@ -4,6 +4,8 @@ import { TektonSupportHelper } from "../support/tekton-support-helper";
 
 test.describe("Test Tekton plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
+    test.setTimeout(900_000);
+
     // Community plugin publishes to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
     // Remove when this community package is no longer in default.packages.yaml in the rhdh repo.
     const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
@@ -21,7 +23,7 @@ test.describe("Test Tekton plugin", () => {
     await test.runOnce("tekton-operator-install", async () => {
       await $`bash ${operatorInstallPath} ${namespace}`;
     });
-    await rhdh.deploy();
+    await rhdh.deploy({ timeout: 900_000 });
   });
 
   test.beforeEach(async ({ loginHelper }) => {
