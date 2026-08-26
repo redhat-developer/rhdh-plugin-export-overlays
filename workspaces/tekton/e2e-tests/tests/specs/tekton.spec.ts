@@ -18,7 +18,9 @@ test.describe("Test Tekton plugin", () => {
     const operatorInstallPath = WorkspacePaths.resolve(
       "tests/config/operator-install.sh",
     );
-    await $`bash ${operatorInstallPath} ${namespace}`;
+    await test.runOnce("tekton-operator-install", async () => {
+      await $`bash ${operatorInstallPath} ${namespace}`;
+    });
     await rhdh.deploy();
   });
 

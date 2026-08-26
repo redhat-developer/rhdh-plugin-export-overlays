@@ -27,30 +27,37 @@ wait_for_tekton_crds() {
 }
 
 wait_for_tekton_pipelines_webhook() {
+  local timeout_sec=${1:-120} interval_sec=${2:-5}
   local -a namespaces=( "openshift-pipelines" "tekton-pipelines" )
   local selector="app=tekton-pipelines-webhook"
-  local timeout="120s"
+  local deadline=$(( SECONDS + timeout_sec ))
   local target_ns=""
 
   echo "[CI] Waiting for tekton-pipelines-webhook to be Ready..."
 
-  # Find which namespace has the webhook pods
-  for ns in "${namespaces[@]}"; do
-    if oc get pods -n "${ns}" -l "${selector}" --no-headers 2>/dev/null | grep -q .; then
-      target_ns="${ns}"
-      echo "[CI] Found webhook pods in ${ns}"
-      break
-    fi
+  # Wait for webhook pods to appear (they may not exist yet during operator init)
+  while (( SECONDS < deadline )); do
+    for ns in "${namespaces[@]}"; do
+      if oc get pods -n "${ns}" -l "${selector}" --no-headers 2>/dev/null | grep -q .; then
+        target_ns="${ns}"
+        echo "[CI] Found webhook pods in ${ns}"
+        break 2
+      fi
+    done
+    echo "[CI] No webhook pods found yet; retrying in ${interval_sec}s..."
+    sleep "${interval_sec}"
   done
 
   if [[ -z "${target_ns}" ]]; then
-    echo "[CI] WARN: No webhook pods found in any namespace; continuing (endpoints may still work)"
-    return 0
+    echo "[CI] ERROR: No webhook pods found in any namespace after ${timeout_sec}s"
+    return 1
   fi
 
-  # Attempt to wait for the Ready condition
-  if ! oc wait --for=condition=Ready pod -l "${selector}" -n "${target_ns}" --timeout="${timeout}"; then
-    echo "[CI] ERROR: Webhook failed to become ready within ${timeout}"
+  # Wait for the Ready condition with remaining time
+  local remaining=$(( deadline - SECONDS ))
+  if (( remaining < 1 )); then remaining=1; fi
+  if ! oc wait --for=condition=Ready pod -l "${selector}" -n "${target_ns}" --timeout="${remaining}s"; then
+    echo "[CI] ERROR: Webhook failed to become ready within ${timeout_sec}s"
     echo "[CI] --- Pod Status ---"
     oc get pods -n "${target_ns}" -l "${selector}" || true
     echo "[CI] --- Pod Diagnosis (oc describe) ---"
@@ -62,26 +69,32 @@ wait_for_tekton_pipelines_webhook() {
   return 0
 }
 
-# Function to verify endpoints exist in either namespace
+# Function to verify endpoints exist in either namespace (with retry)
 check_webhook_endpoints() {
+  local timeout_sec=${1:-120} interval_sec=${2:-5}
   local -a namespaces=( "openshift-pipelines" "tekton-pipelines" )
   local svc="tekton-pipelines-webhook"
-  local endpoints
+  local deadline=$(( SECONDS + timeout_sec ))
 
   echo "[CI] Checking endpoints for ${svc}..."
 
-  for ns in "${namespaces[@]}"; do
-    if ! oc get namespace "${ns}" &>/dev/null; then
-      continue
-    fi
-    endpoints=$(oc get endpoints "${svc}" -n "${ns}" --no-headers 2>/dev/null | awk '{print $2}')
-    if [[ -n "${endpoints}" && "${endpoints}" != "<none>" ]]; then
-      echo "[CI] Endpoints found in ${ns}: ${endpoints}"
-      return 0
-    fi
+  while (( SECONDS < deadline )); do
+    for ns in "${namespaces[@]}"; do
+      if ! oc get namespace "${ns}" &>/dev/null; then
+        continue
+      fi
+      local endpoints
+      endpoints=$(oc get endpoints "${svc}" -n "${ns}" --no-headers 2>/dev/null | awk '{print $2}')
+      if [[ -n "${endpoints}" && "${endpoints}" != "<none>" ]]; then
+        echo "[CI] Endpoints found in ${ns}: ${endpoints}"
+        return 0
+      fi
+    done
+    echo "[CI] Waiting for ${svc} endpoints..."
+    sleep "${interval_sec}"
   done
 
-  echo "[CI] ERROR: No endpoints available for ${svc} in any namespace"
+  echo "[CI] ERROR: No endpoints available for ${svc} in any namespace after ${timeout_sec}s"
   return 1
 }
 
@@ -238,7 +251,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   fi
   wait_for_tekton_crds 180 6
   wait_for_tekton_webhook 120 5
-  wait_for_tekton_pipelines_webhook
-  check_webhook_endpoints
+  wait_for_tekton_pipelines_webhook 120 5
+  check_webhook_endpoints 120 5
   operator::grant_default_service_account_cluster_reader_and_tekton "${1}"
 fi
