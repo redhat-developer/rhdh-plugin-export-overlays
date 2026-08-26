@@ -18,14 +18,17 @@ const repositoryParametersGitLab: RepositoryParameters =
 
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce("bulk-import-scaffolder-template-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
-        appConfig: "tests/config/app-config-rhdh-scaffolder-template.yaml",
-        dynamicPlugins:
-          "tests/config/dynamic-plugins-with-scaffolder-template.yaml",
-        valueFile: "tests/config/values.yaml",
-      });
-    });
+    await test.runOnce(
+      `bulk-import-scaffolder-template-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        await setupBulkImportRhdh(rhdh, {
+          appConfig: "tests/config/app-config-rhdh-scaffolder-template.yaml",
+          dynamicPlugins:
+            "tests/config/dynamic-plugins-with-scaffolder-template.yaml",
+          valueFile: "tests/config/values.yaml",
+        });
+      },
+    );
 
     await APIHelper.createGitHubRepoWithFile(
       repositoryParametersGitHub.organization,
