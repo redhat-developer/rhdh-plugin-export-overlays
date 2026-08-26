@@ -21,29 +21,29 @@ test.describe("Orchestrator", () => {
         );
       }
     } else {
-    await test.runOnce(
-      `orchestrator-setup-${testInfo.project.name}`,
-      async () => {
-        const project = rhdh.deploymentConfig.namespace;
-        await rhdh.configure({ auth: "keycloak" });
-        try {
-          await deploySonataflow(project);
-        } catch (err) {
-          logOrchestratorDeployFailureDiagnostics(project);
-          throw err;
-        }
-        process.env.SONATAFLOW_DATA_INDEX_URL =
-          "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
-        await configureOrchestratorLoki();
-        try {
-          await prepareRhdhHelmRedeploy(project);
-          await rhdh.deploy({ timeout: 1_800_000 });
-        } catch (err) {
-          logOrchestratorDeployFailureDiagnostics(project);
-          throw err;
-        }
-      },
-    );
+      await test.runOnce(
+        `orchestrator-setup-${testInfo.project.name}`,
+        async () => {
+          const project = rhdh.deploymentConfig.namespace;
+          await rhdh.configure({ auth: "keycloak" });
+          try {
+            await deploySonataflow(project);
+          } catch (err) {
+            logOrchestratorDeployFailureDiagnostics(project);
+            throw err;
+          }
+          process.env.SONATAFLOW_DATA_INDEX_URL =
+            "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+          await configureOrchestratorLoki();
+          try {
+            await prepareRhdhHelmRedeploy(project);
+            await rhdh.deploy({ timeout: 1_800_000 });
+          } catch (err) {
+            logOrchestratorDeployFailureDiagnostics(project);
+            throw err;
+          }
+        },
+      );
     }
     testInfo.annotations.push({
       type: "component",
