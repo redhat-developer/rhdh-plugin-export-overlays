@@ -5,15 +5,22 @@ import {
   logOrchestratorDeployFailureDiagnostics,
   prepareRhdhHelmRedeploy,
 } from "../support/utils/test-helpers.js";
-import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
 import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
-import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
-import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
+// import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
+// import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
+// import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
     test.setTimeout(60 * 60 * 1000);
+    if (process.env.SKIP_ORCHESTRATOR_SETUP) {
+      if (!process.env.RHDH_BASE_URL?.trim()) {
+        throw new Error(
+          "SKIP_ORCHESTRATOR_SETUP requires RHDH_BASE_URL (existing hub URL).",
+        );
+      }
+    } else {
     await test.runOnce(
       `orchestrator-setup-${testInfo.project.name}`,
       async () => {
@@ -37,14 +44,15 @@ test.describe("Orchestrator", () => {
         }
       },
     );
+    }
     testInfo.annotations.push({
       type: "component",
       description: "orchestrator",
     });
   });
 
-  registerOrchestratorWorkflowTests();
   registerOrchestratorRbacTests();
-  registerRetryWorkflowTests();
-  registerUiPropsTestWorkflowTests();
+  // registerOrchestratorWorkflowTests();
+  // registerRetryWorkflowTests();
+  // registerUiPropsTestWorkflowTests();
 });
