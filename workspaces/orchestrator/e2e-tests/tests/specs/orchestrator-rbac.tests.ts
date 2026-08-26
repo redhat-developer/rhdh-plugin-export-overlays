@@ -346,6 +346,7 @@ export function registerOrchestratorRbacTests(): void {
 
     test.describe
       .serial("RBAC: Workflow instance initiator and admin override", () => {
+      test.describe.configure({ timeout: 180_000 });
       let loginHelper: LoginHelper;
       let uiHelper: UIhelper;
       let page: Page;

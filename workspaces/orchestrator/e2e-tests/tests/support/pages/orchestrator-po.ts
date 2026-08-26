@@ -24,8 +24,10 @@ export class OrchestratorPO {
   }
 
   private workflowsCatalogControl(): Locator {
-    // Entity pages keep a Workflows tab on both legacy and NFS (CI screenshot).
-    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
+    // NFS entity header looks like tabs but the control is often a link.
+    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page).or(
+      ORCHESTRATOR_COMPONENTS.workflowsLink(this.page),
+    );
   }
 
   async clickWorkflowsCatalogControl(): Promise<void> {

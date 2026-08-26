@@ -218,6 +218,23 @@ async function verifyLokiApiReturnsJson(
   }
 }
 
+async function tryLokiUrlCandidate(
+  candidate: string,
+  token: string,
+): Promise<string | undefined> {
+  try {
+    await verifyLokiApiReturnsJson(candidate, token);
+    console.warn(`[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`);
+    return candidate;
+  } catch (error) {
+    console.warn(
+      `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
+}
+
 async function selectLokiBaseUrlForRhdh(
   externalUrl: string,
   token: string,
@@ -225,7 +242,6 @@ async function selectLokiBaseUrlForRhdh(
 ): Promise<string> {
   const preferExternal = process.env.LOKI_USE_EXTERNAL_ROUTE === "true";
   const deadline = Date.now() + timeoutMs;
-  let lastError: unknown;
 
   while (Date.now() < deadline) {
     const internalUrl = await resolveLokiInternalUrl();
@@ -237,27 +253,16 @@ async function selectLokiBaseUrlForRhdh(
       if (!candidate) {
         continue;
       }
-      try {
-        await verifyLokiApiReturnsJson(candidate, token);
-        console.warn(
-          `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
-        );
-        return candidate;
-      } catch (error) {
-        lastError = error;
-        console.warn(
-          `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
-          error instanceof Error ? error.message : error,
-        );
+      const accepted = await tryLokiUrlCandidate(candidate, token);
+      if (accepted) {
+        return accepted;
       }
     }
     await sleep(15_000);
   }
 
   throw new Error(
-    `No Loki baseUrl passed query_range probe (tried in-cluster gateway and external route): ${
-      lastError instanceof Error ? lastError.message : String(lastError)
-    }`,
+    "No Loki baseUrl passed query_range probe (tried in-cluster gateway and external route)",
   );
 }
 
