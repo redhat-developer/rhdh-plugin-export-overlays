@@ -141,8 +141,8 @@ lane means anything.
 | `quay` | 1 | 3 | — | guest | **svc** | real quay.io repo + security scan | oci | 0 | ready |
 | `github` | 2 | 2 | — | github | **svc** | real GitHub Actions runs + issues | baked-in | 0 | ready (5 pkgs) |
 | `roadie-backstage-plugins` | 2 | 6 | — | github, guest | **svc** | real GitHub PR data; outbound HTTP | oci | 0 | **all 6 no NFS entry point** (3 do expose `alpha`) |
-| `bulk-import` | 2 | 9 | — | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
-| `quickstart` | 1 | 2 | — | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
+| `bulk-import` | 3 | 9 | ✅ | github | **svc** | real GitHub repos + generated PRs | baked-in | 17 | ready |
+| `quickstart` | 1 | 2 | ✅ (NFS-only) | keycloak | **ctr** | Keycloak (test 1 is guest-only) | oci | 0 | ready |
 | `global-header` | 2 | 10 | — | keycloak | **ctr** | Keycloak | mixed | 22 | ready |
 | `extensions` | 1 | 11 | — | keycloak | **ctr** | Keycloak + the catalog index image | baked-in | 6 | **no OCI artifact**; the readiness report infers `nfs-ready` from upstream source since #3284 |
 | `adoption-insights` | 1 | 7 | — | keycloak | **ctr** | Keycloak users + the analytics DB | oci | 0 | ready (+1 module) |
@@ -158,19 +158,24 @@ lane means anything.
 | `orchestrator` | 1 | 26 | — | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
 | `scaffolder-backend-module-kubernetes` | 1 | 1 | — | keycloak | **ocp** | creates and deletes a real namespace — the API call *is* the assertion | n/a | 0 | backend-only |
 | `intelligent-assistant` | 1 | 34 | — | keycloak | **ocp** | a `lightspeed-core` sidecar with EmptyDir vector stores; ConfigMap patch + `oc rollout restart` | oci | 2 | ready |
-| `backstage` | **12** | 47 | — | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`) | mixed | 2 | ready (6 pkgs) |
+| `backstage` | **13** | 47 | ✅ (`configure`, names unchanged) | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`); `-microsoft-auth` not yet classified | mixed | 2 | ready (6 pkgs) |
 
 ### Tally
 
 | Class | Projects | Meaning |
 |---|---|---|
 | `none` | 3 | needs nothing but the app |
-| `svc` | 9 + 8 of `backstage` | needs the internet, not a cluster |
+| `svc` | 10 + 8 of `backstage` | needs the internet, not a cluster |
 | `ctr` | 13 + 2 of `backstage` | needs a container, not a cluster |
 | `ocp` | 8 + 2 of `backstage` | OpenShift is the subject; stays on Prow |
 
-**About 29 of the 46 projects do not need OpenShift.** Three need no external dependency at
+**About 30 of the 48 projects do not need OpenShift.** Three need no external dependency at
 all. That is the ceiling on what a cluster-free lane could ever cover — not a plan, a bound.
+
+The classes above account for 47 projects, not 48: `backstage-microsoft-auth` arrived with
+#3163 and is not classified yet. It needs a real Azure tenant, which is `svc`, but it also
+patches a ConfigMap and waits on `oc rollout status`, so it is not obviously cluster-free —
+whoever owns that suite should place it rather than have it inferred here.
 
 ---
 

@@ -1,8 +1,14 @@
 # Helm overrides for RHDH chart built-in Lightspeed (LCS sidecar + RAG init).
 # LLM credentials: rhdh-secrets.yaml (envsubst) — not lightspeed.servers in app-config.
+#
+# Sidecar EmptyDir vector stores are per-namespace.
 global:
   lightspeed:
     enabled: true
+    # Chart default injects RHEC lightspeed:{{inherit}}. 1.11 catalog renamed
+    # that plugin to intelligent-assistant, so inherit fails. Empty list keeps
+    # the LCS sidecar and uses IA from tests/config/dynamic-plugins.yaml.
+    plugins: []
     secret:
       # Use the same secret e2e applies via rhdh-secrets.yaml (includes VLLM_* keys).
       create: false

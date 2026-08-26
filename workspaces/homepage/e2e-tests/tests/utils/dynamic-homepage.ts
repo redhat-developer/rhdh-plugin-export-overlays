@@ -16,13 +16,22 @@ const EXPECTED_CARD_TEXTS = [
   "Top Visited",
 ] as const;
 
-/** All widgets available in the "Add widget" dialog. */
+/** Add-widget dialog labels on the NFS (Backstage app) home page. */
 export const AVAILABLE_WIDGETS = [
-  "Onboarding Section",
-  "Entity Section",
+  "Red Hat Developer Hub - Onboarding",
+  "Red Hat Developer Hub - Software Catalog",
   "Recently Visited",
   "Top Visited",
 ] as const;
+
+/** Map stable test labels to NFS AddWidgetDialog button names. */
+const WIDGET_DIALOG_LABELS = new Map<string, string>([
+  ["Onboarding Section", "Red Hat Developer Hub - Onboarding"],
+  ["Entity Section", "Red Hat Developer Hub - Software Catalog"],
+  ["Entity section", "Red Hat Developer Hub - Software Catalog"],
+  ["Recently Visited", "Recently Visited"],
+  ["Top Visited", "Top Visited"],
+]);
 
 const COMMON = ["Explore Your Software Catalog"];
 const ADMIN_ONLY = ["Explore Templates", "Quick Access"];
@@ -47,12 +56,59 @@ const HOMEPAGE_TEST3 = {
   password: "test3@123", // gitleaks:allow
 };
 
+/**
+ * Keycloak login that tolerates slow NFS cold loads.
+ *
+ * Stock LoginHelper.loginAsKeycloakUser uses waitForLoad (progressbar state:hidden
+ * resolves immediately if the bar is not mounted yet) then clickButton("Sign In")
+ * under actionTimeout=10s. On the NFS app shell the Sign In card often appears only
+ * after ~30–60s of remote plugin loading, so login races and looks like a blank page.
+ */
+export async function loginAsKeycloakUser(
+  page: Page,
+  username = "test1",
+  password = "test1@123",
+): Promise<void> {
+  const helper = new LoginHelper(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Sign In", exact: true }).waitFor({
+    state: "visible",
+    timeout: 240_000,
+  });
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  const popup = await popupPromise;
+  await helper.logintoKeycloak(popup, username, password);
+  await page
+    .locator("nav a")
+    .first()
+    .waitFor({ state: "visible", timeout: 60_000 });
+}
+
 export async function setupKeycloakGroups(): Promise<void> {
+  const baseUrl = process.env.KEYCLOAK_BASE_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "KEYCLOAK_BASE_URL is not set. Global setup should deploy Keycloak and set it; " +
+        "do not set SKIP_KEYCLOAK_DEPLOYMENT=true for homepage tests.",
+    );
+  }
+
+  // Local Keycloak from e2e-test-utils uses admin/admin123. Vault secrets are for CI.
+  const username =
+    process.env.VAULT_KEYCLOAK_ADMIN_USERNAME ||
+    process.env.KEYCLOAK_ADMIN_USERNAME ||
+    "admin";
+  const password =
+    process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD ||
+    process.env.KEYCLOAK_ADMIN_PASSWORD ||
+    "admin123";
+
   const keycloak = new KeycloakHelper();
   await keycloak.connect({
-    baseUrl: process.env.KEYCLOAK_BASE_URL!,
-    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
-    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+    baseUrl,
+    username,
+    password,
   });
 
   await keycloak.deleteUser("rhdh", HOMEPAGE_ADMIN.username).catch(() => {});
@@ -92,6 +148,41 @@ export class DynamicHomePagePo {
     this.baseURL = url;
   }
 
+  /** Widget labels shown in the Add widget dialog. */
+  get availableWidgets(): readonly string[] {
+    return AVAILABLE_WIDGETS;
+  }
+
+  private widgetDialogLabel(widgetType: string): string {
+    return WIDGET_DIALOG_LABELS.get(widgetType) ?? widgetType;
+  }
+
+  /**
+   * Clears the CustomHomepageGrid storage bucket used by the home plugin.
+   * Layout is stored under storageApi bucket `home.customHomepage` (often
+   * localStorage). Clear between distinct users so shared browser storage
+   * cannot leak layouts when user-settings isolation is unavailable.
+   */
+  async clearHomeLayoutStorage(): Promise<void> {
+    await this.page.evaluate(() => {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.includes("home.customHomepage") ||
+            key.includes("customHomepage") ||
+            /[/:]home$/.test(key))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const key of keysToRemove) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
+
   private async signOut(): Promise<void> {
     await this.page.goto(`${this.baseURL}/settings`);
     await this.page.getByTestId("user-settings-menu").click();
@@ -103,46 +194,56 @@ export class DynamicHomePagePo {
   async reloginAsKeycloakUser(
     username = "test1",
     password = "test1@123",
+    options?: { clearHomeStorage?: boolean },
   ): Promise<void> {
     await this.signOut();
     await this.page.context().clearCookies();
-    await this.page.goto(this.baseURL);
-    await new LoginHelper(this.page).loginAsKeycloakUser(username, password);
+    if (options?.clearHomeStorage) {
+      await this.clearHomeLayoutStorage();
+    }
+    await loginAsKeycloakUser(this.page, username, password);
   }
 
   async reloginAsNonGroupUser(): Promise<void> {
     await this.signOut();
     await this.page.context().clearCookies();
-    await this.page.goto(this.baseURL);
-    await new LoginHelper(this.page).loginAsKeycloakUser(
+    // Guest/non-group user must not inherit the previous user's layout from
+    // shared browser storage when switching accounts in the same context.
+    await this.clearHomeLayoutStorage();
+    await loginAsKeycloakUser(
+      this.page,
       HOMEPAGE_TEST3.username,
       HOMEPAGE_TEST3.password,
     );
   }
 
-  private readonly editButton = () => this.page.getByText("Edit");
+  private readonly editButton = () =>
+    this.page.getByRole("button", { name: "Edit", exact: true });
   private readonly saveButton = () =>
-    this.page.getByText("Save", {
-      exact: true,
-    });
+    this.page.getByRole("button", { name: "Save", exact: true });
+  private readonly cancelButton = () =>
+    this.page.getByRole("button", { name: "Cancel", exact: true });
   private readonly clearAllButton = () =>
     this.page.getByRole("button", { name: "Clear all" });
   private readonly restoreDefaultsButton = () =>
     this.page.getByText("Restore defaults");
   private readonly addWidgetButton = () =>
     this.page.getByRole("button", { name: "Add widget" });
-  private readonly resizeHandles = () =>
-    this.page.locator(".react-resizable-handle");
   private readonly deleteButtons = () =>
     this.page.getByRole("button", { name: "Delete widget" });
   private readonly greetingText = () =>
     this.page.getByText(/Good (morning|afternoon|evening)/);
 
-  async verifyHomePageLoaded(): Promise<void> {
+  async verifyHomePageLoaded(options?: {
+    requireWidgets?: boolean;
+  }): Promise<void> {
     await this.ui.verifyHeading("Welcome back");
-    await expect(
-      this.page.locator('[class*="react-grid-item"]').first(),
-    ).toBeVisible({ timeout: 15_000 });
+    const requireWidgets = options?.requireWidgets ?? true;
+    if (requireWidgets) {
+      await expect(
+        this.page.locator('[class*="react-grid-item"]').first(),
+      ).toBeVisible({ timeout: 15_000 });
+    }
     await this.dismissQuickstart();
   }
 
@@ -183,54 +284,114 @@ export class DynamicHomePagePo {
 
   async enterEditMode(): Promise<void> {
     await this.ui.clickButton("Edit");
-    await expect(this.saveButton()).toBeVisible();
+    // NFS edit mode shows both Cancel and Save; .or() + toBeVisible() hits strict mode
+    // when both match — wait for either via .first().
+    await this.saveButton()
+      .or(this.cancelButton())
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 });
   }
 
   async exitEditMode(): Promise<void> {
-    await this.ui.clickButton("Save");
-    await expect(this.editButton()).toBeVisible();
+    await this.dismissAddWidgetDialog();
+
+    // NFS only surfaces Save after a layout dimension change; add/remove alone leaves
+    // Save hidden and Cancel reverts to the last persisted layout.
+    if (!(await this.saveButton().isVisible())) {
+      await this.nudgeLayoutToEnableSave();
+    }
+
+    if (await this.saveButton().isVisible()) {
+      await this.saveButton().click();
+    } else if (await this.cancelButton().isVisible()) {
+      await this.cancelButton().click();
+    }
+    await expect(this.editButton()).toBeVisible({ timeout: 10_000 });
+  }
+
+  private async dismissAddWidgetDialog(): Promise<void> {
+    const dialog = this.page.getByRole("dialog");
+    if (await dialog.isVisible()) {
+      await this.page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden({ timeout: 5_000 });
+    }
+  }
+
+  /** Small resize so NFS edit toolbar exposes Save after widget add/remove. */
+  private async nudgeLayoutToEnableSave(): Promise<void> {
+    const gridItem = this.editableGridItem();
+    if ((await gridItem.count()) === 0) {
+      return;
+    }
+    const handle = gridItem
+      .locator(".react-resizable-handle-se, .react-resizable-handle")
+      .last();
+    if (!(await handle.isVisible())) {
+      return;
+    }
+    await this.dragResizeHandle(handle, { widthDelta: 0, heightDelta: 40 });
+    await this.saveButton().waitFor({ state: "visible", timeout: 10_000 });
+  }
+
+  /** Grid item that contains a real widget (not an empty placeholder row). */
+  private editableGridItem(): Locator {
+    return this.page
+      .locator('[class*="react-grid-item"]')
+      .filter({ has: this.deleteButtons() })
+      .last();
   }
 
   /**
-   * Resizes one card via the first visible resize handle (while still in edit
-   * mode, before Save). Call after `enterEditMode` and adding a widget.
+   * Resizes one card via the SE resize handle (while still in edit mode, before Save).
+   * Call after `enterEditMode` and adding a widget.
    */
   async resizeFirstCard(): Promise<void> {
-    const handle = this.resizeHandles().first();
+    const gridItem = this.editableGridItem();
+    await expect(gridItem).toBeVisible({ timeout: 10_000 });
+
+    const handle = gridItem
+      .locator(".react-resizable-handle-se, .react-resizable-handle")
+      .last();
     await expect(handle).toBeVisible();
-    const panel = this.resizablePanelForHandle(handle);
-    const initialBox = await panel.boundingBox();
+
+    const initialBox = await gridItem.boundingBox();
     expect(initialBox).not.toBeNull();
 
     await this.dragResizeHandle(handle);
 
-    const finalBox = await panel.boundingBox();
-    expect(finalBox).not.toBeNull();
-    const widthChanged = finalBox!.width !== initialBox!.width;
-    const heightChanged = finalBox!.height !== initialBox!.height;
-    expect(widthChanged || heightChanged).toBe(true);
+    // Measure the grid item — NFS widgets are full width so only height changes.
+    await expect
+      .poll(async () => {
+        const box = await gridItem.boundingBox();
+        if (!box || !initialBox) {
+          return false;
+        }
+        return (
+          Math.abs(box.height - initialBox.height) > 5 ||
+          Math.abs(box.width - initialBox.width) > 5
+        );
+      })
+      .toBe(true);
   }
 
-  /** Nearest `react-resizable` root for a handle (`.react-resizable-handle`). */
-  private resizablePanelForHandle(handle: Locator): Locator {
-    return handle.locator(
-      'xpath=ancestor::*[contains(@class,"react-resizable")][1]',
-    );
-  }
-
-  private async dragResizeHandle(handle: Locator): Promise<void> {
+  private async dragResizeHandle(
+    handle: Locator,
+    deltas?: { widthDelta?: number; heightDelta?: number },
+  ): Promise<void> {
     await handle.scrollIntoViewIfNeeded();
     const box = await handle.boundingBox();
     expect(box).not.toBeNull();
     const startX = box!.x + box!.width / 2;
     const startY = box!.y + box!.height / 2;
-    const delta = 160;
+    // NFS widgets default to full grid width — drag vertically to resize height.
+    const widthDelta = deltas?.widthDelta ?? 0;
+    const heightDelta = deltas?.heightDelta ?? 220;
     await this.page.mouse.move(startX, startY);
     await this.page.mouse.down();
-    await this.page.mouse.move(startX + delta, startY + delta, { steps: 12 });
+    await this.page.mouse.move(startX + widthDelta, startY + heightDelta, {
+      steps: 24,
+    });
     await this.page.mouse.up();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- layout after resize
-    await this.page.waitForTimeout(500);
   }
 
   async deleteAllCards(): Promise<void> {
@@ -250,6 +411,14 @@ export class DynamicHomePagePo {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for edit mode to stabilize
     await this.page.waitForTimeout(500);
     await this.clearAllButton().click();
+  }
+
+  /** Clear all only when the grid has cards (NFS home may start empty). */
+  async clearAllCardsIfPresent(): Promise<void> {
+    if (await this.clearAllButton().isVisible()) {
+      await this.clearAllCardsWithButton();
+      await this.verifyCardsDeleted();
+    }
   }
 
   async verifyCardsDeleted(): Promise<void> {
@@ -280,12 +449,18 @@ export class DynamicHomePagePo {
   }
 
   async addWidget(widgetType: string): Promise<void> {
+    const label = this.widgetDialogLabel(widgetType);
+    const gridItems = this.page.locator('[class*="react-grid-item"]');
+    const countBefore = await gridItems.count();
+
     await this.ui.clickButton("Add widget");
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
-    await this.page.waitForTimeout(1000);
-    await this.page.getByRole("button", { name: widgetType }).click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- widget mount
-    await this.page.waitForTimeout(1000);
+    const widgetOption = this.page.getByRole("button", { name: label });
+    await widgetOption.waitFor({ state: "visible", timeout: 30_000 });
+    await widgetOption.click();
+
+    await expect(gridItems).toHaveCount(countBefore + 1, { timeout: 30_000 });
+    await expect(gridItems.last()).toBeVisible({ timeout: 30_000 });
+    await this.dismissAddWidgetDialog();
   }
 
   /** Returns count of visible widget cards on the homepage grid. */
@@ -314,7 +489,7 @@ export class DynamicHomePagePo {
     await this.ui.clickButton("Add widget");
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
-    for (const widget of AVAILABLE_WIDGETS) {
+    for (const widget of this.availableWidgets) {
       await expect(
         this.page.getByRole("button", { name: widget }),
       ).toBeVisible();

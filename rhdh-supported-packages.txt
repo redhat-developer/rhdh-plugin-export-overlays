@@ -13,6 +13,11 @@ app-defaults/plugins/app-auth
 app-defaults/plugins/app-defaults
 app-defaults/plugins/app-integrations
 
+backstage/plugins/auth-backend-module-github-provider
+backstage/plugins/auth-backend-module-gitlab-provider
+backstage/plugins/auth-backend-module-guest-provider
+backstage/plugins/auth-backend-module-microsoft-provider
+backstage/plugins/auth-backend-module-oidc-provider
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
 backstage/plugins/catalog-backend-module-ldap
@@ -30,6 +35,7 @@ global-header/plugins/global-header
 homepage/plugins/homepage
 homepage/plugins/homepage-backend
 
+keycloak/plugins/auth-backend-module-keycloak
 keycloak/plugins/catalog-backend-module-keycloak
 
 extensions/plugins/catalog-backend-module-extensions
