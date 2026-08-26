@@ -94,13 +94,23 @@ Two things follow.
 construction, testing declarative wiring** — not the external service it claims to test. That
 is the single most reusable signal in this epic, and the Scalprum-key column predicts it.
 
-**The migration as executed usually increases cluster cost.** In `acr`, `tekton`, `topology`,
-`tech-radar`, `analytics` and `bulk-import` the `-app-next` project was added *beside* the
-legacy one, so each runs two projects and claims two namespaces. Carried across all 24
-workspaces that is roughly a 40% increase in namespaces per run. Two workspaces did it the
-other way — `app-defaults` and `keycloak` have an `-app-next` project and no legacy one — and
-that is the shape worth copying. Whatever else is decided, the doubling should be a conscious
-choice with an end date, not a side effect.
+**Adding the lane beside the legacy one increases cluster cost; replacing it does not.**
+[measured 2026-08-26] In `acr`, `tekton`, `topology`, `tech-radar`, `analytics` and
+`bulk-import` the `-app-next` project was added *beside* the legacy one, so each runs two
+projects and claims two namespaces. Eight workspaces did it the other way and have no legacy
+lane left: `app-defaults`, `intelligent-assistant`, `keycloak`, `quickstart` and
+`scaffolder-backend-module-kubernetes` by renaming the project, and `backstage` (13 projects),
+`github` and `homepage` by passing `configure({ useNewFrontendSystem: true })` without
+renaming. Ten workspaces are not migrated.
+
+Note what the second mechanism costs a reader: 16 of the 48 projects are NFS while every one
+of their names still reads as legacy, so any inventory keyed on the `-app-next` suffix
+miscounts them. Deciding between the two mechanisms is
+[RHIDP-16461](https://redhat.atlassian.net/browse/RHIDP-16461).
+
+The doubling now has an end date rather than needing one assigned: redhat-developer/rhdh#5232
+removes the legacy frontend outright, after which both lanes of an add-beside pair boot the
+same shell and the pair is duplication by construction.
 
 ## 3. The finding that reorders the whole epic
 
@@ -423,7 +433,7 @@ this", the owner decides whether the copy goes.
 | `quickstart` | GA | 2 | 16 | **no** | 0 | Two tests carrying 14 clicks, 10 `verifyButtonURL` and 17 text assertions over static drawer content. **L3**, entirely. The one e2e-shaped question — guest vs authenticated — needs an identity, not a cluster. |
 | `bulk-import` | TP | 9 | 46 | **no** | 0 | Generating a real GitHub PR to assert the YAML inside it is **L2** with msw; 10 msw files already exist in this workspace. Permission test is **L2**. 17 Scalprum keys, so NFS rewrites most of this suite anyway. |
 | `extensions` | TP | 11 | 39 | **no** | 0 | Filters, badges, search, tables are **L3** on `extensionsPage`; enable-disable and edit-package are **L2** (3 `startTestBackend` files present). Publishes no OCI artifact — it is baked into the image — so a cluster-free *artifact* lane cannot cover it either way. |
-| `app-defaults` | TP | 3 | 6 | **no** | 0 | A real IdP is the subject, but a container is a real IdP: **L4a with Keycloak in a container**. Blocked by [RHIDP-15482](https://redhat.atlassian.net/browse/RHIDP-15482). Note this is the only workspace whose *only* project is `-app-next`. |
+| `app-defaults` | TP | 3 | 6 | **no** | 0 | A real IdP is the subject, but a container is a real IdP: **L4a with Keycloak in a container**. Blocked by [RHIDP-15482](https://redhat.atlassian.net/browse/RHIDP-15482). |
 | `scorecard` | **dev-preview** | 16 | 145 | yes | 0 | The matrix requires **nothing** at this tier, and the plugin already has 145 upstream test files and the only `createExtensionTester` test in `rhdh-plugins` besides `boost`. Empty, error and invalid-threshold states cannot be produced from live GitHub or Jira, so the suite is already faking them one layer too high. Move the lot to **L3** beside `ScorecardLayoutBlueprint.test.tsx`. |
 | `theme` | **community** | 5 | 21 | **no** | 0 | Palette, gradient and border are **L1** — a palette is data. Favicon, logo and title want a real app shell but no external dependency. Note the upstream workspace already has a cluster-free lane with 4 tests, so this is not a greenfield 4a case — check what those cover first. Two blockers: neither `plugins/theme` nor `plugins/qe-theme` has an `alpha` surface at all (the four that do are the `bui-test` / `bcc-test` / `mui4-test` / `mui5-test` fixtures), and NFS has no `app.extensions` equivalent for the `themes:` / `appIcons:` config surface. |
 
@@ -437,7 +447,7 @@ two are where the proxy breaks.
 
 | Workspace | sup | Tests | up | α | Cluster after | Do this |
 |---|---|---|---|---|---|---|
-| `backstage` | mixed | 47 | — | — | ~10 | 12 projects, the largest single consumer of the epic's cluster budget. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
+| `backstage` | mixed | 47 | — | — | ~10 | 13 projects, the largest single consumer of the epic's cluster budget. Catalog CRUD by commit is **L2**; webhook signature verification is **L1**; notifications are **L2** plus **L3**; TechDocs rendering is **L3**. Only `-kubernetes` and part of `-auth` are genuinely 4b. |
 | `rbac` | GA | 27 | 71 | **no** | ~3 | Most of the 27 assert policy enforcement — **L2**, where every role runs in one process instead of one namespace each. Nav gating is **L3**. Keep 2–3 walking identity to token to policy to UI. `src/alpha/index.ts` exists and is untested. |
 | `topology` | GA | 4 | 32 | **no** | **4** | OpenShift is the subject. **Stays 4b** — and it is one of the few suites that can document a 4b rationale as the matrix requires. Add Recipe A upstream anyway: `topologyPlugin` and `isTopologyAvailable` are exported and untested. |
 | `tech-radar` | GA | 1 | 17 | **yes** | 0 | One test: open sidebar, verify heading — and `alpha.test.tsx` upstream already asserts the NFS page renders. The overlay test adds only "the OCI artifact loads", which `smoke-tests-native/` already checks. Cheapest candidate for a 4a lane against the *published artifact* (it has an upstream `packages/app-next` host but no Playwright config); blocked only by the baked-in wrapper. **Has no Jira ticket.** |
