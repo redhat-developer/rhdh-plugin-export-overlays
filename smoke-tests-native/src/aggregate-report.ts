@@ -191,7 +191,7 @@ export function nfsSupportOf(bundle: BundleSystems): NfsSupport {
   if (!bundle.systems.includes("new-frontend-system")) return "none";
   const mf = bundle.mf;
   // A layout the router will not serve mounts nothing, whatever it declares.
-  if (!mf || !mf.servable) return "none";
+  if (!mf?.servable) return "none";
   // Nothing declared. Two ways to arrive here — the package declares no
   // backstage.features, or reading it failed (readNfsFeatures returns an empty list
   // beside the error) — and for a three-way verdict they give the same answer, so
