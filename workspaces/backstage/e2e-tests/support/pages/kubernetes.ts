@@ -14,7 +14,11 @@ export class KubernetesPage {
   async navigateToTabForComponent(componentName: string) {
     await this.uiHelper.openCatalogSidebar("Component");
     await this.uiHelper.clickLink(componentName);
-    await this.uiHelper.clickTab("Kubernetes");
+    const tab = this.page.getByRole("tab", { name: "Kubernetes" });
+    const link = this.page
+      .locator('nav[aria-label="Content navigation"]')
+      .getByRole("link", { name: "Kubernetes" });
+    await tab.or(link).click();
   }
 
   async verifyDeployment(text: string) {

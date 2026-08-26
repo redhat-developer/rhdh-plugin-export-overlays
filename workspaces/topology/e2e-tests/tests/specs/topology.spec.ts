@@ -16,11 +16,15 @@ let topology: Topology;
 const deployResources = async (project: string) =>
   await $`bash ${setupScript} ${project}`;
 
-async function navigateToTopology(uiHelper: UIhelper) {
+async function navigateToTopology(uiHelper: UIhelper, page: Page) {
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("backstage-janus");
   await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
+  const tab = page.getByRole("tab", { name: "Topology" });
+  const link = page
+    .locator('nav[aria-label="Content navigation"]')
+    .getByRole("link", { name: "Topology" });
+  await tab.or(link).click();
 }
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
@@ -62,7 +66,7 @@ test.describe("Test Topology plugin", () => {
     test.setTimeout(150000 + testInfo.retry * 30000);
     await loginHelper.loginAsKeycloakUser("test1", "test1@123");
     topology = new Topology(page);
-    await navigateToTopology(uiHelper);
+    await navigateToTopology(uiHelper, page);
     await uiHelper.verifyHeading("backstage-janus");
     await page.getByRole("button", { name: "Fit to Screen" }).click();
     await expect(async () => {
@@ -140,7 +144,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsGuest();
-      await navigateToTopology(uiHelper);
+      await navigateToTopology(uiHelper, page);
       await topo.verifyMissingTopologyPermission();
     });
 
@@ -152,7 +156,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test2", "test2@123");
-      await navigateToTopology(uiHelper);
+      await navigateToTopology(uiHelper, page);
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(false);
@@ -166,7 +170,7 @@ test.describe("Test Topology plugin", () => {
       const topo = new Topology(page);
 
       await loginHelper.loginAsKeycloakUser("test1", "test1@123");
-      await navigateToTopology(uiHelper);
+      await navigateToTopology(uiHelper, page);
 
       await topo.verifyDeployment("topology-test");
       await topo.verifyPodLogs(true);
