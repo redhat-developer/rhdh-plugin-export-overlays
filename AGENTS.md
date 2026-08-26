@@ -334,6 +334,44 @@ MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY
 
 `envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
 
+### OCI Registry Considerations for Dynamic Plugin Configs
+
+When a workspace needs a `dynamic-plugins.yaml` — for example, to disable a default plugin, remap a plugin to a different registry, or add plugin config that metadata alone cannot express — be aware of the OCI registry landscape. Three registries are in active use, and their roles are shifting:
+
+| Registry | Role | Notes |
+|----------|------|-------|
+| `ghcr.io` | PR/dev builds, some released artifacts | Used for `pr_<number>__<version>` tags and workspace-specific builds |
+| `quay.io` | Production catalog index | Primary registry for released RHDH plugins going forward |
+| `registry.access.redhat.com` | Legacy production (RHEC) | Older plugin refs; being phased out in favor of `quay.io` |
+
+**Why hardcoded registry URLs are fragile.** Plugin OCI refs migrate between registries as the RHDH catalog index evolves. A `dynamic-plugins.yaml` that hardcodes `registry.access.redhat.com` refs will break when the catalog index moves to `quay.io`, because `{{inherit}}` resolves against the catalog index image's registry and repository — it only matches when the registry and repo path align. This is exactly what happened with keycloak plugins: the catalog index moved to `quay.io`, but e2e-test-utils still emitted `registry.access.redhat.com` `{{inherit}}` refs, causing mismatches.
+
+**Prefer metadata auto-generation.** Most workspaces should NOT have a `dynamic-plugins.yaml` at all. When no file exists, the framework auto-generates the complete plugin configuration from `metadata/*.yaml`, including correct OCI resolution for all three modes (PR, nightly, local dev). This is the most resilient approach.
+
+**When you DO need a `dynamic-plugins.yaml`**, follow these guidelines:
+
+1. **Handle registry variation explicitly.** If you must reference a plugin by OCI URL, account for the possibility that the same plugin exists on multiple registries. The `intelligent-assistant` workspace demonstrates the canonical pattern — disabling a `registry.access.redhat.com` ref and enabling the equivalent `quay.io` ref:
+
+   ```yaml
+   # Disable the legacy RHEC ref
+   - package: oci://registry.access.redhat.com/rhdh/plugin-name:{{inherit}}
+     disabled: true
+   # Enable the quay.io ref with config
+   - package: oci://quay.io/rhdh/plugin-name:{{inherit}}
+     disabled: false
+     pluginConfig: ...
+   ```
+
+2. **Use `{{inherit}}` for version-managed plugins.** Plugins that ship in the RHDH catalog index should use `{{inherit}}` rather than pinned version tags. This lets the framework resolve the correct version for the deployment mode (PR, nightly, local dev).
+
+3. **Document registry assumptions in comments.** When a `dynamic-plugins.yaml` references specific registries, add a comment block explaining why — which registry the catalog index uses, which refs need remapping, and what breaks if the registry changes. See `workspaces/intelligent-assistant/e2e-tests/tests/config/dynamic-plugins.yaml` for an example.
+
+4. **Common reasons to create a `dynamic-plugins.yaml`:**
+   - Disabling a default plugin (e.g., `analytics-provider-segment`, `global-header`)
+   - Remapping a plugin from one registry to another
+   - Adding `pluginConfig` that cannot be expressed in `metadata/*.yaml` `appConfigExamples`
+   - Enabling a plugin from `ghcr.io` workspace builds alongside catalog index plugins
+
 ### WorkspacePaths
 
 Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
