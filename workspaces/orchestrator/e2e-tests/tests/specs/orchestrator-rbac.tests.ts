@@ -70,8 +70,9 @@ const RBAC_SCENARIOS: RbacScenario[] = [
   {
     name: "Greeting Denied",
     roleName: "role:default/workflowGreetingDenied",
+    // IS_ALLOWED_WORKFLOW_ID has no deny form. No grant → no access.
     policies: [],
-    conditions: greetingWorkflowConditions("deny", "deny"),
+    conditions: [],
     expectWorkflowVisible: false,
     expectRunState: "absent",
     workflowScope: "greeting",

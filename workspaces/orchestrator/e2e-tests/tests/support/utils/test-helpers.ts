@@ -177,6 +177,7 @@ export async function createOrchestratorWorkflowConditions(
   if (specs.length === 0) {
     return;
   }
+  // RbacApiHelper can list/delete conditions but has no create method.
   const context = await request.newContext({
     baseURL: permissionApiUrl(),
     extraHTTPHeaders: {
@@ -422,6 +423,10 @@ export async function deleteRoleAndPolicies(
       }
       await rbacApi.deleteCondition(String(condition.id));
     }
+  } catch {
+    // conditions may not exist yet
+  }
+  try {
     const policiesResponse = await rbacApi.getPoliciesByRole(apiName);
     if (policiesResponse.ok()) {
       const policies =
