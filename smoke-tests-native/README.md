@@ -170,12 +170,12 @@ The operative requirement for this tier is **"the published artifact installs an
 without error in a default RHDH instance", was orphaned when community plugins left the
 image).
 
-| Scope                             | Coverage                                                                         |
-| --------------------------------- | -------------------------------------------------------------------------------- |
-| All community packages            | OCI install + dynamic-plugin layout validation                                   |
-| Community backend packages        | real boot via `startTestBackend`                                                 |
-| Catalog-extending backend modules | install + bundle layout, no boot — see `plugin-sweep-excludes.txt` (RHIDP-16017) |
-| Community frontend packages       | bundle-layout validation only                                                    |
+| Scope                             | Coverage                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| All community packages            | OCI install + dynamic-plugin layout validation                             |
+| Community backend packages        | real boot via `startTestBackend`                                           |
+| Catalog-extending backend modules | real boot via `startTestBackend` (catalog core included in `coreFeatures`) |
+| Community frontend packages       | bundle-layout validation only                                              |
 
 **This is breadth, not depth.** Frontend plugins get no UI render — that is RHIDP-16009,
 blocked on RHIDP-15082. The layout check stays because it costs nothing extra (the install
@@ -197,11 +197,11 @@ _layout_, which RHDH also uses to ship legacy Scalprum plugins — so on its own
 overstates. Beside the counts the panel prints a `nfsSupport` split, also recorded per
 package in `aggregate.json`:
 
-|                | Meaning                                                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                      |
+|                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                                                                                                                                                                                                                                                                              |
 | `undetermined` | no `backstage.features` was read, so `nfsModuleFilter` installs no filter, every exposed module is advertised, and the host decides at runtime — not knowable without executing the bundle. Two causes, and the count does not separate them: the package declares none, or reading it failed. `mf.nfsFeaturesError` in `aggregate.json` tells them apart, and the per-package prose stays silent on a read failure rather than reporting it as declaring none |
-| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                       |
+| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Quote `confirmed` as migration progress. The 2026-08-21 community sweep was 46 dual, of
 which 19 confirmed and 27 undetermined — and ten of those 27 expose an `alpha` module, so
@@ -286,12 +286,13 @@ Exit code `0` = pass; non-zero with `results.json` detailing `fail-load` / `fail
 
 Of the 12 pure-backend workspaces, validated empirically:
 
-- **Covered now (4)**: `mcp-integrations` (3 plugins boot together), `github-notifications`,
-  `scaffolder-backend-module-{servicenow,sonarqube}` — load + backend start via their
-  published OCI refs.
-- **Catalog-gated (6)**: `3scale, ai-integrations, apiconnect, keycloak, pingidentity,
-scaffolder-relation-processor` — blocked by the upstream catalog-backend boot issue
-  (see the caveat at the bottom); they stay on the Docker smoke for now.
+- **Covered now (10)**: `mcp-integrations` (3 plugins boot together),
+  `github-notifications`, `scaffolder-backend-module-{servicenow,sonarqube}`,
+  `3scale`, `ai-integrations`, `apiconnect`, `keycloak`, `pingidentity`,
+  `scaffolder-relation-processor` — load + backend start via their published
+  OCI refs. The catalog-extending modules boot against `catalogPlugin`
+  (part of `coreFeatures`). Only `@pagerduty/backstage-plugin-entity-processor`
+  remains excluded ([RHDHBUGS-3707](https://redhat.atlassian.net/browse/RHDHBUGS-3707)).
 - **No published OCI artifact (2)**: `scaffolder-backend-module-{kubernetes,regex}` —
   their released `dynamicArtifact` is a local `./dynamic-plugins/dist/…` path (plugin
   ships inside the RHDH image), so there is nothing for this harness to pull.
@@ -342,6 +343,6 @@ additionally boots the entire RHDH backend (that extra work is exactly the overh
 in-process approach removes). Note the comparison is per-workspace — the Docker smoke boots
 one container per workspace, which is the unit this harness replaces.
 
-Caveat: the native harness currently boots a minimal backend scoped to the plugin's needs
-(e.g. scaffolder for scaffolder modules). Catalog-extending modules need the catalog core,
-which does not yet boot cleanly standalone — see the coreFeatures note in `src/native-smoke.ts`.
+The native harness boots a minimal backend scoped to the plugin's needs — scaffolder for
+scaffolder modules, catalog for catalog-extending modules. The `coreFeatures` list in
+`src/native-smoke.ts` includes `catalogPlugin`, `scaffolderPlugin`, and `searchPlugin`.
