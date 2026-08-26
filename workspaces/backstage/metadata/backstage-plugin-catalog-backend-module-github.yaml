@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-catalog-backend-module-github
   namespace: rhdh
-  title: "Catalog Backend Module GitHub"
+  title: 'Catalog Backend Module GitHub'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,12 +16,12 @@ metadata:
   tags:
     - software-catalog
 spec:
-  packageName: "@backstage/plugin-catalog-backend-module-github"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.52.0__0.13.3
-  version: 0.13.3
+  packageName: '@backstage/plugin-catalog-backend-module-github'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.54.4__0.13.5!backstage-plugin-catalog-backend-module-github
+  version: 0.13.5
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: generally-available
   lifecycle: active

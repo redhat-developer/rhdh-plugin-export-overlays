@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-notifications-backend
   namespace: rhdh
-  title: "Notifications Backend"
+  title: 'Notifications Backend'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,12 +15,12 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications-backend
   tags: []
 spec:
-  packageName: "@backstage/plugin-notifications-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend:bs_1.52.0__0.6.6
-  version: 0.6.6
+  packageName: '@backstage/plugin-notifications-backend'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend:bs_1.54.4__0.6.8!backstage-plugin-notifications-backend
+  version: 0.6.8
   backstage:
     role: backend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: tech-preview
   lifecycle: active

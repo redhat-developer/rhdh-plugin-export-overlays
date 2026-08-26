@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-notifications-backend-module-email
   namespace: rhdh
-  title: "Notifications Backend Module Email"
+  title: 'Notifications Backend Module Email'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,12 +15,12 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/notifications-backend-module-email
   tags: []
 spec:
-  packageName: "@backstage/plugin-notifications-backend-module-email"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email:bs_1.52.0__0.3.22
-  version: 0.3.22
+  packageName: '@backstage/plugin-notifications-backend-module-email'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email:bs_1.54.4__0.3.24!backstage-plugin-notifications-backend-module-email
+  version: 0.3.24
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: tech-preview
   lifecycle: active

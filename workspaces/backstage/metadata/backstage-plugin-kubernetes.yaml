@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-kubernetes
   namespace: rhdh
-  title: "Kubernetes Frontend"
+  title: 'Kubernetes Frontend'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,12 +15,12 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/kubernetes
   tags: []
 spec:
-  packageName: "@backstage/plugin-kubernetes"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.52.0__0.12.20
-  version: 0.12.20
+  packageName: '@backstage/plugin-kubernetes'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.54.4__0.12.22!backstage-plugin-kubernetes
+  version: 0.12.22
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: tech-preview
   lifecycle: active

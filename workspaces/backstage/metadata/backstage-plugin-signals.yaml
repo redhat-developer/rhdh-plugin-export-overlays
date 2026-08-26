@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-signals
   namespace: rhdh
-  title: "Signals Frontend"
+  title: 'Signals Frontend'
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,12 +15,12 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/signals
   tags: []
 spec:
-  packageName: "@backstage/plugin-signals"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.52.0__0.0.32
-  version: 0.0.32
+  packageName: '@backstage/plugin-signals'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.54.4__0.0.34!backstage-plugin-signals
+  version: 0.0.34
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: generally-available
   lifecycle: active
