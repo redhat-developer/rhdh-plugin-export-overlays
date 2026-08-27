@@ -1,10 +1,10 @@
 # NFS e2e triage: what each workspace needs, and what no longer needs a cluster
 
-**Epic**: RHIDP-15286 — Migrate e2e-tests in the overlay repository to NFS
+**Epic**: [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286) — Migrate e2e-tests in the overlay repository to NFS
 **Verified against `main`**: 2026-08-17
 **Status**: reference material for the epic's per-workspace tickets
 
-This is the input sheet for the tickets under RHIDP-15286. It answers three questions per
+This is the input sheet for the tickets under [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286). It answers three questions per
 workspace: what the NFS migration actually requires, whether the suite still needs an
 OpenShift cluster once it is migrated, and what its assertions are really about.
 
@@ -25,20 +25,29 @@ Every suite here is L4b today; what the tickets need to know is not which layer 
 ## 1. The scope of the epic, measured
 
 The unit of cluster cost is the **Playwright project**, not the workspace: the project name
-is the Kubernetes namespace, and a name ending in `-app-next` is what switches
-`@red-hat-developer-hub/e2e-test-utils` into NFS mode.
+is the Kubernetes namespace. A name ending in `-app-next` switches
+`@red-hat-developer-hub/e2e-test-utils` into NFS mode, but it is not the only thing that
+does: `configure({ useNewFrontendSystem: true })` and `USE_NEW_FRONTEND_SYSTEM=true` do the
+same without touching the name, so counting NFS lanes by suffix alone undercounts them.
+
+All figures below measured 2026-08-26 on `origin/main`; they move as lanes migrate, so
+regenerate rather than quote them — §6 has the commands.
 
 | | Count |
 |---|---|
 | Workspaces with `e2e-tests/` | 24 |
-| **Playwright projects** (= namespaces = cluster claims) | **47** |
-| — with an `-app-next` lane today | 7 |
-| — of those, skipped in nightly | 2 (`tech-radar`, `app-defaults`) |
-| Legacy-only projects with no NFS lane yet | 39 |
-| Spec files / static `test()` declarations | 42 / 246 |
+| **Playwright projects** (= namespaces = cluster claims) | **48** |
+| — running NFS | 27 |
+| — — by the `-app-next` name | 11 |
+| — — by `configure({ useNewFrontendSystem: true })`, name unchanged | 16 |
+| — running the legacy shell | 21 |
+| NFS lanes skipped in nightly | 2 (`tech-radar-app-next`, `app-defaults-app-next`) |
+| Spec files / static `test()` declarations | 43 / 261 |
 | Workspaces using the per-workspace `value_file-app-next.yaml` hook | 0 |
 
-`backstage` alone declares 12 projects. Reproduce any of these with the commands in §6.
+`backstage` alone declares 13 projects, and all thirteen are NFS under their legacy names —
+which is why the suffix count and the NFS count differ by more than a rounding error.
+Reproduce any of these with the commands in §6.
 
 ---
 
@@ -98,7 +107,7 @@ an empty page, and do not assume it will work either. Run it and look.
 | Blocker | State |
 |---|---|
 | `rhdh:packages/app-next` ships only catalog, scaffolder, search, user-settings + the dynamic loader | **open** — no home page, global header, theme, notifications, techdocs, signals or auth-provider UI. A `createFrontendModule({pluginId: 'home'})` plugin attached to a host that lacks `plugin-home` is silently orphaned, not an error. |
-| RHIDP-15482 — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
+| [RHIDP-15482](https://redhat.atlassian.net/browse/RHIDP-15482) — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
 | The wrapper overlap | **open** — RHDH bakes ~43 plugins into its image. Several suites load the baked-in copy rather than this repo's OCI artifact (see the `artifact` column in §3). `tech-radar`'s app-next skip reason is literally "once the tech-radar wrapper is removed". |
 | Scalprum-only config surfaces with no `app.extensions` equivalent | **open** — notably `themes:`/`appIcons:`/`importName:` (`theme`) and the 22 header config keys in `global-header`. |
 
@@ -149,7 +158,7 @@ lane means anything.
 | `orchestrator` | 1 | 26 | — | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
 | `scaffolder-backend-module-kubernetes` | 1 | 1 | — | keycloak | **ocp** | creates and deletes a real namespace — the API call *is* the assertion | n/a | 0 | backend-only |
 | `intelligent-assistant` | 1 | 34 | — | keycloak | **ocp** | a `lightspeed-core` sidecar with EmptyDir vector stores; ConfigMap patch + `oc rollout restart` | oci | 2 | ready |
-| `backstage` | **12** | 47 | — | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`) | mixed | 2 | ready (6 pkgs) |
+| `backstage` | **13** | 47 | ✅ (`configure`, names unchanged) | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`); `-microsoft-auth` not yet classified | mixed | 2 | ready (6 pkgs) |
 
 ### Tally
 
@@ -160,8 +169,13 @@ lane means anything.
 | `ctr` | 13 + 2 of `backstage` | needs a container, not a cluster |
 | `ocp` | 8 + 2 of `backstage` | OpenShift is the subject; stays on Prow |
 
-**About 30 of the 47 projects do not need OpenShift.** Three need no external dependency at
+**About 30 of the 48 projects do not need OpenShift.** Three need no external dependency at
 all. That is the ceiling on what a cluster-free lane could ever cover — not a plan, a bound.
+
+The classes above account for 47 projects, not 48: `backstage-microsoft-auth` arrived with
+#3163 and is not classified yet. It needs a real Azure tenant, which is `svc`, but it also
+patches a ConfigMap and waits on `oc rollout status`, so it is not obviously cluster-free —
+whoever owns that suite should place it rather than have it inferred here.
 
 ---
 
@@ -240,14 +254,18 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (47) and the app-next lanes among them (7)
+# Playwright projects (48) and the lanes named -app-next among them (11)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
-# Spec files (42)
+# The other NFS lanes, which the line above misses because they keep their legacy names
+grep -rl 'useNewFrontendSystem: true' workspaces/*/e2e-tests --include='*.ts' \
+  | grep -v node_modules | cut -d/ -f2 | sort -u
+
+# Spec files (43)
 ls workspaces/*/e2e-tests/tests/**/*.spec.ts | wc -l
 
-# Static tests (246). Counting only *.spec.ts undercounts: orchestrator registers 26 of
+# Static tests (261). Counting only *.spec.ts undercounts: orchestrator registers 26 of
 # its tests from tests/specs/*.tests.ts modules imported by one spec. The lookbehind
 # drops method calls such as `.test(` that are not test declarations. Needs GNU grep -P
 # (`ggrep` on macOS).
