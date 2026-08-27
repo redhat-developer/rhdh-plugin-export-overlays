@@ -640,11 +640,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.49.4__0.12.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.49.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.54.4__0.14.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -654,7 +650,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend:bs_1.54.4__0.14.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -662,19 +659,15 @@
         }
       },
       "package": "@pagerduty/backstage-plugin-backend",
-      "version": "0.12.0",
+      "version": "0.14.0",
       "workspace": "pagerduty",
-      "overall": "pass"
+      "overall": "fail"
     },
     "pagerduty-backstage-plugin": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.49.4__0.19.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.49.4"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.54.4__0.21.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -684,7 +677,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin:bs_1.54.4__0.21.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -692,9 +686,9 @@
         }
       },
       "package": "@pagerduty/backstage-plugin",
-      "version": "0.19.0",
+      "version": "0.21.0",
       "workspace": "pagerduty",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-quay": {
       "stages": {
@@ -1415,8 +1409,8 @@
   },
   "summary": {
     "total": 48,
-    "succeeded": 44,
-    "failed": 4
+    "succeeded": 42,
+    "failed": 6
   },
   "status": "partial"
 }
