@@ -14,7 +14,7 @@ export const defaultGitHubRepositoryParameters = (): RepositoryParameters => {
     repoUrl: "",
     branchName: "backstage-integration",
     targetBranchName: "main",
-    name: `bulk-import-template-${Date.now()}`,
+    name: `bulk-import-template-${Date.now()}-${process.pid}`,
     organization: GITHUB_ORG,
     gitProviderHost: "github.com",
   };
