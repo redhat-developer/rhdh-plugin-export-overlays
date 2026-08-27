@@ -104,6 +104,20 @@ test("imageNameFromRef rejects anything that is not an oci:// ref", () => {
   }
 });
 
+test("imageNameFromRef rejects a malformed digest, like the Python validator", () => {
+  // scripts/validateCatalogIndex.py reports a truncated digest as `ref-form`. A ref the
+  // validator refuses must not be one this mode installs.
+  for (const ref of [
+    `oci://${REGISTRY}/plugin-a@sha256:abc`,
+    `oci://${REGISTRY}/plugin-a:2.0.0--1.2.3@sha256:abc`,
+    `oci://${REGISTRY}/plugin-a@notadigest`,
+  ]) {
+    assert.equal(imageNameFromRef(ref), undefined, ref);
+  }
+  // A well-formed one still resolves.
+  assert.equal(imageNameFromRef(ociRef("plugin-a")), "plugin-a");
+});
+
 test("imageNameFromRef rejects a ref that names no image", () => {
   // Without the separator check these pass with the host read as the image name.
   for (const ref of [

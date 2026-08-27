@@ -34,6 +34,8 @@ import { compareStrings } from "./util";
 
 const OCI_PREFIX = "oci://";
 const IN_IMAGE_PREFIX = "./dynamic-plugins/dist/";
+/** A well-formed content digest, matching DIGEST_RE in validateCatalogIndex.py. */
+const DIGEST_RE = /^sha256:[0-9a-f]{64}$/;
 
 /** What the index declares, split into what this harness can and cannot validate. */
 export type CatalogIndexRefs = {
@@ -73,7 +75,12 @@ export function imageNameFromRef(ref: string): string | undefined {
   const lastSegment = body.slice(body.lastIndexOf("/") + 1);
   // Strip the digest before the tag: a ref can carry `:tag@sha256:…`, and splitting on
   // ":" first would leave the digest glued to the name.
-  return lastSegment.split("@")[0].split(":")[0] || undefined;
+  const [name, digest] = lastSegment.split("@");
+  // A malformed digest is rejected rather than ignored, so this agrees with
+  // parse_oci_ref in scripts/validateCatalogIndex.py: the validator reports a truncated
+  // digest as `ref-form`, and a ref it refuses must not be one this installs.
+  if (digest !== undefined && !DIGEST_RE.test(digest)) return undefined;
+  return name.split(":")[0] || undefined;
 }
 
 /**
