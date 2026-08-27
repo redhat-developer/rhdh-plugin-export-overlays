@@ -70,10 +70,13 @@ test.describe("Test Topology plugin", () => {
         .getByTestId(/(status-error|status-ok)/)
         .first()
         .click();
-      await uiHelper.verifyText(
+      const tooltip = page.getByRole("tooltip");
+      await expect(tooltip).toContainText(
         /Pipeline (Succeeded|Failed|Cancelled|Running)/,
       );
-      await uiHelper.verifyText(/\d{1,5} (Succeeded|Failed|Cancelled|Running)/);
+      await expect(tooltip).toContainText(
+        /\d{1,5} (Succeeded|Failed|Cancelled|Running)/,
+      );
     }).toPass({ intervals: [2_000, 5_000], timeout: 30_000 });
     await topology.verifyDeployment("topology-test");
     await uiHelper.verifyButtonURL("Open URL", "topology-test-route", {
