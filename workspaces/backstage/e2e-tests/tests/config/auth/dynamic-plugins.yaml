@@ -1,6 +1,7 @@
 # Explicit config is required — without it, all 28 backstage workspace plugins
 # are auto-loaded from metadata, and most require provider config (github, gitlab,
 # kubernetes, ldap, etc.) that this test doesn't supply, crashing RHDH on startup.
+# Guest auth is loaded by the e2e-test-utils `auth: "guest"` profile.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.49.4__0.1.6
     disabled: false
