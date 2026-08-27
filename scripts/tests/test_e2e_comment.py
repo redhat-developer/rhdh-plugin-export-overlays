@@ -406,6 +406,10 @@ class TestPrTriageWorkflowTrustBoundary:
     it must use the same parser and bot identity as this module."""
 
     WORKFLOW = SCRIPTS_DIR.parent / ".github/workflows/e2e-pr-triage.yaml"
+    FULLSEND_WORKFLOW = SCRIPTS_DIR.parent / ".github/workflows/fullsend.yaml"
+    POST_SCRIPT = (
+        SCRIPTS_DIR.parent / ".fullsend/rhdh/scripts/post-e2e-pr-triage.sh"
+    )
 
     def test_the_failure_gate_pins_the_parser_bot_login(self):
         payload, _ = run_node(
@@ -441,6 +445,16 @@ class TestPrTriageWorkflowTrustBoundary:
         workflow = self.WORKFLOW.read_text()
         assert "github.rest.issues.removeLabel" in workflow
         assert "github.rest.issues.addLabels" in workflow
+
+    def test_fullsend_dispatches_label_additions_without_unlabeled_noise(self):
+        workflow = self.FULLSEND_WORKFLOW.read_text()
+        assert "closed, labeled]" in workflow
+        assert "unlabeled" not in workflow
+
+    def test_the_post_script_checks_the_live_head_through_rest(self):
+        post_script = self.POST_SCRIPT.read_text()
+        assert 'gh api "repos/${REPO_FULL_NAME}/pulls/${PR_NUMBER}"' in post_script
+        assert "gh pr view" not in post_script
 
     def test_the_bootstrap_is_scoped_to_adoption_insights(self):
         workflow = self.WORKFLOW.read_text()

@@ -79,7 +79,7 @@ fi
 rm -rf "${scan_dir}"
 
 recorded_head="$(jq -r '.pr_head_sha' "${RESULT_FILE}")"
-current_head="$(gh pr view "${PR_NUMBER}" --repo "${REPO_FULL_NAME}" --json headRefOid --jq '.headRefOid')"
+current_head="$(gh api "repos/${REPO_FULL_NAME}/pulls/${PR_NUMBER}" --jq '.head.sha')"
 if [[ "${recorded_head}" != "${current_head}" ]]; then
   message_file="$(mktemp)"
   printf '%s\n' \
