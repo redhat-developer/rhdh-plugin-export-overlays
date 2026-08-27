@@ -1,3 +1,6 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions
     disabled: false
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false

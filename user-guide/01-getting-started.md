@@ -269,7 +269,15 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
    Create one YAML file per plugin following the Package schema.
 
-5. **Open PR against `main`**
+5. **Add a CODEOWNERS entry:**
+
+   Add an entry for your workspace in [`.github/CODEOWNERS`](../.github/CODEOWNERS) so that PRs touching the workspace require review from the right team or individuals. The list is alphabetically ordered.
+
+   ```
+   /workspaces/your-plugin                                                @your-team @your-username
+   ```
+
+6. **Open PR against `main`**
 
    **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the **Supported Plugins** catalog or the curated **Optional Extras** catalog.
 

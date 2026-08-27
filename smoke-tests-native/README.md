@@ -191,6 +191,24 @@ counts. Run on a schedule, that gives the NFS migration a continuously refreshed
 across the community frontend packages — data the migration has no other automated source
 for today.
 
+**Read the new-frontend-system count with its qualifier.** `systems` gains
+`new-frontend-system` from the presence of `dist/mf-manifest.json` — module-federation
+_layout_, which RHDH also uses to ship legacy Scalprum plugins — so on its own it
+overstates. Beside the counts the panel prints a `nfsSupport` split, also recorded per
+package in `aggregate.json`:
+
+|                | Meaning                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                      |
+| `undetermined` | no `backstage.features` was read, so `nfsModuleFilter` installs no filter, every exposed module is advertised, and the host decides at runtime — not knowable without executing the bundle. Two causes, and the count does not separate them: the package declares none, or reading it failed. `mf.nfsFeaturesError` in `aggregate.json` tells them apart, and the per-package prose stays silent on a read failure rather than reporting it as declaring none |
+| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                       |
+
+Quote `confirmed` as migration progress. The 2026-08-21 community sweep was 46 dual, of
+which 19 confirmed and 27 undetermined — and ten of those 27 expose an `alpha` module, so
+calling them legacy would be as wrong as calling them migrated. Before reading an
+`undetermined` count as "declares nothing", check `nfsFeaturesError` on those packages:
+any that failed to read are "we could not look", which is a different problem.
+
 #### Tracked exclusions
 
 `plugin-sweep-excludes.txt` lists packages the sweep skips, following the discipline of

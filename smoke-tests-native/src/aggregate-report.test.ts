@@ -16,10 +16,12 @@ import {
   findSummaries,
   oneLine,
   packagingOf,
+  nfsSupportOf,
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
 import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type { FrontendSystem, MfRemoteInfo } from "./loader";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
 // $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
@@ -71,14 +73,134 @@ function summary(workspaces: SweepWorkspaceResult[], index = 0): SweepSummary {
   };
 }
 
+/**
+ * An mf record the new frontend system can mount from.
+ *
+ * Deliberately not cast: the fixture has to stop compiling when MfRemoteInfo grows a
+ * field, which is the drift this file already fixes three other fixtures for.
+ */
+function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
+  return {
+    name: "plugin",
+    remoteEntry: "remoteEntry.js",
+    exposes: ["./alpha"],
+    nfsFeatures: ["./alpha"],
+    nfsFeaturesError: null,
+    nfsFeaturesExposed: ["./alpha"],
+    servable: true,
+    ...over,
+  };
+}
+
 test("packagingOf classifies every system combination", () => {
-  assert.equal(packagingOf(["legacy"]), "legacy-only");
+  assert.equal(packagingOf({ systems: ["legacy"], mf: null }), "legacy-only");
   assert.equal(
-    packagingOf(["new-frontend-system"]),
+    packagingOf({ systems: ["new-frontend-system"], mf: usableMf() }),
     "new-frontend-system-only",
   );
-  assert.equal(packagingOf(["legacy", "new-frontend-system"]), "dual");
-  assert.equal(packagingOf([]), "none");
+  assert.equal(
+    packagingOf({
+      systems: ["legacy", "new-frontend-system"],
+      mf: usableMf(),
+    }),
+    "dual",
+  );
+  assert.equal(packagingOf({ systems: [], mf: null }), "none");
+});
+
+test("declaring no backstage.features is undetermined, not legacy", () => {
+  // The state 27 of 47 bundles are actually in. nfsModuleFilter installs no filter,
+  // every exposed module is advertised, and the loader decides at runtime from each
+  // module's $$type — so calling it legacy states a guess as a fact. Ten of those 27
+  // expose an `alpha` module, the same shape as bundles that are unambiguously NFS.
+  const declaresNothing = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(nfsSupportOf(declaresNothing), "undetermined");
+  assert.equal(packagingOf(declaresNothing), "dual");
+});
+
+test("a failure to read backstage.features is undetermined, not a finding", () => {
+  // REPORT_SCHEMA_VERSION was bumped to 5 precisely so this is not recorded as the
+  // artifact declaring none. Reading only nfsFeaturesExposed.length would lose that.
+  const couldNotLook = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({
+      nfsFeatures: [],
+      nfsFeaturesExposed: [],
+      nfsFeaturesError: "could not read package.json (EACCES)",
+    }),
+  };
+  assert.equal(nfsSupportOf(couldNotLook), "undetermined");
+  assert.equal(packagingOf(couldNotLook), "dual");
+});
+
+test("a declared NFS entry point the remote never exposes is a real no", () => {
+  // Here the filter IS installed and keeps nothing, so the host mounts nothing. That
+  // is knowable, unlike the declares-nothing case above.
+  const declaredButUnexposed = {
+    systems: ["new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(nfsSupportOf(declaredButUnexposed), "none");
+  assert.equal(packagingOf(declaredButUnexposed), "none");
+});
+
+test("an unservable remote mounts nothing however much it declares", () => {
+  const unservable = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ servable: false }),
+  };
+  assert.equal(nfsSupportOf(unservable), "none");
+  assert.equal(packagingOf(unservable), "legacy-only");
+});
+
+test("renderMarkdown qualifies the new-frontend-system figure it prints", () => {
+  const markdown = renderMarkdown(
+    buildAggregate([
+      summary([
+        result({
+          workspace: "ws",
+          report: report({
+            frontend: {
+              total: 2,
+              valid: 2,
+              errors: [],
+              bundles: [
+                {
+                  name: "@s/ships-mf-only",
+                  version: "1",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+                },
+                {
+                  name: "@s/really-nfs",
+                  version: "1",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf(),
+                },
+              ],
+            },
+          }),
+        }),
+      ]),
+    ]),
+  );
+  // Both bundles still count as dual, which is the point: the figure is unchanged and
+  // qualified, rather than quietly replaced by a smaller one that is wrong the other way.
+  assert.match(markdown, /\| Dual \| 2 \|/);
+  assert.match(markdown, /\*\*1\*\* are confirmed/);
+  assert.match(markdown, /\*\*1\*\* are undetermined/);
+  assert.match(markdown, /Read the migration figure as the confirmed count/);
+});
+
+test("a bundle with no module-federation layout is not undetermined", () => {
+  // Absent layout is a plain legacy bundle. Calling it undetermined would pad the very
+  // figure the split exists to qualify.
+  const legacyOnly = { systems: ["legacy"] as FrontendSystem[], mf: null };
+  assert.equal(nfsSupportOf(legacyOnly), "none");
+  assert.equal(packagingOf(legacyOnly), "legacy-only");
 });
 
 test("oneLine flattens whitespace and truncates at the limit", () => {
@@ -248,7 +370,7 @@ test("buildAggregate sorts failures and frontend packages deterministically", ()
                 name: "@s/a",
                 version: "1",
                 systems: ["legacy", "new-frontend-system"],
-                mf: null,
+                mf: usableMf(),
               },
             ],
           },
@@ -358,13 +480,13 @@ test("renderMarkdown puts each computed number in its own row", () => {
                   name: "@s/n",
                   version: "1",
                   systems: ["new-frontend-system"],
-                  mf: null,
+                  mf: usableMf(),
                 },
                 {
                   name: "@s/d",
                   version: "1",
                   systems: ["legacy", "new-frontend-system"],
-                  mf: null,
+                  mf: usableMf(),
                 },
               ],
             },

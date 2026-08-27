@@ -1,3 +1,6 @@
-# Intelligent-assistant is already in dynamic-plugins.default.yaml from the catalog index.
-# Do not add workspace metadata plugins here — nightly would duplicate OCI entries.
-plugins: []
+# Intelligent Assistant comes from the catalog index (do not re-list it).
+# Pin app-defaults so the host drawer is present when inherit is unavailable
+# (RHIDP-15482). Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true
