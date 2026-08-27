@@ -13,10 +13,13 @@ set -euo pipefail
 
 IMAGE="${1:-}"
 DEST="${2:-}"
-FILENAME="${3:-dynamic-plugins.default.yaml}"
+# Fixed, not a parameter: an index image carries exactly one file anyone wants, no
+# caller ever passed it, and a caller-supplied member name is a `tar` extraction
+# surface for nothing. Re-add it with a test if the index.json case is ever built.
+FILENAME="dynamic-plugins.default.yaml"
 
 if [[ -z "$IMAGE" || -z "$DEST" ]]; then
-    echo "usage: extractCatalogIndex.sh <catalog-index-image> <dest-file> [file-in-image]" >&2
+    echo "usage: extractCatalogIndex.sh <catalog-index-image> <dest-file>" >&2
     exit 2
 fi
 
