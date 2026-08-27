@@ -16,6 +16,8 @@ agents:
       source: rhdh/harness/review.yaml
     - name: e2e-triage
       source: rhdh/harness/e2e-triage.yaml
+    - name: e2e-pr-triage
+      source: rhdh/harness/e2e-pr-triage.yaml
 roles:
     - triage
     - coder

@@ -1,25 +1,22 @@
 ---
-# harness/e2e-triage.yaml — E2E nightly triage agent.
-#
-# Flow: sandbox (agent) → post_script
-#   agent       : analyzes nightly failures, classifies per workspace, emits issue directives
-#   post_script : executes issue directives (create/comment), comments on trigger issue
-#
-# The triage agent does NOT modify code, push branches, or create PRs.
-# It only reads artifacts, analyzes failures, and writes directives.
-# The code agent handles code changes after triage creates issues.
+# Read-only E2E triage for a failed Prow run attached to an existing PR.
+# The agent analyzes artifacts and emits a recommendation; the post-script only
+# reports that recommendation on the same PR. Automatic fixes are deliberately
+# out of scope for the first pilot.
 agent: rhdh/agents/e2e-triage.md
 model: opus
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/e2e-triage.yaml
 
 role: triage
-slug: fullsend-ai-triage
+slug: fullsend-ai-e2e-pr-triage
 
 trigger: |
-  event.entity.kind == "work_item"
+  event.entity.kind == "change_proposal"
   && event.transition.kind == "label_changed"
-  && event.transition.label.name == "e2e-triage"
+  && event.transition.label.name == "e2e-pr-triage"
+  && event.transition.label.action == "added"
+  && !event.state.change_proposal.is_fork
 
 host_files:
   - src: rhdh/env/rhdh-toolchain.env
@@ -37,7 +34,7 @@ skills:
   - skills/e2e-failure-analysis
   - skills/playwright-trace
 
-post_script: rhdh/scripts/post-e2e-triage.sh
+post_script: rhdh/scripts/post-e2e-pr-triage.sh
 
 validation_loop:
   script: rhdh/scripts/validate-output-schema.sh
@@ -48,14 +45,14 @@ env:
     GH_TOKEN: ${GH_TOKEN}
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
     GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
-    E2E_TRIAGE_MODE: nightly
-    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-triage-result.schema.json
+    E2E_TRIAGE_MODE: pull_request
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-pr-triage-result.schema.json
   sandbox:
     SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
     PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
     GH_TOKEN: "${GH_TOKEN}"
     GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
-    E2E_TRIAGE_MODE: nightly
+    E2E_TRIAGE_MODE: pull_request
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
 
 timeout_minutes: 60
@@ -66,9 +63,9 @@ forge:
       runner:
         REPO_FULL_NAME: "${REPO_FULL_NAME}"
         GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
-        E2E_TRIAGE_MODE: nightly
+        E2E_TRIAGE_MODE: pull_request
       sandbox:
         REPO_FULL_NAME: "${REPO_FULL_NAME}"
         GH_TOKEN: "${GH_TOKEN}"
         GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
-        E2E_TRIAGE_MODE: nightly
+        E2E_TRIAGE_MODE: pull_request

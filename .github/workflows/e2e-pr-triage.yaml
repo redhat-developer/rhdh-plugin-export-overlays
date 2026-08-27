@@ -1,0 +1,224 @@
+name: Queue E2E PR triage
+
+# Translate a trusted Prow result comment into a PR label that Fullsend's
+# custom-agent dispatcher can consume. This workflow never checks out or runs
+# code from the PR branch.
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: e2e-pr-triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  queue:
+    if: >-
+      github.event.issue.pull_request
+      && github.event.comment.user.login == 'rhdh-test-bot'
+      && contains(github.event.comment.body, 'Failed E2E Tests')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout trusted comment parser
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          path: .trusted
+          fetch-depth: 1
+          sparse-checkout: scripts/e2e-comment.cjs
+          sparse-checkout-cone-mode: false
+
+      - name: Validate failed result and PR scope
+        id: context
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        with:
+          script: |
+            const { parseFailedE2eComment } = require(
+              `${process.env.GITHUB_WORKSPACE}/.trusted/scripts/e2e-comment.cjs`,
+            );
+
+            const skip = message => {
+              core.notice(message);
+              core.setOutput("queue", "false");
+            };
+
+            const parsed = parseFailedE2eComment(process.env.COMMENT_BODY || "");
+            if (parsed.reason !== null) {
+              skip(`Refusing failed E2E comment: ${parsed.reason}`);
+              return;
+            }
+            // Keep the initial rollout intentionally narrow. Expanding this
+            // allowlist is a separate decision after the pilot is evaluated.
+            if (parsed.workspace !== "adoption-insights") {
+              skip(`Workspace '${parsed.workspace}' is not enabled for the E2E PR triage pilot`);
+              return;
+            }
+
+            const prNumber = context.issue.number;
+            if (parsed.prNumber !== prNumber) {
+              skip(`Artifact PR #${parsed.prNumber} does not match comment PR #${prNumber}`);
+              return;
+            }
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+            if (pr.data.state !== "open") {
+              skip("PR is no longer open");
+              return;
+            }
+            if (pr.data.head.repo.full_name !== pr.data.base.repo.full_name) {
+              skip("Fork PRs are not eligible for automated E2E triage");
+              return;
+            }
+
+            // The result comment may arrive after another commit is pushed.
+            // Read the trusted Prow metadata and require the tested SHA to be
+            // the PR's current head before associating the failure with it.
+            const runRoot = parsed.buildLogUrl.split("/artifacts/", 1)[0];
+            const prowjobResponse = await fetch(`${runRoot}/prowjob.json`);
+            if (!prowjobResponse.ok) {
+              skip(`Could not read Prow metadata (${prowjobResponse.status})`);
+              return;
+            }
+            const prowjob = await prowjobResponse.json();
+            const refs = prowjob.spec?.refs;
+            const testedPull = refs?.pulls?.find(pull => pull.number === prNumber);
+            if (
+              refs?.org !== context.repo.owner ||
+              refs?.repo !== context.repo.repo ||
+              !testedPull ||
+              prowjob.status?.build_id !== parsed.jobId
+            ) {
+              skip("Prow metadata does not match this repository, PR, and job");
+              return;
+            }
+            if (testedPull.sha !== pr.data.head.sha) {
+              skip(`Ignoring stale Prow result for ${testedPull.sha}; current head is ${pr.data.head.sha}`);
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+            const workspacePrefix = `workspaces/${parsed.workspace}/`;
+            if (!files.some(file => file.filename.startsWith(workspacePrefix))) {
+              skip(`PR does not change the reported workspace '${parsed.workspace}'`);
+              return;
+            }
+
+            const marker = `<!-- fullsend:e2e-pr-triage workspace=${parsed.workspace} head=${pr.data.head.sha} job=${parsed.jobId} -->`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            if (comments.some(comment =>
+              comment.user?.type === "Bot" && (comment.body || "").includes(marker),
+            )) {
+              skip(`E2E triage is already queued for ${parsed.workspace} at ${pr.data.head.sha}`);
+              return;
+            }
+
+            core.setOutput("queue", "true");
+            core.setOutput("pr_number", String(prNumber));
+            core.setOutput("workspace", parsed.workspace);
+            core.setOutput("build_log_url", parsed.buildLogUrl);
+            core.setOutput("job_id", parsed.jobId);
+            core.setOutput("head_sha", testedPull.sha);
+            core.setOutput("source_comment_id", String(context.payload.comment.id));
+
+      # A GitHub App token is required because events caused by GITHUB_TOKEN do
+      # not start new workflow runs. This is the same app used by nightly triage.
+      - name: Generate GitHub App token
+        if: steps.context.outputs.queue == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Record context and trigger Fullsend
+        if: steps.context.outputs.queue == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          WORKSPACE_NAME: ${{ steps.context.outputs.workspace }}
+          BUILD_LOG_URL: ${{ steps.context.outputs.build_log_url }}
+          JOB_ID: ${{ steps.context.outputs.job_id }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          SOURCE_COMMENT_ID: ${{ steps.context.outputs.source_comment_id }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const issueNumber = Number(process.env.PR_NUMBER);
+            const marker = `<!-- fullsend:e2e-pr-triage workspace=${process.env.WORKSPACE_NAME} head=${process.env.HEAD_SHA} job=${process.env.JOB_ID} -->`;
+            const body = [
+              marker,
+              "E2E PR triage queued.",
+              "",
+              `- Workspace: \`${process.env.WORKSPACE_NAME}\``,
+              `- PR head: \`${process.env.HEAD_SHA}\``,
+              `- Prow job: \`${process.env.JOB_ID}\``,
+              `- [Build log](${process.env.BUILD_LOG_URL})`,
+              `- Source result comment: ${process.env.SOURCE_COMMENT_ID}`,
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body,
+            });
+
+            try {
+              await github.rest.issues.getLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "e2e-pr-triage",
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: "e2e-pr-triage",
+                description: "Triggers read-only Fullsend E2E triage on a pull request",
+                color: "7057ff",
+              });
+            }
+
+            // Cycle an existing label so every distinct Prow job produces an
+            // "added" transition. A prior failed agent run may otherwise
+            // leave the label attached and silently swallow the next trigger.
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                name: "e2e-pr-triage",
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ["e2e-pr-triage"],
+            });

@@ -15,6 +15,7 @@
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
 | E2E Triage | Auto-triggers nightly via `e2e-triage` label | Discovers failed nightly E2E runs, classifies per workspace, creates issues for the code agent |
+| E2E PR Triage | Auto-triggers from trusted Adoption Insights E2E failures | Analyzes the failed workspace and posts a read-only diagnosis on the same PR |
 
 ### Auto-trigger vs. manual trigger
 
@@ -25,6 +26,7 @@
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
 | E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies failures → post-script creates per-workspace issues with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
+| E2E PR Triage | **Read-only pilot.** A failed result from `rhdh-test-bot` is validated against the PR and changed workspace, then the `e2e-pr-triage` label dispatches artifact analysis. The result is posted on the PR; no fix runs yet. | Re-run the PR's `e2e-ocp-helm` Prow job |
 
 ### Scope details
 
@@ -32,6 +34,7 @@ The `paths` filter (`workspaces/backstage-plugins-for-aws/**`) only applies to t
 
 - **`issues`** — fires only on `labeled` events (not `opened/edited`, to prevent external token burning)
 - **`issue_comment`** — fires for all comments (auth-gated to OWNER/MEMBER/COLLABORATOR)
+- **`pull_request_target` labels** — enable custom PR agents such as `e2e-pr-triage`; write-capable follow-up remains disabled during the read-only pilot
 - **`pull_request_review`** — fires for all PR reviews. Fix is transitively scoped: it only auto-fires from bot reviews, and the review bot only auto-reviews backstage-plugins-for-aws PRs.
 
 ### What does NOT run
@@ -70,7 +73,7 @@ To enable review for ALL workspaces, remove the `paths` filter entirely.
 
 ## Customization
 
-This install uses **standard upstream agents** with one custom script. The `.fullsend/customized/` scaffold directories are present as stubs for future customizations.
+This install uses upstream base agents together with repository-owned E2E triage agents, schemas, and post-scripts. The `.fullsend/customized/` scaffold directories are present as stubs for future customizations.
 
 Note: unlike rhdh-plugins, this repo is not a yarn monorepo — workspaces contain overlay metadata (source.json, plugins-list.yaml, metadata/*.yaml), not npm packages. Yarn/corepack customizations are not needed here.
 
@@ -79,6 +82,9 @@ Note: unlike rhdh-plugins, this repo is not a yarn monorepo — workspaces conta
 | File | What it does |
 |------|-------------|
 | `scripts/pre-fix-rebase.sh` | Auto-rebases PR branch onto target before fix agent runs |
+| `rhdh/harness/e2e-triage.yaml` | Runs multi-workspace nightly E2E triage |
+| `rhdh/harness/e2e-pr-triage.yaml` | Runs read-only triage for a failed E2E result on an existing PR |
+| `rhdh/scripts/post-e2e-pr-triage.sh` | Posts a stale-head-guarded diagnosis on the originating PR |
 
 ### Review agent architecture (v0.13.0+)
 
@@ -185,12 +191,13 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 
 | Path | Purpose |
 |------|---------|
-| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage) and roles |
+| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, nightly E2E triage, PR E2E triage) and roles |
 | `.fullsend/rhdh/` | Custom agents, harnesses, policies, schemas, scripts, and skills |
 | `.fullsend/customized/` | Scaffold stubs for future agent/harness/policy/skill customizations |
 | `.fullsend/customized/scripts/pre-fix-rebase.sh` | Auto-rebase before fix agent runs |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
 | `.github/workflows/e2e-triage-agent.yaml` | Nightly E2E failure discovery → creates labeled issue for triage agent |
+| `.github/workflows/e2e-pr-triage.yaml` | Trusted failed PR comment → records context and applies the PR triage label |
 
 ## Debugging
 

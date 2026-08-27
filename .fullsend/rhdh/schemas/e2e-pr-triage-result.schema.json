@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "e2e-pr-triage-result.schema.json",
+  "title": "E2E PR Triage Agent Result",
+  "description": "Read-only triage result for one failed E2E workspace on an existing pull request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "pr_number",
+    "pr_head_sha",
+    "workspace",
+    "build_log_url",
+    "job_id",
+    "fix_category",
+    "tests",
+    "root_cause",
+    "evidence",
+    "remediation",
+    "recommended_action",
+    "summary"
+  ],
+  "properties": {
+    "mode": { "const": "pull_request" },
+    "pr_number": { "type": "integer", "minimum": 1 },
+    "pr_head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "workspace": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$"
+    },
+    "build_log_url": {
+      "type": "string",
+      "pattern": "^https://gcsweb-ci\\.apps\\.ci\\.l2s4\\.p1\\.openshiftapps\\.com/gcs/test-platform-results/pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/[1-9][0-9]*/[^/]+/[0-9]{10,}/artifacts/[^\\s]+/build-log\\.txt$"
+    },
+    "job_id": { "type": "string", "pattern": "^[0-9]{10,}$" },
+    "fix_category": {
+      "type": "string",
+      "enum": [
+        "infra_flake",
+        "test_fix",
+        "product_bug",
+        "environment",
+        "unknown"
+      ]
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/failed_test" }
+    },
+    "root_cause": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+    },
+    "remediation": { "$ref": "#/$defs/remediation" },
+    "recommended_action": {
+      "type": "string",
+      "enum": ["propose_test_fix", "retry_once", "needs_human", "no_action"]
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 4096 }
+  },
+  "$defs": {
+    "failed_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "error"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "error": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      }
+    },
+    "remediation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_paths", "instructions", "verification"],
+      "properties": {
+        "allowed_paths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "pattern": "^workspaces/[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?/e2e-tests/\\*\\*$"
+          }
+        },
+        "instructions": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "minLength": 1, "maxLength": 2048 }
+        },
+        "verification": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      }
+    }
+  }
+}

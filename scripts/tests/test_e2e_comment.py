@@ -45,6 +45,25 @@ Passed: 11 | Failed: 0 | Flaky: 0 | Skipped: 3
 [Logs]({ARTIFACTS}/artifacts/e2e-test-results/logs/) | \
 [Artifacts]({ARTIFACTS}/artifacts)"""
 
+FAILURE_ARTIFACTS = (
+    "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results"
+    "/pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/3234"
+    "/pull-ci-redhat-developer-rhdh-plugin-export-overlays-main-e2e-ocp-helm"
+    "/2087434244472180736/artifacts/e2e-ocp-helm"
+    "/redhat-developer-rhdh-plugin-export-overlays-ocp-helm"
+)
+
+# Real failure comment from PR #3234. Keep the non-breaking spaces because the
+# bot uses them around the metadata separators and after the header hyphen.
+FAILING_COMMENT = f"""### ❌ Failed E2E Tests - `homepage`
+
+**Platform:** ocp 4.20 | **RHDH Version:** 1.11 | **Duration:** 7m 12s\\
+Passed: 18 | Failed: 1 | Flaky: 0 | Skipped: 21\\
+[Playwright Report]({FAILURE_ARTIFACTS}/artifacts/playwright-report/index.html) | \
+[Build Log]({FAILURE_ARTIFACTS}/build-log.txt) | \
+[Logs]({FAILURE_ARTIFACTS}/artifacts/e2e-test-results/logs/) | \
+[Artifacts]({FAILURE_ARTIFACTS}/artifacts)"""
+
 EXPECTED_COVERAGE_URL = f"{ARTIFACTS}/artifacts/e2e-test-results/coverage/"
 
 
@@ -76,6 +95,17 @@ def parse(body):
     return payload
 
 
+def parse_failure(body):
+    """Run the PR-failure parser over a comment body."""
+    payload, _ = run_node(
+        f"""
+        const m = require({str(MODULE)!r});
+        process.stdout.write(JSON.stringify(m.parseFailedE2eComment({json.dumps(body)})));
+        """
+    )
+    return payload
+
+
 def test_a_real_passing_comment_yields_its_coverage_listing():
     """The whole point: the build-log link becomes the coverage listing beside
     it. This exact URL is the one the extensions publish ran against."""
@@ -85,6 +115,63 @@ def test_a_real_passing_comment_yields_its_coverage_listing():
         "reason": None,
         "rejected": None,
     }
+
+
+def test_a_real_failed_comment_yields_pr_triage_context():
+    assert parse_failure(FAILING_COMMENT) == {
+        "workspace": "homepage",
+        "buildLogUrl": f"{FAILURE_ARTIFACTS}/build-log.txt",
+        "prNumber": 3234,
+        "jobId": "2087434244472180736",
+        "reason": None,
+        "rejected": None,
+    }
+
+
+def test_a_passing_comment_is_not_a_failure_target():
+    assert parse_failure(PASSING_COMMENT)["reason"] == "not-a-failure"
+
+
+def test_a_failed_comment_must_describe_a_pr_run():
+    nightly = FAILING_COMMENT.replace(
+        "/pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/3234"
+        "/pull-ci-redhat-developer-rhdh-plugin-export-overlays-main-e2e-ocp-helm",
+        "/logs/periodic-ci-redhat-developer-rhdh-plugin-export-overlays-main-e2e-ocp-helm-nightly",
+    )
+    assert parse_failure(nightly)["reason"] == "not-a-pr-run"
+
+
+def test_a_failed_comment_for_another_repository_is_refused():
+    body = FAILING_COMMENT.replace(
+        "redhat-developer_rhdh-plugin-export-overlays",
+        "attacker_unrelated-repository",
+    )
+    assert parse_failure(body)["reason"] == "not-a-pr-run"
+
+
+def test_a_failed_comment_with_a_lookalike_host_is_refused():
+    body = FAILING_COMMENT.replace(
+        "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com",
+        "gcsweb-ci.apps.attacker.example.com",
+    )
+    assert parse_failure(body)["reason"] == "no-build-log"
+
+
+def test_a_failed_comment_with_build_log_url_parameters_is_refused():
+    body = FAILING_COMMENT.replace("build-log.txt)", "build-log.txt?target=other)")
+    assert parse_failure(body)["reason"] == "no-build-log"
+
+
+def test_a_failed_comment_with_multiple_results_is_refused():
+    body = f"{FAILING_COMMENT}\n\n{FAILING_COMMENT}"
+    assert parse_failure(body)["reason"] == "multi-section"
+
+
+def test_a_failed_comment_with_an_invalid_workspace_is_refused():
+    body = FAILING_COMMENT.replace("`homepage`", "`../../etc`")
+    result = parse_failure(body)
+    assert result["reason"] == "bad-workspace"
+    assert result["rejected"] == "../../etc"
 
 
 def test_a_failed_run_is_not_a_publish_target():
@@ -312,6 +399,52 @@ class TestAgreementWithTheWorkflowGate:
             f"the workflow gate does not pin {payload!r}; "
             "it and scripts/e2e-comment.cjs have drifted"
         )
+
+
+class TestPrTriageWorkflowTrustBoundary:
+    """The PR triage workflow turns comment data into a Fullsend trigger, so
+    it must use the same parser and bot identity as this module."""
+
+    WORKFLOW = SCRIPTS_DIR.parent / ".github/workflows/e2e-pr-triage.yaml"
+
+    def test_the_failure_gate_pins_the_parser_bot_login(self):
+        payload, _ = run_node(
+            f"""
+            const m = require({str(MODULE)!r});
+            process.stdout.write(JSON.stringify(m.E2E_BOT_LOGIN));
+            """
+        )
+        workflow = self.WORKFLOW.read_text()
+        assert f"github.event.comment.user.login == '{payload}'" in workflow
+
+    def test_the_parser_is_loaded_from_a_trusted_checkout(self):
+        workflow = self.WORKFLOW.read_text()
+        assert "path: .trusted" in workflow
+        assert ".trusted/scripts/e2e-comment.cjs" in workflow
+        assert "parseFailedE2eComment" in workflow
+
+    def test_the_artifact_pr_is_compared_with_the_comment_pr(self):
+        workflow = self.WORKFLOW.read_text()
+        assert "parsed.prNumber !== prNumber" in workflow
+        assert (
+            "pr.data.head.repo.full_name !== pr.data.base.repo.full_name" in workflow
+        )
+        assert '`${runRoot}/prowjob.json`' in workflow
+        assert "testedPull.sha !== pr.data.head.sha" in workflow
+
+    def test_only_bot_authored_queue_markers_are_deduplicated(self):
+        workflow = self.WORKFLOW.read_text()
+        assert 'comment.user?.type === "Bot"' in workflow
+        assert "head=${pr.data.head.sha} job=${parsed.jobId}" in workflow
+
+    def test_the_trigger_label_is_cycled_for_each_distinct_prow_job(self):
+        workflow = self.WORKFLOW.read_text()
+        assert "github.rest.issues.removeLabel" in workflow
+        assert "github.rest.issues.addLabels" in workflow
+
+    def test_the_bootstrap_is_scoped_to_adoption_insights(self):
+        workflow = self.WORKFLOW.read_text()
+        assert 'parsed.workspace !== "adoption-insights"' in workflow
 
 
 class TestAgreementWithTheShellCopy:

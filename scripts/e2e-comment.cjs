@@ -69,7 +69,8 @@ const isWorkspaceName = (name) => WORKSPACE.test(name) && !name.endsWith("-");
 // that reports a pass and a comment that reports a failure — because pairing a
 // header with a link from a different section is the failure the anchoring
 // exists to prevent, and one copy of that rule is enough.
-const carriesMoreThanOneResult = (body) => (body.match(ANY_HEADER) ?? []).length > 1;
+const carriesMoreThanOneResult = (body) =>
+  (body.match(ANY_HEADER) ?? []).length > 1;
 
 // Returns `{ workspace, coverageUrl, reason }`. On success `reason` is null; on
 // a refusal both other fields are null and `reason` says which, because they
@@ -146,6 +147,60 @@ function failedWorkspaceOf(body) {
   return header[1];
 }
 
+// A failed PR run is the input to the PR-scoped Fullsend triage workflow.
+// Keep this path stricter than BUILD_LOG: nightly URLs and artifacts belonging
+// to another repository must not be able to trigger a write-capable PR flow.
+// The job id stays a string because Prow ids are larger than JavaScript's safe
+// integer range.
+const PR_BUILD_LOG_PATH =
+  /^\/gcs\/test-platform-results\/pr-logs\/pull\/redhat-developer_rhdh-plugin-export-overlays\/([1-9][0-9]*)\/[^/]+\/([0-9]{10,})\/artifacts\/[^\s]+\/build-log\.txt$/;
+
+// Returns the trusted fields needed to start PR-scoped E2E triage. The caller
+// must still pin the comment author to E2E_BOT_LOGIN and compare prNumber with
+// the PR receiving the comment; those facts live in the webhook, not its body.
+function parseFailedE2eComment(body) {
+  const miss = (reason, rejected = null) => ({
+    workspace: null,
+    buildLogUrl: null,
+    prNumber: null,
+    jobId: null,
+    reason,
+    rejected,
+  });
+
+  if (typeof body !== "string") return miss("not-a-failure");
+  if (carriesMoreThanOneResult(body)) return miss("multi-section");
+
+  const header = FAILED_HEADER.exec(body);
+  if (!header) return miss("not-a-failure");
+
+  const workspace = header[1];
+  if (!isWorkspaceName(workspace)) return miss("bad-workspace", workspace);
+
+  const link = BUILD_LOG.exec(body);
+  if (!link) return miss("no-build-log");
+
+  const buildLogUrl = link[0].slice(1, -1);
+  let pathMatch;
+  try {
+    const parsed = new URL(buildLogUrl);
+    if (parsed.search || parsed.hash) return miss("invalid-build-log");
+    pathMatch = PR_BUILD_LOG_PATH.exec(parsed.pathname);
+  } catch {
+    return miss("invalid-build-log");
+  }
+  if (!pathMatch) return miss("not-a-pr-run");
+
+  return {
+    workspace,
+    buildLogUrl,
+    prNumber: Number(pathMatch[1]),
+    jobId: pathMatch[2],
+    reason: null,
+    rejected: null,
+  };
+}
+
 // The coverage listing a publish may be pointed at. Derived URLs satisfy this
 // by construction — it is the build-log link with its tail swapped — so its
 // real job is the dispatch path, where an operator types the URL and nothing
@@ -161,5 +216,6 @@ module.exports = {
   isCoverageListingUrl,
   isWorkspaceName,
   parsePassedE2eComment,
+  parseFailedE2eComment,
   failedWorkspaceOf,
 };
