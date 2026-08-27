@@ -26,6 +26,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
 
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
+      appConfig: "tests/config/grouped/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
     await new Promise((resolve) => setTimeout(resolve, 2 * 60 * 1000));
@@ -103,17 +104,21 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await expect(dialog).toBeVisible({ timeout: 5000 });
 
     const tableRows = dialog.locator("tbody [role='row']");
+    await expect(tableRows.first()).toBeVisible({ timeout: 30_000 });
     const initialCount = await tableRows.count();
 
     const filterPills = dialog.locator('[role="button"][aria-pressed]');
     const firstPill = filterPills.first();
     await expect(firstPill).toBeVisible();
+    await expect(firstPill).toHaveAttribute("aria-pressed", "false");
 
     await firstPill.click();
     await expect(firstPill).toHaveAttribute("aria-pressed", "true");
 
-    const filteredCount = await tableRows.count();
-    expect(filteredCount).toBeLessThanOrEqual(initialCount);
+    await expect(async () => {
+      const filteredCount = await tableRows.count();
+      expect(filteredCount).toBeLessThan(initialCount);
+    }).toPass({ timeout: 10_000 });
 
     await firstPill.click();
     await expect(firstPill).toHaveAttribute("aria-pressed", "false");
