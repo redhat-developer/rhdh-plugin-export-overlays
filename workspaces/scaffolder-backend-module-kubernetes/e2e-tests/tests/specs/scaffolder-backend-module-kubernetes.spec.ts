@@ -51,7 +51,11 @@ test.describe("Test Kubernetes Actions plugin", () => {
     await page
       .getByRole("heading", { name: "Create a kubernetes namespace" })
       .waitFor({ state: "visible", timeout: 30000 });
-    await uiHelper.clickBtnInCard("Create a kubernetes namespace", "Choose");
+    await page
+      .getByRole("article")
+      .filter({ hasText: "Create a kubernetes namespace" })
+      .getByRole("button", { name: "Choose" })
+      .click();
     await uiHelper.waitForTitle("Create a kubernetes namespace", 2);
 
     await uiHelper.fillTextInputByLabel("Namespace name", namespace);
