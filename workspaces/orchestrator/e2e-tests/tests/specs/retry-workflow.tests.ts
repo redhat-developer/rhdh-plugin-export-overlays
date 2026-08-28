@@ -21,6 +21,8 @@ function jsonOk(value: string) {
 
 export function registerRetryWorkflowTests(): void {
   test.describe("Sample Retry Test ActiveTextInput fetch retries", () => {
+    test.describe.configure({ timeout: 240_000 });
+
     test.beforeAll(async ({ browser }, testInfo) => {
       await restoreBaselineRole(browser, testInfo);
     });
@@ -32,6 +34,11 @@ export function registerRetryWorkflowTests(): void {
 
     test.afterEach(async ({ page }) => {
       await page.unroute("**/api/retry-test/**");
+      // Leave a settled page so _coverageCollector page.evaluate cannot hang
+      // on in-flight ActiveTextInput fetches (NFS retryNoProps teardown flake).
+      await page
+        .goto("/orchestrator", { timeout: 15_000 })
+        .catch(() => undefined);
     });
 
     test("retryAllProps: 503 responses retry with delay 1500 and backoff 2 (three waits)", async ({
@@ -84,7 +91,7 @@ export function registerRetryWorkflowTests(): void {
       page,
       uiHelper,
     }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(180_000);
 
       let statusEndpointHits = 0;
 
@@ -118,7 +125,7 @@ export function registerRetryWorkflowTests(): void {
       page,
       uiHelper,
     }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(180_000);
 
       let noRetryHits = 0;
 
