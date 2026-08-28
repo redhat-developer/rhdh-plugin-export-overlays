@@ -25,6 +25,16 @@ export class TektonSupportHelper {
     await tabLocator.click();
   }
 
+  /** NFS renders entity-page tabs as links instead of tab-role elements. */
+  private async clickEntityLink(linkName: string): Promise<void> {
+    const linkLocator = this.page.getByRole("link", {
+      name: linkName,
+      exact: true,
+    });
+    await linkLocator.waitFor({ state: "visible" });
+    await linkLocator.click();
+  }
+
   async goToBackstageJanusProject(): Promise<void> {
     await this.goToByName("backstage-janus");
   }
@@ -32,7 +42,7 @@ export class TektonSupportHelper {
   async goToBackstageJanusProjectCITab(testInfo: TestInfo): Promise<void> {
     await this.goToBackstageJanusProject();
     if (testInfo.project.name === "tekton-app-next") {
-      await this.clickTab("Tekton");
+      await this.clickEntityLink("Tekton");
     } else {
       await this.clickTab("CI");
     }

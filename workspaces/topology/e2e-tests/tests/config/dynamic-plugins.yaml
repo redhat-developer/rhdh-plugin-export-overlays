@@ -15,8 +15,6 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-    enabled: true
   - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
     enabled: true
     pluginConfig:
