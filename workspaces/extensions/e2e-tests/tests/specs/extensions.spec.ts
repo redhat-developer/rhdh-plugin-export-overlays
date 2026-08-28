@@ -3,6 +3,11 @@ import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ExtensionsPage } from "../support/extensions";
 
 test.describe("Admin > Extensions", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "Extensions plugins use local paths in metadata (no OCI artifacts published) and cannot be installed in nightly mode",
+  );
+
   let extensions: ExtensionsPage;
   let uiHelper: UIhelper;
   const isMac = process.platform === "darwin";
