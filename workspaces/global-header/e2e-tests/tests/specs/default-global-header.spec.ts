@@ -42,6 +42,10 @@ test.describe("Default Global Header", () => {
       .first();
 
     await expect(helpDropdownButton).toBeVisible();
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Notifications plugin is disabled in nightly mode",
+    );
     await uiHelper.verifyLink({ label: "Notifications" });
     expect(await uiHelper.isBtnVisible("Test User1")).toBeTruthy();
   });
@@ -146,6 +150,10 @@ test.describe("Default Global Header", () => {
     uiHelper,
     page,
   }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Notifications plugin is disabled in nightly mode",
+    );
     const notificationsBadge = page
       .getByRole("navigation")
       .first()
