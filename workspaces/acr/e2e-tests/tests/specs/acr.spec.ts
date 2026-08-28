@@ -16,13 +16,14 @@ test.describe("Test ACR plugin", () => {
   test("Verify ACR Images are visible", async ({ uiHelper }, testInfo) => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
-    // Legacy uses the shared Image Registry tab; NFS uses the plugin entity-content title.
-    const tabName =
-      // eslint-disable-next-line playwright/no-conditional-in-test -- NFS tab title differs from legacy
-      testInfo.project.name === "acr-app-next"
-        ? "ACR IMAGES"
-        : "Image Registry";
-    await uiHelper.clickTab(tabName);
+    // Legacy uses the shared Image Registry tab; NFS uses the plugin entity-content title
+    // rendered as a link rather than a tab.
+    // eslint-disable-next-line playwright/no-conditional-in-test -- NFS tab title and role differ from legacy
+    if (testInfo.project.name === "acr-app-next") {
+      await uiHelper.clickLink("ACR images");
+    } else {
+      await uiHelper.clickTab("Image Registry");
+    }
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );
