@@ -17,8 +17,6 @@ packages:
     support: "generally-available"
   - package: '@backstage/plugin-auth-backend-module-github-provider'
     support: "generally-available"
-  - package: '@backstage/plugin-auth-backend-module-guest-provider'
-    support: "generally-available"
   - package: '@backstage/plugin-techdocs'
     support: "generally-available"
   - package: '@backstage/plugin-techdocs-backend'
@@ -75,8 +73,6 @@ packages:
   - package: '@backstage/plugin-auth-backend-module-gitlab-provider'
     support: "generally-available"
   - package: '@backstage/plugin-auth-backend-module-microsoft-provider'
-    support: "generally-available"
-  - package: '@backstage/plugin-auth-backend-module-oidc-provider'
     support: "generally-available"
   - package: '@backstage/plugin-catalog-backend-module-github'
     support: generally-available
