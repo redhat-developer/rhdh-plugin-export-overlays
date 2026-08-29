@@ -1,6 +1,6 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type CatalogPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
-import { type BrowserContext, type Page } from "@playwright/test";
+import { type BrowserContext, type Locator, type Page } from "@playwright/test";
 import {
   createScorecardContext,
   deployRhdh,
@@ -24,6 +24,36 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     },
   ] as const;
 
+  async function getGroupCard(
+    title: string,
+    timeout = 30_000,
+  ): Promise<Locator> {
+    const card = page
+      .locator('[role="article"]')
+      .filter({ hasText: title })
+      .first();
+    await expect(card).toBeVisible({ timeout });
+    return card;
+  }
+
+  /** Open the "Data sources" dialog from a group card's overflow menu. */
+  async function openDataSourcesDialog(card: Locator): Promise<Locator> {
+    await card.getByRole("button", { name: /menu|more/i }).click();
+    await page.getByText(/data sources/i).click();
+    const dialog = page.locator('[role="dialog"]');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    return dialog;
+  }
+
+  /** Close a dialog and optionally assert it disappears. */
+  async function closeDialog(
+    dialog: Locator,
+    { expectHidden = false } = {},
+  ): Promise<void> {
+    await dialog.getByRole("button", { name: /close/i }).click();
+    if (expectHidden) await expect(dialog).toBeHidden();
+  }
+
   test.beforeAll(async ({ browser, rhdh }) => {
     await deployRhdh(rhdh, {
       appConfig: "tests/config/grouped/app-config-rhdh.yaml",
@@ -46,62 +76,34 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await scorecard.openTab();
 
     for (const group of GROUP_CARDS) {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: group.title })
-        .first();
-      await expect(card).toBeVisible({ timeout: 30_000 });
+      const card = await getGroupCard(group.title);
       await expect(card.getByText(group.description)).toBeVisible();
     }
   });
 
   test("Verify group cards display bucket tiles", async () => {
     for (const group of GROUP_CARDS) {
-      const card = page
-        .locator('[role="article"]')
-        .filter({ hasText: group.title })
-        .first();
-      await expect(card).toBeVisible();
-
+      const card = await getGroupCard(group.title);
       const bucketTiles = card.locator('[role="button"]');
       await expect(bucketTiles.first()).toBeVisible({ timeout: 60_000 });
     }
   });
 
   test("Verify data sources dialog opens from group card menu", async () => {
-    const card = page
-      .locator('[role="article"]')
-      .filter({ hasText: GROUP_CARDS[0].title })
-      .first();
-    await expect(card).toBeVisible();
-
-    await card.getByRole("button", { name: /menu|more/i }).click();
-    await page.getByText(/data sources/i).click();
-
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+    const card = await getGroupCard(GROUP_CARDS[0].title);
+    const dialog = await openDataSourcesDialog(card);
 
     const expectedColumns = ["Plugin", "Check", "Value", "Status"];
     for (const col of expectedColumns) {
       await expect(dialog.getByText(col, { exact: true })).toBeVisible();
     }
 
-    await dialog.getByRole("button", { name: /close/i }).click();
-    await expect(dialog).toBeHidden();
+    await closeDialog(dialog, { expectHidden: true });
   });
 
   test("Verify filter pills filter data sources by threshold", async () => {
-    const card = page
-      .locator('[role="article"]')
-      .filter({ hasText: GROUP_CARDS[0].title })
-      .first();
-    await expect(card).toBeVisible();
-
-    await card.getByRole("button", { name: /menu|more/i }).click();
-    await page.getByText(/data sources/i).click();
-
-    const dialog = page.locator('[role="dialog"]');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+    const card = await getGroupCard(GROUP_CARDS[0].title);
+    const dialog = await openDataSourcesDialog(card);
 
     const tableRows = dialog.locator("tbody [role='row']");
     await expect(tableRows.first()).toBeVisible({ timeout: 30_000 });
@@ -123,16 +125,11 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await firstPill.click();
     await expect(firstPill).toHaveAttribute("aria-pressed", "false");
 
-    await dialog.getByRole("button", { name: /close/i }).click();
+    await closeDialog(dialog);
   });
 
   test("Verify clicking bucket tile opens dialog with filter pre-applied", async () => {
-    const card = page
-      .locator('[role="article"]')
-      .filter({ hasText: GROUP_CARDS[0].title })
-      .first();
-    await expect(card).toBeVisible();
-
+    const card = await getGroupCard(GROUP_CARDS[0].title);
     await card.locator('[role="button"]').first().click();
 
     const dialog = page.locator('[role="dialog"]');
@@ -141,8 +138,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     const activePill = dialog.locator('[role="button"][aria-pressed="true"]');
     await expect(activePill).toBeVisible();
 
-    await dialog.getByRole("button", { name: /close/i }).click();
-    await expect(dialog).toBeHidden();
+    await closeDialog(dialog, { expectHidden: true });
   });
 
   test("Verify ungrouped metrics still render as individual cards", async () => {
