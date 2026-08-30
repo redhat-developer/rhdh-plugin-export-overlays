@@ -56,6 +56,6 @@ export async function createScorecardContext(
   const scorecard = scorecardHelpers(page, uiHelper);
   const aggregated = aggregatedScorecardHelpers(page);
   await new LoginHelper(page).loginAsKeycloakUser();
-  await uiHelper.goToPageUrl("/", "Welcome back!");
+  await uiHelper.goToPageUrl("/catalog", "Catalog");
   return { context, page, catalog, scorecard, aggregated };
 }
