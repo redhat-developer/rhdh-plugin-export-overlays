@@ -19,7 +19,7 @@ name: E2E Triage Agent
 
 on:
   schedule:
-    - cron: "15 6 * * *" # 06:15 UTC (11:45 IST) — after the main nightly
+    - cron: "15 5 * * *" # 05:15 UTC (10:45 IST) — after the main nightly
   workflow_dispatch:
     inputs:
       prow_url:

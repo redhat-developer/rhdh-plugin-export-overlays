@@ -2,15 +2,17 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
 import { prepareGitLabParentGroup } from "./common-test-setup.js";
+import { DeploymentOptions } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 
 export const GITLAB_EVENTS_CATALOG_TOKEN = "test-token";
 
-const GITLAB_EVENTS_RHDH_CONFIG = {
+const GITLAB_EVENTS_RHDH_CONFIG: DeploymentOptions = {
   auth: "keycloak" as const,
   appConfig: "tests/config/gitlab-events/app-config-rhdh.yaml",
   secrets: "tests/config/gitlab-events/rhdh-secrets.yaml",
   dynamicPlugins: "tests/config/gitlab-events/dynamic-plugins.yaml",
   valueFile: "tests/config/gitlab-events/value-file.yaml",
+  useNewFrontendSystem: true,
 };
 
 /** Worker fixture shape used by GitLab events E2E suites */

@@ -34,7 +34,7 @@ async function runScaffolderTemplate(
   templateTitle: string,
   fillParameters: () => Promise<void>,
 ): Promise<void> {
-  await uiHelper.verifyHeading("Self-service");
+  await uiHelper.verifyHeading("Templates");
   await uiHelper.clickBtnInCard(templateTitle, "Choose");
   await uiHelper.waitForTitle(templateTitle, 2);
   await fillParameters();
@@ -85,7 +85,7 @@ test.describe.serial("GitLab Scaffolder Actions", () => {
       console.info(
         `Attempt ${testInfo.retry + 1} failed, waiting for scaffolder page to be ready before retry...`,
       );
-      await uiHelper.verifyHeading("Self-service");
+      await uiHelper.verifyHeading("Templates");
       await expect(
         page.getByRole("button", { name: "Create", exact: true }),
       ).toBeHidden();

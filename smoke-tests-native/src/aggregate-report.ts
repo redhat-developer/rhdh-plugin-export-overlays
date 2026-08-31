@@ -17,8 +17,12 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem } from "./loader";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  FrontendBundleInfo,
+  Report,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
 import { compareStrings } from "./util";
 
 /** How a frontend bundle is packaged, from the systems its layout advertises. */
@@ -30,6 +34,8 @@ export type FrontendPackaging = {
   workspace: string;
   version: string;
   packaging: Packaging;
+  /** See {@link nfsSupportOf}. Recorded per package so the aggregate is auditable. */
+  nfsSupport: NfsSupport;
 };
 
 export type Aggregate = {
@@ -65,6 +71,12 @@ export type Aggregate = {
   frontendSystems: {
     counts: Record<Packaging, number>;
     packages: FrontendPackaging[];
+    /**
+     * How much of the new-frontend-system count is established rather than merely
+     * not ruled out. `undetermined` bundles declare no `backstage.features`, so the
+     * host decides at runtime and the sweep cannot say — see {@link nfsSupportOf}.
+     */
+    nfsSupport: Record<NfsSupport, number>;
   };
   failures: Array<{ workspace: string; status: string; detail: string }>;
   exclusions: ExclusionRecord[];
@@ -145,9 +157,64 @@ export function describeShardCoverage(
   );
 }
 
-export function packagingOf(systems: FrontendSystem[]): Packaging {
-  const legacy = systems.includes("legacy");
-  const modern = systems.includes("new-frontend-system");
+/**
+ * How much the sweep can say about a bundle's new-frontend-system support.
+ *
+ * Three states, not two, because the data has three. `systems` says only that
+ * `dist/mf-manifest.json` exists — module-federation *layout*, which RHDH also uses to
+ * ship legacy Scalprum plugins — so it overstates. But the obvious correction,
+ * "count it only when `nfsFeaturesExposed` is non-empty", understates by exactly as
+ * much: that array is empty both when a package declares entry points its remote never
+ * exposes *and* when it declares no `backstage.features` at all, and those are not the
+ * same fact.
+ *
+ * `describeNfsShortfall` in harness-logic.ts already draws that line and explains why:
+ * with `backstage.features` absent, RHDH's `nfsModuleFilter` installs no filter at all,
+ * the router advertises every exposed module, and the dynamic feature loader decides at
+ * runtime from each module's `$$type`. Whether NFS mounts anything then cannot be known
+ * without executing the bundle. Over the 2026-08-21 community sweep that is the state of
+ * 27 of 47 bundles — ten of which expose an `alpha` module, the same shape as bundles
+ * that are unambiguously NFS. Publishing those as legacy would be a guess stated as a
+ * fact, in the opposite direction from the one this function exists to fix.
+ */
+export type NfsSupport = "confirmed" | "none" | "undetermined";
+
+/**
+ * The part of a frontend bundle these verdicts read.
+ *
+ * Named rather than repeated inline: the two functions below have to agree on it,
+ * and a `FrontendBundleInfo` that grew a field would otherwise drift past both.
+ */
+export type BundleSystems = Pick<FrontendBundleInfo, "systems" | "mf">;
+
+export function nfsSupportOf(bundle: BundleSystems): NfsSupport {
+  if (!bundle.systems.includes("new-frontend-system")) return "none";
+  const mf = bundle.mf;
+  // A layout the router will not serve mounts nothing, whatever it declares.
+  if (!mf?.servable) return "none";
+  // Nothing declared. Two ways to arrive here — the package declares no
+  // backstage.features, or reading it failed (readNfsFeatures returns an empty list
+  // beside the error) — and for a three-way verdict they give the same answer, so
+  // nfsFeaturesError needs no branch of its own. describeNfsShortfall separates them
+  // only because it emits prose, where "declares none" and "we could not look" have to
+  // read differently.
+  if (mf.nfsFeatures.length === 0) return "undetermined";
+  // Declared and exposed is the only combination that establishes support: declaring an
+  // entry point the remote never exposes leaves nothing for the host to resolve.
+  return mf.nfsFeaturesExposed.length > 0 ? "confirmed" : "none";
+}
+
+/**
+ * Classify a bundle by the frontend systems it can serve.
+ *
+ * Undetermined counts toward the new frontend system, which keeps this number where it
+ * was for those bundles rather than replacing an overstatement with an understatement.
+ * What the panel gains is the confirmed/undetermined split beside it, so the reader can
+ * see how much of the figure is established and how much is merely not ruled out.
+ */
+export function packagingOf(bundle: BundleSystems): Packaging {
+  const legacy = bundle.systems.includes("legacy");
+  const modern = nfsSupportOf(bundle) !== "none";
   if (legacy && modern) return "dual";
   if (legacy) return "legacy-only";
   if (modern) return "new-frontend-system-only";
@@ -224,6 +291,7 @@ function emptyAggregate(support: string): Aggregate {
         none: 0,
       },
       packages: [],
+      nfsSupport: { confirmed: 0, none: 0, undetermined: 0 },
     },
     failures: [],
     exclusions: [],
@@ -253,13 +321,18 @@ function accumulateWorkspaceResult(
   if (!result.report) return;
   accumulatePackageCounts(result.report, aggregate);
   for (const bundle of result.report.frontend.bundles ?? []) {
-    const packaging = packagingOf(bundle.systems);
+    const packaging = packagingOf(bundle);
+    const nfsSupport = nfsSupportOf(bundle);
     aggregate.frontendSystems.counts[packaging] += 1;
+    aggregate.frontendSystems.nfsSupport[nfsSupport] += 1;
     aggregate.frontendSystems.packages.push({
       packageName: bundle.name,
       workspace: result.workspace,
       version: bundle.version,
       packaging,
+      // Per package as well as in aggregate, so a reader of aggregate.json can list
+      // which bundles are undetermined without re-running the sweep.
+      nfsSupport,
     });
   }
 }
@@ -330,6 +403,15 @@ export function renderMarkdown(aggregate: Aggregate): string {
     `| New frontend system only | ${frontendSystems.counts["new-frontend-system-only"]} |`,
     `| Dual | ${frontendSystems.counts.dual} |`,
     `| No recognized layout | ${frontendSystems.counts.none} |`,
+    "",
+    `Of the bundles counted above as shipping the new frontend system, ` +
+      `**${frontendSystems.nfsSupport.confirmed}** are confirmed — the remote is ` +
+      `servable and exposes an NFS entry point it declares — and ` +
+      `**${frontendSystems.nfsSupport.undetermined}** are undetermined: they declare ` +
+      "no `backstage.features`, so `nfsModuleFilter` installs no filter, every exposed " +
+      "module is advertised, and whether the new frontend system mounts any of them " +
+      "cannot be known without executing the bundle. Read the migration figure as the " +
+      "confirmed count, not the total.",
     "",
   ];
 
