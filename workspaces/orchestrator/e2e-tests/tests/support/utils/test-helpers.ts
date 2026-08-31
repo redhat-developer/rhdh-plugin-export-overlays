@@ -380,7 +380,7 @@ export function createOrchestratorPO(
   page: Page,
   uiHelper: UIhelper,
 ): OrchestratorPO {
-  return OrchestratorPO.forProject(page, uiHelper, test.info().project.name);
+  return new OrchestratorPO(page, uiHelper);
 }
 
 export async function launchGreetingTemplateFromSelfService(

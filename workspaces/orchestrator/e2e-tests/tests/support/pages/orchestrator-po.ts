@@ -15,14 +15,6 @@ export class OrchestratorPO {
     private readonly uiHelper: UIhelper,
   ) {}
 
-  static forProject(
-    page: Page,
-    uiHelper: UIhelper,
-    _projectName: string,
-  ): OrchestratorPO {
-    return new OrchestratorPO(page, uiHelper);
-  }
-
   private workflowsCatalogControl(): Locator {
     // NFS entity header looks like tabs but the control is often a link.
     return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page).or(
