@@ -20,9 +20,13 @@ import {
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  FrontendBundleInfo,
+  Report,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
 import type { FrontendSystem, MfRemoteInfo } from "./loader";
-import type { FrontendBundleInfo } from "./report";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
 // $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
