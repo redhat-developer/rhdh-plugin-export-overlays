@@ -1006,7 +1006,7 @@ plugins:
         # mcpServers:
         #  - name: <mcp server name>
         #    token: ${MCP_TOKEN}
-  # Tag: bs_1.52.0__6.0.0, Build date: 2026-06-02T17:21:47Z
+  # Tag: bs_1.54.4__6.0.0, Build date: 2026-06-02T17:21:47Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:624988cca376b70e9615bdc340eeafef9296e9c0d808e9d2c526206569664bc4
     enabled: false
     pluginConfig:
@@ -1049,14 +1049,14 @@ plugins:
                   if:
                     anyOf:
                       - hasAnnotation: orchestrator.io/workflows
-  # Tag: bs_1.52.0__8.12.1, Build date: 2026-05-22T15:16:41Z
+  # Tag: bs_1.54.4__8.12.1, Build date: 2026-05-22T15:16:41Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:0f610875c7d1df53d299f3a4b21bbd4f12809299cb552cf61ba331d0aa602b80
     enabled: false
     pluginConfig:
       orchestrator:
         dataIndexService:
           url: http://sonataflow-platform-data-index-service
-  # Tag: bs_1.52.0__1.4.1, Build date: 2026-05-22T15:15:55Z
+  # Tag: bs_1.54.4__1.4.1, Build date: 2026-05-22T15:15:55Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:e86031ac3cb384abca3b9f45b541595a2845b48555e39f9951d03f694fedd76d
     enabled: false
     pluginConfig:
@@ -1065,7 +1065,7 @@ plugins:
           loki:
             baseUrl: ${LOKI_BASE_URL}
             token: ${AUTH_TOKEN}
-  # Tag: bs_1.52.0__2.0.0, Build date: 2026-06-02T17:28:54Z
+  # Tag: bs_1.54.4__2.0.0, Build date: 2026-06-02T17:28:54Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:b30923e063387310b82f100985164cd7f1746825b771b83de733ebbda6789257
     enabled: false
     pluginConfig:
@@ -1074,7 +1074,7 @@ plugins:
           # OFS loads BackstagePlugin from Legacy after NFS graduation (PluginRoot is NFS).
           red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets:
             pluginModule: Legacy
-  # Tag: bs_1.52.0__1.7.2, Build date: 2026-05-26T12:41:42Z
+  # Tag: bs_1.54.4__1.7.2, Build date: 2026-05-26T12:41:42Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:0f7ae038f10b1719c7fe52ca0b6bdde2039771f89a3ef66699c394a269b99df5
     enabled: false
     pluginConfig:
