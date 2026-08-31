@@ -377,6 +377,14 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
+### Adding app-next Playwright projects
+
+When a PR adds an `-app-next` Playwright project to a workspace that already has a legacy (non-app-next) project:
+
+1. Check `docs/nfs-e2e-triage.md` to determine whether the workspace's NFS migration is complete.
+2. If the workspace is listed as NFS-complete (all tests passing on the app-next lane), flag that the legacy project should be removed rather than kept alongside the new one. Keeping both doubles CI cost and introduces cross-project race conditions (shared Loki installs, Knative CRDs) that require serialization workarounds.
+3. If the migration status is unclear, ask the author whether the legacy lane is still needed.
+
 ### Unified Test Runner (run-e2e.sh)
 
 `run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
