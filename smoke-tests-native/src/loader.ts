@@ -205,6 +205,82 @@ export type MfRemoteInfo = {
   servable: boolean;
 };
 
+/**
+ * The Scalprum plugin manifest as `@openshift/dynamic-plugin-sdk` reads it.
+ *
+ * The legacy half used to be a bare presence check, which passes on a manifest that
+ * cannot load anything. Both bugs this exists for are silent at runtime — the app boots,
+ * nothing errors, and every configured frontend surface is simply absent:
+ *
+ * - a `loadScripts` entry with no matching asset: the host fetches a 404 and the plugin's
+ *   registration callback never runs, so it contributes nothing. Configured routes 404.
+ * - `name` missing: RHDH matches `dynamicPlugins.frontend.<key>` in app-config against
+ *   this name, so without it no mount point can ever be addressed.
+ *
+ * `extensions` and `registrationMethod` are RECORDED but never failed on — see
+ * {@link ScalprumInfo.extensions}.
+ */
+export type ScalprumInfo = {
+  /** `name` from plugin-manifest.json. */
+  name: string | null;
+  /**
+   * How many extensions the manifest declares statically. Null when `extensions` is not
+   * an array at all, which the SDK's own schema rejects.
+   *
+   * Zero is NOT a defect and must never fail the harness. `@red-hat-developer-hub/cli`
+   * constructs its `DynamicRemotePlugin` with a literal `extensions: []`
+   * (lib/bundler/scalprumConfig.cjs.js), so every bundle this repo publishes reports 0 —
+   * 76 of 76 across the catalog at bs_1.52.0. The SDK agrees: its `RemotePluginManifest`
+   * schema is `z.array(extensionSchema)` with no `.nonempty()`, while `loadScripts` is
+   * `.nonempty()`. With `registrationMethod: "callback"` the plugin registers at runtime
+   * through the Scalprum callback and RHDH drives its surfaces from app-config mount
+   * points, so a static extension list is not where anything is declared. Failing on the
+   * empty array would fail the entire catalogue and could never go green.
+   */
+  extensions: number | null;
+  /** `callback` for everything RHDH publishes; `custom` is the SDK's other mode. */
+  registrationMethod: string | null;
+  /** Assets the host loads to initialise the plugin. */
+  loadScripts: string[];
+  /**
+   * `loadScripts` entries with no matching file in dist-scalprum/. Non-empty means the
+   * bundle is broken: this is the check, the array is the evidence.
+   */
+  missingScripts: string[];
+};
+
+/** What became of one schema file the export writes beside a shipped bundle. */
+export type ConfigSchemaState = "ok" | "missing" | "unreadable" | "empty";
+
+export type ConfigSchemaFile = {
+  /** Bundle-relative path, e.g. `dist-scalprum/configSchema.json`. */
+  path: string;
+  state: ConfigSchemaState;
+  /** Top-level `properties` keys the schema declares; null unless it was read. */
+  properties: number | null;
+};
+
+/**
+ * Whether a bundle that declares configuration actually ships a schema for it.
+ *
+ * Without a schema, Backstage's config loader has nothing to match the plugin's
+ * app-config keys against and drops them without a word — the plugin runs on its
+ * defaults while the operator's settings appear to be applied (RHDHBUGS-1157).
+ *
+ * `declared` is the whole reason this type is not just a boolean. The export merges the
+ * package's own `configSchema` with every one it finds in the filtered dependency tree,
+ * so an empty schema means "declares nothing" for most packages and "the declaration was
+ * lost" for the ones that do declare — 33 of 76 in the catalogue declare, 31 ship an
+ * empty schema, and only the intersection is a finding. Reporting an empty schema as a
+ * defect without `declared` would accuse 31 packages of a bug they do not have.
+ */
+export type ConfigSchemaInfo = {
+  /** `configSchema` present in the shipped package.json — Backstage's own signal. */
+  declared: boolean;
+  /** One entry per path the export CLI writes for the layouts this bundle ships. */
+  files: ConfigSchemaFile[];
+};
+
 export type FrontendBundleResult = {
   systems: FrontendSystem[];
   /**
@@ -212,6 +288,10 @@ export type FrontendBundleResult = {
    * `mf` — blank, with `servable: false` — so the reason travels with the failure.
    */
   mf: MfRemoteInfo | null;
+  /** Present whenever dist-scalprum/plugin-manifest.json exists. */
+  scalprum: ScalprumInfo | null;
+  /** Always present: "declares no configuration" is itself a reportable answer. */
+  configSchema: ConfigSchemaInfo;
   error: string | null;
 };
 
@@ -413,6 +493,186 @@ function inspectMfRemote(pluginPath: string): {
 }
 
 /**
+ * Inspect the Scalprum manifest, reporting the faults that make a present bundle
+ * unusable. See {@link ScalprumInfo} for why `extensions` is not among them.
+ */
+function inspectScalprum(pluginPath: string): {
+  scalprum: ScalprumInfo;
+  error: string | null;
+} {
+  const scalprumDir = join(pluginPath, "dist-scalprum");
+  const blank: ScalprumInfo = {
+    name: null,
+    extensions: null,
+    registrationMethod: null,
+    loadScripts: [],
+    missingScripts: [],
+  };
+
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(
+      readFileSync(join(scalprumDir, "plugin-manifest.json"), "utf8"),
+    );
+  } catch (err) {
+    // The old check only asked whether this file existed, so a truncated or
+    // half-written one passed as a valid legacy bundle.
+    return {
+      scalprum: blank,
+      error: `dist-scalprum/plugin-manifest.json is not valid JSON (${errorMessage(err)})`,
+    };
+  }
+
+  const parsed = (manifest ?? {}) as {
+    name?: unknown;
+    extensions?: unknown;
+    registrationMethod?: unknown;
+    loadScripts?: unknown;
+  };
+  const loadScripts = Array.isArray(parsed.loadScripts)
+    ? parsed.loadScripts.filter((s): s is string => typeof s === "string")
+    : [];
+  const scalprum: ScalprumInfo = {
+    name: typeof parsed.name === "string" && parsed.name ? parsed.name : null,
+    extensions: Array.isArray(parsed.extensions)
+      ? parsed.extensions.length
+      : null,
+    registrationMethod:
+      typeof parsed.registrationMethod === "string"
+        ? parsed.registrationMethod
+        : null,
+    loadScripts,
+    // Each entry is untrusted JSON from inside a published OCI artifact, so contain it
+    // before touching the filesystem — the rule src/paths.ts documents, applied here for
+    // the same reason findBundleAssetProblems applies it to metaData.remoteEntry.path.
+    missingScripts: loadScripts.filter((script) => {
+      const resolved = resolveContained(script, scalprumDir);
+      return !resolved || !existsSync(resolved);
+    }),
+  };
+
+  const problems: string[] = [];
+  if (!scalprum.name) {
+    problems.push(
+      "`name` missing — RHDH matches app-config `dynamicPlugins.frontend.<key>` " +
+        "against it, so no mount point can be addressed",
+    );
+  }
+  if (scalprum.extensions === null)
+    problems.push("`extensions` is not an array");
+  if (loadScripts.length === 0) {
+    problems.push(
+      "`loadScripts` is empty — the host has nothing to fetch, so the plugin's " +
+        "registration callback never runs",
+    );
+  } else if (scalprum.missingScripts.length > 0) {
+    problems.push(
+      `loadScripts asset(s) not present in dist-scalprum/: ` +
+        `${scalprum.missingScripts.join(", ")} — the host fetches a 404 and the plugin ` +
+        `registers nothing, so every configured route answers 404`,
+    );
+  }
+  return {
+    scalprum,
+    error: problems.length
+      ? `dist-scalprum/plugin-manifest.json is unusable: ${problems.join("; ")}`
+      : null,
+  };
+}
+
+/** Read one schema file the export wrote, classifying why it cannot be used. */
+function readConfigSchemaFile(
+  pluginPath: string,
+  rel: string,
+): ConfigSchemaFile {
+  const full = join(pluginPath, rel);
+  if (!existsSync(full))
+    return { path: rel, state: "missing", properties: null };
+  let schema: unknown;
+  try {
+    schema = JSON.parse(readFileSync(full, "utf8"));
+  } catch {
+    return { path: rel, state: "unreadable", properties: null };
+  }
+  const properties = (schema as { properties?: unknown })?.properties;
+  const count =
+    typeof properties === "object" && properties !== null
+      ? Object.keys(properties).length
+      : 0;
+  return { path: rel, state: count > 0 ? "ok" : "empty", properties: count };
+}
+
+/**
+ * Check that a bundle declaring configuration actually ships a schema for it.
+ *
+ * The two paths mirror `export-dynamic-plugin`'s own: it writes
+ * `dist-scalprum/configSchema.json` when dist-scalprum/ exists and
+ * `dist/.config-schema.json` when dist/ does (note the different filename), so a bundle
+ * is checked on exactly the layouts it ships.
+ *
+ * The messages are worded so a reader cannot mistake one case for the other: a package
+ * that declares nothing is not a finding at all and produces no message, while a package
+ * that declares `configSchema` and ships an empty schema is the RHDHBUGS-1157 defect —
+ * the export's schema collection resolves dependencies inside an empty `catch {}`, so a
+ * declaration it fails to resolve is dropped with no error anywhere.
+ */
+function inspectConfigSchema(pluginPath: string): {
+  configSchema: ConfigSchemaInfo;
+  error: string | null;
+} {
+  let declared = false;
+  let readError: string | null = null;
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(pluginPath, "package.json"), "utf8"),
+    );
+    declared = pkg !== null && typeof pkg === "object" && "configSchema" in pkg;
+  } catch (err) {
+    // Same class as readNfsFeatures': a failure to look must never be recorded as a fact
+    // about the artifact, so nothing is claimed about its configuration. Unlike that one
+    // this does NOT warn — the message is always returned and becomes the bundle's error,
+    // and readNfsFeatures already warns for the identical root cause on the same file.
+    // Two console lines for one unreadable package.json is noise, not loudness.
+    readError = `could not read package.json for configSchema (${errorMessage(err)})`;
+  }
+
+  const files: ConfigSchemaFile[] = [];
+  if (existsSync(join(pluginPath, "dist-scalprum"))) {
+    files.push(
+      readConfigSchemaFile(pluginPath, "dist-scalprum/configSchema.json"),
+    );
+  }
+  if (existsSync(join(pluginPath, "dist"))) {
+    files.push(readConfigSchemaFile(pluginPath, "dist/.config-schema.json"));
+  }
+  const configSchema: ConfigSchemaInfo = { declared, files };
+  if (readError) return { configSchema, error: readError };
+  // Not declaring configuration is a legitimate state, not a shortfall: 43 of the 76
+  // published frontend packages are in it. Only a declaration with nothing behind it is
+  // a defect, so the check is gated on `declared` rather than on the schema alone.
+  if (!declared) return { configSchema, error: null };
+
+  const problems = files
+    .filter((file) => file.state !== "ok")
+    .map((file) => `${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`);
+  return {
+    configSchema,
+    error: problems.length
+      ? `package.json declares \`configSchema\` but ${problems.join("; ")} — ` +
+        `Backstage has no schema to match this plugin's app-config keys against, so ` +
+        `they are dropped silently and the plugin runs on its defaults`
+      : null,
+  };
+}
+
+const CONFIG_SCHEMA_FAULTS: Record<ConfigSchemaState, string> = {
+  ok: "is valid",
+  missing: "is not in the bundle",
+  unreadable: "is not valid JSON",
+  empty: "declares no properties (the export collected an empty schema)",
+};
+
+/**
  * Check a frontend plugin's bundle artifacts for at least one frontend system:
  * - legacy frontend system: `dist-scalprum/` + `plugin-manifest.json` (Scalprum)
  * - new frontend system: `dist/mf-manifest.json` (a module-federation remote, loaded by
@@ -424,19 +684,33 @@ function inspectMfRemote(pluginPath: string): {
  * layout is an error even when the other system's layout is valid — the artifact
  * advertises a system it can't deliver.
  *
- * The Scalprum half is a presence check; the bundle is never loaded or evaluated.
- * The module-federation half additionally validates the manifest's SHAPE against
- * what the remotes router requires, because presence is not enough there: the router
- * skips a malformed manifest with a log line and still answers `200 []`, which
- * reaches the browser as an app that boots cleanly with no plugins. See
- * {@link MfRemoteInfo} for why servability and NFS feature types are reported apart.
+ * Both halves validate the manifest's SHAPE, not just its presence, because presence is
+ * what let two silent customer bugs through: the remotes router skips a malformed
+ * mf-manifest.json with a log line and still answers `200 []`, and the Scalprum host
+ * fetches whatever `loadScripts` names, so an absent asset 404s and the plugin's
+ * registration callback never runs. Either reaches the browser as an app that boots
+ * cleanly with the plugin simply not there. See {@link MfRemoteInfo} for why servability
+ * and NFS feature types are reported apart, and {@link ScalprumInfo} for why an empty
+ * `extensions` array is reported but never failed on.
+ *
+ * Independently of the layouts, a bundle whose package.json declares `configSchema` must
+ * ship the schema the export writes for it — see {@link ConfigSchemaInfo}. The bundle
+ * itself is never loaded or evaluated.
  */
 export function validateFrontendBundle(
   plugin: PluginEntry,
 ): FrontendBundleResult {
   const has = (rel: string) => existsSync(join(plugin.path, rel));
-  if (!has("package.json"))
-    return { systems: [], mf: null, error: "missing package.json" };
+  const noBundle: ConfigSchemaInfo = { declared: false, files: [] };
+  if (!has("package.json")) {
+    return {
+      systems: [],
+      mf: null,
+      scalprum: null,
+      configSchema: noBundle,
+      error: "missing package.json",
+    };
+  }
 
   // Probe BOTH layouts before returning. Bailing out on the first broken one left
   // `systems` empty, so a dual-shipping bundle with a broken Scalprum manifest was
@@ -445,10 +719,20 @@ export function validateFrontendBundle(
   const systems: FrontendSystem[] = [];
   const problems: string[] = [];
   let mf: MfRemoteInfo | null = null;
+  let scalprum: ScalprumInfo | null = null;
 
   if (has("dist-scalprum")) {
-    if (has("dist-scalprum/plugin-manifest.json")) systems.push("legacy");
-    else problems.push("dist-scalprum/ found but missing plugin-manifest.json");
+    if (has("dist-scalprum/plugin-manifest.json")) {
+      systems.push("legacy");
+      // Presence is not enough here either, for the same reason it was not enough for
+      // mf-manifest.json: an unusable manifest boots the app clean with the plugin
+      // simply absent. See ScalprumInfo.
+      const inspected = inspectScalprum(plugin.path);
+      scalprum = inspected.scalprum;
+      if (inspected.error) problems.push(inspected.error);
+    } else {
+      problems.push("dist-scalprum/ found but missing plugin-manifest.json");
+    }
   }
   // Gate on the manifest, not on a file literally named remoteEntry.js: the router's
   // default `getRemoteEntryType()` is "manifest", so it serves mf-manifest.json as the
@@ -464,15 +748,21 @@ export function validateFrontendBundle(
     );
   }
 
-  if (problems.length) return { systems, mf, error: problems.join("; ") };
+  // Runs regardless of which layouts validated: a bundle that declares configuration and
+  // ships no schema for it is a defect on its own, and the app-config keys it silently
+  // drops are dropped whether or not anything else about the bundle is wrong.
+  const schema = inspectConfigSchema(plugin.path);
+  if (schema.error) problems.push(schema.error);
+  const result = { systems, mf, scalprum, configSchema: schema.configSchema };
+
+  if (problems.length) return { ...result, error: problems.join("; ") };
   if (systems.length === 0) {
     return {
-      systems,
-      mf,
+      ...result,
       error:
         "no frontend bundle found — needs dist-scalprum/ (legacy frontend system) " +
         "and/or dist/mf-manifest.json (new frontend system)",
     };
   }
-  return { systems, mf, error: null };
+  return { ...result, error: null };
 }

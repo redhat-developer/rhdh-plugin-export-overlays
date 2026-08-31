@@ -70,7 +70,31 @@ const PKG_WITHOUT_NFS = JSON.stringify({
   backstage: { role: "frontend-plugin" },
 });
 
-const LEGACY = ["package.json", "dist-scalprum/plugin-manifest.json"];
+// The Scalprum manifest as actually published, from
+// backstage-community-plugin-dynatrace:bs_1.52.0__10.21.0. `extensions: []` with
+// `registrationMethod: "callback"` is not this artifact's quirk — it is the shape of all
+// 76 published frontend bundles, because @red-hat-developer-hub/cli constructs its
+// DynamicRemotePlugin with a literal `extensions: []`.
+const SCALPRUM_SCRIPT = "backstage-community.plugin-dynatrace.5f82d9b5.js";
+const scalprumManifest = (overrides: Record<string, unknown> = {}) =>
+  JSON.stringify({
+    name: "backstage-community.plugin-dynatrace",
+    version: "10.21.0",
+    extensions: [],
+    registrationMethod: "callback",
+    baseURL: "auto",
+    loadScripts: [SCALPRUM_SCRIPT],
+    ...overrides,
+  });
+
+const LEGACY = [
+  "package.json",
+  "dist-scalprum/plugin-manifest.json",
+  `dist-scalprum/${SCALPRUM_SCRIPT}`,
+];
+const LEGACY_BODIES = {
+  "dist-scalprum/plugin-manifest.json": scalprumManifest(),
+};
 const NEW_FE = ["package.json", "dist/remoteEntry.js", "dist/mf-manifest.json"];
 const NEW_FE_BODIES = {
   "dist/mf-manifest.json": MF_MANIFEST,
@@ -87,7 +111,9 @@ const mfManifest = (overrides: Record<string, unknown> = {}) =>
   });
 
 test("legacy-only bundle validates as legacy, with no mf detail to report", () => {
-  const { systems, mf, error } = validateFrontendBundle(makePlugin(LEGACY));
+  const { systems, mf, error } = validateFrontendBundle(
+    makePlugin(LEGACY, LEGACY_BODIES),
+  );
   assert.equal(error, null);
   assert.deepEqual(systems, ["legacy"]);
   assert.equal(mf, null);
@@ -108,7 +134,10 @@ test("new-frontend-system-only bundle validates as new-frontend-system", () => {
 
 test("dual bundle reports both systems", () => {
   const { systems, error } = validateFrontendBundle(
-    makePlugin([...new Set([...LEGACY, ...NEW_FE])], NEW_FE_BODIES),
+    makePlugin([...new Set([...LEGACY, ...NEW_FE])], {
+      ...NEW_FE_BODIES,
+      ...LEGACY_BODIES,
+    }),
   );
   assert.equal(error, null);
   assert.deepEqual(systems, ["legacy", "new-frontend-system"]);
@@ -343,7 +372,7 @@ test("incomplete legacy layout fails even when the new-FE layout is valid", () =
 });
 
 test("incomplete new-FE layout fails even when the legacy layout is valid", () => {
-  const plugin = makePlugin([...LEGACY, "dist/remoteEntry.js"]);
+  const plugin = makePlugin([...LEGACY, "dist/remoteEntry.js"], LEGACY_BODIES);
   const { systems, error } = validateFrontendBundle(plugin);
   assert.match(error ?? "", /missing dist\/mf-manifest\.json/);
   assert.deepEqual(systems, ["legacy"]);
@@ -458,4 +487,238 @@ test("an exposes entry with an empty name is servable but not a usable module", 
   assert.equal(error, null);
   assert.equal(mf?.servable, true);
   assert.deepEqual(mf?.exposes, ["."]);
+});
+
+// --- Scalprum manifest integrity (RHIDP-16229) -----------------------------------
+// The legacy half used to ask only whether plugin-manifest.json existed, which is what
+// let RHDHBUGS-2180 through: a bundle that is present, loads in Scalprum, and serves 404
+// on every configured route. These assert the faults that make a present bundle unusable.
+
+test("a loadScripts asset missing from the bundle fails", () => {
+  // The deliberately stripped bundle: the manifest names a script the artifact does not
+  // contain. The host fetches a 404, the registration callback never runs, and every
+  // configured frontend route answers 404 — with nothing logged as an error anywhere.
+  const { systems, scalprum, error } = validateFrontendBundle(
+    makePlugin(["package.json", "dist-scalprum/plugin-manifest.json"], {
+      "dist-scalprum/plugin-manifest.json": scalprumManifest(),
+    }),
+  );
+  assert.match(error ?? "", /loadScripts asset\(s\) not present/);
+  assert.match(error ?? "", /every configured route answers 404/);
+  assert.deepEqual(scalprum?.missingScripts, [SCALPRUM_SCRIPT]);
+  // The layout it advertises is still recorded, so the migration panel does not
+  // undercount it as shipping no system at all.
+  assert.deepEqual(systems, ["legacy"]);
+});
+
+test("an empty extensions array is reported but never failed", () => {
+  // 76 of 76 published frontend bundles are in this state, because the export CLI
+  // hardcodes `extensions: []` and the SDK's own manifest schema permits it (only
+  // loadScripts is `.nonempty()`). Failing it would fail the entire catalogue.
+  const { scalprum, error } = validateFrontendBundle(
+    makePlugin(LEGACY, LEGACY_BODIES),
+  );
+  assert.equal(error, null);
+  assert.equal(scalprum?.extensions, 0);
+  assert.equal(scalprum?.registrationMethod, "callback");
+  assert.equal(scalprum?.name, "backstage-community.plugin-dynatrace");
+});
+
+test("an extensions field that is not an array fails", () => {
+  // Distinct from the empty array: the SDK's schema is `z.array(...)`, so a non-array is
+  // malformed rather than merely empty, and `extensions: null` records that we cannot
+  // even count them.
+  const { scalprum, error } = validateFrontendBundle(
+    makePlugin(LEGACY, {
+      "dist-scalprum/plugin-manifest.json": scalprumManifest({
+        extensions: "none",
+      }),
+    }),
+  );
+  assert.match(error ?? "", /`extensions` is not an array/);
+  assert.equal(scalprum?.extensions, null);
+});
+
+test("an empty loadScripts fails — there is nothing for the host to fetch", () => {
+  const { error } = validateFrontendBundle(
+    makePlugin(LEGACY, {
+      "dist-scalprum/plugin-manifest.json": scalprumManifest({
+        loadScripts: [],
+      }),
+    }),
+  );
+  assert.match(error ?? "", /`loadScripts` is empty/);
+  // Not the missing-asset message: an empty list and a list naming an absent file are
+  // different faults, and conflating them sends a reader looking for the wrong file.
+  assert.doesNotMatch(error ?? "", /not present in dist-scalprum/);
+});
+
+test("a manifest without a name fails, naming what it breaks", () => {
+  // RHDH matches app-config `dynamicPlugins.frontend.<key>` against this name, so a
+  // nameless manifest makes every mount point unaddressable.
+  const { error } = validateFrontendBundle(
+    makePlugin(LEGACY, {
+      "dist-scalprum/plugin-manifest.json": scalprumManifest({ name: "" }),
+    }),
+  );
+  assert.match(error ?? "", /`name` missing/);
+  assert.match(error ?? "", /dynamicPlugins\.frontend/);
+});
+
+test("unparseable plugin-manifest.json says so rather than passing as present", () => {
+  // The old presence-only check accepted this file whatever was in it.
+  const { systems, scalprum, error } = validateFrontendBundle(
+    makePlugin(LEGACY, {
+      "dist-scalprum/plugin-manifest.json": "{not json",
+    }),
+  );
+  assert.match(error ?? "", /plugin-manifest\.json is not valid JSON/);
+  assert.deepEqual(systems, ["legacy"]);
+  assert.equal(scalprum?.name, null);
+});
+
+test("a loadScripts entry escaping dist-scalprum/ is reported as missing", () => {
+  // Untrusted JSON from inside a published OCI artifact: joined unchecked, it would probe
+  // the filesystem outside the bundle. Contained first, per src/paths.ts.
+  const { scalprum, error } = validateFrontendBundle(
+    makePlugin(LEGACY, {
+      "dist-scalprum/plugin-manifest.json": scalprumManifest({
+        loadScripts: ["../../../../etc/passwd"],
+      }),
+    }),
+  );
+  assert.match(error ?? "", /loadScripts asset\(s\) not present/);
+  assert.deepEqual(scalprum?.missingScripts, ["../../../../etc/passwd"]);
+});
+
+// --- configSchema (RHIDP-16229) --------------------------------------------------
+// RHDHBUGS-1157: a frontend bundle shipped with no schema for the configuration it
+// declares, so Backstage had nothing to match its app-config keys against and dropped
+// them without a word. `declared` is what separates that from the 43 of 76 published
+// packages that simply ship no configuration.
+
+const CONFIG_PKG = JSON.stringify({
+  name: "test",
+  backstage: { role: "frontend-plugin" },
+  configSchema: "config.d.ts",
+});
+const SCHEMA = JSON.stringify({
+  type: "object",
+  properties: { dynatrace: { type: "object" } },
+});
+
+test("a bundle declaring configSchema without the schema file fails", () => {
+  // The deliberately stripped bundle for check 1: package.json still declares
+  // `configSchema`, the file the export writes beside the bundle is gone.
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin(LEGACY, { ...LEGACY_BODIES, "package.json": CONFIG_PKG }),
+  );
+  assert.match(error ?? "", /declares `configSchema`/);
+  assert.match(
+    error ?? "",
+    /dist-scalprum\/configSchema\.json is not in the bundle/,
+  );
+  assert.match(error ?? "", /dropped silently/);
+  assert.equal(configSchema.declared, true);
+  assert.deepEqual(configSchema.files, [
+    {
+      path: "dist-scalprum/configSchema.json",
+      state: "missing",
+      properties: null,
+    },
+  ]);
+});
+
+test("a declared configSchema with an empty schema fails, and says which", () => {
+  // The live shape of RHDHBUGS-1157: the file is there, so a presence check passes, but
+  // the export's schema collection resolves dependencies inside an empty `catch {}` and
+  // produced nothing. Functionally identical to the file being absent — and the message
+  // has to say so, not repeat "is not in the bundle".
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": "{}",
+    }),
+  );
+  assert.match(error ?? "", /declares no properties/);
+  assert.doesNotMatch(error ?? "", /is not in the bundle/);
+  assert.equal(configSchema.files[0].state, "empty");
+  assert.equal(configSchema.files[0].properties, 0);
+});
+
+test("a bundle that declares no configuration is reported, not failed", () => {
+  // The "cannot tell" side of the line: 31 of 76 published packages ship an empty schema
+  // and declare nothing, which is a legitimate state. Failing on the empty schema alone
+  // would accuse all 31 of a bug they do not have.
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "dist-scalprum/configSchema.json": "{}",
+    }),
+  );
+  assert.equal(error, null);
+  assert.equal(configSchema.declared, false);
+  assert.equal(configSchema.files[0].state, "empty");
+});
+
+test("a declared configSchema with a real schema passes and reports its size", () => {
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": SCHEMA,
+    }),
+  );
+  assert.equal(error, null);
+  assert.equal(configSchema.files[0].state, "ok");
+  assert.equal(configSchema.files[0].properties, 1);
+});
+
+test("the module-federation side's schema file is checked too", () => {
+  // The export writes dist-scalprum/configSchema.json AND dist/.config-schema.json — a
+  // different filename — for the layouts a bundle ships. Checking one side only would
+  // leave half of every dual bundle unguarded.
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, ...NEW_FE, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      ...NEW_FE_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": SCHEMA,
+    }),
+  );
+  assert.match(error ?? "", /dist\/\.config-schema\.json is not in the bundle/);
+  assert.deepEqual(
+    configSchema.files.map((file) => [file.path, file.state]),
+    [
+      ["dist-scalprum/configSchema.json", "ok"],
+      ["dist/.config-schema.json", "missing"],
+    ],
+  );
+});
+
+test("an unreadable schema is distinguished from a missing one", () => {
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": "{not json",
+    }),
+  );
+  assert.match(error ?? "", /configSchema\.json is not valid JSON/);
+  assert.equal(configSchema.files[0].state, "unreadable");
+  assert.equal(configSchema.files[0].properties, null);
+});
+
+test("a configSchema fault is reported alongside an unrelated bundle fault", () => {
+  // Two independent defects: the schema is gone AND the manifest names an absent script.
+  // Reporting only one hides the other from whoever reads the failure.
+  const { error } = validateFrontendBundle(
+    makePlugin(["package.json", "dist-scalprum/plugin-manifest.json"], {
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/plugin-manifest.json": scalprumManifest(),
+    }),
+  );
+  assert.match(error ?? "", /loadScripts asset\(s\) not present/);
+  assert.match(error ?? "", /declares `configSchema`/);
 });

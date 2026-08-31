@@ -24,7 +24,7 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
-  → validateFrontendBundle()  # legacy bundle present; new-FE remote servable (not executed)
+  → validateFrontendBundle()  # both manifests usable; configSchema shipped (not executed)
   → results.json + exit code
 ```
 
@@ -41,12 +41,54 @@ The check recognizes both packagings and records which one(s) each plugin ships 
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
 
-The Scalprum half is a presence check. The module-federation half also validates the
-manifest's **shape**, because presence is not enough there: the remotes router in
+Both halves validate the manifest's **shape**, not just its presence. Presence is what let
+two silent customer bugs through: in each, the artifact is there, the app boots, nothing
+errors, and the plugin is simply absent.
+
+#### Scalprum manifest (`frontend.bundles[].scalprum`)
+
+`dist-scalprum/plugin-manifest.json` is parsed and checked against what the host needs
+(RHDHBUGS-2180):
+
+| Field                | Meaning                                                                                                                                                                                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | the host registers the remote under this, and RHDH matches app-config `dynamicPlugins.frontend.<key>` against it. Missing ⇒ **fails**: no mount point can be addressed                                                                                               |
+| `loadScripts`        | the assets the host fetches to initialise the plugin. Empty, or naming a file the bundle does not contain (checked contained within `dist-scalprum/`), ⇒ **fails**: the host fetches a 404, the registration callback never runs, every configured route answers 404 |
+| `extensions`         | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                  |
+| `registrationMethod` | `callback` for everything RHDH publishes                                                                                                                                                                                                                             |
+
+`extensions: 0` is the normal shape, not a defect: `@red-hat-developer-hub/cli` constructs
+its `DynamicRemotePlugin` with a literal `extensions: []`, so all 76 published frontend
+bundles report 0, and the SDK's own manifest schema permits it (`z.array(...)` with no
+`.nonempty()`, while `loadScripts` is `.nonempty()`). With `registrationMethod: "callback"`
+the plugin registers at runtime and RHDH drives its surfaces from app-config mount points,
+so a static extension list is not where anything is declared. Failing on it would fail the
+entire catalogue and could never go green.
+
+#### Config schema (`frontend.bundles[].configSchema`)
+
+A bundle that declares configuration must ship the schema for it, or Backstage has nothing
+to match the plugin's app-config keys against and drops them without a word — the plugin
+runs on its defaults while the operator's settings look applied (RHDHBUGS-1157).
+
+`declared` is `configSchema` on the shipped `package.json`, Backstage's own signal. `files`
+carries one entry per path `export-dynamic-plugin` writes for the layouts the bundle ships
+— `dist-scalprum/configSchema.json` and `dist/.config-schema.json` (different filename) —
+each `ok`, `missing`, `unreadable` or `empty`.
+
+**Only `declared: true` can fail.** The export merges the package's own `configSchema` with
+every one it finds in the dependency tree, so an empty schema means "declares nothing" for
+most packages and "the declaration was lost" only for the ones that declare: 33 of 76
+declare, 31 ship an empty schema, and only the intersection is a finding. Failing on an
+empty schema alone would accuse 31 packages of a bug they do not have, so the messages keep
+"declares no configuration" and "declares configuration and shipped no schema" apart.
+
+#### Module-federation manifest (`frontend.bundles[].mf`)
+
+Presence is not enough here either: the remotes router in
 `@backstage/backend-dynamic-feature-service` logs and `continue`s past a manifest missing
 any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers `200 []`
-and the browser gets an app that boots cleanly with no plugins. It is reported per package
-as `frontend.bundles[].mf`:
+and the browser gets an app that boots cleanly with no plugins.
 
 | Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -197,11 +239,11 @@ _layout_, which RHDH also uses to ship legacy Scalprum plugins — so on its own
 overstates. Beside the counts the panel prints a `nfsSupport` split, also recorded per
 package in `aggregate.json`:
 
-|                | Meaning                                                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                      |
+|                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                                                                                                                                                                                                                                                                              |
 | `undetermined` | no `backstage.features` was read, so `nfsModuleFilter` installs no filter, every exposed module is advertised, and the host decides at runtime — not knowable without executing the bundle. Two causes, and the count does not separate them: the package declares none, or reading it failed. `mf.nfsFeaturesError` in `aggregate.json` tells them apart, and the per-package prose stays silent on a read failure rather than reporting it as declaring none |
-| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                       |
+| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Quote `confirmed` as migration progress. The 2026-08-21 community sweep was 46 dual, of
 which 19 confirmed and 27 undetermined — and ten of those 27 expose an `alpha` module, so

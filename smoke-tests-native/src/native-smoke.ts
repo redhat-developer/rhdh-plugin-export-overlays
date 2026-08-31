@@ -17,10 +17,13 @@
  *   2. Load each backend plugin and assert a default BackendFeature export.
  *   3. Boot startTestBackend with core features + loaded features → confirms they integrate.
  *   4. Check frontend plugin bundles for the legacy (Scalprum) and/or new (module
- *      federation) frontend system. Scalprum is a presence check; the module-federation
- *      half also validates the manifest's shape against what the remotes router requires,
- *      because a malformed manifest is skipped with a log line and still answers 200 [].
- *      Neither bundle is ever loaded or executed.
+ *      federation) frontend system. Both halves validate the manifest's SHAPE, not just
+ *      its presence: a malformed mf-manifest.json is skipped by the remotes router with a
+ *      log line and still answers 200 [], and a Scalprum manifest naming a loadScripts
+ *      asset the bundle does not contain has the host fetch a 404 and register nothing.
+ *      A bundle declaring `configSchema` is also required to ship the schema for it, or
+ *      its app-config keys are dropped silently (RHDHBUGS-1157). Neither bundle is ever
+ *      loaded or executed.
  *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
@@ -415,8 +418,16 @@ function validateFrontends(frontend: PluginEntry[]): {
   const bundles: FrontendBundleInfo[] = [];
   let valid = 0;
   for (const plugin of frontend) {
-    const { systems, mf, error } = validateFrontendBundle(plugin);
-    bundles.push({ name: plugin.name, version: plugin.version, systems, mf });
+    const { systems, mf, scalprum, configSchema, error } =
+      validateFrontendBundle(plugin);
+    bundles.push({
+      name: plugin.name,
+      version: plugin.version,
+      systems,
+      mf,
+      scalprum,
+      configSchema,
+    });
     if (error) errors.push({ plugin, error });
     else {
       valid += 1;

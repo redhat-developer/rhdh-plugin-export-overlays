@@ -12,7 +12,13 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
+import type {
+  ConfigSchemaInfo,
+  FrontendSystem,
+  MfRemoteInfo,
+  PluginError,
+  ScalprumInfo,
+} from "./loader";
 
 /**
  * Bump when the results.json shape changes.
@@ -36,8 +42,9 @@ import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
  * 4: added `mf` on each frontend bundle (module-federation remote shape).
  * 5: added `mf.nfsFeaturesError`, so a failure to read backstage.features is not
  *    recorded as the artifact declaring none.
+ * 6: added `scalprum` and `configSchema` on each frontend bundle (RHIDP-16229).
  */
-export const REPORT_SCHEMA_VERSION = 5;
+export const REPORT_SCHEMA_VERSION = 6;
 
 export type Status =
   | "pass"
@@ -69,6 +76,20 @@ export type FrontendBundleInfo = {
    * system will not mount anything from.
    */
   mf: MfRemoteInfo | null;
+  /**
+   * The Scalprum manifest as the host reads it. Null when the bundle ships no
+   * dist-scalprum/plugin-manifest.json. `scalprum.missingScripts` being non-empty is a
+   * bundle that loads nothing; `scalprum.extensions` being 0 is the normal shape and is
+   * published for visibility only — see {@link ScalprumInfo}.
+   */
+  scalprum: ScalprumInfo | null;
+  /**
+   * Whether the bundle ships a config schema for the configuration it declares. Read
+   * `configSchema.declared` first: an empty schema is only a finding for a package that
+   * declares one, which is what separates "ships no configuration" from "lost its
+   * configuration on the way out" (RHDHBUGS-1157).
+   */
+  configSchema: ConfigSchemaInfo;
 };
 
 /**
