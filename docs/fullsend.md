@@ -14,6 +14,7 @@
 | Coder | `/fs-code` slash command, or `ready-to-code` label | Post on a triaged issue |
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
+| E2E Triage | Auto-triggers nightly via `e2e-triage` label | Discovers failed nightly E2E runs, classifies per workspace, creates issues for the code agent |
 
 ### Auto-trigger vs. manual trigger
 
@@ -23,6 +24,7 @@
 | Coder | Does not auto-trigger from triage. Triage labels `triaged`, not `ready-to-code`. | `/fs-code` on a triaged issue, or manually add `ready-to-code` label |
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
+| E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies failures → post-script creates per-workspace issues with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
 
 ### Scope details
 
@@ -173,7 +175,7 @@ The dispatch job checks `author_association` on `issue_comment` events. Only `OW
 
 ### CODEOWNERS protection
 
-The `.fullsend/` directory and `.github/workflows/fullsend.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
+The `.fullsend/` directory, `.github/workflows/fullsend.yaml`, and `.github/workflows/e2e-triage-agent.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
 
 ### Inference authentication
 
@@ -183,10 +185,12 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 
 | Path | Purpose |
 |------|---------|
-| `.fullsend/config.yaml` | Declares enabled roles (triage, coder, review, fix) |
+| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage) and roles |
+| `.fullsend/rhdh/` | Custom agents, harnesses, policies, schemas, scripts, and skills |
 | `.fullsend/customized/` | Scaffold stubs for future agent/harness/policy/skill customizations |
 | `.fullsend/customized/scripts/pre-fix-rebase.sh` | Auto-rebase before fix agent runs |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
+| `.github/workflows/e2e-triage-agent.yaml` | Nightly E2E failure discovery → creates labeled issue for triage agent |
 
 ## Debugging
 

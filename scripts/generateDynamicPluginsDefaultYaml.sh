@@ -340,7 +340,7 @@ cat << EOL > "$OUTPUT_FILE".head
 # See https://github.com/redhat-developer/rhdh-plugin-export-overlays/
 #
 # To update this file, trigger a rebuld of the index image from 
-# https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
+# https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/main/build/ci/update-index.sh
 EOL
 cat "$OUTPUT_FILE".head "$OUTPUT_FILE" > "$OUTPUT_FILE"_
 mv "$OUTPUT_FILE"_ "$OUTPUT_FILE"

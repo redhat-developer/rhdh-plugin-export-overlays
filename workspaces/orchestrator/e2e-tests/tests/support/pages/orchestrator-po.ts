@@ -6,6 +6,9 @@ import {
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ORCHESTRATOR_COMPONENTS } from "./orchestrator-obj.js";
 
+const workflowsTable = (page: Page) =>
+  page.locator("#root div").filter({ hasText: "Workflows" }).nth(2);
+
 export class OrchestratorPO {
   constructor(
     private readonly page: Page,
@@ -13,11 +16,27 @@ export class OrchestratorPO {
   ) {}
 
   async openWorkflowsPage(): Promise<void> {
-    await this.uiHelper.goToPageUrl("/orchestrator");
-    await this.uiHelper.verifyHeading("Workflows");
+    await this.page.goto("/orchestrator");
+    await expect(this.page).toHaveURL("/orchestrator");
+    await expect(
+      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
+    ).toBeVisible({ timeout: 120_000 });
+    await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
+      timeout: 30_000,
+    });
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
+    const adminButton = this.page
+      .getByRole("button", { name: "Administration" })
+      .first();
+    const orchestratorLink = this.page
+      .locator('nav a:has-text("Orchestrator")')
+      .first();
+    if (!(await orchestratorLink.isVisible().catch(() => false))) {
+      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
+      await adminButton.click();
+    }
     await this.uiHelper.openSidebar("Orchestrator");
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
@@ -79,6 +98,191 @@ export class OrchestratorPO {
     const runButton = ORCHESTRATOR_COMPONENTS.runButton(this.page);
     await expect(runButton).toBeVisible();
     await runButton.click();
+  }
+
+  async runGreetingWorkflow(
+    language = "English",
+    status = "Completed",
+  ): Promise<void> {
+    const runButton = this.page.getByRole("button", {
+      name: "Run",
+      exact: true,
+    });
+    await expect(runButton).toBeVisible();
+    await runButton.click();
+    await this.page.getByLabel("Language").click();
+    await this.page.getByRole("option", { name: language }).click();
+    await this.page.getByRole("button", { name: "Next" }).click();
+    await this.page.getByRole("button", { name: "Run" }).click();
+    await expect(
+      this.page.getByText(`${status}`, { exact: true }).first(),
+    ).toBeVisible({ timeout: 600_000 });
+  }
+
+  async reRunGreetingWorkflow(
+    language = "English",
+    status = "Completed",
+  ): Promise<void> {
+    await expect(this.page.getByText("Run again")).toBeVisible();
+    await this.page.getByText("Run again").click();
+    await this.page.getByLabel("Language").click();
+    await this.page.getByRole("option", { name: language }).click();
+    await this.page.getByRole("button", { name: "Next" }).click();
+    await this.page.getByRole("button", { name: "Run" }).click();
+    await expect(
+      this.page.getByText(`${status}`, { exact: true }).first(),
+    ).toBeVisible({ timeout: 600_000 });
+  }
+
+  async runFailSwitchWorkflow(input = "OK"): Promise<void> {
+    const runButton = this.page.getByRole("button", {
+      name: "Run",
+      exact: true,
+    });
+    await expect(runButton).toBeVisible();
+    await runButton.click();
+    await this.page.getByLabel(/switch/i).click();
+    await this.page.getByRole("option", { name: input }).click();
+    await this.page.getByRole("button", { name: "Next" }).click();
+    await this.page.getByRole("button", { name: "Run" }).click();
+    switch (input) {
+      case "OK":
+        await this.validateCurrentWorkflowStatus("Completed");
+        break;
+      case "KO":
+        await this.validateCurrentWorkflowStatus("Failed");
+        break;
+      case "Wait":
+        await this.validateCurrentWorkflowStatus("Running");
+        break;
+    }
+  }
+
+  async validateCurrentWorkflowStatus(
+    status = "Completed",
+    timeout = 120_000,
+  ): Promise<void> {
+    await expect(
+      this.page.getByText(`${status}`, { exact: true }).first(),
+    ).toBeVisible({ timeout });
+  }
+
+  async validateWorkflowAllRuns(): Promise<void> {
+    await this.page.getByRole("tab", { name: "all runs" }).click();
+    await expect(
+      this.page
+        .locator("tbody")
+        .getByRole("row")
+        .nth(0)
+        .getByRole("cell")
+        .nth(0),
+    ).toBeVisible();
+    await expect(this.page.getByTestId("select").first()).toHaveAttribute(
+      "aria-label",
+      "Status",
+    );
+    await this.page
+      .getByLabel("Status")
+      .getByRole("button", { name: "All" })
+      .click();
+    const statuses = ["All", "Running", "Failed", "Completed", "Aborted"];
+    for (const status of statuses) {
+      await expect(this.page.getByRole("option", { name: status })).toHaveText(
+        status,
+      );
+      await this.page.getByRole("option", { name: status }).click();
+      await this.page
+        .getByLabel("Status")
+        .getByRole("button", { name: status })
+        .click();
+    }
+    await this.page.getByRole("option", { name: "All" }).click();
+    const columnHeaders = [
+      "ID",
+      "Workflow name",
+      "Version",
+      "Entity",
+      "Status",
+      "Started",
+      "Run by",
+    ];
+    for (const columnHeader of columnHeaders) {
+      await expect(
+        this.page.getByRole("columnheader", {
+          name: columnHeader,
+          exact: true,
+        }),
+      ).toBeVisible();
+    }
+  }
+
+  async validateWorkflowStatusDetails(status = "Completed"): Promise<void> {
+    const details = this.page.getByRole("article").filter({
+      has: this.page.getByRole("heading", { name: "Workflow" }),
+    });
+    if (status === "Running") {
+      await expect(
+        details.getByRole("heading", { name: /Run\s*status/i }),
+      ).toBeVisible();
+      await expect(
+        this.page
+          .locator("b")
+          .filter({ hasText: "Running" })
+          .getByRole("progressbar"),
+      ).toBeVisible();
+      const workflowButtons = this.page
+        .locator("div")
+        .filter({ hasText: "Abort Running..." })
+        .nth(4);
+      await expect(workflowButtons).toHaveText(/Running/i);
+      await expect(workflowButtons.getByRole("progressbar")).toBeVisible();
+      await expect(this.page.getByTestId("InfoOutlinedIcon")).toBeVisible();
+      await expect(
+        this.page.getByText(
+          /workflow is running\.?\s*Started at\s+\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(AM|PM)/i,
+        ),
+      ).toBeVisible();
+    }
+    if (status === "Failed") {
+      await expect(
+        details.getByTestId("ErrorOutlineOutlinedIcon"),
+      ).toBeVisible();
+      await expect(
+        this.page.getByText(
+          /Run has failed at\s+\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(AM|PM)/,
+        ),
+      ).toBeVisible();
+      await expect(
+        this.page.getByTestId("ErrorOutlineOutlinedIcon"),
+      ).toBeVisible();
+    }
+    if (status === "Completed") {
+      await expect(
+        this.page
+          .locator("b")
+          .filter({ hasText: "Completed" })
+          .getByTestId("CheckCircleOutlinedIcon"),
+      ).toBeVisible();
+      await expect(
+        this.page.getByText(
+          /Run completed at\s+\d{1,2}\/\d{1,2}\/\d{4},\s+\d{1,2}:\d{2}:\d{2}\s+(AM|PM)/,
+        ),
+      ).toBeVisible();
+      await expect(this.page.getByTestId("SuccessOutlinedIcon")).toBeVisible();
+    }
+  }
+
+  async abortWorkflow(): Promise<void> {
+    await expect(
+      this.page.getByRole("button", { name: "Abort" }),
+    ).toBeEnabled();
+    await this.page.getByRole("button", { name: "Abort" }).click();
+    await this.page
+      .getByRole("dialog", { name: /Abort workflow run\?/i })
+      .getByRole("button", { name: "Abort" })
+      .click();
+    await expect(this.page.getByText("Run was aborted")).toBeVisible();
+    await expect(this.page.getByText("-- Aborted")).toBeVisible();
   }
 
   async runGreetingWorkflowAndCaptureInstanceId(): Promise<string> {
@@ -232,9 +436,13 @@ export class OrchestratorPO {
     return runId;
   }
 
-  async openRunLogsDialog(): Promise<Locator> {
+  async openRunLogsDialog(name: string | RegExp): Promise<Locator> {
     await this.page.getByRole("button", { name: "View logs" }).click();
-    const logsDialog = this.page.getByRole("dialog", { name: /Run logs/i });
+    const dialogName =
+      name instanceof RegExp
+        ? new RegExp(`${name.source}.*workflow logs`, name.flags)
+        : `${name} workflow logs`;
+    const logsDialog = this.page.getByRole("dialog", { name: dialogName });
     await expect(logsDialog).toBeVisible();
     return logsDialog;
   }
@@ -247,7 +455,7 @@ export class OrchestratorPO {
 
   async verifyWorkflowCompletedStatusVisible(timeoutMs: number): Promise<void> {
     await expect(
-      ORCHESTRATOR_COMPONENTS.completedStatus(this.page),
+      ORCHESTRATOR_COMPONENTS.completedStatus(this.page).first(),
     ).toBeVisible({
       timeout: timeoutMs,
     });
@@ -276,5 +484,61 @@ export class OrchestratorPO {
       this.page.getByRole("heading", { name: "Greeting workflow" }),
     ).toBeVisible();
     await expect(ORCHESTRATOR_COMPONENTS.nextButton(this.page)).toBeVisible();
+  }
+
+  async validateGreetingWorkflow(): Promise<void> {
+    await this.page.getByRole("tab", { name: "Workflows" }).click();
+    const workflowHeader = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    await expect(workflowHeader).toBeVisible();
+    await expect(workflowHeader).toContainText("Workflows");
+    await expect(workflowsTable(this.page)).toBeVisible();
+    await expect(
+      this.page.getByRole("textbox", { name: "Filter" }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("columnheader", { name: "Name", exact: true }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("columnheader", {
+        name: "Workflow Status",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("columnheader", {
+        name: "Runs (last month)",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("columnheader", {
+        name: "Success ratio",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("columnheader", { name: "Actions", exact: true }),
+    ).toBeVisible();
+    const workFlowRow = this.page.locator(`tr:has-text("Greeting workflow")`);
+    await expect(workFlowRow.locator("td").nth(0)).toHaveText(
+      "Greeting workflow",
+    );
+    await expect(workFlowRow.locator("td").nth(1)).toHaveText("Available");
+    await expect(workFlowRow.locator("td").nth(2)).toHaveText(
+      /^\d+\.\d+(\.\d+)?$/,
+    );
+    await expect(workFlowRow.locator("td").nth(3)).toHaveText(/^\d+$/);
+    await expect(workFlowRow.locator("td").nth(4)).toHaveText(/^\d+%$/);
+    await expect(
+      workFlowRow.getByRole("button", { name: "Run", exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      workFlowRow.getByRole("button", { name: "View runs" }).first(),
+    ).toBeVisible();
+    // await expect(
+    //   workFlowRow
+    //     .getByRole("button", { name: "View input schema" })
+    //     .first(),
+    // ).toBeVisible();
   }
 }

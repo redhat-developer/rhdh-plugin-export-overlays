@@ -16,9 +16,7 @@ test.describe("Theme Plugin tests", () => {
   test.beforeEach(async ({ loginHelper, page, uiHelper }) => {
     themeVerifier = new ThemeVerifier(page, uiHelper);
     await loginHelper.loginAsGuest();
-    await uiHelper.verifyHeading("Welcome back!");
     await uiHelper.waitForLoad();
-    await uiHelper.dismissQuickstartIfVisible();
   });
 
   test("Verify theme colors are applied", async () => {

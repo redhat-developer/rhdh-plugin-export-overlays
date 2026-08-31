@@ -14,10 +14,12 @@ import {
   verifyRoleWithPolicies,
   buildPolicies,
   globalWorkflowPolicies,
-  greetingWorkflowPolicies,
+  greetingWorkflowConditions,
   roleApiName,
   PRIMARY_USER,
   SECONDARY_USER,
+  type PolicySpec,
+  type WorkflowConditionSpec,
   cleanupGreetingComponentEntity,
   launchGreetingTemplateFromSelfService,
   clickCreateAndWaitForScaffolderTerminalState,
@@ -26,7 +28,8 @@ import {
 type RbacScenario = {
   name: string;
   roleName: string;
-  policies: ReturnType<typeof globalWorkflowPolicies>;
+  policies: PolicySpec[];
+  conditions: WorkflowConditionSpec[];
   expectWorkflowVisible: boolean;
   expectRunState: "enabled" | "disabled" | "absent" | "disabled-or-absent";
   workflowScope: "global" | "greeting";
@@ -41,6 +44,7 @@ const RBAC_SCENARIOS: RbacScenario[] = [
     name: "Global Read-Write",
     roleName: "role:default/workflowReadwrite",
     policies: globalWorkflowPolicies("allow", "allow"),
+    conditions: [],
     expectWorkflowVisible: true,
     expectRunState: "enabled",
     workflowScope: "global",
@@ -49,6 +53,7 @@ const RBAC_SCENARIOS: RbacScenario[] = [
     name: "Global Read-Only",
     roleName: "role:default/workflowReadonly",
     policies: globalWorkflowPolicies("allow", "deny"),
+    conditions: [],
     expectWorkflowVisible: true,
     expectRunState: "disabled-or-absent",
     workflowScope: "global",
@@ -57,6 +62,7 @@ const RBAC_SCENARIOS: RbacScenario[] = [
     name: "Global Denied",
     roleName: "role:default/workflowDenied",
     policies: globalWorkflowPolicies("deny", "deny"),
+    conditions: [],
     expectWorkflowVisible: false,
     expectRunState: "absent",
     workflowScope: "global",
@@ -64,7 +70,9 @@ const RBAC_SCENARIOS: RbacScenario[] = [
   {
     name: "Greeting Denied",
     roleName: "role:default/workflowGreetingDenied",
-    policies: greetingWorkflowPolicies("deny", "deny"),
+    // IS_ALLOWED_WORKFLOW_ID has no deny form. No grant → no access.
+    policies: [],
+    conditions: [],
     expectWorkflowVisible: false,
     expectRunState: "absent",
     workflowScope: "greeting",
@@ -72,7 +80,8 @@ const RBAC_SCENARIOS: RbacScenario[] = [
   {
     name: "Greeting Read-Write",
     roleName: "role:default/workflowGreetingReadwrite",
-    policies: greetingWorkflowPolicies("allow", "allow"),
+    policies: [],
+    conditions: greetingWorkflowConditions("allow", "allow"),
     expectWorkflowVisible: true,
     expectRunState: "enabled",
     workflowScope: "greeting",
@@ -80,7 +89,8 @@ const RBAC_SCENARIOS: RbacScenario[] = [
   {
     name: "Greeting Read-Only",
     roleName: "role:default/workflowGreetingReadonly",
-    policies: greetingWorkflowPolicies("allow", "deny"),
+    policies: [],
+    conditions: greetingWorkflowConditions("allow", "deny"),
     expectWorkflowVisible: true,
     expectRunState: "disabled-or-absent",
     workflowScope: "greeting",
@@ -311,12 +321,14 @@ export function registerOrchestratorRbacTests(): void {
             scenario.roleName,
             [PRIMARY_USER],
             scenario.policies,
+            scenario.conditions,
           );
           await verifyRoleWithPolicies(
             apiToken,
             scenario.roleName,
             [PRIMARY_USER],
             scenario.policies,
+            scenario.conditions,
           );
         });
 
@@ -347,24 +359,12 @@ export function registerOrchestratorRbacTests(): void {
         await deleteRoleAndPolicies(apiToken, workflowUserRoleName);
         await deleteRoleAndPolicies(apiToken, workflowAdminRoleName);
 
-        const rbacApi = await RbacApiHelper.build(apiToken);
-        await rbacApi.createRoles({
-          memberReferences: [PRIMARY_USER, SECONDARY_USER],
-          name: workflowUserRoleName,
-        });
-        await rbacApi.createPolicies(
-          buildPolicies(workflowUserRoleName, [
-            {
-              permission: "orchestrator.workflow.greeting",
-              policy: "read",
-              effect: "allow",
-            },
-            {
-              permission: "orchestrator.workflow.use.greeting",
-              policy: "update",
-              effect: "allow",
-            },
-          ]),
+        await createRoleWithPolicies(
+          apiToken,
+          workflowUserRoleName,
+          [PRIMARY_USER, SECONDARY_USER],
+          [],
+          greetingWorkflowConditions("allow", "allow"),
         );
       });
 

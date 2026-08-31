@@ -1,5 +1,6 @@
 # RHDH Supported (GA; or TP heading to GA) package list
-# do not include package for which we never had wrappers / bundled the package in RHDH
+# To add new content, please open an RHDHPLAN feature JIRA first.
+
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 adoption-insights/plugins/adoption-insights
@@ -8,12 +9,22 @@ adoption-insights/plugins/analytics-module-adoption-insights
 
 analytics/plugins/analytics-provider-segment
 
+app-defaults/plugins/app-auth
+app-defaults/plugins/app-defaults
+app-defaults/plugins/app-integrations
+
+backstage/plugins/auth-backend-module-github-provider
+backstage/plugins/auth-backend-module-gitlab-provider
+backstage/plugins/auth-backend-module-guest-provider
+backstage/plugins/auth-backend-module-microsoft-provider
+backstage/plugins/auth-backend-module-oidc-provider
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
 backstage/plugins/catalog-backend-module-ldap
 backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
+backstage/plugins/signals
 backstage/plugins/signals-backend
 backstage/plugins/techdocs
 backstage/plugins/techdocs-backend
@@ -24,6 +35,7 @@ global-header/plugins/global-header
 homepage/plugins/homepage
 homepage/plugins/homepage-backend
 
+keycloak/plugins/auth-backend-module-keycloak
 keycloak/plugins/catalog-backend-module-keycloak
 
 extensions/plugins/catalog-backend-module-extensions
@@ -67,10 +79,6 @@ bulk-import/plugins/bulk-import-backend
 backstage/plugins/kubernetes
 
 # currently TP but moving to GA in 1.10
-# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-signals?tab=tags
-backstage/plugins/signals
-
-# currently TP but moving to GA in 1.10
 # can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-notifications-backend-module-email?tab=tags
 backstage/plugins/notifications-backend-module-email
 
@@ -92,6 +100,6 @@ backstage/plugins/events-backend-module-github
 # Gitlab Events Module (TP in 2.1)
 backstage/plugins/events-backend-module-gitlab
 
-# Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
-lightspeed/plugins/lightspeed
-lightspeed/plugins/lightspeed-backend
+# Intelligent Assistant plugins - Lightspeed GA in 1.10, rebranded to Intelligent Assistant in 2.1
+intelligent-assistant/plugins/intelligent-assistant
+intelligent-assistant/plugins/intelligent-assistant-backend

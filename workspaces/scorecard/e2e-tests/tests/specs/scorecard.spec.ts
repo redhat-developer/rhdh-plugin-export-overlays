@@ -68,7 +68,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await aggregated.runAggregatedScorecardDrilldownScenario(
         () => scorecard.navigateToHome(),
         githubMetric,
-        "github.open_prs",
+        "github.openPRs",
         {
           thresholdRules: [
             { key: "ideal", color: "rgb(180, 211, 178)" },
@@ -84,7 +84,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
       await aggregated.runAggregatedScorecardNoDataHomepageScenario(
         () => scorecard.navigateToHome(),
         jiraMetric,
-        "jira.open_issues",
+        "jira.openIssues",
         { skipIfHasDrilldown: true },
       );
     });

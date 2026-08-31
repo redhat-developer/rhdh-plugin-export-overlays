@@ -1,0 +1,70 @@
+---
+# harness/e2e-triage.yaml — E2E nightly triage agent.
+#
+# Flow: sandbox (agent) → post_script
+#   agent       : analyzes nightly failures, classifies per workspace, emits issue directives
+#   post_script : executes issue directives (create/comment), comments on trigger issue
+#
+# The triage agent does NOT modify code, push branches, or create PRs.
+# It only reads artifacts, analyzes failures, and writes directives.
+# The code agent handles code changes after triage creates issues.
+agent: rhdh/agents/e2e-triage.md
+model: opus
+image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
+policy: rhdh/policies/e2e-triage.yaml
+
+role: triage
+slug: fullsend-ai-triage
+
+trigger: |
+  event.entity.kind == "work_item"
+  && event.transition.kind == "label_changed"
+  && event.transition.label.name == "e2e-triage"
+
+host_files:
+  - src: rhdh/env/rhdh-toolchain.env
+    dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
+  - src: env/gcp-vertex.env
+    dest: /sandbox/workspace/.env.d/gcp-vertex.env
+    expand: true
+  - src: ${GOOGLE_APPLICATION_CREDENTIALS}
+    dest: /tmp/.gcp-credentials.json
+  - src: ${GCP_OIDC_TOKEN_FILE}
+    dest: /tmp/.gcp-oidc-token
+    optional: true
+
+skills:
+  - skills/e2e-failure-analysis
+  - skills/playwright-trace
+
+post_script: rhdh/scripts/post-e2e-triage.sh
+
+validation_loop:
+  script: rhdh/scripts/validate-output-schema.sh
+  max_iterations: 2
+
+env:
+  runner:
+    GH_TOKEN: ${GH_TOKEN}
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+    GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/e2e-triage-result.schema.json
+  sandbox:
+    SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
+    PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
+    GH_TOKEN: "${GH_TOKEN}"
+    GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+
+timeout_minutes: 60
+
+forge:
+  github:
+    env:
+      runner:
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+      sandbox:
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        GH_TOKEN: "${GH_TOKEN}"
+        GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"

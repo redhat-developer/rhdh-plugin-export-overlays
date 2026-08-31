@@ -1,6 +1,11 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "e2e-test-utils DPDY inherit resolves app-auth/app-integrations to {{inherit}} but plugins not yet in RHDH image (RHIDP-15482)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy();

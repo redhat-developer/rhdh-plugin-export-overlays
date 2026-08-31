@@ -88,7 +88,10 @@ function substituteDeep(node: unknown, path: string): unknown {
   }
   if (node && typeof node === "object") {
     const entries = Object.entries(node)
-      .map(([key, value]) => [key, substituteDeep(value, path ? `${path}.${key}` : key)])
+      .map(([key, value]) => [
+        key,
+        substituteDeep(value, path ? `${path}.${key}` : key),
+      ])
       .filter(([, value]) => value !== undefined);
     return Object.fromEntries(entries);
   }

@@ -11,7 +11,15 @@ install_openshift_pipelines() {
   fi
 
   echo "Installing Red Hat OpenShift Pipelines operator..."
-  oc apply -f "${script_dir}/resources/openshift-pipelines-subscription.yaml"
+  local apply_output
+  if ! apply_output=$(oc apply -f "${script_dir}/resources/openshift-pipelines-subscription.yaml" 2>&1); then
+    if echo "$apply_output" | grep -q "AlreadyExists"; then
+      echo "OpenShift Pipelines subscription already exists (created by another worker)"
+    else
+      echo "ERROR: Failed to apply pipelines subscription: $apply_output"
+      return 1
+    fi
+  fi
 
   echo "Waiting for OpenShift Pipelines CRDs to become available..."
   local timeout=300

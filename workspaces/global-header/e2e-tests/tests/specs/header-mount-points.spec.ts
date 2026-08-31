@@ -4,7 +4,7 @@ test.describe("Header mount points", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      disableWrappers: ["red-hat-developer-hub-backstage-plugin-global-header"],
+      disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
     });
     await rhdh.deploy();
   });
