@@ -149,6 +149,16 @@ Key fields: `spec.categories`, `spec.highlights`, `spec.icon` (base64 SVG), `spe
 
 After creating/editing, add the file to `plugins/all.yaml`.
 
+#### Installation Example Version Tags
+
+Plugin YAML files may include a `spec.installation` section with OCI image references (e.g., `oci://ghcr.io/.../plugin-name:bs_1.54.4__0.5.0`). The version tags in these examples must match the corresponding Package metadata `spec.dynamicArtifact` fields in `workspaces/*/metadata/*.yaml`.
+
+**Review criteria:**
+
+1. **Cross-check OCI tags against Package metadata.** For every OCI reference in `spec.installation`, find the corresponding Package metadata YAML and compare the tag. The tag format is `bs_<backstage-version>__<plugin-version>`. Both the Backstage version and the plugin version must match. Flag mismatches as medium severity — stale tags cause users to install outdated or non-existent plugin versions.
+2. **Watch for rebase-induced staleness.** Rebasing a Plugin YAML PR after a workspace version bump (via `update-plugins-repo-refs.yaml` or manual update) can silently introduce stale OCI tags. The original commit may have been correct at the time, but the rebase picks up updated Package metadata while the Plugin YAML installation examples remain unchanged. This is a common source of mismatches — check for it explicitly when a PR has been rebased.
+3. **Recommended fix:** Update the OCI tags in `spec.installation` to match the current Package metadata `spec.dynamicArtifact` values. To find the current tag, read the corresponding `workspaces/*/metadata/*.yaml` file and copy the tag from `spec.dynamicArtifact`.
+
 ### Package YAML (`workspaces/*/metadata/*.yaml`)
 
 Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
