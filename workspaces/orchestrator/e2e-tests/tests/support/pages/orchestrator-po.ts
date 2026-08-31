@@ -15,6 +15,24 @@ export class OrchestratorPO {
     private readonly uiHelper: UIhelper,
   ) {}
 
+  private workflowsCatalogControl(): Locator {
+    // NFS entity header looks like tabs but the control is often a link.
+    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page).or(
+      ORCHESTRATOR_COMPONENTS.workflowsLink(this.page),
+    );
+  }
+
+  async clickWorkflowsCatalogControl(): Promise<void> {
+    await this.workflowsCatalogControl().click({ timeout: 30_000 });
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async verifyWorkflowsCatalogControlVisible(): Promise<void> {
+    await expect(this.workflowsCatalogControl()).toBeVisible({
+      timeout: 30_000,
+    });
+  }
+
   async openWorkflowsPage(): Promise<void> {
     await this.page.goto("/orchestrator");
     await expect(this.page).toHaveURL("/orchestrator");
@@ -303,9 +321,7 @@ export class OrchestratorPO {
   async openGreetingTemplateFromCatalog(
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       /Greeting Test Picker/i,
@@ -314,11 +330,27 @@ export class OrchestratorPO {
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
+  private async clickChooseOnTemplateCard(
+    templateTitle: string,
+  ): Promise<void> {
+    // Match hashed MUI classes (css-*-MuiCard-root); exact .MuiCard-root misses them.
+    const chooseButton = this.page
+      .locator('[class*="MuiCard-root"]')
+      .filter({ hasText: templateTitle })
+      .getByRole("button", { name: /Choose/i })
+      .first();
+    await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+    await chooseButton.click();
+  }
+
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await this.uiHelper.verifyHeading("Self-service");
+    await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
-    await this.uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+    await expect(
+      this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
+    ).toBeVisible({ timeout: 30_000 });
+    // clickBtnInCard can detach under NFS re-renders; click Choose directly.
+    await this.clickChooseOnTemplateCard("Greeting Test Picker");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
     await this.uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
@@ -328,9 +360,7 @@ export class OrchestratorPO {
     templateName: string | RegExp,
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       templateName,
@@ -338,6 +368,15 @@ export class OrchestratorPO {
     await expect(templateLink).toBeVisible({ timeout: 30_000 });
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  private async openCatalogTemplates(
+    catalogHeading: string | RegExp,
+  ): Promise<void> {
+    await this.page.goto("/catalog");
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.uiHelper.verifyHeading(catalogHeading);
+    await this.uiHelper.selectMuiBox("Kind", "Template");
   }
 
   async fillGreetingTemplateFormAndSubmit(options?: {
@@ -392,12 +431,12 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsTabIfVisible(): Promise<boolean> {
-    const workflowsTab = ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
-    const count = await workflowsTab.count();
+    const workflowsControl = this.workflowsCatalogControl();
+    const count = await workflowsControl.count();
     if (count === 0) {
       return false;
     }
-    await workflowsTab.click();
+    await workflowsControl.click();
     await this.page.waitForLoadState("domcontentloaded");
     return true;
   }

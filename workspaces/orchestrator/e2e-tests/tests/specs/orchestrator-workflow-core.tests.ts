@@ -4,6 +4,7 @@ import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   patchHttpbin,
   cleanupAfterTest,
+  createOrchestratorPO,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -20,7 +21,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -50,7 +51,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -157,7 +158,7 @@ export function registerOrchestratorCoreWorkflowTests(
     let orchestratorPo: OrchestratorPO;
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
     });
 
