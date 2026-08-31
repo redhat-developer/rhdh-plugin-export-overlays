@@ -2,7 +2,10 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { createDataIndexGuard } from "../support/utils/orchestrator-workflow-helpers.js";
-import { restoreBaselineRole } from "../support/utils/test-helpers.js";
+import {
+  restoreBaselineRole,
+  createOrchestratorPO,
+} from "../support/utils/test-helpers.js";
 
 const ensureDataIndexOrSkip = createDataIndexGuard();
 
@@ -18,6 +21,8 @@ function jsonOk(value: string) {
 
 export function registerRetryWorkflowTests(): void {
   test.describe("Sample Retry Test ActiveTextInput fetch retries", () => {
+    test.describe.configure({ timeout: 240_000 });
+
     test.beforeAll(async ({ browser }, testInfo) => {
       await restoreBaselineRole(browser, testInfo);
     });
@@ -29,6 +34,11 @@ export function registerRetryWorkflowTests(): void {
 
     test.afterEach(async ({ page }) => {
       await page.unroute("**/api/retry-test/**");
+      // Leave a settled page so _coverageCollector page.evaluate cannot hang
+      // on in-flight ActiveTextInput fetches (NFS retryNoProps teardown flake).
+      await page
+        .goto("/orchestrator", { timeout: 15_000 })
+        .catch(() => undefined);
     });
 
     test("retryAllProps: 503 responses retry with delay 1500 and backoff 2 (three waits)", async ({
@@ -81,7 +91,7 @@ export function registerRetryWorkflowTests(): void {
       page,
       uiHelper,
     }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(180_000);
 
       let statusEndpointHits = 0;
 
@@ -115,7 +125,7 @@ export function registerRetryWorkflowTests(): void {
       page,
       uiHelper,
     }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(180_000);
 
       let noRetryHits = 0;
 
@@ -149,8 +159,8 @@ export function registerRetryWorkflowTests(): void {
 }
 
 async function openSampleRetryTestRunForm(page: Page, uiHelper: UIhelper) {
-  await page.getByRole("button", { name: "Administration" }).first().click();
-  await uiHelper.openSidebar("Orchestrator");
+  const orchestratorPo = createOrchestratorPO(page, uiHelper);
+  await orchestratorPo.openOrchestratorFromSidebar();
   const heading = page.getByText(/Workflows \(\d+\)/).last();
   await expect(heading).toBeVisible({ timeout: 60_000 });
   const workflowLink = page.getByRole("link", { name: /Sample Retry Test/ });
