@@ -79,7 +79,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   return {
     getScorecardCard,
     async openTab() {
-      const tab = page.getByRole("tab", { name: "Scorecard" });
+      const tab = page.getByRole("link", { name: "Scorecard" });
       await expect(tab).toBeVisible();
       await tab.click();
     },
@@ -154,10 +154,10 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         // Edit button never appeared — already in edit mode.
       }
     },
-    async addWidget(cardName: string) {
+    async addWidget(cardName: string, options?: { exact?: boolean }) {
       await this.enterEditModeIfNeeded();
       await this.openAddWidgetDialog();
-      await this.selectWidget(cardName);
+      await this.selectWidget(cardName, options);
       try {
         await page
           .getByRole("button", { name: "Save" })
@@ -172,8 +172,10 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async openAddWidgetDialog() {
       await page.getByRole("button", { name: "Add widget" }).click();
     },
-    async selectWidget(cardName: string) {
-      await page.getByRole("button", { name: cardName }).click();
+    async selectWidget(cardName: string, options?: { exact?: boolean }) {
+      await page
+        .getByRole("button", { name: cardName, exact: options?.exact })
+        .click();
     },
     async expectNoProgressBar() {
       await expect(

@@ -34,7 +34,7 @@ test.describe.serial("Scorecard Filecheck Tests", () => {
 
   test("Setup filecheck aggregated scorecard on homepage", async () => {
     await scorecard.navigateToHome();
-    await scorecard.addWidget("README file exists");
+    await scorecard.addWidget("Scorecard: README file exists");
     await scorecard.expectNoProgressBar();
     // A second widget triggers Save and persists the layout to user settings.
     // Without this, runAggregatedScorecardDrilldownScenario's page.reload() leaves

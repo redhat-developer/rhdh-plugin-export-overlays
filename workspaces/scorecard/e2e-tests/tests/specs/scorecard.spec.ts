@@ -42,7 +42,7 @@ test.describe.serial("Scorecard Plugin Tests", () => {
   test("Setup aggregated scorecards on homepage", async () => {
     await scorecard.navigateToHome();
 
-    await scorecard.addWidget("GitHub open PRs");
+    await scorecard.addWidget("Scorecard: GitHub open PRs", { exact: true });
     await scorecard.expectNoProgressBar();
     await scorecard.addWidget("Jira open blocking tickets");
     await scorecard.expectNoProgressBar();

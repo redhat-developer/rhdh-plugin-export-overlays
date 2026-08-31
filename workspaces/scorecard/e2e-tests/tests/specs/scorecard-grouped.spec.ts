@@ -50,7 +50,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     dialog: Locator,
     { expectHidden = false } = {},
   ): Promise<void> {
-    await dialog.getByRole("button", { name: /close/i }).click();
+    await dialog.getByLabel("Close").click();
     if (expectHidden) await expect(dialog).toBeHidden();
   }
 
@@ -93,7 +93,13 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     const card = await getGroupCard(GROUP_CARDS[0].title);
     const dialog = await openDataSourcesDialog(card);
 
-    const expectedColumns = ["Plugin", "Check", "Value", "Status"];
+    const expectedColumns = [
+      "PLUGIN",
+      "CHECK",
+      "VALUE",
+      "STATUS",
+      "LAST SYNCED",
+    ];
     for (const col of expectedColumns) {
       await expect(dialog.getByText(col, { exact: true })).toBeVisible();
     }
