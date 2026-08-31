@@ -123,7 +123,7 @@ test.describe("Default Global Header", () => {
     ).toBeVisible();
     await uiHelper.verifyHeading(process.env.GH_USER2_ID!);
     await expect(
-      page.getByRole("tab", {
+      page.getByRole("link", {
         name: "Overview",
       }),
     ).toBeVisible();

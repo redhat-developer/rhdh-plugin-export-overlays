@@ -8,9 +8,9 @@ plugins:
             dynamicRoutes:
               - importName: NotificationsPage
                 path: /notifications
-  - package: ./dynamic-plugins/dist/backstage-plugin-notifications-backend-dynamic
+  - package: oci://quay.io/rhdh/backstage-plugin-notifications-backend:{{inherit}}
     disabled: false
-  - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+  - package: oci://quay.io/rhdh/backstage-plugin-signals-backend:{{inherit}}
     disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals:bs_1.52.0__0.0.32
     disabled: false
