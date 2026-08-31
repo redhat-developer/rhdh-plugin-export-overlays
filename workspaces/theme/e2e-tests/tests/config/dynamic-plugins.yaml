@@ -1,6 +1,4 @@
 plugins:
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:{{inherit}}
-    disabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-qe-theme
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-theme
