@@ -13,7 +13,7 @@
  * the 694-line bespoke harness from the closed PR #2231 — no Docker.
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import type { BackendFeature } from "@backstage/backend-plugin-api";
@@ -217,15 +217,17 @@ export type MfRemoteInfo = {
  * - `name` missing: RHDH matches `dynamicPlugins.frontend.<key>` in app-config against
  *   this name, so without it no mount point can ever be addressed.
  *
- * `extensions` and `registrationMethod` are RECORDED but never failed on — see
- * {@link ScalprumInfo.extensions}.
+ * The extension count and `registrationMethod` are RECORDED but never failed on — see
+ * {@link ScalprumInfo.extensionCount}.
  */
 export type ScalprumInfo = {
   /** `name` from plugin-manifest.json. */
   name: string | null;
   /**
-   * How many extensions the manifest declares statically. Null when `extensions` is not
-   * an array at all, which the SDK's own schema rejects.
+   * How many extensions the manifest declares statically. Named for what it holds — a
+   * count, not the list — because beside `loadScripts` in results.json a bare
+   * `extensions: 0` reads as though the array itself were being published. Null when
+   * `extensions` is not an array at all, which the SDK's own schema rejects.
    *
    * Zero is NOT a defect and must never fail the harness. `@red-hat-developer-hub/cli`
    * constructs its `DynamicRemotePlugin` with a literal `extensions: []`
@@ -237,14 +239,16 @@ export type ScalprumInfo = {
    * points, so a static extension list is not where anything is declared. Failing on the
    * empty array would fail the entire catalogue and could never go green.
    */
-  extensions: number | null;
+  extensionCount: number | null;
   /** `callback` for everything RHDH publishes; `custom` is the SDK's other mode. */
   registrationMethod: string | null;
   /** Assets the host loads to initialise the plugin. */
   loadScripts: string[];
   /**
-   * `loadScripts` entries with no matching file in dist-scalprum/. Non-empty means the
-   * bundle is broken: this is the check, the array is the evidence.
+   * `loadScripts` entries that do not resolve to a file inside dist-scalprum/ — absent,
+   * naming a directory, or escaping the bundle. Non-empty means the bundle is broken:
+   * this is the check, the array is the evidence. The error message separates escaping
+   * from absent; this field is the union, because either way nothing loads.
    */
   missingScripts: string[];
 };
@@ -256,8 +260,13 @@ export type ConfigSchemaFile = {
   /** Bundle-relative path, e.g. `dist-scalprum/configSchema.json`. */
   path: string;
   state: ConfigSchemaState;
-  /** Top-level `properties` keys the schema declares; null unless it was read. */
-  properties: number | null;
+  /**
+   * How many top-level `properties` keys the schema declares; null unless it was read.
+   * Named for what it holds, for the reason {@link ScalprumInfo.extensionCount} is —
+   * beside `path` and `state` in results.json, a bare `properties: 5` reads as though
+   * the list of names were being published.
+   */
+  propertyCount: number | null;
 };
 
 /**
@@ -270,14 +279,33 @@ export type ConfigSchemaFile = {
  * `declared` is the whole reason this type is not just a boolean. The export merges the
  * package's own `configSchema` with every one it finds in the filtered dependency tree,
  * so an empty schema means "declares nothing" for most packages and "the declaration was
- * lost" for the ones that do declare — 33 of 76 in the catalogue declare, 31 ship an
+ * lost" for the ones that do declare — 33 of 76 in the catalogue declare, 32 ship an
  * empty schema, and only the intersection is a finding. Reporting an empty schema as a
- * defect without `declared` would accuse 31 packages of a bug they do not have.
+ * defect without `declared` would accuse 32 packages of a bug they do not have.
  */
 export type ConfigSchemaInfo = {
   /** `configSchema` present in the shipped package.json — Backstage's own signal. */
   declared: boolean;
-  /** One entry per path the export CLI writes for the layouts this bundle ships. */
+  /**
+   * Why `declared` could not be established, when it could not. Null normally.
+   *
+   * Without this, `declared: false` means both "ships no configuration" and "we could not
+   * read package.json to find out", and results.json publishes the second as the first —
+   * the mistake `mf.nfsFeaturesError` exists to prevent, and which REPORT_SCHEMA_VERSION 5
+   * was bumped to fix on the other half of this same record.
+   */
+  declaredError: string | null;
+  /**
+   * One entry per path the export CLI writes for the layouts this bundle ships.
+   *
+   * Note what `ok` does and does not establish. The export writes the schema MERGED across
+   * the package and its filtered dependency tree, so `ok` means some schema survived, not
+   * that this plugin's own keys did: a declaring package whose `config.d.ts` was lost still
+   * reports `ok` as soon as one dependency contributed a property. 11 of the 76 published
+   * packages ship a non-empty schema built purely from dependencies. Proving the plugin's
+   * own keys are present would mean compiling its config.d.ts, which is the export's job,
+   * not this harness's — so the check catches the total loss, which is what 1157 was.
+   */
   files: ConfigSchemaFile[];
 };
 
@@ -501,14 +529,6 @@ function inspectScalprum(pluginPath: string): {
   error: string | null;
 } {
   const scalprumDir = join(pluginPath, "dist-scalprum");
-  const blank: ScalprumInfo = {
-    name: null,
-    extensions: null,
-    registrationMethod: null,
-    loadScripts: [],
-    missingScripts: [],
-  };
-
   let manifest: unknown;
   try {
     manifest = JSON.parse(
@@ -518,39 +538,105 @@ function inspectScalprum(pluginPath: string): {
     // The old check only asked whether this file existed, so a truncated or
     // half-written one passed as a valid legacy bundle.
     return {
-      scalprum: blank,
+      scalprum: {
+        name: null,
+        extensionCount: null,
+        registrationMethod: null,
+        loadScripts: [],
+        missingScripts: [],
+      },
       error: `dist-scalprum/plugin-manifest.json is not valid JSON (${errorMessage(err)})`,
     };
   }
 
+  const fields = readScalprumFields(manifest, scalprumDir);
+  const problems = findScalprumProblems(fields);
+  return {
+    scalprum: fields.scalprum,
+    error: problems.length
+      ? `dist-scalprum/plugin-manifest.json is unusable: ${problems.join("; ")}`
+      : null,
+  };
+}
+
+/**
+ * Whether `path` names a regular file.
+ *
+ * `statSync` rather than `existsSync` because a directory the bundle does ship (`static/`)
+ * exists but is not a script the host can load. Wrapped, because unlike `existsSync` it
+ * THROWS on a path Node rejects outright — ERR_INVALID_ARG_VALUE for an embedded NUL,
+ * ENAMETOOLONG for an over-long name — and `throwIfNoEntry: false` suppresses only ENOENT.
+ * These paths come from JSON inside a published OCI artifact, so one malformed entry would
+ * otherwise escape validateFrontendBundle to native-smoke's outer catch and collapse the
+ * whole workspace into `status: error`, discarding every other plugin's result.
+ */
+function isFile(path: string): boolean {
+  try {
+    return statSync(path, { throwIfNoEntry: false })?.isFile() ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/** The Scalprum manifest fields, plus what the raw `loadScripts` looked like. */
+type ScalprumFields = {
+  scalprum: ScalprumInfo;
+  /** Null when `loadScripts` is not an array at all, which the SDK's schema rejects. */
+  loadScriptsRaw: unknown[] | null;
+  /** Entries that resolve outside dist-scalprum/ — a different fault from an absent one. */
+  escaping: string[];
+};
+
+function readScalprumFields(
+  manifest: unknown,
+  scalprumDir: string,
+): ScalprumFields {
   const parsed = (manifest ?? {}) as {
     name?: unknown;
     extensions?: unknown;
     registrationMethod?: unknown;
     loadScripts?: unknown;
   };
-  const loadScripts = Array.isArray(parsed.loadScripts)
-    ? parsed.loadScripts.filter((s): s is string => typeof s === "string")
-    : [];
-  const scalprum: ScalprumInfo = {
-    name: typeof parsed.name === "string" && parsed.name ? parsed.name : null,
-    extensions: Array.isArray(parsed.extensions)
-      ? parsed.extensions.length
-      : null,
-    registrationMethod:
-      typeof parsed.registrationMethod === "string"
-        ? parsed.registrationMethod
+  const loadScriptsRaw = Array.isArray(parsed.loadScripts)
+    ? parsed.loadScripts
+    : null;
+  // Only non-empty strings survive, the same way readManifestFields keeps only `exposes`
+  // entries with a usable `name`. Keeping the rest would defeat the check below rather
+  // than widen it: `resolveContained("")` returns dist-scalprum/ itself, which exists, so
+  // a manifest listing `""` would be reported as having every asset it needs.
+  const loadScripts = (loadScriptsRaw ?? []).filter(
+    (script): script is string =>
+      typeof script === "string" && script.length > 0,
+  );
+  // Each entry is untrusted JSON from inside a published OCI artifact, so contain it
+  // before touching the filesystem — the rule src/paths.ts documents, applied here for
+  // the same reason findBundleAssetProblems applies it to metaData.remoteEntry.path.
+  const escaping = loadScripts.filter(
+    (script) => !resolveContained(script, scalprumDir),
+  );
+  return {
+    scalprum: {
+      name: typeof parsed.name === "string" && parsed.name ? parsed.name : null,
+      extensionCount: Array.isArray(parsed.extensions)
+        ? parsed.extensions.length
         : null,
-    loadScripts,
-    // Each entry is untrusted JSON from inside a published OCI artifact, so contain it
-    // before touching the filesystem — the rule src/paths.ts documents, applied here for
-    // the same reason findBundleAssetProblems applies it to metaData.remoteEntry.path.
-    missingScripts: loadScripts.filter((script) => {
-      const resolved = resolveContained(script, scalprumDir);
-      return !resolved || !existsSync(resolved);
-    }),
+      registrationMethod:
+        typeof parsed.registrationMethod === "string"
+          ? parsed.registrationMethod
+          : null,
+      loadScripts,
+      missingScripts: loadScripts.filter((script) => {
+        const resolved = resolveContained(script, scalprumDir);
+        return !resolved || !isFile(resolved);
+      }),
+    },
+    loadScriptsRaw,
+    escaping,
   };
+}
 
+function findScalprumProblems(fields: ScalprumFields): string[] {
+  const { scalprum, loadScriptsRaw, escaping } = fields;
   const problems: string[] = [];
   if (!scalprum.name) {
     problems.push(
@@ -558,27 +644,59 @@ function inspectScalprum(pluginPath: string): {
         "against it, so no mount point can be addressed",
     );
   }
-  if (scalprum.extensions === null)
+  if (scalprum.extensionCount === null) {
     problems.push("`extensions` is not an array");
-  if (loadScripts.length === 0) {
+  }
+  // Three distinct faults, reported apart for the reason findRouterGuardProblems keeps
+  // "`exposes` is not an array" and "`exposes` has an entry without a `name`" apart:
+  // "empty" sends a reader looking for a field that is in fact present and malformed.
+  if (!loadScriptsRaw) {
+    problems.push("`loadScripts` is not an array");
+  } else if (loadScriptsRaw.length === 0) {
     problems.push(
       "`loadScripts` is empty — the host has nothing to fetch, so the plugin's " +
         "registration callback never runs",
     );
-  } else if (scalprum.missingScripts.length > 0) {
+  } else if (scalprum.loadScripts.length !== loadScriptsRaw.length) {
     problems.push(
-      `loadScripts asset(s) not present in dist-scalprum/: ` +
-        `${scalprum.missingScripts.join(", ")} — the host fetches a 404 and the plugin ` +
-        `registers nothing, so every configured route answers 404`,
+      "`loadScripts` has an entry that is not a non-empty asset name — it names " +
+        "nothing for the host to fetch",
     );
   }
-  return {
-    scalprum,
-    error: problems.length
-      ? `dist-scalprum/plugin-manifest.json is unusable: ${problems.join("; ")}`
-      : null,
-  };
+  // Escaping is called out separately from merely absent, as findBundleAssetProblems does
+  // on the MF side: folding it into "not present in dist-scalprum/" sends the reader
+  // looking inside the bundle for a name that was never bundle-relative.
+  if (escaping.length > 0) {
+    problems.push(
+      `loadScripts entr(y/ies) escaping the bundle's dist-scalprum/ directory: ` +
+        escaping.join(", "),
+    );
+  }
+  // Independent of the checks above, so a manifest with one bad entry AND one absent
+  // asset reports both rather than hiding the second behind the first.
+  const absent = scalprum.missingScripts.filter(
+    (script) => !escaping.includes(script),
+  );
+  if (absent.length > 0) {
+    problems.push(
+      `loadScripts asset(s) not present in dist-scalprum/: ${absent.join(", ")} — ` +
+        `the host fetches a 404 and the plugin registers nothing, so every configured ` +
+        `route answers 404`,
+    );
+  }
+  return problems;
 }
+
+/**
+ * What to say about a schema file that cannot be used. Keyed on every state EXCEPT `ok`,
+ * so the exhaustive Record still forces a message for any state added later without
+ * carrying a string for the one case that never reaches it.
+ */
+const CONFIG_SCHEMA_FAULTS: Record<Exclude<ConfigSchemaState, "ok">, string> = {
+  missing: "is not in the bundle",
+  unreadable: "is not valid JSON",
+  empty: "declares no properties (the export collected an empty schema)",
+};
 
 /** Read one schema file the export wrote, classifying why it cannot be used. */
 function readConfigSchemaFile(
@@ -586,20 +704,27 @@ function readConfigSchemaFile(
   rel: string,
 ): ConfigSchemaFile {
   const full = join(pluginPath, rel);
-  if (!existsSync(full))
-    return { path: rel, state: "missing", properties: null };
+  if (!existsSync(full)) {
+    return { path: rel, state: "missing", propertyCount: null };
+  }
   let schema: unknown;
   try {
     schema = JSON.parse(readFileSync(full, "utf8"));
   } catch {
-    return { path: rel, state: "unreadable", properties: null };
+    return { path: rel, state: "unreadable", propertyCount: null };
   }
   const properties = (schema as { properties?: unknown })?.properties;
+  // Array.isArray is not redundant with the typeof: `typeof [] === "object"`, so
+  // `{"properties": ["a"]}` would otherwise count 1 and pass as `ok`. A JSON Schema's
+  // `properties` must be an object — an array declares nothing, which is the very shape
+  // this check exists to catch.
   const count =
-    typeof properties === "object" && properties !== null
+    typeof properties === "object" &&
+    properties !== null &&
+    !Array.isArray(properties)
       ? Object.keys(properties).length
       : 0;
-  return { path: rel, state: count > 0 ? "ok" : "empty", properties: count };
+  return { path: rel, state: count > 0 ? "ok" : "empty", propertyCount: count };
 }
 
 /**
@@ -629,13 +754,18 @@ function inspectConfigSchema(pluginPath: string): {
     declared = pkg !== null && typeof pkg === "object" && "configSchema" in pkg;
   } catch (err) {
     // Same class as readNfsFeatures': a failure to look must never be recorded as a fact
-    // about the artifact, so nothing is claimed about its configuration. Unlike that one
-    // this does NOT warn — the message is always returned and becomes the bundle's error,
-    // and readNfsFeatures already warns for the identical root cause on the same file.
-    // Two console lines for one unreadable package.json is noise, not loudness.
+    // about the artifact, so `declaredError` carries it and no verdict is derived from
+    // `declared: false`. Unlike that one this does NOT warn, because the message is always
+    // returned and becomes the bundle's ERROR, which is louder than a warning; on a dual
+    // bundle readNfsFeatures additionally warns for the identical cause on the identical
+    // file, and a second line there would be noise rather than loudness.
     readError = `could not read package.json for configSchema (${errorMessage(err)})`;
   }
 
+  // Gated on the DIRECTORIES, deliberately looser than the `systems` gate in
+  // validateFrontendBundle, which needs the manifest file itself: the export writes each
+  // schema beside whichever dist dir it finds, so a bundle whose plugin-manifest.json is
+  // broken still owes a configSchema.json, and both faults should be reported.
   const files: ConfigSchemaFile[] = [];
   if (existsSync(join(pluginPath, "dist-scalprum"))) {
     files.push(
@@ -645,16 +775,22 @@ function inspectConfigSchema(pluginPath: string): {
   if (existsSync(join(pluginPath, "dist"))) {
     files.push(readConfigSchemaFile(pluginPath, "dist/.config-schema.json"));
   }
-  const configSchema: ConfigSchemaInfo = { declared, files };
+  const configSchema: ConfigSchemaInfo = {
+    declared,
+    declaredError: readError,
+    files,
+  };
   if (readError) return { configSchema, error: readError };
   // Not declaring configuration is a legitimate state, not a shortfall: 43 of the 76
   // published frontend packages are in it. Only a declaration with nothing behind it is
   // a defect, so the check is gated on `declared` rather than on the schema alone.
   if (!declared) return { configSchema, error: null };
 
-  const problems = files
-    .filter((file) => file.state !== "ok")
-    .map((file) => `${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`);
+  const problems = files.flatMap((file) =>
+    file.state === "ok"
+      ? []
+      : [`${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`],
+  );
   return {
     configSchema,
     error: problems.length
@@ -664,13 +800,6 @@ function inspectConfigSchema(pluginPath: string): {
       : null,
   };
 }
-
-const CONFIG_SCHEMA_FAULTS: Record<ConfigSchemaState, string> = {
-  ok: "is valid",
-  missing: "is not in the bundle",
-  unreadable: "is not valid JSON",
-  empty: "declares no properties (the export collected an empty schema)",
-};
 
 /**
  * Check a frontend plugin's bundle artifacts for at least one frontend system:
@@ -701,7 +830,11 @@ export function validateFrontendBundle(
   plugin: PluginEntry,
 ): FrontendBundleResult {
   const has = (rel: string) => existsSync(join(plugin.path, rel));
-  const noBundle: ConfigSchemaInfo = { declared: false, files: [] };
+  const noBundle: ConfigSchemaInfo = {
+    declared: false,
+    declaredError: null,
+    files: [],
+  };
   if (!has("package.json")) {
     return {
       systems: [],

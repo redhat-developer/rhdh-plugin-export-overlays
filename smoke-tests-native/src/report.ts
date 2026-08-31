@@ -79,15 +79,17 @@ export type FrontendBundleInfo = {
   /**
    * The Scalprum manifest as the host reads it. Null when the bundle ships no
    * dist-scalprum/plugin-manifest.json. `scalprum.missingScripts` being non-empty is a
-   * bundle that loads nothing; `scalprum.extensions` being 0 is the normal shape and is
+   * bundle that loads nothing; `scalprum.extensionCount` being 0 is the normal shape and is
    * published for visibility only — see {@link ScalprumInfo}.
    */
   scalprum: ScalprumInfo | null;
   /**
    * Whether the bundle ships a config schema for the configuration it declares. Read
-   * `configSchema.declared` first: an empty schema is only a finding for a package that
-   * declares one, which is what separates "ships no configuration" from "lost its
-   * configuration on the way out" (RHDHBUGS-1157).
+   * `configSchema.declared` first — and `configSchema.declaredError` beside it, which is
+   * set when package.json could not be read and `declared: false` therefore establishes
+   * nothing. An empty schema is only a finding for a package that declares one, which is
+   * what separates "ships no configuration" from "lost its configuration on the way out"
+   * (RHDHBUGS-1157).
    */
   configSchema: ConfigSchemaInfo;
 };

@@ -104,7 +104,7 @@ function bundle(over: Partial<FrontendBundleInfo> = {}): FrontendBundleInfo {
     systems: ["legacy"],
     mf: null,
     scalprum: null,
-    configSchema: { declared: false, files: [] },
+    configSchema: { declared: false, declaredError: null, files: [] },
     ...over,
   };
 }

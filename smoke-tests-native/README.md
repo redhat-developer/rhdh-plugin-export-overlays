@@ -50,14 +50,15 @@ errors, and the plugin is simply absent.
 `dist-scalprum/plugin-manifest.json` is parsed and checked against what the host needs
 (RHDHBUGS-2180):
 
-| Field                | Meaning                                                                                                                                                                                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`               | the host registers the remote under this, and RHDH matches app-config `dynamicPlugins.frontend.<key>` against it. Missing ⇒ **fails**: no mount point can be addressed                                                                                               |
-| `loadScripts`        | the assets the host fetches to initialise the plugin. Empty, or naming a file the bundle does not contain (checked contained within `dist-scalprum/`), ⇒ **fails**: the host fetches a 404, the registration callback never runs, every configured route answers 404 |
-| `extensions`         | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                  |
-| `registrationMethod` | `callback` for everything RHDH publishes                                                                                                                                                                                                                             |
+| Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | the host registers the remote under this, and RHDH matches app-config `dynamicPlugins.frontend.<key>` against it. Missing ⇒ **fails**: no mount point can be addressed                                                                                                                                                                                                                                     |
+| `loadScripts`        | the assets the host fetches to initialise the plugin. Not an array, empty, carrying an entry that is not a non-empty asset name, escaping `dist-scalprum/`, or naming something the bundle does not contain as a file ⇒ **fails**: the host fetches a 404, the registration callback never runs, every configured route answers 404. Escaping and absent get different messages, as they do on the MF side |
+| `extensionCount`     | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                                                                                                                                                        |
+| `missingScripts`     | the `loadScripts` entries with no usable asset behind them — the evidence for the row above                                                                                                                                                                                                                                                                                                                |
+| `registrationMethod` | `callback` for everything RHDH publishes                                                                                                                                                                                                                                                                                                                                                                   |
 
-`extensions: 0` is the normal shape, not a defect: `@red-hat-developer-hub/cli` constructs
+`extensionCount: 0` is the normal shape, not a defect: `@red-hat-developer-hub/cli` constructs
 its `DynamicRemotePlugin` with a literal `extensions: []`, so all 76 published frontend
 bundles report 0, and the SDK's own manifest schema permits it (`z.array(...)` with no
 `.nonempty()`, while `loadScripts` is `.nonempty()`). With `registrationMethod: "callback"`
@@ -71,16 +72,27 @@ A bundle that declares configuration must ship the schema for it, or Backstage h
 to match the plugin's app-config keys against and drops them without a word — the plugin
 runs on its defaults while the operator's settings look applied (RHDHBUGS-1157).
 
-`declared` is `configSchema` on the shipped `package.json`, Backstage's own signal. `files`
-carries one entry per path `export-dynamic-plugin` writes for the layouts the bundle ships
-— `dist-scalprum/configSchema.json` and `dist/.config-schema.json` (different filename) —
-each `ok`, `missing`, `unreadable` or `empty`.
+`declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
+`declaredError` beside it for when `package.json` could not be read at all — a failure to
+look must not be published as `declared: false`, the same reason `mf.nfsFeaturesError`
+exists. `files` carries one entry per path `export-dynamic-plugin` writes for the layouts
+the bundle ships — `dist-scalprum/configSchema.json` and `dist/.config-schema.json`
+(different filename) — each `ok`, `missing`, `unreadable` or `empty`, with its
+`propertyCount`.
+
+Note what `ok` does and does not establish. The export writes the schema MERGED across the
+package and its filtered dependency tree, so `ok` means some schema survived, not that this
+plugin's own keys did — a declaring package whose `config.d.ts` was lost still reports `ok`
+as soon as one dependency contributed a property (11 of the 76 published packages ship a
+schema built purely from dependencies). Proving the plugin's own keys survived would mean
+compiling its `config.d.ts`, which is the export's job. The check catches the total loss,
+which is what RHDHBUGS-1157 was.
 
 **Only `declared: true` can fail.** The export merges the package's own `configSchema` with
 every one it finds in the dependency tree, so an empty schema means "declares nothing" for
 most packages and "the declaration was lost" only for the ones that declare: 33 of 76
-declare, 31 ship an empty schema, and only the intersection is a finding. Failing on an
-empty schema alone would accuse 31 packages of a bug they do not have, so the messages keep
+declare, 32 ship an empty schema, and only the intersection is a finding. Failing on an
+empty schema alone would accuse 32 packages of a bug they do not have, so the messages keep
 "declares no configuration" and "declares configuration and shipped no schema" apart.
 
 #### Module-federation manifest (`frontend.bundles[].mf`)
