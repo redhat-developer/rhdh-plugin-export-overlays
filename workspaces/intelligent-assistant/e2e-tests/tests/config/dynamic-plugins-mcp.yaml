@@ -1,3 +1,4 @@
+# Same 1.11-CI overlay as dynamic-plugins.yaml, plus MCP actions + extras.
 # RHDH 1.11-CI catalog index is on quay.io; e2e-test-utils 2.1.8 still emits
 # registry.access.redhat.com {{inherit}} for keycloak. inherit only matches
 # the same image registry/repo, so remap keycloak to quay and disable the
@@ -5,6 +6,8 @@
 #
 # app-defaults provides the host drawer used by the Intelligent Assistant FAB.
 # Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
+# global.lightspeed.plugins: [] in value_file.yaml so the chart does not inject
+# lightspeed:{{inherit}}.
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-analytics-provider-segment
     disabled: true
@@ -43,3 +46,13 @@ plugins:
     disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
     enabled: true
+  # MCP server backend plugin.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-mcp-actions-backend:bs_1.52.0__0.1.14!backstage-plugin-mcp-actions-backend
+    disabled: false
+  # MCP extras that expose catalog, docs, and scaffolder tools.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.49.4__0.2.2!red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras:bs_1.49.4__0.2.3!red-hat-developer-hub-backstage-plugin-techdocs-mcp-extras
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras:bs_1.49.4__0.4.1!red-hat-developer-hub-backstage-plugin-scaffolder-mcp-extras
+    disabled: false

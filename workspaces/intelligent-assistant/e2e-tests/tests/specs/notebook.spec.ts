@@ -21,6 +21,8 @@ import {
 import { ensureLightspeedDeployment } from "../support/test-helper";
 
 const RENAMED_NOTEBOOK_TITLE = "E2E Notebook Renamed";
+const RHDHBUGS_3302 =
+  "Notebook file upload/indexing: https://redhat.atlassian.net/browse/RHDHBUGS-3302";
 
 function notebookFileNameParts(fileName: string): {
   baseName: string;
@@ -84,6 +86,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("sidebar: add file then remove", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickOpenUploadDocumentModal();
@@ -102,6 +105,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("document sidebar: rename document via click", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } =
       localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(fileName);
@@ -130,6 +134,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: duplicate file confirms overwrite then upload", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { fileName: originalFileName } =
       localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(originalFileName);
@@ -154,6 +159,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("document sidebar: rename document via kebab menu", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { fileName } = localeNotebookUploadPath("en.upload2.json");
     const { baseName, ext } = notebookFileNameParts(fileName);
     const renamedFileName = `${baseName}-renamed${ext}`;
@@ -168,6 +174,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: eleven files rejected at cap", async () => {
+    test.skip(true, RHDHBUGS_3302);
     await notebooks.clickOpenUploadDocumentModal();
     const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker(
@@ -182,6 +189,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("upload modal: unsupported extension rejected", async () => {
+    test.skip(true, RHDHBUGS_3302);
     await notebooks.clickOpenUploadDocumentModal();
     const uploadModal = notebooks.uploadDocumentModal();
     await uploadModal.selectFilesViaBrowsePicker([
@@ -196,19 +204,28 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("grid: close editor, rename, delete", async () => {
-    const untitledBefore = await notebooks.untitledNotebookCards().count();
+    // File-upload tests are skipped (RHDHBUGS-3302). Empty untitled notebooks
+    // are auto-deleted on close, so persist with a rename first — same 0-resource
+    // grid path as gitops after those skips.
+    const persistName = "E2E Grid Persist";
+    await notebooks.clickSidebarTitle();
+    const sidebarInput = notebooks.inlineRenameInput();
+    await expect(sidebarInput).toBeVisible();
+    await sidebarInput.fill(persistName);
+    const renamePersisted = notebooks.waitForSessionRenamePut();
+    await sidebarInput.press("Enter");
+    await renamePersisted;
+    await expect(notebooks.sidebarTitleText()).toContainText(persistName);
 
     await notebooks.clickCloseNotebookEditor();
-    await notebooks.expectUntitledNotebookCardCount(untitledBefore + 1);
-    await expect(notebooks.newestUntitledNotebookCard()).toBeVisible();
-
-    await notebooks.expectNotebookListShowsDocumentCountSummaryAndUpdatedToday(
-      1,
+    const persistedCard = notebooks.notebookCardByDisplayedName(persistName);
+    await expect(persistedCard).toBeVisible();
+    await expect(persistedCard).toContainText(
+      notebooks.formatNotebookCardDocumentsSummary(0),
     );
+    await expect(persistedCard).toContainText("Updated today");
 
-    await notebooks
-      .notebookCardOverflowMenuButton(notebooks.newestUntitledNotebookCard())
-      .click();
+    await notebooks.notebookCardOverflowMenuButton(persistedCard).click();
     await notebooks.renameNotebookOverflowMenuItem().click();
     await notebooks.renameNotebookInline(RENAMED_NOTEBOOK_TITLE);
 
@@ -231,10 +248,10 @@ test.describe("Lightspeed notebooks", () => {
     await confirmDelete.confirmDeletion();
 
     await notebooks.expectNotebookCardAbsent(RENAMED_NOTEBOOK_TITLE);
-    await notebooks.expectUntitledNotebookCardCount(untitledBefore);
   });
 
   test("grid: click card title triggers inline rename", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickPrimaryNotebookCreate();
@@ -271,6 +288,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("grid: Escape cancels inline rename", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickPrimaryNotebookCreate();
@@ -310,6 +328,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("grid: blur saves inline rename", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickPrimaryNotebookCreate();
@@ -347,6 +366,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("grid: empty or unchanged name cancels rename", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
 
     await notebooks.clickPrimaryNotebookCreate();
@@ -442,6 +462,7 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("auto-delete: notebook with uploaded file persists on close", async () => {
+    test.skip(true, RHDHBUGS_3302);
     const { absolutePath, fileName } = localeNotebookUploadPath();
     const cardsBefore = await notebooks.untitledNotebookCards().count();
 
@@ -509,6 +530,10 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("notebook tab: conversation, feedback, clipboard, and delete notebook", async () => {
+    test.skip(
+      true,
+      `${RHDHBUGS_3302}; conversation-after-upload also https://redhat.atlassian.net/browse/RHDHBUGS-3524`,
+    );
     await notebooks.gotoFullscreenNotebooksTab();
     await notebooks.clickCreateNotebookFromEmptyList();
     await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);

@@ -20,10 +20,18 @@ function isNightlyMode(): boolean {
   return process.env.JOB_NAME?.includes("periodic-") ?? false;
 }
 
+function isMcpNightlyDisabled(): boolean {
+  return (
+    process.env.DISABLE_MCP_NIGHTLY === "true" ||
+    process.env.DISABLE_MCP_NIGHTLY === "1"
+  );
+}
+
 function dynamicPluginsFile(): string {
-  return isNightlyMode()
-    ? "tests/config/dynamic-plugins-nightly.yaml"
-    : "tests/config/dynamic-plugins.yaml";
+  if (isNightlyMode() && isMcpNightlyDisabled()) {
+    return "tests/config/dynamic-plugins-nightly.yaml";
+  }
+  return "tests/config/dynamic-plugins-mcp.yaml";
 }
 
 function lightspeedDeployConfig() {
