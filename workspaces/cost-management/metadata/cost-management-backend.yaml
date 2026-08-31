@@ -21,8 +21,8 @@ metadata:
     - openshift
 spec:
   packageName: "@red-hat-developer-hub/plugin-cost-management-backend"
-  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.1
-  version: 2.2.1
+  dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.2
+  version: 2.2.2
   backstage:
     role: backend-plugin
     supportedVersions: 1.52.0
