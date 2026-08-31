@@ -121,7 +121,7 @@ export function aggregatedScorecardHelpers(page: Page) {
 
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       const thresholdLabelSnapshots = labels
-        .map((l) => `            - paragraph: "${l}"`)
+        .map((l) => `            - paragraph: /${l}/`)
         .join("\n");
 
       await expect(card).toMatchAriaSnapshot(`

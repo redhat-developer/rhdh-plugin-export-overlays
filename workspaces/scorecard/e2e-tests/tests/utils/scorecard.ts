@@ -74,7 +74,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
       .locator("article")
-      .filter({ has: page.locator(`[aria-label="${metric.title}"]`) });
+      .filter({ has: page.getByText(metric.title, { exact: true }) });
 
   return {
     getScorecardCard,

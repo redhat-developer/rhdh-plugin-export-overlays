@@ -153,7 +153,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await scorecard.openTab();
 
     const jiraCard = page.locator("article").filter({
-      has: page.locator('[aria-label="Jira open blocking tickets"]'),
+      has: page.getByText("Jira open blocking tickets", { exact: true }),
     });
     await expect(jiraCard).toBeVisible({ timeout: 60_000 });
   });
