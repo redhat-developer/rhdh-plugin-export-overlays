@@ -3,18 +3,14 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
 process.env.SKIP_KEYCLOAK_DEPLOYMENT = "true";
 
 /**
- * Theme plugin e2e test configuration.
+ * Theme plugin e2e test configuration (NFS only).
  *
- * Projects:
- * - theme — legacy app shell (default RHIDP merge layers).
- * - theme-app-next — namespace ends with -app-next, so e2e-test-utils merges
- *   NFS (app-next) secrets and default app-auth / app-integrations automatically.
+ * The namespace suffix -app-next triggers e2e-test-utils to merge NFS secrets
+ * (APP_CONFIG_app_packageName=app-next, ENABLE_STANDARD_MODULE_FEDERATION=true)
+ * and default app-auth / app-integrations dynamic plugins automatically.
  */
 export default defineConfig({
   projects: [
-    {
-      name: "theme",
-    },
     {
       name: "theme-app-next",
     },
