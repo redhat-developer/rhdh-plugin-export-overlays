@@ -491,6 +491,26 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+## Reviewing smoke-tests-native Changes
+
+The `smoke-tests-native/` harness validates published OCI plugin artifacts without running RHDH. It processes untrusted JSON from published bundles, so review changes with these constraints in mind:
+
+### Untrusted input handling
+
+Every field read from an OCI artifact's `package.json`, `plugin-manifest.json`, or `.config-schema.json` is untrusted. Review checks:
+- **Filesystem APIs must not crash on adversarial input.** `statSync` throws on NUL-byte paths (`ERR_INVALID_ARG_VALUE`) and overlong names (`ENAMETOOLONG`); `throwIfNoEntry: false` only suppresses `ENOENT`. Wrap in try/catch or use a safe helper.
+- **Empty strings and arrays are valid JSON values.** An empty-string entry in `loadScripts` can resolve to the parent directory. Guard against empty/whitespace strings before filesystem operations.
+- **`typeof x === "object"` does not exclude arrays in JavaScript.** When validating JSON Schema objects like `properties`, add `!Array.isArray(x)` to the guard.
+- **A single artifact failure must not crash the entire sweep.** Each plugin's validation should be isolated so that a malformed artifact produces a per-plugin error, not a workspace-level crash.
+
+### Consumer-path verification
+
+The harness validates artifacts that will be consumed by RHDH at runtime. When a check targets a specific file (like `configSchema.json`), verify that the check reads the same path the RHDH runtime reads — not just the path the `export-dynamic-plugin` CLI writes. RHDH overrides default file paths in several cases (e.g., the schema locator in `packages/backend/src/index.ts` uses `dist-scalprum/configSchema.json` for frontend plugins, not the CLI default `dist/.config-schema.json`).
+
+### Error propagation
+
+When a file cannot be read, the error must be propagated distinctly from "file not declared" or "file not found." Swallowing I/O errors as "undeclared" hides real problems. Follow the existing `nfsFeaturesError` pattern.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
