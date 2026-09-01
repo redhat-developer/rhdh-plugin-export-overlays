@@ -1,7 +1,11 @@
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
+import type {
+  AuthProvider,
+  RHDHDeployment,
+} from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 
 export type BulkImportRhdhDeployOptions = {
+  auth?: AuthProvider;
   appConfig: string;
   dynamicPlugins?: string;
   valueFile?: string;
@@ -24,7 +28,7 @@ export async function setupBulkImportRhdh(
   const namespace = rhdh.deploymentConfig.namespace;
   await applyBulkImportRbacConfigmap(namespace);
   await rhdh.configure({
-    auth: "github",
+    auth: options.auth ?? "github",
     appConfig: options.appConfig,
     ...(options.dynamicPlugins
       ? { dynamicPlugins: options.dynamicPlugins }
