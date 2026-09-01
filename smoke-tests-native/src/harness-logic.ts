@@ -12,6 +12,7 @@
 
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { ConfigKeyMismatch, Status } from "./report";
+import { compareStrings } from "./util";
 
 /**
  * The harness's verdict, most specific failure first.
@@ -56,9 +57,7 @@ export function computeStatus(
  * would make "every entry has a ticket" — the file's whole enforcement mechanism — a lie.
  * Keep this in step with RHDH's list, not with anything in this repo.
  */
-const RHDH_BUILTIN_FRONTEND_KEYS: readonly string[] = [
-  "default.main-menu-items",
-];
+const RHDH_BUILTIN_FRONTEND_KEYS = new Set(["default.main-menu-items"]);
 
 /**
  * Configured keys that no installed bundle answers to.
@@ -78,12 +77,16 @@ export function findConfigKeyMismatches(
   const seen = new Set<string>();
   const mismatches: ConfigKeyMismatch[] = [];
   for (const { key, source } of configured) {
-    if (names.has(key) || RHDH_BUILTIN_FRONTEND_KEYS.includes(key)) continue;
+    if (names.has(key) || RHDH_BUILTIN_FRONTEND_KEYS.has(key)) continue;
     // A key repeated across metadata files is one finding, not one per file: the reader
     // fixes the bundle name or the key once.
     if (seen.has(key)) continue;
     seen.add(key);
-    mismatches.push({ key, source, bundleNames: [...names].sort() });
+    mismatches.push({
+      key,
+      source,
+      bundleNames: [...names].sort(compareStrings),
+    });
   }
   return mismatches;
 }
