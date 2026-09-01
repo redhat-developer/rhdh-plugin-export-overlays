@@ -1,0 +1,39 @@
+# The third spec ("GitHub session sign-in from Authentication Providers") drives the
+# session-auth API for `github`, but the backend never had that provider: it answers
+# `Unknown auth provider 'github'` with a 404 on /api/auth/github/start, because
+# `auth.providers.github` in app-config-rhdh.yaml only CONFIGURES a provider — the backend
+# module has to be installed as a dynamic plugin, and RHDH's default plugin list does not
+# carry it (see rhdh:docs/auth.md, "Enable the GitHub auth backend overlay package").
+#
+# Adding this file suppresses the auto-generation from metadata/ — e2e-test-utils uses the
+# user config INSTEAD of the metadata-derived one, not merged with it
+# (deployment.js `_buildDynamicPluginsConfig`). So the workspace's own three packages have
+# to be re-listed here, which is what every other workspace with this file already does
+# (acr, topology, tekton, scorecard, …). Keep these three in step with metadata/*.yaml.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.1
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.1
+    disabled: false
+
+  # The provider the third spec needs. Published by this repo (workspaces/backstage), and
+  # the same package e2e-test-utils installs for `auth: "github"` — but that preset also
+  # sets `signInPage: github`, which would replace the OIDC/Keycloak sign-in this suite
+  # logs in with, so the module is added here instead of switching the auth preset.
+  # Credentials come from rhdh-secrets.yaml (VAULT_GITHUB_APP_CLIENT_ID/_SECRET), which is
+  # already what app-config-rhdh.yaml references.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.52.0__0.5.4
+    disabled: false
+    pluginConfig:
+      auth:
+        providers:
+          github:
+            production:
+              clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+              clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+              callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+              signIn:
+                resolvers:
+                  - resolver: usernameMatchingUserEntityName
