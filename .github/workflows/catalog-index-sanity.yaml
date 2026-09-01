@@ -230,8 +230,14 @@ jobs:
           [[ "${SANITY}" == "success" ]] || exit 1
 
   # A red scheduled run is otherwise invisible: this repo posts nowhere from GitHub
-  # Actions, and #rhdh-e2e-alerts is fed by Prow. Reuses the path e2e-triage-agent.yaml
-  # already runs — a labelled issue that fullsend routes onward. Decided in RHIDP-16470.
+  # Actions, and #rhdh-e2e-alerts is fed by Prow. Files a labelled issue, following the
+  # shape e2e-triage-agent.yaml already uses. Decided in RHIDP-16470.
+  #
+  # The label is NOT routed to an agent today: .fullsend/rhdh/harness/e2e-triage.yaml
+  # triggers on `label.name == "e2e-triage"` and nothing matches this one. The issue is
+  # the deliverable either way — it is what makes the failure visible and durable — and
+  # wiring a harness is a separate change in .fullsend/, which this repo's AGENTS.md
+  # puts out of bounds for this kind of PR.
   report:
     name: File a triage issue
     needs: sanity
@@ -276,8 +282,9 @@ jobs:
           cat issue-title.txt; echo; cat issue-body.md
 
       # A GitHub App token, not GITHUB_TOKEN: events raised with the latter are
-      # suppressed by GitHub's anti-recursion safety, so the issues:labeled event would
-      # never reach fullsend.yaml. Same reason as e2e-triage-agent.yaml.
+      # suppressed by GitHub's anti-recursion safety, so an issues:labeled event would
+      # never reach fullsend.yaml at all. Same reason as e2e-triage-agent.yaml, and kept
+      # here so the label becomes routable by adding a harness and nothing else.
       - name: Generate GitHub App token
         id: generate-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
