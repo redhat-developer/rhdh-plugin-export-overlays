@@ -10,6 +10,7 @@ import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
 import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 
+// Layer 4b: SonataFlow / OSL + published OCI artifact.
 test.describe("Orchestrator", () => {
   test.beforeAll(async ({ rhdh }, testInfo) => {
     // SonataFlow + OpenShift Logging install + RHDH deploy can exceed 40 minutes in CI.
@@ -25,8 +26,7 @@ test.describe("Orchestrator", () => {
           logOrchestratorDeployFailureDiagnostics(project);
           throw err;
         }
-        process.env.SONATAFLOW_DATA_INDEX_URL =
-          "http://sonataflow-platform-data-index-service.orchestrator.svc.cluster.local";
+        process.env.SONATAFLOW_DATA_INDEX_URL = `http://sonataflow-platform-data-index-service.${project}.svc.cluster.local`;
         await configureOrchestratorLoki();
         try {
           await prepareRhdhHelmRedeploy(project);

@@ -25,6 +25,9 @@ export const ORCHESTRATOR_COMPONENTS = {
     page.getByRole("button", { name: "Start Over" }),
   workflowsTab: (page: Page): Locator =>
     page.getByRole("tab", { name: "Workflows" }),
+  // NFS catalog entity header: same control is often a link, not a tab.
+  workflowsLink: (page: Page): Locator =>
+    page.getByRole("link", { name: "Workflows", exact: true }),
   nextButton: (page: Page): Locator =>
     page.getByRole("button", { name: "Next" }),
   runWorkflowButton: (page: Page): Locator =>
