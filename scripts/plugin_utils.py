@@ -48,6 +48,74 @@ def log_error(message: str) -> None:
     print(f"{Colors.RED}[ERROR]{Colors.NORM} {message}")
 
 
+def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
+    """Split a container image reference into its name, tag, and digest components.
+
+    Handles all combinations of tag and digest presence, including references
+    with both (tag + digest), tag only, digest only, or empty string input.
+    Tag separators vary by registry: ghcr.io uses ``bs_{bsver}__{pluginver}``
+    while quay.io/rhdh uses ``{rhdhver}--{pluginver}``.
+
+    Args:
+        registry_reference: A container image reference string, e.g.
+            ``"quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123"``.
+
+    Returns:
+        A 3-tuple of ``(image_name, tag, digest)`` where any component may
+        be an empty string if not present in the input.
+
+    Examples:
+        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123")
+        ('quay.io/rhdh/plugin', '1.11--1.5.4', 'sha256:abc123')
+        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4")
+        ('quay.io/rhdh/plugin', '1.11--1.5.4', '')
+        >>> parse_image_reference("quay.io/rhdh/plugin@sha256:abc123")
+        ('quay.io/rhdh/plugin', '', 'sha256:abc123')
+        >>> parse_image_reference("")
+        ('', '', '')
+    """
+    if not registry_reference:
+        return "", "", ""
+
+    name_with_tag, sep, digest = registry_reference.partition('@')
+
+    last_slash = name_with_tag.rfind('/')
+    last_colon = name_with_tag.rfind(':')
+    if last_colon > last_slash:
+        return name_with_tag[:last_colon], name_with_tag[last_colon + 1 :], digest if sep else ""
+
+    return name_with_tag, "", digest if sep else ""
+
+
+class PathNotContainedError(ValueError):
+    """A CLI-supplied path resolved outside the directory it is confined to."""
+
+
+def require_contained(flag: str, arg: str, root: Path | None = None) -> Path:
+    """Resolve a CLI-supplied path, refusing one that escapes ``root``.
+
+    Every path these scripts touch comes from an argv flag, so a bad (or hostile) value
+    could otherwise read or write anywhere the process can reach. This is the Python
+    half of the rule ``smoke-tests-native/src/paths.ts`` already applies to the
+    harness's own flags (Sonar S8707) — same contract, same error shape.
+
+    ``root`` itself is accepted; ``resolve()`` collapses any ``..`` first, so a path
+    that escapes and comes back (``a/../../b``) is judged on where it actually lands.
+
+    Only paths that came from argv should go through here. A default derived from
+    ``__file__`` is repo-controlled, not attacker-controlled, and confining it would
+    reject legitimate layouts — a script invoked through a symlink from outside the
+    working directory, which is exactly how the midstream runs these.
+    """
+    base = (root or Path.cwd()).resolve()
+    resolved = (base / arg).resolve()
+    if resolved != base and base not in resolved.parents:
+        raise PathNotContainedError(
+            f"{flag} must resolve inside {base}: {arg!r} resolves to {resolved}"
+        )
+    return resolved
+
+
 def read_plugins_list(workspace_dir: Path) -> list[str]:
     """Read plugins-list.yaml and return list of plugin paths (without trailing colon/args)."""
     plugins_list_file = workspace_dir / "plugins-list.yaml"
@@ -685,6 +753,18 @@ class BuildReport:
         stage_data = {"status": status}
         stage_data.update(details)
         plugin.setdefault("stages", {})[stage] = stage_data
+
+    def has_plugin(self, plugin_name: str) -> bool:
+        """Whether the report already tracks this plugin.
+
+        ``set_stage`` upserts, so a caller keyed by anything other than the names
+        bootstrap registered will silently CREATE a plugin row — inflating
+        ``summary.total`` and flipping the overall status. Callers that derive names
+        from a source other than ``plugin_builds/`` must check this first.
+        """
+        if not self.enabled:
+            return False
+        return plugin_name in self._data.get("plugins", {})
 
     def get_stage(self, plugin_name: str, stage: str) -> dict | None:
         """Return the mutable stage dict for a plugin, or None if not found."""

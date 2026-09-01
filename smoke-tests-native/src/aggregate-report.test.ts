@@ -20,7 +20,12 @@ import {
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  FrontendBundleInfo,
+  Report,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
 import type { FrontendSystem, MfRemoteInfo } from "./loader";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
@@ -88,6 +93,22 @@ function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
     nfsFeaturesError: null,
     nfsFeaturesExposed: ["./alpha"],
     servable: true,
+    ...over,
+  };
+}
+
+/**
+ * A frontend bundle record. Same rule as usableMf: not cast, so the fixture stops
+ * compiling when FrontendBundleInfo grows a field rather than drifting past it.
+ */
+function bundle(over: Partial<FrontendBundleInfo> = {}): FrontendBundleInfo {
+  return {
+    name: "@s/fe",
+    version: "1",
+    systems: ["legacy"],
+    mf: null,
+    scalprum: null,
+    configSchema: { declared: false, declaredError: null, files: [] },
     ...over,
   };
 }
@@ -168,18 +189,16 @@ test("renderMarkdown qualifies the new-frontend-system figure it prints", () => 
               valid: 2,
               errors: [],
               bundles: [
-                {
+                bundle({
                   name: "@s/ships-mf-only",
-                  version: "1",
                   systems: ["legacy", "new-frontend-system"],
                   mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
-                },
-                {
+                }),
+                bundle({
                   name: "@s/really-nfs",
-                  version: "1",
                   systems: ["legacy", "new-frontend-system"],
                   mf: usableMf(),
-                },
+                }),
               ],
             },
           }),
@@ -365,13 +384,12 @@ test("buildAggregate sorts failures and frontend packages deterministically", ()
             valid: 2,
             errors: [],
             bundles: [
-              { name: "@s/z", version: "1", systems: ["legacy"], mf: null },
-              {
+              bundle({ name: "@s/z" }),
+              bundle({
                 name: "@s/a",
-                version: "1",
                 systems: ["legacy", "new-frontend-system"],
                 mf: usableMf(),
-              },
+              }),
             ],
           },
         }),
@@ -474,20 +492,18 @@ test("renderMarkdown puts each computed number in its own row", () => {
               valid: 3,
               errors: [],
               bundles: [
-                { name: "@s/l1", version: "1", systems: ["legacy"], mf: null },
-                { name: "@s/l2", version: "1", systems: ["legacy"], mf: null },
-                {
+                bundle({ name: "@s/l1" }),
+                bundle({ name: "@s/l2" }),
+                bundle({
                   name: "@s/n",
-                  version: "1",
                   systems: ["new-frontend-system"],
                   mf: usableMf(),
-                },
-                {
+                }),
+                bundle({
                   name: "@s/d",
-                  version: "1",
                   systems: ["legacy", "new-frontend-system"],
                   mf: usableMf(),
-                },
+                }),
               ],
             },
           }),

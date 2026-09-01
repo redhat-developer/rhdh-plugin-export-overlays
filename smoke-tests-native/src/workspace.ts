@@ -62,7 +62,7 @@ export type WorkspaceRefs = {
   outOfScope: number;
 };
 
-export type CollectRefsOptions = {
+export type WorkspaceRefsOptions = {
   /** Keep only packages whose `spec.support` equals this. Unset keeps all of them. */
   support?: string;
   /** Returns a record when the package is barred from installing, undefined otherwise. */
@@ -138,7 +138,7 @@ export function readWorkspacePackages(
 export function collectWorkspaceRefs(
   repoRoot: string,
   workspace: string,
-  options: CollectRefsOptions = {},
+  options: WorkspaceRefsOptions = {},
 ): WorkspaceRefs {
   const packages = readWorkspacePackages(repoRoot, workspace);
 

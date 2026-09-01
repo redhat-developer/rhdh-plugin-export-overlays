@@ -32,25 +32,38 @@ export function computeStatus(
   return "pass";
 }
 
+export type ShortfallOptions = {
+  /** What to call the source in the message ("workspace", "catalog index"). */
+  subject?: string;
+  /**
+   * Accept MORE plugins than refs. Only for a deduplicated ref list, where the count is
+   * a lower bound — one OCI image can carry several plugins. Workspace mode does not
+   * dedup and deliberately treats any mismatch as a fault.
+   */
+  allowExtra?: boolean;
+};
+
 /**
- * Compare what the install actually laid out against what the workspace declared.
- *
- * Returns null when they agree (or when there is nothing to compare against, i.e.
- * `--dynamic-plugins` file mode, where no ref count is known).
+ * Compare what the install laid out against what the source declared. Null when they
+ * agree, or when there is nothing to compare (`--dynamic-plugins` file mode).
+ * `subject` names the source: catalog-index mode has no workspace to send a reader to.
  */
 export function describeInstallShortfall(
   discovered: number,
   expected: number | undefined,
+  options: ShortfallOptions = {},
 ): string | null {
+  const { subject = "source", allowExtra = false } = options;
   if (expected === undefined) {
     return discovered === 0
       ? "nothing validated: the install produced no plugins at all"
       : null;
   }
   if (discovered === expected) return null;
+  if (allowExtra && discovered > expected) return null;
   return (
-    `installed ${discovered} plugin(s) but the workspace declared ${expected} ` +
-    `oci:// ref(s) — part of the workspace was never validated`
+    `installed ${discovered} plugin(s) but the ${subject} declared ${expected} ` +
+    `oci:// ref(s) — part of the ${subject} was never validated`
   );
 }
 
