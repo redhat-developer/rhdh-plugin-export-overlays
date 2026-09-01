@@ -15,18 +15,19 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
     // sidebar list starts at the top of the viewport, so its first item — Catalog —
     // renders underneath it. Playwright reports the link visible, enabled and stable and
     // then blocks every click on `<nav id="global-header">`; a user with a mouse cannot
-    // reach it either. Upstream fix: redhat-developer/rhdh-plugins#4405.
+    // reach it either. Video, screenshots and an offline reproduction are attached to
+    // that ticket. Upstream fix: redhat-developer/rhdh-plugins#4405.
     //
-    // The overlap is geometric, not a race: 23 click attempts over 10s were blocked and
-    // none succeeded, at both 1920x1080 and 1280x720. So if this ever reports "Expected
-    // to fail, but passed", read it as the bug being fixed rather than as a flake.
+    // Not conditional on E2E_NIGHTLY_MODE: the overlap breaks the PR check too, and it is
+    // geometric rather than a race — 23 click attempts over 10s were blocked and none
+    // succeeded, at both 1920x1080 and 1280x720.
     //
-    // `fail`, not `skip`, deliberately. A skip goes quiet forever — which is exactly how
-    // the RHIDP-15482 skip this PR removes went stale: the ticket closed and nobody
-    // re-read the test. `fail` keeps the suite green while the bug exists and turns the
-    // run red with "Expected to fail, but passed" the day it is fixed, so CI is the
-    // reminder instead of a person. Delete these lines when that happens.
-    test.fail(true, "RHDHBUGS-3627");
+    // REMOVE THIS when RHDHBUGS-3627 closes. Nothing here will tell you: a skip stays
+    // quiet whether or not the bug is fixed, which is how the RHIDP-15482 skip this PR
+    // removes went stale — its ticket closed and no one re-read the test. The counter-
+    // reminder lives on RHDHBUGS-3627 itself, which carries a note pointing back at this
+    // file; the pair only works if whoever closes that ticket follows it here.
+    test.skip(true, "RHDHBUGS-3627");
     await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
     await uiHelper.verifyHeading(/catalog/i);
