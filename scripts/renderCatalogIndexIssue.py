@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+#
+# Copyright (c) Red Hat, Inc.
+#
+# Render a catalog-index sanity failure into the GitHub issue the triage path files
+# (RHIDP-16694). Rendering only: creating, deduplicating and labelling the issue is the
+# workflow's job, so the part with judgement in it is testable without GitHub.
+#
+# Usage:
+#   python3 renderCatalogIndexIssue.py \
+#     --results smoke-tests-native/results-catalog-index.json \
+#     --image quay.io/rhdh/plugin-catalog-index:next \
+#     --digest sha256:... \
+#     --run-url https://github.com/.../actions/runs/123 \
+#     --title-out title.txt --body-out body.md
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+# How many failing packages the body lists before pointing at the artifact. A broken
+# index can fail dozens at once, and an issue that opens with sixty identical lines is
+# read by nobody; the full list is in results-catalog-index.json either way.
+MAX_LISTED = 20
+
+
+def load_report(path):
+    """The report, or None. A missing or unparseable file is itself worth an issue —
+    the harness not reaching its report stage is a failure, not a reason to stay silent."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            report = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return report if isinstance(report, dict) else None
+
+
+def collect_failures(report):
+    """Every per-package failure the report holds, as `name: error` lines.
+
+    Reads all four lists, not just the two the job summary prints: a plugin that failed
+    to load and one whose bundle lost its config schema are both reasons this ran red,
+    and an issue naming only some of them sends the reader back to the artifact.
+    """
+    if report is None:
+        return []
+    lines = []
+    sections = (
+        ("backend", "errors"),
+        ("backend", "bundleErrors"),
+        ("frontend", "errors"),
+    )
+    for half, key in sections:
+        for item in (report.get(half) or {}).get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            name = ((item.get("plugin") or {}).get("name")) or "?"
+            lines.append(f"{name}: {item.get('error') or '?'}")
+    # Config-key mismatches carry no plugin, so they are shaped differently. The
+    # field arrives with RHIDP-16690; reading it here is harmless before then,
+    # because a report without it yields an empty list like any other.
+    for item in (report.get("frontend") or {}).get("configKeyMismatches") or []:
+        if isinstance(item, dict):
+            lines.append(
+                f"{item.get('source') or '?'}: configured key "
+                f"'{item.get('key') or '?'}' matches no bundle name"
+            )
+    return lines
+
+
+def render_title(image):
+    """Stable across runs, deliberately: the workflow looks an open issue up by this
+    exact string to avoid filing a second one every night the index stays broken. Adding
+    a date or a digest here would defeat that."""
+    return f"[fullsend] Catalog index sanity failed: {image}"
+
+
+def render_body(report, image, digest, run_url):
+    failures = collect_failures(report)
+    status = (report or {}).get("status") or "unknown"
+    lines = [
+        f"The scheduled catalog index sanity check failed against `{image}`.",
+        "",
+        f"- Index digest: `{digest or 'unresolved'}`",
+        f"- Harness status: `{status}`",
+        f"- Workflow run: {run_url}",
+        "",
+    ]
+    if report is None:
+        lines += [
+            "No readable `results-catalog-index.json` was produced, so the harness did "
+            "not reach its report stage — the failure is before any per-package result. "
+            "The workflow run above has the logs.",
+        ]
+    elif not failures:
+        lines += [
+            "The report holds no per-package failure, so the job failed outside the "
+            "per-plugin checks (an install shortfall, or the backend not starting). "
+            "See the run and the `catalog-index-sanity` artifact.",
+        ]
+    else:
+        lines += [f"### Failing packages ({len(failures)})", ""]
+        lines += [f"- {line}" for line in failures[:MAX_LISTED]]
+        if len(failures) > MAX_LISTED:
+            lines += [
+                "",
+                f"…and {len(failures) - MAX_LISTED} more — the full list is in the "
+                "`catalog-index-sanity` artifact.",
+            ]
+    lines += [
+        "",
+        "The catalog index is built outside this repo and changes on its own, so this "
+        "is not tied to any commit here. See RHIDP-16470 for where each half of the "
+        "plugin-sanity check runs and why.",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--results", required=True)
+    parser.add_argument("--image", required=True)
+    parser.add_argument("--digest", default="")
+    parser.add_argument("--run-url", default="")
+    parser.add_argument("--title-out", required=True)
+    parser.add_argument("--body-out", required=True)
+    args = parser.parse_args()
+
+    report = load_report(args.results)
+    Path(args.title_out).write_text(render_title(args.image), encoding="utf-8")
+    Path(args.body_out).write_text(
+        render_body(report, args.image, args.digest, args.run_url), encoding="utf-8"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
