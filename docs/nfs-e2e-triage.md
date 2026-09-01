@@ -231,21 +231,35 @@ means something and one that does not:
 
 ---
 
-## 5. Two failure modes to assert against, because both are silent
+## 5. Three failure modes to assert against, because all three are silent
 
-Neither produces an error. A suite that only checks "the page loaded" passes through both.
+None of them produces an error. A suite that only checks "the page loaded" passes through
+every one.
 
 1. **The remote is never served.** The remotes router logs the reason and `continue`s past a
    malformed manifest, so `GET /.backstage/dynamic-features/remotes` answers `200 []` and
    the app boots clean with no plugins. `smoke-tests-native` now validates the manifest
    shape rather than its presence and reports it as `frontend.bundles[].mf` in
-   `results.json`.
+   `results.json`. It gives the Scalprum manifest the same treatment, reported as
+   `frontend.bundles[].scalprum` — not an NFS lane's concern, since NFS loads through the MF
+   remote rather than Scalprum's `loadScripts`, but the same class of fault on the legacy
+   path.
 
 2. **The remote is served but contributes nothing.** Its extensions attach to a host plugin
    the app does not have — orphaned extensions are collected and never reported — or it
    declares NFS entry points the manifest never exposes, in which case `nfsModuleFilter`
    keeps no modules. `mf.servable: true` with a non-empty `mf.nfsFeatures` and an empty
    `mf.nfsFeaturesExposed` is that second state.
+
+3. **The plugin mounts but ignores its configuration.** A bundle whose `package.json`
+   declares `configSchema` and which ships no schema for it leaves Backstage nothing to
+   match the plugin's app-config keys against, so they are dropped without a word and the
+   plugin runs on its defaults (RHDHBUGS-1157). This one is frontend-system-agnostic — the
+   export writes a schema beside each layout it finds, and an NFS lane hits it exactly as the
+   legacy path does. A suite that asserts the page rendered passes straight through, so
+   assert a value that could only have come from the config. `smoke-tests-native` reports it
+   as `frontend.bundles[].configSchema`; only `declared: true` alongside a missing or empty
+   schema is a defect, because most packages legitimately declare no configuration at all.
 
 So assert a positive DOM fact, not the absence of errors.
 
