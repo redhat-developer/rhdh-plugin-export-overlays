@@ -35,6 +35,16 @@ test("computeStatus reports the most specific failure and passes only on a clean
   assert.equal(computeStatus([], true, 0, [anError]), "fail-bundle");
 });
 
+test("a backend bundle fault fails the run, without outranking a load failure", () => {
+  // The backend configSchema check (RHIDP-16689) reaches computeStatus through the same
+  // `bundleErrors` list as the frontend one, so a plugin that booted fine but lost its
+  // config still turns the run red. It stays below fail-load and fail-start: a plugin that
+  // would not load at all is the more specific answer, and this one loaded.
+  assert.equal(computeStatus([], true, 3, [anError]), "fail-bundle");
+  assert.equal(computeStatus([anError], true, 3, [anError]), "fail-load");
+  assert.equal(computeStatus([], false, 3, [anError]), "fail-start");
+});
+
 test("a frontend-only workspace passes even though no backend started", () => {
   // startBackend short-circuits to {ok:true, skipped:true} when nothing loaded, so
   // startOk=false with loadedCount=0 is not reachable as a real boot failure.

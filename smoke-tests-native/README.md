@@ -24,6 +24,7 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
+  → validateBackendBundle()   # configSchema shipped — the one fault booting cannot reveal
   → validateFrontendBundle()  # both manifests usable; configSchema shipped (not executed)
   → results.json + exit code
 ```
@@ -68,11 +69,18 @@ the plugin registers at runtime and RHDH drives its surfaces from app-config mou
 so a static extension list is not where anything is declared. Failing on it would fail the
 entire catalogue and could never go green.
 
-#### Config schema (`frontend.bundles[].configSchema`)
+#### Config schema (`frontend.bundles[].configSchema`, `backend.bundles[].configSchema`)
 
 A bundle that declares configuration must ship the schema for it, or Backstage has nothing
 to match the plugin's app-config keys against and drops them without a word — the plugin
 runs on its defaults while the operator's settings look applied (RHDHBUGS-1157).
+
+This is the one check that runs on **both** halves. Nothing about the defect is
+frontend-specific, and on the backend side it is the only artifact fault the boot cannot
+reveal: such a plugin `require()`s, exposes its BackendFeature and starts, just on its
+defaults. Loading and booting is a stronger check than any file inspection for everything
+else a backend bundle must satisfy, which is why the backend record carries this and
+nothing more.
 
 The consumer is `gatherDynamicPluginsSchemas` in
 `@backstage/backend-dynamic-feature-service`, and **RHDH overrides its locator**
@@ -85,17 +93,23 @@ schemaLocator(pluginPackage) {
 },
 ```
 
-`PackageRoles.getRoleInfo("frontend-plugin").platform` is `"web"`, so for every package this
-check inspects RHDH reads **`dist-scalprum/configSchema.json`** — never
+The locator is keyed on the package's **role**, so which file matters depends on the half:
+`getRoleInfo("frontend-plugin").platform` is `"web"`, while both backend roles are `"node"`
+(verified by executing `@backstage/cli-node`, not inferred). Neither is
 `dist/.config-schema.json`, which is only the upstream default. The export writes one file
 per consumer, which is why there are two:
 
-| Role              | RHDH reads                        | Upstream default reads     |
-| ----------------- | --------------------------------- | -------------------------- |
-| `frontend-plugin` | `dist-scalprum/configSchema.json` | `dist/.config-schema.json` |
-| `backend-plugin`  | `dist/configSchema.json`          | `dist/.config-schema.json` |
+| Role                                       | RHDH reads                        | Upstream default reads     |
+| ------------------------------------------ | --------------------------------- | -------------------------- |
+| `frontend-plugin`                          | `dist-scalprum/configSchema.json` | `dist/.config-schema.json` |
+| `backend-plugin` / `backend-plugin-module` | `dist/configSchema.json`          | `dist/.config-schema.json` |
 
-Only RHDH's path is failed on, and it is checked **whether or not `dist-scalprum/` exists** —
+Note how close the backend row is: RHDH's file and the upstream default are **siblings in
+`dist/`, differing only by filename**. A check written against `.config-schema.json` — the
+name that appears in the gatherer's own default locator — passes an artifact whose config
+RHDH drops in silence.
+
+Only RHDH's path is failed on, and it is checked **whether or not its directory exists** —
 its absence is the fault. Gating it on the directory left an NFS-only bundle, which ships no
 `dist-scalprum/` at all, passing while RHDH dropped its config in silence. The upstream copy
 is reported with `consumer: "upstream-default"` and never failed: rejecting an artifact over
@@ -124,9 +138,9 @@ reimplementing the merge.
 `declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
 `declaredError` beside it for when `package.json` could not be read at all — a failure to
 look must not be published as `declared: false`, the same reason `mf.nfsFeaturesError`
-exists. `files` carries one entry per path `export-dynamic-plugin` writes for the layouts
-the bundle ships — `dist-scalprum/configSchema.json` and `dist/.config-schema.json`
-(different filename) — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
+exists. `files` carries one entry per path `export-dynamic-plugin` writes for this package —
+RHDH's own, per the table above, plus the upstream default when a `dist/` exists to hold
+it — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
 `empty` or `invalid`, plus its `propertyCount`.
 
 Note what `ok` does and does not establish. The export writes the schema MERGED across the
@@ -140,9 +154,17 @@ which is what RHDHBUGS-1157 was.
 **Only `declared: true` — or a `package.json` that could not be read at all — can fail.** The export merges the package's own `configSchema` with
 every one it finds in the dependency tree, so an empty schema means "declares nothing" for
 most packages and "the declaration was lost" only for the ones that declare: 33 of 76
-declare, 32 ship an empty schema, and only the intersection is a finding. Failing on an
-empty schema alone would accuse 32 packages of a bug they do not have, so the messages keep
-"declares no configuration" and "declares configuration and shipped no schema" apart.
+frontend packages declare, 32 ship an empty schema, and only the intersection is a finding.
+Failing on an empty schema alone would accuse 32 packages of a bug they do not have, so the
+messages keep "declares no configuration" and "declares configuration and shipped no
+schema" apart.
+
+The backend half splits the same way, and the gate matters just as much there. Over all 107
+published backend artifacts this repo lists — every tier, `backend-plugin` and
+`backend-plugin-module` — 54 declare `configSchema` and all 54 ship a usable
+`dist/configSchema.json`; of the 53 that declare nothing, 40 ship `{}` and 13 ship a
+non-empty schema contributed entirely by dependencies. So the check finds nothing today,
+and it would have accused 40 packages had it failed on the empty schema alone.
 
 #### Module-federation manifest (`frontend.bundles[].mf`)
 

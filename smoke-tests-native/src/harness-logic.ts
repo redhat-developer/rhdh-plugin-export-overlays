@@ -19,16 +19,22 @@ import type { Status } from "./report";
  * `loadedCount > 0` matters for the frontend-only case: startBackend short-circuits to
  * `{ok: true, skipped: true}` when nothing loaded, so a workspace with no backend
  * plugins is a pass rather than a boot failure.
+ *
+ * `bundleErrors` is both halves' bundle faults in one list, not the frontend's alone.
+ * Nothing here distinguishes them — a bundle fault is `fail-bundle` whichever half it
+ * came from — and one list keeps two same-typed arrays out of the signature, where
+ * transposing them at the call site would be silent. The report still records them
+ * separately, under `frontend.errors` and `backend.bundleErrors`.
  */
 export function computeStatus(
   loadErrors: PluginError[],
   startOk: boolean,
   loadedCount: number,
-  frontendErrors: PluginError[],
+  bundleErrors: PluginError[],
 ): Status {
   if (loadErrors.length > 0) return "fail-load";
   if (!startOk && loadedCount > 0) return "fail-start";
-  if (frontendErrors.length > 0) return "fail-bundle";
+  if (bundleErrors.length > 0) return "fail-bundle";
   return "pass";
 }
 

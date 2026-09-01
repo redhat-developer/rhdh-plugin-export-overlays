@@ -240,7 +240,12 @@ export function failureDetail(result: SweepWorkspaceResult): string {
   if (!report.backendStart.ok && report.backendStart.error) {
     return oneLine(`backend start: ${report.backendStart.error}`);
   }
-  const bundleError = report.frontend.errors?.[0];
+  // Both halves' bundle faults, because both produce `fail-bundle` and the status alone
+  // names nobody. Frontend first only to keep the line identical for reports that have
+  // one; where a workspace has both, the sweep panel shows one and results.json has the
+  // rest, which is the existing contract for two frontend faults too.
+  const bundleError =
+    report.frontend.errors?.[0] ?? report.backend.bundleErrors?.[0];
   if (bundleError) {
     return oneLine(`${bundleError.plugin.name}: ${bundleError.error}`);
   }

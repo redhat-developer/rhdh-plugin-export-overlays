@@ -29,7 +29,7 @@ import type {
  *
  * - `sweep.ts`, via isReport, on each per-workspace results file.
  * - `aggregate.ts` via isSweepSummary, and `aggregate-report.ts` which reads
- *   `report.frontend.bundles[]`.
+ *   `report.frontend.bundles[]` and `report.backend.bundleErrors[]`.
  *
  * That is the whole list of code consumers. Three workflows move these files as
  * artifacts without reading `schemaVersion`, so a bump does not break them — but
@@ -44,8 +44,10 @@ import type {
  *    recorded as the artifact declaring none.
  * 6: added `scalprum` and `configSchema` on each frontend bundle (RHIDP-16229).
  * 7: added `catalogIndex`, the provenance block catalog-index mode records.
+ * 8: added `backend.bundles` and `backend.bundleErrors`, extending the configSchema
+ *    check of 6 to backend plugins (RHIDP-16689).
  */
-export const REPORT_SCHEMA_VERSION = 7;
+export const REPORT_SCHEMA_VERSION = 8;
 
 export type Status =
   | "pass"
@@ -96,6 +98,29 @@ export type FrontendBundleInfo = {
 };
 
 /**
+ * Per-backend-plugin bundle record.
+ *
+ * There is no layout half here, deliberately. A backend bundle is required to `require()`
+ * and to expose a default BackendFeature, and both are established by actually loading and
+ * booting it — a stronger check than any inspection of the files. What a successful boot
+ * does NOT establish is whether the plugin's configuration survived the export, because a
+ * plugin whose schema is missing loads, starts and serves traffic while RHDH silently drops
+ * its app-config keys (RHDHBUGS-1157). That is the one artifact fact worth recording here.
+ */
+export type BackendBundleInfo = {
+  name: string;
+  version: string;
+  /**
+   * Read `configSchema.declared` first, and `configSchema.declaredError` beside it — same
+   * contract as the frontend half, and for the same reason. The path that can fail differs:
+   * RHDH's `schemaLocator` is keyed on the package's role, so it resolves to
+   * `dist/configSchema.json` for a backend package where a frontend one gets
+   * `dist-scalprum/configSchema.json`.
+   */
+  configSchema: ConfigSchemaInfo;
+};
+
+/**
  * Workspace-mode provenance: which metadata files were skipped (non-oci artifacts)
  * and how the support filter narrowed the set, so a "pass" can't silently hide that
  * part of the workspace was never validated.
@@ -136,6 +161,18 @@ export type Report = {
     /** Install directory names not loaded into the backend (see `exclusions`). */
     skipped: string[];
     errors: PluginError[];
+    /**
+     * One entry per DISCOVERED backend plugin, including the ones `skipped` never booted:
+     * a boot exclusion is scoped to booting, and the artifact is on disk either way.
+     */
+    bundles: BackendBundleInfo[];
+    /**
+     * Bundle faults — today, a declared `configSchema` with nothing behind it. Kept apart
+     * from `errors` because the two are not the same kind of failure and `computeStatus`
+     * reads them differently: `errors` are plugins that would not load at all, while these
+     * loaded fine and lost their configuration on the way out.
+     */
+    bundleErrors: PluginError[];
   };
   backendStart: BackendStartResult;
   frontend: {

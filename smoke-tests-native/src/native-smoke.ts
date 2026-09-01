@@ -21,10 +21,12 @@
  *      its presence: a malformed mf-manifest.json is skipped by the remotes router with a
  *      log line and still answers 200 [], and a Scalprum manifest naming a loadScripts
  *      asset the bundle does not contain has the host fetch a 404 and register nothing.
- *      A bundle declaring `configSchema` is also required to ship the schema for it, or
- *      its app-config keys are dropped silently (RHDHBUGS-1157). Neither bundle is ever
- *      loaded or executed.
- *   5. Emit results.json with per-plugin status; exit non-zero on any failure.
+ *      The bundle is never loaded or executed.
+ *   5. Check EVERY bundle — backend as well as frontend — that declares `configSchema`
+ *      ships the schema RHDH reads for its role, or its app-config keys are dropped
+ *      silently (RHDHBUGS-1157). Steps 2 and 3 cannot see this on the backend side: such
+ *      a plugin loads, starts and serves traffic, just on its defaults.
+ *   6. Emit results.json with per-plugin status; exit non-zero on any failure.
  *
  * What this CANNOT do (by design): render frontend UI. UI behaviour tests need a real
  * frontend (NFS / app-next) — see RHIDP-15082. That is the deliberate scope boundary.
@@ -68,6 +70,7 @@ import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
   loadBackendPlugins,
+  validateBackendBundle,
   validateFrontendBundle,
   type PluginEntry,
   type LoadedPlugin,
@@ -93,6 +96,7 @@ import {
 } from "./exclusions";
 import {
   REPORT_SCHEMA_VERSION,
+  type BackendBundleInfo,
   type BackendStartResult,
   type CatalogIndexInfo,
   type FrontendBundleInfo,
@@ -285,7 +289,14 @@ async function writeErrorReport(
   const report: Report = {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion,
-    backend: { total: 0, loaded: 0, skipped: [], errors: [] },
+    backend: {
+      total: 0,
+      loaded: 0,
+      skipped: [],
+      errors: [],
+      bundles: [],
+      bundleErrors: [],
+    },
     backendStart: { ok: false, error: message },
     frontend: { total: 0, valid: 0, errors: [], bundles: [] },
     exclusions: [],
@@ -518,6 +529,24 @@ async function startBackend(
   }
 }
 
+// Check backend bundles for the fault booting them cannot reveal: a plugin declaring
+// configSchema that ships no schema loads and starts, and RHDH drops its config anyway.
+// Runs over every discovered backend plugin, not just the bootable ones — see
+// validateBackendBundle.
+function validateBackends(backend: PluginEntry[]): {
+  bundles: BackendBundleInfo[];
+  errors: PluginError[];
+} {
+  const bundles: BackendBundleInfo[] = [];
+  const errors: PluginError[] = [];
+  for (const plugin of backend) {
+    const { configSchema, error } = validateBackendBundle(plugin);
+    bundles.push({ name: plugin.name, version: plugin.version, configSchema });
+    if (error) errors.push({ plugin, error });
+  }
+  return { bundles, errors };
+}
+
 // Check frontend bundles (the bundle is never executed), recording which frontend
 // system(s) each one ships and — for module federation — whether the remote is in a
 // shape the backend's remotes router will actually serve.
@@ -633,7 +662,11 @@ async function main(): Promise<number> {
     }
     const { loaded, errors: loadErrors } = loadBackendPlugins(bootable);
     const start = await startBackend(loaded, appConfig);
+    const backendBundles = validateBackends(manifest.backend);
     const frontend = validateFrontends(manifest.frontend);
+    for (const { plugin, error } of backendBundles.errors) {
+      console.error(`✗ backend '${plugin.name}': ${error}`);
+    }
 
     const report: Report = {
       schemaVersion: REPORT_SCHEMA_VERSION,
@@ -646,6 +679,8 @@ async function main(): Promise<number> {
         loaded: loaded.length,
         skipped,
         errors: loadErrors,
+        bundles: backendBundles.bundles,
+        bundleErrors: backendBundles.errors,
       },
       backendStart: start,
       frontend: {
@@ -658,7 +693,10 @@ async function main(): Promise<number> {
       installShortfall: installShortfall ?? undefined,
       status: installShortfall
         ? "fail-install"
-        : computeStatus(loadErrors, start.ok, loaded.length, frontend.errors),
+        : computeStatus(loadErrors, start.ok, loaded.length, [
+            ...frontend.errors,
+            ...backendBundles.errors,
+          ]),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));
