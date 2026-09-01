@@ -17,6 +17,10 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
     // then blocks every click on `<nav id="global-header">`; a user with a mouse cannot
     // reach it either. Upstream fix: redhat-developer/rhdh-plugins#4405.
     //
+    // The overlap is geometric, not a race: 23 click attempts over 10s were blocked and
+    // none succeeded, at both 1920x1080 and 1280x720. So if this ever reports "Expected
+    // to fail, but passed", read it as the bug being fixed rather than as a flake.
+    //
     // `fail`, not `skip`, deliberately. A skip goes quiet forever — which is exactly how
     // the RHIDP-15482 skip this PR removes went stale: the ticket closed and nobody
     // re-read the test. `fail` keeps the suite green while the bug exists and turns the
