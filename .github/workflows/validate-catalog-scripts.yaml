@@ -18,6 +18,8 @@ on:
       - 'scripts/tests/**'
       - 'scripts/requirements-dev.txt'
       - '.github/workflows/validate-catalog-scripts.yaml'
+      - 'catalog-info.yaml'
+      - 'workspaces/*/catalog-info.yaml'
   workflow_dispatch:
 
 concurrency:
@@ -46,3 +48,6 @@ jobs:
       - name: Run tests
         working-directory: scripts
         run: python -m pytest tests/ -v
+
+      - name: Check generated software-catalog catalog-info.yaml
+        run: python scripts/generateCatalogInfo.py --check
