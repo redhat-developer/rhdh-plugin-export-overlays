@@ -1,0 +1,247 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: kserve-kubeflow-connector
+  namespace: rhdh
+  title: KServe/Kubeflow Connector
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHPAI
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/accelerate_ai_development_with_openshift_ai_connector_for_red_hat_developer_hub/index
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/kserve-kubeflow-connector-backend
+  tags:
+    - rhoai
+    - kubernetes
+    - ai
+    - developer-tools
+  description: |
+    Backend plugin that discovers KServe InferenceService resources on
+    Kubernetes clusters and exposes model server and model metadata
+    through authenticated Backstage REST routes.
+spec:
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: community
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Software Catalog
+    - Kubernetes
+
+  highlights:
+    - Watches KServe InferenceService resources via Kubernetes informers
+    - Exposes authenticated REST routes for model server and model metadata
+    - Supports Kubeflow Model Catalog integration for model cards
+    - Two configuration modes — reuse Backstage Kubernetes plugin or direct cluster connection
+
+  description: |
+    # KServe/Kubeflow Connector
+
+    A Backstage backend plugin that discovers KServe `InferenceService`
+    resources on Kubernetes clusters and generates `AiModelServerAPI`
+    catalog entities from them.
+
+    ### How it works
+
+    The connector creates a Kubernetes informer for
+    `serving.kserve.io` `InferenceService` resources. It watches add,
+    update, and delete events, reconciling ready resources into an
+    in-memory model-catalog representation. When an `InferenceService`
+    supplies `rhdh.io/catalog-source` and `rhdh.io/catalog-model`
+    annotations, the connector optionally fetches Kubeflow Model
+    Catalog model cards for TechDocs integration.
+
+    The connector exposes Backstage-authenticated REST routes consumed
+    by the AI Model Catalog and TechDocs plugins:
+
+    - `GET /list` — returns all discovered model servers and models
+    - `GET /models/:model/:version` — returns metadata for a specific
+      model version
+    - `GET /modelcard/:sourceId/*` — returns model-card Markdown for
+      TechDocs generation
+
+    ### Companion plugins
+
+    The connector is the data source for the AI Model Catalog suite.
+    Install the following plugins alongside it:
+
+    - **AI Model Server catalog module**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-ai-model-server`):
+      registers the `AiModelServerAPI` kind so the catalog accepts the
+      entities generated from discovered model servers.
+    - **Model Catalog entity provider**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog`):
+      calls the connector REST endpoint and emits `AiModelServerAPI`
+      catalog entities.
+    - **TechDocs URL reader**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-techdoc-url-reader-backend`):
+      resolves model-card content through the connector for TechDocs
+      generation.
+
+    ### Kubernetes access requirements
+
+    The ServiceAccount used by the connector requires the following
+    least-privilege permissions:
+
+    - `serving.kserve.io` `InferenceService`: `get`, `list`, `watch`
+    - `route.openshift.io` `Route`: `get`, `list`, `watch` (for
+      automatic route discovery when no model catalog URL is configured)
+    - Core `ServiceAccount`: `get`, `list`, `watch` (for authentication
+      detection)
+
+    ### InferenceService annotations
+
+    The connector reads `rhdh.io/` annotations from InferenceService
+    resources to control entity generation:
+
+    - `rhdh.io/system` — sets `spec.system` on the generated entity
+    - `rhdh.io/serverType` — overrides `spec.serverType`
+    - `rhdh.io/default` — sets the default model
+    - `rhdh.io/owner` — overrides the entity owner
+    - `rhdh.io/lifecycle` — overrides the entity lifecycle
+    - `rhdh.io/model-*` — creates multiple Model objects from a single
+      InferenceService
+
+    ### OpenShift AI documentation
+
+    - [OpenShift AI Self-Managed 3.5](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5)
+    - [Manage and govern model catalog sources](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/manage_and_govern_model_catalog_sources/index)
+    - [Deploying models](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/deploying_models/index)
+
+    ## Support
+
+    - **Source code**: [kserve-kubeflow-connector-backend](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/kserve-kubeflow-connector-backend)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+  packages:
+    - rhdh-bs-plugin-kserve-kubeflow-connector-backend
+
+  installation: |
+    ## Installation
+
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+    Add the following to your dynamic plugin configuration. Install the
+    AI Model Server catalog module alongside the connector so the catalog
+    accepts `AiModelServerAPI` entities:
+
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-kserve-kubeflow-connector-backend:bs_1.54.4__0.1.4
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server:bs_1.54.4__0.3.1
+        enabled: true
+    ```
+
+    ## RHDH Configuration
+
+    The connector supports two configuration modes for Kubernetes
+    cluster access.
+
+    ### Mode 1: Reuse Backstage Kubernetes plugin cluster
+
+    If the Backstage Kubernetes plugin is already configured with access
+    to the cluster hosting KServe, point the connector at that cluster
+    using `kubernetesPluginRef`:
+
+    ```yaml
+    catalog:
+      rules:
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+              AiResource,
+            ]
+      providers:
+        modelCatalog:
+          kserve-kubeflow-connector:
+            cluster-1:
+              name: my-k8s-cluster
+              kubernetesPluginRef: my-k8s-cluster
+              default-owner: '${OWNER:-default-owner}'
+              default-lifecycle: '${LIFECYCLE:-production}'
+    kubernetes:
+      serviceLocatorMethod:
+        type: 'multiTenant'
+      clusterLocatorMethods:
+        - type: 'config'
+          clusters:
+            - name: my-k8s-cluster
+              url: '${K8S_CLUSTER_URL}'
+              serviceAccountToken: '${K8S_SA_TOKEN}'
+              authProvider: serviceAccount
+              skipTLSVerify: false
+              caData: '${K8S_CA_DATA:-}'
+    ```
+
+    ### Mode 2: Direct cluster connection
+
+    When the Backstage Kubernetes plugin is not installed or does not
+    define the target cluster, supply connection fields directly:
+
+    ```yaml
+    catalog:
+      rules:
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+              AiResource,
+            ]
+      providers:
+        modelCatalog:
+          kserve-kubeflow-connector:
+            cluster-1:
+              name: my-k8s-cluster
+              url: '${K8S_CLUSTER_URL:-}'
+              serviceAccountToken: '${K8S_SA_TOKEN:-}'
+              skipTLSVerify: false
+              caData: '${K8S_CA_DATA:-}'
+              default-owner: '${OWNER:-default-owner}'
+              default-lifecycle: '${LIFECYCLE:-production}'
+    ```
+
+    ### Additional configuration options
+
+    The following optional fields can be added to any cluster entry:
+
+    - `kubeflow-model-catalog-url` — URL of the Kubeflow Model Catalog
+      service. When omitted the connector attempts automatic Route
+      discovery on the cluster.
+
+    ```yaml
+    catalog:
+      providers:
+        modelCatalog:
+          kserve-kubeflow-connector:
+            cluster-1:
+              name: my-k8s-cluster
+              kubernetesPluginRef: my-k8s-cluster
+              default-owner: my-team
+              default-lifecycle: production
+              kubeflow-model-catalog-url: https://model-catalog.apps.example.com
+    ```

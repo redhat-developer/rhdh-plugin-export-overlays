@@ -8,6 +8,7 @@ spec:
     - ./3scale.yaml
     - ./adoption-insights.yaml
     - ./ai-model-catalog.yaml
+    - ./ai-model-server.yaml
     - ./ai-resource.yaml
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
@@ -59,6 +60,7 @@ spec:
     - ./kubernetes-backend.yaml
     - ./kubernetes-scaffolder-actions.yaml
     - ./kubernetes.yaml
+    - ./kserve-kubeflow-connector.yaml
     - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
     - ./mcp-actions-backend.yaml
