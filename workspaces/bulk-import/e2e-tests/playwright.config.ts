@@ -12,6 +12,10 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  *   no branching is next to BULK_IMPORT_HEADING in support/constants.
  * - bulk-import-orchestrator — legacy shell, orchestrator-mode config. Deliberately
  *   has no app-next counterpart: it also needs the orchestrator operator.
+ * - bulk-import-permission — guest-auth (development environment) deployment, its own
+ *   namespace. Kept separate from bulk-import because RHDH only renders the guest
+ *   "Enter" sign-in tile under a development/guest deployment, not the production
+ *   GitHub deployment the other bulk-import tests share.
  */
 export default defineConfig({
   projects: [
@@ -33,6 +37,11 @@ export default defineConfig({
     {
       name: "bulk-import-scaffolder-template",
       testMatch: "bulk-import-scaffolder-template.spec.ts",
+      timeout: 30 * 60 * 1000,
+    },
+    {
+      name: "bulk-import-permission",
+      testMatch: "bulk-import-permission.spec.ts",
       timeout: 30 * 60 * 1000,
     },
   ],
