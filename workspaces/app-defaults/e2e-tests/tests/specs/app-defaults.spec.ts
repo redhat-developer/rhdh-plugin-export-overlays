@@ -11,6 +11,18 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
   });
 
   test("loads Catalog after OIDC login", async ({ uiHelper }) => {
+    // RHDHBUGS-3627: the global header is a sticky MuiAppBar with z-index 1100 and the
+    // sidebar list starts at the top of the viewport, so its first item — Catalog —
+    // renders underneath it. Playwright reports the link visible, enabled and stable and
+    // then blocks every click on `<nav id="global-header">`; a user with a mouse cannot
+    // reach it either. Upstream fix: redhat-developer/rhdh-plugins#4405.
+    //
+    // `fail`, not `skip`, deliberately. A skip goes quiet forever — which is exactly how
+    // the RHIDP-15482 skip this PR removes went stale: the ticket closed and nobody
+    // re-read the test. `fail` keeps the suite green while the bug exists and turns the
+    // run red with "Expected to fail, but passed" the day it is fixed, so CI is the
+    // reminder instead of a person. Delete these lines when that happens.
+    test.fail(true, "RHDHBUGS-3627");
     await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
     await uiHelper.verifyHeading(/catalog/i);
