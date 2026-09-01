@@ -17,7 +17,6 @@
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from plugin_utils import PathNotContainedError, require_contained
 
@@ -156,10 +155,12 @@ def main():
         return 2
 
     report = load_report(results)
-    title_out.write_text(render_title(args.image), encoding="utf-8")
-    body_out.write_text(
-        render_body(report, args.image, args.digest, args.run_url), encoding="utf-8"
-    )
+    # `open()` rather than Path.write_text, matching every other script here — and it is
+    # what lets Sonar's taint analysis follow the confinement above through to the write.
+    with open(title_out, "w", encoding="utf-8") as handle:
+        handle.write(render_title(args.image))
+    with open(body_out, "w", encoding="utf-8") as handle:
+        handle.write(render_body(report, args.image, args.digest, args.run_url))
     return 0
 
 
