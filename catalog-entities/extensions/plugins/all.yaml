@@ -57,10 +57,10 @@ spec:
     - ./jira.yaml
     - ./keycloak-catalog-integration.yaml
     - ./konflux.yaml
+    - ./kserve-kubeflow-connector.yaml
     - ./kubernetes-backend.yaml
     - ./kubernetes-scaffolder-actions.yaml
     - ./kubernetes.yaml
-    - ./kserve-kubeflow-connector.yaml
     - ./ldap-catalog-integration.yaml
     - ./lighthouse.yaml
     - ./mcp-actions-backend.yaml
