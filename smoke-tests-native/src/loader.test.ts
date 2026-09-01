@@ -397,9 +397,17 @@ test("no bundle at all names both expected layouts in the error", () => {
   // Names the manifest, not remoteEntry.js: gating on that filename is exactly what this
   // PR stopped doing, so pointing a reader at it would be stale advice.
   assert.match(error ?? "", /dist\/mf-manifest\.json/);
-  // No layout means no schema path the export would have written, so there is nothing to
-  // hold against the bundle — an empty list, not a pile of "missing" entries.
-  assert.deepEqual(configSchema.files, []);
+  // RHDH's schema path is held against the bundle whatever layout it ships, because its
+  // absence IS the fault. Recorded as missing here, but not failed: this package declares
+  // no configuration.
+  assert.deepEqual(configSchema.files, [
+    {
+      path: "dist-scalprum/configSchema.json",
+      consumer: "rhdh",
+      state: "missing",
+      propertyCount: null,
+    },
+  ]);
 });
 
 test("missing package.json is its own error", () => {
@@ -523,7 +531,7 @@ test("a loadScripts asset missing from the bundle fails", () => {
   // configured frontend route answers 404 — with nothing logged as an error anywhere.
   const { systems, scalprum, error } = validateFrontendBundle(
     makePlugin(LEGACY_WITHOUT_ASSET, {
-      "dist-scalprum/plugin-manifest.json": scalprumManifest(),
+      ...LEGACY_BODIES,
     }),
   );
   assert.match(error ?? "", /loadScripts asset\(s\) not present/);
@@ -562,7 +570,7 @@ test("an extensions field that is not an array fails", () => {
       }),
     }),
   );
-  assert.match(error ?? "", /`extensions` is not an array/);
+  assert.match(error ?? "", /`extensions` is missing or not an array/);
   assert.equal(scalprum?.extensionCount, null);
 });
 
@@ -690,7 +698,10 @@ const CONFIG_PKG = JSON.stringify({
   backstage: { role: "frontend-plugin" },
   configSchema: "config.d.ts",
 });
+// Shaped as every published schema is, because the check now mirrors the backend
+// gatherer's own guard: `$schema` present and `type: "object"`.
 const SCHEMA = JSON.stringify({
+  $schema: "https://backstage.io/schema/config-v1",
   type: "object",
   properties: { dynatrace: { type: "object" } },
 });
@@ -711,6 +722,7 @@ test("a bundle declaring configSchema without the schema file fails", () => {
   assert.deepEqual(configSchema.files, [
     {
       path: "dist-scalprum/configSchema.json",
+      consumer: "rhdh",
       state: "missing",
       propertyCount: null,
     },
@@ -766,10 +778,12 @@ test("a declared configSchema with a real schema passes and reports its property
   assert.equal(configSchema.files[0].propertyCount, 1);
 });
 
-test("the module-federation side's schema file is checked too", () => {
-  // The export writes dist-scalprum/configSchema.json AND dist/.config-schema.json — a
-  // different filename — for the layouts a bundle ships. Checking one side only would
-  // leave half of every dual bundle unguarded.
+test("a missing upstream-default schema does not fail an RHDH artifact", () => {
+  // RHDH overrides the gatherer's schemaLocator to
+  // `platform === "node" ? "dist" : "dist-scalprum"` + "configSchema.json", and
+  // PackageRoles.getRoleInfo("frontend-plugin").platform is "web" — so RHDH reads
+  // dist-scalprum/configSchema.json and NEVER dist/.config-schema.json for these packages.
+  // Failing the upstream copy would reject an artifact over a file this platform ignores.
   const { configSchema, error } = validateFrontendBundle(
     makePlugin([...LEGACY, ...NEW_FE, "dist-scalprum/configSchema.json"], {
       ...LEGACY_BODIES,
@@ -778,14 +792,45 @@ test("the module-federation side's schema file is checked too", () => {
       "dist-scalprum/configSchema.json": SCHEMA,
     }),
   );
-  assert.match(error ?? "", /dist\/\.config-schema\.json is not in the bundle/);
+  assert.equal(error, null);
   assert.deepEqual(
-    configSchema.files.map((file) => [file.path, file.state]),
+    configSchema.files.map((file) => [file.path, file.consumer, file.state]),
     [
-      ["dist-scalprum/configSchema.json", "ok"],
-      ["dist/.config-schema.json", "missing"],
+      ["dist-scalprum/configSchema.json", "rhdh", "ok"],
+      ["dist/.config-schema.json", "upstream-default", "missing"],
     ],
   );
+});
+
+test("an NFS-only bundle declaring configSchema fails for the file RHDH reads", () => {
+  // The false negative the directory gate left open. This bundle ships no dist-scalprum/
+  // at all, so gating the check on that directory skipped the very file RHDH looks for:
+  // the package declared configSchema, shipped the upstream-default copy, and passed —
+  // while RHDH found no dist-scalprum/configSchema.json and dropped its config in silence.
+  // RHDHBUGS-1157 on the NFS lane, which is the lane the docs claim is covered.
+  const { systems, configSchema, error } = validateFrontendBundle(
+    makePlugin([...NEW_FE, "dist/.config-schema.json"], {
+      ...NEW_FE_BODIES,
+      "package.json": JSON.stringify({
+        name: "test",
+        backstage: {
+          role: "frontend-plugin",
+          features: { "./alpha": "@backstage/FrontendPlugin" },
+        },
+        configSchema: "config.d.ts",
+      }),
+      "dist/.config-schema.json": SCHEMA,
+    }),
+  );
+  assert.deepEqual(systems, ["new-frontend-system"]);
+  assert.match(
+    error ?? "",
+    /dist-scalprum\/configSchema\.json is not in the bundle/,
+  );
+  assert.equal(configSchema.files[0].consumer, "rhdh");
+  assert.equal(configSchema.files[0].state, "missing");
+  // The upstream copy is present and fine — which is exactly why the old gate passed it.
+  assert.equal(configSchema.files[1].state, "ok");
 });
 
 test("an unreadable schema is distinguished from a missing one", () => {
@@ -799,7 +844,7 @@ test("an unreadable schema is distinguished from a missing one", () => {
       "dist-scalprum/configSchema.json": "{not json",
     }),
   );
-  assert.match(error ?? "", /configSchema\.json is not valid JSON/);
+  assert.match(error ?? "", /configSchema\.json could not be read or parsed/);
   assert.equal(configSchema.files[0].state, "unreadable");
   assert.equal(configSchema.files[0].propertyCount, null);
 });
@@ -810,7 +855,7 @@ test("a configSchema fault is reported alongside an unrelated bundle fault", () 
   const { error } = validateFrontendBundle(
     makePlugin(LEGACY_WITHOUT_ASSET, {
       "package.json": CONFIG_PKG,
-      "dist-scalprum/plugin-manifest.json": scalprumManifest(),
+      ...LEGACY_BODIES,
     }),
   );
   assert.match(error ?? "", /loadScripts asset\(s\) not present/);
@@ -871,7 +916,7 @@ test("a plugin-manifest.json of literal null is classified, not thrown", () => {
     makePlugin(LEGACY, { "dist-scalprum/plugin-manifest.json": "null" }),
   );
   assert.match(error ?? "", /`name` missing/);
-  assert.match(error ?? "", /`extensions` is not an array/);
+  assert.match(error ?? "", /`extensions` is missing or not an array/);
   assert.match(error ?? "", /`loadScripts` is not an array/);
   assert.deepEqual(systems, ["legacy"]);
   assert.equal(scalprum?.name, null);
@@ -890,10 +935,10 @@ test("a positive extensions array is counted, not just detected", () => {
   assert.equal(scalprum?.extensionCount, 2);
 });
 
-test("a schema whose properties is an array declares nothing", () => {
+test("a schema whose properties is an array is not counted as declaring anything", () => {
   // `typeof [] === "object"`, so without the Array.isArray guard `{"properties": ["a"]}`
-  // counts 1 and passes as `ok` — waving through the exact RHDHBUGS-1157 shape the check
-  // exists to catch, since a JSON Schema's `properties` must be an object.
+  // counts 1. A JSON Schema's `properties` must be an object; an array declares nothing,
+  // and the count has to say so rather than inflating.
   const { configSchema, error } = validateFrontendBundle(
     makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
       ...LEGACY_BODIES,
@@ -903,8 +948,10 @@ test("a schema whose properties is an array declares nothing", () => {
       }),
     }),
   );
-  assert.match(error ?? "", /declares no properties/);
-  assert.equal(configSchema.files[0].state, "empty");
+  // The document is not `{}`, so it is not `empty`; it reaches the gatherer's own guard
+  // and fails there, because nothing gave it a `$schema`.
+  assert.match(error ?? "", /is missing `\$schema`/);
+  assert.equal(configSchema.files[0].state, "invalid");
   assert.equal(configSchema.files[0].propertyCount, 0);
 });
 
@@ -948,4 +995,55 @@ test("the module-federation side's schema is read, not only checked for presence
       ["dist/.config-schema.json", "ok", 1],
     ],
   );
+});
+
+test("a schema the backend gatherer would reject is not reported as ok", () => {
+  // gatherDynamicPluginsSchemas' last guard: `if (!serialized?.$schema || serialized?.type
+  // !== "object")` it logs and skips, so the config is dropped exactly as it is for a
+  // missing file. Counting properties alone called this `ok` and published that in
+  // results.json — a check that says the artifact is fine about one the runtime discards.
+  const { configSchema, error } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": JSON.stringify({
+        type: "object",
+        properties: { dynatrace: { type: "object" } },
+      }),
+    }),
+  );
+  assert.match(error ?? "", /missing `\$schema`/);
+  assert.equal(configSchema.files[0].state, "invalid");
+  // The count is still reported: the schema does declare something, it just cannot load.
+  assert.equal(configSchema.files[0].propertyCount, 1);
+});
+
+test("a schema whose type is not object is rejected for that reason", () => {
+  const { configSchema } = validateFrontendBundle(
+    makePlugin([...LEGACY, "dist-scalprum/configSchema.json"], {
+      ...LEGACY_BODIES,
+      "package.json": CONFIG_PKG,
+      "dist-scalprum/configSchema.json": JSON.stringify({
+        $schema: "https://backstage.io/schema/config-v1",
+        type: "array",
+        properties: { dynatrace: { type: "object" } },
+      }),
+    }),
+  );
+  assert.equal(configSchema.files[0].state, "invalid");
+});
+
+test("a bundle with no recognised layout says so even when the schema also fails", () => {
+  // The layout error used to be returned only when `problems` was empty, so a
+  // configSchema fault — which is layout-independent, and therefore exactly the fault
+  // that co-occurs with this one — swallowed it. results.json then carried `systems: []`
+  // with nothing in the error explaining why.
+  const { systems, error } = validateFrontendBundle(
+    makePlugin(["package.json", "dist/some-chunk.js"], {
+      "package.json": CONFIG_PKG,
+    }),
+  );
+  assert.deepEqual(systems, []);
+  assert.match(error ?? "", /no frontend bundle found/);
+  assert.match(error ?? "", /declares `configSchema`/);
 });

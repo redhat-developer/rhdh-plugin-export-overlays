@@ -41,9 +41,11 @@ The check recognizes both packagings and records which one(s) each plugin ships 
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
 
-Both halves validate the manifest's **shape**, not just its presence. Presence is what let
-two silent customer bugs through: in each, the artifact is there, the app boots, nothing
-errors, and the plugin is simply absent.
+Both halves validate the manifest's **shape**, not just its presence, and separately the
+bundle is required to ship the config schema it declares. Presence is what let two silent
+customer bugs through — RHDHBUGS-2180 on the manifests, RHDHBUGS-1157 on the schema. In
+each, the artifact is there, the app boots, nothing errors, and the plugin is either absent
+or running on its defaults.
 
 #### Scalprum manifest (`frontend.bundles[].scalprum`)
 
@@ -54,8 +56,8 @@ errors, and the plugin is simply absent.
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`               | the host registers the remote under this, and RHDH matches app-config `dynamicPlugins.frontend.<key>` against it. Missing ⇒ **fails**: no mount point can be addressed                                                                                                                                                                                                                                     |
 | `loadScripts`        | the assets the host fetches to initialise the plugin. Not an array, empty, carrying an entry that is not a non-empty asset name, escaping `dist-scalprum/`, or naming something the bundle does not contain as a file ⇒ **fails**: the host fetches a 404, the registration callback never runs, every configured route answers 404. Escaping and absent get different messages, as they do on the MF side |
-| `extensionCount`     | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                                                                                                                                                        |
 | `missingScripts`     | the `loadScripts` entries with no usable asset behind them — the evidence for the row above                                                                                                                                                                                                                                                                                                                |
+| `extensionCount`     | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                                                                                                                                                        |
 | `registrationMethod` | `callback` for everything RHDH publishes                                                                                                                                                                                                                                                                                                                                                                   |
 
 `extensionCount: 0` is the normal shape, not a defect: `@red-hat-developer-hub/cli` constructs
@@ -72,13 +74,60 @@ A bundle that declares configuration must ship the schema for it, or Backstage h
 to match the plugin's app-config keys against and drops them without a word — the plugin
 runs on its defaults while the operator's settings look applied (RHDHBUGS-1157).
 
+The consumer is `gatherDynamicPluginsSchemas` in
+`@backstage/backend-dynamic-feature-service`, and **RHDH overrides its locator**
+(`rhdh:packages/backend/src/index.ts`):
+
+```ts
+schemaLocator(pluginPackage) {
+  const platform = PackageRoles.getRoleInfo(pluginPackage.manifest.backstage.role).platform;
+  return path.join(platform === "node" ? "dist" : "dist-scalprum", "configSchema.json");
+},
+```
+
+`PackageRoles.getRoleInfo("frontend-plugin").platform` is `"web"`, so for every package this
+check inspects RHDH reads **`dist-scalprum/configSchema.json`** — never
+`dist/.config-schema.json`, which is only the upstream default. The export writes one file
+per consumer, which is why there are two:
+
+| Role              | RHDH reads                        | Upstream default reads     |
+| ----------------- | --------------------------------- | -------------------------- |
+| `frontend-plugin` | `dist-scalprum/configSchema.json` | `dist/.config-schema.json` |
+| `backend-plugin`  | `dist/configSchema.json`          | `dist/.config-schema.json` |
+
+Only RHDH's path is failed on, and it is checked **whether or not `dist-scalprum/` exists** —
+its absence is the fault. Gating it on the directory left an NFS-only bundle, which ships no
+`dist-scalprum/` at all, passing while RHDH dropped its config in silence. The upstream copy
+is reported with `consumer: "upstream-default"` and never failed: rejecting an artifact over
+a file this platform ignores would be a false positive.
+
+The gatherer drops a schema in four ways, which is what the states below mirror:
+
+```js
+if (!await fs.pathExists(schemaLocation)) continue;   // missing -> silent
+if (!serialized) continue;                            // null    -> silent
+if (isEmpty(serialized)) continue;                    // {}      -> silent
+if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first,
+  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value)); //  not modelled here
+}
+if (!serialized?.$schema || serialized?.type !== "object") {
+  logger.error("Serialized configuration schema is invalid for plugin ...");
+  continue;                                           // invalid -> logged
+}
+```
+
+Only the last is not silent, and a line in a backend log is not much louder than nothing for
+an artifact published weeks earlier — the config is dropped either way. The wrapped form is
+not modelled here: `export-dynamic-plugin` never writes it, and judging it would mean
+reimplementing the merge.
+
 `declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
 `declaredError` beside it for when `package.json` could not be read at all — a failure to
 look must not be published as `declared: false`, the same reason `mf.nfsFeaturesError`
 exists. `files` carries one entry per path `export-dynamic-plugin` writes for the layouts
 the bundle ships — `dist-scalprum/configSchema.json` and `dist/.config-schema.json`
-(different filename) — each `ok`, `missing`, `unreadable` or `empty`, with its
-`propertyCount`.
+(different filename) — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
+`empty` or `invalid`, plus its `propertyCount`.
 
 Note what `ok` does and does not establish. The export writes the schema MERGED across the
 package and its filtered dependency tree, so `ok` means some schema survived, not that this
@@ -88,7 +137,7 @@ schema built purely from dependencies). Proving the plugin's own keys survived w
 compiling its `config.d.ts`, which is the export's job. The check catches the total loss,
 which is what RHDHBUGS-1157 was.
 
-**Only `declared: true` can fail.** The export merges the package's own `configSchema` with
+**Only `declared: true` — or a `package.json` that could not be read at all — can fail.** The export merges the package's own `configSchema` with
 every one it finds in the dependency tree, so an empty schema means "declares nothing" for
 most packages and "the declaration was lost" only for the ones that declare: 33 of 76
 declare, 32 ship an empty schema, and only the intersection is a finding. Failing on an

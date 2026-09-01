@@ -254,12 +254,17 @@ every one.
 3. **The plugin mounts but ignores its configuration.** A bundle whose `package.json`
    declares `configSchema` and which ships no schema for it leaves Backstage nothing to
    match the plugin's app-config keys against, so they are dropped without a word and the
-   plugin runs on its defaults (RHDHBUGS-1157). This one is frontend-system-agnostic — the
-   export writes a schema beside each layout it finds, and an NFS lane hits it exactly as the
-   legacy path does. A suite that asserts the page rendered passes straight through, so
+   plugin runs on its defaults (RHDHBUGS-1157). This one is frontend-system-agnostic, and
+   for a concrete reason: `gatherDynamicPluginsSchemas` in
+   `@backstage/backend-dynamic-feature-service` collects the schema on the **backend** side,
+   from a path RHDH derives from the package's ROLE rather than from its layout —
+   `dist-scalprum/configSchema.json` for anything whose platform is `web`. An NFS-only bundle
+   ships no `dist-scalprum/` at all, so it is if anything more exposed here than the legacy
+   path, not less. A suite that asserts the page rendered passes straight through, so
    assert a value that could only have come from the config. `smoke-tests-native` reports it
-   as `frontend.bundles[].configSchema`; only `declared: true` alongside a missing or empty
-   schema is a defect, because most packages legitimately declare no configuration at all.
+   as `frontend.bundles[].configSchema`; a defect needs `declared: true` alongside a schema
+   that is missing, empty, unreadable or malformed, because most packages legitimately
+   declare no configuration at all.
 
 So assert a positive DOM fact, not the absence of errors.
 

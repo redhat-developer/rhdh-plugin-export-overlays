@@ -209,7 +209,8 @@ export type MfRemoteInfo = {
  * The Scalprum plugin manifest as `@openshift/dynamic-plugin-sdk` reads it.
  *
  * The legacy half used to be a bare presence check, which passes on a manifest that
- * cannot load anything. Both bugs this exists for are silent at runtime — the app boots,
+ * cannot load anything. RHDHBUGS-2180 is the bug this exists for, and both of the faults
+ * below reproduce it: they are silent at runtime — the app boots,
  * nothing errors, and every configured frontend surface is simply absent:
  *
  * - a `loadScripts` entry with no matching asset: the host fetches a 404 and the plugin's
@@ -232,7 +233,7 @@ export type ScalprumInfo = {
    * Zero is NOT a defect and must never fail the harness. `@red-hat-developer-hub/cli`
    * constructs its `DynamicRemotePlugin` with a literal `extensions: []`
    * (lib/bundler/scalprumConfig.cjs.js), so every bundle this repo publishes reports 0 —
-   * 76 of 76 across the catalog at bs_1.52.0. The SDK agrees: its `RemotePluginManifest`
+   * 76 of 76 across the catalog as published today. The SDK agrees: its `RemotePluginManifest`
    * schema is `z.array(extensionSchema)` with no `.nonempty()`, while `loadScripts` is
    * `.nonempty()`. With `registrationMethod: "callback"` the plugin registers at runtime
    * through the Scalprum callback and RHDH drives its surfaces from app-config mount
@@ -254,11 +255,52 @@ export type ScalprumInfo = {
 };
 
 /** What became of one schema file the export writes beside a shipped bundle. */
-export type ConfigSchemaState = "ok" | "missing" | "unreadable" | "empty";
+export type ConfigSchemaState =
+  | "ok"
+  | "missing"
+  | "unreadable"
+  | "empty"
+  /**
+   * Present and non-empty, but shaped so the gatherer will not load it — missing
+   * `$schema`, or a `type` other than `"object"`. Separate from `empty` because the
+   * remedy differs: an empty schema means the export collected nothing, a malformed one
+   * means it collected something unusable.
+   *
+   * Known limit: the gatherer also accepts a wrapped form, `backstageConfigSchemaVersion:
+   * 1`, which it merges through `mergeConfigSchemas` BEFORE applying the guards above.
+   * That form is not modelled here — `export-dynamic-plugin` never writes it, and judging
+   * it would mean reimplementing the merge. A bundle shipping one would be reported
+   * `invalid`; that is this function declining to guess, not a verdict on the artifact.
+   */
+  | "invalid";
+
+/** Which host reads a given schema file, and therefore whether its absence matters here. */
+export type ConfigSchemaConsumer =
+  /**
+   * What RHDH's own `schemaLocator` resolves to for this package's role. RHDH overrides
+   * the upstream default in `packages/backend/src/index.ts`:
+   *
+   * ```ts
+   * return path.join(platform === "node" ? "dist" : "dist-scalprum", "configSchema.json");
+   * ```
+   *
+   * `PackageRoles.getRoleInfo("frontend-plugin").platform` is `"web"`, so for every package
+   * this function inspects the path is `dist-scalprum/configSchema.json`. This is the file
+   * whose absence drops the plugin's config, so it is the only one failed on.
+   */
+  | "rhdh"
+  /**
+   * `dist/.config-schema.json`, the default locator in
+   * `@backstage/backend-dynamic-feature-service`. RHDH never reads it for a frontend
+   * package, so it is reported for a plain-Backstage host's benefit and never failed on —
+   * failing it would reject an artifact over a file the target platform ignores.
+   */
+  | "upstream-default";
 
 export type ConfigSchemaFile = {
   /** Bundle-relative path, e.g. `dist-scalprum/configSchema.json`. */
   path: string;
+  consumer: ConfigSchemaConsumer;
   state: ConfigSchemaState;
   /**
    * How many top-level `properties` keys the schema declares; null unless it was read.
@@ -296,7 +338,8 @@ export type ConfigSchemaInfo = {
    */
   declaredError: string | null;
   /**
-   * One entry per path the export CLI writes for the layouts this bundle ships.
+   * One entry per path the export writes, each tagged with the host that reads it. Only
+   * the `rhdh` one can fail — see {@link ConfigSchemaConsumer}.
    *
    * Note what `ok` does and does not establish. The export writes the schema MERGED across
    * the package and its filtered dependency tree, so `ok` means some schema survived, not
@@ -611,9 +654,15 @@ function readScalprumFields(
   // Each entry is untrusted JSON from inside a published OCI artifact, so contain it
   // before touching the filesystem — the rule src/paths.ts documents, applied here for
   // the same reason findBundleAssetProblems applies it to metaData.remoteEntry.path.
-  const escaping = loadScripts.filter(
-    (script) => !resolveContained(script, scalprumDir),
-  );
+  // Resolved once per entry: `escaping` and `missingScripts` are two readings of the same
+  // resolution, and doing it twice invited them to drift apart.
+  const resolved = loadScripts.map((script) => ({
+    script,
+    full: resolveContained(script, scalprumDir),
+  }));
+  const escaping = resolved
+    .filter((entry) => !entry.full)
+    .map((entry) => entry.script);
   return {
     scalprum: {
       name: typeof parsed.name === "string" && parsed.name ? parsed.name : null,
@@ -625,10 +674,9 @@ function readScalprumFields(
           ? parsed.registrationMethod
           : null,
       loadScripts,
-      missingScripts: loadScripts.filter((script) => {
-        const resolved = resolveContained(script, scalprumDir);
-        return !resolved || !isFile(resolved);
-      }),
+      missingScripts: resolved
+        .filter((entry) => !entry.full || !isFile(entry.full))
+        .map((entry) => entry.script),
     },
     loadScriptsRaw,
     escaping,
@@ -645,7 +693,7 @@ function findScalprumProblems(fields: ScalprumFields): string[] {
     );
   }
   if (scalprum.extensionCount === null) {
-    problems.push("`extensions` is not an array");
+    problems.push("`extensions` is missing or not an array");
   }
   // Three distinct faults, reported apart for the reason findRouterGuardProblems keeps
   // "`exposes` is not an array" and "`exposes` has an entry without a `name`" apart:
@@ -692,39 +740,87 @@ function findScalprumProblems(fields: ScalprumFields): string[] {
  * so the exhaustive Record still forces a message for any state added later without
  * carrying a string for the one case that never reaches it.
  */
+/** What RHDH's `schemaLocator` resolves to for a `frontend-plugin` role (platform "web"). */
+const RHDH_FRONTEND_SCHEMA = "dist-scalprum/configSchema.json";
+/** The default locator in @backstage/backend-dynamic-feature-service, which RHDH overrides. */
+const UPSTREAM_DEFAULT_SCHEMA = "dist/.config-schema.json";
+
 const CONFIG_SCHEMA_FAULTS: Record<Exclude<ConfigSchemaState, "ok">, string> = {
   missing: "is not in the bundle",
-  unreadable: "is not valid JSON",
+  unreadable: "could not be read or parsed",
   empty: "declares no properties (the export collected an empty schema)",
+  invalid:
+    'is missing `$schema` or is not `type: "object"`, so the backend\'s schema ' +
+    "gatherer rejects it",
 };
 
 /** Read one schema file the export wrote, classifying why it cannot be used. */
 function readConfigSchemaFile(
   pluginPath: string,
   rel: string,
+  consumer: ConfigSchemaConsumer,
 ): ConfigSchemaFile {
+  const file = (
+    state: ConfigSchemaState,
+    propertyCount: number | null,
+  ): ConfigSchemaFile => ({ path: rel, consumer, state, propertyCount });
   const full = join(pluginPath, rel);
-  if (!existsSync(full)) {
-    return { path: rel, state: "missing", propertyCount: null };
-  }
+  if (!existsSync(full)) return file("missing", null);
   let schema: unknown;
   try {
     schema = JSON.parse(readFileSync(full, "utf8"));
   } catch {
-    return { path: rel, state: "unreadable", propertyCount: null };
+    // Covers an I/O failure as well as a parse failure, which is why the message says
+    // "could not be read or parsed" rather than naming JSON: an EACCES reported as
+    // malformed JSON sends a reader after the wrong defect.
+    return file("unreadable", null);
   }
-  const properties = (schema as { properties?: unknown })?.properties;
+
+  const parsed = schema as {
+    properties?: unknown;
+    $schema?: unknown;
+    type?: unknown;
+  };
+  const properties = parsed?.properties;
   // Array.isArray is not redundant with the typeof: `typeof [] === "object"`, so
-  // `{"properties": ["a"]}` would otherwise count 1 and pass as `ok`. A JSON Schema's
-  // `properties` must be an object — an array declares nothing, which is the very shape
-  // this check exists to catch.
+  // `{"properties": ["a"]}` would otherwise count 1. A JSON Schema's `properties` must be
+  // an object; an array declares nothing.
   const count =
     typeof properties === "object" &&
     properties !== null &&
     !Array.isArray(properties)
       ? Object.keys(properties).length
       : 0;
-  return { path: rel, state: count > 0 ? "ok" : "empty", propertyCount: count };
+
+  // `empty` mirrors the gatherer's own `isEmpty(serialized)` over the WHOLE document, not
+  // a count of top-level `properties`. Counting was stricter than the consumer: a schema
+  // declaring its keys through `patternProperties`, `additionalProperties` or `allOf` has
+  // no top-level `properties` and would have been failed for a bundle RHDH loads fine.
+  // This function mirrors the consumer's guards; it does not referee JSON Schema.
+  if (
+    schema === null ||
+    (typeof schema === "object" && Object.keys(schema).length === 0)
+  ) {
+    return file("empty", 0);
+  }
+  // The gatherer's last guard, mirrored: `if (!serialized?.$schema || serialized?.type
+  // !== "object")` it logs and skips. Unlike the conditions above this one is not silent —
+  // it writes "Serialized configuration schema is invalid for plugin X" — but the outcome
+  // is identical, the config is dropped, and a line in a backend log is not meaningfully
+  // louder than nothing for an artifact published weeks earlier. No published schema
+  // reaches this state today: the 64 that would fail it are literally `{}` and are
+  // classified `empty` first.
+  // One condition, because the gatherer's is one condition and nothing downstream
+  // distinguishes which half failed — splitting it produced two identical returns and
+  // drifted from the guard this claims to mirror.
+  if (
+    typeof parsed?.$schema !== "string" ||
+    !parsed.$schema ||
+    parsed?.type !== "object"
+  ) {
+    return file("invalid", count);
+  }
+  return file("ok", count);
 }
 
 /**
@@ -762,18 +858,24 @@ function inspectConfigSchema(pluginPath: string): {
     readError = `could not read package.json for configSchema (${errorMessage(err)})`;
   }
 
-  // Gated on the DIRECTORIES, deliberately looser than the `systems` gate in
-  // validateFrontendBundle, which needs the manifest file itself: the export writes each
-  // schema beside whichever dist dir it finds, so a bundle whose plugin-manifest.json is
-  // broken still owes a configSchema.json, and both faults should be reported.
-  const files: ConfigSchemaFile[] = [];
-  if (existsSync(join(pluginPath, "dist-scalprum"))) {
-    files.push(
-      readConfigSchemaFile(pluginPath, "dist-scalprum/configSchema.json"),
-    );
-  }
+  // RHDH's file is NOT gated on its directory existing. That gate mirrored the export CLI
+  // and left the failure this check exists for wide open: an NFS-only bundle ships no
+  // dist-scalprum/ at all, so the gate skipped the very file RHDH looks for, and a package
+  // declaring configSchema passed while RHDH dropped its config in silence — RHDHBUGS-1157
+  // on the NFS lane. Absence of RHDH's file IS the fault, so it is always read.
+  const files: ConfigSchemaFile[] = [
+    readConfigSchemaFile(pluginPath, RHDH_FRONTEND_SCHEMA, "rhdh"),
+  ];
+  // The upstream default is only meaningful when a dist/ exists to hold it, and is
+  // reported rather than failed — see ConfigSchemaConsumer.
   if (existsSync(join(pluginPath, "dist"))) {
-    files.push(readConfigSchemaFile(pluginPath, "dist/.config-schema.json"));
+    files.push(
+      readConfigSchemaFile(
+        pluginPath,
+        UPSTREAM_DEFAULT_SCHEMA,
+        "upstream-default",
+      ),
+    );
   }
   const configSchema: ConfigSchemaInfo = {
     declared,
@@ -786,8 +888,10 @@ function inspectConfigSchema(pluginPath: string): {
   // a defect, so the check is gated on `declared` rather than on the schema alone.
   if (!declared) return { configSchema, error: null };
 
+  // Only RHDH's own path can fail. Failing the upstream-default copy would reject an
+  // artifact over a file this platform never reads.
   const problems = files.flatMap((file) =>
-    file.state === "ok"
+    file.consumer !== "rhdh" || file.state === "ok"
       ? []
       : [`${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`],
   );
@@ -814,7 +918,8 @@ function inspectConfigSchema(pluginPath: string): {
  * advertises a system it can't deliver.
  *
  * Both halves validate the manifest's SHAPE, not just its presence, because presence is
- * what let two silent customer bugs through: the remotes router skips a malformed
+ * what let two silent customer bugs through — RHDHBUGS-2180 and RHDHBUGS-1157: the
+ * remotes router skips a malformed
  * mf-manifest.json with a log line and still answers `200 []`, and the Scalprum host
  * fetches whatever `loadScripts` names, so an absent asset 404s and the plugin's
  * registration callback never runs. Either reaches the browser as an app that boots
@@ -888,14 +993,21 @@ export function validateFrontendBundle(
   if (schema.error) problems.push(schema.error);
   const result = { systems, mf, scalprum, configSchema: schema.configSchema };
 
-  if (problems.length) return { ...result, error: problems.join("; ") };
-  if (systems.length === 0) {
-    return {
-      ...result,
-      error:
-        "no frontend bundle found — needs dist-scalprum/ (legacy frontend system) " +
-        "and/or dist/mf-manifest.json (new frontend system)",
-    };
-  }
-  return { ...result, error: null };
+  // Shipping no recognised layout is its own fault and is reported ALONGSIDE any others,
+  // not instead of them. Returning early on `problems` swallowed it whenever a
+  // configSchema fault was present — and that fault is layout-independent, so the pair
+  // occurs together, leaving `systems: []` in results.json with nothing explaining it.
+  const allProblems = [
+    ...(systems.length === 0
+      ? [
+          "no frontend bundle found — needs dist-scalprum/ (legacy frontend system) " +
+            "and/or dist/mf-manifest.json (new frontend system)",
+        ]
+      : []),
+    ...problems,
+  ];
+  return {
+    ...result,
+    error: allProblems.length ? allProblems.join("; ") : null,
+  };
 }
