@@ -88,19 +88,21 @@ spec:
       expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
     }
 
-    await APIHelper.createGitHubRepoWithFile(
-      catalogRepoDetails.owner,
-      catalogRepoDetails.name,
-      "catalog-info.yaml",
-      catalogInfoYamlContent,
-    );
+    await test.runOnce(`bulk-import-repo-setup-${namespace}`, async () => {
+      await APIHelper.createGitHubRepoWithFile(
+        catalogRepoDetails.owner,
+        catalogRepoDetails.name,
+        "catalog-info.yaml",
+        catalogInfoYamlContent,
+      );
 
-    await APIHelper.createGitHubRepoWithFile(
-      newRepoDetails.owner,
-      newRepoDetails.repoName,
-      "README.md",
-      "qa test project",
-    );
+      await APIHelper.createGitHubRepoWithFile(
+        newRepoDetails.owner,
+        newRepoDetails.repoName,
+        "README.md",
+        "qa test project",
+      );
+    });
   });
 
   test.afterAll(async () => {
