@@ -1,9 +1,9 @@
 plugins:
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions-dynamic
+  - package: ref://red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
     disabled: false
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-extensions-backend-dynamic
+  - package: ref://red-hat-developer-hub-backstage-plugin-extensions-backend
     disabled: false
-  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-extensions
+  - package: ref://red-hat-developer-hub-backstage-plugin-extensions
     disabled: false
     pluginConfig:
       dynamicPlugins:
