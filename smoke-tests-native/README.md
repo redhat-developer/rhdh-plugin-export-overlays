@@ -26,6 +26,7 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
   → validateBackendBundle()   # configSchema shipped — the one fault booting cannot reveal
   → validateFrontendBundle()  # both manifests usable; configSchema shipped (not executed)
+  → findConfigKeyMismatches() # workspace mode: configured keys vs Scalprum bundle names
   → results.json + exit code
 ```
 
@@ -68,6 +69,46 @@ bundles report 0, and the SDK's own manifest schema permits it (`z.array(...)` w
 the plugin registers at runtime and RHDH drives its surfaces from app-config mount points,
 so a static extension list is not where anything is declared. Failing on it would fail the
 entire catalogue and could never go green.
+
+#### Configured key vs bundle name (`frontend.configKeyMismatches`)
+
+The other half of the `name` row above. RHDH matches the app-config key
+`dynamicPlugins.frontend.<key>` against the `name` the bundle's Scalprum manifest reports;
+when they disagree the plugin loads and **every mount point configured under that key is
+ignored, with nothing logged** — the same user-visible outcome as RHDHBUGS-2180, reached a
+different way. A present, well-formed manifest passes every check above and still delivers
+nothing.
+
+Workspace mode only: the keys come from `spec.appConfigExamples[].content.dynamicPlugins.frontend`
+in `workspaces/<name>/metadata/*.yaml`, which the other modes have no equivalent of. The
+field is **absent** rather than `[]` there, because "not checked here" and "checked and
+clean" must not read the same.
+
+Two things keep it from crying wolf:
+
+- **The keys come from the packages actually installed**, not from the workspace's metadata
+  at large. `collectWorkspaceRefs` returns them alongside the refs for exactly this reason:
+  a `--support` sweep installs a subset, and a key belonging to a filtered-out package would
+  otherwise match no installed bundle — the check would go red precisely on the runs that
+  validate less. Packages whose artifact is a local `./dynamic-plugins/dist/…` path are left
+  out for the same reason: nothing is installed for them.
+- **RHDH's own built-in keys are excluded.** `default.main-menu-items` names no plugin; RHDH
+  filters it out by scope in `ignoreStaticPlugins`
+  (`packages/app/src/utils/dynamicUI/initializeRemotePlugins.ts`) before asking Scalprum for
+  anything, and its docs describe the `default.` prefix as required for main menu items.
+  This is a constant mirroring RHDH, not a tracked exclusion: the exclusions file exists for
+  defects that carry a ticket and get deleted when fixed, and a permanent product fact
+  filed there would make "every entry has a ticket" a lie.
+
+The comparison is **set-based** — does any bundle in the run report the name — rather than
+tied to the bundle of the package that declares the key. One OCI image can carry several
+plugins (`cost-management` is two packages behind one ref), so a per-package mapping would
+not survive the catalogue as it actually is.
+
+Measured across the published catalogue: 49 workspaces configure frontend keys, 73 keys in
+total, and **every one matches** once the built-in is excluded. Emptying the built-in list
+yields exactly one finding, the `global-header` one — so the exclusion suppresses that and
+nothing else, and global-header's own plugin key is still checked.
 
 #### Config schema (`frontend.bundles[].configSchema`, `backend.bundles[].configSchema`)
 

@@ -78,7 +78,9 @@ import {
 } from "./loader";
 import {
   computeStatus,
+  describeConfigKeyMismatch,
   describeInstallShortfall,
+  findConfigKeyMismatches,
   describeNfsShortfall,
   partitionBootable,
   type ShortfallOptions,
@@ -108,6 +110,7 @@ import {
   discoverSmokeTestConfig,
   isValidWorkspaceName,
   writeDynamicPluginsConfig,
+  type ConfiguredFrontendKey,
 } from "./workspace";
 import { readCatalogIndexRefs, writeCatalogIndexConfig } from "./catalog-index";
 
@@ -184,11 +187,11 @@ async function materializeWorkspaceConfig(
   support: string | undefined,
   exclusions: Exclusion[],
 ): Promise<MaterializedSource> {
-  const { refs, skipped, excluded, outOfScope } = collectWorkspaceRefs(
-    REPO_ROOT,
-    workspace,
-    { support, installExcluded: excluderFor(exclusions, "install") },
-  );
+  const { refs, skipped, excluded, outOfScope, frontendConfigKeys } =
+    collectWorkspaceRefs(REPO_ROOT, workspace, {
+      support,
+      installExcluded: excluderFor(exclusions, "install"),
+    });
   console.log(
     `▶ workspace '${workspace}': ${refs.length} oci plugin ref(s)` +
       (support ? ` at support '${support}' (${outOfScope} out of scope)` : ""),
@@ -198,6 +201,7 @@ async function materializeWorkspaceConfig(
     path,
     refCount: refs.length,
     shortfall: { subject: "workspace" },
+    frontendConfigKeys,
     workspace: {
       name: workspace,
       refCount: refs.length,
@@ -323,6 +327,13 @@ type MaterializedSource = {
   shortfall?: ShortfallOptions;
   workspace?: WorkspaceInfo;
   catalogIndex?: CatalogIndexInfo;
+  /**
+   * `dynamicPlugins.frontend` keys this source's metadata configures, for the
+   * bundle-name cross-check (RHIDP-16690). Undefined outside workspace mode, which is
+   * the difference between "no metadata to read keys from" and "metadata read, none
+   * configured" — only the second may be reported as clean.
+   */
+  frontendConfigKeys?: ConfiguredFrontendKey[];
   excluded: ExclusionRecord[];
 };
 
@@ -664,6 +675,20 @@ async function main(): Promise<number> {
     const start = await startBackend(loaded, appConfig);
     const backendBundles = validateBackends(manifest.backend);
     const frontend = validateFrontends(manifest.frontend);
+    // Workspace mode only: the other modes have no metadata to read keys from, and
+    // reporting [] there would claim a check that never ran. `?? []` is not a
+    // substitute for that distinction — see MaterializedSource.frontendConfigKeys.
+    const configKeyMismatches = materialized.frontendConfigKeys
+      ? findConfigKeyMismatches(
+          materialized.frontendConfigKeys,
+          frontend.bundles.flatMap((b) =>
+            b.scalprum?.name ? [b.scalprum.name] : [],
+          ),
+        )
+      : undefined;
+    for (const mismatch of configKeyMismatches ?? []) {
+      console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
+    }
     for (const { plugin, error } of backendBundles.errors) {
       console.error(`✗ backend '${plugin.name}': ${error}`);
     }
@@ -688,15 +713,19 @@ async function main(): Promise<number> {
         valid: frontend.valid,
         errors: frontend.errors,
         bundles: frontend.bundles,
+        configKeyMismatches,
       },
       exclusions: [...materialized.excluded, ...excluded],
       installShortfall: installShortfall ?? undefined,
       status: installShortfall
         ? "fail-install"
-        : computeStatus(loadErrors, start.ok, loaded.length, [
-            ...frontend.errors,
-            ...backendBundles.errors,
-          ]),
+        : computeStatus(
+            loadErrors,
+            start.ok,
+            loaded.length,
+            [...frontend.errors, ...backendBundles.errors],
+            configKeyMismatches?.length ?? 0,
+          ),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));

@@ -8,7 +8,9 @@ import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import {
   computeStatus,
+  describeConfigKeyMismatch,
   describeInstallShortfall,
+  findConfigKeyMismatches,
   describeNfsShortfall,
   partitionBootable,
 } from "./harness-logic";
@@ -181,4 +183,102 @@ test("a failure to read backstage.features yields no verdict at all", () => {
     ),
     null,
   );
+});
+
+// --- config key / bundle name cross-check (RHIDP-16690) ---------------------------
+
+test("findConfigKeyMismatches reports a key no bundle name answers to", () => {
+  // The whole point: RHDH matches dynamicPlugins.frontend.<key> against the manifest's
+  // name, and when they disagree the plugin loads while every mount point under the key
+  // is ignored with nothing logged.
+  const found = findConfigKeyMismatches(
+    [{ key: "scope.typo", source: "a.yaml" }],
+    ["scope.real"],
+  );
+  assert.equal(found.length, 1);
+  assert.deepEqual(found[0], {
+    key: "scope.typo",
+    source: "a.yaml",
+    bundleNames: ["scope.real"],
+  });
+  // "Naming both sides" is an acceptance criterion, not a nicety: the key alone does not
+  // tell a reader what to write instead.
+  const message = describeConfigKeyMismatch(found[0]);
+  assert.match(message, /scope\.typo/);
+  assert.match(message, /bundles report: scope\.real/);
+  assert.match(message, /a\.yaml/);
+});
+
+test("a key some bundle reports is not a mismatch", () => {
+  assert.deepEqual(
+    findConfigKeyMismatches(
+      [{ key: "scope.real", source: "a.yaml" }],
+      ["other.plugin", "scope.real"],
+    ),
+    [],
+  );
+});
+
+test("RHDH's own built-in frontend key is never a mismatch", () => {
+  // default.main-menu-items is not a plugin name. RHDH filters it out by scope in
+  // `ignoreStaticPlugins` before asking Scalprum for anything, so no bundle can or
+  // should report it. It is the ONE mismatch across the whole published catalogue, and
+  // without this the check would fail global-header on a false positive.
+  assert.deepEqual(
+    findConfigKeyMismatches(
+      [{ key: "default.main-menu-items", source: "global-header.yaml" }],
+      ["red-hat-developer-hub.backstage-plugin-global-header"],
+    ),
+    [],
+  );
+});
+
+test("the built-in key does not blind the rest of its own workspace", () => {
+  // global-header declares both the built-in and its real plugin key. Allowlisting the
+  // first must not excuse the second — an allowlist that swallowed the workspace would
+  // be worse than no check.
+  const found = findConfigKeyMismatches(
+    [
+      { key: "default.main-menu-items", source: "global-header.yaml" },
+      {
+        key: "red-hat-developer-hub.backstage-plugin-global-header",
+        source: "global-header.yaml",
+      },
+    ],
+    ["something.else"],
+  );
+  assert.deepEqual(
+    found.map((m) => m.key),
+    ["red-hat-developer-hub.backstage-plugin-global-header"],
+  );
+});
+
+test("a key repeated across metadata files is reported once", () => {
+  // One key, one fix. Reporting it per file would make a workspace that configures the
+  // same plugin from two examples look twice as broken as it is.
+  const found = findConfigKeyMismatches(
+    [
+      { key: "scope.typo", source: "a.yaml" },
+      { key: "scope.typo", source: "b.yaml" },
+    ],
+    [],
+  );
+  assert.equal(found.length, 1);
+});
+
+test("with no bundle names at all the message still reads", () => {
+  // A frontend-less workspace, or one whose bundles ship no Scalprum manifest. "bundles
+  // report: " with nothing after it is a broken sentence, not a finding.
+  const found = findConfigKeyMismatches(
+    [{ key: "scope.x", source: "a.yaml" }],
+    [],
+  );
+  assert.match(describeConfigKeyMismatch(found[0]), /bundles report: nothing/);
+});
+
+test("a config key mismatch fails the run, below load and start failures", () => {
+  assert.equal(computeStatus([], true, 3, [], 1), "fail-bundle");
+  assert.equal(computeStatus([], true, 3, [], 0), "pass");
+  assert.equal(computeStatus([anError], true, 3, [], 1), "fail-load");
+  assert.equal(computeStatus([], false, 3, [], 1), "fail-start");
 });

@@ -23,6 +23,7 @@ import type {
   SweepSummary,
   SweepWorkspaceResult,
 } from "./report";
+import { describeConfigKeyMismatch } from "./harness-logic";
 import { compareStrings } from "./util";
 
 /** How a frontend bundle is packaged, from the systems its layout advertises. */
@@ -248,6 +249,13 @@ export function failureDetail(result: SweepWorkspaceResult): string {
     report.frontend.errors?.[0] ?? report.backend.bundleErrors?.[0];
   if (bundleError) {
     return oneLine(`${bundleError.plugin.name}: ${bundleError.error}`);
+  }
+  // Last, because it is the only fail-bundle cause with no plugin behind it: the finding
+  // is about a metadata key, so there is nothing to put in the `name: error` shape above.
+  // Without this branch a workspace failing only on it printed the bare status.
+  const configKeyMismatch = report.frontend.configKeyMismatches?.[0];
+  if (configKeyMismatch) {
+    return oneLine(describeConfigKeyMismatch(configKeyMismatch));
   }
   return report.status;
 }
