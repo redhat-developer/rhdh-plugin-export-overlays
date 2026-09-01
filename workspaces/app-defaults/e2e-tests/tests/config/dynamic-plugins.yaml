@@ -12,11 +12,11 @@
 # (acr, topology, tekton, scorecard, …). Keep these three in step with metadata/*.yaml.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.52.0__0.1.1
-    disabled: false
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
-    disabled: false
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations:bs_1.52.0__0.1.1
-    disabled: false
+    enabled: true
 
   # The provider the third spec needs. Published by this repo (workspaces/backstage), and
   # the same package e2e-test-utils installs for `auth: "github"` — but that preset also
@@ -25,7 +25,7 @@ plugins:
   # Credentials come from rhdh-secrets.yaml (VAULT_GITHUB_APP_CLIENT_ID/_SECRET), which is
   # already what app-config-rhdh.yaml references.
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.52.0__0.5.4
-    disabled: false
+    enabled: true
     pluginConfig:
       auth:
         providers:
