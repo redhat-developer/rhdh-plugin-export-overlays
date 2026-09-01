@@ -234,6 +234,18 @@ spec:
       discovery on the cluster.
 
     ```yaml
+    kubernetes:
+       serviceLocatorMethod:
+         type: 'multiTenant'
+       clusterLocatorMethods:
+         - type: 'config'
+           clusters:
+             - name: my-k8s-cluster
+               url: '${K8S_CLUSTER_URL}'
+               serviceAccountToken: '${K8S_SA_TOKEN}'
+               authProvider: serviceAccount
+               skipTLSVerify: false
+               caData: '${K8S_CA_DATA:-}'
     catalog:
       providers:
         modelCatalog:
