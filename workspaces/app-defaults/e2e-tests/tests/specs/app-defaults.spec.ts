@@ -27,7 +27,10 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
     // removes went stale — its ticket closed and no one re-read the test. The counter-
     // reminder lives on RHDHBUGS-3627 itself, which carries a note pointing back at this
     // file; the pair only works if whoever closes that ticket follows it here.
-    test.skip(true, "RHDHBUGS-3627");
+    test.skip(
+      true,
+      "RHDHBUGS-3627: the global header covers the sidebar's first item, so the Catalog link cannot be clicked",
+    );
     await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
     await uiHelper.verifyHeading(/catalog/i);
