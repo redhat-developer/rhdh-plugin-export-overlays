@@ -278,59 +278,61 @@ test.describe("Admin > Extensions", () => {
       page,
       uiHelper,
     }) => {
-      await extensions.searchExtensions("Topology");
-      await extensions.waitForSearchResults("Topology");
+      const plugin = "Adoption Insights for Red Hat Developer Hub";
+      const packageName =
+        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+
+      await extensions.searchExtensions(plugin);
+      await extensions.waitForSearchResults(plugin);
       await extensions.clickReadMoreByPluginTitle(
-        "Application Topology for Kubernetes",
+        plugin,
         "Generally available (GA)",
       );
+
       await uiHelper.clickButton("Actions");
       await page.getByText("Edit").click();
-      await uiHelper.verifyHeading("Application Topology for Kubernetes");
-      await uiHelper.verifyText(
-        "- package: ./dynamic-plugins/dist/backstage-community-plugin-topology",
-      );
-      await uiHelper.verifyText("disabled: false");
+      await uiHelper.verifyHeading(plugin);
+      await uiHelper.verifyText(`- package: ${packageName}`, false);
+
+      await uiHelper.verifyText(/^\s+(disabled:\sfalse|enabled:\strue)/);
       await uiHelper.verifyText("Apply");
       await uiHelper.verifyHeading("Default configuration");
       await uiHelper.clickButton("Apply");
       await uiHelper.verifyText("pluginConfig:");
       await uiHelper.verifyText("dynamicPlugins:");
+
       await uiHelper.clickTab("About the plugin");
       await uiHelper.verifyHeading("Configuring The Plugin");
       await uiHelper.clickTab("Examples");
+
       await uiHelper.clickByDataTestId("ContentCopyRoundedIcon");
       await expect(page.getByRole("button", { name: "✔" })).toBeVisible();
       await uiHelper.clickButton("Reset");
       await expect(page.getByText("pluginConfig:")).toBeHidden();
+
       // eslint-disable-next-line playwright/no-conditional-in-test
       const modifier = isMac ? "Meta" : "Control";
       await page.keyboard.press(`${modifier}+KeyA`);
       await page.keyboard.press(`${modifier}+KeyV`);
       await uiHelper.verifyText("pluginConfig:");
-      await page
-        .getByText(
-          "backstage-community-plugin-topologyDefault configurationApplydynamicPlugins:",
-        )
-        .locator("pre > .copy-button")
-        .click();
-      await expect(
-        page.getByRole("button", { name: "✔" }).nth(0),
-      ).toBeVisible();
+      await uiHelper.clickByDataTestId("ContentCopyRoundedIcon");
+      await expect(page.getByRole("button", { name: "✔" })).toBeVisible();
+
       const clipboardContent = await page.evaluate(() =>
         navigator.clipboard.readText(),
       );
-      expect(clipboardContent).not.toContain("pluginConfig:");
+      expect(clipboardContent).toContain("pluginConfig:");
       expect(clipboardContent).toContain(
-        "backstage-community.plugin-topology:",
+        "red-hat-developer-hub.backstage-plugin-adoption-insights:",
       );
+
       await uiHelper.clickButton("Cancel");
       await expect(
         page.getByRole("button", {
           name: new RegExp(`^${"Actions"}$`),
         }),
       ).toBeVisible();
-      await uiHelper.verifyHeading("Application Topology for Kubernetes");
+      await uiHelper.verifyHeading(plugin);
     });
 
     test("Enable plugin from catalog extension page", async ({
