@@ -129,25 +129,47 @@ def test_a_missing_plugin_name_does_not_render_as_an_object(tmp_path):
     assert renderer.collect_failures(doc) == ["?: boom"]
 
 
-def test_main_writes_both_files(tmp_path):
-    results = tmp_path / "results.json"
-    results.write_text(json.dumps(report()), encoding="utf-8")
-    title, body = tmp_path / "t.txt", tmp_path / "b.md"
-    import sys
+def run_main(monkeypatch, cwd, **flags):
+    """Drive main() from `cwd`, which is where the path confinement is anchored."""
+    monkeypatch.chdir(cwd)
+    argv = ["renderCatalogIndexIssue.py"]
+    for key, value in flags.items():
+        argv += [f"--{key.replace('_', '-')}", str(value)]
+    monkeypatch.setattr("sys.argv", argv)
+    return renderer.main()
 
-    argv = sys.argv
-    sys.argv = [
-        "renderCatalogIndexIssue.py",
-        "--results", str(results),
-        "--image", IMAGE,
-        "--digest", "sha256:abc",
-        "--run-url", RUN,
-        "--title-out", str(title),
-        "--body-out", str(body),
-    ]
-    try:
-        assert renderer.main() == 0
-    finally:
-        sys.argv = argv
-    assert title.read_text(encoding="utf-8") == renderer.render_title(IMAGE)
-    assert RUN in body.read_text(encoding="utf-8")
+
+def test_main_writes_both_files(tmp_path, monkeypatch):
+    (tmp_path / "results.json").write_text(json.dumps(report()), encoding="utf-8")
+    rc = run_main(
+        monkeypatch,
+        tmp_path,
+        results="results.json",
+        image=IMAGE,
+        digest="sha256:abc",
+        run_url=RUN,
+        title_out="t.txt",
+        body_out="b.md",
+    )
+    assert rc == 0
+    assert (tmp_path / "t.txt").read_text(encoding="utf-8") == renderer.render_title(IMAGE)
+    assert RUN in (tmp_path / "b.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "flag", ["results", "title_out", "body_out"], ids=["read", "title", "body"]
+)
+def test_a_path_escaping_the_working_directory_is_refused(tmp_path, monkeypatch, flag):
+    # Every path here arrives from argv. Confining them is the same rule
+    # validateCatalogIndex.py applies through the same helper, and it has to hold for
+    # the two OUTPUT paths as much as the input: those are the ones that would write.
+    (tmp_path / "results.json").write_text(json.dumps(report()), encoding="utf-8")
+    flags = {
+        "results": "results.json",
+        "image": IMAGE,
+        "title_out": "t.txt",
+        "body_out": "b.md",
+    }
+    flags[flag] = "../escaped"
+    assert run_main(monkeypatch, tmp_path, **flags) == 2
+    assert not (tmp_path.parent / "escaped").exists()

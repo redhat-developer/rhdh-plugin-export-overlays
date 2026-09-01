@@ -19,6 +19,8 @@ import json
 import sys
 from pathlib import Path
 
+from plugin_utils import PathNotContainedError, require_contained
+
 # How many failing packages the body lists before pointing at the artifact. A broken
 # index can fail dozens at once, and an issue that opens with sixty identical lines is
 # read by nobody; the full list is in results-catalog-index.json either way.
@@ -36,37 +38,52 @@ def load_report(path):
     return report if isinstance(report, dict) else None
 
 
-def collect_failures(report):
-    """Every per-package failure the report holds, as `name: error` lines.
+def _plugin_failures(entries):
+    """`name: error` lines from one PluginError list.
 
-    Reads all four lists, not just the two the job summary prints: a plugin that failed
-    to load and one whose bundle lost its config schema are both reasons this ran red,
-    and an issue naming only some of them sends the reader back to the artifact.
+    `.plugin` is an object, so a bare fallback would put the whole thing in the issue —
+    the trap the job summary's jq already carries a comment about.
+    """
+    lines = []
+    for item in entries or []:
+        if not isinstance(item, dict):
+            continue
+        name = ((item.get("plugin") or {}).get("name")) or "?"
+        lines.append(f"{name}: {item.get('error') or '?'}")
+    return lines
+
+
+def _config_key_failures(entries):
+    """The same, for mismatches — which carry a metadata file rather than a plugin.
+
+    The field arrives with RHIDP-16690; reading it before then is harmless, because a
+    report without it yields an empty list like any other.
+    """
+    return [
+        f"{item.get('source') or '?'}: configured key "
+        f"'{item.get('key') or '?'}' matches no bundle name"
+        for item in entries or []
+        if isinstance(item, dict)
+    ]
+
+
+def collect_failures(report):
+    """Every per-package failure the report holds.
+
+    All four lists, not just the two the job summary prints: a plugin that failed to
+    load and one whose bundle lost its config schema are both reasons this ran red, and
+    an issue naming only some of them sends the reader back to the artifact.
     """
     if report is None:
         return []
-    lines = []
-    sections = (
-        ("backend", "errors"),
-        ("backend", "bundleErrors"),
-        ("frontend", "errors"),
-    )
-    for half, key in sections:
-        for item in (report.get(half) or {}).get(key) or []:
-            if not isinstance(item, dict):
-                continue
-            name = ((item.get("plugin") or {}).get("name")) or "?"
-            lines.append(f"{name}: {item.get('error') or '?'}")
-    # Config-key mismatches carry no plugin, so they are shaped differently. The
-    # field arrives with RHIDP-16690; reading it here is harmless before then,
-    # because a report without it yields an empty list like any other.
-    for item in (report.get("frontend") or {}).get("configKeyMismatches") or []:
-        if isinstance(item, dict):
-            lines.append(
-                f"{item.get('source') or '?'}: configured key "
-                f"'{item.get('key') or '?'}' matches no bundle name"
-            )
-    return lines
+    backend = report.get("backend") or {}
+    frontend = report.get("frontend") or {}
+    return [
+        *_plugin_failures(backend.get("errors")),
+        *_plugin_failures(backend.get("bundleErrors")),
+        *_plugin_failures(frontend.get("errors")),
+        *_config_key_failures(frontend.get("configKeyMismatches")),
+    ]
 
 
 def render_title(image):
@@ -127,9 +144,20 @@ def main():
     parser.add_argument("--body-out", required=True)
     args = parser.parse_args()
 
-    report = load_report(args.results)
-    Path(args.title_out).write_text(render_title(args.image), encoding="utf-8")
-    Path(args.body_out).write_text(
+    # Every path here came from argv. Same rule validateCatalogIndex.py applies, through
+    # the same helper: resolved and required to stay inside the working directory before
+    # any filesystem call (Sonar S8707).
+    try:
+        results = require_contained("--results", args.results)
+        title_out = require_contained("--title-out", args.title_out)
+        body_out = require_contained("--body-out", args.body_out)
+    except PathNotContainedError as err:
+        print(f"error: {err}", file=sys.stderr)
+        return 2
+
+    report = load_report(results)
+    title_out.write_text(render_title(args.image), encoding="utf-8")
+    body_out.write_text(
         render_body(report, args.image, args.digest, args.run_url), encoding="utf-8"
     )
     return 0
