@@ -125,6 +125,15 @@ def test_a_failure_with_no_per_package_error_prints_what_the_report_does_say():
     assert "Backend start: boom during boot" in body
 
 
+def test_the_no_cause_fallback_is_reachable():
+    # It was not: the emptiness test compared an absolute length against a list that
+    # already held the header, so a report with no failure, no shortfall and no start
+    # error rendered "What it does say:" followed by nothing.
+    body = renderer.render_body(report(status="error"), IMAGE, "", RUN)
+    assert "What it does say:" in body
+    assert "Nothing beyond the status above" in body
+
+
 def test_a_multiline_error_stays_one_bullet_and_is_capped():
     # PluginError.error is a raw err.message, and Node's MODULE_NOT_FOUND spans lines.
     # Newlines break the bullet list, and uncapped messages can push the body past

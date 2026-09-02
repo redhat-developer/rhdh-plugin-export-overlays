@@ -115,6 +115,14 @@ jobs:
           # The tag moves; record the digest so a run traces to the exact index.
           digest=$(skopeo inspect --no-creds --override-os linux --override-arch amd64 \
             --format '{{.Digest}}' "docker://${image}" 2> /dev/null || echo "unresolved")
+          # Shape-checked for the same reason the image above is: this reaches
+          # GITHUB_OUTPUT, where a newline in the value can forge step outputs. The value
+          # comes from a registry response rather than from argv, so this is defence in
+          # depth rather than a live hole — but it is the one value here that was trusted.
+          if [[ ! "${digest}" =~ ^(sha256:[a-f0-9]{64}|unresolved)$ ]]; then
+            echo "::warning::unexpected digest shape from skopeo; recording 'unresolved'"
+            digest="unresolved"
+          fi
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
           echo "Catalog index: \`${image}\` @ \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
 

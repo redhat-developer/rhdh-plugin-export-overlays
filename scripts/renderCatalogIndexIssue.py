@@ -143,6 +143,46 @@ def render_title(image: str) -> str:
     return f"[fullsend] Catalog index sanity failed: {image or '(image unresolved)'}"
 
 
+def _no_failure_lines(report: dict) -> list[str]:
+    """What a run that failed outside the per-plugin checks can still tell the reader.
+
+    Both causes live in the report. writeErrorReport() in native-smoke.ts — bad args, an
+    install-CLI crash, a boot failure before the report is built — emits no per-package
+    error at all and puts the whole root cause in backendStart.error.
+
+    The emptiness test is relative, not absolute: an earlier version compared
+    `len(lines) == 2` against a list that already carried the header, so the fallback was
+    unreachable and a report with neither cause rendered "What it does say:" followed by
+    nothing — the content-free issue this branch exists to prevent.
+    """
+    lines: list[str] = []
+    shortfall = report.get("installShortfall")
+    start_error = _record(report, "backendStart").get("error")
+    if isinstance(shortfall, str) and shortfall:
+        lines.append(f"- Install shortfall: {_one_line(shortfall)}")
+    if isinstance(start_error, str) and start_error:
+        lines.append(f"- Backend start: {_one_line(start_error)}")
+    if not lines:
+        lines.append(
+            "- Nothing beyond the status above — see the run and the "
+            "`catalog-index-sanity` artifact."
+        )
+    return ["The report holds no per-package failure. What it does say:", "", *lines]
+
+
+def _failure_lines(failures: list[str]) -> list[str]:
+    """The failing packages, capped — see MAX_LISTED."""
+    lines = [f"### Failing packages ({len(failures)})", ""]
+    lines += [f"- {line}" for line in failures[:MAX_LISTED]]
+    if len(failures) > MAX_LISTED:
+        lines += [
+            "",
+            f"…and {len(failures) - MAX_LISTED} more — the full list is in the "
+            "`catalog-index-sanity` artifact.",
+        ]
+    return lines
+
+
 def render_body(
     report: dict | None, image: str, digest: str, run_url: str
 ) -> str:
@@ -164,32 +204,9 @@ def render_body(
             "The workflow run above has the logs.",
         ]
     elif not failures:
-        # Both causes are IN the report, and naming them without printing them sent the
-        # reader to the artifact for a string already in hand. writeErrorReport() — the
-        # path taken for bad args, an install-CLI crash, or a boot failure before the
-        # report is built — emits no per-package error at all and puts the whole root
-        # cause in backendStart.error, so this branch covers that entire class.
-        lines += ["The report holds no per-package failure. What it does say:", ""]
-        shortfall = report.get("installShortfall")
-        start_error = _record(report, "backendStart").get("error")
-        if isinstance(shortfall, str) and shortfall:
-            lines.append(f"- Install shortfall: {_one_line(shortfall)}")
-        if isinstance(start_error, str) and start_error:
-            lines.append(f"- Backend start: {_one_line(start_error)}")
-        if len(lines) == 2:
-            lines.append(
-                "- Nothing beyond the status above — see the run and the "
-                "`catalog-index-sanity` artifact."
-            )
+        lines += _no_failure_lines(report)
     else:
-        lines += [f"### Failing packages ({len(failures)})", ""]
-        lines += [f"- {line}" for line in failures[:MAX_LISTED]]
-        if len(failures) > MAX_LISTED:
-            lines += [
-                "",
-                f"…and {len(failures) - MAX_LISTED} more — the full list is in the "
-                "`catalog-index-sanity` artifact.",
-            ]
+        lines += _failure_lines(failures)
     lines += [
         "",
         "The catalog index is built outside this repo and changes on its own, so this "
