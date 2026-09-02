@@ -77,11 +77,12 @@ import {
   type PluginError,
 } from "./loader";
 import {
+  bundleNamesAreComplete,
   computeStatus,
   describeConfigKeyMismatch,
   describeInstallShortfall,
-  findConfigKeyMismatches,
   describeNfsShortfall,
+  findConfigKeyMismatches,
   partitionBootable,
   type ShortfallOptions,
 } from "./harness-logic";
@@ -675,17 +676,20 @@ async function main(): Promise<number> {
     const start = await startBackend(loaded, appConfig);
     const backendBundles = validateBackends(manifest.backend);
     const frontend = validateFrontends(manifest.frontend);
-    // Workspace mode only: the other modes have no metadata to read keys from, and
-    // reporting [] there would claim a check that never ran. `?? []` is not a
-    // substitute for that distinction — see MaterializedSource.frontendConfigKeys.
-    const configKeyMismatches = materialized.frontendConfigKeys
-      ? findConfigKeyMismatches(
-          materialized.frontendConfigKeys,
-          frontend.bundles.flatMap((b) =>
-            b.scalprum?.name ? [b.scalprum.name] : [],
-          ),
-        )
-      : undefined;
+    // Skipped rather than run on a set of names it cannot trust — see
+    // bundleNamesAreComplete. Undefined, not [], which is the same distinction the other
+    // modes make: "not checked here" is not "checked and clean".
+    // Workspace mode only: the others have no metadata to read keys from.
+    const configKeyMismatches =
+      materialized.frontendConfigKeys &&
+      bundleNamesAreComplete(installShortfall, frontend.errors)
+        ? findConfigKeyMismatches(
+            materialized.frontendConfigKeys,
+            frontend.bundles.flatMap((b) =>
+              b.scalprum?.name ? [b.scalprum.name] : [],
+            ),
+          )
+        : undefined;
     for (const mismatch of configKeyMismatches ?? []) {
       console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
     }

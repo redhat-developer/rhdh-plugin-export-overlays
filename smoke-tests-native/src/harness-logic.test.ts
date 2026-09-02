@@ -7,14 +7,16 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import {
+  bundleNamesAreComplete,
   computeStatus,
   describeConfigKeyMismatch,
   describeInstallShortfall,
-  findConfigKeyMismatches,
   describeNfsShortfall,
+  findConfigKeyMismatches,
   partitionBootable,
 } from "./harness-logic";
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
+import { oneLine } from "./aggregate-report";
 
 function entry(name: string, dirName = name): PluginEntry {
   return {
@@ -28,13 +30,13 @@ function entry(name: string, dirName = name): PluginEntry {
 const anError: PluginError = { plugin: entry("@s/p"), error: "boom" };
 
 test("computeStatus reports the most specific failure and passes only on a clean run", () => {
-  assert.equal(computeStatus([], true, 3, []), "pass");
-  assert.equal(computeStatus([anError], true, 3, []), "fail-load");
+  assert.equal(computeStatus([], true, 3, [], 0), "pass");
+  assert.equal(computeStatus([anError], true, 3, [], 0), "fail-load");
   // A load error outranks everything: the rest failed because of it.
-  assert.equal(computeStatus([anError], false, 3, [anError]), "fail-load");
-  assert.equal(computeStatus([], false, 3, []), "fail-start");
-  assert.equal(computeStatus([], false, 3, [anError]), "fail-start");
-  assert.equal(computeStatus([], true, 0, [anError]), "fail-bundle");
+  assert.equal(computeStatus([anError], false, 3, [anError], 0), "fail-load");
+  assert.equal(computeStatus([], false, 3, [], 0), "fail-start");
+  assert.equal(computeStatus([], false, 3, [anError], 0), "fail-start");
+  assert.equal(computeStatus([], true, 0, [anError], 0), "fail-bundle");
 });
 
 test("a backend bundle fault fails the run, without outranking a load failure", () => {
@@ -42,15 +44,15 @@ test("a backend bundle fault fails the run, without outranking a load failure", 
   // `bundleErrors` list as the frontend one, so a plugin that booted fine but lost its
   // config still turns the run red. It stays below fail-load and fail-start: a plugin that
   // would not load at all is the more specific answer, and this one loaded.
-  assert.equal(computeStatus([], true, 3, [anError]), "fail-bundle");
-  assert.equal(computeStatus([anError], true, 3, [anError]), "fail-load");
-  assert.equal(computeStatus([], false, 3, [anError]), "fail-start");
+  assert.equal(computeStatus([], true, 3, [anError], 0), "fail-bundle");
+  assert.equal(computeStatus([anError], true, 3, [anError], 0), "fail-load");
+  assert.equal(computeStatus([], false, 3, [anError], 0), "fail-start");
 });
 
 test("a frontend-only workspace passes even though no backend started", () => {
   // startBackend short-circuits to {ok:true, skipped:true} when nothing loaded, so
   // startOk=false with loadedCount=0 is not reachable as a real boot failure.
-  assert.equal(computeStatus([], false, 0, []), "pass");
+  assert.equal(computeStatus([], false, 0, [], 0), "pass");
 });
 
 test("describeInstallShortfall compares what installed against what was declared", () => {
@@ -281,4 +283,46 @@ test("a config key mismatch fails the run, below load and start failures", () =>
   assert.equal(computeStatus([], true, 3, [], 0), "pass");
   assert.equal(computeStatus([anError], true, 3, [], 1), "fail-load");
   assert.equal(computeStatus([], false, 3, [], 1), "fail-start");
+});
+
+test("both sides of the message survive the sweep panel's truncation", () => {
+  // `oneLine` cuts at DETAIL_LIMIT (220) in the failure table, and "naming both sides" is
+  // this check's acceptance criterion — a row cut inside the bundle list drops exactly
+  // the half that says what to write instead. Realistic lengths: a real key and four
+  // real bundle names.
+  const found = findConfigKeyMismatches(
+    [
+      {
+        key: "red-hat-developer-hub.plugin-cost-management",
+        source: "red-hat-developer-hub-plugin-cost-management.yaml",
+      },
+    ],
+    [
+      "backstage-community.plugin-topology",
+      "backstage-community.plugin-tekton",
+      "backstage-community.plugin-quay",
+      "backstage-community.plugin-acr",
+    ],
+  );
+  const message = describeConfigKeyMismatch(found[0]);
+  const panelRow = oneLine(message);
+  assert.match(panelRow, /red-hat-developer-hub\.plugin-cost-management/);
+  assert.match(panelRow, /bundles report: backstage-community\.plugin-acr/);
+  // The list is summarised rather than spelled out, which is what keeps it inside 220.
+  assert.match(message, /\+1 more/);
+});
+
+test("the config-key check is skipped when the bundle names are incomplete", () => {
+  // Both cases produce a bundle that contributes no name, so a key belonging to it would
+  // read as a metadata defect — blaming a YAML file for a failed pull, or reporting one
+  // broken manifest twice under two different causes.
+  assert.equal(bundleNamesAreComplete(null, []), true);
+  assert.equal(
+    bundleNamesAreComplete(
+      "installed 2 plugin(s) but the workspace declared 3",
+      [],
+    ),
+    false,
+  );
+  assert.equal(bundleNamesAreComplete(null, [anError]), false);
 });

@@ -12,6 +12,7 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
+import { isRecord } from "./util";
 import type {
   ConfigSchemaInfo,
   FrontendSystem,
@@ -115,8 +116,12 @@ export type ConfigKeyMismatch = {
   /**
    * The names the workspace's installed bundles DO report. Half of "naming both sides":
    * without it the finding says what is wrong but not what was expected instead.
+   *
+   * `readonly` because every mismatch from one call shares one array instance — the list
+   * is identical for all of them and is built once. Nothing mutates it today; the type
+   * is what keeps that true.
    */
-  bundleNames: string[];
+  bundleNames: readonly string[];
 };
 
 /**
@@ -246,10 +251,6 @@ export type SweepSummary = {
    */
   status: "pass" | "fail";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Narrow a parsed report, checking the schema version it declares.

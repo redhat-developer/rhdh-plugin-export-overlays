@@ -24,7 +24,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
-import { compareStrings } from "./util";
+import { compareStrings, isRecord } from "./util";
 
 type PackageMetadata = {
   metadata?: { name?: unknown };
@@ -102,32 +102,40 @@ export function isValidWorkspaceName(name: string): boolean {
 }
 
 /**
+ * One property of `value`, when both `value` and that property are plain objects;
+ * undefined otherwise. Named for what it returns — a nested record, never a scalar —
+ * because a `prop()` that silently dropped string fields would surprise its next caller.
+ *
+ * Applied at every level rather than only the last, because repo YAML is validated by no
+ * schema at rest: an example whose `content` is a string, or whose `frontend` is a list,
+ * has to yield nothing rather than throw or invent. See {@link isRecord} for why the
+ * array case is the one that bites.
+ */
+function nestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const inner = value[key];
+  return isRecord(inner) ? inner : undefined;
+}
+
+/**
  * The `dynamicPlugins.frontend.*` keys an entity's `appConfigExamples` configure.
  *
- * Every level is checked rather than cast, because this reads repo YAML that no schema
- * validates at rest: an example whose `content` is a string, or whose `frontend` is a
- * list, must yield no keys rather than throw or invent them. Keys are collected across
- * ALL examples and de-duplicated — global-header declares two, and a package may repeat
- * a key across examples.
+ * Keys are collected across ALL examples and de-duplicated — global-header declares two,
+ * and a package may repeat a key across examples. See {@link nestedRecord} for why every
+ * level is narrowed rather than cast.
  */
 function readFrontendConfigKeys(examples: unknown): string[] {
   if (!Array.isArray(examples)) return [];
   const keys = new Set<string>();
   for (const example of examples) {
-    const content = (example as { content?: unknown })?.content;
-    if (typeof content !== "object" || content === null) continue;
-    const dynamic = (content as { dynamicPlugins?: unknown }).dynamicPlugins;
-    if (typeof dynamic !== "object" || dynamic === null) continue;
-    const frontend = (dynamic as { frontend?: unknown }).frontend;
-    // Array.isArray, because `typeof [] === "object"` and Object.keys on a list yields
-    // "0", "1", … — indices published as plugin names.
-    if (
-      typeof frontend !== "object" ||
-      frontend === null ||
-      Array.isArray(frontend)
-    ) {
-      continue;
-    }
+    const frontend = nestedRecord(
+      nestedRecord(nestedRecord(example, "content"), "dynamicPlugins"),
+      "frontend",
+    );
+    if (frontend === undefined) continue;
     for (const key of Object.keys(frontend)) keys.add(key);
   }
   return [...keys].sort(compareStrings);

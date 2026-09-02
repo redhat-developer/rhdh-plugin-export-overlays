@@ -345,7 +345,7 @@ test("failureDetail prefers the most specific error the report holds", () => {
         }),
       }),
     ),
-    /a\.yaml configures dynamicPlugins\.frontend\.'scope\.typo'/,
+    /dynamicPlugins\.frontend\.'scope\.typo' matches no installed bundle name/,
   );
 });
 

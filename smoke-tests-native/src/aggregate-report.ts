@@ -250,6 +250,9 @@ export function failureDetail(result: SweepWorkspaceResult): string {
   if (bundleError) {
     return oneLine(`${bundleError.plugin.name}: ${bundleError.error}`);
   }
+  // Above the mismatch branch: a short install is why a bundle is absent, so reporting a
+  // downstream symptom first would send the reader to edit metadata for a failed pull.
+  if (report.installShortfall) return oneLine(report.installShortfall);
   // Last, because it is the only fail-bundle cause with no plugin behind it: the finding
   // is about a metadata key, so there is nothing to put in the `name: error` shape above.
   // Without this branch a workspace failing only on it printed the bare status.

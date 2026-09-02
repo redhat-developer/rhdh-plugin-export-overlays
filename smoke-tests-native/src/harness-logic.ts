@@ -12,6 +12,7 @@
 
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { ConfigKeyMismatch, Status } from "./report";
+import type { ConfiguredFrontendKey } from "./workspace";
 import { compareStrings } from "./util";
 
 /**
@@ -32,7 +33,7 @@ export function computeStatus(
   startOk: boolean,
   loadedCount: number,
   bundleErrors: PluginError[],
-  configKeyMismatches: number = 0,
+  configKeyMismatches: number,
 ): Status {
   if (loadErrors.length > 0) return "fail-load";
   if (!startOk && loadedCount > 0) return "fail-start";
@@ -70,10 +71,12 @@ const RHDH_BUILTIN_FRONTEND_KEYS = new Set(["default.main-menu-items"]);
  * shape: two packages, one ref.
  */
 export function findConfigKeyMismatches(
-  configured: readonly { key: string; source: string }[],
-  bundleNames: readonly string[],
+  configured: ConfiguredFrontendKey[],
+  bundleNames: string[],
 ): ConfigKeyMismatch[] {
   const names = new Set(bundleNames);
+  // Sorted once: every mismatch reports the same list, and it does not depend on the key.
+  const reported = [...names].sort(compareStrings);
   const seen = new Set<string>();
   const mismatches: ConfigKeyMismatch[] = [];
   for (const { key, source } of configured) {
@@ -82,21 +85,59 @@ export function findConfigKeyMismatches(
     // fixes the bundle name or the key once.
     if (seen.has(key)) continue;
     seen.add(key);
-    mismatches.push({
-      key,
-      source,
-      bundleNames: [...names].sort(compareStrings),
-    });
+    mismatches.push({ key, source, bundleNames: reported });
   }
   return mismatches;
 }
 
+/**
+ * How many bundle names the message spells out before summarising the rest.
+ *
+ * Both sides have to survive `oneLine`'s DETAIL_LIMIT (220) in the sweep's failure table,
+ * and "naming both sides" is this check's acceptance criterion — a row truncated inside
+ * the list drops exactly the half that says what to write instead. Three names is what
+ * fits once the key and the file are accounted for; the untruncated message is in
+ * results.json and on the console either way.
+ */
+const NAMES_IN_MESSAGE = 3;
+
+/**
+ * Whether the set of installed bundle names is complete enough to judge configured keys
+ * against.
+ *
+ * The cross-check asks whether a key matches a name some bundle reports, which is a
+ * question about metadata ONLY while every installed package contributed its name. Two
+ * things break that, and both already fail the run on their own:
+ *
+ * - an install shortfall — a declared ref never landed, so its key looks like a metadata
+ *   defect when the real cause is a failed pull;
+ * - a frontend bundle whose manifest could not be read — `scalprum.name` is null, so that
+ *   package contributes nothing and its own key is blamed on top of the bundle error
+ *   already reported. Two findings, one defect, and the second names the wrong artifact.
+ *
+ * Here rather than inline in native-smoke.ts because that file ends in
+ * `process.exit(await main())`, which puts everything beside it out of reach of a test —
+ * the same reason the rest of this module exists.
+ */
+export function bundleNamesAreComplete(
+  installShortfall: string | null,
+  frontendErrors: PluginError[],
+): boolean {
+  return !installShortfall && frontendErrors.length === 0;
+}
+
 /** One line per mismatch, naming both sides — the key and what the bundles do report. */
 export function describeConfigKeyMismatch(mismatch: ConfigKeyMismatch): string {
-  const reported = mismatch.bundleNames.join(", ") || "nothing";
+  const shown = mismatch.bundleNames.slice(0, NAMES_IN_MESSAGE);
+  const extra = mismatch.bundleNames.length - shown.length;
+  const reported = shown.length
+    ? shown.join(", ") + (extra > 0 ? `, +${extra} more` : "")
+    : "nothing";
+  // Key and names first, the fixed explanation last: the tail is the same on every
+  // finding and is the part a reader can afford to lose to truncation.
   return (
-    `${mismatch.source} configures dynamicPlugins.frontend.'${mismatch.key}' but no ` +
-    `installed bundle reports that name (bundles report: ${reported}) — RHDH matches the ` +
+    `dynamicPlugins.frontend.'${mismatch.key}' matches no installed bundle name ` +
+    `(bundles report: ${reported}); configured in ${mismatch.source} — RHDH matches the ` +
     `key against dist-scalprum/plugin-manifest.json's name, so every mount point under ` +
     `it is ignored with nothing logged`
   );
