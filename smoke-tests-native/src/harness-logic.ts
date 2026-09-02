@@ -19,38 +19,57 @@ import type { Status } from "./report";
  * `loadedCount > 0` matters for the frontend-only case: startBackend short-circuits to
  * `{ok: true, skipped: true}` when nothing loaded, so a workspace with no backend
  * plugins is a pass rather than a boot failure.
+ *
+ * `bundleErrors` is both halves' bundle faults in one list, not the frontend's alone.
+ * Nothing here distinguishes them — a bundle fault is `fail-bundle` whichever half it
+ * came from — and one list keeps two same-typed arrays out of the signature, where
+ * transposing them at the call site would be silent. The report still records them
+ * separately, under `frontend.errors` and `backend.bundleErrors`.
  */
 export function computeStatus(
   loadErrors: PluginError[],
   startOk: boolean,
   loadedCount: number,
-  frontendErrors: PluginError[],
+  bundleErrors: PluginError[],
 ): Status {
   if (loadErrors.length > 0) return "fail-load";
   if (!startOk && loadedCount > 0) return "fail-start";
-  if (frontendErrors.length > 0) return "fail-bundle";
+  if (bundleErrors.length > 0) return "fail-bundle";
   return "pass";
 }
 
+export type ShortfallOptions = {
+  /** What to call the source in the message ("workspace", "catalog index"). */
+  subject?: string;
+  /**
+   * Accept MORE plugins than refs. Only for a deduplicated ref list, where the count is
+   * a lower bound — one OCI image can carry several plugins. Workspace mode does not
+   * dedup and deliberately treats any mismatch as a fault.
+   */
+  allowExtra?: boolean;
+};
+
 /**
- * Compare what the install actually laid out against what the workspace declared.
- *
- * Returns null when they agree (or when there is nothing to compare against, i.e.
- * `--dynamic-plugins` file mode, where no ref count is known).
+ * Compare what the install laid out against what the source declared. Null when they
+ * agree, or when there is nothing to compare (`--dynamic-plugins` file mode).
+ * `subject` names the source: catalog-index mode has no workspace to send a reader to.
  */
 export function describeInstallShortfall(
   discovered: number,
   expected: number | undefined,
+  options: ShortfallOptions = {},
 ): string | null {
+  const { subject = "source", allowExtra = false } = options;
   if (expected === undefined) {
     return discovered === 0
       ? "nothing validated: the install produced no plugins at all"
       : null;
   }
   if (discovered === expected) return null;
+  if (allowExtra && discovered > expected) return null;
   return (
-    `installed ${discovered} plugin(s) but the workspace declared ${expected} ` +
-    `oci:// ref(s) — part of the workspace was never validated`
+    `installed ${discovered} plugin(s) but the ${subject} declared ${expected} ` +
+    `oci:// ref(s) — part of the ${subject} was never validated`
   );
 }
 

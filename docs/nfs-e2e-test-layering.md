@@ -368,8 +368,11 @@ the whole remaining gap, and it is narrow:
 
 `smoke-tests-native/` covers more of that than it first appears, but less than an earlier
 revision of this document claimed. What it does today: installs the published artifact, boots a
-real backend in-process via `startTestBackend` (no Docker, no cluster), and since #3282 validates
-the MF manifest against the guards the remotes router applies. What it does **not** do: it calls
+real backend in-process via `startTestBackend` (no Docker, no cluster), and validates each
+manifest against whatever actually loads it — the MF manifest against the guards the remotes
+router applies (#3282), and the Scalprum manifest's `name` and `loadScripts` assets against what
+the Scalprum host fetches, plus, for any bundle declaring `configSchema`, the schema the export
+ships beside it (#3486). What it does **not** do: it calls
 `backend.stop()` immediately, so it never serves a request; it has no
 `@backstage/backend-dynamic-feature-service` dependency, so it never serves
 `/.backstage/dynamic-features/remotes`; and the frontend bundle is inspected as a static file,
