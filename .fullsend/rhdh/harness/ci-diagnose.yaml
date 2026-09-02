@@ -46,16 +46,17 @@ trigger: |
    && has(event.transition.comment.command)
    && event.transition.comment.command == "/fs-diagnose")
 
+# Vertex identity is prepared on the runner by reusable-dispatch
+# (setup-gcp + setup-agent-env). OpenShell does not inherit runner env, so
+# the sandbox copy lives in env.sandbox below (ADR 0055). Do not reference
+# env/gcp-vertex.env — that scaffold file was removed in fullsend v0.33.
 host_files:
   - src: rhdh/env/rhdh-toolchain.env
     dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
-  - src: env/gcp-vertex.env
-    dest: /sandbox/workspace/.env.d/gcp-vertex.env
-    expand: true
   - src: ${GOOGLE_APPLICATION_CREDENTIALS}
     dest: /tmp/.gcp-credentials.json
   - src: ${GCP_OIDC_TOKEN_FILE}
-    dest: /tmp/.gcp-oidc-token
+    dest: /sandbox/workspace/.gcp-oidc-token
     optional: true
 
 skills:
@@ -80,6 +81,11 @@ env:
     GH_TOKEN: "${GH_TOKEN}"
     GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+    CLAUDE_CODE_USE_VERTEX: "1"
+    ANTHROPIC_VERTEX_PROJECT_ID: "${ANTHROPIC_VERTEX_PROJECT_ID}"
+    CLOUD_ML_REGION: "${CLOUD_ML_REGION}"
+    GOOGLE_APPLICATION_CREDENTIALS: "/tmp/.gcp-credentials.json"
+    GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT}"
 
 timeout_minutes: 60
 
@@ -93,3 +99,8 @@ forge:
         REPO_FULL_NAME: "${REPO_FULL_NAME}"
         GH_TOKEN: "${GH_TOKEN}"
         GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+        CLAUDE_CODE_USE_VERTEX: "1"
+        ANTHROPIC_VERTEX_PROJECT_ID: "${ANTHROPIC_VERTEX_PROJECT_ID}"
+        CLOUD_ML_REGION: "${CLOUD_ML_REGION}"
+        GOOGLE_APPLICATION_CREDENTIALS: "/tmp/.gcp-credentials.json"
+        GOOGLE_CLOUD_PROJECT: "${GOOGLE_CLOUD_PROJECT}"
