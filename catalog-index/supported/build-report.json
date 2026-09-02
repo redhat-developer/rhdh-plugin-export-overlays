@@ -1017,7 +1017,16 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cb91a4d4958332e73f0ace139b620d115aa83f16674b5217afd60f9bc4ee6e1a"
+          "digest": "sha256:cb91a4d4958332e73f0ace139b620d115aa83f16674b5217afd60f9bc4ee6e1a",
+          "fallback": true,
+          "requestedTag": "bs_1.54.4__1.5.0",
+          "resolvedTag": "bs_1.54.4__1.4.1"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki",
@@ -1043,7 +1052,16 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2565aaa5b89638d0dd2bcf1720af3ec23d9c5bb77a9b7bfd50179abd8b4dad75"
+          "digest": "sha256:2565aaa5b89638d0dd2bcf1720af3ec23d9c5bb77a9b7bfd50179abd8b4dad75",
+          "fallback": true,
+          "requestedTag": "bs_1.54.4__8.13.0",
+          "resolvedTag": "bs_1.54.4__8.12.1"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-backend",
@@ -1069,7 +1087,16 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ec6819336a3c3ee7dc0adf09f03bfc7a2b433fd4ad690e05f30ebd15c3f1935e"
+          "digest": "sha256:ec6819336a3c3ee7dc0adf09f03bfc7a2b433fd4ad690e05f30ebd15c3f1935e",
+          "fallback": true,
+          "requestedTag": "bs_1.54.4__2.1.0",
+          "resolvedTag": "bs_1.54.4__2.0.0"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets",
@@ -1095,7 +1122,16 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bbd86043ea2c3649c8f37fb70332eb88a0f8b1588b3a183d208c6299fbb3b039"
+          "digest": "sha256:bbd86043ea2c3649c8f37fb70332eb88a0f8b1588b3a183d208c6299fbb3b039",
+          "fallback": true,
+          "requestedTag": "bs_1.54.4__6.1.0",
+          "resolvedTag": "bs_1.54.4__6.0.0"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-orchestrator",
@@ -1121,7 +1157,16 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6ed8a76d28d8cf6e8cc121170e7cae5bdd1a613a6c272e65611c6c792bf28e8b"
+          "digest": "sha256:6ed8a76d28d8cf6e8cc121170e7cae5bdd1a613a6c272e65611c6c792bf28e8b",
+          "fallback": true,
+          "requestedTag": "bs_1.54.4__1.8.0",
+          "resolvedTag": "bs_1.54.4__1.7.2"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found \u2014 the index ships an older build"
+          ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator",
