@@ -492,6 +492,47 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+## Reviewing `.fullsend/` Harness Configuration Changes
+
+The `.fullsend/` directory contains harness definitions, agent configs, policies, scripts, and environment files that control how fullsend dispatches and runs agent sandboxes. Changes to these files require awareness of fullsend's architecture — not just whether the YAML is valid, but whether the approach matches the platform's current conventions.
+
+### Scaffold-managed vs repo-local files
+
+Files under `.fullsend/env/` fall into two categories:
+
+- **Scaffold-managed** — created and maintained by the fullsend CLI (`fullsend init`, `fullsend update`). These files are part of the platform scaffold and may be added, modified, or removed by fullsend version upgrades. Do not commit new env files to this path or restore files that upstream fullsend has removed. If a scaffold file is missing, the removal was intentional — it signals an architectural migration, not a bug.
+- **Repo-local** — files under `.fullsend/rhdh/env/` (the repo-specific namespace). These are owned by this repository and are safe to create, modify, and commit.
+
+**Example:** fullsend v0.33 removed `.fullsend/env/gcp-vertex.env` as part of migrating environment variable delivery to `env.sandbox` (ADR 0055). PR #3523 incorrectly restored this file; PR #3527 applied the correct fix by passing Vertex env vars via `env.sandbox` in the harness YAML instead.
+
+### `env.sandbox` is the preferred mechanism for sandbox env vars
+
+Custom harnesses (e.g., `ci-diagnose`, `e2e-triage`) should pass environment variables to the sandbox via the `env.sandbox` section in harness YAML (per ADR 0055), not via `host_files` referencing scaffold env files. The pattern is:
+
+```yaml
+# Correct — env vars delivered via env.sandbox
+env:
+  sandbox:
+    MY_VAR: "${MY_VAR}"
+
+# Incorrect — referencing a scaffold-managed env file via host_files
+host_files:
+  - src: env/some-scaffold-file.env      # may be removed by fullsend upgrades
+    dest: /sandbox/workspace/.env.d/file.env
+    expand: true
+```
+
+`host_files` is still appropriate for files that must exist as files in the sandbox (e.g., credential JSON files, toolchain env files under `rhdh/env/`). The distinction is: use `host_files` for files, use `env.sandbox` for environment variables.
+
+### Review checklist for `.fullsend/` changes
+
+When reviewing PRs that add or modify files under `.fullsend/`:
+
+1. **Check whether `host_files` entries reference scaffold paths.** Entries with `src:` paths that do not start with the repo namespace prefix (e.g., `src: env/...` rather than `src: rhdh/env/...`) reference scaffold-managed files. These may be removed by future fullsend upgrades. Flag them and suggest using `env.sandbox` instead.
+2. **Do not restore deleted scaffold files.** If a PR adds a new file under `.fullsend/env/` (not `.fullsend/rhdh/env/`), verify it is not restoring a file that fullsend intentionally removed. Check the fullsend changelog or release notes if uncertain.
+3. **Verify env var delivery follows ADR 0055.** When a harness needs environment variables in the sandbox, prefer the `env.sandbox` section over `host_files` with `expand: true`. The `env.sandbox` approach survives scaffold upgrades and makes the variable flow explicit in the harness YAML.
+4. **Distinguish repo-namespaced from scaffold paths.** Files under `.fullsend/rhdh/` are repo-owned and safe to modify. Files directly under `.fullsend/env/`, `.fullsend/config.yaml`, and other top-level `.fullsend/` paths may be scaffold-managed — changes to these require extra scrutiny.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
