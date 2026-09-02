@@ -9,6 +9,33 @@ app:
         config:
           customizable: true
 
+    - entity-content:scorecard/entity-content-scorecard:
+        config:
+          allowedFilters:
+            - kind: component
+              type: website
+            - kind: api
+            - type: service
+
+    - scorecard-layout:scorecard/scorecard-entity-layout-grid:
+        disabled: false
+        config:
+          groups:
+            security-alerts:
+              title: Security Alerts
+              description: Security vulnerability alerts from Dependabot
+              metrics:
+                - dependabot.alertsCritical
+                - dependabot.alertsHigh
+
+            code-health:
+              title: Code Health
+              description: Development health and code quality metrics
+              metrics:
+                - github.openPRs
+                - dependabot.alertsMedium
+                - dependabot.alertsLow
+
 catalog:
   rules:
     - allow:
@@ -25,7 +52,6 @@ catalog:
           Package,
         ]
   locations:
-    # Scorecard test entities
     - type: url
       target: https://github.com/janus-qe/overlay-scorecard-plugin-test/blob/main/all-scorecards.yaml
     - type: url
@@ -46,7 +72,6 @@ catalog:
 permission:
   enabled: true
   rbac:
-    # policies-csv-file: /Users/dsantra/Documents/rhdh/rbac-policy.csv
     pluginsWithPermission:
       - catalog
       - permission
@@ -58,7 +83,6 @@ permission:
         - name: user:default/test1
 
 integrations:
-  # Plugin: GitHub
   github:
     - host: github.com
       apps:
