@@ -1,4 +1,5 @@
 plugins/catalog-backend-module-model-catalog: --embed-package @red-hat-developer-hub/backstage-plugin-catalog-model-ai-model-server
+plugins/catalog-model-ai-model-catalog: --embed-package @red-hat-developer-hub/backstage-plugin-catalog-model-ai-model-server
 plugins/catalog-techdoc-url-reader-backend:
 plugins/catalog-backend-module-ai-resource-extensions:
 plugins/catalog-backend-module-ai-resource-agent: --embed-package @red-hat-developer-hub/backstage-plugin-catalog-model-ai-resource-agent

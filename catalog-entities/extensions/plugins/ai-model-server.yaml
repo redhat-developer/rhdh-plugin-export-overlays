@@ -12,8 +12,10 @@ metadata:
       url: https://red.ht/rhdh
     - title: Bugs
       url: https://issues.redhat.com/browse/RHDHPAI
-    - title: Source Code
+    - title: Validator Source Code
       url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-model-server
+    - title: Schema Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-model-ai-model-server
   tags:
     - ai
     - software-catalog
@@ -89,7 +91,8 @@ spec:
 
     ## Support
 
-    - **Source code**: [catalog-backend-module-ai-model-server](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-model-server)
+    - **Validation Source code**: [catalog-backend-module-ai-model-server](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-model-server)
+    - **Schema Source code**: [catalog-backend-module-ai-model-server](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-model-ai-model-server)
     - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
 
   packages:
@@ -107,6 +110,8 @@ spec:
       - dynamic-plugins.default.yaml
     plugins:
       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server:bs_1.54.4__0.3.1
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-model-ai-model-server:bs_1.54.4__0.2.1
         enabled: true
     ```
 
