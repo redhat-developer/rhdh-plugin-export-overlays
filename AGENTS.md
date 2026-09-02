@@ -335,6 +335,16 @@ MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY
 
 `envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
 
+### Reviewing dynamic-plugins.yaml Changes
+
+When reviewing PRs that add or modify `tests/config/dynamic-plugins.yaml`, verify that each entry is necessary:
+
+- **Entries setting `disabled: true`** for plugins not used by the workspace under test are redundant. The auto-generation from metadata only includes plugins defined in the workspace's own `metadata/*.yaml` files — plugins from other workspaces are not included. Explicitly disabling them is unnecessary coupling.
+- **Entries duplicating auto-generated defaults** (same package, same config as would be derived from `metadata/*.yaml` `appConfigExamples`) should be flagged. The recommended approach is to omit `dynamic-plugins.yaml` entirely and let auto-generation handle it.
+- **Only entries that override specific values** needed for the test environment (custom config not in metadata, integrity overrides, version pins for testing) justify maintaining a `dynamic-plugins.yaml`.
+
+This is especially important during NFS (app-next) migration, where the framework handles more configuration automatically and legacy config entries often carry forward unnecessarily.
+
 ### WorkspacePaths
 
 Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
