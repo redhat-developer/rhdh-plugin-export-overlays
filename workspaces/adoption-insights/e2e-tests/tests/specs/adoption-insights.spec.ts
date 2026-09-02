@@ -156,32 +156,25 @@ test.describe.serial("Test Adoption Insights", () => {
         await testHelper.expectTopEntriesToBePresent("catalog entities");
       });
 
-      /* eslint-disable playwright/no-conditional-in-test -- panels may be empty when no docs/templates exist */
-      if (techdocsFirstEntry.length > 0) {
-        await test.step("Visited techdoc shows up in top techdocs", async () => {
-          await testHelper.expectTopEntriesToBePresent("techdocs");
-        });
-      }
+      await test.step("Visited techdoc shows up in top techdocs", async () => {
+        await testHelper.expectTopEntriesToBePresent("techdocs");
+      });
 
-      if (templatesFirstEntry.length > 0) {
-        await test.step("Visited templates shows in top templates", async () => {
-          await testHelper.expectTopEntriesToBePresent("templates");
-        });
-      }
-      /* eslint-enable playwright/no-conditional-in-test */
+      await test.step("Visited templates shows in top templates", async () => {
+        await testHelper.expectTopEntriesToBePresent("templates");
+      });
 
       await test.step("Changes are Reflecting in panels", async () => {
-        /* eslint-disable playwright/no-conditional-in-test -- panels may be empty when no docs exist */
-        const titles = ["catalog entities"];
-        if (techdocsFirstEntry.length > 0) titles.push("techdocs");
-
+        const titles = ["catalog entities", "techdocs"];
         interface PanelState {
           firstRow?: string[];
           initialViewsCount?: number;
         }
         const state: Record<string, PanelState> = {};
-        for (const t of titles) state[t] = {};
+        state["catalog entities"] = {};
+        state["techdocs"] = {};
 
+        /* eslint-disable playwright/no-conditional-in-test -- iterate panel types and branch by title */
         for (const title of titles) {
           const panel = getPanel(page, new RegExp(title, "i"));
           state[title].firstRow =
@@ -236,22 +229,12 @@ test.describe.serial("Test Adoption Insights", () => {
 
       await test.step("New data shows in searches", async () => {
         const panel = getPanel(page, /searches/i);
-        await panel.scrollIntoViewIfNeeded();
-        const hasChart = await panel
-          .locator(".recharts-surface")
-          .isVisible({ timeout: 15_000 })
-          .catch(() => false);
-        /* eslint-disable playwright/no-conditional-in-test, playwright/no-conditional-expect -- searches data may not appear within the test window */
-        if (hasChart) {
-          await expect(panel).toContainText(
-            /Average search count was \d+ per \w+ for this period\./,
-          );
-          const recount = await testHelper.getCountFromPanel(panel);
-          expect(recount).toBeGreaterThan(initialSearchCount);
-        } else {
-          await expect(panel).toContainText("No results for this date range");
-        }
-        /* eslint-enable playwright/no-conditional-in-test, playwright/no-conditional-expect */
+        await expect(panel.locator(".recharts-surface")).toBeVisible();
+        await expect(panel).toContainText(
+          /Average search count was \d+ per \w+ for this period\./,
+        );
+        const recount = await testHelper.getCountFromPanel(panel);
+        expect(recount).toBeGreaterThan(initialSearchCount);
       });
     });
   });
