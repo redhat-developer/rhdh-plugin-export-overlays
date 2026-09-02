@@ -241,9 +241,17 @@ jobs:
   report:
     name: File a triage issue
     needs: sanity
+    # `needs.sanity.result != 'success'`, NOT failure(): the sanity job carries
+    # timeout-minutes and a timeout CANCELS it rather than failing it, which makes
+    # failure() false in a dependent job. A 60-minute overrun on ~50 installs is a
+    # realistic outcome, and it is exactly the kind of red run this job exists to make
+    # visible. `!cancelled()` still keeps a human cancelling the whole run from filing.
+    #
     # Schedule only. A workflow_dispatch is someone watching the run, and an RC check
     # that fails should not leave an issue behind for whoever reads the queue tomorrow.
-    if: ${{ failure() && github.event_name == 'schedule' }}
+    if: >-
+      ${{ !cancelled() && needs.sanity.result != 'success'
+      && github.event_name == 'schedule' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -267,6 +275,19 @@ jobs:
         with:
           name: catalog-index-sanity
           path: artifact
+
+      # renderCatalogIndexIssue.py imports plugin_utils, which imports yaml at module
+      # scope. Without this the step rode on whatever the runner image happens to ship,
+      # and an ImportError here means no issue is filed at all. Same pin and same
+      # wheels-only install as the sanity job above.
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --only-binary :all: "PyYAML==6.0.3"
 
       - name: Render the issue
         env:
@@ -320,7 +341,11 @@ jobs:
           # today only because the `index` step's regex constrains the image the title is
           # built from — a dependency three steps away that a future loosening would
           # break silently. Passing it as data does not rely on that.
-          EXISTING=$(gh issue list --repo "${REPO}" --label "catalog-index-sanity" \
+          # No --label filter: the label is applied by a separate `gh issue edit` after
+          # the issue exists, and that command's failure is survivable. Keying the lookup
+          # on it meant one failed edit left an unlabelled issue invisible to every future
+          # run — a new issue every night, permanently. The title is the stable key.
+          EXISTING=$(gh issue list --repo "${REPO}" \
             --state open --search "\"${TITLE}\"" --json number,title \
             | jq -r --arg title "${TITLE}" \
               'map(select(.title == $title)) | .[0].number // empty') || true

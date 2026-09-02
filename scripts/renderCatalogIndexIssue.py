@@ -26,6 +26,21 @@ from plugin_utils import PathNotContainedError, require_contained
 # read by nobody; the full list is in results-catalog-index.json either way.
 MAX_LISTED = 20
 
+# Per-line ceiling. `PluginError.error` is a raw `err.message`, and Node's
+# MODULE_NOT_FOUND — the most common fail-load cause — spans several lines ("Cannot find
+# module 'x'\nRequire stack:\n- …"). Embedded newlines break the bullet list into loose
+# paragraphs, and twenty multi-KB messages can push the body past GitHub's 65536-character
+# limit, at which point `gh issue create` returns 422 and nothing is filed at all. Mirrors
+# DETAIL_LIMIT in smoke-tests-native/src/aggregate-report.ts, which flattens for the same
+# reason.
+LINE_LIMIT = 300
+
+
+def _one_line(text: str) -> str:
+    """Collapse whitespace and cap the length. The full text is in the artifact."""
+    flat = " ".join(text.split())
+    return flat if len(flat) <= LINE_LIMIT else f"{flat[: LINE_LIMIT - 1]}…"
+
 
 def load_report(path: Path) -> dict | None:
     """The report, or None. A missing or unparseable file is itself worth an issue —
@@ -45,6 +60,21 @@ def load_report(path: Path) -> dict | None:
     return report if isinstance(report, dict) else None
 
 
+def _record(value: object, key: str) -> dict:
+    """One property of `value`, when both it and the property are dicts; {} otherwise.
+
+    The rest of this module goes to some length to tolerate whatever is on the disk of a
+    job that just died — `load_report` rejects lists and scalars, `_plugin_failures` skips
+    non-dict entries. Reading `report["backend"]["errors"]` without the same care was the
+    gap: a truthy non-dict raises AttributeError, which kills the render step, and then no
+    issue is filed at all.
+    """
+    if not isinstance(value, dict):
+        return {}
+    inner = value.get(key)
+    return inner if isinstance(inner, dict) else {}
+
+
 def _plugin_failures(entries: object) -> list[str]:
     """`name: error` lines from one PluginError list.
 
@@ -55,8 +85,8 @@ def _plugin_failures(entries: object) -> list[str]:
     for item in entries or []:
         if not isinstance(item, dict):
             continue
-        name = ((item.get("plugin") or {}).get("name")) or "?"
-        lines.append(f"{name}: {item.get('error') or '?'}")
+        name = _record(item, "plugin").get("name") or "?"
+        lines.append(_one_line(f"{name}: {item.get('error') or '?'}"))
     return lines
 
 
@@ -67,8 +97,10 @@ def _config_key_failures(entries: object) -> list[str]:
     report without it yields an empty list like any other.
     """
     return [
-        f"{item.get('source') or '?'}: configured key "
-        f"'{item.get('key') or '?'}' matches no bundle name"
+        _one_line(
+            f"{item.get('source') or '?'}: configured key "
+            f"'{item.get('key') or '?'}' matches no bundle name"
+        )
         for item in entries or []
         if isinstance(item, dict)
     ]
@@ -77,14 +109,19 @@ def _config_key_failures(entries: object) -> list[str]:
 def collect_failures(report: dict | None) -> list[str]:
     """Every per-package failure the report holds.
 
-    All four lists, not just the two the job summary prints: a plugin that failed to
-    load and one whose bundle lost its config schema are both reasons this ran red, and
-    an issue naming only some of them sends the reader back to the artifact.
+    Every list the report can carry, not just the two the job summary prints: a plugin
+    that failed to load and one whose bundle lost its config schema are both reasons this
+    ran red, and an issue naming only some of them sends the reader back to the artifact.
+
+    `configKeyMismatches` is read for completeness but is always empty HERE:
+    native-smoke.ts records it in workspace mode only, and this workflow runs
+    catalog-index mode. It costs nothing and keeps the function honest if the renderer is
+    ever pointed at a workspace run.
     """
     if report is None:
         return []
-    backend = report.get("backend") or {}
-    frontend = report.get("frontend") or {}
+    backend = _record(report, "backend")
+    frontend = _record(report, "frontend")
     return [
         *_plugin_failures(backend.get("errors")),
         *_plugin_failures(backend.get("bundleErrors")),
@@ -112,7 +149,8 @@ def render_body(
     failures = collect_failures(report)
     status = (report or {}).get("status") or "unknown"
     lines = [
-        f"The scheduled catalog index sanity check failed against `{image}`.",
+        "The scheduled catalog index sanity check failed against "
+        f"`{image or '(image unresolved)'}`.",
         "",
         f"- Index digest: `{digest or 'unresolved'}`",
         f"- Harness status: `{status}`",
@@ -126,11 +164,23 @@ def render_body(
             "The workflow run above has the logs.",
         ]
     elif not failures:
-        lines += [
-            "The report holds no per-package failure, so the job failed outside the "
-            "per-plugin checks (an install shortfall, or the backend not starting). "
-            "See the run and the `catalog-index-sanity` artifact.",
-        ]
+        # Both causes are IN the report, and naming them without printing them sent the
+        # reader to the artifact for a string already in hand. writeErrorReport() — the
+        # path taken for bad args, an install-CLI crash, or a boot failure before the
+        # report is built — emits no per-package error at all and puts the whole root
+        # cause in backendStart.error, so this branch covers that entire class.
+        lines += ["The report holds no per-package failure. What it does say:", ""]
+        shortfall = report.get("installShortfall")
+        start_error = _record(report, "backendStart").get("error")
+        if isinstance(shortfall, str) and shortfall:
+            lines.append(f"- Install shortfall: {_one_line(shortfall)}")
+        if isinstance(start_error, str) and start_error:
+            lines.append(f"- Backend start: {_one_line(start_error)}")
+        if len(lines) == 2:
+            lines.append(
+                "- Nothing beyond the status above — see the run and the "
+                "`catalog-index-sanity` artifact."
+            )
     else:
         lines += [f"### Failing packages ({len(failures)})", ""]
         lines += [f"- {line}" for line in failures[:MAX_LISTED]]

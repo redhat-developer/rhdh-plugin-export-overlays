@@ -106,6 +106,58 @@ def test_the_two_fallback_literals_are_pinned():
     assert "`unknown`" in body
 
 
+def test_a_failure_with_no_per_package_error_prints_what_the_report_does_say():
+    # writeErrorReport() in native-smoke.ts — bad args, an install-CLI crash, a boot
+    # failure before the report is built — emits zero per-package errors and puts the
+    # whole root cause in backendStart.error. Naming the causes without printing them
+    # made the issue content-free for that entire class.
+    body = renderer.render_body(
+        report(
+            status="error",
+            installShortfall="installed 2 plugin(s) but the catalog index declared 3",
+            backendStart={"ok": False, "error": "boom during boot"},
+        ),
+        IMAGE,
+        "",
+        RUN,
+    )
+    assert "Install shortfall: installed 2 plugin(s)" in body
+    assert "Backend start: boom during boot" in body
+
+
+def test_a_multiline_error_stays_one_bullet_and_is_capped():
+    # PluginError.error is a raw err.message, and Node's MODULE_NOT_FOUND spans lines.
+    # Newlines break the bullet list, and uncapped messages can push the body past
+    # GitHub's 65536-character limit, which fails the create outright.
+    long_error = "Cannot find module 'x'\nRequire stack:\n- " + "y" * 500
+    body = renderer.render_body(
+        report(backend={"errors": [plugin_error("@s/p", long_error)]}),
+        IMAGE,
+        "",
+        RUN,
+    )
+    bullets = [ln for ln in body.splitlines() if ln.startswith("- @s/p")]
+    assert len(bullets) == 1
+    assert "Require stack:" in bullets[0]
+    assert len(bullets[0]) < 400
+
+
+def test_a_truthy_non_dict_section_does_not_crash_the_render():
+    # An AttributeError here kills the render step, so no issue is filed at all — the
+    # opposite of what this script exists for. Verified crashing before the guard.
+    assert renderer.collect_failures({"backend": "notadict"}) == []
+    assert renderer.collect_failures({"frontend": ["a", "list"]}) == []
+    assert renderer.collect_failures(
+        {"backend": {"errors": [{"plugin": "a-string", "error": "boom"}]}}
+    ) == ["?: boom"]
+
+
+def test_an_unresolved_image_reads_the_same_in_the_title_and_the_body():
+    body = renderer.render_body(report(), "", "", RUN)
+    assert "(image unresolved)" in body
+    assert "against ``" not in body
+
+
 def test_a_report_that_was_never_written_still_files_something():
     # The harness not reaching its report stage IS the failure. Staying silent because
     # there is no JSON to read would lose exactly the worst case.
