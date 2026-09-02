@@ -133,7 +133,17 @@ def test_load_report_tolerates_anything_on_disk(tmp_path, bad):
     path = tmp_path / "results.json"
     if bad is not None:
         path.write_text(bad, encoding="utf-8")
-    assert renderer.load_report(str(path)) is None
+    assert renderer.load_report(path) is None
+
+
+def test_a_file_whose_bytes_are_not_utf8_reads_as_no_report(tmp_path):
+    # Not covered by the text cases above: the decode happens on read, so this raises
+    # UnicodeDecodeError — a ValueError, NOT an OSError, and not a JSONDecodeError. The
+    # artifact comes from a job that just died, which is where a write truncated
+    # mid-character comes from.
+    path = tmp_path / "results.json"
+    path.write_bytes(b'{"status": "\xff\xfe"}')
+    assert renderer.load_report(path) is None
 
 
 def test_collect_failures_skips_entries_that_are_not_objects():

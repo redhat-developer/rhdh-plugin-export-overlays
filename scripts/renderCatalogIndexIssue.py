@@ -29,11 +29,18 @@ MAX_LISTED = 20
 
 def load_report(path: Path) -> dict | None:
     """The report, or None. A missing or unparseable file is itself worth an issue —
-    the harness not reaching its report stage is a failure, not a reason to stay silent."""
+    the harness not reaching its report stage is a failure, not a reason to stay silent.
+
+    `ValueError` rather than `json.JSONDecodeError`, because the decode happens on read:
+    a file whose bytes are not valid UTF-8 raises `UnicodeDecodeError`, which is a
+    `ValueError` and not an `OSError`, so naming JSONDecodeError alone let it escape. The
+    artifact this reads comes from a job that just died, which is exactly where a write
+    truncated mid-character comes from.
+    """
     try:
         with open(path, encoding="utf-8") as handle:
             report = json.load(handle)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return None
     return report if isinstance(report, dict) else None
 
@@ -143,7 +150,10 @@ def render_body(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description="Render a catalog-index sanity failure into a GitHub issue "
+        "title and body."
+    )
     parser.add_argument("--results", required=True)
     parser.add_argument("--image", required=True)
     parser.add_argument("--digest", default="")
