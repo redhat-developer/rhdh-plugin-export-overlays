@@ -1,5 +1,5 @@
-plugins/orchestrator:
+plugins/orchestrator: --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-form-api --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-form-react --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-common
 plugins/orchestrator-backend:
 plugins/orchestrator-backend-module-loki: --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-common --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-node
-plugins/orchestrator-form-widgets:
+plugins/orchestrator-form-widgets: --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-form-api --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-form-react --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-common
 plugins/scaffolder-backend-module-orchestrator: --embed-package @red-hat-developer-hub/backstage-plugin-orchestrator-common
