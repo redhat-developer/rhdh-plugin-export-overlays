@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ci-diagnose-result.schema.json",
+  "title": "CI Diagnose Agent Result",
+  "description": "Structured output from the ci-diagnose agent. Diagnoses failing PR checks (GitHub Actions + OpenShift CI/Prow), classifies each, and renders the sticky PR comment the post-script upserts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pr_number", "head_sha", "verdict", "summary", "checks", "comment_body"],
+  "properties": {
+    "pr_number": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The pull request number the failures belong to."
+    },
+    "head_sha": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 64,
+      "description": "The PR head commit SHA that was analyzed (as read at agent runtime, not from the trigger event)."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pr_regression", "flake", "pre_existing", "product_bug", "config_env", "mixed", "needs_human"],
+      "description": "Overall rollup verdict across all failing checks. Use 'mixed' when checks fall into more than one classification."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "One-to-three sentence human-readable bottom line (e.g. 'Likely caused by this PR — both red checks touch workspaces/scorecard')."
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/check_finding" },
+      "description": "One entry per currently-red curated check that was diagnosed."
+    },
+    "comment_body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536,
+      "description": "Fully rendered markdown for the sticky PR comment. MUST contain the sticky marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup."
+    }
+  },
+  "$defs": {
+    "check_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "classification", "root_cause"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Exact check name / status context (e.g. 'ci/prow/e2e-ocp-helm', 'appConfigExamples coverage')."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["prow", "gha_check", "status"],
+          "description": "prow = OpenShift CI StatusContext; gha_check = GitHub Actions CheckRun; status = comment-command StatusContext (publish/smoketest)."
+        },
+        "classification": {
+          "type": "string",
+          "enum": ["pr_regression", "flake", "pre_existing", "product_bug", "config_env", "needs_human"],
+          "description": "Per-check root-cause classification."
+        },
+        "root_cause": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "The failure MECHANISM, not the symptom. 'Timeout' is a symptom; explain why it timed out."
+        },
+        "evidence": {
+          "type": "string",
+          "maxLength": 4096,
+          "description": "Key log lines, trace findings, or diff correlation supporting the classification."
+        },
+        "suggestion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Concrete next step (specific file/line to change, or 're-run — transient', or 'not this PR')."
+        },
+        "log_url": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "Direct link to logs (gcsweb for Prow, Actions run for GH Actions)."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "classification": { "enum": ["pr_regression", "flake"] } } },
+          "then": { "required": ["suggestion"] }
+        }
+      ]
+    }
+  }
+}

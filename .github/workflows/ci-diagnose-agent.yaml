@@ -1,0 +1,242 @@
+# CI Diagnose Agent — bootstrap workflow.
+#
+# FullSend can't trigger on CI-completion events (check_suite/status/
+# workflow_run are hard-rejected; see ADR 0033) — only issue/PR/comment/label
+# events. This workflow bridges that: it reacts to CI completion and cycles a
+# `ci-diagnose` label, which fullsend.yaml's label trigger picks up.
+#
+# Flow:
+#   check_suite/status completes → this workflow
+#     ├─ resolve the PR for the event's commit (skip forks, stale commits)
+#     ├─ compute the RED curated checks from the PR's live rollup
+#     ├─ dedup against the sticky comment's <!-- ci-diagnose-state --> marker
+#     └─ if state changed: cycle the `ci-diagnose` label (remove → add)
+#                                          ↓
+#              fullsend.yaml (pull_request_target: [labeled]) → dispatch
+#                                          ↓
+#              CEL trigger matches → ci-diagnose agent runs (read-only)
+#                                          ↓
+#              post-ci-diagnose.sh upserts ONE sticky diagnostic comment
+#
+# Why cycle (remove → add) instead of just add: re-adding an already-present
+# label is a no-op — fires no webhook — so re-firing as more checks go red
+# needs a fresh `labeled` event.
+#
+# Why an App token, not GITHUB_TOKEN: GITHUB_TOKEN writes don't emit webhook
+# events (GitHub anti-recursion, ADR 0033), so the label would never reach
+# fullsend.yaml.
+#
+# Curated-check membership is defined once, in .fullsend/rhdh/scripts/
+# curated-check-filter.jq, loaded here and by ci-diagnose.md Phase 1 — keeps
+# the dedup contract (this job's state vs. the agent's) from drifting apart.
+name: CI Diagnose Agent
+
+on:
+  # GH Actions checks (E2E Code Quality, appConfigExamples coverage, Python
+  # unit tests, smoke) surface as CheckRuns in a check_suite.
+  check_suite:
+    types: [completed]
+  # Prow (ci/prow/*) and comment-commands (publish, smoketest) surface as
+  # commit statuses. No type filter — every status update fires this; the
+  # job below filters to curated red checks and exits fast otherwise.
+  status: {}
+  # Manual re-diagnose for a specific PR.
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to (re-)diagnose"
+        required: true
+        type: string
+
+# Collapse a burst of check completions for one commit into one trigger.
+# Safe to cancel-in-progress: every run recomputes the full live rollup.
+concurrency:
+  group: >-
+    ci-diagnose-bootstrap-${{
+      github.event.check_suite.head_sha
+      || github.event.sha
+      || format('dispatch-{0}', github.event.inputs.pr_number)
+    }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  statuses: read
+  checks: read
+
+jobs:
+  label:
+    name: Evaluate CI state and label
+    runs-on: ubuntu-latest
+    # Only failing statuses matter (Prow/publish/smoketest report as commit
+    # statuses) — skip pending/success to avoid a runner spin-up per green
+    # status repo-wide. A green transition is instead caught by
+    # check_suite:completed, which always re-reads the full live rollup.
+    if: >-
+      github.event_name != 'status'
+      || github.event.state == 'failure'
+      || github.event.state == 'error'
+    steps:
+      # Only the shared jq filter is needed — sparse-checkout keeps this fast.
+      - name: Checkout curated-check filter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: |
+            .fullsend/rhdh/scripts/curated-check-filter.jq
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve PR, compute red set, and decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          STATUS_SHA: ${{ github.event.sha }}
+          CHECK_SUITE_SHA: ${{ github.event.check_suite.head_sha }}
+          INPUT_PR: ${{ github.event.inputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          # -- Resolve the commit SHA and the PR it belongs to ---------------
+          case "${EVENT_NAME}" in
+            status)       EVENT_SHA="${STATUS_SHA}" ;;
+            check_suite)  EVENT_SHA="${CHECK_SUITE_SHA}" ;;
+            workflow_dispatch) EVENT_SHA="" ;;
+            *) echo "::notice::Unhandled event ${EVENT_NAME}"; echo "fire=false" >> "${GITHUB_OUTPUT}"; exit 0 ;;
+          esac
+
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            PR_NUMBER="${INPUT_PR}"
+            if [[ ! "${PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+              echo "::error::pr_number input must be numeric, got: ${PR_NUMBER}"
+              exit 1
+            fi
+          else
+            # Map the commit → its open PR in this repo.
+            PR_NUMBER=$(gh api "repos/${REPO}/commits/${EVENT_SHA}/pulls" \
+              --jq '[.[] | select(.state=="open") | .number] | first // empty' 2>/dev/null || true)
+          fi
+
+          if [[ -z "${PR_NUMBER:-}" ]]; then
+            echo "::notice::No open PR for ${EVENT_SHA:-dispatch} — nothing to diagnose"
+            echo "fire=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "Resolved PR #${PR_NUMBER}"
+
+          # -- Read the PR's LIVE rollup (never trust the trigger payload) ----
+          ROLLUP=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" \
+            --json headRefOid,statusCheckRollup,isCrossRepository)
+          HEAD_SHA=$(echo "${ROLLUP}" | jq -r '.headRefOid')
+
+          # Fork PRs run without repo secrets, so curated checks fail for
+          # unrelated reasons — skip, unless the author is a trusted org
+          # member (OWNER/MEMBER/COLLABORATOR), the same trust tiers
+          # fullsend.yaml's own slash-command auth gate uses. A member's own
+          # fork isn't the free/unauthenticated case this guard is for.
+          if [[ "$(echo "${ROLLUP}" | jq -r '.isCrossRepository')" == "true" ]]; then
+            AUTHOR_ASSOC=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.author_association' 2>/dev/null || echo "NONE")
+            case "${AUTHOR_ASSOC}" in
+              OWNER|MEMBER|COLLABORATOR)
+                echo "::notice::PR #${PR_NUMBER} is a fork PR by a trusted author (${AUTHOR_ASSOC}) — proceeding"
+                ;;
+              *)
+                echo "::notice::PR #${PR_NUMBER} is a fork PR by an untrusted author (${AUTHOR_ASSOC}) — skipping"
+                echo "fire=false" >> "${GITHUB_OUTPUT}"
+                exit 0
+                ;;
+            esac
+          fi
+
+          # Stale: this check belongs to a commit that's no longer the PR
+          # head — the new commit's own checks will fire their own event.
+          # Dispatch has no EVENT_SHA, so it's never stale.
+          if [[ -n "${EVENT_SHA}" && "${EVENT_SHA}" != "${HEAD_SHA}" ]]; then
+            echo "::notice::Event SHA ${EVENT_SHA} != head ${HEAD_SHA} — stale, skipping"
+            echo "fire=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          # -- Compute the sorted RED curated check names --------------------
+          # Shared filter (curated-check-filter.jq) — see the file header.
+          RED_NAMES=$(echo "${ROLLUP}" \
+            | jq -c -f .fullsend/rhdh/scripts/curated-check-filter.jq \
+            | jq -c 'map(.name // .context) | sort')
+          echo "Red curated checks: ${RED_NAMES}"
+
+          NEW_STATE=$(jq -cn --arg sha "${HEAD_SHA}" --argjson red "${RED_NAMES}" \
+            '{sha:$sha, red:$red}' | jq -cS .)
+
+          # -- Read the previous state marker from the sticky comment --------
+          # Only trust markers from the agent's own identity — otherwise
+          # anyone with comment access could forge one to force/suppress a re-fire.
+          PREV_BODY=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq '[.[] | select(.user.login == "fullsend-ai-review[bot]" and (.body | contains("<!-- ci-diagnose -->")))] | last | .body // ""' 2>/dev/null || true)
+          PREV_STATE=""
+          if [[ -n "${PREV_BODY}" ]]; then
+            PREV_RAW=$(printf '%s' "${PREV_BODY}" \
+              | grep -oE '<!-- ci-diagnose-state: .* -->' | head -1 \
+              | sed -E 's/^<!-- ci-diagnose-state: (.*) -->$/\1/' || true)
+            if [[ -n "${PREV_RAW}" ]]; then
+              PREV_STATE=$(printf '%s' "${PREV_RAW}" | jq -cS . 2>/dev/null || echo "")
+            fi
+          fi
+
+          # -- Decide whether to (re-)fire ----------------------------------
+          if [[ "${RED_NAMES}" == "[]" && -z "${PREV_STATE}" ]]; then
+            echo "::notice::PR is green and never diagnosed — nothing to do"
+            echo "fire=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [[ "${NEW_STATE}" == "${PREV_STATE}" ]]; then
+            echo "::notice::CI state unchanged since last diagnose — skipping"
+            echo "fire=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "State changed — will trigger diagnose"
+          echo "  prev: ${PREV_STATE:-<none>}"
+          echo "  new:  ${NEW_STATE}"
+          echo "fire=true" >> "${GITHUB_OUTPUT}"
+          echo "pr_number=${PR_NUMBER}" >> "${GITHUB_OUTPUT}"
+
+      # App installation token so the `labeled` event actually fires (a
+      # GITHUB_TOKEN label would be silently swallowed — ADR 0033).
+      # pull-requests:write is for labeling the PR; issues:write is for
+      # `gh label create`, which 404s without it if the label is missing.
+      - name: Generate GitHub App token
+        if: steps.decide.outputs.fire == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Cycle the ci-diagnose label
+        if: steps.decide.outputs.fire == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.decide.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          # Ensure the label exists (labels live on the issues API; a PR is an
+          # issue for labeling purposes).
+          gh label create "ci-diagnose" --repo "${REPO}" \
+            --description "Triggers the fullsend ci-diagnose agent" --color "1d76db" \
+            --force 2>/dev/null || true
+
+          # Remove first (ignore 404 if absent), then re-add so a fresh
+          # `labeled` webhook always fires — even if the label was already set.
+          ENCODED=$(printf '%s' "ci-diagnose" | jq -sRr @uri)
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/labels/${ENCODED}" \
+            -X DELETE --silent 2>/dev/null || true
+          sleep 1
+          gh api "repos/${REPO}/issues/${PR_NUMBER}/labels" \
+            -f "labels[]=ci-diagnose" --silent
+
+          echo "Cycled ci-diagnose label on PR #${PR_NUMBER} — agent will run"

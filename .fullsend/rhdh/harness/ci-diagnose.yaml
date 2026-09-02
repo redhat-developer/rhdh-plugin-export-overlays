@@ -1,0 +1,95 @@
+---
+# harness/ci-diagnose.yaml — PR CI-failure diagnose agent.
+#
+# Flow: sandbox (agent) → post_script
+#   agent       : reads the PR's current check rollup, diagnoses each red
+#                 curated check (Prow e2e via skills, GH Actions via run logs),
+#                 classifies (pr_regression / flake / pre_existing / ...),
+#                 and renders the sticky PR comment body.
+#   post_script : upserts ONE sticky comment on the PR (edit-in-place via a
+#                 hidden marker), so re-runs update rather than spam.
+#
+# The ci-diagnose agent does NOT modify code, push branches, or create PRs.
+# It only reads CI artifacts/logs and writes a diagnostic comment.
+#
+# Trigger: either (a) a `ci-diagnose` label applied by the bootstrap workflow
+# (.github/workflows/ci-diagnose-agent.yaml), which reacts to CI-completion
+# events (status / check_suite) — FullSend itself cannot trigger on CI events,
+# only on issue/PR/comment/label events (see ADR 0033 + ghaevent.go) — or
+# (b) a maintainer commenting `/fs-diagnose` directly on the PR.
+agent: rhdh/agents/ci-diagnose.md
+model: opus
+image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
+policy: rhdh/policies/ci-diagnose.yaml
+
+role: review
+slug: fullsend-ai-review
+
+# Label path: a `ci-diagnose` label ADDED to a pull request (change_proposal).
+# Label-add events are authorized before any role check (auth.go), so the
+# bootstrap's App-token label passes.
+#
+# Comment path: a PR comment is normalized as a work_item with a
+# linked_change_proposal, not a change_proposal directly (ghaevent.go). Unlike
+# label-add, comment_added is NOT pre-authorized — auth.go requires the
+# commenter to have write-level GitHub permission, the same OWNER/MEMBER/
+# COLLABORATOR tier fullsend's native slash commands use.
+trigger: |
+  (event.entity.kind == "change_proposal"
+   && event.transition.kind == "label_changed"
+   && event.transition.label.action == "added"
+   && event.transition.label.name == "ci-diagnose")
+  ||
+  (event.entity.kind == "work_item"
+   && has(event.entity.linked_change_proposal)
+   && event.transition.kind == "comment_added"
+   && has(event.transition.comment.command)
+   && event.transition.comment.command == "/fs-diagnose")
+
+host_files:
+  - src: rhdh/env/rhdh-toolchain.env
+    dest: /sandbox/workspace/.env.d/rhdh-toolchain.env
+  - src: env/gcp-vertex.env
+    dest: /sandbox/workspace/.env.d/gcp-vertex.env
+    expand: true
+  - src: ${GOOGLE_APPLICATION_CREDENTIALS}
+    dest: /tmp/.gcp-credentials.json
+  - src: ${GCP_OIDC_TOKEN_FILE}
+    dest: /tmp/.gcp-oidc-token
+    optional: true
+
+skills:
+  - skills/e2e-failure-analysis
+  - skills/playwright-trace
+
+post_script: rhdh/scripts/post-ci-diagnose.sh
+
+validation_loop:
+  script: rhdh/scripts/validate-output-schema.sh
+  max_iterations: 2
+
+env:
+  runner:
+    GH_TOKEN: ${GH_TOKEN}
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+    GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+    FULLSEND_OUTPUT_SCHEMA: ${FULLSEND_DIR}/rhdh/schemas/ci-diagnose-result.schema.json
+  sandbox:
+    SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
+    PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
+    GH_TOKEN: "${GH_TOKEN}"
+    GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+    REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays
+
+timeout_minutes: 60
+
+forge:
+  github:
+    env:
+      runner:
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
+      sandbox:
+        REPO_FULL_NAME: "${REPO_FULL_NAME}"
+        GH_TOKEN: "${GH_TOKEN}"
+        GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"

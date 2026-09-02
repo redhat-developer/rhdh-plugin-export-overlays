@@ -1,14 +1,17 @@
 ---
 version: 1
 
-# Sandbox policy for the e2e-triage agent.
-# forked-from: rhdh/policies/code.yaml
+# Sandbox policy for the ci-diagnose agent (PR CI-failure diagnosis).
+# forked-from: rhdh/policies/e2e-triage.yaml
 #
-# Differences from code.yaml:
-#   - package_registries removed (triage doesn't build or install packages)
-#   - github_api remains read-only (writes happen in the post-script)
-#   - prow_artifacts retained for downloading nightly CI artifacts
-#   - **/gh binary for GitHub read operations (issue search, dedup)
+# Same shape as e2e-triage — the agent is read-only inside the sandbox and
+# all GitHub writes (the sticky PR comment) happen in the post-script.
+#
+#   - github_api is read-only: the agent reads the PR check rollup, PR diff,
+#     GH Actions run logs (via gh/api), and existing comments for reconcile.
+#   - prow_artifacts is retained: Prow e2e failures (ci/prow/e2e-ocp-helm)
+#     are diagnosed with the e2e-failure-analysis + playwright-trace skills,
+#     which download gcsweb/GCS artifacts.
 
 filesystem_policy:
   include_workdir: true
@@ -48,7 +51,8 @@ network_policies:
         protocol: rest
         enforcement: enforce
         access: read-only
-      # gh CLI uses POST /graphql for reads; protocol: rest does not cover
+      # gh CLI uses POST /graphql for reads (e.g. `gh pr view --json
+      # statusCheckRollup`, `gh pr diff`); protocol: rest does not cover
       # this — it needs its own endpoint entry. See review.yaml.
       - host: "api.github.com"
         port: 443
@@ -57,6 +61,24 @@ network_policies:
         access: read-only
         path: "/graphql"
       - host: "github.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      # `gh run view --log-failed` / the job-logs REST endpoint 302s here to
+      # fetch the actual log blob; without these the redirect target is
+      # unreachable and gh reports it as a 403.
+      - host: "results-receiver.actions.githubusercontent.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      # Narrower than *.blob.core.windows.net: only GitHub's own Actions
+      # results storage-account naming convention (observed: sa5, sa13),
+      # not arbitrary Azure Storage tenants. If GitHub changes the naming
+      # scheme this stops matching — degrades to the annotations-API
+      # fallback in ci-diagnose.md rather than a hard failure.
+      - host: "productionresultssa*.blob.core.windows.net"
         port: 443
         protocol: rest
         enforcement: enforce

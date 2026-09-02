@@ -322,6 +322,31 @@ test("failureDetail prefers the most specific error the report holds", () => {
     ),
     "@s/backend: declares `configSchema` but the schema is gone",
   );
+  // A config-key mismatch (RHIDP-16690) is the only fail-bundle cause with no plugin
+  // behind it, so it needs its own branch or the panel prints the bare status.
+  assert.match(
+    failureDetail(
+      result({
+        report: report({
+          frontend: {
+            total: 1,
+            valid: 1,
+            errors: [],
+            bundles: [],
+            configKeyMismatches: [
+              {
+                key: "scope.typo",
+                source: "a.yaml",
+                bundleNames: ["scope.real"],
+              },
+            ],
+          },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    /dynamicPlugins\.frontend\.'scope\.typo' matches no installed bundle name/,
+  );
 });
 
 test("buildAggregate totals each counter from its own field", () => {

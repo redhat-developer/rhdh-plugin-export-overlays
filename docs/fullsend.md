@@ -15,6 +15,7 @@
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
 | E2E Triage | Auto-triggers nightly via `e2e-triage` label | Discovers failed nightly E2E runs, classifies per workspace, creates issues for the code agent |
+| CI Diagnose | Auto-triggers via `ci-diagnose` label when curated PR checks go red, or `/fs-diagnose` slash command | Diagnoses failing PR checks (Prow, GitHub Actions, comment-command statuses) and posts a read-only sticky diagnostic comment |
 
 ### Auto-trigger vs. manual trigger
 
@@ -25,6 +26,7 @@
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
 | E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies failures → post-script creates per-workspace issues with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
+| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script upserts one sticky comment on the PR. | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
 
 ### Scope details
 
@@ -52,6 +54,7 @@ Slash commands are **restricted to org members and collaborators** via an `autho
 | `/fs-review` | Run review on a PR |
 | `/fs-fix` | Fix issues flagged in a review |
 | `/fs-fix-stop` | Disable fix agent for a PR (adds `fullsend-no-fix` label) |
+| `/fs-diagnose` | Diagnose failing CI checks on a PR |
 
 ## How to expand review to more workspaces
 
@@ -175,7 +178,7 @@ The dispatch job checks `author_association` on `issue_comment` events. Only `OW
 
 ### CODEOWNERS protection
 
-The `.fullsend/` directory, `.github/workflows/fullsend.yaml`, and `.github/workflows/e2e-triage-agent.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
+The `.fullsend/` directory, `.github/workflows/fullsend.yaml`, `.github/workflows/e2e-triage-agent.yaml`, and `.github/workflows/ci-diagnose-agent.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
 
 ### Inference authentication
 
@@ -185,12 +188,13 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 
 | Path | Purpose |
 |------|---------|
-| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage) and roles |
+| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage, ci-diagnose) and roles |
 | `.fullsend/rhdh/` | Custom agents, harnesses, policies, schemas, scripts, and skills |
 | `.fullsend/customized/` | Scaffold stubs for future agent/harness/policy/skill customizations |
 | `.fullsend/customized/scripts/pre-fix-rebase.sh` | Auto-rebase before fix agent runs |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
 | `.github/workflows/e2e-triage-agent.yaml` | Nightly E2E failure discovery → creates labeled issue for triage agent |
+| `.github/workflows/ci-diagnose-agent.yaml` | PR CI-completion bridge → cycles `ci-diagnose` label for the diagnose agent |
 
 ## Debugging
 

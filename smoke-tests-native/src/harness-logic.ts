@@ -11,7 +11,9 @@
  */
 
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
-import type { Status } from "./report";
+import type { ConfigKeyMismatch, Status } from "./report";
+import type { ConfiguredFrontendKey } from "./workspace";
+import { compareStrings } from "./util";
 
 /**
  * The harness's verdict, most specific failure first.
@@ -31,11 +33,113 @@ export function computeStatus(
   startOk: boolean,
   loadedCount: number,
   bundleErrors: PluginError[],
+  configKeyMismatches: number,
 ): Status {
   if (loadErrors.length > 0) return "fail-load";
   if (!startOk && loadedCount > 0) return "fail-start";
-  if (bundleErrors.length > 0) return "fail-bundle";
+  if (bundleErrors.length > 0 || configKeyMismatches > 0) return "fail-bundle";
   return "pass";
+}
+
+/**
+ * `dynamicPlugins.frontend` keys RHDH itself owns, so they name no plugin and must never
+ * be reported as a mismatch.
+ *
+ * This is not a judgement call or a workaround for a defect — it mirrors a hardcoded list
+ * in RHDH, `ignoreStaticPlugins` in
+ * `packages/app/src/utils/dynamicUI/initializeRemotePlugins.ts`, which filters these keys
+ * out by `scope` before it ever asks Scalprum for a module. RHDH's own docs
+ * (`docs/customization.md`) describe `default.main-menu-items` as the key for configuring
+ * static main menu items, with the `default.` prefix required.
+ *
+ * A constant rather than a tracked exclusions file, deliberately. The exclusions file
+ * exists for defects that carry a ticket and are meant to be deleted when fixed; these
+ * are permanent product facts with no ticket and nothing to fix, and filing them there
+ * would make "every entry has a ticket" — the file's whole enforcement mechanism — a lie.
+ * Keep this in step with RHDH's list, not with anything in this repo.
+ */
+const RHDH_BUILTIN_FRONTEND_KEYS = new Set(["default.main-menu-items"]);
+
+/**
+ * Configured keys that no installed bundle answers to.
+ *
+ * Set-based on purpose: it asks whether ANY bundle in the run reports the name, not
+ * whether the bundle of the package that declares the key does. A metadata file may
+ * legitimately configure a sibling package's plugin — and one OCI image can carry
+ * several plugins, so tying a key to "its own" bundle would need a metadata-to-directory
+ * mapping that does not survive multi-plugin images. `cost-management` is exactly that
+ * shape: two packages, one ref.
+ */
+export function findConfigKeyMismatches(
+  configured: ConfiguredFrontendKey[],
+  bundleNames: string[],
+): ConfigKeyMismatch[] {
+  const names = new Set(bundleNames);
+  // Sorted once: every mismatch reports the same list, and it does not depend on the key.
+  const reported = [...names].sort(compareStrings);
+  const seen = new Set<string>();
+  const mismatches: ConfigKeyMismatch[] = [];
+  for (const { key, source } of configured) {
+    if (names.has(key) || RHDH_BUILTIN_FRONTEND_KEYS.has(key)) continue;
+    // A key repeated across metadata files is one finding, not one per file: the reader
+    // fixes the bundle name or the key once.
+    if (seen.has(key)) continue;
+    seen.add(key);
+    mismatches.push({ key, source, bundleNames: reported });
+  }
+  return mismatches;
+}
+
+/**
+ * How many bundle names the message spells out before summarising the rest.
+ *
+ * Both sides have to survive `oneLine`'s DETAIL_LIMIT (220) in the sweep's failure table,
+ * and "naming both sides" is this check's acceptance criterion — a row truncated inside
+ * the list drops exactly the half that says what to write instead. Three names is what
+ * fits once the key and the file are accounted for; the untruncated message is in
+ * results.json and on the console either way.
+ */
+const NAMES_IN_MESSAGE = 3;
+
+/**
+ * Whether the set of installed bundle names is complete enough to judge configured keys
+ * against.
+ *
+ * The cross-check asks whether a key matches a name some bundle reports, which is a
+ * question about metadata ONLY while every installed package contributed its name. Two
+ * things break that, and both already fail the run on their own:
+ *
+ * - an install shortfall — a declared ref never landed, so its key looks like a metadata
+ *   defect when the real cause is a failed pull;
+ * - a frontend bundle whose manifest could not be read — `scalprum.name` is null, so that
+ *   package contributes nothing and its own key is blamed on top of the bundle error
+ *   already reported. Two findings, one defect, and the second names the wrong artifact.
+ *
+ * Here rather than inline in native-smoke.ts because that file ends in
+ * `process.exit(await main())`, which puts everything beside it out of reach of a test —
+ * the same reason the rest of this module exists.
+ */
+export function bundleNamesAreComplete(
+  installShortfall: string | null,
+  frontendErrors: PluginError[],
+): boolean {
+  return !installShortfall && frontendErrors.length === 0;
+}
+
+/** One line per mismatch, naming both sides — the key and what the bundles do report. */
+export function describeConfigKeyMismatch(mismatch: ConfigKeyMismatch): string {
+  const shown = mismatch.bundleNames.slice(0, NAMES_IN_MESSAGE);
+  const extra = mismatch.bundleNames.length - shown.length;
+  const more = extra > 0 ? `, +${extra} more` : "";
+  const reported = shown.length ? `${shown.join(", ")}${more}` : "nothing";
+  // Key and names first, the fixed explanation last: the tail is the same on every
+  // finding and is the part a reader can afford to lose to truncation.
+  return (
+    `dynamicPlugins.frontend.'${mismatch.key}' matches no installed bundle name ` +
+    `(bundles report: ${reported}); configured in ${mismatch.source} — RHDH matches the ` +
+    `key against dist-scalprum/plugin-manifest.json's name, so every mount point under ` +
+    `it is ignored with nothing logged`
+  );
 }
 
 export type ShortfallOptions = {

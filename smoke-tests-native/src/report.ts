@@ -12,6 +12,7 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
+import { isRecord } from "./util";
 import type {
   ConfigSchemaInfo,
   FrontendSystem,
@@ -46,8 +47,9 @@ import type {
  * 7: added `catalogIndex`, the provenance block catalog-index mode records.
  * 8: added `backend.bundles` and `backend.bundleErrors`, extending the configSchema
  *    check of 6 to backend plugins (RHIDP-16689).
+ * 9: added `frontend.configKeyMismatches` (RHIDP-16690).
  */
-export const REPORT_SCHEMA_VERSION = 8;
+export const REPORT_SCHEMA_VERSION = 9;
 
 export type Status =
   | "pass"
@@ -95,6 +97,31 @@ export type FrontendBundleInfo = {
    * (RHDHBUGS-1157).
    */
   configSchema: ConfigSchemaInfo;
+};
+
+/**
+ * A `dynamicPlugins.frontend.<key>` the workspace's metadata configures that no installed
+ * bundle answers to.
+ *
+ * RHDH matches the app-config key against the `name` in a bundle's
+ * `dist-scalprum/plugin-manifest.json`. When they disagree the plugin still loads, and
+ * every mount point configured under that key is ignored with nothing logged — the same
+ * user-visible outcome as RHDHBUGS-2180, reached a different way.
+ */
+export type ConfigKeyMismatch = {
+  /** The key exactly as the metadata writes it. */
+  key: string;
+  /** Metadata file that configures it, so a reader has somewhere to go. */
+  source: string;
+  /**
+   * The names the workspace's installed bundles DO report. Half of "naming both sides":
+   * without it the finding says what is wrong but not what was expected instead.
+   *
+   * `readonly` because every mismatch from one call shares one array instance — the list
+   * is identical for all of them and is built once. Nothing mutates it today; the type
+   * is what keeps that true.
+   */
+  bundleNames: readonly string[];
 };
 
 /**
@@ -180,6 +207,12 @@ export type Report = {
     valid: number;
     errors: PluginError[];
     bundles: FrontendBundleInfo[];
+    /**
+     * Workspace mode only: configured keys no installed bundle name matches. Absent in
+     * the other modes, which have no workspace metadata to read keys from — and absence
+     * means "not checked here", not "checked and clean".
+     */
+    configKeyMismatches?: ConfigKeyMismatch[];
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
@@ -218,10 +251,6 @@ export type SweepSummary = {
    */
   status: "pass" | "fail";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Narrow a parsed report, checking the schema version it declares.
