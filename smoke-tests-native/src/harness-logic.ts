@@ -130,9 +130,8 @@ export function bundleNamesAreComplete(
 export function describeConfigKeyMismatch(mismatch: ConfigKeyMismatch): string {
   const shown = mismatch.bundleNames.slice(0, NAMES_IN_MESSAGE);
   const extra = mismatch.bundleNames.length - shown.length;
-  const reported = shown.length
-    ? shown.join(", ") + (extra > 0 ? `, +${extra} more` : "")
-    : "nothing";
+  const more = extra > 0 ? `, +${extra} more` : "";
+  const reported = shown.length ? `${shown.join(", ")}${more}` : "nothing";
   // Key and names first, the fixed explanation last: the tail is the same on every
   // finding and is the part a reader can afford to lose to truncation.
   return (
