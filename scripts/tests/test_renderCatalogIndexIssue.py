@@ -48,7 +48,8 @@ def test_a_title_with_no_image_still_names_something():
     # passes its empty output straight through. A title ending in ": " names no index.
     title = renderer.render_title("")
     assert title.rstrip().endswith("(image unresolved)")
-    assert renderer.render_title("") == renderer.render_title("")
+    # And it is still a title the deduplication can look up, not a bare prefix.
+    assert title != renderer.render_title(IMAGE)
 
 
 def test_title_separates_two_indexes():
