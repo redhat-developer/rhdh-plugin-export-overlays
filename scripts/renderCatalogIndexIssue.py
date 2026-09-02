@@ -17,6 +17,7 @@
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from plugin_utils import PathNotContainedError, require_contained
 
@@ -26,7 +27,7 @@ from plugin_utils import PathNotContainedError, require_contained
 MAX_LISTED = 20
 
 
-def load_report(path):
+def load_report(path: Path) -> dict | None:
     """The report, or None. A missing or unparseable file is itself worth an issue —
     the harness not reaching its report stage is a failure, not a reason to stay silent."""
     try:
@@ -37,7 +38,7 @@ def load_report(path):
     return report if isinstance(report, dict) else None
 
 
-def _plugin_failures(entries):
+def _plugin_failures(entries: object) -> list[str]:
     """`name: error` lines from one PluginError list.
 
     `.plugin` is an object, so a bare fallback would put the whole thing in the issue —
@@ -52,7 +53,7 @@ def _plugin_failures(entries):
     return lines
 
 
-def _config_key_failures(entries):
+def _config_key_failures(entries: object) -> list[str]:
     """The same, for mismatches — which carry a metadata file rather than a plugin.
 
     The field arrives with RHIDP-16690; reading it before then is harmless, because a
@@ -66,7 +67,7 @@ def _config_key_failures(entries):
     ]
 
 
-def collect_failures(report):
+def collect_failures(report: dict | None) -> list[str]:
     """Every per-package failure the report holds.
 
     All four lists, not just the two the job summary prints: a plugin that failed to
@@ -85,14 +86,22 @@ def collect_failures(report):
     ]
 
 
-def render_title(image):
+def render_title(image: str) -> str:
     """Stable across runs, deliberately: the workflow looks an open issue up by this
     exact string to avoid filing a second one every night the index stays broken. Adding
-    a date or a digest here would defeat that."""
-    return f"[fullsend] Catalog index sanity failed: {image}"
+    a date or a digest here would defeat that.
+
+    The empty case is reachable: the job passes `needs.sanity.outputs.image` straight
+    through, and that output is "" whenever the sanity job died before its "Resolve the
+    catalog index image" step ran — a checkout or a setup failure. A title ending in a
+    colon and nothing else names no index at all, so say so instead.
+    """
+    return f"[fullsend] Catalog index sanity failed: {image or '(image unresolved)'}"
 
 
-def render_body(report, image, digest, run_url):
+def render_body(
+    report: dict | None, image: str, digest: str, run_url: str
+) -> str:
     failures = collect_failures(report)
     status = (report or {}).get("status") or "unknown"
     lines = [
@@ -133,7 +142,7 @@ def render_body(report, image, digest, run_url):
     return "\n".join(lines) + "\n"
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
     parser.add_argument("--image", required=True)

@@ -43,6 +43,14 @@ def test_title_is_stable_across_runs():
         assert moving not in first.replace(IMAGE, "")
 
 
+def test_a_title_with_no_image_still_names_something():
+    # Reachable whenever the sanity job dies before resolving the image — the workflow
+    # passes its empty output straight through. A title ending in ": " names no index.
+    title = renderer.render_title("")
+    assert title.rstrip().endswith("(image unresolved)")
+    assert renderer.render_title("") == renderer.render_title("")
+
+
 def test_title_separates_two_indexes():
     # A release branch validates its own index. Two broken indexes are two problems and
     # must not share one issue.
@@ -85,6 +93,16 @@ def test_body_caps_the_list_and_says_how_many_are_left():
     assert "@s/p0: boom" in body
     assert "@s/p24: boom" not in body
     assert "and 5 more" in body
+
+
+def test_the_two_fallback_literals_are_pinned():
+    # Neither had a test asserting its text. `unresolved` in particular has to stay in
+    # step with the bash fallback in catalog-index-sanity.yaml's "Resolve the catalog
+    # index image" step, which writes the same word when skopeo cannot read the tag —
+    # two copies of one string, in two languages, is exactly where drift starts.
+    body = renderer.render_body(report(status=None), IMAGE, "", RUN)
+    assert "`unresolved`" in body
+    assert "`unknown`" in body
 
 
 def test_a_report_that_was_never_written_still_files_something():
