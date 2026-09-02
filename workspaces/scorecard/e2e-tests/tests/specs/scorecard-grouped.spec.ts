@@ -152,7 +152,7 @@ test.describe.serial("Scorecard Grouped Metrics", () => {
     await catalog.goToByName("all-scorecards");
     await scorecard.openTab();
 
-    const jiraCard = page.locator("article").filter({
+    const jiraCard = page.locator('[role="article"]').filter({
       has: page.getByText("Jira open blocking tickets", { exact: true }),
     });
     await expect(jiraCard).toBeVisible({ timeout: 60_000 });

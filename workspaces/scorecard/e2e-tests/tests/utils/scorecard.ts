@@ -73,7 +73,7 @@ export const DEPENDABOT_METRICS = [
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
-      .locator("article")
+      .locator('[role="article"]')
       .filter({ has: page.getByText(metric.title, { exact: true }) });
 
   return {
@@ -85,9 +85,11 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     },
     async expectEmptyState() {
       await expect(page.getByText("No scorecards added yet")).toBeVisible();
-      await expect(page.getByRole("article")).toContainText(
-        "Scorecards help you monitor component health at a glance. To begin, explore our documentation for setup guidelines.",
-      );
+      await expect(
+        page.getByText(
+          "Scorecards help you monitor component health at a glance. To begin, explore our documentation for setup guidelines.",
+        ),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "View documentation" }),
       ).toBeVisible();
@@ -187,13 +189,15 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     },
     async expectAggregatedScorecardVisible(metricTitle: string) {
       await expect(
-        page.locator("article").filter({ hasText: metricTitle }),
+        page.locator('[role="article"]').filter({ hasText: metricTitle }),
       ).toBeVisible({ timeout: 90_000 });
     },
     async getAggregatedScorecardEntityCount(
       metricTitle: string,
     ): Promise<number> {
-      const card = page.locator("article").filter({ hasText: metricTitle });
+      const card = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       const text = await card.textContent();
       const match = text?.match(/(\d+)\s*entities/);
       return match ? Number.parseInt(match[1], 10) : 0;
@@ -202,7 +206,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedCount: number,
     ) {
-      const card = page.locator("article").filter({ hasText: metricTitle });
+      const card = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       await expect(card).toContainText(`${expectedCount} entities`);
     },
     async expectFilecheckForEntity(
@@ -222,7 +228,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedIconTestId: string,
     ) {
-      const section = page.locator("article").filter({ hasText: metricTitle });
+      const section = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       await expect(section).toBeVisible({ timeout: 60_000 });
       await expect(section.getByRole("progressbar")).toHaveCount(0, {
         timeout: 60_000,
