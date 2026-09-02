@@ -44,7 +44,14 @@ function report(overrides: Partial<Report> = {}): Report {
   return {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion: "0.3.0",
-    backend: { total: 0, loaded: 0, skipped: [], errors: [] },
+    backend: {
+      total: 0,
+      loaded: 0,
+      skipped: [],
+      errors: [],
+      bundles: [],
+      bundleErrors: [],
+    },
     backendStart: { ok: true },
     frontend: { total: 0, valid: 0, errors: [], bundles: [] },
     exclusions: [],
@@ -262,6 +269,8 @@ test("failureDetail prefers the most specific error the report holds", () => {
                 error: "boom",
               },
             ],
+            bundles: [],
+            bundleErrors: [],
           },
           backendStart: { ok: false, error: "ignored" },
           status: "fail-load",
@@ -281,6 +290,38 @@ test("failureDetail prefers the most specific error the report holds", () => {
     ),
     "backend start: cfg invalid",
   );
+  // A backend bundle fault (RHIDP-16689) has to name its plugin too. Without this the
+  // sweep panel printed the bare status for it — "fail-bundle", culprit unnamed — which
+  // is the whole reason the per-plugin record exists.
+  assert.equal(
+    failureDetail(
+      result({
+        report: report({
+          backend: {
+            total: 1,
+            loaded: 1,
+            skipped: [],
+            errors: [],
+            bundles: [],
+            bundleErrors: [
+              {
+                plugin: {
+                  name: "@s/backend",
+                  version: "1",
+                  dirName: "d",
+                  path: "/p",
+                  role: "backend",
+                },
+                error: "declares `configSchema` but the schema is gone",
+              },
+            ],
+          },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    "@s/backend: declares `configSchema` but the schema is gone",
+  );
 });
 
 test("buildAggregate totals each counter from its own field", () => {
@@ -290,7 +331,14 @@ test("buildAggregate totals each counter from its own field", () => {
     summary([
       result({
         report: report({
-          backend: { total: 7, loaded: 3, skipped: ["x", "y"], errors: [] },
+          backend: {
+            total: 7,
+            loaded: 3,
+            skipped: ["x", "y"],
+            errors: [],
+            bundles: [],
+            bundleErrors: [],
+          },
           frontend: { total: 5, valid: 2, errors: [], bundles: [] },
         }),
       }),
@@ -317,7 +365,14 @@ test("buildAggregate counts loaded-but-not-booted plugins as not booted", () => 
       result({
         status: "fail-start",
         report: report({
-          backend: { total: 3, loaded: 3, skipped: [], errors: [] },
+          backend: {
+            total: 3,
+            loaded: 3,
+            skipped: [],
+            errors: [],
+            bundles: [],
+            bundleErrors: [],
+          },
           backendStart: { ok: false, error: "boom" },
           status: "fail-start",
         }),
@@ -486,7 +541,14 @@ test("renderMarkdown puts each computed number in its own row", () => {
         result({
           workspace: "a",
           report: report({
-            backend: { total: 7, loaded: 5, skipped: ["x", "y"], errors: [] },
+            backend: {
+              total: 7,
+              loaded: 5,
+              skipped: ["x", "y"],
+              errors: [],
+              bundles: [],
+              bundleErrors: [],
+            },
             frontend: {
               total: 4,
               valid: 3,
@@ -521,7 +583,14 @@ test("renderMarkdown puts each computed number in its own row", () => {
           workspace: "b",
           status: "fail-start",
           report: report({
-            backend: { total: 6, loaded: 4, skipped: [], errors: [] },
+            backend: {
+              total: 6,
+              loaded: 4,
+              skipped: [],
+              errors: [],
+              bundles: [],
+              bundleErrors: [],
+            },
             backendStart: { ok: false, error: "boom" },
             status: "fail-start",
           }),
