@@ -247,7 +247,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Unused by the steps below, which all authenticate with the App token — kept as
+      # the fallback that would let GITHUB_TOKEN file the issue if that token were ever
+      # dropped, and because narrowing it cannot be verified without a failing run.
       issues: write
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -267,14 +272,20 @@ jobs:
         env:
           IMAGE: ${{ needs.sanity.outputs.image }}
           DIGEST: ${{ needs.sanity.outputs.digest }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           # Located rather than assumed. upload-artifact roots the archive at the least
           # common ancestor of the paths it was given, so the depth here moves whenever
           # that list changes — and getting it wrong is not a missing issue but a
           # misleading one, every night claiming the harness never produced a report.
-          RESULTS=$(find artifact -name results-catalog-index.json 2> /dev/null | head -1)
+          #
+          # `-print -quit`, NOT `| head -1`: head closes the pipe after one line, find
+          # takes SIGPIPE, and `set -o pipefail` turns that into exit 141 — the step dies
+          # before rendering anything. Reproducible whenever find has more to write than
+          # head will read, which makes it a failure that appears only as the artifact
+          # grows.
+          RESULTS=$(find artifact -name results-catalog-index.json -print -quit \
+            2> /dev/null || true)
           python3 scripts/renderCatalogIndexIssue.py \
             --results "${RESULTS:-artifact/none.json}" \
             --image "$IMAGE" --digest "$DIGEST" --run-url "$RUN_URL" \
@@ -297,7 +308,6 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
           REPO: ${{ github.repository }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           TITLE=$(cat issue-title.txt)
@@ -306,9 +316,14 @@ jobs:
           # broken one stays broken until someone fixes it upstream, so filing nightly
           # would bury the queue in duplicates of one problem. --search is a full-text
           # match, so the title is compared exactly before anything is reused.
+          # `jq --arg` rather than interpolating TITLE into the program text. It is safe
+          # today only because the `index` step's regex constrains the image the title is
+          # built from — a dependency three steps away that a future loosening would
+          # break silently. Passing it as data does not rely on that.
           EXISTING=$(gh issue list --repo "${REPO}" --label "catalog-index-sanity" \
             --state open --search "\"${TITLE}\"" --json number,title \
-            --jq "map(select(.title == \"${TITLE}\")) | .[0].number // empty") || true
+            | jq -r --arg title "${TITLE}" \
+              'map(select(.title == $title)) | .[0].number // empty') || true
 
           if [[ -n "${EXISTING}" ]]; then
             gh issue comment "${EXISTING}" --repo "${REPO}" \
