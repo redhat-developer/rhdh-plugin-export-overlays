@@ -25,6 +25,9 @@ export const ORCHESTRATOR_COMPONENTS = {
     page.getByRole("button", { name: "Start Over" }),
   workflowsTab: (page: Page): Locator =>
     page.getByRole("tab", { name: "Workflows" }),
+  // NFS catalog entity header: same control is often a link, not a tab.
+  workflowsLink: (page: Page): Locator =>
+    page.getByRole("link", { name: "Workflows", exact: true }),
   nextButton: (page: Page): Locator =>
     page.getByRole("button", { name: "Next" }),
   runWorkflowButton: (page: Page): Locator =>
@@ -37,4 +40,15 @@ export const ORCHESTRATOR_COMPONENTS = {
     page.getByRole("dialog", { name: /greeting workflow/i }),
   completedStatus: (page: Page): Locator =>
     page.getByText("Completed", { exact: true }),
+  runAsEventButton: (page: Page): Locator =>
+    page.getByRole("button", { name: "Run as Event" }),
+  eventTriggeredAlert: (page: Page): Locator =>
+    page.getByText(
+      "An event was sent to trigger this workflow. It will appear once the run starts.",
+    ),
+  runningStatus: (page: Page): Locator =>
+    page.getByText("Running", { exact: true }),
+  /** Event-started instance without ownership — proves Run as Event produced a run id. */
+  eventInstanceAccessDenied: (page: Page): Locator =>
+    page.getByText(/Access denied for instance `[0-9a-f-]{36}`/i),
 };

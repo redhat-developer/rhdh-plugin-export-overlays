@@ -230,6 +230,7 @@ function group(workspace: string, count: number): WorkspaceGroup {
       support: "community",
       role: "backend-plugin",
       artifact: `oci://ghcr.io/example/${workspace}-${i}:tag`,
+      frontendConfigKeys: [],
     })),
   };
 }
