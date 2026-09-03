@@ -1,0 +1,30 @@
+# Ticketed exceptions for scripts/validateCatalogIndex.py.
+#
+# Format (one entry per line, `#` comments, a blank line ends a block):
+#
+#   # TODO(RHIDP-1234): why this finding is accepted, and what would let us delete it.
+#   <rule-id> <python-regex>
+#
+# The regex is matched (re.search) against the IMAGE NAME as the catalog index spells
+# it — `backstage-community-plugin-quay`, not `@backstage-community/plugin-quay`. That
+# is the identifier `plugin_builds/`, `index.json` and every `oci://` ref in
+# dynamic-plugins.default.yaml share, so one pattern reads the same wherever the
+# finding came from. Anchor with `^...$` unless a prefix match is really what you want:
+# `backstage-plugin-techdocs` also matches `backstage-plugin-techdocs-backend`.
+#
+# Run `python3 scripts/validateCatalogIndex.py --list-rules` for the rule ids and what
+# each one means. An unknown rule id is a parse error, so a typo here disables nothing
+# silently.
+#
+# EVERY entry carries a `TODO(TICKET)`. A pattern with no ticket in scope is a parse
+# error, not a warning — that is the whole enforcement mechanism, and it is the same
+# discipline as smoke-tests-native/plugin-sweep-excludes.txt and RHDH's
+# e2e-tests/local-harness/plugin-sanity-excludes.txt. The goal is to delete entries,
+# not to accumulate them.
+#
+# Prefer FIXING the index over allowlisting: an `unresolved-image` means the artifact
+# was never published, and suppressing it here ships a package that fails at pull time
+# for whoever enables it. Allowlist only when the finding is understood, tracked, and
+# accepted for this release.
+
+# (no entries — every finding currently stands on its own merits)

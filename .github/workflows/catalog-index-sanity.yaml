@@ -1,0 +1,379 @@
+# Copyright Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+# Install and boot EVERY package a published plugin-catalog-index declares, with the
+# Docker-free smoke-tests-native harness. Upstream half of RHDH's cluster-free plugin
+# sanity check (RHIDP-13508).
+#
+# No pull_request trigger: the index is built elsewhere and changes on its own, so a PR
+# check here would fail unrelated work. The cheap static half runs on every generation
+# instead (Step 5 of scripts/update-index.sh).
+name: Catalog Index Sanity
+
+on:
+  schedule:
+    # 04:00 UTC — an hour after the community sweep (03:00), so the two ~100-artifact
+    # runs do not contend for registry bandwidth or runner capacity.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      catalog_index_image:
+        description: >-
+          Catalog index image to validate. Defaults to the productized index for the
+          branch (quay.io/rhdh/plugin-catalog-index:next on main). Use this for RC
+          verification against a specific tag or digest.
+        type: string
+        required: false
+      strict_validation:
+        description: >-
+          Fail the static validation step on warnings too (fallback tags,
+          tag-only refs, packages missing from index.json).
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel one already pulling — a manual dispatch would kill an in-flight
+  # nightly and lose its artifacts. Matches community-plugin-sweep.yaml.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.index.outputs.image }}
+      digest: ${{ steps.index.outputs.digest }}
+    # ~50 packages on one runner. A timeout cancels the job, and upload is
+    # `!cancelled()`, so under-budgeting loses the artifacts too.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        # Before setup-node so its yarn-cache detection resolves Yarn 4 via corepack.
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        # skopeo: both the extractor and the install CLI shell out to it. PyYAML is all
+        # validateCatalogIndex.py needs; pinned and wheels-only so no source
+        # distribution runs a setup script.
+        run: |
+          sudo apt-get update && sudo apt-get install -y skopeo
+          pip install --only-binary :all: "PyYAML==6.0.3"
+
+      - name: Resolve the catalog index image
+        id: index
+        env:
+          # `next` tracks main; release branches carry their own version tag.
+          BRANCH: ${{ github.ref_name }}
+          OVERRIDE: ${{ inputs.catalog_index_image }}
+        run: |
+          set -euo pipefail
+          # `:-` because these are only set on workflow_dispatch; on the schedule they
+          # are absent and `set -u` would abort with an unbound-variable error rather
+          # than taking the default branch. Matches native-smoke.yaml.
+          if [[ -n "${OVERRIDE:-}" ]]; then
+            # Reaches GITHUB_OUTPUT, where a multi-line value can forge step outputs.
+            if [[ ! "${OVERRIDE}" =~ ^[A-Za-z0-9._/-]+(:[A-Za-z0-9._-]+)?(@sha256:[a-f0-9]{64})?$ ]]; then
+              echo "invalid catalog_index_image: ${OVERRIDE}" >&2
+              exit 1
+            fi
+            image="${OVERRIDE:-}"
+          elif [[ "${BRANCH}" == release-* ]]; then
+            # Same reason as OVERRIDE. Needs repo write access, so defence in depth.
+            version="${BRANCH#release-}"
+            if [[ ! "${version}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "unexpected release branch name: ${BRANCH}" >&2
+              exit 1
+            fi
+            image="quay.io/rhdh/plugin-catalog-index:${version}"
+          else
+            image="quay.io/rhdh/plugin-catalog-index:next"
+          fi
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+          # The tag moves; record the digest so a run traces to the exact index.
+          digest=$(skopeo inspect --no-creds --override-os linux --override-arch amd64 \
+            --format '{{.Digest}}' "docker://${image}" 2> /dev/null || echo "unresolved")
+          # Shape-checked for the same reason the image above is: this reaches
+          # GITHUB_OUTPUT, where a newline in the value can forge step outputs. The value
+          # comes from a registry response rather than from argv, so this is defence in
+          # depth rather than a live hole — but it is the one value here that was trusted.
+          if [[ ! "${digest}" =~ ^(sha256:[a-f0-9]{64}|unresolved)$ ]]; then
+            echo "::warning::unexpected digest shape from skopeo; recording 'unresolved'"
+            digest="unresolved"
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "Catalog index: \`${image}\` @ \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Extract dynamic-plugins.default.yaml from the index
+        env:
+          IMAGE: ${{ steps.index.outputs.image }}
+        # Straight to the layout the validator reads; the script creates the directory.
+        run: ./scripts/extractCatalogIndex.sh "$IMAGE" published/dynamic-plugins.default.yaml
+
+      - name: Validate the index statically
+        id: validate
+        # No pulls, so a structural defect is reported in seconds rather than after ~50
+        # artifacts. `--no-build-metadata` because a published image ships the DPDY and
+        # not the plugin_builds/ tree — without it every package reports unknown-image.
+        # The skipped rules are named in the output. `continue-on-error` so a finding
+        # here cannot hide the install+boot result; the verdict step re-reads it.
+        continue-on-error: true
+        env:
+          STRICT: ${{ inputs.strict_validation }}
+        run: |
+          set -euo pipefail
+          ARGS=(
+            --output-dir published
+            --registry quay.io/rhdh
+            --no-build-metadata
+            --json validation.json
+          )
+          if [[ "${STRICT:-}" == "true" ]]; then ARGS+=(--strict); fi
+          python3 scripts/validateCatalogIndex.py "${ARGS[@]}" | tee validation.log
+
+      - name: Run the catalog index sanity check
+        id: sanity
+        working-directory: smoke-tests-native
+        # Exits non-zero on any plugin that fails to install, load, boot or ship a valid
+        # bundle. skip-build so no dependency runs an install script; better-sqlite3 is
+        # rebuilt by name because startTestBackend needs its native binding.
+        run: |
+          set -euo pipefail
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
+          yarn smoke \
+            --catalog-index ../published/dynamic-plugins.default.yaml \
+            --exclusions catalog-index-sanity-excludes.txt \
+            --out results-catalog-index.json 2>&1 | tee sanity.log
+
+      - name: Summarise
+        if: ${{ !cancelled() }}
+        run: |
+          # NOT `set -e`: an unreadable results.json would abort mid-block, truncating
+          # the redirect and losing the validation section exactly when it is wanted.
+          set +e
+          {
+            echo "### Catalog index sanity"
+            echo
+            if [[ -f smoke-tests-native/results-catalog-index.json ]]; then
+              jq -r '
+                "- status: **\(.status)**",
+                "- declared: \(.catalogIndex.declared) package(s); installed: \(.catalogIndex.refCount); bundled in the RHDH image: \(.catalogIndex.inImage)",
+                "- backend: \(.backend.loaded)/\(.backend.total) loaded, start=\(.backendStart.ok)",
+                "- frontend bundles: \(.frontend.valid)/\(.frontend.total) valid"
+              ' smoke-tests-native/results-catalog-index.json
+              echo
+              # `.plugin` is a PluginEntry object, not a name — the `//` never falls
+              # through and jq would dump the whole object.
+              jq -r '.backend.errors[]? , .frontend.errors[]? | "- ✗ \(.plugin.name // "?"): \(.error // "?")"' \
+                smoke-tests-native/results-catalog-index.json || true
+            else
+              echo "No results.json produced — the harness did not reach the report stage."
+            fi
+            echo
+            echo "### Static validation"
+            echo '```'
+            cat validation.log 2> /dev/null || echo "(not run)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: catalog-index-sanity
+          path: |
+            published/dynamic-plugins.default.yaml
+            validation.json
+            validation.log
+            smoke-tests-native/results-catalog-index.json
+            smoke-tests-native/sanity.log
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Verdict
+        # The sanity run is what fails the job. Static validation is reported but not
+        # gating: against a published index the build-metadata rules cannot fire, so a
+        # pass would overstate what was checked. They gate at generation time instead.
+        if: ${{ !cancelled() }}
+        env:
+          SANITY: ${{ steps.sanity.outcome }}
+          VALIDATION: ${{ steps.validate.outcome }}
+          STRICT: ${{ inputs.strict_validation }}
+        run: |
+          echo "sanity=${SANITY} static-validation=${VALIDATION}"
+          if [[ "${VALIDATION}" != "success" ]]; then
+            # continue-on-error makes that step green; without this the only trace is a
+            # line in the job summary.
+            echo "::warning::static validation reported findings — see the job summary"
+          fi
+          # Honouring strict only inside a continue-on-error step would leave the job
+          # green and read as "strict validation passed".
+          if [[ "${STRICT:-}" == "true" && "${VALIDATION}" != "success" ]]; then
+            echo "strict validation was requested and did not pass" >&2
+            exit 1
+          fi
+          [[ "${SANITY}" == "success" ]] || exit 1
+
+  # A red scheduled run is otherwise invisible: this repo posts nowhere from GitHub
+  # Actions, and #rhdh-e2e-alerts is fed by Prow. Files a labelled issue, following the
+  # shape e2e-triage-agent.yaml already uses. Decided in RHIDP-16470.
+  #
+  # The label is NOT routed to an agent today: .fullsend/rhdh/harness/e2e-triage.yaml
+  # triggers on `label.name == "e2e-triage"` and nothing matches this one. The issue is
+  # the deliverable either way — it is what makes the failure visible and durable — and
+  # wiring a harness is a separate change in .fullsend/, which this repo's AGENTS.md
+  # puts out of bounds for this kind of PR.
+  report:
+    name: File a triage issue
+    needs: sanity
+    # `needs.sanity.result != 'success'`, NOT failure(): the sanity job carries
+    # timeout-minutes and a timeout CANCELS it rather than failing it, which makes
+    # failure() false in a dependent job. A 60-minute overrun on ~50 installs is a
+    # realistic outcome, and it is exactly the kind of red run this job exists to make
+    # visible. `!cancelled()` still keeps a human cancelling the whole run from filing.
+    #
+    # Schedule only. A workflow_dispatch is someone watching the run, and an RC check
+    # that fails should not leave an issue behind for whoever reads the queue tomorrow.
+    if: >-
+      ${{ !cancelled() && needs.sanity.result != 'success'
+      && github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Unused by the steps below, which all authenticate with the App token — kept as
+      # the fallback that would let GITHUB_TOKEN file the issue if that token were ever
+      # dropped, and because narrowing it cannot be verified without a failing run.
+      issues: write
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      # Best effort: the artifact is missing when the job died before uploading, which
+      # is itself a case the issue has to describe. The renderer handles the absence.
+      - name: Download the sanity results
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: catalog-index-sanity
+          path: artifact
+
+      # renderCatalogIndexIssue.py imports plugin_utils, which imports yaml at module
+      # scope. Without this the step rode on whatever the runner image happens to ship,
+      # and an ImportError here means no issue is filed at all. Same pin and same
+      # wheels-only install as the sanity job above.
+      - name: Setup Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install --only-binary :all: "PyYAML==6.0.3"
+
+      - name: Render the issue
+        env:
+          IMAGE: ${{ needs.sanity.outputs.image }}
+          DIGEST: ${{ needs.sanity.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # Located rather than assumed. upload-artifact roots the archive at the least
+          # common ancestor of the paths it was given, so the depth here moves whenever
+          # that list changes — and getting it wrong is not a missing issue but a
+          # misleading one, every night claiming the harness never produced a report.
+          #
+          # `-print -quit`, NOT `| head -1`: head closes the pipe after one line, find
+          # takes SIGPIPE, and `set -o pipefail` turns that into exit 141 — the step dies
+          # before rendering anything. Reproducible whenever find has more to write than
+          # head will read, which makes it a failure that appears only as the artifact
+          # grows.
+          RESULTS=$(find artifact -name results-catalog-index.json -print -quit \
+            2> /dev/null || true)
+          python3 scripts/renderCatalogIndexIssue.py \
+            --results "${RESULTS:-artifact/none.json}" \
+            --image "$IMAGE" --digest "$DIGEST" --run-url "$RUN_URL" \
+            --title-out issue-title.txt --body-out issue-body.md
+          cat issue-title.txt; echo; cat issue-body.md
+
+      # A GitHub App token, not GITHUB_TOKEN: events raised with the latter are
+      # suppressed by GitHub's anti-recursion safety, so an issues:labeled event would
+      # never reach fullsend.yaml at all. Same reason as e2e-triage-agent.yaml, and kept
+      # here so the label becomes routable by adding a harness and nothing else.
+      - name: Generate GitHub App token
+        id: generate-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RHDH_GITHUB_APP_ID }}
+          private-key: ${{ secrets.RHDH_GITHUB_APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: File or update the issue
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TITLE=$(cat issue-title.txt)
+
+          # Comment rather than open a second issue. The index is built elsewhere and a
+          # broken one stays broken until someone fixes it upstream, so filing nightly
+          # would bury the queue in duplicates of one problem. --search is a full-text
+          # match, so the title is compared exactly before anything is reused.
+          # `jq --arg` rather than interpolating TITLE into the program text. It is safe
+          # today only because the `index` step's regex constrains the image the title is
+          # built from — a dependency three steps away that a future loosening would
+          # break silently. Passing it as data does not rely on that.
+          # No --label filter: the label is applied by a separate `gh issue edit` after
+          # the issue exists, and that command's failure is survivable. Keying the lookup
+          # on it meant one failed edit left an unlabelled issue invisible to every future
+          # run — a new issue every night, permanently. The title is the stable key.
+          EXISTING=$(gh issue list --repo "${REPO}" \
+            --state open --search "\"${TITLE}\"" --json number,title \
+            | jq -r --arg title "${TITLE}" \
+              'map(select(.title == $title)) | .[0].number // empty') || true
+
+          if [[ -n "${EXISTING}" ]]; then
+            gh issue comment "${EXISTING}" --repo "${REPO}" \
+              --body "Still failing — ${RUN_URL}"
+            echo "Commented on existing issue #${EXISTING}"
+            exit 0
+          fi
+
+          gh label create "catalog-index-sanity" --repo "${REPO}" \
+            --description "A scheduled catalog index sanity run failed" \
+            --color "b60205" --force 2> /dev/null || true
+
+          ISSUE_URL=$(gh issue create --repo "${REPO}" \
+            --title "${TITLE}" --body-file issue-body.md)
+          echo "Created ${ISSUE_URL}"
+
+          # Labelled separately: `gh issue create --label` does not raise its own
+          # issues:labeled event, which is the event fullsend.yaml dispatches on.
+          gh issue edit "${ISSUE_URL##*/}" --repo "${REPO}" \
+            --add-label "catalog-index-sanity"

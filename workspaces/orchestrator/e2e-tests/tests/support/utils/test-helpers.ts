@@ -1,3 +1,4 @@
+import { request } from "@playwright/test";
 import {
   test,
   expect,
@@ -15,11 +16,15 @@ import {
   Policy,
   Response,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { OrchestratorPO } from "../pages/orchestrator-po.js";
+
 export {
   configureOrchestratorLoki,
   waitForLokiWorkflowLogs,
 } from "./orchestrator-loki-helpers.js";
+export { configureOrchestratorKafka } from "./orchestrator-kafka-helpers.js";
 export {
+  deployLockFlowWorkflow,
   deploySonataflow,
   prepareRhdhHelmRedeploy,
   runOc,
@@ -43,10 +48,33 @@ const GREETING_COMPONENT_LOCATION =
 // RBAC helpers
 // ---------------------------------------------------------------------------
 
+export const GREETING_WORKFLOW_ID = "greeting";
+
 export type PolicySpec = {
   permission: string;
   policy: string;
   effect: string;
+};
+
+export type WorkflowConditionSpec = {
+  permissionMapping: Array<"read" | "update">;
+  workflowIds: string[];
+};
+
+type RoleConditionRecord = {
+  id?: number | string;
+  roleEntityRef?: string;
+  permissionMapping?: string[];
+  conditions?: RoleConditionCriteria;
+};
+
+type RoleConditionCriteria = {
+  rule?: string;
+  params?: {
+    workflowIds?: string[];
+  };
+  anyOf?: RoleConditionCriteria[];
+  allOf?: RoleConditionCriteria[];
 };
 
 export function globalWorkflowPolicies(
@@ -67,20 +95,24 @@ export function globalWorkflowPolicies(
   ];
 }
 
-export function greetingWorkflowPolicies(
+export function greetingWorkflowConditions(
   readEffect: "allow" | "deny",
   useEffect: "allow" | "deny",
-): PolicySpec[] {
+): WorkflowConditionSpec[] {
+  const permissionMapping: Array<"read" | "update"> = [];
+  if (readEffect === "allow") {
+    permissionMapping.push("read");
+  }
+  if (useEffect === "allow") {
+    permissionMapping.push("update");
+  }
+  if (permissionMapping.length === 0) {
+    return [];
+  }
   return [
     {
-      permission: "orchestrator.workflow.greeting",
-      policy: "read",
-      effect: readEffect,
-    },
-    {
-      permission: "orchestrator.workflow.use.greeting",
-      policy: "update",
-      effect: useEffect,
+      permissionMapping,
+      workflowIds: [GREETING_WORKFLOW_ID],
     },
   ];
 }
@@ -93,22 +125,121 @@ export function buildPolicies(roleName: string, specs: PolicySpec[]) {
   return specs.map((spec) => ({ entityReference: roleName, ...spec }));
 }
 
+function permissionApiUrl(): string {
+  return `${process.env.RHDH_BASE_URL}/api/permission/`;
+}
+
+async function listRoleConditions(
+  rbacApi: RbacApiHelper,
+  roleName: string,
+): Promise<RoleConditionRecord[]> {
+  const response = await rbacApi.getConditions();
+  if (!response.ok()) {
+    return [];
+  }
+  const body: unknown = await response.json();
+  const all = Array.isArray(body) ? (body as RoleConditionRecord[]) : [];
+  return all.filter((condition) => condition.roleEntityRef === roleName);
+}
+
+function collectWorkflowIds(
+  criteria: RoleConditionCriteria | undefined,
+): string[] {
+  if (!criteria) {
+    return [];
+  }
+  if (Array.isArray(criteria.params?.workflowIds)) {
+    return criteria.params.workflowIds;
+  }
+  const nested = [...(criteria.anyOf ?? []), ...(criteria.allOf ?? [])];
+  return nested.flatMap((item) => collectWorkflowIds(item));
+}
+
+function conditionMatchesSpec(
+  actual: RoleConditionRecord,
+  expected: WorkflowConditionSpec,
+): boolean {
+  const mapping = actual.permissionMapping ?? [];
+  if (
+    mapping.length !== expected.permissionMapping.length ||
+    !expected.permissionMapping.every((action) => mapping.includes(action))
+  ) {
+    return false;
+  }
+  const workflowIds = collectWorkflowIds(actual.conditions);
+  return (
+    workflowIds.length === expected.workflowIds.length &&
+    expected.workflowIds.every((workflowId) => workflowIds.includes(workflowId))
+  );
+}
+
+export async function createOrchestratorWorkflowConditions(
+  apiToken: string,
+  roleName: string,
+  specs: WorkflowConditionSpec[],
+): Promise<void> {
+  if (specs.length === 0) {
+    return;
+  }
+  // RbacApiHelper can list/delete conditions but has no create method.
+  const context = await request.newContext({
+    baseURL: permissionApiUrl(),
+    extraHTTPHeaders: {
+      Accept: "application/json",
+      Authorization: `Bearer ${apiToken}`,
+    },
+  });
+  try {
+    for (const spec of specs) {
+      const response = await context.post("roles/conditions", {
+        data: {
+          result: "CONDITIONAL",
+          roleEntityRef: roleName,
+          pluginId: "orchestrator",
+          resourceType: "orchestrator-workflow",
+          permissionMapping: spec.permissionMapping,
+          conditions: {
+            rule: "IS_ALLOWED_WORKFLOW_ID",
+            resourceType: "orchestrator-workflow",
+            params: { workflowIds: spec.workflowIds },
+          },
+        },
+      });
+      if (!response.ok()) {
+        throw new Error(
+          `Failed to create conditional policy for ${roleName}: ${response.status()} ${await response.text()}`,
+        );
+      }
+    }
+  } finally {
+    await context.dispose();
+  }
+}
+
 export async function createRoleWithPolicies(
   apiToken: string,
   roleName: string,
   memberReferences: string[],
   policySpecs: PolicySpec[],
+  conditionSpecs: WorkflowConditionSpec[] = [],
 ): Promise<void> {
   const rbacApi = await RbacApiHelper.build(apiToken);
   const rolePostResponse = await rbacApi.createRoles({
     memberReferences,
     name: roleName,
   });
-  const policyPostResponse = await rbacApi.createPolicies(
-    buildPolicies(roleName, policySpecs),
-  );
   expect(rolePostResponse.ok()).toBeTruthy();
-  expect(policyPostResponse.ok()).toBeTruthy();
+  if (policySpecs.length > 0) {
+    const policyPostResponse = await rbacApi.createPolicies(
+      buildPolicies(roleName, policySpecs),
+    );
+    expect(policyPostResponse.ok()).toBeTruthy();
+  }
+  await createOrchestratorWorkflowConditions(
+    apiToken,
+    roleName,
+    conditionSpecs,
+  );
 }
 
 export async function verifyRoleWithPolicies(
@@ -116,6 +247,7 @@ export async function verifyRoleWithPolicies(
   roleName: string,
   expectedMembers: string[],
   expectedPolicies: PolicySpec[],
+  expectedConditions: WorkflowConditionSpec[] = [],
 ): Promise<void> {
   const rbacApi = await RbacApiHelper.build(apiToken);
 
@@ -132,22 +264,34 @@ export async function verifyRoleWithPolicies(
     expect(workflowRole?.memberReferences).toContain(member);
   }
 
-  const policiesResponse = await rbacApi.getPoliciesByRole(
-    roleApiName(roleName),
-  );
-  expect(policiesResponse.ok()).toBeTruthy();
-
-  const policies = await policiesResponse.json();
-  expect(policies).toHaveLength(expectedPolicies.length);
-
-  for (const expectedPolicy of expectedPolicies) {
-    const actualPolicy = policies.find(
-      (policy: { permission: string; policy: string; effect: string }) =>
-        policy.permission === expectedPolicy.permission &&
-        policy.policy === expectedPolicy.policy,
+  if (expectedPolicies.length > 0) {
+    const policiesResponse = await rbacApi.getPoliciesByRole(
+      roleApiName(roleName),
     );
-    expect(actualPolicy).toBeDefined();
-    expect(actualPolicy.effect).toBe(expectedPolicy.effect);
+    expect(policiesResponse.ok()).toBeTruthy();
+
+    const policies = await policiesResponse.json();
+    expect(policies).toHaveLength(expectedPolicies.length);
+
+    for (const expectedPolicy of expectedPolicies) {
+      const actualPolicy = policies.find(
+        (policy: { permission: string; policy: string; effect: string }) =>
+          policy.permission === expectedPolicy.permission &&
+          policy.policy === expectedPolicy.policy,
+      );
+      expect(actualPolicy).toBeDefined();
+      expect(actualPolicy.effect).toBe(expectedPolicy.effect);
+    }
+  }
+
+  const roleConditions = await listRoleConditions(rbacApi, roleName);
+  expect(roleConditions).toHaveLength(expectedConditions.length);
+  for (const expectedCondition of expectedConditions) {
+    expect(
+      roleConditions.some((condition) =>
+        conditionMatchesSpec(condition, expectedCondition),
+      ),
+    ).toBeTruthy();
   }
 }
 
@@ -234,15 +378,21 @@ export async function setupAuthenticatedPage(
   return { page, uiHelper, loginHelper, apiToken };
 }
 
+export function createOrchestratorPO(
+  page: Page,
+  uiHelper: UIhelper,
+): OrchestratorPO {
+  return new OrchestratorPO(page, uiHelper);
+}
+
 export async function launchGreetingTemplateFromSelfService(
   page: Page,
   uiHelper: UIhelper,
 ): Promise<void> {
-  await uiHelper.clickLink({ ariaLabel: "Self-service" });
-  await uiHelper.verifyHeading("Self-service");
-  await page.waitForLoadState("domcontentloaded");
-  await uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
-  await uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
+  await createOrchestratorPO(
+    page,
+    uiHelper,
+  ).openGreetingTemplateFromSelfService();
 }
 
 export async function waitForScaffolderTerminalState(
@@ -275,6 +425,17 @@ export async function deleteRoleAndPolicies(
 ): Promise<void> {
   const rbacApi = await RbacApiHelper.build(apiToken);
   const apiName = roleApiName(roleName);
+  try {
+    const conditions = await listRoleConditions(rbacApi, roleName);
+    for (const condition of conditions) {
+      if (condition.id == null) {
+        continue;
+      }
+      await rbacApi.deleteCondition(String(condition.id));
+    }
+  } catch {
+    // conditions may not exist yet
+  }
   try {
     const policiesResponse = await rbacApi.getPoliciesByRole(apiName);
     if (policiesResponse.ok()) {
