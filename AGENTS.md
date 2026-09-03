@@ -120,6 +120,19 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### Backstage Version Consistency
+
+When a PR modifies any version-carrying file in a workspace (`backstage.json`, `source.json`, or `metadata/*.yaml`), verify that these four values agree within that workspace:
+
+1. `backstage.json` `version` (if the file exists — it is an optional override created by `/override-backstage`)
+2. `source.json` `repo-backstage-version`
+3. `metadata/*.yaml` `spec.backstage.supportedVersions`
+4. The `bs_` prefix in `metadata/*.yaml` `spec.dynamicArtifact` OCI tags (e.g., the `1.54.5` in `bs_1.54.5__0.15.0`)
+
+A mismatch between any of these indicates either a partially applied `/override-backstage` or a manual editing error. For example, `backstage.json` and `source.json` might both say `1.54.5` while the metadata files still reference `1.54.4` in `supportedVersions` and OCI tags — this means the metadata was not updated to match.
+
+Flag any per-workspace version inconsistency for the PR author to resolve. Do not approve a PR with mismatched Backstage versions across these fields.
+
 ### Major Version Bumps in Patches
 
 When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
@@ -152,7 +165,7 @@ After creating/editing, add the file to `plugins/all.yaml`.
 
 ### Package YAML (`workspaces/*/metadata/*.yaml`)
 
-Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
+Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.backstage.supportedVersions` (Backstage compatibility version), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
 
 ## E2E Testing
 
