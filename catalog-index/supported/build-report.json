@@ -1022,7 +1022,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1054,7 +1054,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1086,7 +1086,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1118,7 +1118,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1150,7 +1150,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1163,11 +1163,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.52.0__0.13.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.54.4__0.15.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1177,17 +1173,24 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity:bs_1.54.4__0.15.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
           "digest": "sha256:6c47f34d29a9ef81b98b62015aeb432a3c26ab6714a0ec57e08408a5310eead2"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[index-missing-entry] 'backstage-community-plugin-catalog-backend-module-pingidentity' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+          ]
         }
       },
       "package": "@backstage-community/plugin-catalog-backend-module-pingidentity",
-      "version": "0.13.0",
+      "version": "0.15.0",
       "workspace": "pingidentity",
-      "overall": "pass"
+      "overall": "fail"
     },
     "red-hat-developer-hub-backstage-plugin-quickstart": {
       "stages": {
@@ -1819,12 +1822,45 @@
       "version": "0.4.17",
       "workspace": "backstage",
       "overall": "pass"
+    },
+    "backstage-community-plugin-auth-backend-module-pingfederate-provider": {
+      "stages": {
+        "bootstrap": {
+          "status": "pass",
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0"
+        },
+        "image-metadata-fetch": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0"
+        },
+        "dpdy": {
+          "status": "pass"
+        },
+        "catalog-index": {
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0"
+        },
+        "validate": {
+          "status": "fail",
+          "errors": [
+            "[unresolved-image] 'backstage-community-plugin-auth-backend-module-pingfederate-provider' ships in the index as bs_1.54.4__0.4.0 but its image was never resolved in the registry (plugin_builds/ has no digest)"
+          ],
+          "reason": "[unresolved-image] 'backstage-community-plugin-auth-backend-module-pingfederate-provider' ships in the index as bs_1.54.4__0.4.0 but its image was never resolved in the registry (plugin_builds/ has no digest)",
+          "warnings": [
+            "[not-digest-pinned] 'backstage-community-plugin-auth-backend-module-pingfederate-provider' is referenced by tag (bs_1.54.4__0.4.0) rather than by digest"
+          ]
+        }
+      },
+      "package": "@backstage-community/plugin-auth-backend-module-pingfederate-provider",
+      "version": "0.4.0",
+      "workspace": "pingidentity",
+      "overall": "fail"
     }
   },
   "summary": {
-    "total": 59,
-    "succeeded": 47,
-    "failed": 12
+    "total": 60,
+    "succeeded": 46,
+    "failed": 14
   },
   "status": "partial"
 }

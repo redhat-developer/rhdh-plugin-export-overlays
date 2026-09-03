@@ -546,6 +546,19 @@ plugins:
               signIn:
                 resolvers:
                   - resolver: emailMatchingUserEntityProfileEmail
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0
+    enabled: false
+    pluginConfig:
+      auth:
+        providers:
+          pingfederate:
+            development:
+              clientId: ${PINGFEDERATE_CLIENT_ID}
+              clientSecret: ${PINGFEDERATE_CLIENT_SECRET}
+              baseUrl: ${PINGFEDERATE_BASE_URL}
+              signIn:
+                resolvers:
+                  - resolver: subClaimMatchingPingIdentityUserId
   # Tag: bs_1.52.0__3.21.0, Build date: 2026-05-22T14:59:57Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:35950c45d36a1a3f5d5c80e1d48f295cad69ee9971178b0c09addbdfd12922f5
     enabled: false
@@ -566,7 +579,7 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 50
-  # Tag: bs_1.52.0__0.13.0, Build date: 2026-05-22T14:59:58Z
+  # Tag: bs_1.54.4__0.15.0, Build date: 2026-05-22T14:59:58Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:6c47f34d29a9ef81b98b62015aeb432a3c26ab6714a0ec57e08408a5310eead2
     enabled: false
     pluginConfig:
