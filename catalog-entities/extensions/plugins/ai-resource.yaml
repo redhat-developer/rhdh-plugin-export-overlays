@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: ai-resource
+  namespace: rhdh
+  title: AI Resource Catalog
+  annotations:
+    extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHBUGS
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-resource-extensions
+  tags:
+    - ai
+    - software-catalog
+    - developer-tools
+    - agents
+    - skills
+  description: |
+    Catalog backend modules that let teams register and discover AI content assets
+    (skills, rules, and agents) as `kind: AiResource` entities in the Software Catalog.
+spec:
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Software Catalog
+
+  highlights:
+    - Register git-backed and OCI-backed AI content assets as catalog entities
+    - Validate optional `spec.scope` (`organization`, `product`, `team`)
+    - Format-only OCI `url:oci://…` source-location validation with no registry calls
+    - Typed `spec.type: agent` schema and processor for agent-shaped AiResource entities
+
+  description: |
+    # AI Resource Catalog
+
+    Red Hat Developer Hub can catalog AI content assets — source repositories or OCI images
+    that contain skills, rules, and agent definitions — using the `AiResource` Software
+    Catalog kind.
+
+    These backend modules add RHDH-specific validation on top of the upstream Backstage
+    `AiResource` kind. They do not add a dedicated frontend plugin; entities render on the
+    standard catalog entity page and are discoverable through catalog search and kind filters.
+
+    ### Packages
+
+    - **AI Resource extensions** (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-ai-resource-extensions`):
+      validates optional `spec.scope` and OCI `backstage.io/source-location` values in the
+      `url:oci://…` location-ref form. Validation is format-only and makes no outbound
+      registry or HTTP calls, so air-gapped deployments can register OCI references safely.
+    - **AI Resource agent** (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-ai-resource-agent`):
+      registers the `spec.type: agent` schema and validates agent-specific fields
+      (`instructions`, `handoffs`, `tools`, `modelSettings`, and related optional fields).
+
+    ### Registering entities
+
+    Create a `catalog-info.yaml` with `kind: AiResource` and register it through the
+    standard catalog import UI or a catalog location. Git-backed assets use
+    `backstage.io/source-location: url:https://…`. OCI-backed assets must use
+    `url:oci://registry/repository[:tag|@digest]` (the `url:` prefix is required).
+
+    Example YAML lives in the
+    [ai-integrations workspace](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/examples).
+
+    ### Related upstream module
+
+    Skill and rule `AiResource` kinds also need the upstream
+    `@backstage/plugin-catalog-backend-module-ai-model` catalog module so the catalog
+    accepts those entity kinds. The RHDH modules above only add scope/OCI and agent
+    validation.
+
+    ## Support
+
+    - **Extensions README**: [catalog-backend-module-ai-resource-extensions](https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-resource-extensions/README.md)
+    - **Agent README**: [catalog-backend-module-ai-resource-agent](https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-resource-agent/README.md)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+  packages:
+    - rhdh-bs-plugin-catalog-backend-module-ai-resource-extensions
+    - rhdh-bs-plugin-catalog-backend-module-ai-resource-agent
+
+  installation: |
+    ## Installation
+
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+    Add the following configuration to your dynamic plugin yaml. These backend modules
+    need no extra app-config; enable the packages and register `AiResource` YAML through
+    the standard catalog import flow.
+
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-resource-extensions:bs_1.52.0__0.5.0
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-resource-agent:bs_1.52.0__0.4.0
+        enabled: true
+    ```
+
+    Install the extensions module for `spec.scope` and OCI source-location validation.
+    Install the agent module when you need `spec.type: agent` entities.
+
+    Skill and rule entities also require the upstream
+    `@backstage/plugin-catalog-backend-module-ai-model` catalog module.
+
+    ## RHDH Configuration
+
+    No plugin-specific app-config is required. Register entities with a catalog location
+    or the catalog import UI:
+
+    ```yaml
+    catalog:
+      locations:
+        - type: url
+          target: https://github.com/my-org/my-ai-assets/blob/main/catalog-info.yaml
+    ```

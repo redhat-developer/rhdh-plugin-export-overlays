@@ -49,3 +49,92 @@ If this fallback also fails (no older tag exists), the plugin will instead appea
 ### Image not found during catalog index generation
 
 > **Note:** This is the same "Image not found" error as above, but detected during the final Catalog Index Generation step rather than during Image Metadata Fetch. It serves as a redundancy check which normally should never happen— if you see this, the image was likely deleted or became unavailable after the metadata fetch stage. Re-run the workflow to see if this persists, as it may be a transient registry issue. The resolution steps are the same as [Image not found in registry](#image-not-found-in-registry).
+
+### Catalog index validation failed
+
+Step 5 of the generation (`scripts/validateCatalogIndex.py`) checks the generated index
+against the build metadata that produced it, without touching the network. A plugin whose
+only failing stage is **Catalog Index Validation** was built and published fine — what
+failed is the index's description of it.
+
+Each finding is written as `[rule-id] message`. Run
+`python3 scripts/validateCatalogIndex.py --list-rules` for the full set.
+
+<a id="validation-unresolved-image"></a>
+
+#### unresolved-image
+
+The index ships this package, but its image was never resolved in the registry — the
+generator logged "Image not found in registry" and carried on. Anyone who enables the
+package fails at pull time.
+
+**Fix:** publish the missing build (see [Image not found in
+registry](#image-not-found-in-registry)), or drop the package from the packages file so
+the index stops declaring it. Allowlisting is the wrong answer here: it ships a package
+that cannot be pulled.
+
+<a id="validation-unknown-image"></a>
+
+#### unknown-image
+
+The index references an image with no `plugin_builds/` entry, so the index and the build
+metadata disagree. Usually a stale `catalog-index/` committed without the matching
+`plugin_builds/`, or a rename that updated one and not the other.
+
+**Fix:** re-run the generation so both are produced from the same inputs.
+
+<a id="validation-digest-mismatch"></a>
+
+#### digest-mismatch
+
+A digest-pinned reference does not match the digest `plugin_builds/` recorded — the two
+files describe different builds of the same plugin.
+
+**Fix:** re-run the generation. If it persists, the index was edited by hand.
+
+<a id="validation-registry-not-allowed"></a>
+
+#### registry-not-allowed
+
+A reference points at a registry this index is not built against — most often a
+`ghcr.io` (community) reference leaking into a `quay.io/rhdh` (productized) index.
+
+**Fix:** correct the package's support tier so it resolves against the right registry.
+Pass `--community-registry` when the index is meant to carry community-tier packages.
+
+<a id="validation-duplicate-ref"></a>
+
+#### duplicate-ref
+
+The same package reference appears twice in `dynamic-plugins.default.yaml`. The later
+entry silently shadows the earlier one's `pluginConfig`, so whichever configuration you
+expected may not be the one that applies.
+
+**Fix:** remove the duplicate entry.
+
+<a id="validation-ref-form"></a>
+
+#### ref-form
+
+A `plugins[].package` value is neither an `oci://` reference nor a
+`./dynamic-plugins/dist/` path. Generated indexes should never produce this; it means the
+file was hand-edited or a generator step wrote a malformed value.
+
+<a id="validation-index-ref-mismatch"></a>
+
+#### index-ref-mismatch
+
+`index.json` and `dynamic-plugins.default.yaml` point at different digests for one
+package, so the Extensions UI and the installer would disagree about which build is
+current.
+
+**Fix:** re-run the generation.
+
+### Warnings that do not fail the stage
+
+`fallback-tag` means the requested build was missing and an older tag was substituted —
+the index ships a stale build. `not-digest-pinned` means a reference carries a tag rather
+than a digest, so what it resolves to can change under the index.
+`index-missing-entry` means a resolved package is missing from `index.json`, so the
+Extensions UI will not list it. None of these fail the plugin, but each is worth chasing
+before a release.

@@ -24,7 +24,9 @@ install CLI (extract OCI → dynamic-plugins-root, run with cwd=root)
   → discoverPlugins()         # scan install dirs, classify by package.json backstage.role
   → loadBackendPlugins()      # require() each, assert default BackendFeature
   → startTestBackend()        # boot core + loaded features in-process (+ rootConfig)
-  → validateFrontendBundle()  # legacy bundle present; new-FE remote servable (not executed)
+  → validateBackendBundle()   # configSchema shipped — the one fault booting cannot reveal
+  → validateFrontendBundle()  # both manifests usable; configSchema shipped (not executed)
+  → findConfigKeyMismatches() # workspace mode: configured keys vs Scalprum bundle names
   → results.json + exit code
 ```
 
@@ -41,12 +43,176 @@ The check recognizes both packagings and records which one(s) each plugin ships 
 
 A present-but-incomplete layout fails even if the other system's layout is valid.
 
-The Scalprum half is a presence check. The module-federation half also validates the
-manifest's **shape**, because presence is not enough there: the remotes router in
+Both halves validate the manifest's **shape**, not just its presence, and separately the
+bundle is required to ship the config schema it declares. Presence is what let two silent
+customer bugs through — RHDHBUGS-2180 on the manifests, RHDHBUGS-1157 on the schema. In
+each, the artifact is there, the app boots, nothing errors, and the plugin is either absent
+or running on its defaults.
+
+#### Scalprum manifest (`frontend.bundles[].scalprum`)
+
+`dist-scalprum/plugin-manifest.json` is parsed and checked against what the host needs
+(RHDHBUGS-2180):
+
+| Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | the host registers the remote under this, and RHDH matches app-config `dynamicPlugins.frontend.<key>` against it. Missing ⇒ **fails**: no mount point can be addressed                                                                                                                                                                                                                                     |
+| `loadScripts`        | the assets the host fetches to initialise the plugin. Not an array, empty, carrying an entry that is not a non-empty asset name, escaping `dist-scalprum/`, or naming something the bundle does not contain as a file ⇒ **fails**: the host fetches a 404, the registration callback never runs, every configured route answers 404. Escaping and absent get different messages, as they do on the MF side |
+| `missingScripts`     | the `loadScripts` entries with no usable asset behind them — the evidence for the row above                                                                                                                                                                                                                                                                                                                |
+| `extensionCount`     | how many extensions the manifest declares. **Reported, never failed on** — see below. `null` when the field is not an array at all, which does fail                                                                                                                                                                                                                                                        |
+| `registrationMethod` | `callback` for everything RHDH publishes                                                                                                                                                                                                                                                                                                                                                                   |
+
+`extensionCount: 0` is the normal shape, not a defect: `@red-hat-developer-hub/cli` constructs
+its `DynamicRemotePlugin` with a literal `extensions: []`, so all 76 published frontend
+bundles report 0, and the SDK's own manifest schema permits it (`z.array(...)` with no
+`.nonempty()`, while `loadScripts` is `.nonempty()`). With `registrationMethod: "callback"`
+the plugin registers at runtime and RHDH drives its surfaces from app-config mount points,
+so a static extension list is not where anything is declared. Failing on it would fail the
+entire catalogue and could never go green.
+
+#### Configured key vs bundle name (`frontend.configKeyMismatches`)
+
+The other half of the `name` row above. RHDH matches the app-config key
+`dynamicPlugins.frontend.<key>` against the `name` the bundle's Scalprum manifest reports;
+when they disagree the plugin loads and **every mount point configured under that key is
+ignored, with nothing logged** — the same user-visible outcome as RHDHBUGS-2180, reached a
+different way. A present, well-formed manifest passes every check above and still delivers
+nothing.
+
+Workspace mode only: the keys come from `spec.appConfigExamples[].content.dynamicPlugins.frontend`
+in `workspaces/<name>/metadata/*.yaml`, which the other modes have no equivalent of. The
+field is **absent** rather than `[]` there, because "not checked here" and "checked and
+clean" must not read the same.
+
+Two things keep it from crying wolf:
+
+- **The keys come from the packages actually installed**, not from the workspace's metadata
+  at large. `collectWorkspaceRefs` returns them alongside the refs for exactly this reason:
+  a `--support` sweep installs a subset, and a key belonging to a filtered-out package would
+  otherwise match no installed bundle — the check would go red precisely on the runs that
+  validate less. Packages whose artifact is a local `./dynamic-plugins/dist/…` path are left
+  out for the same reason: nothing is installed for them.
+- **RHDH's own built-in keys are excluded.** `default.main-menu-items` names no plugin; RHDH
+  filters it out by scope in `ignoreStaticPlugins`
+  (`packages/app/src/utils/dynamicUI/initializeRemotePlugins.ts`) before asking Scalprum for
+  anything, and its docs describe the `default.` prefix as required for main menu items.
+  This is a constant mirroring RHDH, not a tracked exclusion: the exclusions file exists for
+  defects that carry a ticket and get deleted when fixed, and a permanent product fact
+  filed there would make "every entry has a ticket" a lie.
+
+The comparison is **set-based** — does any bundle in the run report the name — rather than
+tied to the bundle of the package that declares the key. One OCI image can carry several
+plugins (`cost-management` is two packages behind one ref), so a per-package mapping would
+not survive the catalogue as it actually is.
+
+Measured across the published catalogue: 49 workspaces configure frontend keys, 73 keys in
+total, and **every one matches** once the built-in is excluded. Emptying the built-in list
+yields exactly one finding, the `global-header` one — so the exclusion suppresses that and
+nothing else, and global-header's own plugin key is still checked.
+
+#### Config schema (`frontend.bundles[].configSchema`, `backend.bundles[].configSchema`)
+
+A bundle that declares configuration must ship the schema for it, or Backstage has nothing
+to match the plugin's app-config keys against and drops them without a word — the plugin
+runs on its defaults while the operator's settings look applied (RHDHBUGS-1157).
+
+This is the one check that runs on **both** halves. Nothing about the defect is
+frontend-specific, and on the backend side it is the only artifact fault the boot cannot
+reveal: such a plugin `require()`s, exposes its BackendFeature and starts, just on its
+defaults. Loading and booting is a stronger check than any file inspection for everything
+else a backend bundle must satisfy, which is why the backend record carries this and
+nothing more.
+
+The consumer is `gatherDynamicPluginsSchemas` in
+`@backstage/backend-dynamic-feature-service`, and **RHDH overrides its locator**
+(`rhdh:packages/backend/src/index.ts`):
+
+```ts
+schemaLocator(pluginPackage) {
+  const platform = PackageRoles.getRoleInfo(pluginPackage.manifest.backstage.role).platform;
+  return path.join(platform === "node" ? "dist" : "dist-scalprum", "configSchema.json");
+},
+```
+
+The locator is keyed on the package's **role**, so which file matters depends on the half:
+`getRoleInfo("frontend-plugin").platform` is `"web"`, while both backend roles are `"node"`
+(verified by executing `@backstage/cli-node`, not inferred). Neither is
+`dist/.config-schema.json`, which is only the upstream default. The export writes one file
+per consumer, which is why there are two:
+
+| Role                                       | RHDH reads                        | Upstream default reads     |
+| ------------------------------------------ | --------------------------------- | -------------------------- |
+| `frontend-plugin`                          | `dist-scalprum/configSchema.json` | `dist/.config-schema.json` |
+| `backend-plugin` / `backend-plugin-module` | `dist/configSchema.json`          | `dist/.config-schema.json` |
+
+Note how close the backend row is: RHDH's file and the upstream default are **siblings in
+`dist/`, differing only by filename**. A check written against `.config-schema.json` — the
+name that appears in the gatherer's own default locator — passes an artifact whose config
+RHDH drops in silence.
+
+Only RHDH's path is failed on, and it is checked **whether or not its directory exists** —
+its absence is the fault. Gating it on the directory left an NFS-only bundle, which ships no
+`dist-scalprum/` at all, passing while RHDH dropped its config in silence. The upstream copy
+is reported with `consumer: "upstream-default"` and never failed: rejecting an artifact over
+a file this platform ignores would be a false positive.
+
+The gatherer drops a schema in four ways, which is what the states below mirror:
+
+```js
+if (!await fs.pathExists(schemaLocation)) continue;   // missing -> silent
+if (!serialized) continue;                            // null    -> silent
+if (isEmpty(serialized)) continue;                    // {}      -> silent
+if (serialized?.backstageConfigSchemaVersion === 1) { // wrapped form: merged first,
+  serialized = mergeConfigSchemas(serialized.schemas.map(_ => _.value)); //  not modelled here
+}
+if (!serialized?.$schema || serialized?.type !== "object") {
+  logger.error("Serialized configuration schema is invalid for plugin ...");
+  continue;                                           // invalid -> logged
+}
+```
+
+Only the last is not silent, and a line in a backend log is not much louder than nothing for
+an artifact published weeks earlier — the config is dropped either way. The wrapped form is
+not modelled here: `export-dynamic-plugin` never writes it, and judging it would mean
+reimplementing the merge.
+
+`declared` is `configSchema` on the shipped `package.json`, Backstage's own signal, with
+`declaredError` beside it for when `package.json` could not be read at all — a failure to
+look must not be published as `declared: false`, the same reason `mf.nfsFeaturesError`
+exists. `files` carries one entry per path `export-dynamic-plugin` writes for this package —
+RHDH's own, per the table above, plus the upstream default when a `dist/` exists to hold
+it — each tagged with its `consumer` and carrying a state of `ok`, `missing`, `unreadable`,
+`empty` or `invalid`, plus its `propertyCount`.
+
+Note what `ok` does and does not establish. The export writes the schema MERGED across the
+package and its filtered dependency tree, so `ok` means some schema survived, not that this
+plugin's own keys did — a declaring package whose `config.d.ts` was lost still reports `ok`
+as soon as one dependency contributed a property (11 of the 76 published packages ship a
+schema built purely from dependencies). Proving the plugin's own keys survived would mean
+compiling its `config.d.ts`, which is the export's job. The check catches the total loss,
+which is what RHDHBUGS-1157 was.
+
+**Only `declared: true` — or a `package.json` that could not be read at all — can fail.** The export merges the package's own `configSchema` with
+every one it finds in the dependency tree, so an empty schema means "declares nothing" for
+most packages and "the declaration was lost" only for the ones that declare: 33 of 76
+frontend packages declare, 32 ship an empty schema, and only the intersection is a finding.
+Failing on an empty schema alone would accuse 32 packages of a bug they do not have, so the
+messages keep "declares no configuration" and "declares configuration and shipped no
+schema" apart.
+
+The backend half splits the same way, and the gate matters just as much there. Over all 107
+published backend artifacts this repo lists — every tier, `backend-plugin` and
+`backend-plugin-module` — 54 declare `configSchema` and all 54 ship a usable
+`dist/configSchema.json`; of the 53 that declare nothing, 40 ship `{}` and 13 ship a
+non-empty schema contributed entirely by dependencies. So the check finds nothing today,
+and it would have accused 40 packages had it failed on the empty schema alone.
+
+#### Module-federation manifest (`frontend.bundles[].mf`)
+
+Presence is not enough here either: the remotes router in
 `@backstage/backend-dynamic-feature-service` logs and `continue`s past a manifest missing
 any field it needs, so `GET /.backstage/dynamic-features/remotes` still answers `200 []`
-and the browser gets an app that boots cleanly with no plugins. It is reported per package
-as `frontend.bundles[].mf`:
+and the browser gets an app that boots cleanly with no plugins.
 
 | Field                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -104,6 +270,9 @@ YAML
 yarn smoke --dynamic-plugins dp.yaml
 ```
 
+Three mutually exclusive plugin sources: `--dynamic-plugins <file>` (above),
+`--workspace <name>` and `--catalog-index <dynamic-plugins.default.yaml>`.
+
 ### Workspace mode
 
 Validate ALL published plugins of a workspace together — the same unit the Docker
@@ -119,20 +288,66 @@ whose artifact is a local `./dynamic-plugins/dist/…` path (plugin bundled insi
 RHDH image, no published OCI artifact — e.g. `scaffolder-backend-module-kubernetes`)
 is skipped with a warning and recorded in `results.json`
 (`workspace.skippedMetadata`); a workspace with no `oci://` refs at all reports
-`status: error` (nothing to validate). `--workspace` and `--dynamic-plugins` are
+`status: error` (nothing to validate). `--workspace`, `--dynamic-plugins` and `--catalog-index` are
 mutually exclusive.
 
 Workspace mode also auto-discovers the workspace's Docker-smoke test config —
 `workspaces/<name>/smoke-tests/app-config.test.yaml` and `smoke-tests/test.env` —
 when present. Explicit `--app-config`/`--test-env` flags win over discovered files.
 
+### Catalog-index mode
+
+Validate every package a generated catalog index declares — the upstream half of RHDH's
+cluster-free plugin sanity check (RHIDP-13508):
+
+```bash
+# Against an index this repo is about to publish
+yarn smoke --catalog-index ../catalog-index/dynamic-plugins.default.yaml
+
+# Against an index that is already published
+../scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
+yarn smoke --catalog-index /tmp/dpdy.yaml --exclusions catalog-index-sanity-excludes.txt
+```
+
+RHDH's check has to `skopeo copy` the published `plugin-catalog-index` image and walk its
+layers just to recover `dynamic-plugins.default.yaml`. Run from
+`scripts/update-index.sh --sanity-check`, that file is already on disk and the failure
+lands **before** the image is built rather than a day after it shipped.
+
+Two deliberate differences from feeding the index straight to the install CLI:
+
+- **The index's `enabled:` flags are ignored.** It ships most packages `enabled: false` —
+  RHDH's out-of-the-box default, which says nothing about whether the artifact works.
+  Honouring them would validate almost nothing, so this generates an enable-everything
+  config, the same thing RHDH's `populate-catalog-index.sh` does and for the same reason.
+- **`pluginConfig` blocks are dropped.** They carry `${SEGMENT_WRITE_KEY}`-style
+  placeholders for env vars that exist in a deployed RHDH and nowhere here, and a plugin
+  that validates config at boot fails on the empty substitution. The harness's own dummy
+  root config (`src/plugin-config.ts`) plus `--app-config` cover that instead.
+
+`./dynamic-plugins/dist/…` packages are skipped: they ship inside the RHDH image and have
+no artifact to pull. `results.json` records the split in `catalogIndex`
+(`declared` / `refCount` / `inImage` / `enabledInIndex`), so a pass cannot hide that most
+of the index was never installed.
+
+Exclusions for this mode live in `catalog-index-sanity-excludes.txt` and are written
+against the **OCI image name** (`backstage-community-plugin-quay`), because a catalog index
+carries no npm names. `candidateNames()` in `src/exclusions.ts` normalizes an installed
+package.json name to the same form, so one pattern is valid at both `install` and `boot`
+scope.
+
+On a schedule this runs as `.github/workflows/catalog-index-sanity.yaml` (04:00 UTC, plus
+`workflow_dispatch` with a `catalog_index_image` input for RC verification). The static,
+network-free half — refs that do not resolve, digest drift, fallback tags, a registry leak
+— is `scripts/validateCatalogIndex.py`, which runs on every index generation.
+
 ### Support-level sweep (RHIDP-13510)
 
 Community-supported plugins are **not in the RHDH image** — RHIDP-13262 removed them from
 `default.packages.yaml` — so they exist only as artifacts this repo publishes to ghcr.io,
-and nothing else validates them. The rhdh repo's sanity check (RHIDP-13508) sweeps the
-catalog index, which by design carries only generally-available `quay.io/rhdh` packages:
-zero overlap.
+and nothing else validated them. The catalog index, by design, carries only
+generally-available `quay.io/rhdh` packages: zero overlap with this sweep. The index side
+is covered separately, by catalog-index mode above.
 
 `yarn sweep` closes that gap by selecting packages from metadata and driving the harness
 once per workspace:
@@ -197,11 +412,11 @@ _layout_, which RHDH also uses to ship legacy Scalprum plugins — so on its own
 overstates. Beside the counts the panel prints a `nfsSupport` split, also recorded per
 package in `aggregate.json`:
 
-|                | Meaning                                                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                      |
+|                | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `confirmed`    | the remote is servable and exposes an NFS entry point it declares                                                                                                                                                                                                                                                                                                                                                                                              |
 | `undetermined` | no `backstage.features` was read, so `nfsModuleFilter` installs no filter, every exposed module is advertised, and the host decides at runtime — not knowable without executing the bundle. Two causes, and the count does not separate them: the package declares none, or reading it failed. `mf.nfsFeaturesError` in `aggregate.json` tells them apart, and the per-package prose stays silent on a read failure rather than reporting it as declaring none |
-| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                       |
+| `none`         | unservable, or it declares entry points the remote never exposes                                                                                                                                                                                                                                                                                                                                                                                               |
 
 Quote `confirmed` as migration progress. The 2026-08-21 community sweep was 46 dual, of
 which 19 confirmed and 27 undetermined — and ten of those 27 expose an `alpha` module, so

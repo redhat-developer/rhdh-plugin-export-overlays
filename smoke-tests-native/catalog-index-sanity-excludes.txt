@@ -1,0 +1,47 @@
+# Packages the catalog-index sanity check skips (`yarn smoke --catalog-index`).
+#
+# Same format and same discipline as plugin-sweep-excludes.txt — see
+# src/exclusions.ts for the grammar. One entry per line:
+#
+#   # TODO(RHIDP-1234): why this package cannot be validated, and what unblocks it.
+#   <scope> <javascript-regex>
+#
+# `scope` says how much validation the package loses:
+#
+#   install — the artifact is not pulled at all (cannot be pulled anonymously, or
+#             installing it breaks the whole run). Loses everything.
+#   boot    — the artifact IS pulled and its layout validated, but the plugin is not
+#             loaded into `startTestBackend`. Loses only the boot signal.
+#
+# WRITE PATTERNS AGAINST THE OCI IMAGE NAME — `red-hat-developer-hub-backstage-plugin-homepage`,
+# not `@red-hat-developer-hub/backstage-plugin-homepage`. A catalog index carries no npm
+# names, only image refs, so the image name is the only identifier available at install
+# scope. `candidateNames()` in src/exclusions.ts normalizes the installed package.json's
+# npm name to the same form, which is what keeps ONE pattern valid at both scopes.
+#
+# EVERY entry carries a `TODO(TICKET)`; a pattern with no ticket in scope is a parse
+# error, which is the whole enforcement mechanism. The goal is to delete entries, not
+# to accumulate them.
+#
+# Before adding one, check the alternatives in order:
+#
+#   1. Is the failure only startup config validation? Add a dummy config entry to
+#      `configOverrides` in src/plugin-config.ts instead — that recovers the boot
+#      signal at no cost, and is what the last three community-sweep failures needed.
+#   2. Is the package genuinely unpullable? Verify it, do not assume:
+#        skopeo inspect --no-creds docker://quay.io/rhdh/<image>@sha256:<digest>
+#      Note the trap RHDH's e2e-tests/local-harness/plugin-sanity-excludes.txt
+#      documents: a digest lookup against registry.access.redhat.com reports
+#      "manifest unknown" for EVERY package the index declares, including the ones that
+#      install fine. Check the quay.io ref the index actually carries.
+#   3. Is the image simply missing from the registry? Then it should not be in the
+#      index at all — `scripts/validateCatalogIndex.py` reports that as
+#      `unresolved-image`, and the fix is to publish it or drop it, not to exclude it
+#      here.
+#
+# Note on the orchestrator backend plugins: they are already skipped before load by
+# KNOWN_FAILURES in src/plugin-config.ts (they need the full SonataFlow environment,
+# which a standalone boot does not provide — RHIDP-15961). No entry is needed here, and
+# adding one would record the same skip twice in results.json.
+
+# (no entries — the index's packages are all expected to install and boot today)
