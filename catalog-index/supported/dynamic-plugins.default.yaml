@@ -33,25 +33,6 @@ plugins:
   # Tag: bs_1.52.0__2.17.0, Build date: 2026-05-26T12:36:49Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:20525daabca89c3b98ccec7e939c1fc176170cec5bd6277349dd7bf027fba966
     enabled: true
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:02547b16700ef996152c6b9c8ea3985041bdd04ce2f6395a456bb415f884fd0c
-    enabled: true
-    pluginConfig:
-      auth:
-        providers:
-          github:
-            production:
-              clientId: ${GITHUB_CLIENT_ID}
-              clientSecret: ${GITHUB_CLIENT_SECRET}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:4ce58b5c87dc79e67eaad5ac41e135d1435be4fe3e80e0a8e20e53ecd71e6557
-    enabled: true
-    pluginConfig:
-      auth:
-        providers:
-          guest:
-            dangerouslyAllowOutsideDevelopment: false
   # Tag: bs_1.52.0__1.17.7, Build date: 2026-06-03T21:12:19Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:753fd8647f6e652252f4b95ea7366eb8b6d3b6f4a2c06e30bc6751902193cc3a
     enabled: true
@@ -546,7 +527,7 @@ plugins:
               signIn:
                 resolvers:
                   - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:f4d3c01774b430eef353e57a1c1f32f2015a81f17de2813218af1f483b99a53e
     enabled: false
     pluginConfig:
       auth:
@@ -580,7 +561,7 @@ plugins:
                 timeout:
                   minutes: 50
   # Tag: bs_1.54.4__0.15.0, Build date: 2026-05-22T14:59:58Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:6c47f34d29a9ef81b98b62015aeb432a3c26ab6714a0ec57e08408a5310eead2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:40a76f1a192af54e4739f61f2a560c52f0d79a4aec5b8a5ffa4b5ce2b89c074b
     enabled: false
     pluginConfig:
       catalog:
@@ -682,6 +663,25 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:02547b16700ef996152c6b9c8ea3985041bdd04ce2f6395a456bb415f884fd0c
+    enabled: false
+    pluginConfig:
+      auth:
+        providers:
+          github:
+            production:
+              clientId: ${GITHUB_CLIENT_ID}
+              clientSecret: ${GITHUB_CLIENT_SECRET}
+              signIn:
+                resolvers:
+                  - resolver: emailMatchingUserEntityProfileEmail
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:4ce58b5c87dc79e67eaad5ac41e135d1435be4fe3e80e0a8e20e53ecd71e6557
+    enabled: false
+    pluginConfig:
+      auth:
+        providers:
+          guest:
+            dangerouslyAllowOutsideDevelopment: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:e2ae7bfa6ba2748afa722b4309c4e7494b7ad77e25c63e45111fe796f0064b60
     enabled: false
     pluginConfig:

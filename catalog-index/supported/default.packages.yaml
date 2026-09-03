@@ -15,10 +15,6 @@ packages:
     support: "generally-available"
   - package: '@backstage-community/plugin-scaffolder-backend-module-regex'
     support: "generally-available"
-  - package: '@backstage/plugin-auth-backend-module-github-provider'
-    support: "generally-available"
-  - package: '@backstage/plugin-auth-backend-module-guest-provider'
-    support: "generally-available"
   - package: '@backstage/plugin-techdocs'
     support: "generally-available"
   - package: '@backstage/plugin-techdocs-backend'
@@ -73,6 +69,10 @@ packages:
   - package: '@backstage-community/plugin-tech-radar-backend'
     support: "generally-available"
   - package: '@backstage-community/plugin-topology'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-github-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-guest-provider'
     support: "generally-available"
   - package: '@backstage/plugin-auth-backend-module-gitlab-provider'
     support: "generally-available"
