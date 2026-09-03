@@ -186,15 +186,33 @@ test.describe("Lightspeed UI", () => {
       await expect(dropdown).toBeVisible({ timeout: 60_000 });
       await expect(dropdown).not.toBeEmpty();
 
+      // Query the models API to discover what is actually available.
+      // External providers (e.g. VLLM) may be temporarily unavailable,
+      // so we cannot hardcode the exact model list.
+      const modelsResponse = await page.request.get(
+        "/api/lightspeed/v1/models",
+      );
+      expect(modelsResponse.ok()).toBe(true);
+      const modelsData = await modelsResponse.json();
+      const availableModels = (
+        modelsData.data as { type: string; id: string }[]
+      )
+        .filter((m) => m.type === "llm")
+        .map((m) => m.id.split("/").pop()!)
+        .sort();
+
+      // At least the 4 OpenAI models must always be registered.
+      expect(availableModels.length).toBeGreaterThanOrEqual(4);
+
       await dropdown.click();
-      await expect(page.locator("body")).toMatchAriaSnapshot(`
-        - menu:
-          - menuitem "gpt-4.1-mini"
-          - menuitem "gpt-4.1-nano"
-          - menuitem "gpt-4o-mini"
-          - menuitem "gpt-5.1"
-          - menuitem "redhataillama-31-8b-instruct"
-        `);
+
+      const expectedSnapshot = [
+        "- menu:",
+        ...availableModels.map((m) => `  - menuitem "${m}"`),
+      ].join("\n");
+      await expect(page.getByRole("menu")).toMatchAriaSnapshot(
+        expectedSnapshot,
+      );
       await selectChatModel(page, "gpt-4o-mini");
     });
 
