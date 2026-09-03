@@ -94,7 +94,6 @@ test.describe("Kubernetes", () => {
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await page
-        .locator(KUBERNETES_COMPONENTS.MuiAccordion)
         .getByRole("button", { name: `${clusterName} Cluster` })
         .click();
     });
