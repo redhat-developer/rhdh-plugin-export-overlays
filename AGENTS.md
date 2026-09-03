@@ -315,6 +315,67 @@ Priority: `GIT_PR_NUMBER` (forces PR mode) > `E2E_NIGHTLY_MODE` > `JOB_NAME` con
 
 When no `dynamic-plugins.yaml` exists, ALL metadata files are read to auto-generate the complete plugin configuration. This is the recommended approach — most workspaces don't need a `dynamic-plugins.yaml`.
 
+### Mode-Dependent configure() Options
+
+Several `rhdh.configure()` options behave differently depending on the deployment mode (PR, nightly, local dev). Misunderstanding these mode dependencies leads to unnecessary conditional guards, add-then-revert cycles, and nightly test failures. When writing or reviewing `configure()` calls, verify each option is used in a mode where it has effect.
+
+#### disablePlugins
+
+`disablePlugins` removes named plugins from the auto-generated dynamic-plugins configuration. It **only has effect in PR mode** (when `GIT_PR_NUMBER` is set), because auto-generation only runs in PR and local dev modes. In nightly mode, plugins come from fixed OCI refs in `spec.dynamicArtifact` and the auto-generation step is skipped entirely — `disablePlugins` is silently ignored.
+
+| Mode | Auto-generation runs? | disablePlugins effect |
+|------|----------------------|----------------------|
+| **PR** (`GIT_PR_NUMBER` set) | Yes | Removes named plugins from generated config |
+| **Local dev** (neither set) | Yes | Removes named plugins from generated config |
+| **Nightly** (`E2E_NIGHTLY_MODE`) | No | **No effect** — silently ignored |
+
+**Do not add mode guards around `disablePlugins`.** Since it is already a no-op in nightly mode, conditional patterns like `isNightlyMode ? {} : { disablePlugins: [...] }` add unnecessary complexity. Pass `disablePlugins` unconditionally when you need it:
+
+```typescript
+// Correct — disablePlugins is harmless in nightly mode
+await rhdh.configure({
+  auth: "keycloak",
+  disablePlugins: ["@scope/plugin-foo"],
+});
+
+// Unnecessary complexity — do not do this
+const isNightly = !!process.env.E2E_NIGHTLY_MODE;
+await rhdh.configure({
+  auth: "keycloak",
+  ...(!isNightly && { disablePlugins: ["@scope/plugin-foo"] }),
+});
+```
+
+#### dynamicPlugins
+
+`dynamicPlugins` overrides the auto-generated plugin configuration with a custom `dynamic-plugins.yaml` file. Unlike `disablePlugins`, this option **does** have mode-dependent side effects that require conditional handling.
+
+In nightly mode, passing any `dynamicPlugins` option causes the framework to generate `disabled: true` entries for baked-in plugins (those in `dynamic-plugins.default.yaml`). This disables plugins that would otherwise load by default, breaking tests that depend on them. See also [#3112](https://github.com/redhat-developer/rhdh-plugin-export-overlays/issues/3112) for baked-in plugin guidance.
+
+| Mode | dynamicPlugins behavior |
+|------|------------------------|
+| **PR** (`GIT_PR_NUMBER` set) | Overrides auto-generated config; use `plugins: []` to prevent duplicate key conflicts with baked-in plugins |
+| **Local dev** (neither set) | Overrides auto-generated config; baked-in plugins load from defaults |
+| **Nightly** (`E2E_NIGHTLY_MODE`) | **Generates `disabled: true` for baked-in plugins** — only pass when you explicitly need to override nightly plugin config |
+
+When a workspace uses baked-in plugins, guard `dynamicPlugins` with a mode check:
+
+```typescript
+const isNightly = !!process.env.E2E_NIGHTLY_MODE;
+await rhdh.configure({
+  auth: "keycloak",
+  ...(!isNightly && { dynamicPlugins: "tests/config/dynamic-plugins.yaml" }),
+});
+```
+
+#### Review guidance
+
+When reviewing E2E test `configure()` calls, check for these patterns:
+
+- **Unnecessary mode guards around `disablePlugins`:** Flag conditional guards (e.g., `isNightlyMode ? {} : { disablePlugins: [...] }`) as unnecessary complexity — the option is already a no-op in nightly mode.
+- **Missing mode guards around `dynamicPlugins`:** Flag unconditional `dynamicPlugins` usage in workspaces with baked-in plugins — it will disable those plugins in nightly mode.
+- **Untested mode interactions:** When a `configure()` call changes plugin loading behavior, verify the change works in all three modes, not just the one being tested in the PR.
+
 ### Configuration Files
 
 All files in `tests/config/` are **optional** — only create them when you need to override defaults:
