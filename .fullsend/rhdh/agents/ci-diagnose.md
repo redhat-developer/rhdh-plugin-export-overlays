@@ -199,12 +199,53 @@ Roll the per-check classifications into one overall `verdict`:
 - all `pr_regression` → `pr_regression`; all `flake` → `flake`; etc.
 - more than one distinct classification → `mixed`.
 
+## Phase 3b: For `pre_existing`, look up an open PR that already fixes it
+
+Do **not** hand `pre_existing` to the auto-fix agent. The failure is this
+repo's to fix, but not *this* PR's — another open PR may already be doing
+that work. Search **open PRs** before rendering so the sticky comment can
+point at them. Author does not matter (human or bot). Do not require a
+`[fullsend] E2E:` tracking issue, a label, or any other origin filter.
+
+Skip this phase when no check is `pre_existing`.
+
+For each `pre_existing` check, derive a short search key from the evidence
+(workspace directory, failing spec/file, check name, or a distinctive error
+token). Never use the current PR number as a match.
+
+```bash
+REPO="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
+THIS_PR="${PR_NUMBER}"
+
+# Open PRs whose title/body mention the workspace, failing file, check
+# name, or a distinctive error token from root_cause (not generic words
+# like "timeout" / "e2e" / "fix"). Exclude THIS_PR. Do not filter by
+# author, label, or issue type.
+CANDIDATES=$(gh api -X GET search/issues \
+  -f q="repo:${REPO} is:pr state:open ${SEARCH_KEY}" \
+  --jq '[.items[] | {number, title, url: .html_url}]')
+echo "${CANDIDATES}" | jq --argjson this "${THIS_PR}" \
+  '[.[] | select(.number != $this)] | .[:5]'
+```
+
+**What counts as a match:** an open PR (not this one) that clearly addresses
+the same failing check, file, or workspace. Do not stretch — a PR that
+merely mentions "e2e" or "timeout" is not a match.
+
+**Populate `related_prs`** on that check (number + url; title if you have
+it). Omit the key entirely when nothing matched — do not emit `[]`. Cap at
+5.
+
 ## Phase 4: Render the sticky comment (`comment_body`)
 
 Render markdown for ONE comment. It **must** open with the sticky marker and
-**must** end with the state marker (the bootstrap reads the state marker to
-dedup; `sha` = `HEAD_SHA`, `red` = the `RED_NAMES` array computed in Phase 1,
-pasted verbatim — same strings, same order):
+**must** end with the **state marker** (the bootstrap reads it to dedup;
+`sha` = `HEAD_SHA`, `red` = the `RED_NAMES` array from Phase 1, pasted
+verbatim — same strings, same order). Do **not** emit a
+`ci-diagnose-autofix-eligible` marker — the post-script reads
+`agent-result.json` (`classification` / `suggestion`) to decide whether to
+request-changes. `pre_existing` is reported with any `related_prs` instead
+(Phase 3b); it is never auto-fixed.
 
 ```markdown
 <!-- ci-diagnose -->
@@ -223,34 +264,47 @@ pasted verbatim — same strings, same order):
 
 <details>
 <summary>❌ <code>appConfigExamples coverage</code> — pre_existing</summary>
-...
+
+**Root cause:** <mechanism, not symptom>
+**Evidence:** <key log/trace lines>
+**Suggested fix:** <file:line, or "already being fixed">
+**Open PR:** <#3480 — title> (omit this line when `related_prs` is absent)
+[logs](<url>)
 </details>
 
 ---
-<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. To hand off to the fix agent, a maintainer can comment `/fs-fix <instruction>` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
+<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":["appConfigExamples coverage","ci/prow/e2e-ocp-helm"]} -->
 ```
 
 Use ❌ for failures. Keep each section tight; put detail behind `<details>`.
 
-**Remediation guidelines (`pr_regression` and `flake` only).** These two
-classifications point at something actionable right now — the PR's own diff,
-or a specific instance of flakiness on this run — so `suggestion` is
+**Remediation guidelines (`pr_regression`, `pre_existing`, and `flake`).** These
+three classifications point at something actionable, so `suggestion` is
 *required* for them (the schema rejects a missing or empty `suggestion` when
-`classification` is `pr_regression` or `flake`):
+`classification` is `pr_regression`, `pre_existing`, or `flake`):
 
 - **`pr_regression` — be prescriptive.** Name the specific file:line and the
   concrete change, the way you'd write review feedback. Instead of "fix the
   timeout", write "In `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts`
-  line 42, increase the route wait timeout from 30s to 60s."
+  line 42, increase the route wait timeout from 30s to 60s." `pr_regression`
+  is the **only** classification the post-script hands to the fix agent.
+- **`pre_existing` — point at existing work, then the file.** The failure
+  isn't this PR's fault and is **not** auto-fixed on this PR. After Phase 3b:
+  if `related_prs` is set, `suggestion` must name those PRs first
+  (`Already being fixed in #3480.`) and may add the file:line as context; if
+  none matched, name the file:line a human (or a new PR) would change, and
+  say no open PR was found. Never tell the author to wait on auto-fix for
+  `pre_existing`.
 - **`flake` — give the author something beyond "re-run it".** State what was
   actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
   change would reduce the recurrence (a longer timeout, a more specific wait
   condition), suggest it. If no code change would help, say so explicitly and
   recommend re-running the check — that's still a concrete suggestion, not a
-  placeholder.
-- For `pre_existing` / `product_bug` / `config_env` / `needs_human`,
-  `suggestion` remains optional — omit rather than pad.
+  placeholder. (`flake` is **not** handed to the fix agent — the suggestion is
+  for the human reader.)
+- For `product_bug` / `config_env` / `needs_human`, `suggestion` remains
+  optional — omit rather than pad.
 
 ## Phase 5: Structured Output
 
@@ -283,14 +337,30 @@ RESULT_EOF
 fullsend-check-output "$OUTPUT_DIR/agent-result.json"
 ```
 
+On a `pre_existing` check, add `related_prs` to that check object (omit the
+key when Phase 3b found nothing):
+
+```json
+"related_prs": [
+  {
+    "number": 3480,
+    "url": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3480",
+    "title": "<optional>"
+  }
+]
+```
+
 If validation fails, read the error, fix the JSON, re-run.
 
 **Field rules:**
 - `head_sha`: the live head SHA read in Phase 1 (not the trigger event's SHA).
-- `comment_body`: must contain both `<!-- ci-diagnose -->` and the
-  `<!-- ci-diagnose-state: ... -->` marker.
+- `comment_body`: must contain `<!-- ci-diagnose -->` and the
+  `<!-- ci-diagnose-state: ... -->` marker. Do not emit an autofix-eligibility
+  marker; the post-script decides hand-off from this JSON.
 - `checks`: one entry per red curated check, max 30. Do NOT include
   skipped/ignored checks (SonarCloud, dispatch/*).
+- `related_prs`: only on `pre_existing` checks, and only when Phase 3b found
+  a match. Omit the key otherwise (do not emit `[]`). Never include this PR.
 - Do NOT add keys — the schema is `additionalProperties: false`.
 
 **Length limits** (full schema:
@@ -300,10 +370,10 @@ discovering them from a validation failure: `summary` ≤ 2048 chars;
 `comment_body` ≤ 65536 chars; per-check `root_cause`, `evidence`,
 `suggestion` ≤ 4096 chars each; `name` ≤ 256 chars; `log_url` ≤ 2048 chars.
 `root_cause` is always required. `suggestion` is additionally required when
-`classification` is `pr_regression` or `flake` (see the Phase 4 remediation
-guidelines) — `evidence`/`log_url` remain optional, and `suggestion` remains
-optional for every other classification; omit optional fields rather than
-pad them if there's nothing substantive to add.
+`classification` is `pr_regression`, `pre_existing`, or `flake` (see the Phase 4
+remediation guidelines) — `evidence`/`log_url` remain optional, and `suggestion`
+remains optional for `product_bug` / `config_env` / `needs_human`; omit optional
+fields rather than pad them if there's nothing substantive to add.
 
 Then print a short human-readable summary (PR #, verdict, per-check
 classification).
@@ -312,12 +382,15 @@ classification).
 
 - **Read-only.** Do not modify files, branch, commit, push, comment, or label.
   Emit `comment_body`; the post-script posts it.
-- **Diagnosis-only — no fix hand-off, no per-check call-to-action.** The comment
-  is purely diagnostic. The ONLY fix pointer is the single `/fs-fix` docs link
-  already in the footer. Do NOT add per-check "run `/fs-fix`" prompts and do NOT
-  tailor the comment by PR author: auto-dispatching the fix agent is not
-  possible today (a bot cannot trigger it, and the fix agent does not read CI),
-  so any per-check CTA would be misleading.
+- **Diagnosis-only — you do not hand off, and the human-visible body stays
+  diagnostic.** You never post, comment, review, or dispatch anything yourself.
+  The post-script (outside the sandbox) may submit a `CHANGES_REQUESTED`
+  review as `fullsend-ai-review[bot]` when this JSON has `pr_regression`
+  findings — that is the built-in bot→fix on-ramp; you do not signal it with
+  a comment marker. Keep the human-visible prose diagnostic: do NOT add
+  per-check "run `/fs-fix`" prompts and do NOT tailor the prose by PR author.
+  The single footer line already explains the automatic hand-off and the
+  human controls; anything more is duplication.
 - **Trace inspection is mandatory for Prow UI failures** — invoke
   `/playwright-trace` and run `actions` + `action <id>` before classifying.
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
@@ -331,9 +404,10 @@ classification).
 
 You run in a **read-only** sandbox. You CANNOT write to GitHub. Instead you
 render the comment into `agent-result.json`; the **post-script** upserts the
-sticky comment on the host.
+sticky comment on the host and, when guards pass, submits the review that
+wakes the fix agent.
 
 - CAN: read the PR (rollup, diff, files), download Prow artifacts, read GH
-  Actions logs (`gh run view`), read the existing sticky comment, run the
-  e2e skills.
-- CANNOT: comment/edit/label/push. Emit `comment_body` instead.
+  Actions logs (`gh run view`), search open issues/PRs (Phase 3b), read the
+  existing sticky comment, run the e2e skills.
+- CANNOT: comment/edit/label/push/review. Emit `comment_body` instead.

@@ -6,3 +6,10 @@ app:
         links:
           - url: https://access.redhat.com/products/red-hat-developer-hub
             title: Product Information
+backend:
+  auth:
+    externalAccess:
+      - type: static
+        options:
+          token: test-token
+          subject: test-subject
