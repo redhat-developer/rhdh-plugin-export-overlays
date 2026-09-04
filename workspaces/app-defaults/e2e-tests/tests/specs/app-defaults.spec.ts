@@ -1,11 +1,6 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () => {
-  test.skip(
-    !!process.env.E2E_NIGHTLY_MODE,
-    "e2e-test-utils DPDY inherit resolves app-auth/app-integrations to {{inherit}} but plugins not yet in RHDH image (RHIDP-15482)",
-  );
-
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy();
@@ -16,6 +11,26 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
   });
 
   test("loads Catalog after OIDC login", async ({ uiHelper }) => {
+    // RHDHBUGS-3627: the global header is a sticky MuiAppBar with z-index 1100 and the
+    // sidebar list starts at the top of the viewport, so its first item — Catalog —
+    // renders underneath it. Playwright reports the link visible, enabled and stable and
+    // then blocks every click on `<nav id="global-header">`; a user with a mouse cannot
+    // reach it either. Video, screenshots and an offline reproduction are attached to
+    // that ticket. Upstream fix: redhat-developer/rhdh-plugins#4405.
+    //
+    // Not conditional on E2E_NIGHTLY_MODE: the overlap breaks the PR check too, and it is
+    // geometric rather than a race — 23 click attempts over 10s were blocked and none
+    // succeeded, at both 1920x1080 and 1280x720.
+    //
+    // REMOVE THIS when RHDHBUGS-3627 closes. Nothing here will tell you: a skip stays
+    // quiet whether or not the bug is fixed, which is how the RHIDP-15482 skip this PR
+    // removes went stale — its ticket closed and no one re-read the test. The counter-
+    // reminder lives on RHDHBUGS-3627 itself, which carries a note pointing back at this
+    // file; the pair only works if whoever closes that ticket follows it here.
+    test.skip(
+      true,
+      "RHDHBUGS-3627: the global header covers the sidebar's first item, so the Catalog link cannot be clicked",
+    );
     await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
     await uiHelper.verifyHeading(/catalog/i);
