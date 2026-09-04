@@ -152,7 +152,19 @@ After creating/editing, add the file to `plugins/all.yaml`.
 
 ### Package YAML (`workspaces/*/metadata/*.yaml`)
 
-Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
+Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.partOf` (list of parent Plugin entity names from `catalog-entities/extensions/plugins/`), `spec.appConfigExamples`.
+
+### Plugin ↔ Package Referential Integrity
+
+Plugin and Package entities cross-reference each other:
+- Plugin entities list their packages in `spec.packages` (referencing Package `metadata.name` values)
+- Package entities reference their parent Plugin in `spec.partOf` (referencing Plugin `metadata.name` values)
+
+When renaming or splitting a Plugin entity (`metadata.name` change), update both sides:
+1. Update `spec.packages` in the new/modified Plugin YAML files
+2. Update `spec.partOf` in all Package metadata files (`workspaces/*/metadata/*.yaml`) that referenced the old Plugin name
+
+When reviewing such changes, verify that every `spec.partOf` value in affected Package metadata resolves to an existing Plugin entity name, and every `spec.packages` value in Plugin YAML resolves to an existing Package entity name.
 
 ## E2E Testing
 
