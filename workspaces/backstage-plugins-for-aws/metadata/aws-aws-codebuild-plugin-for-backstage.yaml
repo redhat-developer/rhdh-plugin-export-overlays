@@ -17,11 +17,11 @@ metadata:
   tags: []
 spec:
   packageName: "@aws/aws-codebuild-plugin-for-backstage"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codebuild-plugin-for-backstage:bs_1.49.4__0.7.2
-  version: 0.7.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/aws-aws-codebuild-plugin-for-backstage:bs_1.52.0__0.8.0
+  version: 0.8.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.52.0
   author: AWS
   support: community
   lifecycle: active
