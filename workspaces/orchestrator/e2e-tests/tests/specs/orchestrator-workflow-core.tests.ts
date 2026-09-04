@@ -4,8 +4,8 @@ import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   ensureE2eHttpbin,
   patchHttpbin,
-  restartAndWait,
   cleanupAfterTest,
+  reRunOnFailure,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -108,7 +108,7 @@ export function registerOrchestratorCoreWorkflowTests(
     });
 
     // eslint-disable-next-line playwright/expect-expect
-    test("Rerun Failswitch from failure point", async ({}, testInfo) => {
+    test("Rerun Failswitch from failure point", async ({ page }, testInfo) => {
       // 8 minutes: ensureE2eHttpbin (cold pull) + two patch/restart cycles + 60s sleep + UI
       test.setTimeout(480_000);
       const ns = testInfo.project.name;
@@ -119,18 +119,16 @@ export function registerOrchestratorCoreWorkflowTests(
       const originalHttpbin = `http://e2e-httpbin.${ns}.svc.cluster.local/`;
       try {
         ensureE2eHttpbin(ns!);
-        patchHttpbin(ns!, "http://127.0.0.1:1/");
-        restartAndWait(ns!);
+        await patchHttpbin(ns!, "http://127.0.0.1:1/");
 
         await orchestratorPo.openFailswitchWorkflowFromSidebar();
         await orchestrator.runFailSwitchWorkflow("Wait");
         await orchestrator.validateCurrentWorkflowStatus("Failed");
 
-        patchHttpbin(ns!, originalHttpbin);
-        restartAndWait(ns!);
+        await patchHttpbin(ns!, originalHttpbin);
 
-        await orchestrator.reRunOnFailure("From failure point");
-        await orchestrator.validateCurrentWorkflowStatus("Completed");
+        await reRunOnFailure(page, "From failure point");
+        await orchestrator.validateCurrentWorkflowStatus("Completed", 180_000);
       } catch (e) {
         console.error(`[rerun-failure] Test failed: ${e}`);
         testInfo.annotations.push({
@@ -140,7 +138,7 @@ export function registerOrchestratorCoreWorkflowTests(
         throw e;
       } finally {
         try {
-          cleanupAfterTest(ns!, originalHttpbin);
+          await cleanupAfterTest(ns!, originalHttpbin);
         } catch (cleanupErr) {
           testInfo.annotations.push({
             type: "cleanup-error",
