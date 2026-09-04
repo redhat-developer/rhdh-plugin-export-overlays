@@ -140,6 +140,36 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Embedding Packages in Frontend vs Backend Plugins
+
+The `--embed-package` CLI flag bundles a dependency inside a dynamic plugin's OCI image instead of relying on the host RHDH instance to provide it. The flag behaves differently for backend and frontend plugins because of how each runtime loads modules.
+
+**Backend plugins** load as separate Node.js modules. Each module has its own `require` scope, so embedding a dependency creates an isolated copy. No shared singleton registry exists across backend modules — duplication is safe and `--embed-package` works without caveats.
+
+**Frontend plugins** use Module Federation (Scalprum/Webpack). Each plugin runs in the same browser runtime but inside a separate Webpack container. Embedding a dependency creates a private copy inside that container rather than sharing the host-provided version.
+
+**The singleton identity problem:** When a web-library defines a singleton via Backstage's `createApiRef` (e.g., `orchestratorFormApiRef`), the singleton's identity is the JavaScript object reference itself. Backstage's `ApiHolder` uses a `Map` keyed by object identity — not by string name. If two frontend plugins each embed the same library, each gets its own copy of the `createApiRef` object. The provider plugin registers the API under its copy of the ref, and the consumer plugin looks it up under a different copy. The lookup returns `undefined`, and the integration fails silently at runtime. The same problem applies to React context providers: two copies of `React.createContext` produce two different context objects, so a provider in one plugin's copy is invisible to consumers using the other copy.
+
+**This is not caught by builds or smoke tests.** The OCI images build successfully (no compile-time error), and smoke tests only verify that individual plugins load — they do not exercise cross-plugin API lookups or context sharing. The failure is purely a runtime integration issue that surfaces only when multiple frontend plugins interact in the browser.
+
+**Review criteria for `--embed-package` on frontend plugins:**
+
+When reviewing a PR that adds `--embed-package` for a library to a `frontend-plugin` entry in `plugins-list.yaml`:
+
+1. **Determine the plugin's role.** Check the corresponding `metadata/*.yaml` for `spec.backstage.role`. If `frontend-plugin`, the embedding rules below apply. If `backend-plugin`, embedding is safe — skip this section.
+
+2. **Check whether the embedded library defines singletons.** Look for `createApiRef` calls, `React.createContext` calls, or other singleton patterns in the library's source. Use the `repo` URL and `repo-ref` from the workspace's `source.json` to browse the upstream repository at the pinned ref.
+
+3. **Check whether multiple frontend plugins would embed the same library.** If only one frontend plugin in the workspace embeds the library, there is no duplication and no singleton conflict — embedding is safe. If two or more frontend plugins embed the same library, and that library defines singletons, flag the change.
+
+4. **When singleton risk exists, flag for human review.** Do not approve the change with only build-consistency or pattern-matching rationale (e.g., "backend plugins already embed this"). Explicitly state that the embedded library contains singleton patterns and that multiple frontend plugins embedding it would break cross-plugin API resolution at runtime.
+
+5. **Type-only packages are generally safe.** Packages suffixed `-common` or `-node` that contain only TypeScript types, interfaces, and constants (no `createApiRef`, no context providers, no runtime singleton patterns) can be embedded without singleton risk. Verify by checking the package source — the suffix alone is not a guarantee.
+
+6. **Do not conflate build-pipeline fixes with runtime safety.** When a PR claims to fix a build issue (e.g., BODY DRIFT, `sync-midstream` scrubbing, `validation-failed` status), verify that the proposed fix (adding `--embed-package`) does not introduce a runtime regression in the plugin architecture. A fix that resolves a build problem but breaks cross-plugin integration at runtime is not a valid fix.
+
+**Do not apply backend embedding patterns to frontend plugins.** The fact that backend plugin entries in the same `plugins-list.yaml` use `--embed-package` for a library does not mean the same flag is safe on frontend entries. Backend and frontend plugins have fundamentally different module loading semantics.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
