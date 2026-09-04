@@ -83,15 +83,27 @@ test.describe.serial("Test Adoption Insights", () => {
     });
 
     test("Active users panel shows the visitor", async () => {
+      // Reload to trigger fresh API calls — the previous response may have
+      // returned empty data before analytics events were aggregated.
+      await page.reload();
+      await goToAdoptionInsights(uiHelper, page);
+      await testHelper.clickByText("Last 28 days");
+      await Promise.all([
+        waitForPanelApiCalls(page),
+        testHelper.selectOption("Today"),
+      ]);
+
       const panel = page.locator(".v5-MuiPaper-root", {
         hasText: "Active users",
       });
-      await expect(panel.locator(".recharts-surface")).toBeVisible();
+      await expect(panel.locator(".recharts-surface")).toBeVisible({
+        timeout: 30_000,
+      });
       await expect(
         panel.getByText(
           /^Average peak active user count was \d+ per hour for this period\.$/,
         ),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
       await expect(
         panel.getByRole("button", { name: "Export CSV" }),
       ).toBeVisible();
