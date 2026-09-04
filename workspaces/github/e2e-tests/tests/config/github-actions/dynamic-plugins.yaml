@@ -1,4 +1,8 @@
 plugins:
+  # GitHub auth provider is no longer statically included in RHDH 2.0;
+  # load it as a dynamic plugin so the auth: "github" sign-in path works.
+  - package: ./dynamic-plugins/dist/backstage-plugin-auth-backend-module-github-provider-dynamic
+    disabled: false
   - package: ./dynamic-plugins/dist/backstage-community-plugin-github-actions
     disabled: false
   # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
