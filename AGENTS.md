@@ -115,6 +115,21 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
 4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
 
+### Verifying metadata completeness on workspace updates
+
+When updating `source.json` to a new upstream ref, do not rely solely on the issue description to determine which plugins need metadata updates. The upstream ref may encompass version changes across multiple intermediate commits that the issue author did not account for.
+
+After updating `source.json`, verify every plugin in the workspace:
+
+1. **Read `plugins-list.yaml`** to enumerate all plugins exported from this workspace.
+2. **For each plugin, check the upstream `package.json` at the new `repo-ref`** to get its current version. The path depends on the repo layout:
+   - **Non-flat repos** (`"repo-flat": false` in `source.json`): the plugin path in `plugins-list.yaml` is relative to the workspace directory inside the upstream monorepo (e.g., `plugins/my-plugin` resolves to `workspaces/<workspace>/plugins/my-plugin/package.json`).
+   - **Flat repos** (`"repo-flat": true`): the plugin path is relative to the upstream repo root (e.g., `plugins/my-plugin` resolves to `plugins/my-plugin/package.json`).
+3. **Compare against `metadata/*.yaml`**: for each plugin, check that `spec.version` matches the upstream `package.json` version. If the version differs, update:
+   - `spec.version` — set to the upstream version.
+   - `spec.dynamicArtifact` — update the OCI tag to reflect the new version (e.g., `bs_1.52.0__<new-version>`).
+4. **Update all stale metadata**, not just the plugins the issue mentions. A workspace update PR must leave every `metadata/*.yaml` file consistent with the upstream source at the target ref.
+
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
