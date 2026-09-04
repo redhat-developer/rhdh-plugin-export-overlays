@@ -3,6 +3,7 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import yaml from "js-yaml";
+import { Agent } from "undici";
 import { runOc } from "./oc-helpers.js";
 
 const kafkaHelpersDir = import.meta.dirname;
@@ -14,6 +15,11 @@ const KAFKA_INSTALL_SCRIPT = join(
 const APP_CONFIG_CM = "app-config-rhdh";
 const APP_CONFIG_KEY = "app-config-rhdh.yaml";
 const RHDH_DEPLOYMENT = "redhat-developer-hub";
+
+/** Same as Loki probes: OpenShift route certs are not in Node's trust store. */
+const rhdhHttpsDispatcher = new Agent({
+  connect: { rejectUnauthorized: false },
+});
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -223,7 +229,11 @@ async function waitForRhdhPermissionApiReady(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(url, { method: "GET", redirect: "manual" });
+      const res = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        dispatcher: rhdhHttpsDispatcher,
+      } as RequestInit & { dispatcher: Agent });
       // Route exists once we get anything other than 404/502/503.
       if (![404, 502, 503].includes(res.status)) {
         console.warn(
@@ -235,8 +245,12 @@ async function waitForRhdhPermissionApiReady(
         `[configureOrchestratorKafka] Waiting for permission API (HTTP ${res.status})`,
       );
     } catch (err) {
+      const cause =
+        err instanceof Error && err.cause instanceof Error
+          ? err.cause.message
+          : "";
       console.warn(
-        `[configureOrchestratorKafka] Waiting for permission API: ${err instanceof Error ? err.message : String(err)}`,
+        `[configureOrchestratorKafka] Waiting for permission API: ${err instanceof Error ? err.message : String(err)}${cause ? ` (${cause})` : ""}`,
       );
     }
     await sleep(5_000);
