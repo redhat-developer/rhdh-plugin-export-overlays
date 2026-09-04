@@ -22,7 +22,7 @@ export type GitLabEventsRhdhWorker = {
   rhdhUrl: string;
 };
 
-export function requireGitLabEventsVaultEnv(): void {
+export function requireGitLabEventsSecretEnv(): void {
   requireEnv("VAULT_EVENTS_GITLAB_TOKEN");
   requireEnv("VAULT_EVENTS_GITLAB_HOST");
   requireEnv("VAULT_EVENTS_GITLAB_PARENT_ORG");
@@ -30,11 +30,11 @@ export function requireGitLabEventsVaultEnv(): void {
 }
 
 /**
- * Validates vault/GitLab env, initializes {@link GitLabApiHelper}, and returns a
+ * Validates secret/GitLab env, initializes {@link GitLabApiHelper}, and returns a
  * unique resource prefix for this run.
  */
 export function bootstrapGitLabEventsApiClient(): string {
-  requireGitLabEventsVaultEnv();
+  requireGitLabEventsSecretEnv();
   const host = process.env.VAULT_EVENTS_GITLAB_HOST;
   const token = process.env.VAULT_EVENTS_GITLAB_TOKEN;
   if (typeof host !== "string" || host.length === 0) {
