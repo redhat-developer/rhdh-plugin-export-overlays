@@ -1,4 +1,11 @@
 {
+  "apic-backstage": {
+    "workspacePath": "apiconnect/plugins/apic-backstage",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage@sha256:a9efcceaa453b71db4a9d0e5a3fa3cb4f80488a803d95dca2cf4900b81f98c75",
+    "support": "community",
+    "io.backstage.dynamic-packages": "W3siYXBpYy1iYWNrc3RhZ2UiOnsibmFtZSI6ImFwaWMtYmFja3N0YWdlLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMS4wLjMiLCJkZXNjcmlwdGlvbiI6IlRoZSBBUElDIGJhY2tlbmQgbW9kdWxlIGZvciB0aGUgY2F0YWxvZyBwbHVnaW4uIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6ImFwaWMtYmFja3N0YWdlIiwicGx1Z2luUGFja2FnZSI6ImFwaWMtYmFja3N0YWdlIiwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS40OS40In0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
+    "imageTag": "bs_1.49.4__1.0.3"
+  },
   "backstage-community-plugin-3scale-backend": {
     "workspacePath": "3scale/plugins/3scale-backend",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-3scale-backend@sha256:1597bc88721c9a0cd1735eb009968b1cb7d1e67e5dbddcb778cd09e9616f3df3",
@@ -167,6 +174,20 @@
     "io.backstage.dynamic-packages": "W3siYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLWdlcnJpdCI6eyJuYW1lIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1nZXJyaXQtZHluYW1pYyIsInZlcnNpb24iOiIwLjIuMjIiLCJkZXNjcmlwdGlvbiI6IlRoZSBnZXJyaXQgbW9kdWxlIGZvciBAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImJhY2tlbmQtcGx1Z2luLW1vZHVsZSIsInBsdWdpbklkIjoic2NhZmZvbGRlciIsInBsdWdpblBhY2thZ2UiOiJAYmFja3N0YWdlL3BsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL2JhY2tzdGFnZS9iYWNrc3RhZ2UiLCJkaXJlY3RvcnkiOiJwbHVnaW5zL3NjYWZmb2xkZXItYmFja2VuZC1tb2R1bGUtZ2Vycml0In0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.52.0__0.2.22"
   },
+  "dynatrace-backstage-plugin-dql": {
+    "workspacePath": "dynatrace-dql/plugins/dql",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql@sha256:51b09bbbcb4e1b7c729c33dc7b938b41e1522e3ad34fafd0d19faee05e7aaaf0",
+    "support": "community",
+    "io.backstage.dynamic-packages": "W3siZHluYXRyYWNlLWJhY2tzdGFnZS1wbHVnaW4tZHFsIjp7Im5hbWUiOiJAZHluYXRyYWNlL2JhY2tzdGFnZS1wbHVnaW4tZHFsLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiMi43LjAiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImZyb250ZW5kLXBsdWdpbiIsInBsdWdpbklkIjoiZHFsIiwicGx1Z2luUGFja2FnZXMiOlsiQGR5bmF0cmFjZS9iYWNrc3RhZ2UtcGx1Z2luLWRxbCIsIkBkeW5hdHJhY2UvYmFja3N0YWdlLXBsdWdpbi1kcWwtYmFja2VuZCIsIkBkeW5hdHJhY2UvYmFja3N0YWdlLXBsdWdpbi1kcWwtY29tbW9uIl0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNDkuNCJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJnaXQraHR0cHM6Ly9naXRodWIuY29tL0R5bmF0cmFjZS9iYWNrc3RhZ2UtcGx1Z2luLmdpdCIsImRpcmVjdG9yeSI6InBsdWdpbnNcXGRxbCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0=",
+    "imageTag": "bs_1.49.4__2.7.0"
+  },
+  "dynatrace-backstage-plugin-dql-backend": {
+    "workspacePath": "dynatrace-dql/plugins/dql-backend",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/dynatrace-backstage-plugin-dql-backend@sha256:0c871860095515fc0b35e4088b665906ba9ed6cb9cf81f5fb53c61a97bb5c9ce",
+    "support": "community",
+    "io.backstage.dynamic-packages": "W3siZHluYXRyYWNlLWJhY2tzdGFnZS1wbHVnaW4tZHFsLWJhY2tlbmQiOnsibmFtZSI6IkBkeW5hdHJhY2UvYmFja3N0YWdlLXBsdWdpbi1kcWwtYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjIuNy4wIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbiIsInBsdWdpbklkIjoiZHFsIiwicGx1Z2luUGFja2FnZXMiOlsiQGR5bmF0cmFjZS9iYWNrc3RhZ2UtcGx1Z2luLWRxbCIsIkBkeW5hdHJhY2UvYmFja3N0YWdlLXBsdWdpbi1kcWwtYmFja2VuZCIsIkBkeW5hdHJhY2UvYmFja3N0YWdlLXBsdWdpbi1kcWwtY29tbW9uIl0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNDkuNCJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJnaXQraHR0cHM6Ly9naXRodWIuY29tL0R5bmF0cmFjZS9iYWNrc3RhZ2UtcGx1Z2luLmdpdCIsImRpcmVjdG9yeSI6InBsdWdpbnNcXGRxbC1iYWNrZW5kIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
+    "imageTag": "bs_1.49.4__2.7.0"
+  },
   "immobiliarelabs-backstage-plugin-gitlab": {
     "workspacePath": "gitlab/packages/gitlab",
     "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab@sha256:9f758d985ae10c0c9a65931c0dd29c15886315305f3a0fb839517d91761a133f",
@@ -183,14 +204,14 @@
   },
   "pagerduty-backstage-plugin": {
     "workspacePath": "pagerduty/plugins/backstage-plugin",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:51b9a39658f24fd75789d5010c1ebe80a857d1e6910131413b1195449ec5ec21",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin@sha256:4c4397904d47e28d37888abdbf05b3985748b3349cdb19997342c00a55d6aee8",
     "support": "community",
     "io.backstage.dynamic-packages": "W3sicGFnZXJkdXR5LWJhY2tzdGFnZS1wbHVnaW4iOnsibmFtZSI6IkBwYWdlcmR1dHkvYmFja3N0YWdlLXBsdWdpbi1keW5hbWljIiwidmVyc2lvbiI6IjAuMjEuMCIsImRlc2NyaXB0aW9uIjoiQSBCYWNrc3RhZ2UgcGx1Z2luIHRoYXQgaW50ZWdyYXRlcyB0b3dhcmRzIFBhZ2VyRHV0eSIsImJhY2tzdGFnZSI6eyJwbHVnaW5JZCI6InBhZ2VyZHV0eSIsInJvbGUiOiJmcm9udGVuZC1wbHVnaW4iLCJwbHVnaW5QYWNrYWdlcyI6WyJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4iLCJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4tY29tbW9uIiwiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQiXSwiZmVhdHVyZXMiOnsiLi9hbHBoYSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRQbHVnaW4ifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC40In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9wYWdlcmR1dHkuZ2l0aHViLmlvL2JhY2tzdGFnZS1wbHVnaW4tZG9jcy9pbmRleC5odG1sIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL1BhZ2VyRHV0eS9iYWNrc3RhZ2UtcGx1Z2lucyIsImRpcmVjdG9yeSI6InBsdWdpbnMvYmFja3N0YWdlLXBsdWdpbiJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiIsInBhZ2VyZHV0eSJdfX1d",
     "imageTag": "bs_1.54.4__0.21.0"
   },
   "pagerduty-backstage-plugin-backend": {
     "workspacePath": "pagerduty/plugins/backstage-plugin-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:f95b10bcaf337687a0f41f481e8cb76550b46a35a1966239d96557c45de30bf2",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/pagerduty-backstage-plugin-backend@sha256:6dbc87977478be505dad33897f271989272703e4ff8acd1d8c92774193f3ec9f",
     "support": "community",
     "io.backstage.dynamic-packages": "W3sicGFnZXJkdXR5LWJhY2tzdGFnZS1wbHVnaW4tYmFja2VuZCI6eyJuYW1lIjoiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQtZHluYW1pYyIsInZlcnNpb24iOiIwLjE0LjAiLCJiYWNrc3RhZ2UiOnsicGx1Z2luSWQiOiJwYWdlcmR1dHkiLCJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5QYWNrYWdlcyI6WyJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4iLCJAcGFnZXJkdXR5L2JhY2tzdGFnZS1wbHVnaW4tY29tbW9uIiwiQHBhZ2VyZHV0eS9iYWNrc3RhZ2UtcGx1Z2luLWJhY2tlbmQiXSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC40In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9wYWdlcmR1dHkuZ2l0aHViLmlvL2JhY2tzdGFnZS1wbHVnaW4tZG9jcy9pbmRleC5odG1sIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL1BhZ2VyRHV0eS9iYWNrc3RhZ2UtcGx1Z2lucyIsImRpcmVjdG9yeSI6InBsdWdpbnMvYmFja3N0YWdlLXBsdWdpbi1iYWNrZW5kIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ==",
     "imageTag": "bs_1.54.4__0.14.0"
