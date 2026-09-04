@@ -513,33 +513,6 @@ plugins:
                 module: Legacy
                 config:
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:5ef8ff78aa5a72ad3ff295bfeb96b4b420fe5143b0c043cd3bbfceed04ec1201
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          keycloak:
-            development:
-              clientId: ${KEYCLOAK_CLIENT_ID}
-              clientSecret: ${KEYCLOAK_CLIENT_SECRET}
-              baseUrl: ${KEYCLOAK_BASE_URL}
-              realm: ${KEYCLOAK_REALM}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider@sha256:f4d3c01774b430eef353e57a1c1f32f2015a81f17de2813218af1f483b99a53e
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          pingfederate:
-            development:
-              clientId: ${PINGFEDERATE_CLIENT_ID}
-              clientSecret: ${PINGFEDERATE_CLIENT_SECRET}
-              baseUrl: ${PINGFEDERATE_BASE_URL}
-              signIn:
-                resolvers:
-                  - resolver: subClaimMatchingPingIdentityUserId
   # Tag: bs_1.52.0__3.21.0, Build date: 2026-05-22T14:59:57Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak@sha256:35950c45d36a1a3f5d5c80e1d48f295cad69ee9971178b0c09addbdfd12922f5
     enabled: false
@@ -663,63 +636,6 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider@sha256:02547b16700ef996152c6b9c8ea3985041bdd04ce2f6395a456bb415f884fd0c
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          github:
-            production:
-              clientId: ${GITHUB_CLIENT_ID}
-              clientSecret: ${GITHUB_CLIENT_SECRET}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider@sha256:4ce58b5c87dc79e67eaad5ac41e135d1435be4fe3e80e0a8e20e53ecd71e6557
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          guest:
-            dangerouslyAllowOutsideDevelopment: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:e2ae7bfa6ba2748afa722b4309c4e7494b7ad77e25c63e45111fe796f0064b60
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          gitlab:
-            production:
-              clientId: ${GITLAB_CLIENT_ID}
-              clientSecret: ${GITLAB_CLIENT_SECRET}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider@sha256:288c2538ca2332e4fa130d86f9fc321f95912c099b51de3b97f10ccb1773defa
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          microsoft:
-            production:
-              clientId: ${MICROSOFT_CLIENT_ID}
-              clientSecret: ${MICROSOFT_CLIENT_SECRET}
-              tenantId: ${MICROSOFT_TENANT_ID}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider@sha256:2e5678ed032cc9b0502e9eca2fa04620ccd0a83cd481be0a2b3ed88758be06ce
-    enabled: false
-    pluginConfig:
-      auth:
-        providers:
-          oidc:
-            production:
-              clientId: ${OIDC_CLIENT_ID}
-              clientSecret: ${OIDC_CLIENT_SECRET}
-              metadataUrl: ${OIDC_METADATA_URL}
-              signIn:
-                resolvers:
-                  - resolver: emailMatchingUserEntityProfileEmail
   # Tag: bs_1.52.0__0.13.3, Build date: 2026-05-21T21:07:49Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:94377ea0b957a46d296c3ee73bf0007fb5469129294581e6addfb6137e39482b
     enabled: false
