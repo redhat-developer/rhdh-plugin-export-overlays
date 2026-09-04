@@ -20,6 +20,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
   };
 
   test.beforeAll(async ({ rhdh }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Orchestrator backend plugin crashes with TypeError in BackendInitializer.#getInitDeps — incompatible with RHDH 1.11",
+    );
     const orchestratorNamespace = "orchestrator";
     await test.runOnce(
       "bulk-import-install-orchestrator-and-test-workflow",
