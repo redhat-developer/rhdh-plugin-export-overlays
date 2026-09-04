@@ -102,6 +102,51 @@ git config core.hooksPath .githooks
 
 The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zero overhead otherwise. It uses the same shared script (`scripts/e2e-code-quality.sh`) as the CI workflow, so checks are always in sync. See `.githooks/README.md` for details on combining with existing hooks.
 
+## Scripts Directory
+
+The repo-root `scripts/` directory contains **developer-facing CLI tools** and **CI pipeline scripts** — not deployed application code. Nothing in `scripts/` runs as part of a user-facing service or is packaged into OCI images.
+
+### Execution Context and Threat Model
+
+Scripts in this directory run in two contexts, both trusted:
+
+1. **Local developer workstations** — CLI tools run manually by engineers on their own git checkouts (e.g., `npx`-invoked TypeScript tools for generating patches).
+2. **CI pipelines** — Automation scripts executed by GitHub Actions workflows in a controlled environment with pre-defined inputs.
+
+In both contexts, the operator is a trusted user providing intentional input (filesystem paths, git refs, workspace names). These scripts are **not** exposed to untrusted network input, user-submitted data, or adversarial callers.
+
+### What lives here
+
+| Category | Examples | Purpose |
+|----------|----------|---------|
+| **Build infrastructure** | `generateCatalogIndex.py`, `generatePluginBuildInfo.py`, `generateDynamicPluginsDefaultYaml.sh` | OCI resolution, metadata sync, DPDY generation |
+| **Coverage tooling** | `upload-coverage.sh`, `seed-main-coverage.sh`, `refresh-coverage-snapshot.sh`, `remap-coverage.cjs` | E2E plugin coverage collection and reporting |
+| **Developer CLI tools** | `scripts/yarnlock-backport/` (when present), `scripts/validate-app-config-examples/` | Local-only tools run via `npx` for specific dev tasks |
+| **CI helpers** | `e2e-code-quality.sh`, `update-index.sh`, `bootstrapPluginBuilds.py` | Workflow support scripts |
+
+### Review Calibration for Security Findings
+
+When reviewing changes to `scripts/`, evaluate security findings against the local-execution and trusted-CI context described above — not against server-side heuristics designed for untrusted-input surfaces.
+
+**Findings that should be downgraded or skipped:**
+
+- **Path injection / path traversal** on CLI tools that accept filesystem paths as operator input. These tools intentionally accept absolute paths (e.g., `--overlay-workspace`, `--plugins-repo`) as designed operator input. Existing guards like `pathUnderBase` provide correctness checks, not adversarial-input defenses.
+- **Command injection** on scripts that construct shell commands from operator-provided arguments (workspace names, git refs). The caller is the engineer or CI pipeline, not an untrusted user.
+- **TOCTOU (time-of-check-time-of-use) races** on local file operations. These tools run single-user on local checkouts; concurrent adversarial modification is not a realistic threat.
+
+**Findings that remain relevant:**
+
+- **Correctness bugs** — Does the tool produce correct output? Are regex capture groups consistent? Does structural refactoring change execution conditions?
+- **Data integrity** — Could a bug silently produce wrong patches, corrupt `yarn.lock`, or generate incorrect metadata?
+- **CI reliability** — Could a failure mode cause silent CI passes or mask real issues?
+- **Actual secret exposure** — Hardcoded credentials, tokens, or API keys (as opposed to path handling patterns).
+
+### Relationship to Other Guidance
+
+This section covers the **deployment context and threat model** dimension for `scripts/`. Related open issues cover complementary dimensions:
+- Issue #3182 — upstream/midstream two-repo architecture (which scripts exist only in the GitLab midstream)
+- Issue #2893 — build infrastructure review priorities (behavioral changes, regex groups, multi-format support)
+
 ## Working with Workspaces
 
 ### Adding a New Workspace
