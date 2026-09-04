@@ -279,6 +279,29 @@ test.beforeAll(async ({ rhdh }) => {
 - Nesting is safe — `deploy()` uses `runOnce` internally, wrapping it in an outer `runOnce` is harmless. It does **not** rescue a project-shared outer key, though: that skips before `deploy()` is reached, so its own protection never gets a say.
 - Uses file-based flags in `/tmp/` scoped to the Playwright runner process. Flags reset automatically between test runs.
 
+**Key collision trap in multi-project workspaces:** When the same spec file runs in multiple Playwright projects (e.g. `bulk-import` and `bulk-import-app-next`), a literal `runOnce` key creates a collision — the first project's flag file satisfies the second project's check, silently skipping its `configure()` + `deploy()` call. The second project's namespace never gets an RHDH deployment, and all its tests fail with misleading UI errors (e.g. "missing heading") with no indication that the deployment was skipped.
+
+Always scope `runOnce` keys by namespace to avoid this:
+
+```typescript
+// ✅ Correct — namespace-scoped key, safe for multi-project runs
+await test.runOnce(
+  `my-workspace-setup-${rhdh.deploymentConfig.namespace}`,
+  async () => {
+    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.deploy();
+  }
+);
+
+// ❌ Wrong — literal key collides across projects sharing this spec
+await test.runOnce("my-workspace-setup", async () => {
+  await rhdh.configure({ auth: "keycloak" });
+  await rhdh.deploy();
+});
+```
+
+This mirrors what `deploy()` does internally (`deploy-${namespace}`). See PR [#3318](https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3318) for the case study where this caused 9 silent test failures.
+
 ### RHDH Deployment Flow
 
 `rhdh.deploy()` performs these steps:
