@@ -335,6 +335,31 @@ MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY
 
 `envsubst` runs **only** on `rhdh-secrets.yaml`. Other config files reference the Secret values with `${VAR}` syntax — they are not substituted directly.
 
+### Baked-in Plugins (dynamic-plugins.default.yaml)
+
+Some plugins ship baked into the RHDH image via `dynamic-plugins.default.yaml` (e.g., quickstart). These plugins are loaded by default without any dynamic plugin configuration. The overlays-side list of baked-in and DPDY packages is maintained in `default.packages.yaml` at the repo root. E2E tests for these workspaces require mode-aware configuration:
+
+- **PR mode** (`GIT_PR_NUMBER` set): Pass `dynamicPlugins: "tests/config/dynamic-plugins.yaml"` with `plugins: []` to prevent auto-generation from metadata, which would create duplicate config key conflicts with the baked-in entry.
+- **Nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`; `GIT_PR_NUMBER` takes precedence): If the plugin is already in `dynamic-plugins.default.yaml`, pass a nightly-specific config file (e.g., `dynamic-plugins-nightly.yaml` with `plugins: []`) to prevent metadata auto-generation from duplicating OCI entries. The `disablePlugins` option has no effect in nightly mode — it is only applied when `GIT_PR_NUMBER` is set.
+- **Local dev** (neither set): The baked-in plugin loads from defaults. The `disablePlugins` option has no effect outside PR mode.
+
+The e2e-test-utils common defaults include `disabled: true` for certain baked-in plugins (e.g., quickstart popup suppression). This applies across all modes and is independent of the `disablePlugins` configure option.
+
+**Important:** Omitting `dynamicPlugins` from `configure()` does NOT disable dynamic plugin configuration. The framework defaults to `WorkspacePaths.dynamicPlugins` (`tests/config/dynamic-plugins.yaml`), and if that file exists on disk, it is read regardless. To control which config is used per mode, pass an explicit path rather than relying on omission.
+
+Use a conditional pattern in `beforeAll`:
+```typescript
+const isNightly = !process.env.GIT_PR_NUMBER &&
+  (!!process.env.E2E_NIGHTLY_MODE ||
+   (process.env.JOB_NAME?.includes("periodic-") ?? false));
+await rhdh.configure({
+  auth: "keycloak",
+  ...(isNightly && { dynamicPlugins: "tests/config/dynamic-plugins-nightly.yaml" }),
+});
+```
+
+When reviewing changes to `dynamicPlugins` configuration or `dynamic-plugins.yaml` files for baked-in plugin workspaces, verify the change works correctly in all three modes.
+
 ### WorkspacePaths
 
 Config file paths are resolved from `test.info().project.testDir` (Playwright-provided absolute path), NOT from `process.cwd()`. This enables the same test code to work from both:
