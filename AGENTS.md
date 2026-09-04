@@ -140,6 +140,46 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Reviewing versions.json Changes
+
+`versions.json` is the repo's central version configuration. Its fields are consumed by export, publish, and wiki-sync workflows and propagate to every workspace build:
+
+- **`backstage`** — The Backstage framework version. Used by `generate-catalog-index.yaml` to set the catalog index Backstage version, by `auto-publish-pr.yaml` to configure the export build environment, and by `bootstrapPluginBuilds.py` to tag OCI artifacts. Every workspace's metadata OCI tags include this version.
+- **`node`** — The Node.js version. Used by `auto-publish-pr.yaml` to set the build container's Node runtime. Affects all plugin export and publish jobs.
+- **`cli`** / **`cliPackage`** — The `@red-hat-developer-hub/cli` package and its version. This is the build tool that packages every dynamic plugin as an OCI image. The CLI version is passed to `export-workspaces-as-dynamic.yaml` as `janus-cli-version` for all export and publish jobs.
+
+Changes to any field affect all workspaces — not just one plugin or patch. Treat `versions.json` PRs as infrastructure changes, not mechanical bumps.
+
+**CLI major version bumps (`cli` field):**
+
+When the `cli` field crosses a major version boundary (e.g., 1.x → 2.x), the change carries the highest risk because the CLI is the build tool for every exported plugin. A breaking change could cause all OCI image builds to fail.
+
+When reviewing a PR that bumps `cli` across a major version:
+
+1. **Identify the major version boundary.** Compare old and new values — a change where the first numeric component increases is a major bump. Do not classify this as a trivial or mechanical change.
+2. **Check the CLI package's changelog or release notes** for breaking changes. Look for the package on npm (`@red-hat-developer-hub/cli`) or its source repository. Common breaking changes include: removed or renamed CLI commands, changed command-line argument syntax, dropped Node.js version support, and altered output formats.
+3. **Verify `plugins-list.yaml` CLI arguments remain compatible.** Workspaces pass optional CLI arguments via `plugins-list.yaml`. Search for workspaces that use custom `--export-args` or other CLI flags and verify those flags still exist in the new major version.
+4. **Confirm compatibility with the current `backstage` version.** A new CLI major version may require or drop support for specific Backstage versions. Check that the `backstage` field in `versions.json` is within the new CLI's supported range.
+5. **Suggest verification.** Recommend running `/publish` and `/smoketest` on at least one workspace before merging to confirm the new CLI version produces valid OCI images. If the `backstage` workspace has E2E tests, suggest `/test` as well.
+
+**Do not approve CLI major version bumps without explicit breaking-change assessment.** A single-field config change can break every plugin build in the repo.
+
+**Backstage version bumps (`backstage` field):**
+
+When reviewing a PR that changes the `backstage` field:
+
+1. **Check workspace compatibility.** Verify that workspace `source.json` entries use a `repo-backstage-version` compatible with the new value. A mismatch can cause OCI tag resolution failures or build incompatibilities.
+2. **Verify metadata OCI tags.** Metadata files in `workspaces/*/metadata/*.yaml` include Backstage version in their `spec.dynamicArtifact` OCI tags (e.g., `bs_1.45.3__1.13.0`). Confirm the tag format will resolve correctly with the new version.
+3. **Check CLI compatibility.** Confirm the current `cli` version supports the new Backstage version — especially across major Backstage releases.
+
+**Node version bumps (`node` field):**
+
+When reviewing a PR that changes the `node` field:
+
+1. **Check CLI compatibility.** Verify the current `cli` version supports the new Node.js version. Check the CLI package's `engines` field or release notes for supported Node.js ranges.
+2. **Check upstream plugin build requirements.** Some upstream plugin repositories pin Node.js versions in their build configs. A mismatch between the export environment's Node version and the upstream expectation can cause build failures.
+3. **Verify major version boundaries.** Node.js major versions (e.g., 18.x → 20.x, 20.x → 22.x) drop support for older APIs and may require dependency updates.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
