@@ -18,8 +18,8 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
-#   # Auto-fetch secrets from HashiCorp Vault during global setup
-#   VAULT=1 ./run-e2e.sh -w tech-radar
+#   # Load readable local secrets from Bitwarden for the test process
+#   ./run-e2e.sh --secrets -w tech-radar
 ##
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
@@ -63,6 +63,9 @@ export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
+# Readable local secrets
+SECRETS_ENABLED=false
+
 # Coverage collection (Istanbul) — enabled by default
 #
 # PR checks: auto-publish-pr.yaml builds __coverage images
@@ -96,6 +99,10 @@ PLAYWRIGHT_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --secrets)
+            SECRETS_ENABLED=true
+            shift
+            ;;
         -w|--workspace)
             SELECTED_WORKSPACES+=("$2")
             shift 2
@@ -312,7 +319,22 @@ npx playwright install chromium
 
 echo ""
 TEST_EXIT_CODE=0
-npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+if [[ "$SECRETS_ENABLED" == "true" ]]; then
+    SECRETS_EXECUTABLE="$SCRIPT_DIR/node_modules/.bin/rhdh-e2e-secrets"
+    if [[ ! -x "$SECRETS_EXECUTABLE" ]]; then
+        echo "[ERROR] rhdh-e2e-secrets is not installed. Install the pinned e2e-test-utils package first."
+        exit 1
+    fi
+
+    SECRET_ARGS=(exec --profile "$SCRIPT_DIR/e2e-secrets.profile.json")
+    for ws in "${E2E_WORKSPACES[@]}"; do
+        SECRET_ARGS+=(--workspace "$ws")
+    done
+    SECRET_ARGS+=(-- npx playwright test)
+    "$SECRETS_EXECUTABLE" "${SECRET_ARGS[@]}" "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+else
+    npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+fi
 
 # ── Coverage artifacts ───────────────────────────────────────────────────
 # The instrumented plugins emit per-test coverage JSONs (written by the
