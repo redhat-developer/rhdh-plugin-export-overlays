@@ -140,6 +140,26 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Source Ref Changes with Existing Patches
+
+When a PR modifies `source.json` to change the `repo-ref` and the workspace has files in `patches/*.patch`, the existing patches may no longer apply cleanly to the new upstream source. Patches are authored against a specific upstream commit — when the ref advances, the context lines and line numbers in the patch may no longer match, causing `/publish` to fail with patch hunk errors.
+
+**Why this matters for this repo:** The build pipeline applies `patches/*.patch` to the upstream source before packaging. If a patch cannot apply, the entire publish fails. This is especially common with CVE patches (`cve-yarn-lock.patch`, `cve-backports.yaml`) — when the new upstream ref already incorporates the CVE fixes, the patches become both redundant and incompatible.
+
+**Review criteria for source ref changes:**
+
+When reviewing a PR that modifies `source.json` to change `repo-ref` in a workspace that has `patches/*.patch` files:
+
+1. **Check whether the patch files are being removed or modified in the same PR.** If all patches are removed or updated alongside the ref change, the author has already addressed compatibility. No further action needed.
+2. **If patches remain unchanged, flag the risk.** Patches authored against the previous upstream ref may not apply cleanly to the new ref, which will cause `/publish` to fail. The more commits between the old and new ref, the higher the risk.
+3. **Check whether the new ref already includes the patched fixes.** If the PR description or upstream commit history indicates the new ref incorporates the changes that the patches provided (e.g., CVE backports absorbed upstream), recommend removing the patches in the same PR. Look for patch filenames that reference CVEs or specific fixes, and compare against the upstream changelog between the old and new refs.
+4. **Assess severity.** Medium if patches are unchanged and the upstream ref is more than a few commits ahead. Low if the ref change is minor (e.g., a single-commit advance) or if the PR description explicitly addresses patch compatibility.
+5. **Recommend `/publish` as a verification step.** Even when patches appear compatible, suggest running `/publish` to confirm they apply cleanly before approving. This catches subtle context-line mismatches that are hard to detect by inspection alone.
+
+**Do not approve source ref changes without verifying patch compatibility.** A ref change that leaves stale patches will pass code review but fail at publish time, costing an additional publish cycle and requiring a follow-up commit to remove the patches.
+
+This guidance complements the planned CI-level `patch --dry-run` validation (#3197) by catching the issue earlier in the review cycle.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
