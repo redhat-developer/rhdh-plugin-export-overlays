@@ -120,6 +120,47 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### Scalprum Config for Non-Default Modules
+
+Frontend plugins use a `scalprum-config.json` file to declare which modules they expose to the dynamic plugin loader. The file lives at `workspaces/<name>/plugins/<plugin>/scalprum-config.json` (alongside the `overlay/` directory, not inside it).
+
+Every frontend plugin has a default `PluginRoot` module. When metadata `appConfigExamples` reference a `module:` value other than `PluginRoot` (e.g., `Legacy`, `Alpha`, `alpha`), the plugin's `scalprum-config.json` **must** include a matching entry in `exposedModules`. Without it, RHDH cannot resolve the module at runtime and the plugin fails to load.
+
+**Example — RBAC plugin with a `Legacy` module:**
+
+```json
+{
+  "name": "backstage-community.plugin-rbac",
+  "exposedModules": {
+    "PluginRoot": "./src/index.ts",
+    "Legacy": "./src/legacy/index.ts"
+  }
+}
+```
+
+The corresponding metadata references `module: Legacy`:
+
+```yaml
+appConfigExamples:
+  - title: Default configuration
+    content:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-rbac:
+            appIcons:
+              - name: rbacIcon
+                importName: RbacIcon
+                module: Legacy
+```
+
+**When reviewing workspace update PRs:**
+
+The `update-plugins-repo-refs` automation generates metadata from upstream `package.json` exports. When an upstream plugin adds new subpath exports (e.g., `./legacy`, `./alpha`), the automation may produce metadata referencing those modules without creating the corresponding `scalprum-config.json`. Check for this mismatch:
+
+1. Look for `module:` values in the PR's `metadata/*.yaml` changes
+2. If any value other than `PluginRoot` appears, verify that the workspace has a `scalprum-config.json` at `plugins/<plugin>/scalprum-config.json` with matching `exposedModules` keys
+3. If the scalprum-config is missing or incomplete, add it before merging — otherwise the plugin will fail at runtime
+
 ### Major Version Bumps in Patches
 
 When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
