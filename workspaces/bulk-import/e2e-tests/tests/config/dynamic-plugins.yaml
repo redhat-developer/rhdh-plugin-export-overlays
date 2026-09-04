@@ -1,4 +1,7 @@
 plugins:
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false
   # bulk-import plugins
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
     enabled: true

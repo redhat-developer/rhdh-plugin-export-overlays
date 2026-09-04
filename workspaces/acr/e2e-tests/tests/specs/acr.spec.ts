@@ -22,7 +22,7 @@ test.describe("Test ACR plugin", () => {
       testInfo.project.name === "acr-app-next"
         ? "ACR IMAGES"
         : "Image Registry";
-    await uiHelper.clickTab(tabName);
+    await uiHelper.clickLink(tabName);
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );

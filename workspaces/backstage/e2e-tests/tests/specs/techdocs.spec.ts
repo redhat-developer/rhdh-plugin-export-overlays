@@ -125,7 +125,7 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    await uiHelper.clickTab("Docs");
+    await uiHelper.clickLink("TechDocs");
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
   });
 
@@ -148,7 +148,7 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    await uiHelper.clickTab("Docs");
+    await uiHelper.clickLink("TechDocs");
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
