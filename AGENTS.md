@@ -115,6 +115,16 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
 4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
 
+### Metadata and Catalog Entity Consistency
+
+When modifying `plugins-list.yaml` (adding, removing, or renaming plugin entries), always audit for consistency across these coupled files:
+
+1. **`metadata/*.yaml`** — Every `kind: Package` metadata file must reference a `spec.packageName` that corresponds to a plugin exported in `plugins-list.yaml`. Remove or rename metadata files for plugins no longer in `plugins-list.yaml`.
+2. **`catalog-entities/extensions/plugins/*.yaml`** — Every `spec.packages` entry in `kind: Plugin` entities must reference an existing Package entity in `metadata/`. Update references when packages are renamed or removed.
+3. **`catalog-entities/extensions/plugins/all.yaml`** — Must list every Plugin YAML file. Update when Plugin files are added or removed.
+
+Before committing, verify no orphaned metadata files remain by checking that every `metadata/*.yaml` filename corresponds to a plugin in `plugins-list.yaml`. The `/publish` workflow validates this and will fail on orphaned references.
+
 ### Overlay vs Patch
 
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
