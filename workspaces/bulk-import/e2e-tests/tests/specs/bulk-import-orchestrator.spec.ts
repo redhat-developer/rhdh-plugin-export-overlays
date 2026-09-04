@@ -97,24 +97,13 @@ test.describe("Bulk import tests orchestrator mode", () => {
   }) => {
     const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
-    await expect(async () => {
-      await uiHelper.waitForLoad(12_000);
-      await loginHelper.checkAndClickOnGHloginPopup();
-      await bulkImport.searchAndExpectRow(
-        catalogRepoDetailsForOrchestrator.name,
-        [],
-      );
-    }).toPass({
-      intervals: [5_000],
-      timeout: 40_000,
-    });
-
-    await bulkImport.checkRepoRowCheckbox(
-      catalogRepoDetailsForOrchestrator.name,
-    );
     await bulkImport.searchAndExpectRow(
       catalogRepoDetailsForOrchestrator.name,
       [catalogRepoDetailsForOrchestrator.url],
+    );
+
+    await bulkImport.checkRepoRowCheckbox(
+      catalogRepoDetailsForOrchestrator.name,
     );
 
     await bulkImport.clickAddRepositoryImportAndWaitForSubmit();

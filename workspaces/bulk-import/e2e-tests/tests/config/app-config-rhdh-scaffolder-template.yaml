@@ -3,8 +3,6 @@
 
 auth:
   providers:
-    guest:
-      dangerouslyAllowOutsideDevelopment: true
     github:
       production:
         clientSecret: ${GITHUB_OAUTH_APP_SECRET}
@@ -12,14 +10,11 @@ auth:
         callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
 
 catalog:
-  import:
-    entityFilename: catalog-info.yaml
-    pullRequestBranchName: backstage-integration
   rules:
     - allow: [Component, System, Group, User, Resource, Location, Template, API]
   locations:
     - type: url
-      target: https://github.com/janus-test/janus-test-3-bulk-import/blob/main/catalog-info.yaml
+      target: https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/bulk-import/examples/template/create-pr-with-catalog-info.yaml
 
 integrations:
   github:
@@ -44,18 +39,4 @@ permission:
 includeTransitiveGroupOwnership: true
 
 bulkImport:
-  instructionsEnabled: true
-  instructionsDefaultExpanded: true
-  instructionsSteps:
-    - id: "step1"
-      text: "Choose a source control tool for pull request creation"
-      icon: "approval-tool"
-    - id: "step2"
-      text: "Choose which items you want to import"
-      icon: "search"
-    - id: "step3"
-      text: "Generate a catalog-info.yaml file for each selected item"
-      icon: "build"
-    - id: "step4"
-      text: "View the pull/merge request details"
-      icon: "kind:api"
+  importTemplate: create-pr-with-catalog-info

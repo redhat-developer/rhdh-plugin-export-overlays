@@ -34,11 +34,17 @@ plugins:
       dynamicPlugins:
         frontend:
           red-hat-developer-hub.backstage-plugin-orchestrator:
+            translationResources:
+              - importName: orchestratorTranslations
+                module: Legacy
+                ref: orchestratorTranslationRef
             appIcons:
               - importName: OrchestratorIcon
                 name: orchestratorIcon
+                module: Legacy
             dynamicRoutes:
               - importName: OrchestratorPage
+                module: Legacy
                 menuItem:
                   icon: orchestratorIcon
                   text: Orchestrator
@@ -52,6 +58,7 @@ plugins:
             mountPoints:
               - mountPoint: entity.page.workflows/cards
                 importName: OrchestratorCatalogTab
+                module: Legacy
                 config:
                   layout:
                     gridColumn: 1 / -1

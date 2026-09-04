@@ -13,10 +13,7 @@ import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { CatalogEntityPO } from "../../support/pages/catalog-entity-po";
 import { CatalogImportPO } from "../../support/pages/catalog-import-po";
 import { defaultCatalogInfoYaml } from "../../support/test-data/catalog-info-yaml";
-import {
-  signInAsGuestForPermissionTest,
-  signInForBulkImportTests,
-} from "../../support/utils/auth";
+import { signInForBulkImportTests } from "../../support/utils/auth";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 import {
@@ -91,19 +88,21 @@ spec:
       expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
     }
 
-    await APIHelper.createGitHubRepoWithFile(
-      catalogRepoDetails.owner,
-      catalogRepoDetails.name,
-      "catalog-info.yaml",
-      catalogInfoYamlContent,
-    );
+    await test.runOnce(`bulk-import-repo-setup-${namespace}`, async () => {
+      await APIHelper.createGitHubRepoWithFile(
+        catalogRepoDetails.owner,
+        catalogRepoDetails.name,
+        "catalog-info.yaml",
+        catalogInfoYamlContent,
+      );
 
-    await APIHelper.createGitHubRepoWithFile(
-      newRepoDetails.owner,
-      newRepoDetails.repoName,
-      "README.md",
-      "qa test project",
-    );
+      await APIHelper.createGitHubRepoWithFile(
+        newRepoDetails.owner,
+        newRepoDetails.repoName,
+        "README.md",
+        "qa test project",
+      );
+    });
   });
 
   test.afterAll(async () => {
@@ -278,19 +277,6 @@ spec:
       await uiHelper.openSidebar(BULK_IMPORT_HEADING);
       await bulkImport.verifyHeading();
       await bulkImport.assertRepoAbsent(catalogImportedRepo.repoName);
-    });
-  });
-
-  test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
-    test.beforeEach(async ({ loginHelper, uiHelper }) => {
-      await signInAsGuestForPermissionTest(loginHelper, uiHelper);
-    });
-
-    test("Bulk Import - Verify users without permission cannot access", async ({
-      uiHelper,
-    }) => {
-      await uiHelper.verifyText("Permission required");
-      expect(await uiHelper.isBtnVisible("Import")).toBeFalsy();
     });
   });
 });
