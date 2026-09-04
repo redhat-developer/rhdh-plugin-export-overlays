@@ -101,7 +101,7 @@ export function registerUiPropsTestWorkflowTests(): void {
         page.getByRole("heading", { name: "Description" }),
       ).toBeVisible();
       const runId = await orchestratorPo.getCurrentRunId();
-      await waitForLokiWorkflowLogs(runId);
+      await waitForLokiWorkflowLogs(runId, 240_000);
       const logsDialog = await orchestratorPo.openRunLogsDialog(
         "Test Object Type Support in ui:props",
       );
