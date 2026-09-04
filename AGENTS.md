@@ -112,8 +112,25 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
    ```
    - `repo-flat`: `true` if plugins are at repo root, `false` if inside a workspace subdirectory
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
-3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
+3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each standalone plugin in `plugins-list.yaml` (kind: Package). Do not create metadata for `--embed-package` entries (see "Metadata Eligibility" below)
 4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
+
+### Metadata Eligibility (Standalone vs Embed-Package)
+
+Not every package listed in `plugins-list.yaml` gets its own metadata entry. The rule is:
+
+- **Standalone entries** — the left-column paths in `plugins-list.yaml` (e.g., `plugins/catalog-backend-module-model-catalog:`) produce their own OCI images during the build. Each one needs a corresponding `kind: Package` metadata YAML in `workspaces/*/metadata/`.
+- **`--embed-package` entries** — packages referenced via `--embed-package` arguments (e.g., `--embed-package @red-hat-developer-hub/backstage-plugin-catalog-model-ai-model-server`) are common-libraries bundled into the standalone plugin's OCI image. They do **NOT** get their own metadata entries, OCI artifacts, or `dynamicArtifact` references. This is by design — no embed-package in any workspace has a standalone metadata entry.
+
+**Example from `workspaces/ai-integrations/plugins-list.yaml`:**
+
+```yaml
+plugins/catalog-backend-module-model-catalog: --embed-package @red-hat-developer-hub/backstage-plugin-catalog-model-ai-model-server
+```
+
+Here `catalog-backend-module-model-catalog` is the standalone plugin (gets metadata), while `catalog-model-ai-model-server` is an embedded common-library (no metadata).
+
+**When triaging or implementing issues that request adding metadata for a package:** verify whether the package appears as a standalone entry (left-column path) in `plugins-list.yaml` or only as an `--embed-package` argument. If the latter, the issue premise is incorrect — the package is bundled into another plugin's image and does not produce its own OCI artifact.
 
 ### Overlay vs Patch
 
@@ -153,6 +170,8 @@ After creating/editing, add the file to `plugins/all.yaml`.
 ### Package YAML (`workspaces/*/metadata/*.yaml`)
 
 Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
+
+Package entries correspond 1:1 with standalone entries in `plugins-list.yaml`. Packages referenced only via `--embed-package` are common-libraries bundled into another plugin's OCI image and do not get Package metadata entries. See "Metadata Eligibility" under "Working with Workspaces" for details.
 
 ## E2E Testing
 
