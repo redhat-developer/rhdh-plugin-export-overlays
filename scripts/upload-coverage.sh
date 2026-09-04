@@ -66,7 +66,7 @@
 #
 # Required environment:
 #   CODECOV_TOKEN         - Codecov upload token for this repo's project.
-#                           Falls back to VAULT_CODECOV_TOKEN (see below).
+#                           Falls back to the legacy VAULT_CODECOV_TOKEN name.
 # Optional environment:
 #   CODECOV_UPLOAD_SLUG   - GitHub slug of the Codecov project to upload to.
 #                           Default: redhat-developer/rhdh-plugin-export-overlays.
@@ -90,10 +90,10 @@
 
 set -euo pipefail
 
-# OpenShift CI auto-exports Vault secret keys prefixed with VAULT_ (the
+# OpenShift CI auto-exports legacy secret keys prefixed with VAULT_ (the
 # rhdh-plugin-export-overlays ocp-helm step mounts the test-credentials secret
 # and exports every VAULT_* key). Accept VAULT_CODECOV_TOKEN as a fallback so the
-# token only has to be added to that Vault secret — no openshift/release change.
+# token only has to be added to the existing CI secret — no openshift/release change.
 : "${CODECOV_TOKEN:=${VAULT_CODECOV_TOKEN:-}}"
 
 # Resolved once so every "did anything reach Codecov" branch below tests the same
