@@ -140,6 +140,38 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Major Version Bumps in Workspace Version Updates
+
+When a workspace version update via `source.json` crosses a major version boundary (the first numeric component of `spec.version` in `metadata/*.yaml` increases, e.g., 1.x to 2.x), the update carries higher risk than a minor or patch-level bump. Major versions of upstream plugins may restructure module layouts, move component exports, rename mount points, or change dynamic plugin configuration requirements — any of which can cause runtime failures in RHDH even when the build succeeds.
+
+**Why this matters for this repo:** This repo does not contain plugin source code — it references upstream repos and packages plugins as OCI images using metadata that includes `appConfigExamples` (mount points, module references, config keys). When an upstream plugin crosses a major version, the metadata in this repo must be updated to reflect any changes to the plugin's dynamic configuration. A build can succeed with stale metadata while the plugin fails to load at runtime because mount points reference a module that no longer exports the expected components.
+
+**Scope note:** The Scalprum/mount-point verification steps below (steps 2–3) primarily target **frontend dynamic UI plugins** — plugins with `spec.backstage.role: frontend-plugin` that expose UI components via mount points and modules. Backend plugin major version bumps require a different focus: check for breaking changes to backend API routes, configuration schemas, and database migrations rather than mount point/module layout.
+
+**When to apply this guidance:** Only when `spec.version` in `metadata/*.yaml` crosses a major version boundary. Minor and patch version workspace updates do not require upstream config comparison — the standard workspace version update checks (ref-to-version consistency, OCI tag format, selective metadata updates) are sufficient. Note: a comprehensive workspace update checklist is planned in #3017. Also note that strict major-only gating may miss configuration breakage in upstream projects that introduce breaking config changes in minor releases — if a workspace's upstream project does not follow strict semver, consider applying these checks on any version bump that changes plugin configuration.
+
+**Review criteria for major version workspace updates:**
+
+1. **Detect the major version change.** Compare the old and new `spec.version` values in `metadata/*.yaml`. A change where the first numeric component increases (e.g., `1.22.0` to `2.0.0`) is a major bump. Check `git diff` or the PR diff to identify the version change.
+
+2. **Compare upstream dynamic plugin configuration at old and new refs.** Fetch the upstream repo's `app-config.dynamic.yaml` (or equivalent Scalprum/dynamic plugin configuration file) at both the old and new `repo-ref` values from `source.json`. Compare mount point definitions, `module` references, and translation resource entries. Use the `repo` URL from `source.json` to browse or fetch the file at each ref:
+   - Old ref: the `repo-ref` value on the base branch (before the update)
+   - New ref: the `repo-ref` value in the PR (after the update)
+
+   If the upstream config added, changed, or removed `module:` fields in mount point definitions, the `appConfigExamples` in this repo's `metadata/*.yaml` must be updated to match.
+
+   If the upstream repo does not have an `app-config.dynamic.yaml` (or equivalent), do not assume there are no configuration changes — fall through to step 3 and verify module layout directly via `package.json` `exports` and Scalprum `exposedModules` configuration. Some upstream plugins define their dynamic plugin configuration only through these mechanisms.
+
+3. **Verify module layout changes.** Check the upstream plugin's `package.json` `exports` field and Scalprum `exposedModules` configuration at the new ref. If the upstream introduced new exposed modules (e.g., `Legacy`, `Alpha`), moved component exports between modules, or changed the default module, verify that every `importName` in `appConfigExamples` references the correct `module`. A component that was previously exported from `PluginRoot` but moved to a `Legacy` module requires `module: Legacy` in its mount point config — without it, the plugin loads but the component is not found.
+
+4. **Check E2E config consistency.** If the workspace has `e2e-tests/tests/config/dynamic-plugins.yaml`, verify it also reflects any module layout or mount point changes — the E2E config is used for integration testing and must stay in sync with `metadata/*.yaml` to catch configuration regressions. If no `dynamic-plugins.yaml` exists (the recommended default), the E2E framework auto-generates plugin configuration from `metadata/*.yaml` — so the `appConfigExamples` verified in steps 2–3 are the authoritative source of truth for E2E behavior, and no separate E2E config update is needed.
+
+5. **Do not trust upstream CHANGELOG claims alone.** Upstream release notes may claim backward compatibility (e.g., "no app-config.yaml changes needed") while the actual configuration files tell a different story. Always verify claims against the upstream's reference configuration files (`app-config.dynamic.yaml`, `package.json` exports, Scalprum config). The global-header v1→v2 update (PR #3059) demonstrated this gap: the upstream CHANGELOG claimed no config changes were needed, but the actual `app-config.dynamic.yaml` had added `module: Legacy` entries for all OFS mount points.
+
+**Do not approve major version workspace updates without verifying upstream config alignment.** A workspace update that passes build and even smoke tests does not guarantee correct runtime behavior — mount points referencing the wrong module will cause the plugin to load but its components to silently fail to render.
+
+**Leverage CI verification.** Use the same CI tools as for major version patch bumps: `/test` for E2E tests (if the workspace has an `e2e-tests/` directory), `/smoketest` for basic plugin load verification. Both provide additional confidence but do not replace manual verification of module layout and mount point configuration changes.
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
