@@ -328,7 +328,7 @@ All files in `tests/config/` are **optional** — only create them when you need
 **Environment variables in RHDH config:** To use an env var in `app-config-rhdh.yaml`, it must first be defined in `rhdh-secrets.yaml`. The flow is:
 
 ```
-Environment (CI Vault / .env)     rhdh-secrets.yaml              app-config-rhdh.yaml
+Environment (CI secrets / .env)  rhdh-secrets.yaml              app-config-rhdh.yaml
 MY_TOKEN=abc123              →    MY_TOKEN: $MY_TOKEN        →   token: ${MY_TOKEN}
                                   (envsubst replaces $VAR)       (references the K8s Secret)
 ```
