@@ -1,13 +1,15 @@
-"""Shared helpers for driving the coverage shell scripts from pytest.
+"""Shared helpers for driving the repo's shell scripts from pytest.
 
 The scripts are exercised as subprocesses rather than sourced, because their
 contract with CI *is* the exit code and the stdout/stderr they emit — that is
 what makes a seed run green or red. Testing the observable contract keeps these
 tests honest about the behaviour the workflow depends on.
 
-Two seams keep the runs hermetic (no network, no shared /tmp state):
-  CODECOV_BIN       - path to a stub standing in for the Codecov CLI
-  CODECOV_API_BASE  - base URL for the skip check, pointed at a local stub server
+Seams keep the runs hermetic (no network, no shared /tmp state):
+  CODECOV_BIN            - path to a stub standing in for the Codecov CLI
+  UPSTREAM_CHECKOUT_DIR  - a local checkout instead of a shallow clone
+  REMAP_BIN              - a stub instead of an npm-installing remap
+  REPO_ROOT              - a fixture tree instead of the real workspaces/ (nfs-readiness)
 """
 
 import os
@@ -18,6 +20,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_SCRIPT = SCRIPTS_DIR / "upload-coverage.sh"
 SEED_SCRIPT = SCRIPTS_DIR / "seed-main-coverage.sh"
+NFS_SCRIPT = SCRIPTS_DIR / "nfs-readiness-report.sh"
 
 # A real-looking 40-char SHA. upload-coverage.sh rejects anything else, so the
 # tests must not use a short or placeholder value.
@@ -33,12 +36,17 @@ def write_stub_cli(path: Path, exit_codes) -> Path:
 
     `exit_codes` is a list; the stub uses the last entry for any call beyond the
     list, so `[1]` means "always fail" and `[1, 0]` means "fail once then work".
+
+    The working directory of each call is appended to a sibling `.cwds` file.
+    The cross-repo upload resolves report paths against the git repo it runs
+    from, so where it ran is as much part of the contract as what it was passed.
     """
     codes = " ".join(str(c) for c in exit_codes)
     path.write_text(
         "#!/usr/bin/env bash\n"
         f'CALLS="{path}.calls"\n'
         'echo "$*" >> "$CALLS"\n'
+        f'pwd >> "{path}.cwds"\n'
         f'CODES=({codes})\n'
         'n=$(wc -l < "$CALLS" | tr -d " ")\n'
         'idx=$((n - 1))\n'
@@ -144,7 +152,7 @@ def build_fake_repo(tmp_path: Path, workspaces, extra_snapshots=()) -> Path:
 
 
 def run_script(script: Path, *args, env=None, cwd=None):
-    """Run one of the coverage scripts with a controlled environment.
+    """Run one of the repo's shell scripts with a controlled environment.
 
     The environment is built from scratch rather than inherited so a developer's
     real CODECOV_TOKEN or a stale /tmp/codecov cannot change the outcome.
@@ -155,6 +163,13 @@ def run_script(script: Path, *args, env=None, cwd=None):
         # Keep the retry fast; the delay is behaviour we assert elsewhere, not
         # something every test should pay for in wall-clock time.
         "UPLOAD_RETRY_DELAY_SECONDS": "0",
+        # The upload scripts now shell out to git (init, ls-remote, checkout,
+        # hash-object), so the same scrubbing GIT_ENV applies to the harness's
+        # own git calls has to apply here: a developer's url.*.insteadOf,
+        # core.hooksPath or init.defaultBranch would otherwise reach the script
+        # under test and change its result.
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_SYSTEM": "/dev/null",
     }
     base.update(env or {})
     return subprocess.run(

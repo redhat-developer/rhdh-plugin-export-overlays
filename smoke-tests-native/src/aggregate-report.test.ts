@@ -16,10 +16,17 @@ import {
   findSummaries,
   oneLine,
   packagingOf,
+  nfsSupportOf,
   renderMarkdown,
 } from "./aggregate-report";
 import { REPORT_SCHEMA_VERSION, SWEEP_SCHEMA_VERSION } from "./report";
-import type { Report, SweepSummary, SweepWorkspaceResult } from "./report";
+import type {
+  FrontendBundleInfo,
+  Report,
+  SweepSummary,
+  SweepWorkspaceResult,
+} from "./report";
+import type { FrontendSystem, MfRemoteInfo } from "./loader";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
 // $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
@@ -37,7 +44,14 @@ function report(overrides: Partial<Report> = {}): Report {
   return {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion: "0.3.0",
-    backend: { total: 0, loaded: 0, skipped: [], errors: [] },
+    backend: {
+      total: 0,
+      loaded: 0,
+      skipped: [],
+      errors: [],
+      bundles: [],
+      bundleErrors: [],
+    },
     backendStart: { ok: true },
     frontend: { total: 0, valid: 0, errors: [], bundles: [] },
     exclusions: [],
@@ -71,14 +85,148 @@ function summary(workspaces: SweepWorkspaceResult[], index = 0): SweepSummary {
   };
 }
 
+/**
+ * An mf record the new frontend system can mount from.
+ *
+ * Deliberately not cast: the fixture has to stop compiling when MfRemoteInfo grows a
+ * field, which is the drift this file already fixes three other fixtures for.
+ */
+function usableMf(over: Partial<MfRemoteInfo> = {}): MfRemoteInfo {
+  return {
+    name: "plugin",
+    remoteEntry: "remoteEntry.js",
+    exposes: ["./alpha"],
+    nfsFeatures: ["./alpha"],
+    nfsFeaturesError: null,
+    nfsFeaturesExposed: ["./alpha"],
+    servable: true,
+    ...over,
+  };
+}
+
+/**
+ * A frontend bundle record. Same rule as usableMf: not cast, so the fixture stops
+ * compiling when FrontendBundleInfo grows a field rather than drifting past it.
+ */
+function bundle(over: Partial<FrontendBundleInfo> = {}): FrontendBundleInfo {
+  return {
+    name: "@s/fe",
+    version: "1",
+    systems: ["legacy"],
+    mf: null,
+    scalprum: null,
+    configSchema: { declared: false, declaredError: null, files: [] },
+    ...over,
+  };
+}
+
 test("packagingOf classifies every system combination", () => {
-  assert.equal(packagingOf(["legacy"]), "legacy-only");
+  assert.equal(packagingOf({ systems: ["legacy"], mf: null }), "legacy-only");
   assert.equal(
-    packagingOf(["new-frontend-system"]),
+    packagingOf({ systems: ["new-frontend-system"], mf: usableMf() }),
     "new-frontend-system-only",
   );
-  assert.equal(packagingOf(["legacy", "new-frontend-system"]), "dual");
-  assert.equal(packagingOf([]), "none");
+  assert.equal(
+    packagingOf({
+      systems: ["legacy", "new-frontend-system"],
+      mf: usableMf(),
+    }),
+    "dual",
+  );
+  assert.equal(packagingOf({ systems: [], mf: null }), "none");
+});
+
+test("declaring no backstage.features is undetermined, not legacy", () => {
+  // The state 27 of 47 bundles are actually in. nfsModuleFilter installs no filter,
+  // every exposed module is advertised, and the loader decides at runtime from each
+  // module's $$type — so calling it legacy states a guess as a fact. Ten of those 27
+  // expose an `alpha` module, the same shape as bundles that are unambiguously NFS.
+  const declaresNothing = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(nfsSupportOf(declaresNothing), "undetermined");
+  assert.equal(packagingOf(declaresNothing), "dual");
+});
+
+test("a failure to read backstage.features is undetermined, not a finding", () => {
+  // REPORT_SCHEMA_VERSION was bumped to 5 precisely so this is not recorded as the
+  // artifact declaring none. Reading only nfsFeaturesExposed.length would lose that.
+  const couldNotLook = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({
+      nfsFeatures: [],
+      nfsFeaturesExposed: [],
+      nfsFeaturesError: "could not read package.json (EACCES)",
+    }),
+  };
+  assert.equal(nfsSupportOf(couldNotLook), "undetermined");
+  assert.equal(packagingOf(couldNotLook), "dual");
+});
+
+test("a declared NFS entry point the remote never exposes is a real no", () => {
+  // Here the filter IS installed and keeps nothing, so the host mounts nothing. That
+  // is knowable, unlike the declares-nothing case above.
+  const declaredButUnexposed = {
+    systems: ["new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ nfsFeatures: ["./alpha"], nfsFeaturesExposed: [] }),
+  };
+  assert.equal(nfsSupportOf(declaredButUnexposed), "none");
+  assert.equal(packagingOf(declaredButUnexposed), "none");
+});
+
+test("an unservable remote mounts nothing however much it declares", () => {
+  const unservable = {
+    systems: ["legacy", "new-frontend-system"] as FrontendSystem[],
+    mf: usableMf({ servable: false }),
+  };
+  assert.equal(nfsSupportOf(unservable), "none");
+  assert.equal(packagingOf(unservable), "legacy-only");
+});
+
+test("renderMarkdown qualifies the new-frontend-system figure it prints", () => {
+  const markdown = renderMarkdown(
+    buildAggregate([
+      summary([
+        result({
+          workspace: "ws",
+          report: report({
+            frontend: {
+              total: 2,
+              valid: 2,
+              errors: [],
+              bundles: [
+                bundle({
+                  name: "@s/ships-mf-only",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf({ nfsFeatures: [], nfsFeaturesExposed: [] }),
+                }),
+                bundle({
+                  name: "@s/really-nfs",
+                  systems: ["legacy", "new-frontend-system"],
+                  mf: usableMf(),
+                }),
+              ],
+            },
+          }),
+        }),
+      ]),
+    ]),
+  );
+  // Both bundles still count as dual, which is the point: the figure is unchanged and
+  // qualified, rather than quietly replaced by a smaller one that is wrong the other way.
+  assert.match(markdown, /\| Dual \| 2 \|/);
+  assert.match(markdown, /\*\*1\*\* are confirmed/);
+  assert.match(markdown, /\*\*1\*\* are undetermined/);
+  assert.match(markdown, /Read the migration figure as the confirmed count/);
+});
+
+test("a bundle with no module-federation layout is not undetermined", () => {
+  // Absent layout is a plain legacy bundle. Calling it undetermined would pad the very
+  // figure the split exists to qualify.
+  const legacyOnly = { systems: ["legacy"] as FrontendSystem[], mf: null };
+  assert.equal(nfsSupportOf(legacyOnly), "none");
+  assert.equal(packagingOf(legacyOnly), "legacy-only");
 });
 
 test("oneLine flattens whitespace and truncates at the limit", () => {
@@ -121,6 +269,8 @@ test("failureDetail prefers the most specific error the report holds", () => {
                 error: "boom",
               },
             ],
+            bundles: [],
+            bundleErrors: [],
           },
           backendStart: { ok: false, error: "ignored" },
           status: "fail-load",
@@ -140,6 +290,63 @@ test("failureDetail prefers the most specific error the report holds", () => {
     ),
     "backend start: cfg invalid",
   );
+  // A backend bundle fault (RHIDP-16689) has to name its plugin too. Without this the
+  // sweep panel printed the bare status for it — "fail-bundle", culprit unnamed — which
+  // is the whole reason the per-plugin record exists.
+  assert.equal(
+    failureDetail(
+      result({
+        report: report({
+          backend: {
+            total: 1,
+            loaded: 1,
+            skipped: [],
+            errors: [],
+            bundles: [],
+            bundleErrors: [
+              {
+                plugin: {
+                  name: "@s/backend",
+                  version: "1",
+                  dirName: "d",
+                  path: "/p",
+                  role: "backend",
+                },
+                error: "declares `configSchema` but the schema is gone",
+              },
+            ],
+          },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    "@s/backend: declares `configSchema` but the schema is gone",
+  );
+  // A config-key mismatch (RHIDP-16690) is the only fail-bundle cause with no plugin
+  // behind it, so it needs its own branch or the panel prints the bare status.
+  assert.match(
+    failureDetail(
+      result({
+        report: report({
+          frontend: {
+            total: 1,
+            valid: 1,
+            errors: [],
+            bundles: [],
+            configKeyMismatches: [
+              {
+                key: "scope.typo",
+                source: "a.yaml",
+                bundleNames: ["scope.real"],
+              },
+            ],
+          },
+          status: "fail-bundle",
+        }),
+      }),
+    ),
+    /dynamicPlugins\.frontend\.'scope\.typo' matches no installed bundle name/,
+  );
 });
 
 test("buildAggregate totals each counter from its own field", () => {
@@ -149,7 +356,14 @@ test("buildAggregate totals each counter from its own field", () => {
     summary([
       result({
         report: report({
-          backend: { total: 7, loaded: 3, skipped: ["x", "y"], errors: [] },
+          backend: {
+            total: 7,
+            loaded: 3,
+            skipped: ["x", "y"],
+            errors: [],
+            bundles: [],
+            bundleErrors: [],
+          },
           frontend: { total: 5, valid: 2, errors: [], bundles: [] },
         }),
       }),
@@ -176,7 +390,14 @@ test("buildAggregate counts loaded-but-not-booted plugins as not booted", () => 
       result({
         status: "fail-start",
         report: report({
-          backend: { total: 3, loaded: 3, skipped: [], errors: [] },
+          backend: {
+            total: 3,
+            loaded: 3,
+            skipped: [],
+            errors: [],
+            bundles: [],
+            bundleErrors: [],
+          },
           backendStart: { ok: false, error: "boom" },
           status: "fail-start",
         }),
@@ -243,12 +464,12 @@ test("buildAggregate sorts failures and frontend packages deterministically", ()
             valid: 2,
             errors: [],
             bundles: [
-              { name: "@s/z", version: "1", systems: ["legacy"] },
-              {
+              bundle({ name: "@s/z" }),
+              bundle({
                 name: "@s/a",
-                version: "1",
                 systems: ["legacy", "new-frontend-system"],
-              },
+                mf: usableMf(),
+              }),
             ],
           },
         }),
@@ -345,24 +566,31 @@ test("renderMarkdown puts each computed number in its own row", () => {
         result({
           workspace: "a",
           report: report({
-            backend: { total: 7, loaded: 5, skipped: ["x", "y"], errors: [] },
+            backend: {
+              total: 7,
+              loaded: 5,
+              skipped: ["x", "y"],
+              errors: [],
+              bundles: [],
+              bundleErrors: [],
+            },
             frontend: {
               total: 4,
               valid: 3,
               errors: [],
               bundles: [
-                { name: "@s/l1", version: "1", systems: ["legacy"] },
-                { name: "@s/l2", version: "1", systems: ["legacy"] },
-                {
+                bundle({ name: "@s/l1" }),
+                bundle({ name: "@s/l2" }),
+                bundle({
                   name: "@s/n",
-                  version: "1",
                   systems: ["new-frontend-system"],
-                },
-                {
+                  mf: usableMf(),
+                }),
+                bundle({
                   name: "@s/d",
-                  version: "1",
                   systems: ["legacy", "new-frontend-system"],
-                },
+                  mf: usableMf(),
+                }),
               ],
             },
           }),
@@ -380,7 +608,14 @@ test("renderMarkdown puts each computed number in its own row", () => {
           workspace: "b",
           status: "fail-start",
           report: report({
-            backend: { total: 6, loaded: 4, skipped: [], errors: [] },
+            backend: {
+              total: 6,
+              loaded: 4,
+              skipped: [],
+              errors: [],
+              bundles: [],
+              bundleErrors: [],
+            },
             backendStart: { ok: false, error: "boom" },
             status: "fail-start",
           }),

@@ -1,5 +1,17 @@
-# RHDH app config merged at deploy. Do not use legacy lightspeed.servers (Road-Core era).
+# RHDH app config merged at deploy. Do not use lightspeed.servers (Road-Core era).
 # LCS + Llama Stack run as the lightspeed-core sidecar when global.lightspeed.enabled is true.
+#
+# Drawer must wrap the FAB so Lightspeed context nests correctly.
+app:
+  extensions:
+    - app-root-wrapper:app/drawer
+    - app-root-wrapper:app/intelligent-assistant-fab
+    - app-drawer-content:intelligent-assistant/intelligent-assistant
+    - translation:app/intelligent-assistant-translations
+    - api:app/app-language:
+        config:
+          availableLanguages: ["en", "de", "es", "fr", "it", "ja"]
+          defaultLanguage: "en"
 
 permission:
   enabled: true

@@ -101,6 +101,7 @@ export class NotificationSettingsApiHelper {
       {
         headers,
         data: updatedSettings,
+        maxRetries: 2,
       },
     );
     expect(

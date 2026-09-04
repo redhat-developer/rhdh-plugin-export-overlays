@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: ai-model-server
+  namespace: rhdh
+  title: AI Model Server Catalog Module
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHPAI
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-model-server
+  tags:
+    - ai
+    - software-catalog
+    - developer-tools
+  description: |
+    Catalog backend module that registers the AiModelServerAPI entity kind,
+    enabling the Software Catalog to accept and validate AI model server
+    entities with spec.type ai-model-server.
+spec:
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: community
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Software Catalog
+
+  highlights:
+    - Registers the dedicated AiModelServerAPI catalog entity kind
+    - Validates AI model server entities with typed schema and processor
+    - Mirrors the upstream backstage/backstage#34476 API/ai-model-server proposal
+
+  description: |
+    # AI Model Server Catalog Module
+
+    This backend module teaches the Backstage Software Catalog to accept
+    and validate entities of `kind: AiModelServerAPI` with
+    `spec.type: ai-model-server`.
+
+    ### Catalog Model Layer design
+
+    The module registers an `AiModelServerApiProcessor` that validates
+    incoming entities against a dedicated schema. This uses the Backstage
+    Catalog Model Layer pattern — a `CatalogProcessor` that implements
+    `validateEntityKind` to enforce the `AiModelServerAPI` kind and its
+    required fields.
+
+    ### Relationship to upstream proposal
+
+    The `AiModelServerAPI` kind intentionally mirrors the schema proposed
+    in [backstage/backstage#34476](https://github.com/backstage/backstage/pull/34476)
+    for an upstream `API` entity with type `ai-model-server`. Using a
+    distinct kind avoids a registration collision with the existing `API`
+    kind and provides a straightforward migration path if the upstream
+    proposal is accepted.
+
+    ### Entity schema
+
+    Required fields:
+
+    - `spec.type` — must be `ai-model-server`
+    - `spec.lifecycle` — entity lifecycle stage (e.g. `production`,
+      `experimental`)
+    - `spec.owner` — owning team or user entity reference
+    - `spec.serverType` — the model serving protocol or platform type
+      (e.g. `openai-v1`, `grpc`)
+    - `spec.serverUrl` — URL of the model server endpoint
+
+    Optional fields:
+
+    - `spec.system` — link to a parent Backstage System entity
+    - `spec.requiresApiKey` — whether the server requires an API key
+    - `spec.apiEntityRef` — reference to a related API entity
+    - `spec.models` — list of models available on the server
+
+    ### Companion plugins
+
+    This module only registers the entity kind. To discover and populate
+    `AiModelServerAPI` entities automatically, install the KServe/Kubeflow
+    Connector and AI Model Catalog plugins alongside this module.
+
+    ## Support
+
+    - **Source code**: [catalog-backend-module-ai-model-server](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations/plugins/catalog-backend-module-ai-model-server)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+  packages:
+    - rhdh-bs-plugin-catalog-backend-module-ai-model-server
+
+  installation: |
+    ## Installation
+
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+    Add the following to your dynamic plugin configuration:
+
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server:bs_1.54.4__0.3.1
+        enabled: true
+    ```
+
+    ## RHDH Configuration
+
+    No plugin-specific app-config is required beyond allowing the
+    `AiModelServerAPI` kind in the catalog rules:
+
+    ```yaml
+    catalog:
+      rules:
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+            ]
+    ```

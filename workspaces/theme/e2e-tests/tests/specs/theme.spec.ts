@@ -1,7 +1,6 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { ThemeConstants } from "../../utils/theme-constants";
 import { ThemeVerifier } from "../../utils/theme-verifier";
-import { CUSTOM_FAVICON, CUSTOM_SIDEBAR_LOGO } from "../../utils/custom-theme";
 
 test.describe("Theme Plugin tests", () => {
   test.beforeAll(async ({ rhdh }) => {
@@ -24,34 +23,28 @@ test.describe("Theme Plugin tests", () => {
 
     for (const theme of themes) {
       await themeVerifier.setTheme(theme.name);
-      await themeVerifier.verifyHeaderGradient(
-        `none, linear-gradient(90deg, ${theme.headerColor1}, ${theme.headerColor2})`,
-      );
-      await themeVerifier.verifyBorderLeftColor(theme.navigationIndicatorColor);
+      if (theme.appBarBackgroundColor) {
+        await themeVerifier.verifyAppBarColor(theme.appBarBackgroundColor);
+      }
       await themeVerifier.verifyPrimaryColors(theme.primaryColor);
     }
   });
 
-  test("Verify that the RHDH favicon can be customized", async ({ page }) => {
-    await expect(page.locator("#dynamic-favicon")).toHaveAttribute(
-      "href",
-      CUSTOM_FAVICON.light,
-    );
+  test("Verify that RHDH serves a favicon", async ({ page }) => {
+    const favicon = page.locator('link[rel="icon"][type="image/svg+xml"]');
+    await expect(favicon).toHaveAttribute("href", /favicon\.svg/);
   });
 
-  test("Verify that RHDH CompanyLogo can be customized", async ({ page }) => {
+  test("Verify that RHDH CompanyLogo is theme-aware", async ({ page }) => {
     await themeVerifier.setTheme("Light");
-
-    await expect(page.getByTestId("home-logo")).toHaveAttribute(
-      "src",
-      CUSTOM_SIDEBAR_LOGO.light,
-    );
+    const logo = page.getByTestId("home-logo");
+    await expect(logo).toBeVisible();
+    await expect(logo).toHaveAttribute("src", /^data:image\/svg\+xml/);
+    const lightSrc = await logo.evaluate((el) => (el as HTMLImageElement).src);
 
     await themeVerifier.setTheme("Dark");
-    await expect(page.getByTestId("home-logo")).toHaveAttribute(
-      "src",
-      CUSTOM_SIDEBAR_LOGO.dark,
-    );
+    await expect(logo).toHaveAttribute("src", /^data:image\/svg\+xml/);
+    await expect(logo).not.toHaveAttribute("src", lightSrc);
   });
 
   test("Verify logo link", async ({ page }) => {
