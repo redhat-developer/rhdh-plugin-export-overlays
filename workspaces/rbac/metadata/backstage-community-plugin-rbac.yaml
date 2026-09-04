@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: '@backstage-community/plugin-rbac'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.52.0__2.1.2
-  version: 2.1.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.54.4__2.2.0
+  version: 2.2.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Red Hat
   support: generally-available
   lifecycle: active
