@@ -154,6 +154,27 @@ After creating/editing, add the file to `plugins/all.yaml`.
 
 Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
 
+## Reviewing scripts/ Changes
+
+The `scripts/` directory contains critical build infrastructure that orchestrates OCI image resolution, metadata synchronization, and plugin build tracking. When reviewing changes to these scripts, pay particular attention to identifier consistency.
+
+### Build-Script Identifier Consistency
+
+Three different identifier derivation paths exist for plugins in the build pipeline, and they produce different strings for the same plugin:
+
+1. **`yaml_file.stem`** — The metadata YAML filename without extension (e.g., `cost-management` from `cost-management.yaml`).
+2. **`metadata.get('name', yaml_file.stem)`** — The `metadata.name` field from the Package entity YAML, falling back to the file stem if absent (e.g., `cost-management`).
+3. **`package_name_to_image_name(package_name)`** — The npm package name with scope stripped and `/` replaced by `-` (e.g., `@red-hat-developer-hub/plugin-cost-management` becomes `red-hat-developer-hub-plugin-cost-management`).
+
+These values **diverge in practice** for most plugins. For example, `cost-management.yaml` has stem `cost-management` but `package_name_to_image_name()` resolves to `red-hat-developer-hub-plugin-cost-management`.
+
+**Review check — consistent keys in BuildReport interactions:** When reviewing changes to `bootstrapPluginBuilds.py` or `plugin_utils.py` that interact with `BuildReport` methods (`add_plugin`, `set_stage`, `remove_stale_plugins`), verify that all code paths — including error/exception handlers — use the same identifier derivation for a given plugin. Inconsistent keys between success and error paths cause `remove_stale_plugins()` to incorrectly prune valid entries or miss stale ones after transient build failures.
+
+Specifically, check that:
+- The key added to `expected_plugins` in the error path matches what would have been added in the success path for the same plugin.
+- The key passed to `report.set_stage()` in exception handlers matches the key used by `report.add_plugin()` in the normal flow.
+- `yaml_file.stem` is only used as a fallback when the parsed metadata name or package name is not yet available (e.g., before YAML parsing succeeds), not as a general-purpose key for BuildReport operations.
+
 ## E2E Testing
 
 E2E tests live in `workspaces/<name>/e2e-tests/` and use `@red-hat-developer-hub/e2e-test-utils` — a shared package that handles RHDH deployment, Playwright fixtures, helpers, and plugin configuration. For the latest and most complete documentation, see: https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs
