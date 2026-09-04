@@ -378,6 +378,53 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
+### Reviewing E2E Test Assertions
+
+When reviewing a PR that adds or modifies E2E test assertions, evaluate whether the assertions actually prove the behavior they claim to verify. Three anti-patterns are common and easy to miss:
+
+#### Assertion soundness
+
+Verify that each assertion would **fail** if the feature under test is broken. This is especially important for distributed system flows (Kafka, webhooks, async event processing) where multiple intermediate states exist between "request sent" and "end-to-end success."
+
+**Check for `.or()` unions that accept failure or pre-condition states as success.** A Playwright `.or()` union passes if *any* branch matches. If one branch matches a state that exists before the feature runs (e.g., an "event triggered" alert that appears before any consumer processes it) or matches an error condition (e.g., `accessDenied` when RBAC is configured to allow access), the test passes even when the feature is completely broken.
+
+Review checklist:
+- Does the assertion prove **end-to-end behavior** (event published → consumed → workflow started → status visible), or only an intermediate step (HTTP POST accepted)?
+- If the assertion uses `.or()`, could a weaker branch satisfy it even when the primary path is broken? Each branch should represent a valid success state, not a fallback that masks failure.
+- Does any branch of the union match a condition that RBAC or configuration is designed to prevent? An `accessDenied` match in a test where the user has access means the assertion cannot distinguish "working" from "broken."
+
+#### Timeout budgeting
+
+When a test sets both a test-level timeout (`test.setTimeout()`) and an assertion-level timeout (`expect(..., { timeout })` or `toPass({ timeout })`), the assertion timeout must leave room for setup steps that run before it.
+
+**The problem:** Login, navigation, and UI interactions consume time before the assertion starts its retry loop. If both timeouts are equal (e.g., `test.setTimeout(600_000)` with `expect(..., { timeout: 600_000 })`), Playwright kills the test before the assertion can exhaust its retry budget. The resulting error is "Test timeout exceeded" — which gives no diagnostic information about which locator failed or what the page showed.
+
+**Rule of thumb:** The assertion timeout should be at most **50%** of the test timeout. For example:
+
+```typescript
+// Good: assertion has room to fail diagnostically
+test.setTimeout(600_000);
+await expect(locator).toBeVisible({ timeout: 300_000 });
+
+// Bad: assertion can never exhaust its retries
+test.setTimeout(600_000);
+await expect(locator).toBeVisible({ timeout: 600_000 });
+```
+
+When the assertion timeout is shorter than the test timeout, a failing assertion reports the specific locator that was not found — a much more useful failure message for debugging.
+
+#### Cross-file config consistency
+
+When a PR introduces a configurable value (environment variable, function parameter, Helm value) that flows across multiple files, trace it from definition through all consumers. This applies to any value used in both shell scripts and TypeScript, or in both RHDH app-config and upstream manifests.
+
+**The problem:** A value may be configurable in one file but hardcoded in another. The bug only manifests with non-default values and is invisible in the default-value test path. For example, a shell script may accept `KAFKA_CLUSTER_NAME` as a parameter and patch RHDH's app-config accordingly, but a workflow manifest consumed by the same plugin hardcodes `my-cluster-kafka-bootstrap:9092`. With the default cluster name the system works; with any other name, one component publishes to one address while another consumes from a different one.
+
+Review checklist:
+- Identify every file that references the configurable value (shell scripts, TypeScript, YAML manifests, app-config templates).
+- For each consumer, check whether it reads the configurable value or hardcodes a default.
+- Flag any divergence where one consumer uses the configurable value and another hardcodes a different default — even if the hardcoded value matches the current test configuration.
+- Pay special attention to upstream manifests applied via overlays or `kubectl apply` — these are easy to miss because they are not TypeScript and may not appear in the PR's primary file list.
+
 ### Unified Test Runner (run-e2e.sh)
 
 `run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
