@@ -8,8 +8,17 @@ import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 export const E2E_SIGNALS_CHANNEL = "e2e-signals";
 export const E2E_RECEIVED_SIGNAL_TEST_ID = "e2e-received-signal";
 
-/** Per-attempt WebSocket connect budget (mirrors SignalClient.DEFAULT_CONNECT_TIMEOUT_MS). */
-const WS_CONNECT_TIMEOUT_MS = 1_000;
+/**
+ * First attempt: fail fast on signals-backend's dropped handshake
+ * (mirrors SignalClient.DEFAULT_CONNECT_TIMEOUT_MS).
+ */
+const WS_CONNECT_FIRST_TIMEOUT_MS = 1_000;
+/**
+ * Later attempts: cluster-sized budget. OpenShift route + TLS often exceeds
+ * SignalClient's 1s local timeout; the pre-harden helper used a single 15s
+ * wait and passed in CI.
+ */
+const WS_CONNECT_RETRY_TIMEOUT_MS = 15_000;
 /** Short backoff between connect attempts — do not copy SignalClient's 5s reconnect. */
 const WS_CONNECT_RETRY_DELAY_MS = 200;
 const WS_CONNECT_MAX_ATTEMPTS = 4;
@@ -125,8 +134,10 @@ export async function closeSignalsWebSocket(page: Page): Promise<void> {
  *
  * Retries connect because signals-backend installs its upgrade listener lazily
  * as a side effect of the first handshake and drops that request (see
- * SignalClient.connect / reconnect). There is no subscribe ack from the
- * server — callers should publish with a fresh message id per attempt.
+ * SignalClient.connect / reconnect). Attempt 1 uses a 1s budget; later
+ * attempts use 15s so a slow OpenShift handshake can complete. There is no
+ * subscribe ack from the server — callers should publish with a fresh
+ * message id per attempt.
  *
  * The socket handle and close diagnostics are kept on globalThis so the
  * test can surface close code/reason on failure and close explicitly.
@@ -146,7 +157,8 @@ export async function subscribeToSignalsChannel(
       token,
       channel,
       testId,
-      connectTimeoutMs,
+      firstTimeoutMs,
+      retryTimeoutMs,
       retryDelayMs,
       maxAttempts,
     }) => {
@@ -156,7 +168,7 @@ export async function subscribeToSignalsChannel(
       const sleep = (ms: number) =>
         new Promise<void>((r) => globalThis.setTimeout(r, ms));
 
-      const tryConnect = (): Promise<WebSocket> =>
+      const tryConnect = (connectTimeoutMs: number): Promise<WebSocket> =>
         new Promise((resolve, reject) => {
           const ws = new WebSocket(wsUrl, token);
           let settled = false;
@@ -216,7 +228,9 @@ export async function subscribeToSignalsChannel(
 
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          ws = await tryConnect();
+          const connectTimeoutMs =
+            attempt === 1 ? firstTimeoutMs : retryTimeoutMs;
+          ws = await tryConnect(connectTimeoutMs);
           break;
         } catch (err) {
           lastError = err;
@@ -256,7 +270,8 @@ export async function subscribeToSignalsChannel(
     },
     {
       ...options,
-      connectTimeoutMs: WS_CONNECT_TIMEOUT_MS,
+      firstTimeoutMs: WS_CONNECT_FIRST_TIMEOUT_MS,
+      retryTimeoutMs: WS_CONNECT_RETRY_TIMEOUT_MS,
       retryDelayMs: WS_CONNECT_RETRY_DELAY_MS,
       maxAttempts: WS_CONNECT_MAX_ATTEMPTS,
     },
