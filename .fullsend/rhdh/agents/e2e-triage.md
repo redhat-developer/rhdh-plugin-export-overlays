@@ -228,7 +228,7 @@ workspace, assign a `fix_category`:
 - If the test setup script has a bug (missing wait, race condition) → `test_fix`
 - If the plugin itself is broken (API changed, component missing) → `product_bug`
 - If pods crashed with OOM/ImagePull/network errors → `infra_flake`
-- If vault secrets or CI variables are missing → `environment`
+- If secret values or CI variables are missing → `environment`
 
 **`infra_flake` requires evidence of transience.** Check `pods.txt`,
 `events.txt`, and `backstage-backend.log` (if the pod started) to confirm
