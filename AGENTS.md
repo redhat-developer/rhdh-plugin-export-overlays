@@ -120,6 +120,21 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### Backstage Version Compatibility
+
+Each workspace may have a `backstage.json` file that declares the Backstage version the workspace will be built against. The `/override-backstage` PR command creates or updates this file. When present, it must match the Backstage version in `versions.json` at the repo root for the target branch:
+
+- On `main`, `backstage.json` `"version"` must equal `versions.json` `"backstage"`.
+- On `release-x.y` branches, the same rule applies to that branch's `versions.json`.
+
+**Why this matters:** The `/publish` pipeline rejects workspaces where `backstage.json` disagrees with `versions.json` (`Backstage-incompatible workspace: <name> at X vs target Y`). Catching the mismatch at review time avoids a wasted build cycle — typically a 3+ hour round-trip of failed publish, investigation, fix, and re-publish.
+
+**Review criteria:**
+
+When a PR adds or modifies `backstage.json` in any workspace, compare its `"version"` value against the `"backstage"` value in `versions.json` on the PR's base branch. Flag a mismatch as **medium severity** — it will not break production but will block the `/publish` pipeline.
+
+**`source.json` `repo-backstage-version` may legitimately differ.** The upstream source repo targets its own Backstage version (recorded in `source.json` as `repo-backstage-version`), while the build system overrides to the branch's target version via `backstage.json`. A gap between `source.json` `repo-backstage-version` and `backstage.json` `version` is expected and handled by the build — do not flag it.
+
 ### Major Version Bumps in Patches
 
 When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
