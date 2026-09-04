@@ -322,6 +322,12 @@ All files in `tests/config/` are **optional** — only create them when you need
 - `app-config-rhdh.yaml` — RHDH app configuration (plugin settings, backend config)
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
 - `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
+
+**Plugin `package:` references in `dynamic-plugins.yaml`** support several formats:
+- `./dynamic-plugins/dist/<name>` — Local wrapper path (legacy; removed in RHDH 2.0)
+- `oci://<registry>/<image>:<tag>` — Direct OCI image reference
+- `ref://<package-name>` — Resolved against the dynamic plugin descriptor YAML (DPDY) at runtime (see [e2e-test-utils docs](https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs))
+
 - `value_file.yaml` — Helm chart value overrides
 - `subscription.yaml` — Operator subscription overrides
 
