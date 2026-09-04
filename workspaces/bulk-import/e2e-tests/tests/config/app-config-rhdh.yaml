@@ -2,12 +2,11 @@
 # this file is used to merge with the default values of the rhdh app config
 
 auth:
-  environment: development
   providers:
     guest:
       dangerouslyAllowOutsideDevelopment: true
     github:
-      development:
+      production:
         clientSecret: ${GITHUB_OAUTH_APP_SECRET}
         clientId: ${GITHUB_OAUTH_APP_ID}
         callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
