@@ -5,8 +5,8 @@ import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
   prepareGitLabEventsParentGroup,
-  runGitLabEventsCleanupSafely,
-} from "../../support/gitlab-events-test-setup.js";
+} from "../../support/gitlab/events-test-setup.js";
+import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe("GitLab Events - Org Data", () => {
   let testPrefix: string;
@@ -31,7 +31,7 @@ test.describe("GitLab Events - Org Data", () => {
   });
 
   test.afterAll(async () => {
-    await runGitLabEventsCleanupSafely(async () => {
+    await runGitLabCleanupSafely(async () => {
       if (testUserId) {
         await GitLabApiHelper.deleteUser(testUserId, true);
       }

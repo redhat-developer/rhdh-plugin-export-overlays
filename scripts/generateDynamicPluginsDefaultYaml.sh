@@ -218,15 +218,7 @@ build_plugin_entry() {
 
   local dynamic_artifact package_value
   dynamic_artifact=$(yq_raw '.spec.dynamicArtifact // ""' "$meta_path" 2>/dev/null)
-
-  if [[ "$dynamic_artifact" == ./.* ]]; then
-    package_value=$dynamic_artifact
-  elif [[ "$dynamic_artifact" == *"oci://"*"!"* ]]; then
-    # Strip !fragment if present (e.g. oci://...!package-name)
-    package_value="${dynamic_artifact%%!*}"
-  else
-    package_value=$dynamic_artifact
-  fi
+  package_value=$dynamic_artifact
 
   local entry
   if [[ "${YQ_IS_MIKE_FARAH:-0}" -eq 1 ]]; then
@@ -348,7 +340,7 @@ cat << EOL > "$OUTPUT_FILE".head
 # See https://github.com/redhat-developer/rhdh-plugin-export-overlays/
 #
 # To update this file, trigger a rebuld of the index image from 
-# https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/rhdh-1-rhel-9/build/ci/update-index.sh
+# https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/main/build/ci/update-index.sh
 EOL
 cat "$OUTPUT_FILE".head "$OUTPUT_FILE" > "$OUTPUT_FILE"_
 mv "$OUTPUT_FILE"_ "$OUTPUT_FILE"

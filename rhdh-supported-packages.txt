@@ -1,5 +1,6 @@
 # RHDH Supported (GA; or TP heading to GA) package list
-# do not include package for which we never had wrappers / bundled the package in RHDH
+# To add new content, please open an RHDHPLAN feature JIRA first.
+
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 adoption-insights/plugins/adoption-insights
@@ -8,12 +9,26 @@ adoption-insights/plugins/analytics-module-adoption-insights
 
 analytics/plugins/analytics-provider-segment
 
+app-defaults/plugins/app-auth
+app-defaults/plugins/app-defaults
+app-defaults/plugins/app-integrations
+
+# TODO enable these once we have time to onboard them correctly for 2.1
+#backstage/plugins/auth-backend-module-github-provider
+#backstage/plugins/auth-backend-module-gitlab-provider
+#backstage/plugins/auth-backend-module-guest-provider
+#backstage/plugins/auth-backend-module-microsoft-provider
+#backstage/plugins/auth-backend-module-oidc-provider
+#keycloak/plugins/auth-backend-module-keycloak
+#pingidentity/plugins/auth-backend-module-pingfederate-provider
+
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
 backstage/plugins/catalog-backend-module-ldap
 backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
+backstage/plugins/signals
 backstage/plugins/signals-backend
 backstage/plugins/techdocs
 backstage/plugins/techdocs-backend
@@ -24,11 +39,11 @@ global-header/plugins/global-header
 homepage/plugins/homepage
 homepage/plugins/homepage-backend
 
-keycloak/plugins/catalog-backend-module-keycloak
-
 extensions/plugins/catalog-backend-module-extensions
 extensions/plugins/extensions
 extensions/plugins/extensions-backend
+
+keycloak/plugins/catalog-backend-module-keycloak
 
 quickstart/plugins/quickstart
 
@@ -50,7 +65,6 @@ backstage/plugins/catalog-backend-module-gitlab-org
 backstage/plugins/scaffolder-backend-module-gitlab
 
 # heading to GA per 11/12 meeting
-pingidentity/plugins/catalog-backend-module-pingidentity
 scaffolder-relation-processor/plugins/catalog-backend-module-scaffolder-relation-processor
 
 # heading to GA per 11/21 meeting
@@ -63,19 +77,9 @@ bulk-import/plugins/bulk-import
 bulk-import/plugins/bulk-import-backend
 
 # currently TP but moving to GA in 1.10
-# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-kubernetes?tab=tags
 backstage/plugins/kubernetes
 
-# currently TP but moving to GA in 1.10
-# can be onboarded to Konflux - https://quay.io/repository/rhdh/backstage-plugin-signals?tab=tags
-backstage/plugins/signals
-
-# currently TP but moving to GA in 1.10
-# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-notifications-backend-module-email?tab=tags
 backstage/plugins/notifications-backend-module-email
-
-# can't currently be built in Konflux - https://quay.io/repository/rhdh/backstage-plugin-scaffolder-backend-module-github?tab=tags
-# TODO check if this works after David's refactoring
 backstage/plugins/scaffolder-backend-module-github
 
 # Orchestrator plugins
@@ -83,7 +87,6 @@ orchestrator/plugins/orchestrator
 orchestrator/plugins/orchestrator-backend
 orchestrator/plugins/orchestrator-form-widgets
 orchestrator/plugins/scaffolder-backend-module-orchestrator
-# Orchestrator plugin Loki - TP in 1.9 but moving to GA in 1.10 https://issues.redhat.com/browse/RHDHPLAN-926
 orchestrator/plugins/orchestrator-backend-module-loki
 
 # Github Events Module (TP in 1.9)
@@ -92,6 +95,6 @@ backstage/plugins/events-backend-module-github
 # Gitlab Events Module (TP in 2.1)
 backstage/plugins/events-backend-module-gitlab
 
-# Lightspeed plugins - Dev Preview in 1.9, planned to GA in 1.10
-lightspeed/plugins/lightspeed
-lightspeed/plugins/lightspeed-backend
+# Intelligent Assistant plugins - Lightspeed GA in 1.10, rebranded to Intelligent Assistant in 2.1
+intelligent-assistant/plugins/intelligent-assistant
+intelligent-assistant/plugins/intelligent-assistant-backend

@@ -16,16 +16,16 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-catalog-techdoc-url-reader-backend"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.52.0__0.6.0
-  version: 0.6.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.54.4__0.6.2
+  version: 0.6.2
   backstage:
     role: backend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.4
   author: Backstage
   support: dev-preview
   lifecycle: active
   partOf:
-    - ai-integrations
+    - ai-model-catalog
   appConfigExamples:
     - title: Default configuration
       content:
@@ -33,4 +33,5 @@ spec:
           providers:
             modelCatalog:
               developement:
-                baseUrl: http://localhost:9090
+                my-cluster:
+                  kubeflow-model-catalog-url: http://localhost:9090

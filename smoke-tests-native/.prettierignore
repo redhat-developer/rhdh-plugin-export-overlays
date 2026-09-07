@@ -1,0 +1,9 @@
+dist/
+dist-tests/
+node_modules/
+yarn.lock
+# Generated harness/sweep output — not source.
+results/
+plan.json
+aggregate.json
+summary.md

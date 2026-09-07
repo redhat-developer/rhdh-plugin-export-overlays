@@ -1,0 +1,49 @@
+name: Comment on PRs that manually update source.json
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [ "main" ]
+    paths:
+      - 'workspaces/*/source.json'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  comment-manual-ref-update:
+    name: Notify PR author of the automated ref-update workflow
+    if: github.event.pull_request.user.type == 'User' && github.repository == 'redhat-developer/rhdh-plugin-export-overlays'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const marker = '<!-- source-json-pr-comment -->';
+            const repo = context.repo.repo
+            const owner = context.repo.owner
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            if (comments.some((c) => c.body?.includes(marker))) {
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: issue_number,
+              owner: owner,
+              repo: repo,
+              body: `${marker}\n\n` + 'This PR manually updates a workspace `source.json`. Consider using the [automated workflow for updating plugin repository references](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/update-plugins-repo-refs.yaml) instead — see the [docs](https://github.com/redhat-developer/rhdh-plugin-export-overlays/wiki/Metadata-Synchronization#automated-synchronization) for how to trigger it manually.'
+            })
+

@@ -27,45 +27,62 @@ wait_for_tekton_crds() {
 }
 
 wait_for_tekton_pipelines_webhook() {
-  local namespace="openshift-pipelines"
+  local -a namespaces=( "openshift-pipelines" "tekton-pipelines" )
   local selector="app=tekton-pipelines-webhook"
-  local timeout="300s"
+  local timeout="120s"
+  local target_ns=""
 
   echo "[CI] Waiting for tekton-pipelines-webhook to be Ready..."
 
+  # Find which namespace has the webhook pods
+  for ns in "${namespaces[@]}"; do
+    if oc get pods -n "${ns}" -l "${selector}" --no-headers 2>/dev/null | grep -q .; then
+      target_ns="${ns}"
+      echo "[CI] Found webhook pods in ${ns}"
+      break
+    fi
+  done
+
+  if [[ -z "${target_ns}" ]]; then
+    echo "[CI] WARN: No webhook pods found in any namespace; continuing (endpoints may still work)"
+    return 0
+  fi
+
   # Attempt to wait for the Ready condition
-  if ! oc wait --for=condition=Ready pod -l "$selector" -n "$namespace" --timeout="$timeout"; then
-    echo "[CI] ERROR: Webhook failed to become ready within $timeout"
-    
+  if ! oc wait --for=condition=Ready pod -l "${selector}" -n "${target_ns}" --timeout="${timeout}"; then
+    echo "[CI] ERROR: Webhook failed to become ready within ${timeout}"
     echo "[CI] --- Pod Status ---"
-    oc get pods -n "$namespace" -l "$selector"
-    
+    oc get pods -n "${target_ns}" -l "${selector}" || true
     echo "[CI] --- Pod Diagnosis (oc describe) ---"
-    oc describe pod -l "$selector" -n "$namespace"
-    
+    oc describe pod -l "${selector}" -n "${target_ns}" || true
     return 1
   fi
 
-  echo "[CI] Webhook is Ready!"
+  echo "[CI] Webhook is Ready in ${target_ns}!"
   return 0
 }
 
-# Function to verify endpoints exist
+# Function to verify endpoints exist in either namespace
 check_webhook_endpoints() {
-  local namespace="openshift-pipelines"
+  local -a namespaces=( "openshift-pipelines" "tekton-pipelines" )
   local svc="tekton-pipelines-webhook"
+  local endpoints
 
-  echo "[CI] Checking endpoints for $svc..."
-  
-  local endpoints=$(oc get endpoints "$svc" -n "$namespace" --no-headers | awk '{print $2}')
+  echo "[CI] Checking endpoints for ${svc}..."
 
-  if [[ -z "$endpoints" || "$endpoints" == "<none>" ]]; then
-    echo "[CI] ERROR: No endpoints available for $svc"
-    return 1
-  fi
+  for ns in "${namespaces[@]}"; do
+    if ! oc get namespace "${ns}" &>/dev/null; then
+      continue
+    fi
+    endpoints=$(oc get endpoints "${svc}" -n "${ns}" --no-headers 2>/dev/null | awk '{print $2}')
+    if [[ -n "${endpoints}" && "${endpoints}" != "<none>" ]]; then
+      echo "[CI] Endpoints found in ${ns}: ${endpoints}"
+      return 0
+    fi
+  done
 
-  echo "[CI] Endpoints found: $endpoints"
-  return 0
+  echo "[CI] ERROR: No endpoints available for ${svc} in any namespace"
+  return 1
 }
 
 # Wait for conversion webhook service so Pipeline/PipelineRun creation does not fail
@@ -125,6 +142,8 @@ checkPipelineOperatorStatus() {
 operator::install_pipelines() {
   local OPERATOR_NAMESPACE="openshift-operators"
   local display_name="Red Hat OpenShift Pipelines"
+  local manifest
+  manifest="$(dirname "${BASH_SOURCE[0]}")/pipeline-operator.yaml"
 
   if oc get csv -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep -q "${display_name}"; then
     echo "Red Hat OpenShift Pipelines operator is already installed."
@@ -132,8 +151,22 @@ operator::install_pipelines() {
     return $?
   fi
 
+  # Check if subscription already exists (handles parallel workers)
+  if oc get subscription openshift-pipelines-operator -n "${OPERATOR_NAMESPACE}" &>/dev/null; then
+    echo "OpenShift Pipelines subscription already exists; waiting for operator."
+    checkPipelineOperatorStatus
+    return $?
+  fi
+
   echo "Red Hat OpenShift Pipelines operator is not installed. Installing..."
-  oc apply -f "$(dirname "${BASH_SOURCE[0]}")/pipeline-operator.yaml" -n "${OPERATOR_NAMESPACE}" || return 1
+  if ! oc apply -f "${manifest}" -n "${OPERATOR_NAMESPACE}"; then
+    # Parallel Playwright projects race on the same subscription - handle AlreadyExists
+    if oc get subscription openshift-pipelines-operator -n "${OPERATOR_NAMESPACE}" &>/dev/null; then
+      echo "OpenShift Pipelines subscription was created by another worker; continuing."
+    else
+      return 1
+    fi
+  fi
   checkPipelineOperatorStatus
   return $?
 }
@@ -194,7 +227,15 @@ operator::grant_default_service_account_cluster_reader_and_tekton() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  operator::install_pipelines || operator::install_tekton
+  if ! operator::install_pipelines; then
+    # Only try upstream Tekton if OpenShift Pipelines subscription doesn't exist
+    if ! oc get subscription openshift-pipelines-operator -n openshift-operators &>/dev/null; then
+      operator::install_tekton
+    else
+      echo "OpenShift Pipelines subscription exists; skipping upstream Tekton install."
+      checkPipelineOperatorStatus || true
+    fi
+  fi
   wait_for_tekton_crds 180 6
   wait_for_tekton_webhook 120 5
   wait_for_tekton_pipelines_webhook

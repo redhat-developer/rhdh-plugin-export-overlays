@@ -190,4 +190,22 @@ export class ExtensionsPage {
       rowValue,
     );
   }
+
+  async searchPackages(text: string, expectedNumber = 1) {
+    const search = this.page.getByRole("textbox", {
+      name: "Search",
+    });
+    await search.click();
+    await search.fill(text);
+    await expect(
+      this.page.getByRole("cell", {
+        name: text,
+      }),
+    ).toBeVisible();
+    await expect(
+      this.page.getByRole("heading", {
+        name: `Installed packages (${expectedNumber})`,
+      }),
+    ).toBeVisible();
+  }
 }

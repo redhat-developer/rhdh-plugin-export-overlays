@@ -45,10 +45,27 @@ export class KubeClient extends KubernetesClientHelper {
     try {
       return await this.k8sApi.readNamespace(name);
     } catch (error) {
+      // A namespace that does not exist yet is an expected state while polling
+      // for the scaffolder action to complete — treat 404 as "not found" rather
+      // than aborting the poll.
+      if (this.isNotFoundError(error)) {
+        return null;
+      }
       console.log(
-        `Error getting namespace ${name}: ${error instanceof Error ? error.message : error}`,
+        `Error getting namespace ${JSON.stringify(name)}: ${error instanceof Error ? error.message : error}`,
       );
       throw error;
     }
+  }
+
+  private isNotFoundError(error: unknown): boolean {
+    if (error instanceof k8s.ApiException) {
+      return error.code === 404;
+    }
+    // Fall back to duck-typing for other client error shapes.
+    const statusCode = (error as { statusCode?: number; code?: number })
+      ?.statusCode;
+    const code = (error as { code?: number })?.code;
+    return statusCode === 404 || code === 404;
   }
 }

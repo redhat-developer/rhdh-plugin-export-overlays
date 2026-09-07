@@ -28,7 +28,7 @@ test.describe.serial("Test Adoption Insights", () => {
   test.beforeAll(async ({ browser, rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      disableWrappers: ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES,
+      disablePlugins: ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES,
     });
     await rhdh.deploy();
 

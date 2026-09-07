@@ -16,6 +16,7 @@ test.describe("Test github-issues", () => {
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-issues/app-config-rhdh.yaml`,
       dynamicPlugins: `${WorkspacePaths.configDir}/github-issues/dynamic-plugins.yaml`,
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });

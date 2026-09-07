@@ -10,6 +10,7 @@ test.describe("gitlab discovery UI tests", () => {
       appConfig: "tests/config/gitlab-discovery/app-config-rhdh.yaml",
       secrets: "tests/config/gitlab-discovery/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/gitlab-discovery/dynamic-plugins.yaml",
+      useNewFrontendSystem: true,
     });
 
     await rhdh.deploy();

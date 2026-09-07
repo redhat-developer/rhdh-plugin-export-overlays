@@ -25,6 +25,7 @@ test.describe("GitHub Events Module", () => {
       appConfig: "tests/config/github-events/app-config-rhdh.yaml",
       secrets: "tests/config/github-events/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-events/dynamic-plugins.yaml",
+      useNewFrontendSystem: true,
     });
 
     await rhdh.deploy();

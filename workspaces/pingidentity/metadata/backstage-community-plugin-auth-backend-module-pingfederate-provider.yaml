@@ -1,0 +1,42 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-auth-backend-module-pingfederate-provider
+  namespace: rhdh
+  title: "Auth Backend Module PingFederate Provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/pingidentity/plugins/auth-backend-module-pingfederate-provider
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/pingidentity/plugins/auth-backend-module-pingfederate-provider
+  tags:
+    - authentication
+spec:
+  packageName: "@backstage-community/plugin-auth-backend-module-pingfederate-provider"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-pingfederate-provider:bs_1.54.4__0.4.0
+  version: 0.4.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.4
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - backstage-community-plugin-auth-backend-module-pingfederate-provider
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        auth:
+          providers:
+            pingfederate:
+              development:
+                clientId: ${PINGFEDERATE_CLIENT_ID}
+                clientSecret: ${PINGFEDERATE_CLIENT_SECRET}
+                baseUrl: ${PINGFEDERATE_BASE_URL}
+                signIn:
+                  resolvers:
+                    - resolver: subClaimMatchingPingIdentityUserId

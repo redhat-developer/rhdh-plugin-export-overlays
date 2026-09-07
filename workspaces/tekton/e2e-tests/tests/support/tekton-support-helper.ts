@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Locator, Page, TestInfo } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
@@ -29,9 +29,13 @@ export class TektonSupportHelper {
     await this.goToByName("backstage-janus");
   }
 
-  async goToBackstageJanusProjectCITab(): Promise<void> {
+  async goToBackstageJanusProjectCITab(testInfo: TestInfo): Promise<void> {
     await this.goToBackstageJanusProject();
-    await this.clickTab("CI");
+    if (testInfo.project.name === "tekton-app-next") {
+      await this.clickTab("Tekton");
+    } else {
+      await this.clickTab("CI");
+    }
     await this.waitForPipelineRunsOrKubernetesError();
   }
 
@@ -52,6 +56,7 @@ export class TektonSupportHelper {
     await this.page
       .getByRole("row")
       .filter({ hasText: runName })
+      .first()
       .getByRole("button", { name: "expand row" })
       .click();
   }
