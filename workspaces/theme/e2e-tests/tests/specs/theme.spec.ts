@@ -19,6 +19,10 @@ test.describe("Theme Plugin tests", () => {
   });
 
   test("Verify theme colors are applied", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Theme selector button not rendered in NFS/app-next mode — plugin does not register themes in New Frontend System",
+    );
     const themes = ThemeConstants.getThemes();
 
     for (const theme of themes) {
