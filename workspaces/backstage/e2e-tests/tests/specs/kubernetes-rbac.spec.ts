@@ -7,7 +7,6 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
-import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 
 const $pipe = $({ stdio: "pipe" });
 
