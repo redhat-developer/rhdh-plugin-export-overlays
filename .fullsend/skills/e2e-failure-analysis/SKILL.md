@@ -72,6 +72,42 @@ check `backstage-backend.log` if the pod started — it reveals the internal mec
 (DB refused, plugin crash, config error). If the pod never started, the backend log
 won't exist — classify from build-log.txt and events.txt instead.
 
+### Step 1.5: Last-Pass Comparison (nightly/periodic URLs only)
+
+For a failed spec on a nightly/periodic (`logs/…`) URL, check whether it passed recently —
+a flake and a regression look identical in a single run.
+
+```bash
+SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
+node --experimental-strip-types "$SKILL_DIR/scripts/last-pass.ts" \
+  "<PROW_OR_GCSWEB_URL>" "<project-name>" "<slice of test title>" [--days 7]
+```
+
+Args after the URL are substrings that must ALL match `"<projectName> <specFile>
+<specTitle>"` — typically the project name plus a distinctive slice of the title (e.g.
+`"rbac-default-permissions" "User should got default permissions"`). Default window 7 days.
+
+Reads each build's `results.json` and prints: the newest→oldest run trail, the last green
+build (date + prow link), a **deployment fingerprint diff** (RHDH backend image +
+catalog-index, green vs red), and a ready-to-run `git log … upstream/<branch>` for the
+commits between the two runs. The last-pass build's link is there for a quick comparison
+against the failing run when one helps.
+
+**It reports facts, not a classification.** An identical backend image + catalog-index means
+those two didn't change between green and red — but the script does **not** diff plugin OCI
+tags, the Helm chart version, or the catalog `locations:` URLs (many pinned to a mutable
+`main`), so a regression can still hide there; check those before ruling one out. And even with
+everything identical, the failure is equally consistent with an infra flake, a test flake, or an
+intermittent product bug — confirm which via the error-context/trace/logs. Skip for PR-check
+URLs (no `logs/` history).
+
+**Consider A/B'ing the two builds' artifacts.** The `RESULT:` line prints the last green
+build's prow link — feed it to `download-artifacts.ts` (Step 0) and compare its artifacts
+against the failing run (the same ones you'd inspect in Steps 1–5, including traces and
+screenshots). A green-vs-red diff often surfaces the root cause faster than analyzing the
+failing run alone, and catches drift the fingerprint can't see. Use judgment on whether it
+earns its cost for a given failure.
+
 ### Step 2: Read error-context.md for Failed Tests
 
 **This is the PRIMARY artifact for understanding UI failures.** Each failed test has an

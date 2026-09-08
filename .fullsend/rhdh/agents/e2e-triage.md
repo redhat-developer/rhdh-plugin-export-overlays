@@ -60,19 +60,22 @@ TARGET_BRANCH=$(echo "$JOB_NAME" \
 echo "Target branch: $TARGET_BRANCH"
 ```
 
-Verify the branch exists:
+Check it out so repo files (test code, config, metadata, `versions.json`) match
+the branch the run was built on — not whatever the sandbox started on:
 
 ```bash
-if ! git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
-  git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
-fi
-if git rev-parse --verify "$TARGET_BRANCH" >/dev/null 2>&1; then
-  echo "Branch $TARGET_BRANCH: ok"
+git fetch origin "$TARGET_BRANCH" 2>/dev/null || true
+if git checkout "$TARGET_BRANCH" 2>/dev/null \
+  || git checkout -t "origin/$TARGET_BRANCH" 2>/dev/null; then
+  echo "Checked out: $(git branch --show-current)"
 else
-  echo "WARNING: Branch $TARGET_BRANCH not found — falling back to main"
+  echo "WARNING: $TARGET_BRANCH not found — staying on $(git branch --show-current)"
   TARGET_BRANCH="main"
 fi
 ```
+
+HEAD may still be ahead of the run's exact build commit — confirm version/image
+facts against the run's own artifacts when precision matters.
 
 ## Repository Context
 
