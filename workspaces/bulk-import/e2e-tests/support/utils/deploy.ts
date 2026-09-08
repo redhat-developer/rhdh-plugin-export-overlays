@@ -5,8 +5,8 @@ import type {
 } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 
 export type BulkImportRhdhDeployOptions = {
-  auth?: AuthProvider;
   appConfig: string;
+  auth?: AuthProvider;
   dynamicPlugins?: string;
   valueFile?: string;
   deployTimeoutMs?: number;

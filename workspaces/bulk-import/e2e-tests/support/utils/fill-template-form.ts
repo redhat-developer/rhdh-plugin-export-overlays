@@ -5,7 +5,7 @@ import { RepositoryParameters } from "../test-data/template-repository-data";
 export async function fillFormFields(
   uiHelper: UIhelper,
   repoParams: RepositoryParameters,
-) {
+): Promise<void> {
   await uiHelper.fillTextInputByLabel(
     "Repository URL (Backstage format)",
     repoParams.repoUrl,
