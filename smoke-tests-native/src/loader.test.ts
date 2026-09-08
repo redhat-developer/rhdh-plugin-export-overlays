@@ -9,7 +9,11 @@ import { strict as assert } from "node:assert";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { validateFrontendBundle, type PluginEntry } from "./loader";
+import {
+  validateBackendBundle,
+  validateFrontendBundle,
+  type PluginEntry,
+} from "./loader";
 import { describeNfsShortfall } from "./harness-logic";
 
 // Every mkdtempSync here would otherwise leak: the suite left 26 directories in
@@ -30,6 +34,7 @@ after(() => {
 function makePlugin(
   files: string[],
   contents: Record<string, string> = {},
+  role: PluginEntry["role"] = "frontend",
 ): PluginEntry {
   const dir = tempDir(join(tmpdir(), "bundle-"));
   for (const rel of files) {
@@ -42,7 +47,7 @@ function makePlugin(
     version: "1.0.0",
     dirName: "test",
     path: dir,
-    role: "frontend",
+    role,
   };
 }
 
@@ -1046,4 +1051,126 @@ test("a bundle with no recognised layout says so even when the schema also fails
   assert.deepEqual(systems, []);
   assert.match(error ?? "", /no frontend bundle found/);
   assert.match(error ?? "", /declares `configSchema`/);
+});
+
+// --- configSchema, backend half (RHIDP-16689) -------------------------------------
+// Same defect as above, same mechanism, different file: RHDH's schemaLocator is keyed on
+// the package's role, and both backend roles are platform "node" — verified by executing
+// PackageRoles.getRoleInfo, not inferred — so it reads dist/configSchema.json. Nothing
+// about RHDHBUGS-1157 is frontend-specific: such a plugin loads, boots and serves traffic
+// on its defaults, which is why steps 2 and 3 of the harness cannot see it.
+
+/** The role a backend artifact actually declares; only the platform behind it matters. */
+const BACKEND_CONFIG_PKG = JSON.stringify({
+  name: "test",
+  backstage: { role: "backend-plugin" },
+  configSchema: "config.d.ts",
+});
+
+/**
+ * Both files a real published backend artifact ships, observed on
+ * red-hat-developer-hub-backstage-plugin-adoption-insights-backend:bs_1.52.0__0.9.1 —
+ * RHDH's `dist/configSchema.json` and the upstream default beside it, same directory,
+ * different name.
+ */
+const BACKEND_RHDH_SCHEMA = "dist/configSchema.json";
+const BACKEND_UPSTREAM_SCHEMA = "dist/.config-schema.json";
+
+test("a backend bundle declaring configSchema without dist/configSchema.json fails", () => {
+  // The deliberately stripped bundle: package.json still declares `configSchema` and the
+  // file RHDH reads is gone. It would load and boot perfectly.
+  const { configSchema, error } = validateBackendBundle(
+    makePlugin(
+      ["package.json"],
+      { "package.json": BACKEND_CONFIG_PKG },
+      "backend",
+    ),
+  );
+  assert.match(error ?? "", /declares `configSchema`/);
+  assert.match(error ?? "", /dist\/configSchema\.json is not in the bundle/);
+  assert.match(error ?? "", /dropped silently/);
+  assert.equal(configSchema.declared, true);
+  assert.equal(configSchema.files[0].path, BACKEND_RHDH_SCHEMA);
+  assert.equal(configSchema.files[0].consumer, "rhdh");
+  assert.equal(configSchema.files[0].state, "missing");
+});
+
+test("the upstream-default copy alone does not satisfy the backend check", () => {
+  // The backend equivalent of the directory-gate trap the frontend half shipped with, and
+  // a sharper one: there, the two files were in different directories. Here they are
+  // siblings in dist/ and differ only by filename, so a check written against
+  // `.config-schema.json` — the name the gatherer's default locator uses — passes an
+  // artifact whose config RHDH drops in silence. Only the `rhdh` entry can fail.
+  const { configSchema, error } = validateBackendBundle(
+    makePlugin(
+      ["package.json", BACKEND_UPSTREAM_SCHEMA],
+      {
+        "package.json": BACKEND_CONFIG_PKG,
+        [BACKEND_UPSTREAM_SCHEMA]: SCHEMA,
+      },
+      "backend",
+    ),
+  );
+  assert.match(error ?? "", /dist\/configSchema\.json is not in the bundle/);
+  assert.deepEqual(
+    configSchema.files.map((file) => [file.path, file.consumer, file.state]),
+    [
+      [BACKEND_RHDH_SCHEMA, "rhdh", "missing"],
+      [BACKEND_UPSTREAM_SCHEMA, "upstream-default", "ok"],
+    ],
+  );
+});
+
+test("a pristine backend bundle passes and reports its property count", () => {
+  // The success path, shaped as the real artifact is. Without it a mutation failing every
+  // declaring backend package would be invisible — every other test here asserts a failure.
+  const { configSchema, error } = validateBackendBundle(
+    makePlugin(
+      ["package.json", BACKEND_RHDH_SCHEMA, BACKEND_UPSTREAM_SCHEMA],
+      {
+        "package.json": BACKEND_CONFIG_PKG,
+        [BACKEND_RHDH_SCHEMA]: SCHEMA,
+        [BACKEND_UPSTREAM_SCHEMA]: SCHEMA,
+      },
+      "backend",
+    ),
+  );
+  assert.equal(error, null);
+  assert.equal(configSchema.declared, true);
+  assert.equal(configSchema.files[0].state, "ok");
+  assert.equal(configSchema.files[0].propertyCount, 1);
+});
+
+test("a backend bundle declaring no configuration is reported, not failed", () => {
+  // Same line as the frontend half draws: an empty schema is only a finding for a package
+  // that declares one. Failing on the schema alone would accuse every non-declaring
+  // backend package of a bug it does not have.
+  const { configSchema, error } = validateBackendBundle(
+    makePlugin(
+      ["package.json", BACKEND_RHDH_SCHEMA],
+      { [BACKEND_RHDH_SCHEMA]: "{}" },
+      "backend",
+    ),
+  );
+  assert.equal(error, null);
+  assert.equal(configSchema.declared, false);
+  assert.equal(configSchema.files[0].state, "empty");
+});
+
+test("a declared backend configSchema with an empty schema fails, and says which", () => {
+  // The live shape of RHDHBUGS-1157 on the backend side: the file is present, so a
+  // presence check passes, but the export collected nothing into it.
+  const { configSchema, error } = validateBackendBundle(
+    makePlugin(
+      ["package.json", BACKEND_RHDH_SCHEMA],
+      {
+        "package.json": BACKEND_CONFIG_PKG,
+        [BACKEND_RHDH_SCHEMA]: "{}",
+      },
+      "backend",
+    ),
+  );
+  assert.match(error ?? "", /declares no properties/);
+  assert.doesNotMatch(error ?? "", /is not in the bundle/);
+  assert.equal(configSchema.files[0].state, "empty");
 });

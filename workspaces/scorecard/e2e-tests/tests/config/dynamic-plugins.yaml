@@ -289,3 +289,5 @@ plugins:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
+    enabled: true
