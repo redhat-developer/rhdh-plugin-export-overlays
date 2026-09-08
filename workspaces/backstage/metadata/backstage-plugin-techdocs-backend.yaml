@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-techdocs-backend
   namespace: rhdh
-  title: 'TechDocs Backend'
+  title: "TechDocs Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/techdocs-backend
   tags: []
 spec:
-  packageName: '@backstage/plugin-techdocs-backend'
+  packageName: "@backstage/plugin-techdocs-backend"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend:bs_1.54.4__2.2.3!backstage-plugin-techdocs-backend
   version: 2.2.3
   backstage:

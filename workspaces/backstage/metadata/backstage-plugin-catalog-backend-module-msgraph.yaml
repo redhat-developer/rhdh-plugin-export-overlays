@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-catalog-backend-module-msgraph
   namespace: rhdh
-  title: 'Catalog Backend Module MS Graph'
+  title: "Catalog Backend Module MS Graph"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,7 +16,7 @@ metadata:
   tags:
     - software-catalog
 spec:
-  packageName: '@backstage/plugin-catalog-backend-module-msgraph'
+  packageName: "@backstage/plugin-catalog-backend-module-msgraph"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph:bs_1.54.4__0.10.5!backstage-plugin-catalog-backend-module-msgraph
   version: 0.10.5
   backstage:

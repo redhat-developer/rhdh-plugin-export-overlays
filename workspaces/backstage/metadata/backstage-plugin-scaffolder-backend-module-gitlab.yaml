@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-scaffolder-backend-module-gitlab
   namespace: rhdh
-  title: 'Scaffolder Backend Module GitLab'
+  title: "Scaffolder Backend Module GitLab"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,7 +16,7 @@ metadata:
   tags:
     - software-templates
 spec:
-  packageName: '@backstage/plugin-scaffolder-backend-module-gitlab'
+  packageName: "@backstage/plugin-scaffolder-backend-module-gitlab"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab:bs_1.54.4__0.11.9!backstage-plugin-scaffolder-backend-module-gitlab
   version: 0.11.9
   backstage:

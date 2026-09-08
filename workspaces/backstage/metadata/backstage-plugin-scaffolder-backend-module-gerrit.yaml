@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-scaffolder-backend-module-gerrit
   namespace: rhdh
-  title: 'Scaffolder Backend Module Gerrit'
+  title: "Scaffolder Backend Module Gerrit"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,7 +16,7 @@ metadata:
   tags:
     - software-templates
 spec:
-  packageName: '@backstage/plugin-scaffolder-backend-module-gerrit'
+  packageName: "@backstage/plugin-scaffolder-backend-module-gerrit"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit:bs_1.54.4__0.2.24!backstage-plugin-scaffolder-backend-module-gerrit
   version: 0.2.24
   backstage:

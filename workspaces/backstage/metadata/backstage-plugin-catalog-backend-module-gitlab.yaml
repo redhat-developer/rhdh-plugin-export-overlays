@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-catalog-backend-module-gitlab
   namespace: rhdh
-  title: 'Catalog Backend Module GitLab'
+  title: "Catalog Backend Module GitLab"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,7 +16,7 @@ metadata:
   tags:
     - software-catalog
 spec:
-  packageName: '@backstage/plugin-catalog-backend-module-gitlab'
+  packageName: "@backstage/plugin-catalog-backend-module-gitlab"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab:bs_1.54.4__0.8.6!backstage-plugin-catalog-backend-module-gitlab
   version: 0.8.6
   backstage:

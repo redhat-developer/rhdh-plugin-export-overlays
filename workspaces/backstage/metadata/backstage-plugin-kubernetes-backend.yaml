@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-kubernetes-backend
   namespace: rhdh
-  title: 'Kubernetes Backend'
+  title: "Kubernetes Backend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/kubernetes-backend
   tags: []
 spec:
-  packageName: '@backstage/plugin-kubernetes-backend'
+  packageName: "@backstage/plugin-kubernetes-backend"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend:bs_1.54.4__0.21.9!backstage-plugin-kubernetes-backend
   version: 0.21.9
   backstage:

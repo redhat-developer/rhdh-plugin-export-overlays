@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-auth
   namespace: rhdh
-  title: 'Auth Frontend'
+  title: "Auth Frontend"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/auth
   tags: []
 spec:
-  packageName: '@backstage/plugin-auth'
+  packageName: "@backstage/plugin-auth"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth:bs_1.54.4__0.1.11!backstage-plugin-auth
   version: 0.1.11
   backstage:
