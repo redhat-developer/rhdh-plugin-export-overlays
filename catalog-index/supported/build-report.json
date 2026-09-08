@@ -1017,12 +1017,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7749057395852f904b169575c8df7d0241357941156e5ea3cb46c93d86b1f0bf"
+          "digest": "sha256:f1ef8be46153333e74f5c37e37b8e53ddeaae3b6a25e33a26f6d6051ba21cc5e"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1049,12 +1049,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3693f5320ac4bbba98eb0b84b85aa7679f69f3582969e42a892b4ba7300962bb"
+          "digest": "sha256:c0601a080eef02dcbc4c1a5d87a9fec5c7d7d11c3e03277f4ced9c91cd3251e7"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1081,12 +1081,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9b0e9efceeb042218dfe53760bd33180bc5baa42216a2580b84cb76a2a5dc1b1"
+          "digest": "sha256:53e62455b9f682c79c778918405e4bb8bf037e8857022d7ed58ae9524e663c73"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1113,12 +1113,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:eccb41cba523e3ef0b39f1f24bdb08b325d6195d310ef5de092b18f6e450c9e1"
+          "digest": "sha256:8595c349351843c9a0ec2674e5db9fb075a630378b2961c90cc5343d40104219"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1145,12 +1145,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:64f1dfa218da45a872b220980665bc0cd73ae76319d8544e3644b3c8ddb80ea9"
+          "digest": "sha256:6db5dd31d2e61f9327af0c2c147ed06db0b3e3af9eb9a847c94f55caad7c9bbe"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1177,7 +1177,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:be1864798ad0d9d5d666d8ece77b492b42b54c3beb407fa6244ff7022c630d2f"
+          "digest": "sha256:e4a58523a8e8b02fe2e70b9e953d008e9f71113259cf597d1482fa5e75e602e4"
         },
         "validate": {
           "status": "pass",
@@ -1322,11 +1322,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.52.0__2.17.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.54.4__2.18.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1336,17 +1332,24 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.54.4__2.18.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
           "digest": "sha256:20525daabca89c3b98ccec7e939c1fc176170cec5bd6277349dd7bf027fba966"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[index-missing-entry] 'backstage-community-plugin-scaffolder-backend-module-regex' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+          ]
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-regex",
-      "version": "2.17.0",
+      "version": "2.18.0",
       "workspace": "scaffolder-backend-module-regex",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
       "stages": {
@@ -1669,8 +1672,8 @@
   },
   "summary": {
     "total": 53,
-    "succeeded": 41,
-    "failed": 12
+    "succeeded": 40,
+    "failed": 13
   },
   "status": "partial"
 }
