@@ -16,6 +16,8 @@ agents:
       source: rhdh/harness/review.yaml
     - name: e2e-triage
       source: rhdh/harness/e2e-triage.yaml
+    - name: ci-diagnose
+      source: rhdh/harness/ci-diagnose.yaml
 roles:
     - triage
     - coder

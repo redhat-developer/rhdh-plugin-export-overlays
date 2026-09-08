@@ -73,21 +73,23 @@ export const DEPENDABOT_METRICS = [
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
-      .locator("article")
-      .filter({ has: page.locator(`[aria-label="${metric.title}"]`) });
+      .locator('[role="article"]')
+      .filter({ has: page.getByText(metric.title, { exact: true }) });
 
   return {
     getScorecardCard,
     async openTab() {
-      const tab = page.getByRole("tab", { name: "Scorecard" });
+      const tab = page.getByRole("link", { name: "Scorecard" });
       await expect(tab).toBeVisible();
       await tab.click();
     },
     async expectEmptyState() {
       await expect(page.getByText("No scorecards added yet")).toBeVisible();
-      await expect(page.getByRole("article")).toContainText(
-        "Scorecards help you monitor component health at a glance. To begin, explore our documentation for setup guidelines.",
-      );
+      await expect(
+        page.getByText(
+          "Scorecards help you monitor component health at a glance. To begin, explore our documentation for setup guidelines.",
+        ),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", { name: "View documentation" }),
       ).toBeVisible();
@@ -154,10 +156,10 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
         // Edit button never appeared — already in edit mode.
       }
     },
-    async addWidget(cardName: string) {
+    async addWidget(cardName: string, options?: { exact?: boolean }) {
       await this.enterEditModeIfNeeded();
       await this.openAddWidgetDialog();
-      await this.selectWidget(cardName);
+      await this.selectWidget(cardName, options);
       try {
         await page
           .getByRole("button", { name: "Save" })
@@ -172,8 +174,10 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     async openAddWidgetDialog() {
       await page.getByRole("button", { name: "Add widget" }).click();
     },
-    async selectWidget(cardName: string) {
-      await page.getByRole("button", { name: cardName }).click();
+    async selectWidget(cardName: string, options?: { exact?: boolean }) {
+      await page
+        .getByRole("button", { name: cardName, exact: options?.exact })
+        .click();
     },
     async expectNoProgressBar() {
       await expect(
@@ -185,13 +189,15 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     },
     async expectAggregatedScorecardVisible(metricTitle: string) {
       await expect(
-        page.locator("article").filter({ hasText: metricTitle }),
+        page.locator('[role="article"]').filter({ hasText: metricTitle }),
       ).toBeVisible({ timeout: 90_000 });
     },
     async getAggregatedScorecardEntityCount(
       metricTitle: string,
     ): Promise<number> {
-      const card = page.locator("article").filter({ hasText: metricTitle });
+      const card = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       const text = await card.textContent();
       const match = text?.match(/(\d+)\s*entities/);
       return match ? Number.parseInt(match[1], 10) : 0;
@@ -200,7 +206,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedCount: number,
     ) {
-      const card = page.locator("article").filter({ hasText: metricTitle });
+      const card = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       await expect(card).toContainText(`${expectedCount} entities`);
     },
     async expectFilecheckForEntity(
@@ -220,7 +228,9 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       metricTitle: string,
       expectedIconTestId: string,
     ) {
-      const section = page.locator("article").filter({ hasText: metricTitle });
+      const section = page
+        .locator('[role="article"]')
+        .filter({ hasText: metricTitle });
       await expect(section).toBeVisible({ timeout: 60_000 });
       await expect(section.getByRole("progressbar")).toHaveCount(0, {
         timeout: 60_000,

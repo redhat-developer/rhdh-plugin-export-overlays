@@ -15,6 +15,10 @@ on:
       # Same reason for the .cjs remap helpers: tests/test_upstream_paths.py
       # drives scripts/upstream-paths.cjs through node.
       - 'scripts/*.cjs'
+      # The allowlist is PARSED by validateCatalogIndex.py on every run, and the parser
+      # throws on the first malformed entry — so a PR that only edits it can hard-fail
+      # every future index generation without this suite ever running.
+      - 'scripts/*.txt'
       - 'scripts/tests/**'
       - 'scripts/requirements-dev.txt'
       - '.github/workflows/validate-catalog-scripts.yaml'
