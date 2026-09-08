@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "e2e-triage-result.schema.json",
+  "title": "E2E Triage Agent Result",
+  "description": "Structured output from the e2e-triage agent. Classifies nightly E2E failures per workspace and emits issue directives.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["target_branch", "workspaces"],
+  "properties": {
+    "target_branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Branch the nightly ran against (e.g., main, release-1.10)."
+    },
+    "workspaces": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/workspace_classification" }
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "Human-readable summary of all classifications."
+    }
+  },
+  "$defs": {
+    "workspace_classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace", "fix_category", "tests", "root_cause", "root_cause_slug"],
+      "properties": {
+        "workspace": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Workspace name (e.g., argocd, orchestrator, backstage)."
+        },
+        "fix_category": {
+          "type": "string",
+          "enum": ["infra_flake", "test_fix", "product_bug", "environment"],
+          "description": "Dominant classification for failures in this workspace."
+        },
+        "tests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/failed_test" },
+          "description": "Failed tests in this workspace."
+        },
+        "root_cause": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Summary of the root cause covering all failures in this workspace."
+        },
+        "root_cause_slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "minLength": 2,
+          "maxLength": 64,
+          "description": "Slug identifying the root cause (e.g., oci-resolution, route-wait). Used for dedup and umbrella issue titles."
+        },
+        "issue": { "$ref": "#/$defs/issue_directive" }
+      }
+    },
+    "failed_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "error"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Full test title."
+        },
+        "error": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "description": "Error message or failure summary."
+        }
+      }
+    },
+    "issue_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["create", "comment", "skip"],
+          "description": "Whether to create a new issue, comment on an existing one, or skip."
+        },
+        "number": {
+          "type": "integer",
+          "description": "Existing issue number (required for comment action)."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Issue title (required for create action)."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "enum": ["e2e-failure", "ready-to-code"] },
+          "maxItems": 10,
+          "description": "Labels for new issue."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384,
+          "description": "Issue body or comment body."
+        },
+        "cycle_ready_to_code": {
+          "type": "boolean",
+          "description": "When true, post-script removes then re-adds ready-to-code to force a new labeled event (used when issue exists but PR was closed)."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "const": "create" } } },
+          "then": { "required": ["title", "body"] }
+        },
+        {
+          "if": { "properties": { "action": { "const": "comment" } } },
+          "then": { "required": ["number", "body"] }
+        }
+      ]
+    }
+  }
+}
