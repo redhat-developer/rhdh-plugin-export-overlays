@@ -49,5 +49,5 @@ export const VIEW_WORKFLOW_LINK_TEST_ID = "view-workflow-link" as const;
 export const VIEW_WORKFLOW_LINK_LABEL = "View workflow" as const;
 
 /** Shown as a header when filling out the scaffolder template. */
-export const TEMPLATE_HEADING =
+export const SCAFFOLDER_TEMPLATE_HEADING =
   "Create catalog-info.yaml in GitHub/GitLab repository" as const;

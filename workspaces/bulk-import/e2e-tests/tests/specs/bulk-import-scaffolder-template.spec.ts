@@ -1,7 +1,7 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
-import { TEMPLATE_HEADING } from "../../support/constants/bulk-import-selectors";
+import { SCAFFOLDER_TEMPLATE_HEADING } from "../../support/constants/bulk-import-selectors";
 import {
   RepositoryParameters,
   defaultGitHubRepositoryParameters,
@@ -62,10 +62,10 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
   }) => {
     // templates list
     await uiHelper.verifyHeading("Templates");
-    await uiHelper.clickBtnInCard(TEMPLATE_HEADING, "Choose");
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
 
     // template detail page
-    await expect(page.getByText(TEMPLATE_HEADING)).toBeVisible();
+    await expect(page.getByText(SCAFFOLDER_TEMPLATE_HEADING)).toBeVisible();
     await expect(
       page.getByLabel("Repository URL (Backstage format)"),
     ).toBeVisible();
@@ -76,8 +76,8 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
     page,
     uiHelper,
   }) => {
-    await uiHelper.clickBtnInCard(TEMPLATE_HEADING, "Choose");
-    await uiHelper.waitForTitle(TEMPLATE_HEADING, 2);
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
 
     // Repository Details screen
     await fillFormFields(uiHelper, repositoryParametersGitHub);
@@ -118,8 +118,8 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
   });
 
   test("GitLab form renders correctly", async ({ page, uiHelper }) => {
-    await uiHelper.clickBtnInCard(TEMPLATE_HEADING, "Choose");
-    await uiHelper.waitForTitle(TEMPLATE_HEADING, 2);
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
 
     // Repository Details screen
     await fillFormFields(uiHelper, repositoryParametersGitLab);
