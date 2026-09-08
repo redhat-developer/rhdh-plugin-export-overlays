@@ -14,8 +14,8 @@ test.describe("Bulk Import - Ensure users without bulk import permissions cannot
       async () => {
         await setupBulkImportRhdh(rhdh, {
           auth: "guest",
-          appConfig: "tests/config/app-config-rhdh.yaml",
-          dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+          appConfig: "tests/config/app-config-rhdh-permission.yaml",
+          dynamicPlugins: "tests/config/dynamic-plugins-with-permission.yaml",
           valueFile: "tests/config/values.yaml",
         });
       },
