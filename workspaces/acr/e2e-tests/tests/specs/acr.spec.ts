@@ -1,5 +1,6 @@
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
+// Trigger PR e2e for ACR workspace after #3641 merge.
 test.describe("Test ACR plugin", () => {
   const dateRegex =
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2},\s\d{4}/gm;
