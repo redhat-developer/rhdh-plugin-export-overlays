@@ -1382,11 +1382,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.27.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.54.4__1.28.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -1396,13 +1392,14 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.54.4__1.28.0"
         }
       },
       "package": "@backstage-community/plugin-acr",
-      "version": "1.27.0",
+      "version": "1.28.0",
       "workspace": "acr",
-      "overall": "pass"
+      "overall": "fail"
     },
     "apic-backstage": {
       "stages": {
@@ -1485,8 +1482,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 47,
-    "failed": 4
+    "succeeded": 46,
+    "failed": 5
   },
   "status": "partial"
 }
