@@ -1,4 +1,4 @@
-import { GITHUB_ORG } from "../../support/constants/github";
+import { GITHUB_ORG } from "../constants/github";
 
 export type RepositoryParameters = {
   repoUrl: string;
