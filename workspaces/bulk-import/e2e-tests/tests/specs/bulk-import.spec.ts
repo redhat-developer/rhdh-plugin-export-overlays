@@ -233,7 +233,7 @@ spec:
     test("Verify Added Repositories Appear in the Catalog as Expected", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.selectMuiBox("Kind", "Component");
       await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
 
@@ -259,7 +259,7 @@ spec:
       const catalogEntity = new CatalogEntityPO(page);
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await page.goto(CATALOG_IMPORT_ROUTE);
       await catalogImport.registerFromComponentUrl(catalogImportedRepo.url);
 
