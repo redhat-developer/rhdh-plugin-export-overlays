@@ -1022,7 +1022,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.4__1.4.1 after bs_1.54.4__1.5.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1054,7 +1054,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.4__8.12.1 after bs_1.54.4__8.13.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1086,7 +1086,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.4__2.0.0 after bs_1.54.4__2.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1118,7 +1118,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.4__6.0.0 after bs_1.54.4__6.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1150,7 +1150,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.4__1.7.2 after bs_1.54.4__1.8.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1292,11 +1292,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.52.0__2.19.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.4",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.54.4__2.21.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1306,17 +1302,24 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes:bs_1.54.4__2.21.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
           "digest": "sha256:6d53d5f200aef1033882f5d799526bfa3cf3de862a955e5e6d05e783bf324d1b"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[index-missing-entry] 'backstage-community-plugin-scaffolder-backend-module-kubernetes' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+          ]
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-kubernetes",
-      "version": "2.19.0",
+      "version": "2.21.0",
       "workspace": "scaffolder-backend-module-kubernetes",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-scaffolder-backend-module-regex": {
       "stages": {
@@ -1332,12 +1335,11 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex:bs_1.54.4__2.18.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:20525daabca89c3b98ccec7e939c1fc176170cec5bd6277349dd7bf027fba966"
+          "digest": "sha256:1522ce5c418763b0a29c7c61cc04c41c1f40f1ae85b24af4cc0e3bf017970fb4"
         },
         "validate": {
           "status": "pass",
@@ -1349,7 +1351,7 @@
       "package": "@backstage-community/plugin-scaffolder-backend-module-regex",
       "version": "2.18.0",
       "workspace": "scaffolder-backend-module-regex",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
       "stages": {
