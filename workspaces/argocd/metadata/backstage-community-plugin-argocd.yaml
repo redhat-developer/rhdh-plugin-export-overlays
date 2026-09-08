@@ -34,11 +34,11 @@ spec:
             backstage-community.plugin-argocd:
               translationResources:
                 - importName: argocdTranslations
-                  module: Alpha
                   ref: argocdTranslationRef
               mountPoints:
                 - mountPoint: entity.page.overview/cards
                   importName: ArgocdDeploymentSummary
+                  module: Legacy
                   config:
                     layout:
                       gridColumnEnd:
@@ -49,6 +49,7 @@ spec:
                         - isArgocdConfigured
                 - mountPoint: entity.page.cd/cards
                   importName: ArgocdDeploymentLifecycle
+                  module: Legacy
                   config:
                     layout:
                       gridColumn: 1 / -1

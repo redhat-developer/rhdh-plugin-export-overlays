@@ -1,7 +1,11 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
+    disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider:bs_1.52.0__0.2.20
+    disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend:bs_1.52.0__0.21.5
     enabled: true
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes:bs_1.52.0__0.12.20
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -17,7 +21,7 @@ plugins:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.45.3__2.4.3
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.54.4__3.1.0
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -26,6 +30,7 @@ plugins:
             mountPoints:
               - mountPoint: entity.page.overview/cards
                 importName: ArgocdDeploymentSummary
+                module: Legacy
                 config:
                   layout:
                     gridColumnEnd:
@@ -36,11 +41,12 @@ plugins:
                       - isArgocdConfigured
               - mountPoint: entity.page.cd/cards
                 importName: ArgocdDeploymentLifecycle
+                module: Legacy
                 config:
                   layout:
                     gridColumn: 1 / -1
                   if:
                     allOf:
                       - isArgocdConfigured
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend:bs_1.45.3__1.0.2
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd-backend:bs_1.54.4__1.7.0
     enabled: true
