@@ -97,7 +97,7 @@ test.describe("Bulk import tests orchestrator mode", () => {
   }) => {
     const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
-    await bulkImport.searchAndExpectRow(
+    await bulkImport.pollUntilRepoRowVisible(
       catalogRepoDetailsForOrchestrator.name,
       [catalogRepoDetailsForOrchestrator.url],
     );
