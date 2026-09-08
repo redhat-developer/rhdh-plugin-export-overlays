@@ -36,7 +36,7 @@ spec:
     - Register git-backed and OCI-backed AI content assets as catalog entities
     - Validate optional `spec.scope` (`organization`, `product`, `team`)
     - Format-only OCI `url:oci://…` source-location validation with no registry calls
-    - Typed `spec.type: agent` schema and processor for agent-shaped AiResource entities
+    - "Typed `spec.type: agent` schema and processor for agent-shaped AiResource entities"
 
   description: |
     # AI Resource Catalog
