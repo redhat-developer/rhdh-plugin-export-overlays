@@ -160,11 +160,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud:bs_1.52.0__0.5.12",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud:bs_1.54.6__0.5.14"
         },
         "registry-enrich": {
           "status": "pass",
@@ -174,7 +170,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-cloud:bs_1.54.6__0.5.14"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -182,19 +179,15 @@
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-cloud",
-      "version": "0.5.12",
+      "version": "0.5.14",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-catalog-backend-module-bitbucket-server": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.52.0__0.5.12",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.54.6__0.5.14"
         },
         "registry-enrich": {
           "status": "pass",
@@ -204,7 +197,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-bitbucket-server:bs_1.54.6__0.5.14"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -212,19 +206,15 @@
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-server",
-      "version": "0.5.12",
+      "version": "0.5.14",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-azure": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.52.0__0.2.22",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.54.6__0.2.25"
         },
         "registry-enrich": {
           "status": "pass",
@@ -234,7 +224,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.54.6__0.2.25"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -242,19 +233,15 @@
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-azure",
-      "version": "0.2.22",
+      "version": "0.2.25",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-bitbucket-cloud": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.52.0__0.3.7",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.54.6__0.3.10"
         },
         "registry-enrich": {
           "status": "pass",
@@ -264,7 +251,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.54.6__0.3.10"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -272,19 +260,15 @@
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud",
-      "version": "0.3.7",
+      "version": "0.3.10",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-bitbucket-server": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.52.0__0.2.22",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.54.6__0.2.25"
         },
         "registry-enrich": {
           "status": "pass",
@@ -294,7 +278,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.54.6__0.2.25"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -302,19 +287,15 @@
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
-      "version": "0.2.22",
+      "version": "0.2.25",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-scaffolder-backend-module-gerrit": {
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit:bs_1.52.0__0.2.22",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit:bs_1.54.6__0.2.24"
         },
         "registry-enrich": {
           "status": "pass",
@@ -324,7 +305,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit:bs_1.54.6__0.2.24"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -332,9 +314,9 @@
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-gerrit",
-      "version": "0.2.22",
+      "version": "0.2.24",
       "workspace": "backstage",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-dynatrace": {
       "stages": {
@@ -350,18 +332,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.6__10.23.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3be6d1749b191463c224eed51d575d0030b5b66f14cd8d76da5a236fffaa91be"
+          "digest": "sha256:a0c761603b793bc4365697444b9694381b4220e09415570c3e148b2ea7cbef07"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
       "version": "10.23.0",
       "workspace": "dynatrace",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-github-actions": {
       "stages": {
@@ -587,18 +568,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.6__0.26.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7a6bdca159075ea202882de437241bb5177473c6beb8c544e963f480454a1428"
+          "digest": "sha256:994ea6b542d9d502f95ce0d84979f739cc20d5f687d7e1aee3a66645b6f29bb9"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
       "version": "0.26.0",
       "workspace": "lighthouse",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-nexus-repository-manager": {
       "stages": {
@@ -1380,7 +1360,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:bc68698898f8debe8faf6dc1cf1407e091e1c99b1be6f37e4ee02bd76718faca"
+          "digest": "sha256:81419c8f4acda50bdf4c24a36c919cea68fdece2f7d4b15c3830d62710876981"
         },
         "dpdy": {
           "status": "skip"
@@ -1475,8 +1455,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 45,
-    "failed": 6
+    "succeeded": 41,
+    "failed": 10
   },
   "status": "partial"
 }

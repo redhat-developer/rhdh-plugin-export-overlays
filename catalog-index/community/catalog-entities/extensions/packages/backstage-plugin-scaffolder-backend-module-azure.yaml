@@ -3,7 +3,7 @@ kind: Package
 metadata:
   name: backstage-plugin-scaffolder-backend-module-azure
   namespace: rhdh
-  title: 'Scaffolder Backend Module Azure'
+  title: "Scaffolder Backend Module Azure"
   links:
     - url: https://red.ht/rhdh
       title: Homepage
@@ -16,13 +16,13 @@ metadata:
   tags:
     - software-templates
 spec:
-  packageName: '@backstage/plugin-scaffolder-backend-module-azure'
-  # Tag: bs_1.52.0__0.2.22
+  packageName: "@backstage/plugin-scaffolder-backend-module-azure"
+  # Tag: bs_1.54.6__0.2.25
   dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure@sha256:b7f0db65535394ebba083e859f5fe66cac54f09fa2bb836a2dd465b9aaa4b9ab"
-  version: 0.2.22
+  version: 0.2.25
   backstage:
     role: backend-plugin-module
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.6
   author: Red Hat
   support: community
   lifecycle: active
