@@ -491,6 +491,20 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+### Issues beyond E2E fix scope
+
+Some E2E failures have root causes in the RHDH platform layer, not in test logic. Examples:
+- A previously bundled plugin removed from the RHDH image (e.g., guest auth provider)
+- A default dynamic plugin configuration changed between RHDH versions
+- A new plugin dependency not yet onboarded in `default.packages.yaml`
+
+These fixes typically require changes to `default.packages.yaml` or workspace metadata, which are outside the E2E fix scope. When the root cause is platform-layer:
+- Do not classify as `fix_category: test_fix`
+- Note in the issue that the fix requires `default.packages.yaml` or metadata changes
+- Flag for human triage rather than dispatching the code agent with E2E fix constraints
+
+A per-workspace workaround (adding OCI entries to individual `dynamic-plugins.yaml` files) may be technically correct but is fragile — it bypasses auto-generation from metadata, can drift from platform defaults, and will be superseded when the plugin is properly onboarded.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
