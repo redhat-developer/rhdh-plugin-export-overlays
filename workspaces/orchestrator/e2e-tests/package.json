@@ -16,6 +16,7 @@
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
+    "test:unit": "node --experimental-strip-types --test unit-tests/**/*.test.js",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",
     "prettier:check": "prettier --check .",
