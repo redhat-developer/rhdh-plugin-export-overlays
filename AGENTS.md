@@ -470,15 +470,64 @@ A Claude Code skill is available at `.claude/skills/` for investigating E2E fail
 
 When fixing E2E test failures from `[fullsend] E2E:` issues:
 
+### Fix categories
+
+There are three fix categories. The triage agent sets `fix_category` in
+the issue body. Each category determines what the code agent is allowed
+to change and how it should respond.
+
+| Category | Root cause | Code agent action |
+|----------|-----------|-------------------|
+| `test_fix` | Bug in the test code itself | Fix the test code |
+| `metadata_config` | Incorrect workspace metadata or repo-local config | Fix the metadata/config or flag for human review |
+| `product_bug` | Upstream plugin code defect the code agent cannot fix | Add `test.skip` |
+
+#### How to classify `metadata_config` vs `product_bug`
+
+Classify as **`metadata_config`** when the root cause is in files that
+live in this repo and can be corrected without upstream changes:
+
+- Wrong `spec.dynamicArtifact` paths (e.g., local filesystem paths
+  instead of OCI references like `oci://ghcr.io/...`)
+- Missing or incorrect `spec.appConfigExamples` in metadata
+- Wrong `spec.version` or `spec.backstage.role` values
+- Incorrect `source.json` fields (`repo-ref`, `repo-backstage-version`)
+- Missing or malformed `plugins-list.yaml` entries
+- Incorrect E2E config files (`tests/config/*.yaml`)
+
+Classify as **`product_bug`** only when the failure is caused by a
+defect in the upstream plugin source code — code that lives in the
+repo referenced by `source.json`, not in this repo.
+
 ### Allowed modifications
 - `workspaces/<workspace>/e2e-tests/` — any file under the e2e-tests directory
+- `workspaces/<workspace>/metadata/` — only for `metadata_config` fixes (see below)
 
 ### Prohibited modifications
 - Plugin source code (`workspaces/*/plugins/`)
 - CI configuration (`.github/`)
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
+### Fixing metadata issues (metadata_config classification)
+
+When the issue says `fix_category: metadata_config`, the code agent
+should NOT add `test.skip`. Instead:
+
+1. **For straightforward corrections** — when the fix is
+   unambiguous (e.g., a `spec.dynamicArtifact` uses a local path like
+   `./dynamic-plugins/dist/...` instead of an OCI reference), attempt
+   the metadata fix directly in `workspaces/<workspace>/metadata/`.
+
+2. **For corrections requiring domain knowledge** — when the fix
+   requires knowing the correct OCI tag, published version, or registry
+   structure (e.g., choosing between `bs_1.52.0__0.19.1` and
+   `bs_1.54.0__0.20.0`), flag the issue for human attention rather
+   than guessing. Do not add `test.skip` — leave the test enabled so
+   nightly runs continue to surface the failure until a human resolves
+   it.
+
 ### Skipping tests (product_bug classification)
+
 When the issue says `fix_category: product_bug`, add `test.skip` instead
 of fixing the test:
 
