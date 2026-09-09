@@ -462,10 +462,9 @@ Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 
 ### Failure Analysis
 
-Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
 
-- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
-- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison
 
 ## E2E Nightly Fix Conventions
 

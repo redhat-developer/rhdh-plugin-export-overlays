@@ -116,12 +116,11 @@ ARTIFACTS=$(node --experimental-strip-types "$SKILL_DIR/scripts/download-artifac
 node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS"
 ```
 
-Then invoke `/e2e-failure-analysis` (and `/playwright-trace` before any trace
-inspection). For UI failures, trace inspection is mandatory — `actions`,
-`action <id>`, `console --errors-only`, `requests --failed`. Check cluster
-logs (`pods.txt`, `events.txt`, `backstage-backend.log`) for deployment
-failures. **If a skill fails to invoke, stop and report which one** — do not
-guess a classification without it.
+Then invoke `/e2e-failure-analysis` — trace inspection for UI failures is
+built into the skill's methodology (tiered: quick check first, full
+timeline when ambiguous). Check cluster logs (`pods.txt`, `events.txt`,
+`backstage-backend.log`) for deployment failures. **If the skill fails to
+invoke, stop and report it** — do not guess a classification without it.
 
 **Multiple red checks are independent — diagnose them in parallel.** When two
 or more curated checks are red (e.g. two Prow lanes, or a Prow lane plus a
@@ -391,8 +390,8 @@ classification).
   per-check "run `/fs-fix`" prompts and do NOT tailor the prose by PR author.
   The single footer line already explains the automatic hand-off and the
   human controls; anything more is duplication.
-- **Trace inspection is mandatory for Prow UI failures** — invoke
-  `/playwright-trace` and run `actions` + `action <id>` before classifying.
+- **Trace inspection is mandatory for Prow UI failures** — `/e2e-failure-analysis`
+  runs it as part of its methodology; do not classify a UI failure before it returns.
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
   without checking whether the PR's changes touch the failing area.
 - Treat the existing sticky comment as a **hypothesis**, not fact — re-verify
