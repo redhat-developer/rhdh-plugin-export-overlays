@@ -378,6 +378,49 @@ export default defineConfig({
 
 **Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
 
+### Interaction Patterns
+
+When writing or fixing E2E tests that interact with UI elements, follow the **assert-then-act** pattern: always verify an element is visible before interacting with it. This transforms generic Playwright timeouts (30-second wait followed by an unhelpful "locator not found") into immediate, descriptive assertion failures that are faster to triage — especially when the `e2e-failure-analysis` skill is diagnosing CI failures.
+
+**Assert-then-act.** Instead of calling a click helper directly:
+
+```typescript
+// ❌ Produces a generic timeout if the element doesn't exist
+await uiHelper.clickLink("ACR images");
+```
+
+Prefer asserting visibility first, then acting:
+
+```typescript
+// ✅ Fails immediately with "Expected link 'ACR images' to be visible"
+const link = page.getByRole("link", { name: "ACR images" });
+await expect(link).toBeVisible();
+await link.click();
+```
+
+This is especially important for elements that depend on plugin loading, dynamic content, or layout variants (e.g., NFS vs legacy navigation) — these are the most likely to be absent when something breaks.
+
+**Explicit role matching.** When the ARIA role of an element is known (tab, link, button), use `page.getByRole()` with the expected role rather than text-only helpers like `clickLink()` or `clickTab()`. This catches role mismatches early — for example, when an element that was a tab in legacy layout becomes a link in NFS layout:
+
+```typescript
+// ✅ Catches role mismatches — fails if the element is a tab, not a link
+const link = page.getByRole("link", { name: "ACR images" });
+await expect(link).toBeVisible();
+await link.click();
+
+// ✅ For buttons
+const button = page.getByRole("button", { name: "Save" });
+await expect(button).toBeVisible();
+await button.click();
+
+// ✅ For tabs
+const tab = page.getByRole("tab", { name: "Overview" });
+await expect(tab).toBeVisible();
+await tab.click();
+```
+
+**When `uiHelper` methods are acceptable.** The `uiHelper` convenience methods (`clickTab()`, `clickLink()`, `clickButton()`) are fine for elements that are always present in the page layout (e.g., sidebar navigation, standard catalog tabs). Use the assert-then-act pattern for elements whose presence depends on plugin state, dynamic content, or conditional rendering.
+
 ### Unified Test Runner (run-e2e.sh)
 
 `run-e2e.sh` runs E2E tests from ALL workspaces (or a subset) in a single Playwright process from the repo root. Used by CI nightly jobs and for cross-workspace validation.
