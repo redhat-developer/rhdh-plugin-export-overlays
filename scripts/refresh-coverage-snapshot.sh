@@ -20,7 +20,9 @@
 # only needs refreshing when a workspace's coverage actually changes (i.e. when
 # a PR touches that workspace and re-runs its e2e).
 #
-# Requires: node, npm, nyc (npx), and the workspace's coverage-anchors/ present.
+# Requires: node, npm, nyc (npx), jq, and the workspace's coverage-anchors/
+# present. jq is only needed when SOURCE is a URL, to tell a coverage map from
+# an error page.
 
 set -euo pipefail
 
@@ -40,34 +42,13 @@ REPORT_DIR=""
 cleanup() { rm -rf ${DOWNLOAD_DIR:+"$DOWNLOAD_DIR"} ${REPORT_DIR:+"$REPORT_DIR"}; }
 trap cleanup EXIT
 
+# A URL is downloaded by the shared helper (which distinguishes a genuine fetch
+# failure from a valid-but-empty coverage dir); a local path is used as-is.
 JSON_DIR=""
-if [[ "$SOURCE" =~ ^https:// ]]; then
+if [[ "$SOURCE" =~ ^https?:// ]]; then
   DOWNLOAD_DIR="$(mktemp -d)"
   JSON_DIR="$DOWNLOAD_DIR"
-  echo "[INFO] Downloading coverage JSONs from $SOURCE"
-  # Distinguish a genuine fetch failure (bad URL / network — fatal) from a
-  # valid-but-empty coverage dir (backend-only or uninstrumented run, which a
-  # passed e2e legitimately produces — non-fatal, nothing to snapshot).
-  if ! listing=$(curl -sf "$SOURCE"); then
-    echo "ERROR: could not fetch $SOURCE (bad URL or network)" >&2
-    exit 1
-  fi
-  files=$(echo "$listing" | grep -oE '[a-f0-9-]+\.json' | sort -u || true)
-  if [[ -z "$files" ]]; then
-    echo "[INFO] No coverage JSONs at $SOURCE (backend-only or uninstrumented run) — nothing to snapshot."
-    exit 0
-  fi
-  # -f so a 404/HTML error page fails loudly instead of being written as a
-  # bogus .json that would silently skew the snapshot.
-  for f in $files; do
-    curl -sf -o "$JSON_DIR/$f" "${SOURCE%/}/$f" || {
-      echo "ERROR: failed to download $f from $SOURCE" >&2
-      exit 1
-    }
-  done
-elif [[ "$SOURCE" =~ ^http:// ]]; then
-  echo "ERROR: refusing to download over insecure HTTP; use HTTPS" >&2
-  exit 1
+  "$SCRIPT_DIR/download-coverage-json.sh" "$SOURCE" "$DOWNLOAD_DIR"
 else
   JSON_DIR="$SOURCE"
 fi

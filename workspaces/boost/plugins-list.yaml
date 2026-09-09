@@ -1,6 +1,2 @@
-plugins/boost-backend:
-plugins/boost-backend-module-kagenti:
-plugins/kagenti-entity-provider:
 plugins/boost:
-plugins/boost-backend-module-ogx:
-plugins/ogx-entity-provider:
+plugins/ogx-entity-provider: --embed-package @red-hat-developer-hub/backstage-plugin-boost-entity-provider-sdk

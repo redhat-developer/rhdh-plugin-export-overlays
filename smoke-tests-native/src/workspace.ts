@@ -5,7 +5,7 @@
  */
 
 /**
- * Workspace mode: resolve ALL of a workspace's published plugins from its
+ * Workspace mode: resolve a workspace's published plugins from its
  * `workspaces/<name>/metadata/*.yaml` Package entities (`spec.dynamicArtifact`)
  * and generate the dynamic-plugins.yaml the install CLI consumes.
  *
@@ -13,22 +13,83 @@
  * scaffolder-backend-module-kubernetes) declare a local `./dynamic-plugins/dist/…`
  * path instead, meaning the plugin ships inside the RHDH image and has no OCI
  * artifact to pull; those are skipped with a warning.
+ *
+ * Two optional filters narrow the set (used by the support-level sweep, see
+ * src/support.ts): `support` keeps only packages at a given `spec.support` level,
+ * and `installExcluded` drops packages a tracked exclusion bars from installing.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
+import type { ExclusionRecord } from "./exclusions";
+import { compareStrings, isRecord } from "./util";
 
 type PackageMetadata = {
-  spec?: { dynamicArtifact?: unknown };
+  metadata?: { name?: unknown };
+  spec?: {
+    packageName?: unknown;
+    dynamicArtifact?: unknown;
+    support?: unknown;
+    backstage?: { role?: unknown };
+    appConfigExamples?: unknown;
+  };
 };
+
+/** One `kind: Package` entity, flattened to the fields the harness reasons about. */
+export type PackageEntry = {
+  workspace: string;
+  /** Metadata file name, e.g. `backstage-community-plugin-quay.yaml`. */
+  file: string;
+  /** npm package name from `spec.packageName` — the identifier exclusions match. */
+  packageName: string;
+  /** `spec.support`: community | generally-available | tech-preview | dev-preview. */
+  support: string;
+  /** `spec.backstage.role`: frontend-plugin, backend-plugin-module, … */
+  role: string;
+  /** `spec.dynamicArtifact` — an `oci://` ref, or a local `./dynamic-plugins/…` path. */
+  artifact: string;
+  /**
+   * The `dynamicPlugins.frontend.<key>` keys this package's `spec.appConfigExamples`
+   * configure. RHDH matches each against the `name` in a bundle's
+   * `dist-scalprum/plugin-manifest.json`; a key matching no bundle is configuration
+   * that silently does nothing (RHIDP-16690). Empty for most backend packages and for
+   * the frontend packages that ship no app-config example.
+   */
+  frontendConfigKeys: string[];
+};
+
+/** One configured `dynamicPlugins.frontend` key, with the metadata file that sets it. */
+export type ConfiguredFrontendKey = { key: string; source: string };
 
 export type WorkspaceRefs = {
   /** oci:// refs to install and validate. */
   refs: string[];
   /** metadata files skipped because their artifact is not an oci:// ref. */
   skipped: string[];
+  /** packages dropped by a tracked install-scope exclusion. */
+  excluded: ExclusionRecord[];
+  /** packages dropped because they sit at a different support level. */
+  outOfScope: number;
+  /**
+   * `dynamicPlugins.frontend` keys of the packages this call INCLUDED — never of the
+   * ones it filtered out.
+   *
+   * That is the whole reason this travels with `refs` instead of being read from the
+   * metadata separately. The keys and the bundles they are checked against have to come
+   * from one set: a `--support` sweep installs a subset, and a key belonging to a
+   * filtered-out package would then match no installed bundle and be reported as a
+   * defect. The check would go red precisely on the runs that validate less.
+   */
+  frontendConfigKeys: ConfiguredFrontendKey[];
+};
+
+export type WorkspaceRefsOptions = {
+  /** Keep only packages whose `spec.support` equals this. Unset keeps all of them. */
+  support?: string;
+  /** Returns a record when the package is barred from installing, undefined otherwise. */
+  installExcluded?: (packageName: string) => ExclusionRecord | undefined;
 };
 
 /**
@@ -40,13 +101,60 @@ export function isValidWorkspaceName(name: string): boolean {
   return /^(?!\.+$)[A-Za-z0-9._-]+$/.test(name);
 }
 
-/** Collect the oci:// dynamicArtifact refs of every Package in the workspace. */
-export function collectWorkspaceRefs(
+/**
+ * One property of `value`, when both `value` and that property are plain objects;
+ * undefined otherwise. Named for what it returns — a nested record, never a scalar —
+ * because a `prop()` that silently dropped string fields would surprise its next caller.
+ *
+ * Applied at every level rather than only the last, because repo YAML is validated by no
+ * schema at rest: an example whose `content` is a string, or whose `frontend` is a list,
+ * has to yield nothing rather than throw or invent. See {@link isRecord} for why the
+ * array case is the one that bites.
+ */
+function nestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const inner = value[key];
+  return isRecord(inner) ? inner : undefined;
+}
+
+/**
+ * The `dynamicPlugins.frontend.*` keys an entity's `appConfigExamples` configure.
+ *
+ * Keys are collected across ALL examples and de-duplicated — global-header declares two,
+ * and a package may repeat a key across examples. See {@link nestedRecord} for why every
+ * level is narrowed rather than cast.
+ */
+function readFrontendConfigKeys(examples: unknown): string[] {
+  if (!Array.isArray(examples)) return [];
+  const keys = new Set<string>();
+  for (const example of examples) {
+    const frontend = nestedRecord(
+      nestedRecord(nestedRecord(example, "content"), "dynamicPlugins"),
+      "frontend",
+    );
+    if (frontend === undefined) continue;
+    for (const key of Object.keys(frontend)) keys.add(key);
+  }
+  return [...keys].sort(compareStrings);
+}
+
+/** The first argument that is actually a string, or undefined. */
+function firstString(...values: unknown[]): string | undefined {
+  return values.find((v): v is string => typeof v === "string");
+}
+
+/** Read and flatten every `kind: Package` entity under `workspaces/<name>/metadata/`. */
+export function readWorkspacePackages(
   repoRoot: string,
   workspace: string,
-): WorkspaceRefs {
-  // parseCliInputs already rejects invalid names; kept as defense-in-depth since
-  // this function is exported.
+  // Seam: readdir order is filesystem-dependent (sorted on APFS, hash order on ext4),
+  // so a fixture built on disk cannot prove the sort below happens.
+  listFiles: (dir: string) => string[] = readdirSync,
+): PackageEntry[] {
+  // Callers validate too; kept as defense-in-depth since this function is exported.
   if (!isValidWorkspaceName(workspace)) {
     throw new Error(`invalid workspace name: '${workspace}'`);
   }
@@ -57,37 +165,118 @@ export function collectWorkspaceRefs(
     );
   }
 
-  const refs: string[] = [];
-  const skipped: string[] = [];
-  const files = readdirSync(metadataDir).filter(
-    (f) => f.endsWith(".yaml") || f.endsWith(".yml"),
-  );
-  for (const file of files) {
+  const files = listFiles(metadataDir)
+    .filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"))
+    // readdir order is filesystem-dependent; sort so every consumer (ref lists,
+    // shard plans, reports) is byte-identical run to run and runner to runner.
+    // compareStrings, not the default comparator, for the reason given in src/util.ts.
+    .sort(compareStrings);
+
+  return files.map((file) => {
     // Metadata files are repo-controlled; a malformed one deliberately throws and
     // fails the run (unlike discoverPlugins' warn-and-continue for extracted
     // package.json files) — a broken metadata file in a bump PR should fail loud.
     const doc = parse(
       readFileSync(join(metadataDir, file), "utf8"),
     ) as PackageMetadata | null;
-    const artifact = doc?.spec?.dynamicArtifact;
-    if (typeof artifact === "string" && artifact.startsWith("oci://")) {
-      refs.push(artifact);
-    } else {
-      skipped.push(file);
+    const spec = doc?.spec;
+    const artifact = spec?.dynamicArtifact;
+    return {
+      workspace,
+      file,
+      // Fall back to the entity name, then the file name, so an exclusion pattern
+      // always has something real to match. Both fallbacks are type-checked: metadata
+      // is `unknown`, and String()-ing an object would yield the literal
+      // "[object Object]" — a name that matches nothing and reads as nonsense.
+      packageName: firstString(spec?.packageName, doc?.metadata?.name) ?? file,
+      support: typeof spec?.support === "string" ? spec.support : "",
+      role:
+        typeof spec?.backstage?.role === "string" ? spec.backstage.role : "",
+      artifact: typeof artifact === "string" ? artifact : "",
+      frontendConfigKeys: readFrontendConfigKeys(spec?.appConfigExamples),
+    };
+  });
+}
+
+/** Collect the oci:// dynamicArtifact refs of every in-scope Package in the workspace. */
+export function collectWorkspaceRefs(
+  repoRoot: string,
+  workspace: string,
+  options: WorkspaceRefsOptions = {},
+): WorkspaceRefs {
+  const packages = readWorkspacePackages(repoRoot, workspace);
+
+  const refs: string[] = [];
+  const skipped: string[] = [];
+  const excluded: ExclusionRecord[] = [];
+  const frontendConfigKeys: ConfiguredFrontendKey[] = [];
+  let outOfScope = 0;
+
+  for (const pkg of packages) {
+    if (options.support && pkg.support !== options.support) {
+      outOfScope += 1;
+      continue;
+    }
+    const exclusion = options.installExcluded?.(pkg.packageName);
+    if (exclusion) {
+      excluded.push(exclusion);
       console.warn(
-        `⚠ ${workspace}/${file}: dynamicArtifact is not an oci:// ref ` +
-          `(${typeof artifact === "string" ? artifact : "missing"}) — skipped`,
+        `⚠ ${workspace}/${pkg.file}: '${pkg.packageName}' excluded from install ` +
+          `by ${exclusion.patternSource} (${exclusion.ticket})`,
+      );
+      continue;
+    }
+    if (pkg.artifact.startsWith("oci://")) {
+      refs.push(pkg.artifact);
+      // Only here: a package whose artifact is a local ./dynamic-plugins/dist path ships
+      // inside the RHDH image, so nothing is installed for it and its keys have no
+      // bundle to match.
+      for (const key of pkg.frontendConfigKeys) {
+        frontendConfigKeys.push({ key, source: pkg.file });
+      }
+    } else {
+      skipped.push(pkg.file);
+      console.warn(
+        `⚠ ${workspace}/${pkg.file}: dynamicArtifact is not an oci:// ref ` +
+          `(${pkg.artifact || "missing"}) — skipped`,
       );
     }
   }
 
   if (refs.length === 0) {
     throw new Error(
-      `workspace '${workspace}' has no oci:// dynamicArtifact refs ` +
-        `(${files.length} metadata file(s), ${skipped.length} skipped) — nothing to validate`,
+      emptyRefsMessage(workspace, packages.length, {
+        skipped,
+        excluded,
+        outOfScope,
+      }),
     );
   }
-  return { refs, skipped };
+  return { refs, skipped, excluded, outOfScope, frontendConfigKeys };
+}
+
+/**
+ * Say WHICH filter emptied the set. "No oci refs" and "the support filter matched
+ * nothing" have completely different fixes, and a single generic message sends the
+ * reader looking in the wrong place.
+ */
+function emptyRefsMessage(
+  workspace: string,
+  metadataCount: number,
+  result: Pick<WorkspaceRefs, "skipped" | "excluded" | "outOfScope">,
+): string {
+  const filters = [
+    result.outOfScope
+      ? `${result.outOfScope} at another support level`
+      : undefined,
+    result.excluded.length ? `${result.excluded.length} excluded` : undefined,
+  ].filter(Boolean);
+  return (
+    `workspace '${workspace}' has no oci:// dynamicArtifact refs ` +
+    `(${metadataCount} metadata file(s), ${result.skipped.length} skipped` +
+    (filters.length ? `, ${filters.join(", ")}` : "") +
+    `) — nothing to validate`
+  );
 }
 
 /**
@@ -114,6 +303,9 @@ export async function writeDynamicPluginsConfig(
   destDir: string,
 ): Promise<string> {
   const path = join(destDir, "dynamic-plugins.workspace.yaml");
-  await writeFile(path, stringify({ plugins: refs.map((pkg) => ({ package: pkg })) }));
+  await writeFile(
+    path,
+    stringify({ plugins: refs.map((pkg) => ({ package: pkg })) }),
+  );
   return path;
 }

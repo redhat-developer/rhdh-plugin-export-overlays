@@ -1,4 +1,8 @@
 # Static external-access token for catalog API calls (Helm-injected appConfig).
+global:
+  lightspeed:
+    enabled: false
+
 upstream:
   backstage:
     appConfig:

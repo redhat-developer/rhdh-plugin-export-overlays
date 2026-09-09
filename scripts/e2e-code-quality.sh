@@ -58,7 +58,7 @@ for WORKSPACE in "$@"; do
   echo "========================================"
 
   echo "Installing dependencies..."
-  if ! (cd "$E2E_DIR" && yarn install --immutable 2>&1); then
+  if ! (cd "$E2E_DIR" && yarn install --immutable --mode=skip-build 2>&1); then
     report_error "yarn install failed for ${WORKSPACE}"
     RESULTS="${RESULTS}| ${WORKSPACE} | FAIL (install) | FAIL (install) | FAIL (install) |\n"
     FAILED=1

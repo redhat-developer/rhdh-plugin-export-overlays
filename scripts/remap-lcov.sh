@@ -14,10 +14,23 @@
 
 set -euo pipefail
 
-JSON_DIR="${1:?Usage: $0 <coverage-json-dir> <report-dir>}"
-REPORT_DIR="${2:?Usage: $0 <coverage-json-dir> <report-dir>}"
+JSON_DIR="${1:?Usage: $0 <coverage-json-dir> <report-dir> [remap-options...]}"
+REPORT_DIR="${2:?Usage: $0 <coverage-json-dir> <report-dir> [remap-options...]}"
+shift 2
+# Remaining arguments are forwarded verbatim to remap-coverage.cjs, which is how
+# upload-coverage-upstream.sh selects upstream mode without this script needing
+# to know what the options mean.
+#
+# Any PATH among those forwarded options must be absolute: the remap runs from
+# the repo root (see below), so a relative one resolves against that root rather
+# than the caller's directory. REPORT_DIR is absolutised here because it is this
+# script's own contract and is consumed after that cd; JSON_DIR needs no such
+# treatment, since nyc reads it before the cd, from the caller's directory.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+mkdir -p "$REPORT_DIR"
+REPORT_DIR="$(cd "$REPORT_DIR" && pwd)"
 
 # The istanbul libraries are installed into a throwaway prefix so they never
 # land in the repo or a workspace's node_modules. The trap cleans them up on
@@ -38,4 +51,4 @@ npx nyc@18.0.0 merge "$JSON_DIR" "$NYC_OUT/out.json"
 # anchors (workspaces/*/coverage-anchors/<scalprum-name>), so it must run from
 # the repo root.
 ( cd "$REPO_ROOT" && NODE_PATH="$DEPS_DIR/node_modules" \
-    node "$SCRIPT_DIR/remap-coverage.cjs" "$NYC_OUT/out.json" "$REPORT_DIR" )
+    node "$SCRIPT_DIR/remap-coverage.cjs" "$NYC_OUT/out.json" "$REPORT_DIR" "$@" )

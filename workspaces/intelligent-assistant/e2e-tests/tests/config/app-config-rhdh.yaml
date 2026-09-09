@@ -1,0 +1,59 @@
+# RHDH app config merged at deploy. Do not use lightspeed.servers (Road-Core era).
+# LCS + Llama Stack run as the lightspeed-core sidecar when global.lightspeed.enabled is true.
+#
+# Drawer must wrap the FAB so Lightspeed context nests correctly.
+app:
+  extensions:
+    - app-root-wrapper:app/drawer
+    - app-root-wrapper:app/intelligent-assistant-fab
+    - app-drawer-content:intelligent-assistant/intelligent-assistant
+    - translation:app/intelligent-assistant-translations
+    - api:app/app-language:
+        config:
+          availableLanguages: ["en", "de", "es", "fr", "it", "ja"]
+          defaultLanguage: "en"
+
+permission:
+  enabled: true
+  rbac:
+    pluginsWithPermission:
+      - catalog
+      - permission
+      - intelligent-assistant
+    admin:
+      superUsers:
+        - name: user:default/test1
+
+backend:
+  csp:
+    upgrade-insecure-requests: false
+    img-src:
+      - "'self'"
+      - "data:"
+      - https://avatars.githubusercontent.com
+      - https://secure.gravatar.com
+    script-src:
+      - "'self'"
+      - "'unsafe-eval'"
+      - https://cdn.jsdelivr.net
+
+# Clears the default lightspeed frontend routes/mountPoints so they don't conflict
+# with the renamed intelligent-assistant plugin (same import names, different routes).
+# TODO: Remove after https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/2806
+# removes lightspeed from the default catalog index.
+dynamicPlugins:
+  frontend:
+    red-hat-developer-hub.backstage-plugin-lightspeed:
+      dynamicRoutes: []
+      mountPoints: []
+
+intelligent-assistant:
+  notebooks:
+    enabled: true
+    queryDefaults:
+      model: ${NOTEBOOK_DEFAULT_MODEL}
+      provider_id: ${NOTEBOOK_PROVIDER}
+  servicePort: 8080
+  prompts:
+    - title: Getting Started with Red Hat Developer Hub
+      message: Can you guide me through the first steps to start using Developer Hub as a developer, like exploring the Software Catalog and adding my service?

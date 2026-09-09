@@ -18,10 +18,25 @@
 #      - Instruments JavaScript with nyc (Istanbul)
 #      - Builds a new coverage image with instrumented files
 #      - Pushes the coverage image with __coverage tag suffix
+#
+# Environment:
+#   MAX_INSTRUMENTED_ENTRY_SIZE  Zip-bomb guard threshold in bytes (default
+#                                15000000). Files whose instrumented output
+#                                exceeds this are restored to their original
+#                                uninstrumented version. See RHDHBUGS-3470.
 
 set -euo pipefail
 
 WORKSPACE="${1:?Usage: $0 <workspace-path>}"
+
+# Zip-bomb guard threshold: must stay below RHDH's install-dynamic-plugins
+# per-entry limit (MAX_ENTRY_SIZE, currently 20 MB by default; the extensions
+# workspace overrides it to 40 MB in its e2e value_file.yaml).
+MAX_INSTRUMENTED_ENTRY_SIZE="${MAX_INSTRUMENTED_ENTRY_SIZE:-15000000}"
+if ! [[ "$MAX_INSTRUMENTED_ENTRY_SIZE" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: MAX_INSTRUMENTED_ENTRY_SIZE must be a number of bytes, got: $MAX_INSTRUMENTED_ENTRY_SIZE" >&2
+  exit 1
+fi
 
 if [[ ! -d "$WORKSPACE" ]]; then
   echo "ERROR: Workspace directory not found: $WORKSPACE" >&2
@@ -188,6 +203,34 @@ while IFS= read -r PROD_IMAGE; do
     UNFIXED_COUNT=$(count_files_matching 'new Function("return this")' "$WORK_DIR/inst-$BUNDLE")
     if [[ "$UNFIXED_COUNT" -ne 0 ]]; then
       echo "  ⚠️  $UNFIXED_COUNT file(s) in $BUNDLE/ still use new Function(\"return this\") after the fix"
+    fi
+
+    # Zip-bomb guard (RHDHBUGS-3470): Istanbul inflates large vendor chunks
+    # (lodash, d3, MUI, ...) far past RHDH's install-dynamic-plugins per-entry
+    # limit, e.g. topology's 1.7 MB vendor chunk becomes 44.6 MB and the pod
+    # init fails with "Zip bomb detected". Vendor code is dropped from the
+    # coverage report anyway (remap-coverage.cjs skips node_modules), so
+    # restore the original file for any instrumented output exceeding the
+    # threshold — losing nothing the report would have kept.
+    GUARD_FAILED=false
+    while IFS= read -r -d '' BIG_FILE; do
+      REL="${BIG_FILE#"$WORK_DIR/inst-$BUNDLE/"}"
+      ORIG_FILE="$WORK_DIR/orig-$BUNDLE/$REL"
+      if [[ -f "$ORIG_FILE" ]]; then
+        INST_SIZE=$(stat -c%s "$BIG_FILE" 2>/dev/null || stat -f%z "$BIG_FILE")
+        ORIG_SIZE=$(stat -c%s "$ORIG_FILE" 2>/dev/null || stat -f%z "$ORIG_FILE")
+        cp "$ORIG_FILE" "$BIG_FILE"
+        echo "  ⚠️  $BUNDLE/$REL instrumented to ${INST_SIZE}B (> ${MAX_INSTRUMENTED_ENTRY_SIZE}B zip-bomb guard) — restored original (${ORIG_SIZE}B); no coverage for this chunk"
+      else
+        echo "  ❌ $BUNDLE/$REL exceeds the zip-bomb guard but its original was not found - skipping that bundle"
+        GUARD_FAILED=true
+      fi
+    done < <(find "$WORK_DIR/inst-$BUNDLE" -type f -name '*.js' -size +"${MAX_INSTRUMENTED_ENTRY_SIZE}c" -print0)
+    if [[ "$GUARD_FAILED" == "true" ]]; then
+      # Shipping the oversized file would fail at deploy time (zip bomb), so
+      # drop this bundle's overlay — the image falls back to the base layer's
+      # original (uninstrumented but valid) bundle instead.
+      continue
     fi
 
     BUNDLE_JS_COUNT=$(count_files_matching "__coverage__" "$WORK_DIR/inst-$BUNDLE")

@@ -5,6 +5,7 @@ import {
   GITHUB_ORG,
 } from "../../support/constants/github";
 import {
+  CATALOG_IMPORT_ROUTE,
   CATALOG_FIXTURE_REPOS,
   catalogImportComponentUrl,
 } from "../../support/constants/catalog";
@@ -24,7 +25,7 @@ import {
 } from "../../support/constants/bulk-import-selectors";
 
 test.describe("Bulk Import plugin", () => {
-  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}`;
+  const catalogRepoName = `${GITHUB_ORG}-1-bulk-import-test-${Date.now()}-${process.pid}`;
   const catalogRepoDetails = {
     name: catalogRepoName,
     url: `github.com/${GITHUB_ORG}/${catalogRepoName}`,
@@ -43,7 +44,7 @@ spec:
   lifecycle: unknown
   owner: user:default/${GITHUB_CATALOG_OWNER}`;
 
-  const newRepoName = `bulk-import-${Date.now()}`;
+  const newRepoName = `bulk-import-${Date.now()}-${process.pid}`;
   const newRepoDetails = {
     owner: `${GITHUB_ORG}`,
     repoName: newRepoName,
@@ -53,13 +54,42 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce("bulk-import-rhdh-setup", async () => {
-      await setupBulkImportRhdh(rhdh, {
-        appConfig: "tests/config/app-config-rhdh.yaml",
-        dynamicPlugins: "tests/config/dynamic-plugins.yaml",
-        valueFile: "tests/config/values.yaml",
-      });
-    });
+    const namespace = rhdh.deploymentConfig.namespace;
+    const isAppNext = namespace.endsWith("-app-next");
+
+    // NOTE: nightly deliberately exercises a different artifact here, and that is not a
+    // reason to skip. Because this package is in default.packages.yaml, nightly's DPDY
+    // resolution rewrites it to `oci://registry.access.redhat.com/rhdh/...:{{inherit}}`,
+    // so the lane tests the *productized* plugin rather than the ghcr artifact this repo
+    // pins. For an NFS lane that is the more useful signal, not a weaker one.
+    // `topology` is in the same position -- frontend package in the DPDY set, app-next
+    // lane, no nightly skip. The two workspaces that do skip nightly have unrelated and
+    // verified causes: app-defaults' packages are not in the image at all (RHIDP-15482),
+    // and tech-radar is shadowed by a baked-in wrapper. Neither applies here.
+
+    // Scope the key by namespace, mirroring what deploy() does internally
+    // (`deploy-${namespace}`). runOnce keys a flag file by the string alone, in a
+    // directory shared by every project in the run, so a literal key would let the
+    // first project's setup satisfy the second one and the app-next lane would never
+    // deploy into its own namespace.
+    await test.runOnce(
+      `bulk-import-rhdh-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        await setupBulkImportRhdh(rhdh, {
+          appConfig: "tests/config/app-config-rhdh.yaml",
+          dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+          valueFile: "tests/config/values.yaml",
+        });
+      },
+    );
+
+    // Without this, a lane that silently failed to enable NFS would just re-run the
+    // legacy suite and stay green — a false pass on the only thing this lane adds.
+    // Only the forward direction is asserted: USE_NEW_FRONTEND_SYSTEM=true can legally
+    // turn NFS on for every lane, so the legacy lane is not constrained here.
+    if (isAppNext) {
+      expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
+    }
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
@@ -231,8 +261,7 @@ spec:
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
       await uiHelper.openSidebar("Catalog");
-      await uiHelper.clickButton("Self-service");
-      await uiHelper.clickButton("Import an existing Git repository");
+      await page.goto(CATALOG_IMPORT_ROUTE);
       await catalogImport.registerFromComponentUrl(catalogImportedRepo.url);
 
       await expect(async () => {

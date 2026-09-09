@@ -1,37 +1,7 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import * as path from "node:path";
-import { NotificationPage } from "../../support/pages/notifications";
-import {
-  Notifications,
-  RhdhNotificationsApi,
-} from "../../support/api/notifications";
-
-async function createNotification(
-  notificationTitle: string,
-  severity?: string,
-) {
-  const apiToken = "test-token";
-  const r = crypto.randomUUID();
-  const notificationsApi = await RhdhNotificationsApi.build(apiToken);
-  const title = severity
-    ? `${notificationTitle} ${severity}-${r}`
-    : `${notificationTitle}-${r}`;
-
-  const notification: Notifications = {
-    recipients: {
-      type: "broadcast",
-      entityRef: [""],
-    },
-    payload: {
-      title,
-      description: `Test ${title}`,
-      severity: severity || "Normal",
-      topic: `Testing ${title}`,
-    },
-  };
-  await notificationsApi.createNotification(notification);
-  return title;
-}
+import { createNotification } from "../../support/api/notifications-helper";
 
 test.describe("Backstage Notifications Plugin", () => {
   let notificationPage: NotificationPage;
@@ -45,6 +15,7 @@ test.describe("Backstage Notifications Plugin", () => {
       valueFile: `${configBase}/value-file.yaml`,
       dynamicPlugins: `${configBase}/dynamic-plugins.yaml`,
       auth: "keycloak",
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
@@ -64,7 +35,7 @@ test.describe("Backstage Notifications Plugin", () => {
           notificationTitle,
           severity,
         );
-        await notificationPage.clickNotificationsNavBarItem();
+        await notificationPage.navigateToNotifications();
         await notificationPage.selectSeverity(severity);
         await notificationPage.notificationContains(notificationId);
       });
@@ -76,7 +47,7 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as read",
       );
-      await notificationPage.clickNotificationsNavBarItem();
+      await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
       await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
@@ -89,7 +60,7 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as unread",
       );
-      await notificationPage.clickNotificationsNavBarItem();
+      await notificationPage.navigateToNotifications();
       await notificationPage.notificationContains(`${notificationId}`);
       await notificationPage.markNotificationAsRead(`${notificationId}`);
       await notificationPage.viewRead();
@@ -107,8 +78,11 @@ test.describe("Backstage Notifications Plugin", () => {
       const notificationId = await createNotification(
         "UI Notification Mark as saved",
       );
-      await notificationPage.clickNotificationsNavBarItem();
-      await notificationPage.selectNotification();
+      await notificationPage.navigateToNotifications();
+      await notificationPage.notificationContains(`${notificationId}`);
+      await expect(async () => {
+        await notificationPage.selectNotification(notificationId);
+      }).toPass({ timeout: 3000 });
       await notificationPage.saveSelected();
       await notificationPage.viewSaved();
       await notificationPage.notificationContains(

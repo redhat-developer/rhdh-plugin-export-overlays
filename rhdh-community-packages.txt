@@ -1,5 +1,6 @@
-# RHDH Community-Supported package list
-# do not include package for which we never had wrappers / bundled the package in RHDH
+# Optional Extras (including Community and Developer Preview) package list
+# To add new content, please open an RHDHPLAN feature JIRA first.
+
 # NOTE: include one line per package following the format: <workspace-folder>/plugins/<plugin-folder> or whatever the workspace path is
 
 # confirmed Community @ 11/07 meeting
@@ -54,3 +55,22 @@ quay/plugins/quay-actions
 roadie-backstage-plugins/plugins/backend/backstage-plugin-argo-cd-backend
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-argocd
 tekton/plugins/tekton
+
+# scorecard plugins are going TP in 2.1
+# TODO move this to the supported list when ready in https://redhat.atlassian.net/browse/RHDHPLAN-1234
+scorecard/plugins/scorecard
+scorecard/plugins/scorecard-backend
+scorecard/plugins/scorecard-backend-module-github
+scorecard/plugins/scorecard-backend-module-jira
+scorecard/plugins/scorecard-backend-module-openssf
+scorecard/plugins/scorecard-backend-module-dependabot
+scorecard/plugins/scorecard-backend-module-filecheck
+scorecard/plugins/scorecard-backend-module-sonarqube
+
+# moved from TP to Community in 2.1 - https://redhat.atlassian.net/browse/RHDHPLAN-951
+acr/plugins/acr
+
+# moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
+apiconnect/plugins/apic-backstage
+dynatrace-dql/plugins/dql
+dynatrace-dql/plugins/dql-backend

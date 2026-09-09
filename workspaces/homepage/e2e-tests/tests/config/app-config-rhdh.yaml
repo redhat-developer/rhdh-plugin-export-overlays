@@ -1,3 +1,16 @@
+# NFS (Backstage app) requires app.extensions so Home is registered, plus the upstream
+# backstage-plugin-home OCI (see dynamic-plugins.yaml).
+app:
+  extensions:
+    - page:home:
+        config:
+          path: /
+    - api:home/visits: true
+    - app-root-element:home/visit-listener: true
+    - home-page-layout:home/dynamic-homepage-layout:
+        config:
+          customizable: true
+
 permission:
   enabled: true
   rbac:
