@@ -120,6 +120,14 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
 - **Overlay** (`plugins/<plugin>/overlay/`): Replaces or adds entire files during packaging. Used for plugin-specific changes.
 - **Patch** (`patches/*.patch`): Applies line-by-line changes to workspace source before build. Used for workspace-wide fixes. Numbered prefix controls application order (e.g., `1-fix-something.patch`).
 
+### PR Scoping
+
+The `/publish` workflow and workspace-scoped E2E verification (`/test e2e-tests`) require PRs to touch exactly one workspace. PRs that modify files across multiple `workspaces/*/` directories are rejected by `/publish` with "PR doesn't touch only 1 workspace" and cannot be verified through the standard CI flow.
+
+**When creating issues or PRs that require changes across multiple workspaces:** Create one issue (and one PR) per workspace rather than a single cross-workspace issue. Each single-workspace PR can then be independently verified via `/publish` and `/smoketest`.
+
+**If a cross-workspace PR is unavoidable:** Note in the PR description that `/publish` will not work. Use `/test e2e-ocp-helm-nightly` as an alternative verification path — it runs all workspaces against released OCI images. When reviewing nightly results, focus on net-new failures that correspond to the PR's changes, since pre-existing failures in other workspaces are expected noise.
+
 ### Major Version Bumps in Patches
 
 When a patch in `patches/*.patch` bumps a dependency across a major version (e.g., 2.x to 3.x), the change carries higher risk than a minor or patch-level bump — even when the bump comes through an intermediate dependency. Major versions introduce documented breaking API changes that can cause runtime failures in exported plugins.
