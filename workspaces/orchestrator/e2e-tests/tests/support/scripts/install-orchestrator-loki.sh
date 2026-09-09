@@ -492,8 +492,22 @@ EOF
 }
 
 ensure_minio_bucket() {
-  oc delete job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" --ignore-not-found
-  oc apply -f - <<EOF
+  local job_name="${MINIO_NAME}-create-bucket"
+  if [[ "$(oc get job "${job_name}" -n "${LOKI_NS}" \
+    -o jsonpath='{.status.succeeded}' 2>/dev/null || true)" == "1" ]]; then
+    log "MinIO bucket job already succeeded"
+    return 0
+  fi
+
+  local failed_count
+  failed_count="$(oc get job "${job_name}" -n "${LOKI_NS}" \
+    -o jsonpath='{.status.failed}' 2>/dev/null || true)"
+  if [[ -n "${failed_count}" && "${failed_count}" != "0" ]]; then
+    log "MinIO bucket job previously failed; recreating"
+    oc delete job "${job_name}" -n "${LOKI_NS}" --ignore-not-found --wait=true || true
+  fi
+
+  if ! oc apply -f - <<EOF
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -534,6 +548,13 @@ spec:
               mc mb --ignore-existing "local/${MINIO_BUCKET}"
               mc ls local
 EOF
+  then
+    if ! oc get job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" &>/dev/null; then
+      log "ERROR: failed to create MinIO bucket job"
+      return 1
+    fi
+    log "MinIO bucket job already exists; waiting for the other worker"
+  fi
 
   log "Waiting for MinIO bucket job..."
   timeout 180 oc wait "job/${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" \
@@ -647,7 +668,13 @@ ensure_collector_service_account() {
 
   if ! oc get sa "${sa}" -n "${LOKI_NS}" &>/dev/null; then
     log "Creating collector ServiceAccount in ${LOKI_NS}..."
-    oc create sa "${sa}" -n "${LOKI_NS}"
+    if ! oc create sa "${sa}" -n "${LOKI_NS}"; then
+      if ! oc get sa "${sa}" -n "${LOKI_NS}" &>/dev/null; then
+        log "ERROR: failed to create ServiceAccount ${sa}"
+        return 1
+      fi
+      log "ServiceAccount ${sa} already exists; continuing"
+    fi
   fi
 
   for role in \

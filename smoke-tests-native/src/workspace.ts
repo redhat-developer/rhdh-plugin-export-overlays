@@ -24,7 +24,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
-import { compareStrings } from "./util";
+import { compareStrings, isRecord } from "./util";
 
 type PackageMetadata = {
   metadata?: { name?: unknown };
@@ -33,6 +33,7 @@ type PackageMetadata = {
     dynamicArtifact?: unknown;
     support?: unknown;
     backstage?: { role?: unknown };
+    appConfigExamples?: unknown;
   };
 };
 
@@ -49,7 +50,18 @@ export type PackageEntry = {
   role: string;
   /** `spec.dynamicArtifact` — an `oci://` ref, or a local `./dynamic-plugins/…` path. */
   artifact: string;
+  /**
+   * The `dynamicPlugins.frontend.<key>` keys this package's `spec.appConfigExamples`
+   * configure. RHDH matches each against the `name` in a bundle's
+   * `dist-scalprum/plugin-manifest.json`; a key matching no bundle is configuration
+   * that silently does nothing (RHIDP-16690). Empty for most backend packages and for
+   * the frontend packages that ship no app-config example.
+   */
+  frontendConfigKeys: string[];
 };
+
+/** One configured `dynamicPlugins.frontend` key, with the metadata file that sets it. */
+export type ConfiguredFrontendKey = { key: string; source: string };
 
 export type WorkspaceRefs = {
   /** oci:// refs to install and validate. */
@@ -60,9 +72,20 @@ export type WorkspaceRefs = {
   excluded: ExclusionRecord[];
   /** packages dropped because they sit at a different support level. */
   outOfScope: number;
+  /**
+   * `dynamicPlugins.frontend` keys of the packages this call INCLUDED — never of the
+   * ones it filtered out.
+   *
+   * That is the whole reason this travels with `refs` instead of being read from the
+   * metadata separately. The keys and the bundles they are checked against have to come
+   * from one set: a `--support` sweep installs a subset, and a key belonging to a
+   * filtered-out package would then match no installed bundle and be reported as a
+   * defect. The check would go red precisely on the runs that validate less.
+   */
+  frontendConfigKeys: ConfiguredFrontendKey[];
 };
 
-export type CollectRefsOptions = {
+export type WorkspaceRefsOptions = {
   /** Keep only packages whose `spec.support` equals this. Unset keeps all of them. */
   support?: string;
   /** Returns a record when the package is barred from installing, undefined otherwise. */
@@ -76,6 +99,46 @@ export type CollectRefsOptions = {
  */
 export function isValidWorkspaceName(name: string): boolean {
   return /^(?!\.+$)[A-Za-z0-9._-]+$/.test(name);
+}
+
+/**
+ * One property of `value`, when both `value` and that property are plain objects;
+ * undefined otherwise. Named for what it returns — a nested record, never a scalar —
+ * because a `prop()` that silently dropped string fields would surprise its next caller.
+ *
+ * Applied at every level rather than only the last, because repo YAML is validated by no
+ * schema at rest: an example whose `content` is a string, or whose `frontend` is a list,
+ * has to yield nothing rather than throw or invent. See {@link isRecord} for why the
+ * array case is the one that bites.
+ */
+function nestedRecord(
+  value: unknown,
+  key: string,
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) return undefined;
+  const inner = value[key];
+  return isRecord(inner) ? inner : undefined;
+}
+
+/**
+ * The `dynamicPlugins.frontend.*` keys an entity's `appConfigExamples` configure.
+ *
+ * Keys are collected across ALL examples and de-duplicated — global-header declares two,
+ * and a package may repeat a key across examples. See {@link nestedRecord} for why every
+ * level is narrowed rather than cast.
+ */
+function readFrontendConfigKeys(examples: unknown): string[] {
+  if (!Array.isArray(examples)) return [];
+  const keys = new Set<string>();
+  for (const example of examples) {
+    const frontend = nestedRecord(
+      nestedRecord(nestedRecord(example, "content"), "dynamicPlugins"),
+      "frontend",
+    );
+    if (frontend === undefined) continue;
+    for (const key of Object.keys(frontend)) keys.add(key);
+  }
+  return [...keys].sort(compareStrings);
 }
 
 /** The first argument that is actually a string, or undefined. */
@@ -130,6 +193,7 @@ export function readWorkspacePackages(
       role:
         typeof spec?.backstage?.role === "string" ? spec.backstage.role : "",
       artifact: typeof artifact === "string" ? artifact : "",
+      frontendConfigKeys: readFrontendConfigKeys(spec?.appConfigExamples),
     };
   });
 }
@@ -138,13 +202,14 @@ export function readWorkspacePackages(
 export function collectWorkspaceRefs(
   repoRoot: string,
   workspace: string,
-  options: CollectRefsOptions = {},
+  options: WorkspaceRefsOptions = {},
 ): WorkspaceRefs {
   const packages = readWorkspacePackages(repoRoot, workspace);
 
   const refs: string[] = [];
   const skipped: string[] = [];
   const excluded: ExclusionRecord[] = [];
+  const frontendConfigKeys: ConfiguredFrontendKey[] = [];
   let outOfScope = 0;
 
   for (const pkg of packages) {
@@ -163,6 +228,12 @@ export function collectWorkspaceRefs(
     }
     if (pkg.artifact.startsWith("oci://")) {
       refs.push(pkg.artifact);
+      // Only here: a package whose artifact is a local ./dynamic-plugins/dist path ships
+      // inside the RHDH image, so nothing is installed for it and its keys have no
+      // bundle to match.
+      for (const key of pkg.frontendConfigKeys) {
+        frontendConfigKeys.push({ key, source: pkg.file });
+      }
     } else {
       skipped.push(pkg.file);
       console.warn(
@@ -181,7 +252,7 @@ export function collectWorkspaceRefs(
       }),
     );
   }
-  return { refs, skipped, excluded, outOfScope };
+  return { refs, skipped, excluded, outOfScope, frontendConfigKeys };
 }
 
 /**

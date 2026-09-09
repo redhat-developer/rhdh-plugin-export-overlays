@@ -1,4 +1,4 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
   const dateRegex =
@@ -13,16 +13,21 @@ test.describe("Test ACR plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test("Verify ACR Images are visible", async ({ uiHelper }, testInfo) => {
+  test("Verify ACR Images are visible", async ({
+    uiHelper,
+    page,
+  }, testInfo) => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
-    // Legacy uses the shared Image Registry tab; NFS uses the plugin entity-content title.
-    const tabName =
-      // eslint-disable-next-line playwright/no-conditional-in-test -- NFS tab title differs from legacy
-      testInfo.project.name === "acr-app-next"
-        ? "ACR IMAGES"
-        : "Image Registry";
-    await uiHelper.clickTab(tabName);
+    // eslint-disable-next-line playwright/no-conditional-in-test -- NFS nav differs from legacy
+    if (testInfo.project.name === "acr-app-next") {
+      const acrImagesLink = page.getByRole("link", { name: "ACR images" });
+      // eslint-disable-next-line playwright/no-conditional-expect -- NFS nav differs from legacy
+      await expect(acrImagesLink).toBeVisible();
+      await acrImagesLink.click();
+    } else {
+      await uiHelper.clickTab("Image Registry");
+    }
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );

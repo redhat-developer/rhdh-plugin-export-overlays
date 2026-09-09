@@ -182,8 +182,16 @@ export function loadExclusions(path: string): Exclusion[] {
  * the suffixed form too keeps one pattern valid at both `install` scope (resolved
  * from metadata) and `boot` scope (resolved from the install root) — otherwise an
  * anchored pattern silently matches at one scope and not the other.
+ *
+ * The OCI IMAGE NAME is a third spelling of the same plugin, and catalog-index mode has
+ * nothing else to offer: an index carries `oci://…/backstage-community-plugin-quay@sha256:…`
+ * and no npm name anywhere. Emitting the image form here is what lets ONE pattern in
+ * catalog-index-sanity-excludes.txt hold at install scope (matched against the image
+ * name read off the index) and at boot scope (matched against the installed
+ * package.json's npm name) — the same one-identifier-space guarantee the -dynamic
+ * normalization gives workspace mode.
  */
-function candidateNames(packageName: string): string[] {
+export function candidateNames(packageName: string): string[] {
   const base = packageName.replace(/-dynamic$/, "");
   // Both directions. Stripping only the NAME meant a pattern written with the suffix
   // matched at boot scope (installed name) but not at install scope (metadata name) —
@@ -191,7 +199,12 @@ function candidateNames(packageName: string): string[] {
   // here to prevent.
   // `packageName` is already one of these two: it either ends in -dynamic (so it
   // equals the second) or it does not (so it equals the first).
-  return [...new Set([base, `${base}-dynamic`])];
+  const npm = [base, `${base}-dynamic`];
+  // `@scope/name` -> `scope-name`, the transform the export tooling uses to name the
+  // published image. A name that is already in image form passes through unchanged, so
+  // this only ever ADDS candidates and never removes an npm-form match.
+  const image = base.replace(/^@/, "").replaceAll("/", "-");
+  return [...new Set([...npm, image, `${image}-dynamic`])];
 }
 
 /** First exclusion of `scope` matching the package name, if any. */

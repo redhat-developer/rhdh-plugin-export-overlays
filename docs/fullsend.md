@@ -15,6 +15,7 @@
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
 | E2E Triage | Auto-triggers nightly via `e2e-triage` label | Discovers failed nightly E2E runs, classifies per workspace, creates issues for the code agent |
+| CI Diagnose | Auto-triggers via `ci-diagnose` label when curated PR checks go red, or `/fs-diagnose` slash command | Diagnoses failing PR checks (Prow, GitHub Actions, comment-command statuses) and posts a read-only sticky diagnostic comment |
 
 ### Auto-trigger vs. manual trigger
 
@@ -23,8 +24,9 @@
 | Triage | **Does not auto-trigger on issue open.** The workflow only listens for `issues/labeled` to prevent external users from burning inference tokens on a public repo. | `/fs-triage` on an issue (auth-gated) |
 | Coder | Does not auto-trigger from triage. Triage labels `triaged`, not `ready-to-code`. | `/fs-code` on a triaged issue, or manually add `ready-to-code` label |
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
-| Fix | Only auto-fires from bot reviews, not from human reviews. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
+| Fix | Only auto-fires from bot reviews, not from human reviews. Includes the ci-diagnose `CHANGES_REQUESTED` hand-off on bot-authored PRs. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
 | E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies failures → post-script creates per-workspace issues with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
+| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script upserts one sticky comment on the PR. On **bot-authored** PRs with `pr_regression` failures, the post-script then requests changes as `fullsend-ai-review[bot]` so the existing fix on-ramp runs (see [Automated ci-diagnose → fix hand-off](#automated-ci-diagnose--fix-hand-off)). `pre_existing` failures are linked to an open PR when one already addresses them. | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
 
 ### Scope details
 
@@ -41,6 +43,59 @@ The `paths` filter (`workspaces/backstage-plugins-for-aws/**`) only applies to t
 | Retro | Out of scope for initial pilot |
 | Prioritize | Out of scope for initial pilot |
 
+## Automated ci-diagnose → fix hand-off
+
+For **bot-authored PRs** (opened by `fullsend-ai-coder`), ci-diagnose can hand
+its diagnosis to the fix agent **automatically**, so a maintainer doesn't have
+to type `/fs-fix` by hand. This lives in `post-ci-diagnose.sh` — no extra
+workflow and no PAT.
+
+**Flow:** the ci-diagnose agent writes `agent-result.json` → `post-ci-diagnose.sh`
+upserts the sticky comment, then (if guards pass) submits a `CHANGES_REQUESTED`
+review as `fullsend-ai-review[bot]` (the same review App that minted the
+diagnose token) → `fullsend.yaml`'s `pull_request_review` path dispatches the
+inlined fix job. Frozen `fix.md` already reads the last `CHANGES_REQUESTED`
+body from that bot.
+
+**Why a review, not `/fs-fix`:** the post-script's token is an App token
+(`type: Bot`). `fullsend.yaml` drops Bot `issue_comment`s, so a slash command
+from this script would never dispatch. App-token *reviews* do emit webhooks
+(only `GITHUB_TOKEN` writes are suppressed), and `reusable-dispatch.yml`
+already treats `changes_requested` from `fullsend-ai-review[bot]` as a fix
+on-ramp. That is the same bot-to-bot pattern as the `ci-diagnose` label cycle
+(ADR 0054) — labels and forge events, not forged human slash commands.
+
+**Guards — all must hold, or nothing is reviewed:**
+
+| Guard | Rule |
+|-------|------|
+| Fixable finding | ≥1 check classified `pr_regression` with a non-empty `suggestion` (read from `agent-result.json`) |
+| Bot PR only | PR author is `fullsend-ai-coder[bot]` — never human PRs |
+| No forks | `head.repo == base.repo` (fork PRs are untrusted) |
+| Under the cap | Fewer than **2** prior auto-fix reviews on this PR |
+| Not disabled | No `fullsend-no-fix` label |
+| No human takeover | No human `/fs-fix` comment already on the PR |
+| Idempotent per commit | No prior auto-fix review for the current head SHA |
+| Not stale | Diagnosis `head_sha` still matches the PR head |
+
+**The 2-attempt cap** is enforced by counting reviews whose body contains
+`<!-- ci-diagnose-autofix: <sha> -->` — a marker the post-script writes and
+no sandbox agent can. Counting *reviews with that marker* (not every review
+from `fullsend-ai-review[bot]`) keeps real review-agent `CHANGES_REQUESTED`
+events out of the budget. It's a lifetime count with no auto-reset; only a
+trusted human dismissing/deleting those reviews resets it. When the cap is
+hit, the post-script posts a one-time note and stops. The fix agent's built-in
+`FIX_ITERATION` cap still applies as a coarser backstop.
+
+**Fixable set** = `pr_regression` only (this PR caused it). `pre_existing` is
+still diagnosed and, when another open PR already addresses it, the sticky
+comment links that PR — it is **not** handed to auto-fix. `flake` /
+`config_env` / `product_bug` / `needs_human` are **not** handed off.
+
+**Provisioning:** none. The diagnose harness already uses `role: review` /
+`slug: fullsend-ai-review`, and mint already grants that App
+`pull_requests: write`. No `FS_AUTOFIX_TOKEN` / machine-user.
+
 ## Slash commands
 
 Slash commands are **restricted to org members and collaborators** via an `author_association` check in the workflow shim. This prevents external users from burning Vertex AI tokens on this public repo.
@@ -52,6 +107,7 @@ Slash commands are **restricted to org members and collaborators** via an `autho
 | `/fs-review` | Run review on a PR |
 | `/fs-fix` | Fix issues flagged in a review |
 | `/fs-fix-stop` | Disable fix agent for a PR (adds `fullsend-no-fix` label) |
+| `/fs-diagnose` | Diagnose failing CI checks on a PR |
 
 ## How to expand review to more workspaces
 
@@ -175,7 +231,7 @@ The dispatch job checks `author_association` on `issue_comment` events. Only `OW
 
 ### CODEOWNERS protection
 
-The `.fullsend/` directory, `.github/workflows/fullsend.yaml`, and `.github/workflows/e2e-triage-agent.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
+The `.fullsend/` directory, `.github/workflows/fullsend.yaml`, `.github/workflows/e2e-triage-agent.yaml`, and `.github/workflows/ci-diagnose-agent.yaml` are protected via CODEOWNERS, requiring `@redhat-developer/rhdh-cope @durandom @subhashkhileri` approval.
 
 ### Inference authentication
 
@@ -185,12 +241,13 @@ Fullsend uses GCP Workload Identity Federation (WIF) to authenticate GitHub Acti
 
 | Path | Purpose |
 |------|---------|
-| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage) and roles |
+| `.fullsend/config.yaml` | Declares enabled agents (code, fix, review, e2e-triage, ci-diagnose) and roles |
 | `.fullsend/rhdh/` | Custom agents, harnesses, policies, schemas, scripts, and skills |
 | `.fullsend/customized/` | Scaffold stubs for future agent/harness/policy/skill customizations |
 | `.fullsend/customized/scripts/pre-fix-rebase.sh` | Auto-rebase before fix agent runs |
 | `.github/workflows/fullsend.yaml` | Event shim with auth gate on slash commands |
 | `.github/workflows/e2e-triage-agent.yaml` | Nightly E2E failure discovery → creates labeled issue for triage agent |
+| `.github/workflows/ci-diagnose-agent.yaml` | PR CI-completion bridge → cycles `ci-diagnose` label for the diagnose agent |
 
 ## Debugging
 
