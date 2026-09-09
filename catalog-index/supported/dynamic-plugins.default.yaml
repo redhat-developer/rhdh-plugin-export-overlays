@@ -8,7 +8,7 @@
 # https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/blob/main/build/ci/update-index.sh
 plugins:
   # Tag: bs_1.54.6__1.31.1, Build date: 2026-06-03T21:17:18Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:5118238eed831076f8612d3292c2d06ec2bf07f4c636a323cff63a86f626d140
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:e21c2e7a3920b26aaa3b7fd1a38a3f56de89d4d3d263ab03394fca7654b6e0a9
     enabled: true
     pluginConfig:
       dynamicPlugins:
