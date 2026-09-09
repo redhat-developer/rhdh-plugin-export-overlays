@@ -336,7 +336,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8be61645dbb58472b3400a86fb77ac442a585ff9d1e5cbcf0236397fa2035a95"
+          "digest": "sha256:445e7c4aa86239012aa1e66dd0213b62c38be3fa9d5588923abaf7b9d108e316"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
@@ -572,7 +572,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6359d07261cb4e35d36e30da9f9b8399445cee2ec0c85c566aed686a4f25e776"
+          "digest": "sha256:435e7061b0f9196a8bd8138c3364c42b61167c5fbf88f59d1559f7f950ba41d8"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
@@ -584,11 +584,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.52.0__1.26.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.54.6__1.27.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -598,7 +594,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.54.6__1.27.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -606,9 +603,9 @@
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
-      "version": "1.26.0",
+      "version": "1.27.1",
       "workspace": "nexus-repository-manager",
-      "overall": "pass"
+      "overall": "fail"
     },
     "pagerduty-backstage-plugin-backend": {
       "stages": {
@@ -1360,7 +1357,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7e03b2396303712b1731f336a46ed5254f82298775e69b30869545d749b14c5e"
+          "digest": "sha256:064b0f02e1687110ea34dfa2fe38b4a11c7f5da7b456869e7ddb611127e440d5"
         },
         "dpdy": {
           "status": "skip"
@@ -1455,8 +1452,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 41,
-    "failed": 10
+    "succeeded": 40,
+    "failed": 11
   },
   "status": "partial"
 }

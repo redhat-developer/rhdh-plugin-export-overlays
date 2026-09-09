@@ -112,7 +112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:974904425f9237a0201db5adf1e2bfa9e09a8f2576cbbef4a17d9b2ca376c699"
+          "digest": "sha256:6d3b230040ecc93e32f0fecf79ebd453c405ccfec4f7f8a1aa7a84aec0bbeba7"
         },
         "validate": {
           "status": "pass",
@@ -1002,12 +1002,11 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.6__0.5.0"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:17c45eccbec3aa53ef103928ac648ffa81b53578d3f18c8384a4429bd2fb379f"
+          "digest": "sha256:b7f9e7dae9ba176fc3824a554a3eff87f4a7e7f7c47d0f186e5ff559c2ea3b5c"
         },
         "validate": {
           "status": "pass",
@@ -1019,7 +1018,7 @@
       "package": "@red-hat-developer-hub/backstage-plugin-homepage-backend",
       "version": "0.5.0",
       "workspace": "homepage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-catalog-backend-module-keycloak": {
       "stages": {
@@ -1069,7 +1068,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b84ee27c0fb43a7e625fe8b1222f7ca2602c5b4ec996ca094710592fbc123ae9"
+          "digest": "sha256:6387ecfe197ae7a61d930318c75b2d16a40c19a5d45d93aa1120e5863dfa2d1e"
         },
         "validate": {
           "status": "pass",
@@ -1101,7 +1100,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f615b4d75bada3afc5595e4b3e20103335f282c9013e304593ef8c0ca708e3ff"
+          "digest": "sha256:5b76fce90960a064a8e264c6a193b35354b7de84580f08d825a59e6755f88c99"
         },
         "validate": {
           "status": "pass",
@@ -1133,7 +1132,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6394cf415e43f2d7013ce2acf63cdd9d2cd79da11215767231169e173aec0ff5"
+          "digest": "sha256:d7c567b4baf153a5650f5af258ec6c4e55dc46cda5c9e8dd4baa014618cb1fab"
         },
         "validate": {
           "status": "pass",
@@ -1165,7 +1164,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f0d443d60bd70ea4cd4d25def8ffaf46f1a06b30c6795a43538bf6dc758b6697"
+          "digest": "sha256:76446850a20bb2031fe4c60a573deef5c1646daa65f2d0fd2edc94fc6183da79"
         },
         "validate": {
           "status": "pass",
@@ -1197,7 +1196,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7aac52ce3ed3f7f4b088c76897594fd80fc1cd589bb4758fb412adb11f22d310"
+          "digest": "sha256:54fe972466f2082d6c0f35a06f3ae8b4dfbf1fb8d9d181110bf8d4f3be549423"
         },
         "validate": {
           "status": "pass",
@@ -1532,14 +1531,13 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:aacbf878de6491031be74e764689bacf95d655d683eb7d5d269cfd8a6f9c7dd4"
+          "digest": "sha256:302b4ea2170a62c3c52bc88101f8934c43828c8dc0b6cb461c40841eb1a2773a"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.6__1.18.0"
+          "status": "pass"
         },
         "validate": {
           "status": "pass",
@@ -1551,7 +1549,7 @@
       "package": "@red-hat-developer-hub/backstage-plugin-homepage",
       "version": "1.18.0",
       "workspace": "homepage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend": {
       "stages": {
@@ -1561,7 +1559,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:01f60b4a02d0c2d6741334f13c0c20a5af2f1b968954f5576e840d6f406f9e7d"
+          "digest": "sha256:8ced98a8d5b0077b0548a488b3523f0b38720c94597e3f80ec50a9ac6f5d14a9"
         },
         "dpdy": {
           "status": "pass"
@@ -1589,7 +1587,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9e2ef317cc91b1afed2d33fb27b18a31af106be972e7f6c5a299d8118b7cbd00"
+          "digest": "sha256:21afdce98db7186edf63b6df5bbe64714606aa8d61a7e6ed636bac245d316e84"
         },
         "dpdy": {
           "status": "pass"
@@ -1711,8 +1709,8 @@
   },
   "summary": {
     "total": 53,
-    "succeeded": 23,
-    "failed": 30
+    "succeeded": 25,
+    "failed": 28
   },
   "status": "partial"
 }
