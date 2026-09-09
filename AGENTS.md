@@ -478,6 +478,15 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 - CI configuration (`.github/`)
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
+### Multi-workspace fix coverage
+
+When an E2E failure issue lists specific affected workspaces or projects:
+
+1. **Enumerate** all workspaces listed in the issue body and any triage recurrence comments as affected
+2. **Cross-reference** each affected workspace against your proposed changes
+3. **Document exclusions** — for any affected workspace not covered by the fix, add a comment in your commit message or PR body explaining why (e.g., "relies on auto-generation from metadata; the framework-level fix in e2e-test-utils handles this" or "uses guest auth, not affected by OIDC issue")
+4. **Verify completeness** before committing — `grep -r` for the pattern you're adding/modifying across all workspace e2e-tests directories to confirm you haven't missed any existing configs that need the same change
+
 ### Skipping tests (product_bug classification)
 When the issue says `fix_category: product_bug`, add `test.skip` instead
 of fixing the test:
