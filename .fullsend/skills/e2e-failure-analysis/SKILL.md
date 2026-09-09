@@ -1,7 +1,6 @@
 ---
 name: e2e-failure-analysis
 description: "Debug and analyze E2E test failures when the user shares a gcsweb URL or asks to investigate a PR check / e2e-ocp-helm failure."
-allowed-tools: Bash(playwright:*),Bash(npx:*)
 ---
 
 # E2E Failure Analysis
