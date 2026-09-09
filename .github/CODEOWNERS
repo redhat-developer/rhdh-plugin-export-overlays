@@ -81,3 +81,10 @@
 # /workspaces/todo
 /workspaces/topology                                                    @redhat-developer/rhdh-ui
 /workspaces/mcp-integrations                                            @redhat-developer/rhdh-ai
+
+# Fullsend AI agent configuration — require maintainer approval
+/.fullsend/                                                             @redhat-developer/rhdh-cope @durandom @subhashkhileri
+/.github/workflows/fullsend.yaml                                        @redhat-developer/rhdh-cope @durandom @subhashkhileri
+/.github/workflows/prioritize.yml                                       @redhat-developer/rhdh-cope @durandom @subhashkhileri
+/.github/workflows/e2e-triage-agent.yaml                                @redhat-developer/rhdh-cope @durandom @subhashkhileri
+/.github/workflows/ci-diagnose-agent.yaml                               @redhat-developer/rhdh-cope @durandom @subhashkhileri

@@ -1,0 +1,113 @@
+---
+version: 1
+
+# Sandbox policy for the ci-diagnose agent (PR CI-failure diagnosis).
+# forked-from: rhdh/policies/e2e-triage.yaml
+#
+# Same shape as e2e-triage — the agent is read-only inside the sandbox and
+# all GitHub writes (the sticky PR comment) happen in the post-script.
+#
+#   - github_api is read-only: the agent reads the PR check rollup, PR diff,
+#     GH Actions run logs (via gh/api), and existing comments for reconcile.
+#   - prow_artifacts is retained: Prow e2e failures (ci/prow/e2e-ocp-helm)
+#     are diagnosed with the e2e-failure-analysis + playwright-trace skills,
+#     which download gcsweb/GCS artifacts.
+
+filesystem_policy:
+  include_workdir: true
+  read_only: [/usr, /lib, /proc, /dev/urandom, /app, /etc, /var/log]
+  read_write: [/sandbox, /tmp, /dev/null]
+landlock:
+  compatibility: best_effort
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  vertex_ai:
+    name: vertex-ai
+    endpoints:
+      - host: "api.anthropic.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-write
+      - host: "*.googleapis.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-write
+    binaries:
+      - path: "**/claude"
+      # Claude Code 2.1+ ships the bun compile as claude.exe; **/claude does not match it.
+      - path: "**/claude.exe"
+      - path: "**/node"
+
+  github_api:
+    name: github-api
+    endpoints:
+      - host: "api.github.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      # gh CLI uses POST /graphql for reads (e.g. `gh pr view --json
+      # statusCheckRollup`, `gh pr diff`); protocol: rest does not cover
+      # this — it needs its own endpoint entry. See review.yaml.
+      - host: "api.github.com"
+        port: 443
+        protocol: graphql
+        enforcement: enforce
+        access: read-only
+        path: "/graphql"
+      - host: "github.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      # `gh run view --log-failed` / the job-logs REST endpoint 302s here to
+      # fetch the actual log blob; without these the redirect target is
+      # unreachable and gh reports it as a 403.
+      - host: "results-receiver.actions.githubusercontent.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      # Narrower than *.blob.core.windows.net: only GitHub's own Actions
+      # results storage-account naming convention (observed: sa5, sa13),
+      # not arbitrary Azure Storage tenants. If GitHub changes the naming
+      # scheme this stops matching — degrades to the annotations-API
+      # fallback in ci-diagnose.md rather than a hard failure.
+      - host: "productionresultssa*.blob.core.windows.net"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - path: "**/curl"
+      - path: "**/gh"
+      - path: "**/git"
+      - path: "**/node"
+
+  prow_artifacts:
+    name: prow-artifacts
+    endpoints:
+      - host: "prow.ci.openshift.org"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      - host: "gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+      - host: "storage.googleapis.com"
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - path: "**/curl"
+      - path: "**/node"
+      - path: "**/gcloud"
