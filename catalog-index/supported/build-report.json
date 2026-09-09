@@ -694,7 +694,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:63f3a82bc017e2fd9ea398471a78d688692ec76a911f75fbadf11940b1e18a59"
+          "digest": "sha256:63f3a82bc017e2fd9ea398471a78d688692ec76a911f75fbadf11940b1e18a59",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__1.13.4",
+          "resolvedTag": "bs_1.49.4__1.13.1"
         },
         "dpdy": {
           "status": "pass"
@@ -716,7 +719,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c490f61fcb759c11565f1d34433bb39613cb15e17395a20da15bb463746d4893"
+          "digest": "sha256:c490f61fcb759c11565f1d34433bb39613cb15e17395a20da15bb463746d4893",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__0.1.3",
+          "resolvedTag": "bs_1.49.4__0.1.1"
         },
         "dpdy": {
           "status": "pass"
