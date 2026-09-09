@@ -69,6 +69,22 @@ On a PR, comment:
 - `/update-commit` — Re-run automatic plugin repo ref discovery for the single touched workspace and update the PR
 - `/test` or `/test e2e-tests` — Run e2e tests. Only relevant for PRs that modify workspaces containing an `e2e-tests/` directory (e.g., the `backstage` workspace)
 
+### Fullsend Agent Commands
+
+AI-powered agents run via [fullsend](https://github.com/fullsend-ai/fullsend). Slash commands are restricted to org members and collaborators.
+
+On a PR, comment:
+- `/fs-review` — AI code review of the PR diff (findings, approve/comment verdict)
+- `/fs-fix` — AI fix for review-requested changes (not available on fork PRs)
+- `/fs-fix-stop` — Disable the fix agent for this PR (adds `fullsend-no-fix` label)
+- `/fs-diagnose` — AI diagnosis of failed CI checks (E2E failures, build errors). Also triggered automatically when CI fails via the `ci-diagnose` label.
+
+On an issue, comment:
+- `/fs-triage` — AI triage of the issue (severity, root cause analysis, proposed fix)
+- `/fs-code` — AI code generation for a triaged issue (requires `ready-to-code` label)
+
+For detailed configuration, agent architecture, and debugging, see [`docs/fullsend.md`](docs/fullsend.md).
+
 ### Important Workflows (`.github/workflows/`)
 
 | Workflow | Trigger | Purpose |
