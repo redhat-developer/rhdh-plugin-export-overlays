@@ -480,9 +480,23 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 
 ### Skipping tests (product_bug classification)
 When the issue says `fix_category: product_bug`, add `test.skip` instead
-of fixing the test:
+of fixing the test. Choose the skip condition based on the failure scope:
+
+**Mode-specific** — failure only in nightly (e.g., a plugin present in
+PR-built images but absent from released OCI refs). See the Plugin
+Metadata Resolution table above: PR mode uses PR-built OCI images while
+nightly uses released refs from `spec.dynamicArtifact`, so a plugin can
+exist in one mode but not the other.
 
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
+
+**Branch-wide** — failure on the release branch regardless of test mode
+(e.g., a plugin or support type absent from the branch's catalog index
+image, which is shared across nightly and PR modes). If the root cause
+is that the release branch never included the feature or catalog entry,
+the failure is not mode-dependent — skip unconditionally.
+
+    test.skip(true, "<root cause summary> (release-X.Y)");
 
 ### Verification
 After changes, run from the workspace's e2e-tests directory:
