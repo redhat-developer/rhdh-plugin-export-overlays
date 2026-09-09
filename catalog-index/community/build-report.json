@@ -336,7 +336,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:445e7c4aa86239012aa1e66dd0213b62c38be3fa9d5588923abaf7b9d108e316"
+          "digest": "sha256:4761063ee7ef521dab84a04e043ef2f9dedcb6be4f3c0263175e1a27b45fd1cd"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
@@ -572,7 +572,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:435e7061b0f9196a8bd8138c3364c42b61167c5fbf88f59d1559f7f950ba41d8"
+          "digest": "sha256:f5c22298d405e24c19bb0ab00f13c0d082f22540a5472ebbd7e8b01a9a2d2a2e"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
@@ -594,18 +594,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-nexus-repository-manager:bs_1.54.6__1.27.1"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0f0d6517c0df115e3e753d838480bb80123d2c39b03bede5ffe4e89d1f3770dd"
+          "digest": "sha256:1009b09ce7e3b621241e338198e99472ed3069f7194b897a9ff42c63b9a4527b"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
       "version": "1.27.1",
       "workspace": "nexus-repository-manager",
-      "overall": "fail"
+      "overall": "pass"
     },
     "pagerduty-backstage-plugin-backend": {
       "stages": {
@@ -1357,7 +1356,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:064b0f02e1687110ea34dfa2fe38b4a11c7f5da7b456869e7ddb611127e440d5"
+          "digest": "sha256:44834518259cf210804b6ebbce870dc39c292b03dde693a085ff8b2a9779b2fc"
         },
         "dpdy": {
           "status": "skip"
@@ -1452,8 +1451,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 40,
-    "failed": 11
+    "succeeded": 41,
+    "failed": 10
   },
   "status": "partial"
 }

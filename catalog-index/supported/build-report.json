@@ -112,7 +112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6d3b230040ecc93e32f0fecf79ebd453c405ccfec4f7f8a1aa7a84aec0bbeba7"
+          "digest": "sha256:80d96cc9b25714dae4d3cddea80a5a269d0c4786980ba8b5a7594f8158b7ecf6"
         },
         "validate": {
           "status": "pass",
@@ -1006,7 +1006,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b7f9e7dae9ba176fc3824a554a3eff87f4a7e7f7c47d0f186e5ff559c2ea3b5c"
+          "digest": "sha256:80f055e762eabf6400bc86f54c00781e4643132ac6570df651b292386ba05682"
         },
         "validate": {
           "status": "pass",
@@ -1068,7 +1068,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6387ecfe197ae7a61d930318c75b2d16a40c19a5d45d93aa1120e5863dfa2d1e"
+          "digest": "sha256:a6a9d6f644a78a3c2798347652921a096bcf5d165a409c8f06bd0bb6e2e46489"
         },
         "validate": {
           "status": "pass",
@@ -1100,7 +1100,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5b76fce90960a064a8e264c6a193b35354b7de84580f08d825a59e6755f88c99"
+          "digest": "sha256:c01f270858340af0eec8b175cf0cc5f2a27d00241256f5d50d7d0a414b78bccf"
         },
         "validate": {
           "status": "pass",
@@ -1132,7 +1132,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d7c567b4baf153a5650f5af258ec6c4e55dc46cda5c9e8dd4baa014618cb1fab"
+          "digest": "sha256:3524e37c36df553f9e65e0188789495503fae425515b6f871976e9f39de9daad"
         },
         "validate": {
           "status": "pass",
@@ -1164,7 +1164,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:76446850a20bb2031fe4c60a573deef5c1646daa65f2d0fd2edc94fc6183da79"
+          "digest": "sha256:df962690dc23670c1844c09fd80e95340e38874448c483c511eb27f903e569d2"
         },
         "validate": {
           "status": "pass",
@@ -1196,7 +1196,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:54fe972466f2082d6c0f35a06f3ae8b4dfbf1fb8d9d181110bf8d4f3be549423"
+          "digest": "sha256:73df89eaf3e89ddef827ebd69af1ce45841e2f0b7bf9c098d947432d06beb2c3"
         },
         "validate": {
           "status": "pass",
@@ -1531,7 +1531,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:302b4ea2170a62c3c52bc88101f8934c43828c8dc0b6cb461c40841eb1a2773a"
+          "digest": "sha256:708f02267e61c7344219f143acc78190937f5b881e443b4a0e6a893e8c8f8e02"
         },
         "dpdy": {
           "status": "pass"
@@ -1559,7 +1559,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8ced98a8d5b0077b0548a488b3523f0b38720c94597e3f80ec50a9ac6f5d14a9"
+          "digest": "sha256:4ffa297887b0b95f1668961e797878d199635784d06e52bd4e4ffabd5c5114f0",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__5.0.1",
+          "resolvedTag": "bs_1.54.6__4.2.0"
         },
         "dpdy": {
           "status": "pass"
@@ -1570,7 +1573,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[index-missing-entry] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1587,7 +1590,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:21afdce98db7186edf63b6df5bbe64714606aa8d61a7e6ed636bac245d316e84"
+          "digest": "sha256:c987d7fbcc052123d673a64bc3ea0bd8f6a8d6291e74d0c42ed3482aaf4105a6",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__5.0.1",
+          "resolvedTag": "bs_1.54.6__4.2.0"
         },
         "dpdy": {
           "status": "pass"
@@ -1598,7 +1604,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[index-missing-entry] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
