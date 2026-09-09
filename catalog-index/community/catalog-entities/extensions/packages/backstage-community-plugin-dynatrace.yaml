@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-dynatrace"
   # Tag: bs_1.54.6__10.23.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:044dac304f62254df02324d71aadce102e397d97d402d4fe6ccb75e9d8998b8f"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace@sha256:95dbfac84f8760cb327217f6c30745fb1162ced2d533a0c9451d133ef14ab825"
   version: 10.23.0
   backstage:
     role: frontend-plugin
