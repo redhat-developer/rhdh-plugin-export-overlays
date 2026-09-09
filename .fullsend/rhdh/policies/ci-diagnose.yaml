@@ -10,8 +10,8 @@ version: 1
 #   - github_api is read-only: the agent reads the PR check rollup, PR diff,
 #     GH Actions run logs (via gh/api), and existing comments for reconcile.
 #   - prow_artifacts is retained: Prow e2e failures (ci/prow/e2e-ocp-helm)
-#     are diagnosed with the e2e-failure-analysis + playwright-trace skills,
-#     which download gcsweb/GCS artifacts.
+#     are diagnosed with the e2e-failure-analysis skill, which downloads
+#     gcsweb/GCS artifacts.
 
 filesystem_policy:
   include_workdir: true
