@@ -27,6 +27,10 @@ export class NotebookSurfacePage {
     await this.page.getByRole("tab", { name: "Notebooks" }).click();
   }
 
+  chatTab(): Locator {
+    return this.page.getByRole("tab", { name: "Chat" });
+  }
+
   notebooksTab(): Locator {
     return this.page.getByRole("tab", { name: "Notebooks" });
   }
@@ -153,11 +157,95 @@ export class NotebookSurfacePage {
     return new NotebookDeleteDialogPage(this.page, notebookDisplayName);
   }
 
+  notebookCardInlineRenameInput(): Locator {
+    return this.inlineRenameInput();
+  }
+
+  async expectNotebookCardInlineRenameInputVisible(): Promise<void> {
+    await expect(this.notebookCardInlineRenameInput()).toBeVisible();
+  }
+
+  async expectNotebookCardInlineRenameInputHidden(): Promise<void> {
+    await expect(this.notebookCardInlineRenameInput()).toBeHidden();
+  }
+
+  async fillNotebookCardInlineRename(value: string): Promise<void> {
+    await this.notebookCardInlineRenameInput().fill(value);
+  }
+
+  async commitNotebookCardInlineRename(): Promise<void> {
+    await this.notebookCardInlineRenameInput().press("Enter");
+  }
+
+  async cancelNotebookCardInlineRenameWithEscape(): Promise<void> {
+    await this.notebookCardInlineRenameInput().press("Escape");
+  }
+
+  async saveNotebookCardInlineRenameWithBlur(newName: string): Promise<void> {
+    await this.fillNotebookCardInlineRename(newName);
+    await this.myNotebooksHeading().click();
+  }
+
   async renameNotebookInline(newName: string): Promise<void> {
-    const input = this.inlineRenameInput();
-    await expect(input).toBeVisible();
-    await input.fill(newName);
-    await input.press("Enter");
+    await this.expectNotebookCardInlineRenameInputVisible();
+    await this.fillNotebookCardInlineRename(newName);
+    await this.commitNotebookCardInlineRename();
+  }
+
+  async renameNotebookCardViaTitleClick(
+    card: Locator,
+    newName: string,
+  ): Promise<void> {
+    await this.clickCardTitle(card);
+    await this.expectNotebookCardInlineRenameInputVisible();
+    await this.fillNotebookCardInlineRename(newName);
+    await this.commitNotebookCardInlineRename();
+  }
+
+  async renameNotebookCardViaOverflowMenu(
+    card: Locator,
+    newName: string,
+  ): Promise<void> {
+    await this.notebookCardOverflowMenuButton(card).click();
+    await this.renameNotebookOverflowMenuItem().click();
+    await this.renameNotebookInline(newName);
+  }
+
+  async startNotebookCardInlineRenameFromOverflow(
+    card: Locator,
+  ): Promise<void> {
+    await this.notebookCardOverflowMenuButton(card).click();
+    await this.renameNotebookOverflowMenuItem().click();
+    await this.expectNotebookCardInlineRenameInputVisible();
+  }
+
+  async renameNotebookSidebarTitle(newName: string): Promise<void> {
+    await this.clickSidebarTitle();
+    await this.expectNotebookCardInlineRenameInputVisible();
+    await this.fillNotebookCardInlineRename(newName);
+    const renamePersisted = this.waitForSessionRenamePut();
+    await this.commitNotebookCardInlineRename();
+    await renamePersisted;
+    await expect(this.sidebarTitleText()).toContainText(newName);
+  }
+
+  async expectNotebookCardDisplayed(
+    notebookDisplayName: string,
+  ): Promise<void> {
+    await expect(
+      this.notebookCardByDisplayedName(notebookDisplayName),
+    ).toBeVisible();
+  }
+
+  async deleteNotebookCardFromGrid(notebookDisplayName: string): Promise<void> {
+    await this.notebookCardOverflowMenuButton(
+      this.notebookCardByDisplayedName(notebookDisplayName),
+    ).click();
+    await this.deleteNotebookOverflowMenuItem().click();
+    await this.notebookDeleteConfirmationDialog(
+      notebookDisplayName,
+    ).confirmDeletion();
+    await this.expectNotebookCardAbsent(notebookDisplayName);
   }
 
   async expectNewNotebookEditorEmptyStateOnboarding(): Promise<void> {
@@ -227,16 +315,26 @@ export class NotebookSurfacePage {
   }
 
   deleteDocumentConfirmDialog(): Locator {
-    return this.page.getByRole("dialog").filter({
-      hasText: "Remove resource?",
-    });
+    return this.page
+      .locator('[role="dialog"][aria-labelledby="delete-document-modal"]')
+      .filter({ hasText: "Remove resource?" });
+  }
+
+  private deleteDocumentDialogActions(): Locator {
+    return this.deleteDocumentConfirmDialog().locator(
+      '[class*="MuiDialogActions-root"]',
+    );
+  }
+
+  private deleteDocumentFooterButton(label: string): Locator {
+    const escapedLabel = label.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return this.deleteDocumentDialogActions().locator(
+      `button:text-is("${escapedLabel}")`,
+    );
   }
 
   deleteDocumentConfirmButton(): Locator {
-    return this.deleteDocumentConfirmDialog().getByRole("button", {
-      name: "Remove",
-      exact: true,
-    });
+    return this.deleteDocumentFooterButton("Remove");
   }
 
   async deleteFirstListedDocumentFromSidebarOverflowMenu(): Promise<void> {
@@ -352,6 +450,28 @@ export class NotebookSurfacePage {
       : `${documentCount} Resources`;
   }
 
+  async expectNotebookCardShowsDocumentCount(
+    card: Locator,
+    documentCount: number,
+  ): Promise<void> {
+    await expect(card).toContainText(
+      this.formatNotebookCardDocumentsSummary(documentCount),
+    );
+  }
+
+  async expectNotebookOverflowMenuShowsRenameAndDeleteWithIcons(
+    card: Locator,
+  ): Promise<void> {
+    await this.notebookCardOverflowMenuButton(card).click();
+    const renameItem = this.renameNotebookOverflowMenuItem();
+    const deleteItem = this.deleteNotebookOverflowMenuItem();
+    await expect(renameItem).toBeVisible();
+    await expect(deleteItem).toBeVisible();
+    await expect(renameItem.locator("svg").first()).toBeVisible();
+    await expect(deleteItem.locator("svg").first()).toBeVisible();
+    await this.page.keyboard.press("Escape");
+  }
+
   async expectUntitledNotebookCardCount(expected: number): Promise<void> {
     await expect(this.untitledNotebookCards()).toHaveCount(expected, {
       timeout: 5_000,
@@ -437,5 +557,91 @@ export class NotebookSurfacePage {
     await uploadModal.clickAddFilesForStagedCount(1);
     await this.expectDocumentUploadCompletes(fileName);
     return fileName;
+  }
+
+  compactHeader(): Locator {
+    return this.page.locator(".pf-chatbot__header");
+  }
+
+  compactHeaderAddDocumentButton(): Locator {
+    return this.compactHeader().getByRole("button", { name: "Add" });
+  }
+
+  compactHeaderCloseNotebookButton(): Locator {
+    return this.compactHeader().getByRole("button", { name: "Close notebook" });
+  }
+
+  compactHeaderSidebarToggleButton(): Locator {
+    return this.compactHeader().getByRole("button", {
+      name: /Collapse sidebar|Expand sidebar/,
+    });
+  }
+
+  async clickCompactHeaderAddDocument(): Promise<void> {
+    await this.compactHeaderAddDocumentButton().click();
+  }
+
+  async clickCompactHeaderCloseNotebook(): Promise<void> {
+    await this.compactHeaderCloseNotebookButton().click();
+  }
+
+  async expectCompactHeaderActionsVisible(): Promise<void> {
+    await expect(this.compactHeaderCloseNotebookButton()).toBeVisible();
+    await expect(this.compactHeaderAddDocumentButton()).toBeVisible();
+    await expect(this.compactHeaderSidebarToggleButton()).toBeVisible();
+  }
+
+  async expectSingleNotebookCloseButton(): Promise<void> {
+    await expect(this.closeNotebookButton()).toHaveCount(1);
+  }
+
+  async toggleCompactSidebarAndExpectLabelFlip(): Promise<void> {
+    const toggle = this.compactHeaderSidebarToggleButton();
+    await expect(toggle).toBeVisible();
+
+    const initialLabel = await toggle.getAttribute("aria-label");
+    const flippedLabel =
+      initialLabel === "Collapse sidebar" ? "Expand sidebar" : "Collapse sidebar";
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-label", flippedLabel);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-label", initialLabel!);
+  }
+
+  async ensureDocumentSidebarExpanded(): Promise<void> {
+    const toggle = this.compactHeaderSidebarToggleButton();
+    if ((await toggle.getAttribute("aria-label")) === "Expand sidebar") {
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-label", "Collapse sidebar");
+    }
+  }
+
+  async expectDeleteDocumentModalWithinChatbot(): Promise<void> {
+    await expect(this.deleteDocumentConfirmDialog()).toBeVisible();
+  }
+
+  async openDeleteFirstDocumentConfirmation(): Promise<void> {
+    await this.hoverDocumentRowAndClickKebab();
+    await this.documentRowDeleteMenuItem().click();
+    await this.expectDeleteDocumentModalWithinChatbot();
+  }
+
+  async cancelDeleteDocumentConfirmation(): Promise<void> {
+    const cancel = this.deleteDocumentFooterButton("Cancel");
+    // eslint-disable-next-line playwright/no-force-option
+    await cancel.click({ force: true });
+    await expect(this.deleteDocumentConfirmDialog()).toBeHidden();
+  }
+
+  async expectNotebookDeleteDialogWithinChatbot(
+    notebookDisplayName: string,
+  ): Promise<void> {
+    await expect(
+      this.page
+        .locator('[role="dialog"][aria-labelledby="delete-notebook-modal"]')
+        .filter({ hasText: notebookDisplayName }),
+    ).toBeVisible();
   }
 }
