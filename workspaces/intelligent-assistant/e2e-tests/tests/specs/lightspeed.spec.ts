@@ -11,6 +11,7 @@ import {
   openChatContextMenuByName,
   openPinnedChatContextMenuByName,
   openSortDropdown,
+  recentChatItems,
   searchChats,
   selectDeleteAction,
   selectDisablePinnedChats,
@@ -507,9 +508,7 @@ test.describe("Lightspeed UI", () => {
       });
 
       test("conversations are sorted correctly and persist", async () => {
-        const chats = page
-          .locator(".pf-v6-c-drawer__panel-main")
-          .locator("li.pf-chatbot__menu-item");
+        const chats = recentChatItems(page);
 
         if ((await chats.count()) < 4) {
           await sendMessageInNewChat(page, "E2E sort conversation zebra");
