@@ -466,6 +466,43 @@ A Claude Code skill is available at `.claude/skills/` for investigating E2E fail
 
 - **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison
 
+## E2E Nightly Triage: Workspace-Wide Failure Detection
+
+Before classifying individual test failures, the triage agent must assess the
+workspace-level failure ratio. When the majority of tests in a workspace fail,
+the root cause is typically systemic (infrastructure misconfiguration,
+dependency incompatibility, deployment failure) rather than isolated test bugs.
+
+**Procedure:**
+
+1. After Phase 1 analysis completes, count how many tests failed vs. passed
+   in each workspace.
+2. If a workspace has ≥4 tests and ≥75% of them failed, classify it as a
+   **systemic workspace failure**.
+3. For systemic failures, either:
+   - **(a)** Create a single workspace-level issue describing the systemic
+     failure pattern and listing all affected tests, with
+     `fix_category: product_bug`. Title format:
+     `[fullsend] E2E: <workspace> — systemic workspace failure (<failed>/<total> tests)`
+   - **(b)** Create individual issues but add the label
+     `blocked-by-workspace-failure` and set `fix_category: product_bug` to
+     prevent the code agent from producing incremental test fixes that cannot
+     be verified against a broken workspace.
+
+   Option (a) is preferred — it avoids dispatching multiple code agent runs
+   for a single systemic problem.
+
+**Rationale:** Fixing a single test assertion is pointless when the test
+cannot reach that assertion due to earlier workspace-level failures (e.g.,
+deployment misconfiguration, missing plugins, Backstage version
+incompatibility). Individual test fixes in a systemically broken workspace
+waste agent compute and human review time, and the resulting PRs are
+routinely closed without merge once a human addresses the root cause.
+
+This check must happen before individual `fix_category` classification
+(Phase 2 of the triage agent) because it overrides per-test classification
+for the affected workspace.
+
 ## E2E Nightly Fix Conventions
 
 When fixing E2E test failures from `[fullsend] E2E:` issues:
