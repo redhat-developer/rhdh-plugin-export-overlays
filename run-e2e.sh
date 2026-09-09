@@ -118,6 +118,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" \
+    && "$CI" == "true" \
+    && -z "$GIT_PR_NUMBER" \
+    && ( "$E2E_NIGHTLY_MODE" == "true" || "$E2E_NIGHTLY_MODE" == "1" || "$JOB_NAME" == *periodic-* ) \
+    && -z "${RELEASE_BRANCH_NAME:-}" ]]; then
+    echo "[ERROR] RELEASE_BRANCH_NAME is required for CI nightly/periodic runs."
+    echo "[ERROR] Set it to 'main' or the target release branch."
+    exit 1
+fi
+
 # Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
 # (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
 if [[ -n "$JOB_NAME" ]]; then
@@ -142,7 +152,18 @@ for bin in node yarn jq; do
 done
 
 corepack enable 2>/dev/null || true
-echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
+NODE_VERSION="$(node --version)"
+REQUIRED_NODE_VERSION="$(jq -r '.node' versions.json)"
+if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
+    echo "[ERROR] Could not read the required Node.js version from versions.json."
+    exit 1
+fi
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
+    echo "[ERROR] Node.js ${NODE_VERSION#v} is not supported; versions.json requires ${REQUIRED_NODE_VERSION}."
+    echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
+    exit 1
+fi
+echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
