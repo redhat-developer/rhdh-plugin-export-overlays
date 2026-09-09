@@ -484,6 +484,35 @@ of fixing the test:
 
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
+### Reviewing test.skip additions (product_bug)
+
+When reviewing a PR that adds `test.skip` to one test, assess whether
+sibling tests that call the same helper method also need skipping.
+Do not flag a sibling test based solely on shared method usage —
+verify at the argument level:
+
+1. **Check the actual failure signature** from the triage issue — what
+   specific selector, element, or assertion failed? For example,
+   `button[title="Select RHDH Plugins QE Light"]` identifies a
+   specific DOM element, not all theme buttons.
+2. **Examine argument values**, not just method names. A parameterized
+   helper like `setTheme(themeName)` produces different selectors for
+   different arguments (e.g., `"Select Light"` vs
+   `"Select RHDH Plugins QE Light"`). The sibling test's arguments
+   may target entirely different UI elements.
+3. **Verify the sibling test's arguments produce the same failing
+   selector.** If the shared method is parameterized, trace the
+   argument through to the selector or assertion it generates. Only
+   flag the sibling test if its arguments hit the same broken path.
+4. **Cross-reference test execution order.** If the failing test
+   iterates through multiple values and failed on a later one, the
+   earlier values are confirmed working. A sibling test using only
+   those earlier values is not affected.
+
+Do not flag a sibling test for a missing `test.skip` without verifying
+that the sibling's arguments produce the same broken behavior as the
+failed test.
+
 ### Verification
 After changes, run from the workspace's e2e-tests directory:
 
