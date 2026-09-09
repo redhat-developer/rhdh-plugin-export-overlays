@@ -5,9 +5,12 @@ function historyDrawer(page: Page): Locator {
 }
 
 function drawerListItems(page: Page, label: string): Locator {
-  return historyDrawer(page).locator(
-    `ul[aria-label="${label}"] li.pf-chatbot__menu-item`,
-  );
+  return historyDrawer(page)
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: label, exact: true }),
+    })
+    .locator("li.pf-chatbot__menu-item");
 }
 
 export function pinnedChatItems(page: Page): Locator {
