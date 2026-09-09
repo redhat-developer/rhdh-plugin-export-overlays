@@ -5,8 +5,5 @@ export default defineConfig({
     {
       name: "tekton",
     },
-    {
-      name: "tekton-app-next",
-    },
   ],
 });
