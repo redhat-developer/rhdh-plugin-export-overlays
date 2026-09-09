@@ -1,0 +1,75 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-backstage-plugin-scorecard-backend-module-dora
+  namespace: rhdh
+  title: "Scorecard Backend Module for DORA"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-dora
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-dora
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.52.0__0.1.0
+  version: 0.1.0
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.52.0
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - scorecard
+  appConfigExamples:
+    - title: Threshold configuration (optional)
+      content:
+        scorecard:
+          metricProviders:
+            dora:
+              deploymentFrequency:
+                thresholds:
+                  rules:
+                    - key: elite
+                      expression: ">=5"
+                    - key: medium
+                      expression: "1-5"
+                    - key: low
+                      expression: "<1"
+    - title: Custom collectors (optional)
+      content:
+        scorecard:
+          metricProviders:
+            dora:
+              deploymentFrequency:
+                options:
+                  productionEnvironments: [production, prod]
+                  collectors:
+                    deployments:
+                      id: customDatasource:deployments
+                      input: {}
+              medianLeadTimeForChanges:
+                options:
+                  productionEnvironments: [production, prod]
+                  collectors:
+                    deployments:
+                      id: customDatasource:deployments
+                      input: {}
+                    deploymentPullRequests:
+                      id: customDatasource:deploymentPullRequests
+                      input: {}
+    - title: Optional DORA metric schedule
+      content:
+        scorecard:
+          metricProviders:
+            dora:
+              deploymentFrequency:
+                schedule:
+                  frequency: { hours: 4 }
+                  timeout: { minutes: 10 }
