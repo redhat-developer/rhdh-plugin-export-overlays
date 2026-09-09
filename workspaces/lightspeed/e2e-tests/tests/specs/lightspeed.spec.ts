@@ -193,7 +193,7 @@ test.describe("Lightspeed UI", () => {
           - menuitem "gpt-4.1-nano"
           - menuitem "gpt-4o-mini"
           - menuitem "gpt-5.1"
-          - menuitem "redhataillama-31-8b-instruct"
+          - menuitem "meta-llama-31-8b-quantizedw4a16"
         `);
       await selectChatModel(page, "gpt-4o-mini");
     });
