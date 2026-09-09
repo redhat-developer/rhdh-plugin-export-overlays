@@ -7,8 +7,7 @@ export async function navigateToComponent(page: Page, uiHelper: UIhelper) {
 }
 
 export async function expandAllSections(page: Page) {
-  const uiHelper = new UIhelper(page);
-  await uiHelper.clickButtonByLabel("rows");
+  await page.getByRole("combobox", { name: "rows" }).click();
   await page.getByRole("option", { name: "10 rows" }).click();
 
   const expanders = page.locator('[data-testid^="expander-"]');
