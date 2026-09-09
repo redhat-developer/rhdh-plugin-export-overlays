@@ -1062,7 +1062,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:28a9ec73e889069b7561754669b40198be08ac4dd9ffbb4ac37ba5dc43fdc9aa
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:2f04a8df7990ab4111a4463aa162ddb14f3ffe7256f90a94d2200dee8aaedb7b
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1095,7 +1095,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:ee2b4a69f739cc548e4ce7948e5842c79bf4664eec0fe56e30b5d3514b534ea3
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:aea62d312282603984dcb95fb0293454d00d701beb8a2ffaa7eeebc3dcfc2ca6
     disabled: true
     pluginConfig:
       lightspeed:
