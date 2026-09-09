@@ -23,10 +23,7 @@ export class NotebookAddDocumentModalPage {
   }
 
   modalTitleAccessibilityRegion(): Locator {
-    return this.dialog()
-      .locator("h2")
-      .filter({ hasText: MODAL_TITLE })
-      .first();
+    return this.dialog().locator("h2").filter({ hasText: MODAL_TITLE }).first();
   }
 
   dragAndDropInstructions(): Locator {

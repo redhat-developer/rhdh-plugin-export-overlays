@@ -601,7 +601,9 @@ export class NotebookSurfacePage {
 
     const initialLabel = await toggle.getAttribute("aria-label");
     const flippedLabel =
-      initialLabel === "Collapse sidebar" ? "Expand sidebar" : "Collapse sidebar";
+      initialLabel === "Collapse sidebar"
+        ? "Expand sidebar"
+        : "Collapse sidebar";
 
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-label", flippedLabel);
