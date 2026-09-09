@@ -112,7 +112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9a1cbb40571093d2bebcf5ed2a5e91f206a0eb169482baac8a7893bca03c57dd"
+          "digest": "sha256:362031d681605461a5472c12f523cd17b38dbbac323130b6a97e2d00d5657ebf"
         },
         "validate": {
           "status": "pass",
@@ -1073,7 +1073,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:29df9e2fd41493a374ad8dd6e642886de116e1a0c15842d1dcc2c253006c3325"
+          "digest": "sha256:a2ee863670b3d5e37f188f54c14b04cb5b72fbee42bf5bcf13f9d1612aa7d42e"
         },
         "validate": {
           "status": "pass",
@@ -1105,7 +1105,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cab13cf0a991ade4bec1ccd3480e3411cdf4026165e54022d8c60f26ab8f392d"
+          "digest": "sha256:234bcc09fc7771ede645011167e1e480050132ca8c3a6fc7818cf29808e672da"
         },
         "validate": {
           "status": "pass",
@@ -1137,7 +1137,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:643ee66b9a508d568f5359d42d0dff17c5403ad443fa4cd39c52a94b0a9ce1a1"
+          "digest": "sha256:0e00ccbcd9ffc4110b77d9929e726c0d492ab916d72e397d17c80a2e0b2a96f2"
         },
         "validate": {
           "status": "pass",
@@ -1169,7 +1169,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:0e15c1f0e435d0cd0c4a912f1f5cb8b6b369ef3f60c2c7be1c22c25c668c7447"
+          "digest": "sha256:394bdd00cf238211c9aee9f11a7eb5792115c401cf22217064e729764f1e8572"
         },
         "validate": {
           "status": "pass",
@@ -1201,7 +1201,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:104c2c2084f3579bb87a33a4f9d5637df150f9710efcd616121264a03bd93a48"
+          "digest": "sha256:2b288b24b86bbceca6282740573cc6445596cb65b529b45ad4bca031683efc34"
         },
         "validate": {
           "status": "pass",
@@ -1569,14 +1569,13 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f9be068c18341e1545d1b02fc94634d0cb3b98ec1b54c8497b40edac1d8fb451"
+          "digest": "sha256:2e31d3356d634831487de4f1ec6096d7d19bb7d5d8f03a0e29c00d6d0aa19183"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.54.6__4.2.0"
+          "status": "pass"
         },
         "validate": {
           "status": "pass",
@@ -1588,7 +1587,7 @@
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend",
       "version": "4.2.0",
       "workspace": "intelligent-assistant",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-intelligent-assistant": {
       "stages": {
@@ -1598,14 +1597,13 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c5add40ec19519bee86140ab8370cf79e140f7e80278e29b8474925683c22bf1"
+          "digest": "sha256:1b1308c87955120195c5c694e1182bcbc414c2c2dee9c2d8471a2d54e7115aa6"
         },
         "dpdy": {
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.6__4.2.0"
+          "status": "pass"
         },
         "validate": {
           "status": "pass",
@@ -1617,7 +1615,7 @@
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant",
       "version": "4.2.0",
       "workspace": "intelligent-assistant",
-      "overall": "fail"
+      "overall": "pass"
     },
     "red-hat-developer-hub-backstage-plugin-app-auth": {
       "stages": {
@@ -1721,8 +1719,8 @@
   },
   "summary": {
     "total": 53,
-    "succeeded": 21,
-    "failed": 32
+    "succeeded": 23,
+    "failed": 30
   },
   "status": "partial"
 }

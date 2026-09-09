@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend"
   # Tag: bs_1.54.6__4.2.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:f9be068c18341e1545d1b02fc94634d0cb3b98ec1b54c8497b40edac1d8fb451"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:2e31d3356d634831487de4f1ec6096d7d19bb7d5d8f03a0e29c00d6d0aa19183"
   version: 4.2.0
   backstage:
     role: backend-plugin
@@ -37,6 +37,5 @@ spec:
           # mcpServers:
           #  - name: <mcp server name>
           #    token: ${MCP_TOKEN}
-
           # OPTIONAL: Override default RHDH system prompt
           # systemPrompt: "You are a helpful assistant focused on Red Hat Developer Hub development."
