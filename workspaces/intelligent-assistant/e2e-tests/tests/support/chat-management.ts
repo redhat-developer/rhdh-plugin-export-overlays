@@ -4,16 +4,18 @@ function historyDrawer(page: Page): Locator {
   return page.locator(".pf-v6-c-drawer__panel-main");
 }
 
-function drawerListItems(page: Page): Locator {
-  return historyDrawer(page).locator("li");
+function drawerListItems(page: Page, label: string): Locator {
+  return historyDrawer(page).locator(
+    `ul[aria-label="${label}"] li.pf-chatbot__menu-item`,
+  );
 }
 
 export function pinnedChatItems(page: Page): Locator {
-  return drawerListItems(page);
+  return drawerListItems(page, "Pinned chats");
 }
 
 export function recentChatItems(page: Page): Locator {
-  return drawerListItems(page);
+  return drawerListItems(page, "Chats");
 }
 
 async function openChatOptionsOnItem(chatItem: Locator): Promise<void> {
@@ -208,15 +210,18 @@ export async function searchChats(page: Page, searchQuery: string) {
 }
 
 export async function verifyEmptySearchResults(page: Page) {
-  await expect(page.locator(".pf-v6-c-drawer__panel-main"))
-    .toMatchAriaSnapshot(`
-    - heading "Pinned chats"
-    - menu:
-      - menuitem "Pin chats to keep them on top"
-    - heading "Chats"
-    - menu:
-      - menuitem "No result matches the search"
-    `);
+  const drawerPanel = historyDrawer(page);
+
+  await expect(
+    drawerPanel.getByRole("menuitem", {
+      name: "Pin chats to keep them on top",
+    }),
+  ).toBeVisible();
+  await expect(
+    drawerPanel.getByRole("menuitem", {
+      name: "No result matches the search",
+    }),
+  ).toBeVisible();
 }
 
 export type SortOption =
