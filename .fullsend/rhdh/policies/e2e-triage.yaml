@@ -36,6 +36,8 @@ network_policies:
         access: read-write
     binaries:
       - path: "**/claude"
+      # Claude Code 2.1+ ships the bun compile as claude.exe; **/claude does not match it.
+      - path: "**/claude.exe"
       - path: "**/node"
 
   github_api:
@@ -46,6 +48,14 @@ network_policies:
         protocol: rest
         enforcement: enforce
         access: read-only
+      # gh CLI uses POST /graphql for reads; protocol: rest does not cover
+      # this — it needs its own endpoint entry. See review.yaml.
+      - host: "api.github.com"
+        port: 443
+        protocol: graphql
+        enforcement: enforce
+        access: read-only
+        path: "/graphql"
       - host: "github.com"
         port: 443
         protocol: rest

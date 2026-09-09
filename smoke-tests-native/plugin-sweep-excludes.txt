@@ -37,27 +37,14 @@
 # index gives RHDH only refs, while this repo's metadata carries the package name,
 # which is stable whether the artifact is tag- or digest-pinned.
 
-# TODO(RHIDP-16017): the harness's startTestBackend boot deliberately omits
-# @backstage/plugin-catalog-backend — the catalog core needs more service wiring than
-# this minimal standalone backend provides (see the coreFeatures note in
-# src/native-smoke.ts). Modules that attach to the catalog's extension points
-# therefore cannot be loaded, so they are installed and layout-validated here but not
-# booted; the container smoke (run-workspace-smoke-tests.yaml) still boots them
-# against a full RHDH backend.
+# TODO(RHDHBUGS-3707): pagerduty's entity-processor loads (1/1, no load errors) and then
+# takes its host down: `Plugin 'catalog' startup failed; caused by TypeError: Cannot read
+# properties of undefined (reading 'id')`. Reproduced in isolation with nothing else
+# installed, so it is the plugin and not an interaction.
 #
-# Delete every entry below the moment RHIDP-16017 lands catalogPlugin in coreFeatures.
-#
-# The first four are named `*-catalog-backend-module-*` and fail with
-# `extensionPoint{catalog.processing}` missing.
-boot ^@backstage-community/plugin-catalog-backend-module-azure-devops-annotator-processor$
-boot ^@backstage/plugin-catalog-backend-module-bitbucket-cloud$
-boot ^@backstage/plugin-catalog-backend-module-bitbucket-server$
-boot ^@backstage-community/backstage-plugin-catalog-backend-module-mta-entity-provider$
-# The next two are the same root cause with a name that does not advertise it — found
-# by the first full sweep, not by reading package names. 3scale-backend registers
-# `catalog-backend-module-threescale` internally (same missing extension point);
-# pagerduty's entity-processor takes plugin 'catalog' down with
-# `TypeError: Cannot read properties of undefined (reading 'id')`, the same signature
-# RHDH's plugin-sanity-excludes.txt records for a plugin loaded without its host.
-boot ^@backstage-community/plugin-3scale-backend$
+# This block used to exclude six packages on the theory that the catalog core could not
+# boot in this harness. RHIDP-16017 disproved that: catalogPlugin boots here with only the
+# rootConfig mock, and the four `*-catalog-backend-module-*` packages plus
+# @backstage-community/plugin-3scale-backend now start against it. Only this one fails, and
+# it fails differently — the catalog is present, and this plugin breaks it.
 boot ^@pagerduty/backstage-plugin-entity-processor$

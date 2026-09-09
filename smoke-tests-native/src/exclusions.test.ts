@@ -9,6 +9,7 @@ import { strict as assert } from "node:assert";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  candidateNames,
   excluderFor,
   loadExclusions,
   matchExclusion,
@@ -20,6 +21,56 @@ import { collectPackages } from "./support";
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const EXCLUDES_FILE = join(HARNESS_ROOT, "plugin-sweep-excludes.txt");
 const REPO_ROOT = dirname(HARNESS_ROOT);
+
+test("a pattern written as an OCI image name matches the installed npm name", () => {
+  // The one-identifier-space guarantee catalog-index mode depends on: an index carries
+  // ONLY image names (`oci://…/backstage-community-plugin-quay@sha256:…`), while the
+  // install root carries npm names. Without the image form in candidateNames, a pattern
+  // in catalog-index-sanity-excludes.txt would match at install scope and silently miss
+  // at boot scope. This is the assertion that fails if that normalization is reverted.
+  const parsed = parseExclusions(
+    "# TODO(RHIDP-1): x\nboot ^backstage-community-plugin-quay$\n",
+    "excludes.txt",
+  );
+  const excluded = excluderFor(parsed, "boot");
+  assert.ok(excluded("@backstage-community/plugin-quay-dynamic"));
+  assert.ok(excluded("@backstage-community/plugin-quay"));
+  assert.ok(excluded("backstage-community-plugin-quay"));
+});
+
+test("the image-name candidate widens no committed pattern", () => {
+  // The regression guard for the same change. candidateNames gained two candidates, so
+  // matching can only get MORE permissive — the risk is a committed pattern silently
+  // starting to exclude a package it did not before, which would shrink the scheduled
+  // community sweep with nothing to show for it.
+  //
+  // Today every committed pattern is anchored `^@…$` and the image form can never begin
+  // with `@`, so the answer is structural. Asserting it keeps it that way: this goes red
+  // the day someone writes an unanchored pattern that reaches across the two spellings.
+  const parsed = loadExclusions(EXCLUDES_FILE);
+  const names = collectPackages(REPO_ROOT).map((p) => p.packageName);
+  const widened: string[] = [];
+  for (const exclusion of parsed) {
+    for (const name of names) {
+      // Split the real candidate list rather than re-deriving the transform here: a
+      // copy of it would keep this guard green against a candidateNames that had
+      // since grown a third form.
+      const candidates = candidateNames(name);
+      const npmForms = candidates.filter((c) => c.startsWith("@"));
+      const imageForms = candidates.filter((c) => !c.startsWith("@"));
+      const byNpm = npmForms.some((n) => exclusion.pattern.test(n));
+      const byImage = imageForms.some((n) => exclusion.pattern.test(n));
+      if (byImage && !byNpm) {
+        widened.push(`${exclusion.patternSource} now also matches ${name}`);
+      }
+    }
+  }
+  assert.deepEqual(
+    widened,
+    [],
+    "image-form candidates must not widen a pattern",
+  );
+});
 
 test("parseExclusions reads scope, pattern and the block's ticket", () => {
   const parsed = parseExclusions(

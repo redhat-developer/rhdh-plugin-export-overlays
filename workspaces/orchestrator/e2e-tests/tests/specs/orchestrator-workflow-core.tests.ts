@@ -1,9 +1,10 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 import {
   patchHttpbin,
   cleanupAfterTest,
+  createOrchestratorPO,
 } from "../support/utils/test-helpers.js";
 
 type EnsureDataIndexOrSkip = (
@@ -20,7 +21,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -50,7 +51,7 @@ export function registerOrchestratorCoreWorkflowTests(
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
       orchestrator = new OrchestratorPage(page);
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -153,11 +154,101 @@ export function registerOrchestratorCoreWorkflowTests(
     });
   });
 
+  test.describe("Multi-step form navigation", () => {
+    let orchestratorPo: OrchestratorPO;
+
+    test.beforeEach(async ({ page, loginHelper, uiHelper }, testInfo) => {
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
+      await loginHelper.loginAsKeycloakUser();
+      await ensureDataIndexOrSkip(testInfo.project.name, test);
+    });
+
+    test("Backward navigation in multi-step stepper", async ({ page }) => {
+      test.setTimeout(180_000);
+
+      const step1Fields: [string, string][] = [
+        ["Name", "test-name"],
+        ["Email", "test@example.com"],
+      ];
+      const step2Fields: [string, string][] = [
+        ["Simple Text Field", "sample-text-value"],
+        ["Object Type Example", '{"key":"value"}'],
+      ];
+
+      await orchestratorPo.openOrchestratorFromSidebar();
+
+      await expect(
+        page.getByRole("cell", { name: "Test Object Type Support" }),
+      ).toBeVisible({ timeout: 30_000 });
+      await page
+        .getByRole("link", {
+          name: /Test Object Type Support in ui:props/i,
+        })
+        .click();
+
+      const runButton = page
+        .getByRole("button", { name: "Run", exact: true })
+        .first();
+      await expect(runButton).toBeEnabled({ timeout: 30_000 });
+      await runButton.click();
+
+      // Step 1: Fill Basic Information
+      for (const [label, value] of step1Fields) {
+        await page.getByRole("textbox", { name: label }).fill(value);
+      }
+
+      // Navigate to Step 2
+      await page.getByRole("button", { name: "Next" }).click();
+      await expect(
+        page.getByRole("textbox", { name: "Simple Text Field" }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // Step 2: Fill Demonstration Fields
+      for (const [label, value] of step2Fields) {
+        await page.getByRole("textbox", { name: label }).fill(value);
+      }
+
+      // Navigate back to Step 1 and verify fields are preserved
+      await page.getByRole("button", { name: "Back" }).click();
+      for (const [label, value] of step1Fields) {
+        await expect(page.getByRole("textbox", { name: label })).toHaveValue(
+          value,
+        );
+      }
+
+      // Navigate forward to Step 2 and verify fields are preserved
+      await page.getByRole("button", { name: "Next" }).click();
+      for (const [label, value] of step2Fields) {
+        await expect(page.getByRole("textbox", { name: label })).toHaveValue(
+          value,
+        );
+      }
+
+      // Verify the Review step is not selectable for forward jumps
+      const reviewStepButton = page.getByRole("button", {
+        name: /review/i,
+      });
+      await expect(reviewStepButton).toBeHidden();
+
+      // Navigate to Review step and verify all inputs are visible
+      await page.getByRole("button", { name: "Next" }).click();
+      await expect(page.getByText("Run workflow")).toBeVisible({
+        timeout: 10_000,
+      });
+      const allValues = [...step1Fields, ...step2Fields].map(
+        ([, value]) => value,
+      );
+      for (const value of allValues) {
+        await expect(page.getByText(value)).toBeVisible();
+      }
+    });
+  });
+
   test.describe("Workflow all runs", () => {
     let orchestratorPo: OrchestratorPO;
 
     test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
-      orchestratorPo = new OrchestratorPO(page, uiHelper);
+      orchestratorPo = createOrchestratorPO(page, uiHelper);
       await loginHelper.loginAsKeycloakUser();
     });
 

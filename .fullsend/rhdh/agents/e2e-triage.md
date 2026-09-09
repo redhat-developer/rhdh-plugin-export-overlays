@@ -74,35 +74,6 @@ else
 fi
 ```
 
-## Repository Context
-
-- **Upstream**: `redhat-developer/rhdh-plugin-export-overlays`
-- This repo does NOT contain plugin source code — only metadata, overlays,
-  and E2E tests
-- E2E tests live in `workspaces/<name>/e2e-tests/`
-- Tests use `@red-hat-developer-hub/e2e-test-utils` for deployment and fixtures
-- Read `CLAUDE.md` at the repo root for full repo context
-
-### Test Framework: rhdh-e2e-test-utils
-
-All E2E tests are built on `@red-hat-developer-hub/e2e-test-utils`, which
-provides fixtures (`rhdh`, `uiHelper`, `loginHelper`), RHDH deployment logic,
-Helm config merging, K8s helpers, and Playwright configuration.
-
-When your analysis involves fixture behavior, deployment internals,
-`rhdh.configure()` / `rhdh.deploy()` semantics, config merging, or any
-test-utils API that isn't clear from the test code alone — clone and read
-the source:
-
-```bash
-git clone --depth 1 https://github.com/redhat-developer/rhdh-e2e-test-utils.git /tmp/e2e-test-utils
-```
-
-Key paths inside the repo:
-- `src/` — fixture implementations, deployment logic, K8s helpers
-- `docs/` — API documentation and usage guides
-- `README.md` — overview and configuration reference
-
 ---
 
 ## Sandbox Execution Model
@@ -114,7 +85,7 @@ All write operations are handled by the **post-script** running on the host.
 - Read GitHub issues, PRs, labels via `curl` + GitHub REST API (public repo)
 - Download and analyze prow/GCS artifacts
 - Read local files (test code, config, metadata)
-- Use e2e-failure-analysis and playwright-trace skills
+- Use the e2e-failure-analysis skill
 
 **What you CANNOT do — emit directives instead:**
 - Create or comment on GitHub issues → `issue` directive in output
@@ -124,90 +95,25 @@ All write operations are handled by the **post-script** running on the host.
 
 ---
 
-## Phase 1: Download Artifacts & Run Diagnostics
+## Phase 1: Analyze
 
-Download artifacts once so subagents don't repeat the download:
+Invoke `/e2e-failure-analysis` with the Prow URL. The skill handles:
+- Downloading artifacts and running diagnostics
+- Grouping failures by error signature
+- Fanning out subagents (one per group) for per-workspace analysis
+- Collecting structured findings
 
-```bash
-SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-ARTIFACTS=$(node --experimental-strip-types "$SKILL_DIR/scripts/download-artifacts.ts" "${PROW_URL}")
-BUILD_LOG="$(dirname "$ARTIFACTS")/build-log.txt"
-echo "ARTIFACTS=${ARTIFACTS}"
-echo "BUILD_LOG=${BUILD_LOG}"
-```
+Pass these to the skill:
+- `PROW_URL` from the input step
+- `TARGET_BRANCH` for context
 
-Run diagnostics across all projects to identify failed tests per workspace:
-
-```bash
-node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS"
-```
+**Do not proceed to Phase 2 until the skill completes and returns
+findings for all workspaces.** If the skill fans out subagents, wait
+for all subagent results before proceeding.
 
 ---
 
-## Phase 2: Analyze
-
-Use `/e2e-failure-analysis` to investigate failures. Artifacts are already
-downloaded — subagents skip Step 0 and use the paths from Phase 1.
-
-**When failures span multiple workspaces**, fan out one subagent per workspace
-to run the skill's Steps 1–5. Send all Agent calls in a single response so
-they run concurrently. Always pass `model: "opus"`.
-
-Each subagent prompt should include:
-- `ARTIFACTS` and `BUILD_LOG` paths from Phase 1
-- The workspace name and its failed tests (names + error messages from
-  the Phase 1 diagnostics output)
-- Instruction to invoke `/e2e-failure-analysis` for methodology and
-  `/playwright-trace` before trace analysis. **If either skill fails to
-  invoke, the subagent must exit immediately with an error message stating
-  which skill could not be invoked — do not proceed without the skills.**
-- Instruction to skip Step 0 (artifacts already downloaded) and use
-  `--project <workspace>` when running diagnostics
-- Instruction to return per-test **evidence** (not classification):
-  test name, root cause mechanism, key evidence, and these
-  classification inputs:
-  - What is unique about this test's code path compared to other tests?
-  - Did the same infrastructure component work for other tests in this
-    workspace?
-  - Could a test code change prevent this failure?
-- **Do not ask subagents to suggest a `fix_category`** — classification
-  is the triage agent's job (Phase 3) because it requires cross-workspace
-  context that subagents lack
-
-If a subagent fails or returns unusable output, analyze that workspace
-inline as a fallback.
-
-From the skill's output (yours or subagents'), extract:
-- Which tests failed and their error messages
-- Which workspace each test belongs to
-- Root cause mechanism for each failure
-- Classification inputs (unique code path, component reuse, preventability)
-
-### Phase 2 completion checklist
-
-**Do not proceed to Phase 3 until ALL applicable items are done:**
-
-- [ ] Diagnostics script ran (Step 1) — all failed tests identified
-- [ ] error-context.md read for each failure (Step 2)
-- [ ] Screenshots viewed for each UI failure (Step 2)
-- [ ] **Trace inspected for each UI failure (Step 4)** — invoke
-      `/playwright-trace` first, then at minimum: `actions` (full list,
-      not just errors-only), `action <id>` for failed actions,
-      `console --errors-only`, `requests --failed`
-- [ ] build-log.txt checked for setup/beforeAll failures (Step 5)
-- [ ] **Cluster logs checked for every deployment failure (Step 5)** —
-      `pods.txt` + `events.txt` + `backstage-backend.log` (if present) for
-      any Init:Error, pod timeout, or CrashLoopBackOff. If the pod never
-      started, the backend log won't exist — classify from build-log.txt,
-      events.txt, and pods.txt instead.
-
-The trace requirement applies to EVERY test failure that involves browser
-interaction. The only exceptions are setup failures (shell script exit,
-deployment error) where no browser was involved and no trace exists.
-
----
-
-## Phase 3: Classify Per Workspace
+## Phase 2: Classify Per Workspace
 
 Subagents return evidence, not classifications. This phase is where
 classification happens — using the evidence from all workspaces together.
@@ -257,7 +163,7 @@ Workspaces with the same root cause should use the same slug.
 
 ---
 
-## Phase 4: Dedup — Search for Existing Issues
+## Phase 3: Dedup — Search for Existing Issues
 
 For each workspace, search for existing open issues using **tracking lines**
 embedded in issue bodies. Every issue created by this agent includes visible
@@ -309,7 +215,7 @@ gh api -X GET search/issues \
 
 ---
 
-## Phase 5: Emit Directives
+## Phase 4: Emit Directives
 
 For each workspace, write an issue directive based on the classification
 and dedup results.
@@ -325,16 +231,15 @@ and dedup results.
 
 ### Umbrella rule
 
-When ≥3 workspaces share the same `root_cause_slug`, emit **ONE entry**
-in the `workspaces` array — not one per workspace. **Do NOT emit separate
-entries for sibling workspaces.** The code agent reads this single issue
-and fixes all workspaces in one branch/PR. For ≤2 workspaces with the
-same cause, use per-workspace issues (each triggers its own coder run).
+When ≥3 workspaces share the same `root_cause_slug`, the merge script
+automatically combines them into one entry. **Write per-workspace
+results as normal** — do not manually merge them. The merge script
+handles umbrella grouping, including combining tests, picking the
+dominant `fix_category`, and merging issue bodies.
 
-Umbrella entries use:
-- `workspace`: the `root_cause_slug` (not a directory name)
-- `tests`: combined from all affected workspaces
-- `issue.title`: `[fullsend] E2E: <root-cause-slug> — <short description>`
+For umbrella entries, each per-workspace issue body should still follow
+the standard template. The merge script concatenates them under the
+shared slug.
 
 ### Issue body template
 
@@ -392,75 +297,87 @@ For umbrella issues, the sections from `## <workspace>` through
 
 ---
 
-## Phase 6: Structured Output
+## Phase 5: Structured Output
 
-After processing all workspaces, write the results to `agent-result.json`:
+Process each workspace incrementally — classify, dedup, then write
+immediately. Do not wait until all workspaces are done.
+
+Before writing the first result, clear any stale output from a prior
+run of this agent in the same sandbox (e.g. a retried iteration) —
+otherwise the merge script will pick up leftover files from a
+workspace that isn't part of this run and error on the duplicate, or
+silently include stale results:
 
 ```bash
 OUTPUT_DIR="${FULLSEND_OUTPUT_DIR:-.}"
-mkdir -p "$OUTPUT_DIR"
-cat > "$OUTPUT_DIR/agent-result.json" << 'RESULT_EOF'
-{
-  "target_branch": "<TARGET_BRANCH>",
-  "workspaces": [
-    {
-      "workspace": "<name>",
-      "fix_category": "<infra_flake|test_fix|product_bug|environment>",
-      "tests": [
-        { "name": "<test title>", "error": "<error message>" }
-      ],
-      "root_cause": "<summary>",
-      "root_cause_slug": "<slug>",
-      "issue": {
-        "action": "<create|comment|skip>",
-        "title": "<for create only>",
-        "labels": ["e2e-failure", "ready-to-code"],
-        "body": "<issue body or comment body>",
-        "number": "<for comment only — integer, not null>",
-        "cycle_ready_to_code": false
-      }
-    }
-  ],
-  "summary": "<human-readable summary of all classifications>"
-}
-RESULT_EOF
+rm -rf "$OUTPUT_DIR/workspace-results"
+mkdir -p "$OUTPUT_DIR/workspace-results"
 ```
 
-**After writing the file, validate it:**
+### Per-workspace output
+
+After completing Phases 2–4 for each workspace, write its result:
+
+```bash
+cat > "$OUTPUT_DIR/workspace-results/<workspace>.json" << 'WS_EOF'
+{
+  "workspace": "<name>",
+  "fix_category": "<infra_flake|test_fix|product_bug|environment>",
+  "tests": [
+    { "name": "<test title>", "error": "<error message>" }
+  ],
+  "root_cause": "<summary>",
+  "root_cause_slug": "<slug>",
+  "issue": {
+    "action": "<create|comment|skip>",
+    "title": "<for create only>",
+    "labels": ["e2e-failure", "ready-to-code"],
+    "body": "<issue body or comment body>",
+    "number": <for comment only — integer, not null>,
+    "cycle_ready_to_code": false
+  }
+}
+WS_EOF
+```
+
+Write one file per workspace. For `infra_flake` workspaces (no issue),
+omit the `issue` field or set `action: "skip"`.
+
+**Field rules:**
+- `workspace`: directory name (not slug — the merge script handles umbrella grouping)
+- `root_cause_slug`: short kebab-case slug (e.g., `route-wait`)
+- `issue.action`: `"create"` | `"comment"` | `"skip"` (from Phase 3 dedup)
+- `issue.number`: required for `"comment"` action (integer, not string)
+- `issue.cycle_ready_to_code`: `true` when issue exists but has no open PR
+- Do NOT include extra keys — the schema enforces `additionalProperties: false`
+
+### Merge and validate
+
+After ALL workspaces are written, run the merge script:
+
+```bash
+SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
+python3 "$SKILL_DIR/scripts/merge-results.py" \
+  --target-branch "$TARGET_BRANCH" \
+  --output "$OUTPUT_DIR/agent-result.json" \
+  "$OUTPUT_DIR/workspace-results"
+```
+
+The merge script:
+- Combines all workspace results into the final `agent-result.json`
+- Applies the umbrella rule (≥3 workspaces with same `root_cause_slug`
+  → merged into one entry)
+- Generates the human-readable summary
+- Validates against the schema
+
+Then run the fullsend validator:
 
 ```bash
 fullsend-check-output "$OUTPUT_DIR/agent-result.json"
 ```
 
-If validation fails, read the error output, fix the JSON, and re-run.
-
-**Field rules:**
-- `target_branch`: the branch detected from the Prow URL
-- `workspace`: directory name, or `root_cause_slug` for umbrella entries
-  (see Phase 5 umbrella rule)
-- `root_cause_slug`: short kebab-case slug (e.g., `route-wait`)
-- `issue.action`: `"create"` | `"comment"` | `"skip"` (from Phase 4 dedup)
-- `issue.cycle_ready_to_code`: `true` when issue exists but has no open PR
-- Do NOT include extra keys — the schema enforces `additionalProperties: false`
-
-After writing and validating, output a human-readable summary:
-
-```
-=== E2E Triage Results ===
-Workspaces classified: <N>
-
-  [argocd]
-    Category:  test_fix
-    Slug:      route-wait
-    Tests:     1
-    Action:    create
-
-  [orchestrator]
-    Category:  infra_flake
-    Slug:      ocp-timeout
-    Tests:     3
-    Action:    skip
-```
+If validation fails, read the error, fix the workspace JSON that caused
+it, and re-run the merge.
 
 ---
 
@@ -477,11 +394,8 @@ Workspaces classified: <N>
 
 - Analysis is handled by `/e2e-failure-analysis` — do not duplicate its work.
 - Use the skill's output to drive classification decisions.
-- Do not classify (`fix_category`) until all investigation steps in Phase 2
-  are complete — including trace inspection for every UI failure.
-- **Trace inspection is mandatory for UI failures.** Do not classify any
-  test failure involving browser interaction without first invoking
-  `/playwright-trace` and running `trace actions` + `trace action <id>`.
+- Do not classify (`fix_category`) until Phase 1 completes — the skill
+  ensures trace inspection and all analysis steps run before returning.
 - Distinguish **symptoms** from **mechanisms**. "Timeout" is a symptom.
   "The h1 timed out because a background waitForEvent competed with the
   selector wait while the OAuth refresh returned 401" is a mechanism.
@@ -497,4 +411,4 @@ Workspaces classified: <N>
 ### Issue body quality
 
 The code agent's fix quality depends entirely on your issue body.
-See Phase 5 remediation guidelines for prescriptive writing rules.
+See Phase 4 remediation guidelines for prescriptive writing rules.

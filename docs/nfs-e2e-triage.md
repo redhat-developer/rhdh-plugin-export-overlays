@@ -1,10 +1,10 @@
 # NFS e2e triage: what each workspace needs, and what no longer needs a cluster
 
-**Epic**: RHIDP-15286 — Migrate e2e-tests in the overlay repository to NFS
+**Epic**: [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286) — Migrate e2e-tests in the overlay repository to NFS
 **Verified against `main`**: 2026-08-17
 **Status**: reference material for the epic's per-workspace tickets
 
-This is the input sheet for the tickets under RHIDP-15286. It answers three questions per
+This is the input sheet for the tickets under [RHIDP-15286](https://redhat.atlassian.net/browse/RHIDP-15286). It answers three questions per
 workspace: what the NFS migration actually requires, whether the suite still needs an
 OpenShift cluster once it is migrated, and what its assertions are really about.
 
@@ -25,20 +25,29 @@ Every suite here is L4b today; what the tickets need to know is not which layer 
 ## 1. The scope of the epic, measured
 
 The unit of cluster cost is the **Playwright project**, not the workspace: the project name
-is the Kubernetes namespace, and a name ending in `-app-next` is what switches
-`@red-hat-developer-hub/e2e-test-utils` into NFS mode.
+is the Kubernetes namespace. A name ending in `-app-next` switches
+`@red-hat-developer-hub/e2e-test-utils` into NFS mode, but it is not the only thing that
+does: `configure({ useNewFrontendSystem: true })` and `USE_NEW_FRONTEND_SYSTEM=true` do the
+same without touching the name, so counting NFS lanes by suffix alone undercounts them.
+
+All figures below measured 2026-08-26 on `origin/main`; they move as lanes migrate, so
+regenerate rather than quote them — §6 has the commands.
 
 | | Count |
 |---|---|
 | Workspaces with `e2e-tests/` | 24 |
-| **Playwright projects** (= namespaces = cluster claims) | **47** |
-| — with an `-app-next` lane today | 7 |
-| — of those, skipped in nightly | 2 (`tech-radar`, `app-defaults`) |
-| Legacy-only projects with no NFS lane yet | 39 |
-| Spec files / static `test()` declarations | 42 / 246 |
+| **Playwright projects** (= namespaces = cluster claims) | **48** |
+| — running NFS | 28 |
+| — — by the `-app-next` name | 12 |
+| — — by `configure({ useNewFrontendSystem: true })`, name unchanged | 16 |
+| — running the legacy shell | 20 |
+| NFS lanes skipped in nightly | 2 (`tech-radar-app-next`, `app-defaults-app-next`) |
+| Spec files / static `test()` declarations | 43 / 261 |
 | Workspaces using the per-workspace `value_file-app-next.yaml` hook | 0 |
 
-`backstage` alone declares 12 projects. Reproduce any of these with the commands in §6.
+`backstage` alone declares 13 projects, and all thirteen are NFS under their legacy names —
+which is why the suffix count and the NFS count differ by more than a rounding error.
+Reproduce any of these with the commands in §6.
 
 ---
 
@@ -98,7 +107,7 @@ an empty page, and do not assume it will work either. Run it and look.
 | Blocker | State |
 |---|---|
 | `rhdh:packages/app-next` ships only catalog, scaffolder, search, user-settings + the dynamic loader | **open** — no home page, global header, theme, notifications, techdocs, signals or auth-provider UI. A `createFrontendModule({pluginId: 'home'})` plugin attached to a host that lacks `plugin-home` is silently orphaned, not an error. |
-| RHIDP-15482 — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
+| [RHIDP-15482](https://redhat.atlassian.net/browse/RHIDP-15482) — `app-auth`/`app-integrations` are not in the RHDH image | **open** — this is why `app-defaults-app-next` is skipped in nightly. |
 | The wrapper overlap | **open** — RHDH bakes ~43 plugins into its image. Several suites load the baked-in copy rather than this repo's OCI artifact (see the `artifact` column in §3). `tech-radar`'s app-next skip reason is literally "once the tech-radar wrapper is removed". |
 | Scalprum-only config surfaces with no `app.extensions` equivalent | **open** — notably `themes:`/`appIcons:`/`importName:` (`theme`) and the 22 header config keys in `global-header`. |
 
@@ -146,10 +155,10 @@ lane means anything.
 | `argocd` | 1 | 7 | — | keycloak | **ocp** | in-cluster ArgoCD via an operator subscription | mixed | 5 | **no NFS entry point** |
 | `tekton` | 2 | 3 | ✅ | keycloak | **ocp** | OpenShift Pipelines operator + real `PipelineRun`s | mixed | 5 | ready |
 | `topology` | 2 | 4 | ✅ | keycloak | **ocp** | real pods/deployments + RBAC-gated pod logs | mixed | 4 | ready |
-| `orchestrator` | 1 | 26 | — | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
+| `orchestrator` | 1 | 26 | ✅ (NFS-only) | keycloak | **ocp** | SonataFlow / OpenShift Serverless Logic | n/a | 0 | ready (2 pkgs) |
 | `scaffolder-backend-module-kubernetes` | 1 | 1 | — | keycloak | **ocp** | creates and deletes a real namespace — the API call *is* the assertion | n/a | 0 | backend-only |
 | `intelligent-assistant` | 1 | 34 | — | keycloak | **ocp** | a `lightspeed-core` sidecar with EmptyDir vector stores; ConfigMap patch + `oc rollout restart` | oci | 2 | ready |
-| `backstage` | **12** | 47 | — | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`) | mixed | 2 | ready (6 pkgs) |
+| `backstage` | **13** | 47 | ✅ (`configure`, names unchanged) | guest, keycloak | **split** | 8 projects on GitHub/GitLab APIs (`svc`), notifications-email on Mailpit (`ctr`), `-kubernetes` and part of `-auth` (`ocp`); `-microsoft-auth` not yet classified | mixed | 2 | ready (6 pkgs) |
 
 ### Tally
 
@@ -160,8 +169,13 @@ lane means anything.
 | `ctr` | 13 + 2 of `backstage` | needs a container, not a cluster |
 | `ocp` | 8 + 2 of `backstage` | OpenShift is the subject; stays on Prow |
 
-**About 30 of the 47 projects do not need OpenShift.** Three need no external dependency at
+**About 30 of the 48 projects do not need OpenShift.** Three need no external dependency at
 all. That is the ceiling on what a cluster-free lane could ever cover — not a plan, a bound.
+
+The classes above account for 47 projects, not 48: `backstage-microsoft-auth` arrived with
+#3163 and is not classified yet. It needs a real Azure tenant, which is `svc`, but it also
+patches a ConfigMap and waits on `oc rollout status`, so it is not obviously cluster-free —
+whoever owns that suite should place it rather than have it inferred here.
 
 ---
 
@@ -217,21 +231,40 @@ means something and one that does not:
 
 ---
 
-## 5. Two failure modes to assert against, because both are silent
+## 5. Three failure modes to assert against, because all three are silent
 
-Neither produces an error. A suite that only checks "the page loaded" passes through both.
+None of them produces an error. A suite that only checks "the page loaded" passes through
+every one.
 
 1. **The remote is never served.** The remotes router logs the reason and `continue`s past a
    malformed manifest, so `GET /.backstage/dynamic-features/remotes` answers `200 []` and
    the app boots clean with no plugins. `smoke-tests-native` now validates the manifest
    shape rather than its presence and reports it as `frontend.bundles[].mf` in
-   `results.json`.
+   `results.json`. It gives the Scalprum manifest the same treatment, reported as
+   `frontend.bundles[].scalprum` — not an NFS lane's concern, since NFS loads through the MF
+   remote rather than Scalprum's `loadScripts`, but the same class of fault on the legacy
+   path.
 
 2. **The remote is served but contributes nothing.** Its extensions attach to a host plugin
    the app does not have — orphaned extensions are collected and never reported — or it
    declares NFS entry points the manifest never exposes, in which case `nfsModuleFilter`
    keeps no modules. `mf.servable: true` with a non-empty `mf.nfsFeatures` and an empty
    `mf.nfsFeaturesExposed` is that second state.
+
+3. **The plugin mounts but ignores its configuration.** A bundle whose `package.json`
+   declares `configSchema` and which ships no schema for it leaves Backstage nothing to
+   match the plugin's app-config keys against, so they are dropped without a word and the
+   plugin runs on its defaults (RHDHBUGS-1157). This one is frontend-system-agnostic, and
+   for a concrete reason: `gatherDynamicPluginsSchemas` in
+   `@backstage/backend-dynamic-feature-service` collects the schema on the **backend** side,
+   from a path RHDH derives from the package's ROLE rather than from its layout —
+   `dist-scalprum/configSchema.json` for anything whose platform is `web`. An NFS-only bundle
+   ships no `dist-scalprum/` at all, so it is if anything more exposed here than the legacy
+   path, not less. A suite that asserts the page rendered passes straight through, so
+   assert a value that could only have come from the config. `smoke-tests-native` reports it
+   as `frontend.bundles[].configSchema`; a defect needs `declared: true` alongside a schema
+   that is missing, empty, unreadable or malformed, because most packages legitimately
+   declare no configuration at all.
 
 So assert a positive DOM fact, not the absence of errors.
 
@@ -240,14 +273,18 @@ So assert a positive DOM fact, not the absence of errors.
 ## 6. Reproducing the numbers
 
 ```bash
-# Playwright projects (47) and the app-next lanes among them (7)
+# Playwright projects (48) and the lanes named -app-next among them (12)
 grep -h 'name: "' workspaces/*/e2e-tests/playwright.config.ts | wc -l
 grep -h 'name: ".*-app-next"' workspaces/*/e2e-tests/playwright.config.ts
 
-# Spec files (42)
+# The other NFS lanes, which the line above misses because they keep their legacy names
+grep -rl 'useNewFrontendSystem: true' workspaces/*/e2e-tests --include='*.ts' \
+  | grep -v node_modules | cut -d/ -f2 | sort -u
+
+# Spec files (43)
 ls workspaces/*/e2e-tests/tests/**/*.spec.ts | wc -l
 
-# Static tests (246). Counting only *.spec.ts undercounts: orchestrator registers 26 of
+# Static tests (261). Counting only *.spec.ts undercounts: orchestrator registers 26 of
 # its tests from tests/specs/*.tests.ts modules imported by one spec. The lookbehind
 # drops method calls such as `.test(` that are not test declarations. Needs GNU grep -P
 # (`ggrep` on macOS).
