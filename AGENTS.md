@@ -491,6 +491,13 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+### Verifying fix effectiveness
+When the fix agent is invoked to address a CI failure and determines no code changes are needed, it MUST check whether CI is currently passing for the PR before declaring success. Use `gh pr checks` or `gh run list` to verify the CI status of the target test or workspace.
+
+- If CI results show a deterministic failure in the same test or workspace the fix targets, the fix agent should investigate the actual failure (test output, error messages, assertion mismatches) rather than trusting triage analysis alone.
+- The fix agent should not declare success with the original commit SHA when the test it was asked to fix is still failing on CI. Instead, it should either attempt a code fix or explicitly report that it cannot resolve the failure and explain why.
+- When a triage analysis says "no changes needed" but CI disagrees, CI evidence takes precedence — triage evaluates the approach, CI evaluates the implementation.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
