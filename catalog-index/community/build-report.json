@@ -340,11 +340,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.52.0__10.21.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.6__10.23.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -354,7 +350,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-dynatrace:bs_1.54.6__10.23.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -362,9 +359,9 @@
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
-      "version": "10.21.0",
+      "version": "10.23.0",
       "workspace": "dynatrace",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-github-actions": {
       "stages": {
@@ -580,11 +577,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.52.0__0.24.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.6__0.26.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -594,7 +587,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse:bs_1.54.6__0.26.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -602,9 +596,9 @@
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
-      "version": "0.24.0",
+      "version": "0.26.0",
       "workspace": "lighthouse",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-nexus-repository-manager": {
       "stages": {
@@ -1386,7 +1380,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5e4223ae82834d13be11b494dae0807299bcd5a098d95caf21d2343c4dc135ce"
+          "digest": "sha256:bc68698898f8debe8faf6dc1cf1407e091e1c99b1be6f37e4ee02bd76718faca"
         },
         "dpdy": {
           "status": "skip"
@@ -1481,8 +1475,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 47,
-    "failed": 4
+    "succeeded": 45,
+    "failed": 6
   },
   "status": "partial"
 }

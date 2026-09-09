@@ -98,11 +98,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.52.0__1.30.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.54.6__1.31.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -112,17 +108,24 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment:bs_1.54.6__1.31.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
           "digest": "sha256:e0ecc893353f335d91d883d85692b4fd92a23874c0becda483c1540e96645be4"
+        },
+        "validate": {
+          "status": "pass",
+          "warnings": [
+            "[index-missing-entry] 'backstage-community-plugin-analytics-provider-segment' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+          ]
         }
       },
       "package": "@backstage-community/plugin-analytics-provider-segment",
-      "version": "1.30.0",
+      "version": "1.31.1",
       "workspace": "analytics",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-plugin-catalog-backend-module-github-org": {
       "stages": {
@@ -1673,8 +1676,8 @@
   },
   "summary": {
     "total": 53,
-    "succeeded": 41,
-    "failed": 12
+    "succeeded": 40,
+    "failed": 13
   },
   "status": "partial"
 }
