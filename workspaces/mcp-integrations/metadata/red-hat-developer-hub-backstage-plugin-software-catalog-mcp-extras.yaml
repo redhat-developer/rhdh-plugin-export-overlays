@@ -16,11 +16,11 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-software-catalog-mcp-extras"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.49.4__0.2.2
-  version: 0.2.2
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-software-catalog-mcp-extras:bs_1.54.1__0.2.5
+  version: 0.2.5
   backstage:
     role: backend-plugin
-    supportedVersions: 1.49.4
+    supportedVersions: 1.54.1
   author: Red Hat
   support: dev-preview
   lifecycle: active
@@ -32,6 +32,7 @@ spec:
         backend:
           actions:
             pluginSources:
+              - 'kubernetes-mcp-extras'
               - 'scaffolder-mcp-extras'
               - 'software-catalog-mcp-extras'
               - 'techdocs-mcp-extras'
