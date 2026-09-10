@@ -1,3 +1,10 @@
+"""Tests for the E2E runner's Node.js prerequisite validation.
+
+The runner is executed in a temporary fixture with command stubs so patch-level
+Node.js versions in the required major/minor series can be accepted without a
+cluster or network.
+"""
+
 import shutil
 import subprocess
 from pathlib import Path
