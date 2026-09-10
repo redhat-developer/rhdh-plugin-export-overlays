@@ -27,10 +27,11 @@ jobs:
 
   # Which workspaces did that publish actually touch? The export tool works this out
   # internally and does not report it back, so recompute it from the same base commit the
-  # publish used. Recomputing can only be too generous — a workspace whose files changed
-  # without its artifact changing costs one extra smoke run, which is the safe direction.
+  # publish used. Runs even when export failed: a partially failed publish is exactly the
+  # run most likely to have shipped something broken.
   published:
     needs: export
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -51,45 +52,60 @@ jobs:
           # Set by the publish workflow from its own last successful run. Empty on the
           # very first publish of a branch, and after a run whose export jobs all failed.
           LAST_PUBLISHED: ${{ needs.export.outputs.last-published-commit }}
-          # Push payload fallback: the tip before this push. All-zero when the branch was
-          # just created, which `git cat-file` rejects and the guard below catches.
-          PUSH_BEFORE: ${{ github.event.before }}
         run: |
-          base=""
-          for candidate in "$LAST_PUBLISHED" "$PUSH_BEFORE"; do
-            if [[ -n "$candidate" ]] && git cat-file -e "${candidate}^{commit}" 2>/dev/null; then
-              base="$candidate"
-              break
-            fi
-          done
+          # Without this a failing `git diff` yields an empty list, which reads as
+          # "nothing to test" and takes the whole run green having tested nothing.
+          set -euo pipefail
 
-          if [[ -z "$base" ]]; then
-            echo "::warning::no usable base commit (last published '$LAST_PUBLISHED', \
-                  push before '$PUSH_BEFORE') — skipping the post-publish smoke rather \
-                  than smoke testing every workspace in the repo"
+          if [[ -z "$LAST_PUBLISHED" ]] || ! git cat-file -e "${LAST_PUBLISHED}^{commit}" 2>/dev/null; then
+            # Deliberately NOT falling back to the push payload's before-sha. export got
+            # this same empty value as its last-publish-commit and republished broadly,
+            # so scoping to one push would cover strictly less than was published — a
+            # silent gap, which is the failure this whole check exists to remove.
+            echo "::warning::last-published-commit is '$LAST_PUBLISHED', which does not \
+                  resolve. The publish was not scoped, so this smoke cannot scope itself \
+                  to it either — skipping. The nightly sweep still covers these tags."
             echo "workspaces=[]" >> "$GITHUB_OUTPUT"
             echo "count=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "Diffing $base..$GITHUB_SHA for changed workspaces"
-          # sort -u because one workspace usually has several files in a single bump.
-          mapfile -t workspaces < <(
-            git diff --name-only "$base" "$GITHUB_SHA" -- 'workspaces/*' \
-              | sed -n 's|^workspaces/\([^/]*\)/.*|\1|p' \
-              | sort -u
-          )
+          echo "Diffing $LAST_PUBLISHED..$GITHUB_SHA for changed workspaces"
+          # Assign first so a failing `git diff` aborts here rather than being swallowed
+          # by mapfile, which reports its own status and not the pipeline's.
+          changed=$(git diff --name-only "$LAST_PUBLISHED" "$GITHUB_SHA" -- 'workspaces/*')
 
-          printf '%s\n' "Workspaces to smoke test (${#workspaces[@]}):" "${workspaces[@]}"
-          # compact=True so the matrix consumes it; jq -R/-s/-c builds the array safely
-          # even for a name with a character that would break a hand-rolled join.
-          json=$(printf '%s\n' "${workspaces[@]}" | jq -R . | jq -s -c .)
-          [[ ${#workspaces[@]} -eq 0 ]] && json='[]'
+          candidates=()
+          # sort -u: one workspace usually has several files in a single bump.
+          while IFS= read -r ws; do
+            [[ -n "$ws" ]] || continue
+            # A workspace shipping no oci:// artifact has nothing to pull, and the
+            # harness treats zero refs as an error — so a file-only change there would
+            # turn a good publish red. Skip those instead.
+            if grep -rqs 'dynamicArtifact: *oci://' "workspaces/$ws/metadata/"; then
+              candidates+=("$ws")
+            else
+              echo "  skipping '$ws': no oci:// dynamicArtifact in its metadata"
+            fi
+          done < <(printf '%s\n' "$changed" | sed -n 's|^workspaces/\([^/]*\)/.*|\1|p' | sort -u)
+
+          echo "Workspaces to smoke test (${#candidates[@]}):"
+          printf '  %s\n' "${candidates[@]:-(none)}"
+
+          # jq -c keeps the array on one line, and -R/-s build it safely whatever the
+          # names contain. An empty array needs the literal: printf on an empty array
+          # emits one blank line, which jq would turn into [""].
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+            json='[]'
+          else
+            json=$(printf '%s\n' "${candidates[@]}" | jq -R . | jq -s -c .)
+          fi
           echo "workspaces=$json" >> "$GITHUB_OUTPUT"
-          echo "count=${#workspaces[@]}" >> "$GITHUB_OUTPUT"
+          echo "count=${#candidates[@]}" >> "$GITHUB_OUTPUT"
 
-  # One job per workspace, against the tag that was just published. No support filter:
-  # post-publish validates everything the workspace ships, not one tier of it.
+  # One job per workspace, against the tag that was just published. No support filter, so
+  # every tier the workspace ships is covered rather than one of them — minus whatever
+  # plugin-sweep-excludes.txt drops at `install` scope, same as the nightly sweep.
   smoke:
     needs: published
     if: needs.published.outputs.count != '0'
@@ -151,16 +167,22 @@ jobs:
         env:
           WORKSPACE: ${{ matrix.workspace }}
         run: |
+          set -euo pipefail
+          # Flat, not results/<ws>.json: native-smoke writes --out with no mkdir, so a
+          # nested path is ENOENT after the full run. catalog-index-sanity.yaml writes
+          # flat for the same reason.
           yarn smoke \
             --workspace "$WORKSPACE" \
             --exclusions plugin-sweep-excludes.txt \
-            --out "results/$WORKSPACE.json"
+            --out "publish-smoke-$WORKSPACE.json"
 
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: publish-smoke-${{ matrix.workspace }}
-          path: smoke-tests-native/results/*.json
-          if-no-files-found: warn
+          path: smoke-tests-native/publish-smoke-*.json
+          # `error`, unlike the nightly sweep: there is no aggregate job here to notice
+          # a shard that produced nothing, so a missing report must fail on its own.
+          if-no-files-found: error
           retention-days: 7
