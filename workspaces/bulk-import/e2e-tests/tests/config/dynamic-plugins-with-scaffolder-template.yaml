@@ -1,9 +1,9 @@
 plugins:
   # bulk-import plugins
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-bulk-import
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -25,4 +25,4 @@ plugins:
                   text: Bulk import
 
   - package: oci://quay.io/rhdh/backstage-plugin-scaffolder-backend-module-github:{{inherit}}
-    disabled: false
+    enabled: true
