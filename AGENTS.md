@@ -81,7 +81,7 @@ On a PR, comment:
 | `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
-| `manual-review-gate.yaml` | PR label/commit/review events | Fails while the `requires-manual-review` label (applied by the review agent to PRs touching protected paths) is present without a current-commit approving review from a trusted human (owner, org member, or collaborator). The label name lives only here and in the review agent's config — keep them in sync. Hard enforcement requires an admin to mark the `Require manual review approval` check as required on `main` |
+| `manual-review-gate.yaml` | PR label/commit/review events | Fails while the `requires-manual-review` label (applied by the review agent to PRs touching protected paths) is present without a current-commit approving review from a trusted human (owner, org member, or collaborator). The label name lives only here and in the review agent's config — keep them in sync. Hard enforcement requires an admin to mark the `Require manual review approval` check as required on `main` and to require code owner reviews, since a PR can otherwise shadow the check name from its own workflow |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
 ### Triggering Workflows Manually

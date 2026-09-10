@@ -3,15 +3,27 @@ name: Manual Review Gate
 # Enforces the `requires-manual-review` label as a merge gate (#3525).
 # The review agent applies the label to PRs touching protected paths, but
 # nothing blocked the merge: this check fails while the label is present
-# and no human has submitted an approving review.
+# and no trusted human reviewer (owner, org member, or collaborator) has
+# an approving review on the current head commit.
 #
-# `pull_request_target` is used on purpose: the gate must run the workflow
-# definition from the base branch, so a PR cannot lift the gate on itself
-# by editing this file. No PR code is checked out or executed.
+# What this check can and cannot guarantee:
 #
-# For hard enforcement, a repo admin must add "Require manual review
-# approval" to the required status checks in the `main` branch protection
-# rules. Until then the check is visible on the PR but merge is not blocked.
+# - The `pull_request_target` runs (open/reopen/push/label changes)
+#   execute this file from the base branch and check out no PR code. The
+#   `pull_request_review` runs execute the PR merge ref's copy of this
+#   file, and more generally any PR can define a workflow whose job
+#   publishes a check under this same name - an Actions-based check
+#   cannot by itself resist a deliberately malicious PR.
+# - Hard enforcement therefore needs branch protection on `main`: mark
+#   the `Require manual review approval` check as required AND require
+#   code owner reviews (`.github/CODEOWNERS` already covers
+#   `.github/workflows/` through its `*` rule), so a PR that edits or
+#   shadows this gate needs a code owner's approval anyway. Until then
+#   the check is visible on the PR but merge is not blocked.
+# - The label must be applied with GitHub App or user credentials:
+#   labels added with a workflow's own GITHUB_TOKEN do not fire the
+#   `labeled` trigger. The review agent labels through its App
+#   installation, which does.
 
 on:
   pull_request_target:
@@ -59,20 +71,18 @@ jobs:
               per_page: 100,
             });
 
-            // Track the latest gate-relevant state per human reviewer,
-            // mirroring GitHub's own semantics: a COMMENTED review does not
-            // revoke an earlier approval, but CHANGES_REQUESTED or a
-            // dismissal does. GitHub Apps and `[bot]` accounts are excluded;
-            // automation reviewing through a regular machine-user account
-            // cannot be told apart from a human here.
             // Only reviewers the repository actually trusts can satisfy the
             // gate: on a public repository any GitHub account can submit a
             // review. author_association ships with the review payload, so
-            // this needs no extra API call or token permission. Hard
-            // enforcement should still pair this check with CODEOWNERS or
-            // required reviewers in branch protection.
+            // this needs no extra API call or token permission.
             const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 
+            // Track the latest gate-relevant state per trusted human
+            // reviewer, mirroring GitHub's own semantics: a COMMENTED review
+            // does not revoke an earlier approval, but CHANGES_REQUESTED or
+            // a dismissal does. GitHub Apps and `[bot]` accounts are
+            // excluded; automation reviewing through a regular machine-user
+            // account cannot be told apart from a human here.
             const stateByReviewer = new Map();
             for (const review of reviews) {
               if (
@@ -124,6 +134,8 @@ jobs:
 
             core.setFailed(
               `This PR carries the '${GATE_LABEL}' label but has no approving ` +
-                'review from a human reviewer. It touches protected paths, so a ' +
-                'maintainer must approve it before it can be merged.',
+                'review on the current commit from a trusted human reviewer ' +
+                '(owner, org member, or collaborator). It touches protected ' +
+                'paths, so a maintainer must approve it - or approve it again ' +
+                'if an earlier approval went stale after new commits.',
             );
