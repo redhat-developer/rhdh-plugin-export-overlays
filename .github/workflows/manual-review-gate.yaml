@@ -1,5 +1,3 @@
-name: Manual Review Gate
-
 # Enforces the `requires-manual-review` label as a merge gate (#3525).
 # The review agent applies the label to PRs touching protected paths, but
 # nothing blocked the merge: this check fails while the label is present
@@ -24,6 +22,8 @@ name: Manual Review Gate
 #   labels added with a workflow's own GITHUB_TOKEN do not fire the
 #   `labeled` trigger. The review agent labels through its App
 #   installation, which does.
+
+name: Manual Review Gate
 
 on:
   pull_request_target:
