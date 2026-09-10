@@ -3,33 +3,32 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 
-# Load-test every community-supported plugin this repo publishes (RHIDP-13510).
+# Load-test every plugin this repo publishes, at every support level (RHIDP-13510,
+# RHDHBUGS-3634).
 #
-# Community plugins are NOT in the RHDH image — RHIDP-13262 removed them from
-# default.packages.yaml — so they exist only as artifacts published to ghcr.io by this
-# repo, and no other check covers them. The rhdh repo's sanity check (RHIDP-13508) is
-# driven by the catalog index, which carries only generally-available quay.io packages.
+# Each tier publishes a `bs_*` tag to ghcr.io and points `spec.dynamicArtifact` at it, so
+# that tag is what the Extensions Catalog hands a user. Nothing else validates it: the
+# rhdh-side check (RHIDP-13508) reads the catalog index, a different artifact stream.
 #
-# The operative definition of "load test" for this tier is: the published artifact
-# installs and boots. That is what this sweep asserts, with no cluster and no Docker:
+# "Load test" means the published artifact installs and boots, with no cluster and no
+# Docker: every package installs from OCI with a valid layout, backends boot via
+# startTestBackend, frontends get bundle-layout validation only (no UI render —
+# RHIDP-16009, blocked on RHIDP-15082).
 #
-#   - all community packages       install from OCI + valid dynamic-plugin layout
-#   - community backend packages   real boot via startTestBackend
-#   - community frontend packages  bundle-layout validation only (legacy Scalprum
-#                                  and/or module federation). No UI render — that is
-#                                  RHIDP-16009, blocked on RHIDP-15082.
-#
-# Selection is metadata-driven (spec.support), so a new workspace is covered the day
-# its metadata lands instead of waiting for someone to hand-write a smoke test.
-name: Community Plugin Sweep
+# Selection is metadata-driven (spec.support), so a new workspace is covered the day its
+# metadata lands. The file keeps its community-era name; the display name below is current.
+name: Plugin Sweep
 
 on:
   schedule:
-    # Daily at 03:00 UTC. Deliberately clear of the repo's 06:00-06:15 cluster
-    # (label-mandatory-workspace-prs, seed-coverage-main, e2e-triage-agent) so six
-    # long-running shards do not compete with them for runners. update-plugins-repo-refs
-    # runs at 12:00 and 19:00 UTC, so a bump merged during the day is swept that night.
-    - cron: "0 3 * * *"
+    # One tier per hour, smallest first so the longest run has the most room, all clear of
+    # catalog-index-sanity (04:00) and the 06:00-06:15 cluster. Which cron fired selects
+    # the tier — see SUPPORT below, and keep these strings identical to the ones matched
+    # there.
+    - cron: "0 0 * * *" # dev-preview
+    - cron: "0 1 * * *" # tech-preview
+    - cron: "0 2 * * *" # generally-available
+    - cron: "0 3 * * *" # community — the largest tier, and its historical slot
   workflow_dispatch:
     inputs:
       support:
@@ -49,8 +48,17 @@ on:
         default: "6"
 
 concurrency:
-  # A sweep takes a while; never stack two of them.
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.support || 'community' }}
+  # Never stack two sweeps of the SAME tier; different tiers are disjoint and may overlap.
+  # The mapping is repeated from SUPPORT because `env` is not in scope here — if the two
+  # resolve differently, a manual sweep can run alongside the scheduled one for its tier.
+  group: >-
+    ${{ github.workflow }}-${{ github.ref }}-${{ inputs.support
+    || (github.event.schedule == '0 0 * * *' && 'dev-preview')
+    || (github.event.schedule == '0 1 * * *' && 'tech-preview')
+    || (github.event.schedule == '0 2 * * *' && 'generally-available')
+    || (github.event.schedule == '0 3 * * *' && 'community')
+    || (github.event_name == 'schedule' && 'unmapped')
+    || 'community' }}
   cancel-in-progress: false
 
 # Least privilege at the top; only the sweep job talks to a registry, so it takes
@@ -59,7 +67,17 @@ permissions:
   contents: read
 
 env:
-  SUPPORT: ${{ inputs.support || 'community' }}
+  # A scheduled run passes no inputs, so the cron that fired picks the tier. An unmapped
+  # cron gives `unmapped`, which sweep.ts rejects in the cheap `plan` job — a loud failure
+  # beats silently sweeping community. workflow_dispatch still wins over the schedule.
+  SUPPORT: >-
+    ${{ inputs.support
+    || (github.event.schedule == '0 0 * * *' && 'dev-preview')
+    || (github.event.schedule == '0 1 * * *' && 'tech-preview')
+    || (github.event.schedule == '0 2 * * *' && 'generally-available')
+    || (github.event.schedule == '0 3 * * *' && 'community')
+    || (github.event_name == 'schedule' && 'unmapped')
+    || 'community' }}
   SHARDS: ${{ inputs.shards || '6' }}
   EXCLUDES: plugin-sweep-excludes.txt
 

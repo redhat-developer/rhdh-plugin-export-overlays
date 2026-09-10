@@ -14,8 +14,8 @@ name: Catalog Index Sanity
 
 on:
   schedule:
-    # 04:00 UTC — an hour after the community sweep (03:00), so the two ~100-artifact
-    # runs do not contend for registry bandwidth or runner capacity.
+    # 04:00 UTC — after the last of the four tier sweeps (00:00-03:00), so the runs do
+    # not contend for registry bandwidth or runner capacity.
     - cron: "0 4 * * *"
   workflow_dispatch:
     inputs:
