@@ -7,7 +7,7 @@ import { setupBulkImportRhdh } from "../../support/utils/deploy";
 // the guest "Enter" tile on the sign-in page under a development-environment/guest
 // deployment, not under the production-environment GitHub deployment the other
 // bulk-import tests share (rhdh-plugin-export-overlays guest-tile investigation).
-test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
+test.describe("Bulk Import permission", () => {
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce(
       `bulk-import-permission-setup-${rhdh.deploymentConfig.namespace}`,
