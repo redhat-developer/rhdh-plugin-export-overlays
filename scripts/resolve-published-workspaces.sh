@@ -31,8 +31,11 @@ HEAD_SHA="${2:-}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# The three outputs always travel together, so name them here rather than leaving
+# `emit '[]' 0 ""` to be decoded at each call site.
 emit() {
-  printf 'workspaces=%s\ncount=%s\nreason=%s\n' "$1" "$2" "$3"
+  local workspaces="$1" count="$2" reason="$3"
+  printf 'workspaces=%s\ncount=%s\nreason=%s\n' "$workspaces" "$count" "$reason"
 }
 
 if [[ -z "$HEAD_SHA" ]]; then
