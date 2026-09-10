@@ -10,13 +10,13 @@ import {
 import { fillFormFields } from "../../support/utils/fill-template-form";
 import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
-const repositoryParametersGitHub: RepositoryParameters =
-  defaultGitHubRepositoryParameters();
-
-const repositoryParametersGitLab: RepositoryParameters =
-  defaultGitLabRepositoryParameters();
-
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
+  const repositoryParametersGitHub: RepositoryParameters =
+    defaultGitHubRepositoryParameters();
+
+  const repositoryParametersGitLab: RepositoryParameters =
+    defaultGitLabRepositoryParameters();
+
   test.beforeAll(async ({ rhdh }) => {
     await test.runOnce(
       `bulk-import-scaffolder-template-setup-${rhdh.deploymentConfig.namespace}`,
