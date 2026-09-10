@@ -336,7 +336,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4761063ee7ef521dab84a04e043ef2f9dedcb6be4f3c0263175e1a27b45fd1cd"
+          "digest": "sha256:aefdb75a9b029c5cf7ffde2d3b7369b805de43a8071ef98ec6f4cc85bb2afa89"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
@@ -528,11 +528,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.52.0__1.30.2",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.54.6__1.31.1"
         },
         "registry-enrich": {
           "status": "pass",
@@ -542,7 +538,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jfrog-artifactory:bs_1.54.6__1.31.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -550,9 +547,9 @@
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
-      "version": "1.30.2",
+      "version": "1.31.1",
       "workspace": "jfrog-artifactory",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-lighthouse": {
       "stages": {
@@ -572,7 +569,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f5c22298d405e24c19bb0ab00f13c0d082f22540a5472ebbd7e8b01a9a2d2a2e"
+          "digest": "sha256:ecd822aee0769d22f02c29f3d0cab8aa907ea747f828f12ca09a5ece1ce82400"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
@@ -598,7 +595,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1009b09ce7e3b621241e338198e99472ed3069f7194b897a9ff42c63b9a4527b"
+          "digest": "sha256:3c3429b314bf2930199b2b344256bf264f24ddc14d2c73e985ae3710b3ba7e97"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
@@ -1356,7 +1353,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:44834518259cf210804b6ebbce870dc39c292b03dde693a085ff8b2a9779b2fc"
+          "digest": "sha256:b7ff5a2654ff6890200c3f2f19acd29407271290622f3ef111ae0df67724ebed"
         },
         "dpdy": {
           "status": "skip"
@@ -1451,8 +1448,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 41,
-    "failed": 10
+    "succeeded": 40,
+    "failed": 11
   },
   "status": "partial"
 }

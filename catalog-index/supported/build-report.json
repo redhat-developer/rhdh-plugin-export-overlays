@@ -112,7 +112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:80d96cc9b25714dae4d3cddea80a5a269d0c4786980ba8b5a7594f8158b7ecf6"
+          "digest": "sha256:8d4a4dd383a9aa03e6039157ce9f484672f5f23616b734e547f225df845cc7cf"
         },
         "validate": {
           "status": "pass",
@@ -1006,7 +1006,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:80f055e762eabf6400bc86f54c00781e4643132ac6570df651b292386ba05682"
+          "digest": "sha256:c6e3a7092a4ef3de4a9eab256fc338c8cb47952c9241ecece2e4b3b8d2f5aee4"
         },
         "validate": {
           "status": "pass",
@@ -1068,7 +1068,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a6a9d6f644a78a3c2798347652921a096bcf5d165a409c8f06bd0bb6e2e46489"
+          "digest": "sha256:76c4f0c3b2b2400e70786bb04136052231f82a59ae20983552bfbafad90946a6"
         },
         "validate": {
           "status": "pass",
@@ -1100,7 +1100,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c01f270858340af0eec8b175cf0cc5f2a27d00241256f5d50d7d0a414b78bccf"
+          "digest": "sha256:1d597527401c3cc5186f285118db81b24b46347c152d4a98ee685bafaf597ede"
         },
         "validate": {
           "status": "pass",
@@ -1132,7 +1132,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3524e37c36df553f9e65e0188789495503fae425515b6f871976e9f39de9daad"
+          "digest": "sha256:f22345bbcddd512422fff7f09b56989f9e909a2021fa6b3984e5d23977092e96"
         },
         "validate": {
           "status": "pass",
@@ -1164,7 +1164,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:df962690dc23670c1844c09fd80e95340e38874448c483c511eb27f903e569d2"
+          "digest": "sha256:42fcca7e7ac2c7157a6414ce8550fd0e751dea26fd102d677cbda09d373d476d"
         },
         "validate": {
           "status": "pass",
@@ -1196,7 +1196,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:73df89eaf3e89ddef827ebd69af1ce45841e2f0b7bf9c098d947432d06beb2c3"
+          "digest": "sha256:ba6f10b73ab6c7860575cefc09575646622f0ac5e05a51451d35f014d611418c"
         },
         "validate": {
           "status": "pass",
@@ -1531,7 +1531,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:708f02267e61c7344219f143acc78190937f5b881e443b4a0e6a893e8c8f8e02"
+          "digest": "sha256:21e57ffd4cef6403f81dd19db5b9d8be046612c8d4d3f25f14090b86060eb4cf"
         },
         "dpdy": {
           "status": "pass"
@@ -1555,14 +1555,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.54.6__4.2.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.54.6__5.0.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4ffa297887b0b95f1668961e797878d199635784d06e52bd4e4ffabd5c5114f0",
-          "fallback": true,
-          "requestedTag": "bs_1.54.6__5.0.1",
-          "resolvedTag": "bs_1.54.6__4.2.0"
+          "digest": "sha256:2a9a39757f7edb2f35c02366b70632480664b63b4f83fdc70f076bb0bdf6b9ba"
         },
         "dpdy": {
           "status": "pass"
@@ -1573,12 +1570,12 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend",
-      "version": "4.2.0",
+      "version": "5.0.1",
       "workspace": "intelligent-assistant",
       "overall": "pass"
     },
@@ -1586,14 +1583,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.6__4.2.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.54.6__5.0.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c987d7fbcc052123d673a64bc3ea0bd8f6a8d6291e74d0c42ed3482aaf4105a6",
-          "fallback": true,
-          "requestedTag": "bs_1.54.6__5.0.1",
-          "resolvedTag": "bs_1.54.6__4.2.0"
+          "digest": "sha256:3a0234cbbb01e4f4e719718eaf6f9d91f701ccb040f9239a124b97f246c7db18"
         },
         "dpdy": {
           "status": "pass"
@@ -1604,12 +1598,12 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-intelligent-assistant",
-      "version": "4.2.0",
+      "version": "5.0.1",
       "workspace": "intelligent-assistant",
       "overall": "pass"
     },
