@@ -53,55 +53,18 @@ jobs:
           # very first publish of a branch, and after a run whose export jobs all failed.
           LAST_PUBLISHED: ${{ needs.export.outputs.last-published-commit }}
         run: |
-          # Without this a failing `git diff` yields an empty list, which reads as
-          # "nothing to test" and takes the whole run green having tested nothing.
           set -euo pipefail
+          # The logic lives in a script so it can be tested — see
+          # scripts/tests/test_resolve_published_workspaces.py. Its first version, inline
+          # here, swallowed a failing git diff and reported "nothing to test".
+          resolved=$(scripts/resolve-published-workspaces.sh "$LAST_PUBLISHED" "$GITHUB_SHA")
+          echo "$resolved" | grep -E '^(workspaces|count)=' >> "$GITHUB_OUTPUT"
 
-          if [[ -z "$LAST_PUBLISHED" ]] || ! git cat-file -e "${LAST_PUBLISHED}^{commit}" 2>/dev/null; then
-            # Deliberately NOT falling back to the push payload's before-sha. export got
-            # this same empty value as its last-publish-commit and republished broadly,
-            # so scoping to one push would cover strictly less than was published — a
-            # silent gap, which is the failure this whole check exists to remove.
-            echo "::warning::last-published-commit is '$LAST_PUBLISHED', which does not \
-                  resolve. The publish was not scoped, so this smoke cannot scope itself \
-                  to it either — skipping. The nightly sweep still covers these tags."
-            echo "workspaces=[]" >> "$GITHUB_OUTPUT"
-            echo "count=0" >> "$GITHUB_OUTPUT"
-            exit 0
+          reason=$(echo "$resolved" | sed -n 's/^reason=//p')
+          if [[ -n "$reason" ]]; then
+            echo "::warning::skipping the post-publish smoke: ${reason}. The nightly \
+                  sweep still covers these tags."
           fi
-
-          echo "Diffing $LAST_PUBLISHED..$GITHUB_SHA for changed workspaces"
-          # Assign first so a failing `git diff` aborts here rather than being swallowed
-          # by mapfile, which reports its own status and not the pipeline's.
-          changed=$(git diff --name-only "$LAST_PUBLISHED" "$GITHUB_SHA" -- 'workspaces/*')
-
-          candidates=()
-          # sort -u: one workspace usually has several files in a single bump.
-          while IFS= read -r ws; do
-            [[ -n "$ws" ]] || continue
-            # A workspace shipping no oci:// artifact has nothing to pull, and the
-            # harness treats zero refs as an error — so a file-only change there would
-            # turn a good publish red. Skip those instead.
-            if grep -rqs 'dynamicArtifact: *oci://' "workspaces/$ws/metadata/"; then
-              candidates+=("$ws")
-            else
-              echo "  skipping '$ws': no oci:// dynamicArtifact in its metadata"
-            fi
-          done < <(printf '%s\n' "$changed" | sed -n 's|^workspaces/\([^/]*\)/.*|\1|p' | sort -u)
-
-          echo "Workspaces to smoke test (${#candidates[@]}):"
-          printf '  %s\n' "${candidates[@]:-(none)}"
-
-          # jq -c keeps the array on one line, and -R/-s build it safely whatever the
-          # names contain. An empty array needs the literal: printf on an empty array
-          # emits one blank line, which jq would turn into [""].
-          if [[ ${#candidates[@]} -eq 0 ]]; then
-            json='[]'
-          else
-            json=$(printf '%s\n' "${candidates[@]}" | jq -R . | jq -s -c .)
-          fi
-          echo "workspaces=$json" >> "$GITHUB_OUTPUT"
-          echo "count=${#candidates[@]}" >> "$GITHUB_OUTPUT"
 
   # One job per workspace, against the tag that was just published. No support filter, so
   # every tier the workspace ships is covered rather than one of them — minus whatever
