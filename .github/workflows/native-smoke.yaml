@@ -10,8 +10,8 @@
 # - pull_request: validates the harness itself when smoke-tests-native/ changes.
 # - workflow_dispatch: run on demand against any plugin ref.
 #
-# The scheduled sweep across every community-supported package lives separately, in
-# community-plugin-sweep.yaml (RHIDP-13510).
+# The scheduled sweep across every published package, at every support level, lives
+# separately, in community-plugin-sweep.yaml (RHIDP-13510, RHDHBUGS-3634).
 name: Native Smoke Harness
 
 on:
