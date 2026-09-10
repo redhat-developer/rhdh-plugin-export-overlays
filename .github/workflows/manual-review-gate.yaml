@@ -1,0 +1,92 @@
+name: Manual Review Gate
+
+# Enforces the `requires-manual-review` label as a merge gate (#3525).
+# The review agent applies the label to PRs touching protected paths, but
+# nothing blocked the merge: this check fails while the label is present
+# and no human has submitted an approving review.
+#
+# `pull_request_target` is used on purpose: the gate must run the workflow
+# definition from the base branch, so a PR cannot lift the gate on itself
+# by editing this file. No PR code is checked out or executed.
+#
+# For hard enforcement, a repo admin must add "Require manual review
+# approval" to the required status checks in the `main` branch protection
+# rules. Until then the check is visible on the PR but merge is not blocked.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    name: Require manual review approval
+    steps:
+      - name: Check for human approval when requires-manual-review is set
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const GATE_LABEL = 'requires-manual-review';
+            const pr = context.payload.pull_request;
+
+            // Labels can be stale in pull_request_review payloads, so always
+            // read the current state.
+            const { data: currentPr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+            const labels = currentPr.labels.map(label => label.name);
+
+            if (!labels.includes(GATE_LABEL)) {
+              console.log(`Label '${GATE_LABEL}' is not present - nothing to gate.`);
+              return;
+            }
+
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            // Track the latest gate-relevant state per human reviewer,
+            // mirroring GitHub's own semantics: a COMMENTED review does not
+            // revoke an earlier approval, but CHANGES_REQUESTED or a
+            // dismissal does.
+            const stateByReviewer = new Map();
+            for (const review of reviews) {
+              if (!review.user || review.user.type === 'Bot') {
+                continue;
+              }
+              if (review.user.login === currentPr.user.login) {
+                continue;
+              }
+              if (['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)) {
+                stateByReviewer.set(review.user.login, review.state);
+              }
+            }
+
+            const approvers = Array.from(stateByReviewer.entries())
+              .filter(([, state]) => state === 'APPROVED')
+              .map(([login]) => login);
+
+            if (approvers.length > 0) {
+              console.log(`Approved by: ${approvers.join(', ')} - gate passes.`);
+              return;
+            }
+
+            core.setFailed(
+              `This PR carries the '${GATE_LABEL}' label but has no approving ` +
+                'review from a human reviewer. It touches protected paths, so a ' +
+                'maintainer must approve it before it can be merged.',
+            );
