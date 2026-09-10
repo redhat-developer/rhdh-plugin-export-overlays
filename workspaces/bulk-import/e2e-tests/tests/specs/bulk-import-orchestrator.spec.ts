@@ -108,18 +108,16 @@ test.describe("Bulk import tests orchestrator mode", () => {
 
     await bulkImport.clickAddRepositoryImportAndWaitForSubmit();
 
-    const workflowPage =
-      await bulkImport.openImportHistoryVerifyWorkflowAndOpenInstance(
-        catalogRepoDetailsForOrchestrator.url,
-      );
+    // Orchestrator import now requires a GitHub App installation token
+    // (rhdh-plugins#4349); this suite only configures a PAT
+    // (integrations.github[].token), so the job fails closed and the UI
+    // surfaces it as an error alert on this page instead of creating a PR.
+    const jobErrors = page.getByTestId("orchestrator-job-errors");
+    await expect(jobErrors).toBeVisible({ timeout: 60_000 });
     await expect(
-      workflowPage.getByRole("link", { name: "PR_URL" }),
-    ).toBeVisible({ timeout: 30_000 });
-
-    await bulkImport.closePageIfNotPrimary(workflowPage);
-
-    await bulkImport.expectRepoRowShowsWorkflowAfterImport(
-      catalogRepoDetailsForOrchestrator.name,
-    );
+      jobErrors.getByText(
+        /Orchestrator import requires a GitHub App installation token/i,
+      ),
+    ).toBeVisible();
   });
 });
