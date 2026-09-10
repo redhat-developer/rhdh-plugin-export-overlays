@@ -12,10 +12,16 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
  *   no branching is next to BULK_IMPORT_HEADING in support/constants.
  * - bulk-import-orchestrator — legacy shell, orchestrator-mode config. Deliberately
  *   has no app-next counterpart: it also needs the orchestrator operator.
+ * - bulk-import-scaffolder-template — scaffolder-based import flow (GitHub OAuth,
+ *   template execution, PR creation). Deliberately has no app-next counterpart:
+ *   it exercises the /create template flow, not the bulk-import UI under the NFS
+ *   shell, so running it once on the legacy shell is sufficient.
  * - bulk-import-permission — guest-auth (development environment) deployment, its own
  *   namespace. Kept separate from bulk-import because RHDH only renders the guest
  *   "Enter" sign-in tile under a development/guest deployment, not the production
- *   GitHub deployment the other bulk-import tests share.
+ *   GitHub deployment the other bulk-import tests share. Deliberately has no
+ *   app-next counterpart for the same reason as bulk-import-orchestrator: it tests
+ *   RBAC denial behavior, which is shell-independent.
  */
 export default defineConfig({
   projects: [
