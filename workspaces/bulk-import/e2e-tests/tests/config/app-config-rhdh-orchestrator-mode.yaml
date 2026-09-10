@@ -3,8 +3,6 @@
 
 auth:
   providers:
-    guest:
-      dangerouslyAllowOutsideDevelopment: true
     github:
       production:
         clientSecret: ${GITHUB_OAUTH_APP_SECRET}
