@@ -7,6 +7,7 @@ const TECHDOCS_WRAPPER_DIST_NAMES: string[] = [
   "backstage-plugin-techdocs-module-addons-contrib",
 ];
 
+const TECHDOCS_FIRST_BUILD_TIMEOUT_MS = 60_000;
 const REPORT_ISSUE_POLL_TIMEOUT_MS = 30_000;
 const REPORT_ISSUE_POLL_INTERVAL_MS = 1_000;
 
@@ -116,17 +117,28 @@ test.describe("TechDocs", () => {
   }) => {
     await uiHelper.openSidebar("Docs");
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
-    await uiHelper.waitForTitle("Getting Started running RHDH", 1);
+    await expect(
+      page.getByRole("heading", {
+        name: "Getting Started running RHDH",
+        level: 1,
+      }),
+    ).toBeVisible({ timeout: TECHDOCS_FIRST_BUILD_TIMEOUT_MS });
   });
 
   test("Verify that TechDocs entity tab page for Red Hat Developer Hub works", async ({
+    page,
     uiHelper,
   }) => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
     await uiHelper.clickTab("Docs");
-    await uiHelper.waitForTitle("Getting Started running RHDH", 1);
+    await expect(
+      page.getByRole("heading", {
+        name: "Getting Started running RHDH",
+        level: 1,
+      }),
+    ).toBeVisible({ timeout: TECHDOCS_FIRST_BUILD_TIMEOUT_MS });
   });
 
   // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
@@ -136,7 +148,12 @@ test.describe("TechDocs", () => {
   }) => {
     await uiHelper.openSidebar("Docs");
     await page.getByRole("link", { name: "Red Hat Developer Hub" }).click();
-    await uiHelper.waitForTitle("Getting Started running RHDH", 1);
+    await expect(
+      page.getByRole("heading", {
+        name: "Getting Started running RHDH",
+        level: 1,
+      }),
+    ).toBeVisible({ timeout: TECHDOCS_FIRST_BUILD_TIMEOUT_MS });
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
 
@@ -149,7 +166,12 @@ test.describe("TechDocs", () => {
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
     await uiHelper.clickTab("Docs");
-    await uiHelper.waitForTitle("Getting Started running RHDH", 1);
+    await expect(
+      page.getByRole("heading", {
+        name: "Getting Started running RHDH",
+        level: 1,
+      }),
+    ).toBeVisible({ timeout: TECHDOCS_FIRST_BUILD_TIMEOUT_MS });
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
 });
