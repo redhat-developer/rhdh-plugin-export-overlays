@@ -71,7 +71,14 @@ jobs:
   # plugin-sweep-excludes.txt drops at `install` scope, same as the nightly sweep.
   smoke:
     needs: published
-    if: needs.published.outputs.count != '0'
+    # A job is skipped when any ancestor failed, so without `!cancelled()` a failed
+    # export takes the smoke down with it — the run most likely to have shipped
+    # something broken. `result == 'success'` then guards the edge that opens up:
+    # `count` is '' when `published` failed, and `fromJSON('')` fails the strategy.
+    if: >-
+      ${{ !cancelled()
+      && needs.published.result == 'success'
+      && needs.published.outputs.count != '0' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
