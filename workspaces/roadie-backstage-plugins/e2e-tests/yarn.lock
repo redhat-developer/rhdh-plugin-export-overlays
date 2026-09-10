@@ -314,6 +314,8 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
+  bin:
+    rhdh-e2e-secrets: ./dist/secrets/cli.js
   checksum: 10c0/fa06e5e0896c4973883660e71bf7e922df0c6d6550171b876a3acf3c315cb88d900b3fd8209b7b2122ade4ff376df2de0b1d086a4ef13766b619eb54c352fb54
   languageName: node
   linkType: hard
