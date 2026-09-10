@@ -65,6 +65,14 @@ jobs:
             // dismissal does. GitHub Apps and `[bot]` accounts are excluded;
             // automation reviewing through a regular machine-user account
             // cannot be told apart from a human here.
+            // Only reviewers the repository actually trusts can satisfy the
+            // gate: on a public repository any GitHub account can submit a
+            // review. author_association ships with the review payload, so
+            // this needs no extra API call or token permission. Hard
+            // enforcement should still pair this check with CODEOWNERS or
+            // required reviewers in branch protection.
+            const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+
             const stateByReviewer = new Map();
             for (const review of reviews) {
               if (
@@ -77,6 +85,12 @@ jobs:
               if (review.user.login === currentPr.user.login) {
                 continue;
               }
+              if (!TRUSTED_ASSOCIATIONS.includes(review.author_association)) {
+                console.log(
+                  `Ignoring review by ${review.user.login} (${review.author_association})`,
+                );
+                continue;
+              }
               if (
                 review.state === 'APPROVED' &&
                 review.commit_id !== currentPr.head.sha
@@ -85,6 +99,10 @@ jobs:
                 // Ignoring it mirrors the "dismiss stale pull request
                 // approvals" branch protection behavior the issue calls for,
                 // so pushing new commits after an approval re-opens the gate.
+                // CHANGES_REQUESTED is deliberately not aged out the same
+                // way: GitHub's own review model keeps a change request
+                // active across pushes until it is dismissed or superseded
+                // by a newer review from the same reviewer.
                 console.log(
                   `Ignoring stale approval by ${review.user.login} on ${review.commit_id}`,
                 );
