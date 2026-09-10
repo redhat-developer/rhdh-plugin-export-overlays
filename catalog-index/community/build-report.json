@@ -979,11 +979,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.52.0__2.16.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.54.6__2.17.0"
         },
         "registry-enrich": {
           "status": "pass",
@@ -993,7 +989,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube:bs_1.54.6__2.17.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -1001,9 +998,9 @@
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-sonarqube",
-      "version": "2.16.0",
+      "version": "2.17.0",
       "workspace": "scaffolder-backend-module-sonarqube",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-sonarqube-backend": {
       "stages": {
@@ -1435,8 +1432,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 37,
-    "failed": 14
+    "succeeded": 36,
+    "failed": 15
   },
   "status": "partial"
 }
