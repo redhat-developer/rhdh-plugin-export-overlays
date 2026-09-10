@@ -487,9 +487,10 @@ be imported by a test, so anything living there is untestable by construction. T
 It installs skopeo, builds, runs `yarn smoke`, uploads `results.json`, and fails the job on
 a non-passing plugin.
 
-`.github/workflows/community-plugin-sweep.yaml` runs one tier per night — 00:00 UTC
-dev-preview, 01:00 tech-preview, 02:00 generally-available, 03:00 community — and on
-demand, with a `support` / `shards` choice. Three jobs: `plan` resolves the shard matrix
+`.github/workflows/community-plugin-sweep.yaml` runs one support tier per nightly cron,
+largest tier first, and on demand with a `support` / `shards` choice. The cron-to-tier
+mapping lives in that workflow's `SUPPORT` block; `src/sweep-schedule.test.ts` asserts it
+stays in step with `SUPPORT_LEVELS`. Three jobs: `plan` resolves the shard matrix
 from metadata and pulls nothing, `sweep` runs the shards with `fail-fast: false` so one bad
 plugin cannot hide the verdict on the rest, and `aggregate` merges the shard summaries into
 one step summary — it runs unless the run was cancelled (`!cancelled()`), since the aggregate report is

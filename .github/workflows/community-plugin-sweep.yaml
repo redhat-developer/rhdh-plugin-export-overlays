@@ -17,18 +17,23 @@
 #
 # Selection is metadata-driven (spec.support), so a new workspace is covered the day its
 # metadata lands. The file keeps its community-era name; the display name below is current.
+#
+# Expect the non-community tiers to fail until RHDHBUGS-3745 is fixed: 29 of their
+# published tags do not exist in ghcr.io. They are deliberately NOT excluded — an
+# exclusion would bury the very signal this sweep was added to surface.
 name: Plugin Sweep
 
 on:
   schedule:
-    # One tier per hour, smallest first so the longest run has the most room, all clear of
-    # catalog-index-sanity (04:00) and the 06:00-06:15 cluster. Which cron fired selects
-    # the tier — see SUPPORT below, and keep these strings identical to the ones matched
-    # there.
-    - cron: "0 0 * * *" # dev-preview
-    - cron: "0 1 * * *" # tech-preview
-    - cron: "0 2 * * *" # generally-available
-    - cron: "0 3 * * *" # community — the largest tier, and its historical slot
+    # One tier per hour, LARGEST first: community is ~100 artifacts against a 60-minute
+    # job timeout, so it needs the whole window clear of catalog-index-sanity (04:00),
+    # and the tier adjacent to that job should be the one least able to overrun. All four
+    # stay clear of the 06:00-06:15 cluster. Which cron fired selects the tier — see
+    # SUPPORT below, and keep these strings identical to the ones matched there.
+    - cron: "0 0 * * *" # community — the largest tier
+    - cron: "0 1 * * *" # generally-available
+    - cron: "0 2 * * *" # tech-preview
+    - cron: "0 3 * * *" # dev-preview
   workflow_dispatch:
     inputs:
       support:
@@ -53,10 +58,10 @@ concurrency:
   # resolve differently, a manual sweep can run alongside the scheduled one for its tier.
   group: >-
     ${{ github.workflow }}-${{ github.ref }}-${{ inputs.support
-    || (github.event.schedule == '0 0 * * *' && 'dev-preview')
-    || (github.event.schedule == '0 1 * * *' && 'tech-preview')
-    || (github.event.schedule == '0 2 * * *' && 'generally-available')
-    || (github.event.schedule == '0 3 * * *' && 'community')
+    || (github.event.schedule == '0 0 * * *' && 'community')
+    || (github.event.schedule == '0 1 * * *' && 'generally-available')
+    || (github.event.schedule == '0 2 * * *' && 'tech-preview')
+    || (github.event.schedule == '0 3 * * *' && 'dev-preview')
     || (github.event_name == 'schedule' && 'unmapped')
     || 'community' }}
   cancel-in-progress: false
@@ -72,10 +77,10 @@ env:
   # beats silently sweeping community. workflow_dispatch still wins over the schedule.
   SUPPORT: >-
     ${{ inputs.support
-    || (github.event.schedule == '0 0 * * *' && 'dev-preview')
-    || (github.event.schedule == '0 1 * * *' && 'tech-preview')
-    || (github.event.schedule == '0 2 * * *' && 'generally-available')
-    || (github.event.schedule == '0 3 * * *' && 'community')
+    || (github.event.schedule == '0 0 * * *' && 'community')
+    || (github.event.schedule == '0 1 * * *' && 'generally-available')
+    || (github.event.schedule == '0 2 * * *' && 'tech-preview')
+    || (github.event.schedule == '0 3 * * *' && 'dev-preview')
     || (github.event_name == 'schedule' && 'unmapped')
     || 'community' }}
   SHARDS: ${{ inputs.shards || '6' }}

@@ -14,8 +14,9 @@ name: Catalog Index Sanity
 
 on:
   schedule:
-    # 04:00 UTC — after the last of the four tier sweeps (00:00-03:00), so the runs do
-    # not contend for registry bandwidth or runner capacity.
+    # 04:00 UTC — after the four tier sweeps (00:00-03:00), which run largest-first so
+    # the 03:00 slot is the smallest tier and is unlikely to still be running here. Keeps
+    # the two ~100-artifact runs off each other's registry bandwidth and runners.
     - cron: "0 4 * * *"
   workflow_dispatch:
     inputs:
