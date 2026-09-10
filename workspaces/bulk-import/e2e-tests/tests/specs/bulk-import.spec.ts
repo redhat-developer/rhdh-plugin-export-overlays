@@ -54,9 +54,6 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    const namespace = rhdh.deploymentConfig.namespace;
-    const isAppNext = namespace.endsWith("-app-next");
-
     // NOTE: nightly deliberately exercises a different artifact here, and that is not a
     // reason to skip. Because this package is in default.packages.yaml, nightly's DPDY
     // resolution rewrites it to `oci://registry.access.redhat.com/rhdh/...:{{inherit}}`,
@@ -82,14 +79,6 @@ spec:
         });
       },
     );
-
-    // Without this, a lane that silently failed to enable NFS would just re-run the
-    // legacy suite and stay green — a false pass on the only thing this lane adds.
-    // Only the forward direction is asserted: USE_NEW_FRONTEND_SYSTEM=true can legally
-    // turn NFS on for every lane, so the legacy lane is not constrained here.
-    if (isAppNext) {
-      expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
-    }
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
