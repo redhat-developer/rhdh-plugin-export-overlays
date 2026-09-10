@@ -9,7 +9,7 @@ export type RepositoryParameters = {
   gitProviderHost: "github.com" | "gitlab.com";
 };
 
-export const defaultGitHubRepositoryParameters = (): RepositoryParameters => {
+export function defaultGitHubRepositoryParameters(): RepositoryParameters {
   const newParams: RepositoryParameters = {
     repoUrl: "",
     branchName: "backstage-integration",
@@ -21,9 +21,9 @@ export const defaultGitHubRepositoryParameters = (): RepositoryParameters => {
   newParams.repoUrl = `github.com?owner=${newParams.organization}&repo=${newParams.name}`;
 
   return newParams;
-};
+}
 
-export const defaultGitLabRepositoryParameters = (): RepositoryParameters => {
+export function defaultGitLabRepositoryParameters(): RepositoryParameters {
   const newParams: RepositoryParameters = {
     repoUrl: "",
     branchName: "backstage-integration",
@@ -35,4 +35,4 @@ export const defaultGitLabRepositoryParameters = (): RepositoryParameters => {
   newParams.repoUrl = `gitlab.com?owner=${newParams.organization}&repo=${newParams.name}`;
 
   return newParams;
-};
+}
