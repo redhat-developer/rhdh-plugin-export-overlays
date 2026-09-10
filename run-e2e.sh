@@ -158,8 +158,9 @@ if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
     echo "[ERROR] Could not read the required Node.js version from versions.json."
     exit 1
 fi
-if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_VERSION" ]]; then
-    echo "[ERROR] Node.js ${NODE_VERSION#v} is not supported; versions.json requires ${REQUIRED_NODE_VERSION}."
+REQUIRED_NODE_SERIES="${REQUIRED_NODE_VERSION%.*}"
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_SERIES".* ]]; then
+    echo "[ERROR] Node.js ${NODE_VERSION#v} is not supported; versions.json requires ${REQUIRED_NODE_SERIES}.x."
     echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
     exit 1
 fi
