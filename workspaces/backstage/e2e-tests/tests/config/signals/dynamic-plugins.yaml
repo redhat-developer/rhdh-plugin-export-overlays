@@ -1,0 +1,12 @@
+# Explicit config is required — without it, all backstage workspace plugins
+# are auto-loaded from metadata, and most require provider config that this
+# test does not supply.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage.plugin-signals: {}
+  - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
+    disabled: false

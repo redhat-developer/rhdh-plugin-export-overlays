@@ -2,338 +2,169 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Plugin
 metadata:
- name: ai-integrations
- namespace: rhdh
- title: AI Model Catalog
- annotations:
-   extensions.backstage.io/pre-installed: 'true' # this means the plugin yaml is preinstalled, not the plugin itself, all other plugins are marked as 'custom'
- links:
-   - title: Homepage
-     url: https://red.ht/rhdh
-   - title: Bugs
-     url: https://issues.redhat.com/browse/RHDHPAI
-   - title: Documentation for Red Hat Developer Hub
-     url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/accelerate_ai_development_with_openshift_ai_connector_for_red_hat_developer_hub/index
-   - title: Source Code
-     url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations
- tags:
-   - rhoai
-   - developer-tools
-   - ai
-   - software-catalog
-   - techdocs
- description: |
-   Backend plugins that integrates with Red Hat OpenShift AI to map AI Models and Model Servers from Red Hat OpenShift AI as Component, Resource, and API entities.  The plugins also facilitate
-   creating TechDocs for the Components and Resources from the Model Cards for the AI Models
+  name: ai-model-catalog
+  namespace: rhdh
+  title: AI Model Catalog
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHPAI
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/accelerate_ai_development_with_openshift_ai_connector_for_red_hat_developer_hub/index
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations
+  tags:
+    - rhoai
+    - developer-tools
+    - ai
+    - software-catalog
+    - techdocs
+  description: |
+    Backend plugins that discover AI model servers from Red Hat OpenShift AI
+    and register them as AiModelServerAPI catalog entities, with TechDocs
+    support for model cards sourced from the Kubeflow Model Catalog.
 spec:
- author: Red Hat
- support: dev-preview
- lifecycle: active
- publisher: Red Hat
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: community
+  lifecycle: active
+  publisher: Red Hat
 
+  categories:
+    - Software Catalog
 
- highlights:
-   - Integrations with the software catalog and techdocs for AI Models and Model Servers
-   - Provides information on specific models and model servers needed to build AI applications
-   - Assists in the construction of AI application related Templates
+  highlights:
+    - Generates AiModelServerAPI catalog entities from KServe InferenceService resources
+    - Provides TechDocs integration for AI model cards from the Kubeflow Model Catalog
+    - Works with the standalone KServe/Kubeflow connector — no sidecar containers required
 
+  description: |
+    # AI Model Catalog
 
- description: |
-     # AI Model Catalog Plugins
+    The AI Model Catalog plugins generate Software Catalog entities and
+    TechDocs content from AI model servers managed by Red Hat OpenShift AI.
 
+    ### How it works
 
-     Red Hat Developer Hub provides a collection of plugins and sidecar containers that can be used to import metadata AI Models and Model Servers hosted in Red Hat OpenShift AI.
+    The model-catalog entity provider calls the KServe/Kubeflow connector
+    plugin through its Backstage REST endpoint. The connector watches
+    KServe `InferenceService` resources on configured Kubernetes clusters
+    and exposes discovered model servers and models through authenticated
+    REST routes. The entity provider converts that data into
+    `AiModelServerAPI` catalog entities.
 
+    The TechDocs URL reader obtains model-card Markdown through the
+    connector's `/modelcard/` route, enabling TechDocs generation for
+    imported AI models when a Kubeflow Model Catalog is available.
 
-     Details on the specific components:
+    ### Packages
 
+    - **Model Catalog entity provider**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog`):
+      a catalog entity provider that periodically fetches model data from
+      the connector and emits `AiModelServerAPI` entities.
+    - **TechDocs URL reader**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-techdoc-url-reader-backend`):
+      a URL reader service factory that resolves model-card content through
+      the connector for TechDocs generation.
 
-     - **AI Model Catalog Plugins** (`@red-hat-developer/hub-backstage-plugin-catalog-backend-module-model-catalog` and `@red-hat-developer/hub-backstage-plugin-catalog-techdoc-url-reader-backend`)
-     - **AI Model Catalog Bridge sidecar containers** (three sidecar containers are added to the Red Hat Developer Hub Pod)
+    ### Companion plugins
 
+    These plugins require the KServe/Kubeflow Connector backend and the
+    AI Model Server catalog module to be installed alongside them:
 
-     ### Key Features
+    - **KServe/Kubeflow Connector** — discovers model servers from
+      Kubernetes clusters and exposes the REST API consumed by the
+      model-catalog provider and TechDocs reader.
+    - **AI Model Server catalog module** — registers the `AiModelServerAPI`
+      kind so the catalog accepts the entities emitted by the provider.
 
+    ### OpenShift AI documentation
 
-     - **Red Hat OpenShift AI Integration**: Query Red Hat OpenShift AI to fetch AI Models and Model Servers metadata.
-     - **Integrations with the Software Catalog**: Normalize the AI Model and Model Server metadata to the Software Catalog entity types.
-     - **Integrations with Techdocs**: Import the AI Model and Model Server Model Cards Red Hat Developer Hub TechDocs.
+    - [OpenShift AI Self-Managed 3.5](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5)
+    - [Manage and govern model catalog sources](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/manage_and_govern_model_catalog_sources/index)
+    - [Deploying models](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/deploying_models/index)
 
+    ## Migration from Developer Preview sidecar deployment
 
-     ## Support
+    If you previously used the sidecar-based AI Model Catalog Bridge
+    deployment, follow these steps:
 
+    1. Remove all three sidecar containers and bridge-specific
+       configuration (deployment patches, sidecar environment variables,
+       bridge ServiceAccount and token Secret).
+    2. Install and enable the standalone KServe/Kubeflow Connector backend
+       and companion catalog modules listed above.
+    3. Configure Kubernetes cluster access using either the Backstage
+       Kubernetes plugin reference or direct connection fields (see the
+       KServe/Kubeflow Connector plugin documentation).
+    4. Add `AiModelServerAPI` to your catalog allowed kinds.
+    5. Retain model-catalog and TechDocs configuration only when those
+       capabilities are wanted.
 
-     - **Backend Plugin**: [Backend README](https://github.com/redhat-developer/rhdh-plugins/blob/main/workspaces/ai-integrations/README.md)
-     - **Sidecar Containers**: [Sidecar Containers README](https://github.com/redhat-ai-dev/model-catalog-bridge/blob/main/README.md)
-     - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+    ## Support
 
+    - **Source code**: [ai-integrations workspace](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
 
- packages: # link to the name used in the associated package documents in ../packages
-   - red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog
-   - red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend
-   - red-hat-developer-hub-backstage-plugin-kserve-kubeflow-connector-backend
-   - red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server
+  packages:
+    - rhdh-bs-plugin-catalog-backend-module-model-catalog
+    - rhdh-bs-plugin-catalog-techdoc-url-reader-backend
 
+  installation: |
+    ## Installation
 
- installation: |
-     ## Installation
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
 
+    Add the following to your dynamic plugin configuration. Both the
+    KServe/Kubeflow Connector and the AI Model Server catalog module
+    must also be installed (see their respective plugin entries).
 
-     ### Dynamic Plugin Installation for Red Hat Developer Hub
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.54.4__1.0.2
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.54.4__0.6.2
+        enabled: true
+    ```
 
+    ## RHDH Configuration
 
-     Add the following configuration to your dynamic plugin yaml:
+    The model-catalog entity provider discovers the connector endpoint
+    automatically through Backstage service discovery. Configure the
+    provider schedule and defaults under `catalog.providers.modelCatalog`.
+    Cluster connection is configured on the connector plugin — see the
+    KServe/Kubeflow Connector plugin entry for details.
 
+    Example provider configuration:
 
-     ```yaml
-     includes:
-       - dynamic-plugins.default.yaml
-     plugins:
-       # AI Model Catalog plugins
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.42.5__0.7.0
-         enabled: true
-       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.42.5__0.3.0
-
-     ```
-
-
-     ## RHDH Configuration
-
-
-     ### Plugin Configuration Reference
-
-
-     Register the AI Model Catalog Entity provider in your App Config:
-     ```yaml
-     catalog:
-       providers:
-         modelCatalog:
-           developement:
-             baseUrl: http://localhost:9090
-     ```
-
-     ### Sidecar Related Configuration
-
-     The configuration changes needed to enable the sidecar containers fall into two categories:
-
-     - **RBAC to access the OpenShift AI Model Registry**
-     - **The specification of the sidecard containers in the Red Hat Developer Hub Pod**
-
-     Here is an example configuration for the RBAC if RHDH is deployed in the 'ai-rhdh' namespace and the OpenShift AI Model Registry is deployed in the 'rhoai-model-registries' namespace:
-
-     ```yaml
-     ---
-      apiVersion: v1
-      kind: ServiceAccount
-      metadata:
-        name: rhdh-rhoai-bridge
-        namespace: ai-rhdh
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: ClusterRole
-      metadata:
-        name: rhdh-rhoai-bridge
-        annotations:
-          argocd.argoproj.io/sync-wave: "0"
+    ```yaml
+    catalog:
       rules:
-        - apiGroups:
-            - apiextensions.k8s.io
-          resources:
-            - customresourcedefinitions
-          verbs:
-            - get
-        - apiGroups:
-            - route.openshift.io
-          resources:
-            - routes
-          verbs:
-            - get
-            - list
-            - watch
-        - apiGroups: [""]
-          resources:
-            - serviceaccounts
-            - services
-          verbs:
-            - get
-            - list
-            - watch
-
-        - apiGroups: ["serving.kserve.io"]
-          resources: ["inferenceservices"]
-          verbs: ["get", "list", "watch"]
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: ClusterRoleBinding
-      metadata:
-        name: rhdh-rhoai-bridge
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: ClusterRole
-        name: rhdh-rhoai-bridge
-      subjects:
-        - kind: ServiceAccount
-          name: rhdh-rhoai-bridge
-          namespace: ai-rhdh
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: RoleBinding
-      metadata:
-        name: rhdh-rhoai-dashboard-permissions
-        namespace: rhoai-model-registries
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: Role
-        name: registry-user-modelregistry-public
-      subjects:
-        - apiGroup: rbac.authorization.k8s.io
-          kind: Group
-          name: system:serviceaccounts:ai-rhdh
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: RoleBinding
-      metadata:
-        name: rhdh-rhoai-bridge
-        namespace: ai-rhdh
-      roleRef:
-        apiGroup: rbac.authorization.k8s.io
-        kind: Role
-        name: rhdh-rhoai-bridge
-      subjects:
-        - kind: ServiceAccount
-          name: rhdh-rhoai-bridge
-          namespace: ai-rhdh
-      ---
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: Role
-      metadata:
-        name: rhdh-rhoai-bridge
-        namespace: ai-rhdh
-      rules:
-        - apiGroups: [""]
-          resources: ["configmaps"]
-          verbs: ["get", "list", "watch", "create", "update", "patch"]
-      ---
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: rhdh-rhoai-bridge-token
-        namespace: ai-rhdh
-        annotations:
-          kubernetes.io/service-account.name: rhdh-rhoai-bridge
-      type: kubernetes.io/service-account-token
-     ```
-
-     Here is the example YAML for adding the three sidecard containers as part of a `Backstage` Custom Resource instance:
-
-     ```yaml
-      spec:
-         application:
-            extraFiles:
-              mountPath: /opt/app-root/src
-              secrets:
-                - key: token
-                  mountPath: /opt/app-root/src
-                  name: rhdh-rhoai-bridge-token
-         deployment:
-           patch:
-            spec:
-              template:
-                spec:
-                  containers:
-                    - name: backstage-backend
-                    - env:
-                        - name: NORMALIZER_FORMAT
-                          value: JsonArrayFormat
-                        - name: POD_IP
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: status.podIP
-                        - name: POD_NAMESPACE
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: metadata.namespace
-                      envFrom:
-                        - secretRef:
-                            name: rhdh-rhoai-bridge-token
-                        - secretRef:
-                            name: ai-rh-developer-hub-env
-                      image: quay.io/redhat-ai-dev/model-catalog-location-service:latest
-                      imagePullPolicy: Always
-                      name: location
-                      ports:
-                        - containerPort: 9090
-                          name: location
-                          protocol: TCP
-                      volumeMounts:
-                        - mountPath: /opt/app-root/src/dynamic-plugins-root
-                          name: dynamic-plugins-root
-                      workingDir: /opt/app-root/src
-                    - env:
-                        - name: NORMALIZER_FORMAT
-                          value: JsonArrayFormat
-                        - name: STORAGE_TYPE
-                          value: ConfigMap
-                        - name: BRIDGE_URL
-                          value: http://localhost:9090
-                        - name: POD_IP
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: status.podIP
-                        - name: POD_NAMESPACE
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: metadata.namespace
-                      envFrom:
-                        - secretRef:
-                            name: rhdh-rhoai-bridge-token
-                        - secretRef:
-                            name: ai-rh-developer-hub-env
-                      image: quay.io/redhat-ai-dev/model-catalog-storage-rest:latest
-                      imagePullPolicy: Always
-                      name: storage-rest
-                      ports:
-                        - containerPort: 9090
-                          name: location
-                          protocol: TCP
-                      volumeMounts:
-                        - mountPath: /opt/app-root/src/dynamic-plugins-root
-                          name: dynamic-plugins-root
-                      workingDir: /opt/app-root/src
-                    - env:
-                        - name: NORMALIZER_FORMAT
-                          value: JsonArrayFormat
-                        - name: POD_IP
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: status.podIP
-                        - name: POD_NAMESPACE
-                          valueFrom:
-                            fieldRef:
-                              fieldPath: metadata.namespace
-                      envFrom:
-                        - secretRef:
-                            name: rhdh-rhoai-bridge-token
-                        - secretRef:
-                            name: ai-rh-developer-hub-env
-                      image: quay.io/redhat-ai-dev/model-catalog-rhoai-normalizer:latest
-                      imagePullPolicy: Always
-                      name: rhoai-normalizer
-                      ports:
-                        - containerPort: 9090
-                          name: location
-                          protocol: TCP
-                      volumeMounts:
-                        - mountPath: /opt/app-root/src/dynamic-plugins-root
-                          name: dynamic-plugins-root
-                      workingDir: /opt/app-root/src
-                  replicas: 1
-
-     ```
-
-     ## OpenShift AI Configuration
-
-     Documentation on the OpenShift AI Model Registry configuration can be found [here](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.23/html/working_with_model_registries/index)
-
-
-
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+              AiResource,
+            ]
+      providers:
+        modelCatalog:
+          kserve-kubeflow-connector:
+            my-cluster:
+              name: my-k8s-cluster
+              kubernetesPluginRef: my-k8s-cluster
+              default-owner: my-team
+              default-lifecycle: production
+    ```

@@ -12,7 +12,14 @@
  */
 
 import type { ExclusionRecord } from "./exclusions";
-import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
+import { isRecord } from "./util";
+import type {
+  ConfigSchemaInfo,
+  FrontendSystem,
+  MfRemoteInfo,
+  PluginError,
+  ScalprumInfo,
+} from "./loader";
 
 /**
  * Bump when the results.json shape changes.
@@ -23,28 +30,33 @@ import type { FrontendSystem, MfRemoteInfo, PluginError } from "./loader";
  *
  * - `sweep.ts`, via isReport, on each per-workspace results file.
  * - `aggregate.ts` via isSweepSummary, and `aggregate-report.ts` which reads
- *   `report.frontend.bundles[]`.
+ *   `report.frontend.bundles[]` and `report.backend.bundleErrors[]`.
  *
- * That is the whole list. `native-smoke.yaml` and `community-plugin-sweep.yaml` move these
- * files around as artifacts but never parse `schemaVersion`, and the sweep's
- * download-artifact has no `run-id`, so a shard artifact is never read across runs — an
- * older schema cannot reach a newer aggregator. Everything else in the repo called
- * `results.json` is Playwright's report, which is unrelated.
+ * That is the whole list of code consumers. Three workflows move these files as
+ * artifacts without reading `schemaVersion`, so a bump does not break them — but
+ * `catalog-index-sanity.yaml` jq's FIELDS out of a report (`catalogIndex.*`,
+ * `backend.*`, `frontend.*`) for its summary, so renaming one degrades that to nulls
+ * silently. The sweep never reads a shard artifact across runs.
  *
  * 2: added `exclusions` and the support/exclusion fields on `workspace`.
  * 3: added `installShortfall` and the `fail-install` status.
  * 4: added `mf` on each frontend bundle (module-federation remote shape).
  * 5: added `mf.nfsFeaturesError`, so a failure to read backstage.features is not
  *    recorded as the artifact declaring none.
+ * 6: added `scalprum` and `configSchema` on each frontend bundle (RHIDP-16229).
+ * 7: added `catalogIndex`, the provenance block catalog-index mode records.
+ * 8: added `backend.bundles` and `backend.bundleErrors`, extending the configSchema
+ *    check of 6 to backend plugins (RHIDP-16689).
+ * 9: added `frontend.configKeyMismatches` (RHIDP-16690).
  */
-export const REPORT_SCHEMA_VERSION = 5;
+export const REPORT_SCHEMA_VERSION = 9;
 
 export type Status =
   | "pass"
   | "fail-load"
   | "fail-start"
   | "fail-bundle"
-  /** The install produced fewer plugins than the workspace declared. */
+  /** The install produced fewer plugins than the source declared. */
   | "fail-install"
   | "error";
 
@@ -69,6 +81,70 @@ export type FrontendBundleInfo = {
    * system will not mount anything from.
    */
   mf: MfRemoteInfo | null;
+  /**
+   * The Scalprum manifest as the host reads it. Null when the bundle ships no
+   * dist-scalprum/plugin-manifest.json. `scalprum.missingScripts` being non-empty is a
+   * bundle that loads nothing; `scalprum.extensionCount` being 0 is the normal shape and is
+   * published for visibility only — see {@link ScalprumInfo}.
+   */
+  scalprum: ScalprumInfo | null;
+  /**
+   * Whether the bundle ships a config schema for the configuration it declares. Read
+   * `configSchema.declared` first — and `configSchema.declaredError` beside it, which is
+   * set when package.json could not be read and `declared: false` therefore establishes
+   * nothing. An empty schema is only a finding for a package that declares one, which is
+   * what separates "ships no configuration" from "lost its configuration on the way out"
+   * (RHDHBUGS-1157).
+   */
+  configSchema: ConfigSchemaInfo;
+};
+
+/**
+ * A `dynamicPlugins.frontend.<key>` the workspace's metadata configures that no installed
+ * bundle answers to.
+ *
+ * RHDH matches the app-config key against the `name` in a bundle's
+ * `dist-scalprum/plugin-manifest.json`. When they disagree the plugin still loads, and
+ * every mount point configured under that key is ignored with nothing logged — the same
+ * user-visible outcome as RHDHBUGS-2180, reached a different way.
+ */
+export type ConfigKeyMismatch = {
+  /** The key exactly as the metadata writes it. */
+  key: string;
+  /** Metadata file that configures it, so a reader has somewhere to go. */
+  source: string;
+  /**
+   * The names the workspace's installed bundles DO report. Half of "naming both sides":
+   * without it the finding says what is wrong but not what was expected instead.
+   *
+   * `readonly` because every mismatch from one call shares one array instance — the list
+   * is identical for all of them and is built once. Nothing mutates it today; the type
+   * is what keeps that true.
+   */
+  bundleNames: readonly string[];
+};
+
+/**
+ * Per-backend-plugin bundle record.
+ *
+ * There is no layout half here, deliberately. A backend bundle is required to `require()`
+ * and to expose a default BackendFeature, and both are established by actually loading and
+ * booting it — a stronger check than any inspection of the files. What a successful boot
+ * does NOT establish is whether the plugin's configuration survived the export, because a
+ * plugin whose schema is missing loads, starts and serves traffic while RHDH silently drops
+ * its app-config keys (RHDHBUGS-1157). That is the one artifact fact worth recording here.
+ */
+export type BackendBundleInfo = {
+  name: string;
+  version: string;
+  /**
+   * Read `configSchema.declared` first, and `configSchema.declaredError` beside it — same
+   * contract as the frontend half, and for the same reason. The path that can fail differs:
+   * RHDH's `schemaLocator` is keyed on the package's role, so it resolves to
+   * `dist/configSchema.json` for a backend package where a frontend one gets
+   * `dist-scalprum/configSchema.json`.
+   */
+  configSchema: ConfigSchemaInfo;
 };
 
 /**
@@ -86,16 +162,44 @@ export type WorkspaceInfo = {
   outOfScope?: number;
 };
 
+/**
+ * Catalog-index-mode provenance: which index was validated and how its declared
+ * packages split, so a "pass" cannot hide that most of the index was never installed.
+ * `refCount` is what the install is measured against (see `installShortfall`);
+ * `enabledInIndex` is recorded because it is the number people expect to see and it is
+ * deliberately NOT the number this mode validates — see src/catalog-index.ts.
+ */
+export type CatalogIndexInfo = {
+  source: string;
+  declared: number;
+  refCount: number;
+  inImage: number;
+  enabledInIndex: number;
+};
+
 export type Report = {
   schemaVersion: number;
   cliVersion: string;
   workspace?: WorkspaceInfo;
+  catalogIndex?: CatalogIndexInfo;
   backend: {
     total: number;
     loaded: number;
     /** Install directory names not loaded into the backend (see `exclusions`). */
     skipped: string[];
     errors: PluginError[];
+    /**
+     * One entry per DISCOVERED backend plugin, including the ones `skipped` never booted:
+     * a boot exclusion is scoped to booting, and the artifact is on disk either way.
+     */
+    bundles: BackendBundleInfo[];
+    /**
+     * Bundle faults — today, a declared `configSchema` with nothing behind it. Kept apart
+     * from `errors` because the two are not the same kind of failure and `computeStatus`
+     * reads them differently: `errors` are plugins that would not load at all, while these
+     * loaded fine and lost their configuration on the way out.
+     */
+    bundleErrors: PluginError[];
   };
   backendStart: BackendStartResult;
   frontend: {
@@ -103,10 +207,16 @@ export type Report = {
     valid: number;
     errors: PluginError[];
     bundles: FrontendBundleInfo[];
+    /**
+     * Workspace mode only: configured keys no installed bundle name matches. Absent in
+     * the other modes, which have no workspace metadata to read keys from — and absence
+     * means "not checked here", not "checked and clean".
+     */
+    configKeyMismatches?: ConfigKeyMismatch[];
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
-  /** Set when the install laid out fewer plugins than the workspace declared. */
+  /** Set when the install laid out fewer plugins than the source declared. */
   installShortfall?: string;
   status: Status;
 };
@@ -141,10 +251,6 @@ export type SweepSummary = {
    */
   status: "pass" | "fail";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /**
  * Narrow a parsed report, checking the schema version it declares.

@@ -22,7 +22,9 @@ export {
   configureOrchestratorLoki,
   waitForLokiWorkflowLogs,
 } from "./orchestrator-loki-helpers.js";
+export { configureOrchestratorKafka } from "./orchestrator-kafka-helpers.js";
 export {
+  deployLockFlowWorkflow,
   deploySonataflow,
   prepareRhdhHelmRedeploy,
   runOc,
