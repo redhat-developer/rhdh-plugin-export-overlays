@@ -54,7 +54,7 @@ flowchart LR
 
 The pipeline runs via the `[generate-catalog-index.yaml](../.github/workflows/generate-catalog-index.yaml)` workflow, triggered on pushes to `main` and `release-*` branches when relevant files change, or manually via `workflow_dispatch`.
 
-The core orchestrator script is `[scripts/update-index.sh](../scripts/update-index.sh)`, which runs four steps in sequence:
+The core orchestrator script is `[scripts/update-index.sh](../scripts/update-index.sh)`, which runs six steps in sequence — four that build the index, and two that check it:
 
 ```mermaid
 flowchart TB
@@ -89,6 +89,23 @@ flowchart TB
         S3_OUT -- "OCI ref updates &<br/>tag comments" --> S4
         CATS2["catalog-entities/extensions/"] --> S4
         S4 --> S4_OUT
+    end
+
+    subgraph "Step 5: Validation (no network)"
+        S5["validateCatalogIndex.py"]
+        S5_OUT["findings + validate stage<br/>in build-report.json"]
+        S4_OUT --> S5
+        S3_OUT --> S5
+        S2_OUT --> S5
+        S5 --> S5_OUT
+    end
+
+    subgraph "Step 6: Sanity check (opt-in, --sanity-check)"
+        S6["smoke-tests-native<br/>yarn smoke --catalog-index"]
+        S6_OUT["results-catalog-index.json<br/>(install + boot per package)"]
+        S3_OUT --> S6
+        REG2["Container registries<br/>(pulls every artifact)"] --> S6
+        S6 --> S6_OUT
     end
 ```
 
@@ -168,6 +185,109 @@ The final step that produces the catalog index:
 5. Generates `index.json` with digest-based references
 6. Updates Package entity files and DPDY with OCI references and Tag/Build date comments
 7. Regenerates `all.yaml` location files
+
+### Step 5: Validation (`validateCatalogIndex.py`)
+
+A static check of what the previous steps just produced. **No network calls** — it reads
+`dynamic-plugins.default.yaml`, `index.json` and `plugin_builds/` and reports where they
+disagree, so it is cheap enough to run on every generation, upstream and in the midstream
+Konflux pipeline alike.
+
+It exists because the generator is deliberately forgiving: when a plugin's image is not
+found in the registry it logs a warning and carries on, so the index can go out declaring
+an `oci://` ref that was never confirmed to exist. Nothing downstream re-checked that.
+
+Run `python3 scripts/validateCatalogIndex.py --list-rules` for the full list. The ones
+that matter most:
+
+| Rule                   | Severity | What it means                                                                                             |
+| ---------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| `unresolved-image`     | error    | The index ships a package whose image was never resolved. Enabling it fails at pull time.                 |
+| `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
+| `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
+| `registry-not-allowed` | error    | A ref points at a registry this index is not built against (the `ghcr.io`-into-`quay.io/rhdh` leak).      |
+| `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
+| `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
+| `not-digest-pinned`    | warning  | A ref carries a tag rather than a digest, so what it resolves to can change under the index.               |
+| `index-missing-entry`  | warning  | A resolved package is in the DPDY but absent from `index.json`, so the Extensions UI will not list it.     |
+
+**Modes.** `--validate-mode` controls what a finding does to the build:
+
+- `report` (**default**) — always runs, prints the findings, never fails the build.
+- `gate` — fails the build on any error.
+- `off` — skips the step.
+
+The default is `report` on purpose. The check is new, and the indexes it runs against
+today already carry findings nobody has triaged; landing it as a hard gate would turn
+those into a red build for whoever happens to push next. **Flip it to `gate` once the
+standing findings are fixed or allowlisted** — that is the point of shipping it.
+
+**Allowlist.** Known and accepted findings go in
+[`scripts/catalog-index-validation-allowlist.txt`](../scripts/catalog-index-validation-allowlist.txt),
+using the same `TODO(TICKET)` discipline as the smoke harness's exclusion files: a
+pattern with no ticket is a parse error, so exceptions get removed rather than
+accumulated. Patterns are matched against the OCI **image name**
+(`backstage-community-plugin-quay`).
+
+Findings are also recorded per plugin in `build-report.json` as a `validate` stage, so
+they reach the generated status page. Only errors set that stage to `fail` — a stale tag
+should not turn a plugin red and drown the ones that really are broken.
+
+**It only checks a tier that has a DPDY.** Every rule is driven by
+`dynamic-plugins.default.yaml`, and Step 3 generates that file only when a
+`default.packages.yaml` is among the `--packages-file` arguments. The community tier is
+generated with `--packages-file rhdh-community-packages.txt` alone, so for that tier
+Step 5 logs `nothing to validate` and exits 0 — including under `--validate-mode gate`.
+It says so in the log rather than passing silently, but do not read a green community
+run as a validated one.
+
+### Step 6: Catalog Index Sanity Check (opt-in)
+
+Installs and boots **every** package the generated index declares, using the Docker-free
+[`smoke-tests-native`](../smoke-tests-native/README.md) harness — the install CLI plus
+`startTestBackend`, no container and no cluster. This is the upstream half of RHDH's
+cluster-free plugin sanity check (RHIDP-13508), running against the index as it is about
+to be published rather than against an index image that already exists.
+
+It is **off by default** (`--sanity-check` opts in) because it pulls every artifact the
+index declares and needs Node 24 and Yarn 4, which the midstream `update-index` GitLab
+job has neither the budget (1 CPU / 2Gi, 30-minute script timeout, today doing metadata
+lookups only) nor the toolchain for.
+
+Two things about how it reads the index are worth knowing:
+
+- **The index's `enabled:` flags are ignored.** Most packages ship `enabled: false`
+  because that is RHDH's out-of-the-box default, which says nothing about whether the
+  artifact works. Honouring them would validate almost nothing, so the check generates an
+  enable-everything config — the same reasoning behind RHDH's `populate-catalog-index.sh`.
+- **`pluginConfig` blocks are dropped.** They reference `${ENV_VAR}` placeholders that
+  exist in a deployed RHDH and nowhere here. The harness supplies its own dummy root
+  config instead, with `--app-config` layered on top.
+
+Packages that genuinely cannot be validated go in
+[`smoke-tests-native/catalog-index-sanity-excludes.txt`](../smoke-tests-native/catalog-index-sanity-excludes.txt),
+again with a tracking ticket per entry.
+
+```bash
+# Against the index this repo is about to generate
+scripts/update-index.sh --registry quay.io/rhdh --validate-mode gate --sanity-check
+
+# Against an index that is already published
+scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
+cd smoke-tests-native && yarn smoke --catalog-index /tmp/dpdy.yaml
+```
+
+On a schedule, this runs as the
+[Catalog Index Sanity workflow](../.github/workflows/catalog-index-sanity.yaml)
+(04:00 UTC daily, plus `workflow_dispatch` with a `catalog_index_image` input for RC
+verification). It is not a PR check, for the same reason RHDH's is not: the index changes
+on its own, so a PR here cannot change what the job validates, and running it per-PR would
+fail unrelated work whenever the index drifts.
+
+When validating a **published** index there is no `plugin_builds/` alongside it, so pass
+`--no-build-metadata` to `validateCatalogIndex.py`. It skips the rules that need the build
+metadata — each one declares that in its own row of the rule table, so the list cannot
+drift — and names them in its output, so a pass cannot be mistaken for a full check.
 
 ---
 
@@ -264,7 +384,21 @@ gh workflow run generate-catalog-index.yaml \
 
 ## Extracting Content From a Catalog Index Image
 
-To extract the contents from a catalog index image, run this script:
+To pull just `dynamic-plugins.default.yaml` out of a published index — which is what the
+sanity check needs, and what RHDH's own check reimplements — use
+[`scripts/extractCatalogIndex.sh`](../scripts/extractCatalogIndex.sh):
+
+```bash
+scripts/extractCatalogIndex.sh quay.io/rhdh/plugin-catalog-index:next /tmp/dpdy.yaml
+```
+
+The index image is `FROM scratch`, so there is nothing in it to exec and the file has to
+come out of a layer. The script walks the manifest **top-down** and takes the first layer
+carrying the file: layers are listed base-first, and an index rebuilt as an overlay keeps
+a stale copy in a lower layer — reading that one would validate the previous index while
+reporting on the current one.
+
+To browse the whole tree instead, run this script:
 
 ```
 unpack () {
