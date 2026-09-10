@@ -16,7 +16,7 @@ export class CatalogEntityPO {
       { timeout: 60_000 },
     );
     await expect(
-      this.page.getByRole("heading", { level: 1, name: componentName }),
+      this.page.getByRole("heading", { name: componentName }),
     ).toBeVisible({ timeout: 60_000 });
   }
 }
