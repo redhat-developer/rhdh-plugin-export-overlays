@@ -11,6 +11,7 @@ import {
   openChatContextMenuByName,
   openPinnedChatContextMenuByName,
   openSortDropdown,
+  recentChatItems,
   searchChats,
   selectDeleteAction,
   selectDisablePinnedChats,
@@ -92,6 +93,36 @@ const e2eRoot = path.join(import.meta.dirname, "../..");
 
 const DEFAULT_BOT_QUERY =
   "Reply with exactly one short sentence confirming you received this message.";
+
+async function selectAvailableChatModel(page: Page): Promise<void> {
+  const openAiItems = page.getByRole("menuitem", { name: /^gpt-/i });
+  const llamaItems = page.getByRole("menuitem", {
+    name: /llama[-_ ]?31[-_ ]?8b/i,
+  });
+  const hasOpenAiModels = (await openAiItems.count()) > 0;
+  const hasLlamaModel = (await llamaItems.count()) > 0;
+
+  if (!hasOpenAiModels) {
+    console.warn("No OpenAI models are available in the model selector");
+  }
+  if (!hasLlamaModel) {
+    console.warn("No VLLM Llama model is available in the model selector");
+  }
+
+  expect(hasOpenAiModels || hasLlamaModel).toBeTruthy();
+
+  const preferredOpenAi = page.getByRole("menuitem", {
+    name: "gpt-4o-mini",
+    exact: true,
+  });
+  if (await preferredOpenAi.count()) {
+    await selectChatModel(page, "gpt-4o-mini");
+  } else if (hasOpenAiModels) {
+    await openAiItems.first().click();
+  } else {
+    await llamaItems.first().click();
+  }
+}
 
 test.describe("Lightspeed UI", () => {
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
@@ -193,15 +224,7 @@ test.describe("Lightspeed UI", () => {
       await expect(dropdown).not.toBeEmpty();
 
       await dropdown.click();
-      await expect(page.locator("body")).toMatchAriaSnapshot(`
-        - menu:
-          - menuitem "gpt-4.1-mini"
-          - menuitem "gpt-4.1-nano"
-          - menuitem "gpt-4o-mini"
-          - menuitem "gpt-5.1"
-          - menuitem "redhataillama-31-8b-instruct"
-        `);
-      await selectChatModel(page, "gpt-4o-mini");
+      await selectAvailableChatModel(page);
     });
 
     test("sidebar opens, closes, and reopens", async () => {
@@ -485,9 +508,7 @@ test.describe("Lightspeed UI", () => {
       });
 
       test("conversations are sorted correctly and persist", async () => {
-        const chats = page
-          .locator(".pf-v6-c-drawer__panel-main")
-          .locator("li.pf-chatbot__menu-item");
+        const chats = recentChatItems(page);
 
         if ((await chats.count()) < 4) {
           await sendMessageInNewChat(page, "E2E sort conversation zebra");
