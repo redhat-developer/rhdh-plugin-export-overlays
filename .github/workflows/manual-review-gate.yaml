@@ -62,13 +62,32 @@ jobs:
             // Track the latest gate-relevant state per human reviewer,
             // mirroring GitHub's own semantics: a COMMENTED review does not
             // revoke an earlier approval, but CHANGES_REQUESTED or a
-            // dismissal does.
+            // dismissal does. GitHub Apps and `[bot]` accounts are excluded;
+            // automation reviewing through a regular machine-user account
+            // cannot be told apart from a human here.
             const stateByReviewer = new Map();
             for (const review of reviews) {
-              if (!review.user || review.user.type === 'Bot') {
+              if (
+                !review.user ||
+                review.user.type === 'Bot' ||
+                review.user.login.endsWith('[bot]')
+              ) {
                 continue;
               }
               if (review.user.login === currentPr.user.login) {
+                continue;
+              }
+              if (
+                review.state === 'APPROVED' &&
+                review.commit_id !== currentPr.head.sha
+              ) {
+                // Stale approval: it was submitted against an older commit.
+                // Ignoring it mirrors the "dismiss stale pull request
+                // approvals" branch protection behavior the issue calls for,
+                // so pushing new commits after an approval re-opens the gate.
+                console.log(
+                  `Ignoring stale approval by ${review.user.login} on ${review.commit_id}`,
+                );
                 continue;
               }
               if (['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)) {
