@@ -1,9 +1,20 @@
+# Publishes the dynamic plugin images for every workspace this push changed, then smoke
+# tests what it just published (RHDHBUGS-3634).
+#
+# The second half is the point: until now nothing validated a `bs_*` tag at the moment it
+# was published. The nightly sweep reads those tags, but a bad artifact stayed undetected
+# until the next night, and only if it sat at a tier the schedule happened to cover. This
+# closes that window to the length of one publish run.
 name: Publish RHDH Release Dynamic Plugin Images
+
 on:
   push:
     branches:
-      - 'release-**'
-      - 'main'
+      - "release-**"
+      - "main"
+
+permissions:
+  contents: read
 
 jobs:
   export:
@@ -13,3 +24,143 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  # Which workspaces did that publish actually touch? The export tool works this out
+  # internally and does not report it back, so recompute it from the same base commit the
+  # publish used. Recomputing can only be too generous — a workspace whose files changed
+  # without its artifact changing costs one extra smoke run, which is the safe direction.
+  published:
+    needs: export
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      workspaces: ${{ steps.resolve.outputs.workspaces }}
+      count: ${{ steps.resolve.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The base can be several pushes back when a publish was cancelled or failed,
+          # so a shallow clone is not enough to diff against it.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the workspaces this push published
+        id: resolve
+        env:
+          # Set by the publish workflow from its own last successful run. Empty on the
+          # very first publish of a branch, and after a run whose export jobs all failed.
+          LAST_PUBLISHED: ${{ needs.export.outputs.last-published-commit }}
+          # Push payload fallback: the tip before this push. All-zero when the branch was
+          # just created, which `git cat-file` rejects and the guard below catches.
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          base=""
+          for candidate in "$LAST_PUBLISHED" "$PUSH_BEFORE"; do
+            if [[ -n "$candidate" ]] && git cat-file -e "${candidate}^{commit}" 2>/dev/null; then
+              base="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$base" ]]; then
+            echo "::warning::no usable base commit (last published '$LAST_PUBLISHED', \
+                  push before '$PUSH_BEFORE') — skipping the post-publish smoke rather \
+                  than smoke testing every workspace in the repo"
+            echo "workspaces=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Diffing $base..$GITHUB_SHA for changed workspaces"
+          # sort -u because one workspace usually has several files in a single bump.
+          mapfile -t workspaces < <(
+            git diff --name-only "$base" "$GITHUB_SHA" -- 'workspaces/*' \
+              | sed -n 's|^workspaces/\([^/]*\)/.*|\1|p' \
+              | sort -u
+          )
+
+          printf '%s\n' "Workspaces to smoke test (${#workspaces[@]}):" "${workspaces[@]}"
+          # compact=True so the matrix consumes it; jq -R/-s/-c builds the array safely
+          # even for a name with a character that would break a hand-rolled join.
+          json=$(printf '%s\n' "${workspaces[@]}" | jq -R . | jq -s -c .)
+          [[ ${#workspaces[@]} -eq 0 ]] && json='[]'
+          echo "workspaces=$json" >> "$GITHUB_OUTPUT"
+          echo "count=${#workspaces[@]}" >> "$GITHUB_OUTPUT"
+
+  # One job per workspace, against the tag that was just published. No support filter:
+  # post-publish validates everything the workspace ships, not one tier of it.
+  smoke:
+    needs: published
+    if: needs.published.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 30
+    strategy:
+      # One broken workspace must not hide the verdict on the others it was published
+      # alongside — the same reason the nightly sweep sets this.
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.published.outputs.workspaces) }}
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        # A freshly published tag can take a moment to become anonymously pullable, so
+        # unlike the nightly sweep this login is worth more than rate-limit headroom.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin \
+            || echo "::warning::ghcr.io login failed — pulling anonymously"
+
+      - name: Install dependencies
+        # better-sqlite3 compiles a native binding at install time; with build scripts
+        # off, every startTestBackend boot fails with "Could not locate the bindings
+        # file". Rebuild just that one rather than enabling lifecycle scripts repo-wide
+        # (Sonar S6505). Same reasoning as community-plugin-sweep.yaml.
+        run: |
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
+
+      - name: Smoke test the published workspace
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+        run: |
+          yarn smoke \
+            --workspace "$WORKSPACE" \
+            --exclusions plugin-sweep-excludes.txt \
+            --out "results/$WORKSPACE.json"
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publish-smoke-${{ matrix.workspace }}
+          path: smoke-tests-native/results/*.json
+          if-no-files-found: warn
+          retention-days: 7
