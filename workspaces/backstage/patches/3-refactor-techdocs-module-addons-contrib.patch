@@ -1,0 +1,78 @@
+--- a/plugins/techdocs-module-addons-contrib/src/alpha.ts
++++ b/plugins/techdocs-module-addons-contrib/src/alpha.ts
+@@ -19,10 +19,7 @@
+ import { ReportIssueAddon } from './ReportIssue';
+ import { ExpandableNavigationAddon } from './ExpandableNavigation';
+ import { LightBoxAddon } from './LightBox';
+-import {
+-  createFrontendFeatureLoader,
+-  createFrontendModule,
+-} from '@backstage/frontend-plugin-api';
++import { createFrontendModule } from '@backstage/frontend-plugin-api';
+ 
+ /** @alpha */
+ const techDocsExpandableNavigationAddon = AddonBlueprint.make({
+@@ -35,12 +32,6 @@
+ });
+ 
+ /** @alpha */
+-export const techDocsExpandableNavigationAddonModule = createFrontendModule({
+-  pluginId: 'techdocs',
+-  extensions: [techDocsExpandableNavigationAddon],
+-});
+-
+-/** @alpha */
+ const techDocsReportIssueAddon = AddonBlueprint.make({
+   name: 'report-issue',
+   params: {
+@@ -51,12 +42,6 @@
+ });
+ 
+ /** @alpha */
+-export const techDocsReportIssueAddonModule = createFrontendModule({
+-  pluginId: 'techdocs',
+-  extensions: [techDocsReportIssueAddon],
+-});
+-
+-/** @alpha */
+ const techDocsTextSizeAddon = AddonBlueprint.make({
+   name: 'text-size',
+   params: {
+@@ -67,12 +52,6 @@
+ });
+ 
+ /** @alpha */
+-export const techDocsTextSizeAddonModule = createFrontendModule({
+-  pluginId: 'techdocs',
+-  extensions: [techDocsTextSizeAddon],
+-});
+-
+-/** @alpha */
+ const techDocsLightBoxAddon = AddonBlueprint.make({
+   name: 'light-box',
+   params: {
+@@ -83,17 +62,12 @@
+ });
+ 
+ /** @alpha */
+-export const techDocsLightBoxAddonModule = createFrontendModule({
++export default createFrontendModule({
+   pluginId: 'techdocs',
+-  extensions: [techDocsLightBoxAddon],
++  extensions: [
++    techDocsExpandableNavigationAddon,
++    techDocsReportIssueAddon,
++    techDocsTextSizeAddon,
++    techDocsLightBoxAddon,
++  ],
+ });
+-
+-/** @alpha */
+-export default createFrontendFeatureLoader({
+-  async *loader() {
+-    yield techDocsExpandableNavigationAddonModule;
+-    yield techDocsReportIssueAddonModule;
+-    yield techDocsTextSizeAddonModule;
+-    yield techDocsLightBoxAddonModule;
+-  },
+-});
