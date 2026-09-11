@@ -42,9 +42,10 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
-Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+Note: the plugin sweep (`community-plugin-sweep.yaml`) selects packages from
 `spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
-what the build publishes from. The two currently disagree (41 workspaces carry a
+what the build publishes from. It sweeps one tier per nightly cron, not community
+alone. The two currently disagree (41 workspaces carry a
 community package; the txt file names 20), so do not treat either as authoritative for
 the other's purpose.
 
@@ -74,10 +75,10 @@ On a PR, comment:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
-| `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
+| `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
-| `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
-| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
+| `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
+| `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
