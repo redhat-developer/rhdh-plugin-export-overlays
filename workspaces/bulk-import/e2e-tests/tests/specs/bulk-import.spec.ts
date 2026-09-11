@@ -201,12 +201,18 @@ spec:
     });
 
     test("Verify the Content of catalog-info.yaml in the PR is Correct", async () => {
+      // Verify exactly one PR was created (and not, say, an accidental double
+      // submission), since getfileContentFromPR below assumes PR number 1.
       const prs = await APIHelper.getGitHubPRs(
         newRepoDetails.owner,
         newRepoDetails.repoName,
         "open",
       );
-      expect(prs.length).toBeGreaterThan(0);
+      const templatePrs = prs.filter(
+        (pr: { head?: { ref?: string } }) =>
+          pr.head?.ref === "backstage-integration",
+      );
+      expect(templatePrs).toHaveLength(1);
 
       const prCatalogInfoYaml = await APIHelper.getfileContentFromPR(
         newRepoDetails.owner,

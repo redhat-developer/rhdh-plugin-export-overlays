@@ -113,13 +113,18 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
         .getByText("Finished step Register catalog-info.yaml in Backstage"),
     ).toBeVisible();
 
-    // Verify the PR was actually created on GitHub
+    // Verify exactly one PR was created on GitHub for this import (and not,
+    // say, an accidental double submission from the scaffolder template).
     const prs = await APIHelper.getGitHubPRs(
       repositoryParametersGitHub.organization,
       repositoryParametersGitHub.name,
       "open",
     );
-    expect(prs.length).toBeGreaterThan(0);
+    const templatePrs = prs.filter(
+      (pr: { head?: { ref?: string } }) =>
+        pr.head?.ref === repositoryParametersGitHub.branchName,
+    );
+    expect(templatePrs).toHaveLength(1);
   });
 
   test("GitLab form renders correctly", async ({ page, uiHelper }) => {
