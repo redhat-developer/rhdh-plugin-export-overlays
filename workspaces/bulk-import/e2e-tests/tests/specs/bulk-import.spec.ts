@@ -6,6 +6,7 @@ import {
 import {
   GITHUB_CATALOG_OWNER,
   GITHUB_ORG,
+  PR_BRANCH_NAME,
 } from "../../support/constants/github";
 import {
   CATALOG_FIXTURE_REPOS,
@@ -209,8 +210,7 @@ spec:
         "open",
       );
       const templatePrs = prs.filter(
-        (pr: { head?: { ref?: string } }) =>
-          pr.head?.ref === "backstage-integration",
+        (pr: { head?: { ref?: string } }) => pr.head?.ref === PR_BRANCH_NAME,
       );
       expect(templatePrs).toHaveLength(1);
 

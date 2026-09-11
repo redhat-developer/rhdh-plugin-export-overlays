@@ -1,4 +1,4 @@
-import { GITHUB_ORG } from "../constants/github";
+import { GITHUB_ORG, PR_BRANCH_NAME } from "../constants/github";
 
 export type RepositoryParameters = {
   repoUrl: string;
@@ -12,7 +12,7 @@ export type RepositoryParameters = {
 export function defaultGitHubRepositoryParameters(): RepositoryParameters {
   const newParams: RepositoryParameters = {
     repoUrl: "",
-    branchName: "backstage-integration",
+    branchName: PR_BRANCH_NAME,
     targetBranchName: "main",
     name: `bulk-import-template-${Date.now()}-${process.pid}`,
     organization: GITHUB_ORG,
@@ -26,7 +26,7 @@ export function defaultGitHubRepositoryParameters(): RepositoryParameters {
 export function defaultGitLabRepositoryParameters(): RepositoryParameters {
   const newParams: RepositoryParameters = {
     repoUrl: "",
-    branchName: "backstage-integration",
+    branchName: PR_BRANCH_NAME,
     targetBranchName: "main",
     name: "test-repo",
     organization: "test-org",
