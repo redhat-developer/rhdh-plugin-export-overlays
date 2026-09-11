@@ -22,7 +22,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e01f3d90dab73582ff61d929b065080effa61970f549749044c15c850f0b1965"
+          "digest": "sha256:e035e8a2a3ac5331adcc41a6e59383eb5c78a0c71c80a73a9368e10212cff471"
         }
       },
       "package": "@backstage-community/plugin-3scale-backend",
@@ -170,7 +170,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:129742703327f330a9ae9f0f58a9ef0e970b073c4d375e1b685891d75a624443"
+          "digest": "sha256:de80123b769ecaad09cbb14d820364a95349447baa6d1ebc74247c37ea63ac3e"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-cloud",
@@ -196,7 +196,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:afa5cc14dd32fb11c76b51ec5074b90261969cf47721059945f33c5755f525fc"
+          "digest": "sha256:1fa9b9ee1257bf4b218f4917906e7558a47e2606fc594c17aa19b283d33d6226"
         }
       },
       "package": "@backstage/plugin-catalog-backend-module-bitbucket-server",
@@ -218,18 +218,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-azure:bs_1.54.6__0.2.25"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b7f0db65535394ebba083e859f5fe66cac54f09fa2bb836a2dd465b9aaa4b9ab"
+          "digest": "sha256:fca1b383d1c4bb5de89fd3cd2b3b8e7c18ee6c5fff0c7e0433ae7ece2b0c87fd"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-azure",
       "version": "0.2.25",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-scaffolder-backend-module-bitbucket-cloud": {
       "stages": {
@@ -245,18 +244,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-cloud:bs_1.54.6__0.3.10"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5cb39bf28ef2f1fef351ad24e031dc5b2370a7ceb37014da87207ce52b1003b8"
+          "digest": "sha256:01c67a974958821137e5d019b388790065f0067c4137b3398874768cfc151623"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud",
       "version": "0.3.10",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-scaffolder-backend-module-bitbucket-server": {
       "stages": {
@@ -272,18 +270,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-bitbucket-server:bs_1.54.6__0.2.25"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c591a3bb46803f9f2835d1e1e9f9d1c643e670d1d7321241b453b6c48107e15d"
+          "digest": "sha256:eeb4a5d3810ca2d660d113d600d899af0822fa4de85a43ba3cb5e468eaf944e8"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
       "version": "0.2.25",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-plugin-scaffolder-backend-module-gerrit": {
       "stages": {
@@ -299,18 +296,17 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gerrit:bs_1.54.6__0.2.24"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9d4ca8f03729903872fbc07122816bdfc47f33ba132ff51ab5858ee85818ecda"
+          "digest": "sha256:ce10eb63615f43e50a03ac9b280770ad34f8b1c125df2f76ed3be529c4cea438"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-gerrit",
       "version": "0.2.24",
       "workspace": "backstage",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-dynatrace": {
       "stages": {
@@ -330,7 +326,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:75786f4ec3e49f319b6096bdfa0631e9424e51cbd0b61eb81971e5a0fb44a8bd"
+          "digest": "sha256:a9daf4385c00bb3c35015d4eac0f4d90015351746bd99770239ec9afb9208a43"
         }
       },
       "package": "@backstage-community/plugin-dynatrace",
@@ -536,7 +532,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9b60813da97ba241800d3fc27561867284753ef3ffdb5bffe24406e25ecbde80"
+          "digest": "sha256:ebc7b5a2ab57eab513bb05afbefc099924ef645df9a6bde3dd4d342ed58d0da0"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
@@ -562,7 +558,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:230d27a25822847c4616ad9d85032684dfe19c8624abd79598e6f4a3b6bab4a2"
+          "digest": "sha256:8c907b1ecb4a8d42c22605e020f9bb08147da3a62203e2648e5e95396561032c"
         }
       },
       "package": "@backstage-community/plugin-lighthouse",
@@ -588,7 +584,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1eee1ef76954e96c28a1819345b111a2d1e8d2a252f768d64a87974a816920b9"
+          "digest": "sha256:d9943db1163c49471762206f2d91a836a61ac700d606f1ad98493fe1297eb832"
         }
       },
       "package": "@backstage-community/plugin-nexus-repository-manager",
@@ -666,7 +662,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:61cd522a7ec276923bc7f4c1671ed82a276a63335602f5901cc331af7cb6c4a4"
+          "digest": "sha256:ce53b0d3c0c5fe3e15ccf9a9732bd3bef4dceed38e2a655626adb98c6d15a5d3"
         }
       },
       "package": "@backstage-community/plugin-quay",
@@ -692,7 +688,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:505b27e69f43a339d4fc9e6253b4928c5a531e156a788d81613c78073e895db3"
+          "digest": "sha256:ad1ab24d1c3c4a00fc7ea8b54bdd0cdcf4f9068506c1bf4765c229a7a5631050"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-quay",
@@ -958,7 +954,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9571acef9491dffc98e9bd73ae8eb91ec118da0cb58005bae2171fd9998d5e59"
+          "digest": "sha256:7022db4c13f6b19803650984972b859e4e0c4a81e5b346b18924510b14f781ab"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-servicenow",
@@ -984,7 +980,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2e12fdc8f7a314b0d4b4df9b5964985379463d6088f8513a1f22853701541275"
+          "digest": "sha256:055935ed7dae4af5d8a45caa9638c6e986726a4c58d298a09fc33cd40084813d"
         }
       },
       "package": "@backstage-community/plugin-scaffolder-backend-module-sonarqube",
@@ -1102,7 +1098,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:46f85e2cb5b2b398ea61fd9d1360331868446fa6b68ee7f8f3f3a9a5822b5442"
+          "digest": "sha256:a5d3897e0ac37cc16ac30193fef461c6b209309b2570416fdc5e1f234123303e"
         }
       },
       "package": "@backstage-community/plugin-quay-backend",
@@ -1326,7 +1322,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6fb46197f52e87f1ba77972c794642e9a9b7879c39386cfbbbfcc9e4a54f8d27"
+          "digest": "sha256:0015b8ebad5edb868efc682fc69235ac4dfd63a2342fa1e438241f59d8f7f08f"
         },
         "dpdy": {
           "status": "skip"
@@ -1421,8 +1417,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 43,
-    "failed": 8
+    "succeeded": 47,
+    "failed": 4
   },
   "status": "partial"
 }
