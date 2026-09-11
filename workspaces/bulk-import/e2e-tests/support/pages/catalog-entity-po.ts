@@ -15,8 +15,10 @@ export class CatalogEntityPO {
       ),
       { timeout: 60_000 },
     );
+    // No { level: 1 } constraint: app-next renders the entity title as an
+    // h2, not an h1, so a level-scoped query would miss it there.
     await expect(
-      this.page.getByRole("heading", { level: 1, name: componentName }),
+      this.page.getByRole("heading", { name: componentName }),
     ).toBeVisible({ timeout: 60_000 });
   }
 }

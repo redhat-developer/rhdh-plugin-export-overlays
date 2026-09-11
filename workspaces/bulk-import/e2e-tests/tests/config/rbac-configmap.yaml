@@ -11,3 +11,7 @@ data:
     p, role:default/bulk-importer, catalog-entity, read, allow
     p, role:default/bulk-importer, catalog.entity.create, create, allow
     p, role:default/bulk-importer, catalog.location.create, create, allow
+    p, role:default/bulk-importer, scaffolder-template, read, allow
+    p, role:default/bulk-importer, scaffolder-action, use, allow
+    p, role:default/bulk-importer, scaffolder.task.create, create, allow
+    p, role:default/bulk-importer, scaffolder-task, read, allow
