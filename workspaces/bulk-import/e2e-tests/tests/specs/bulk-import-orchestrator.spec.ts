@@ -120,4 +120,37 @@ test.describe("Bulk import tests orchestrator mode", () => {
       ),
     ).toBeVisible();
   });
+
+  // Success path is blocked until the suite provides a GitHub App installation
+  // token. Kept as fixme so the intended coverage is tracked and can be
+  // re-enabled once the token is configured.
+  test.fixme("should import a repository via orchestrator (success path)", async ({
+    page,
+    uiHelper,
+    loginHelper,
+  }) => {
+    const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
+
+    await bulkImport.pollUntilRepoRowVisible(
+      catalogRepoDetailsForOrchestrator.name,
+      [catalogRepoDetailsForOrchestrator.url],
+    );
+    await bulkImport.checkRepoRowCheckbox(
+      catalogRepoDetailsForOrchestrator.name,
+    );
+    await bulkImport.clickAddRepositoryImportAndWaitForSubmit();
+
+    const workflowPage =
+      await bulkImport.openImportHistoryVerifyWorkflowAndOpenInstance(
+        catalogRepoDetailsForOrchestrator.url,
+      );
+    await expect(
+      workflowPage.getByRole("link", { name: "PR_URL" }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    await bulkImport.closePageIfNotPrimary(workflowPage);
+    await bulkImport.expectRepoRowShowsWorkflowAfterImport(
+      catalogRepoDetailsForOrchestrator.name,
+    );
+  });
 });
