@@ -16,21 +16,21 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-jenkins-backend"
-  # Tag: bs_1.52.0__0.29.0
+  # Tag: bs_1.54.6__0.31.0
   dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-jenkins-backend@sha256:9a4db426c2be347b818507035be48da0a6509dc55c1b9b4c77a3f81d078e5a83"
-  version: 0.29.0
+  version: 0.31.0
   backstage:
     role: backend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.6
   author: Red Hat
   support: community
   lifecycle: active
   partOf:
     - jenkins
-# The default example uses legacy top-level jenkins.* keys (not jenkins.instances)
-# because the scaffolder-backend-module-jenkins package reads jenkins.baseUrl at
-# startup and smoke tests merge pluginConfig from every plugin in this workspace.
-# jenkins-backend rejects having both styles in the same config.  
+  # The default example uses legacy top-level jenkins.* keys (not jenkins.instances)
+  # because the scaffolder-backend-module-jenkins package reads jenkins.baseUrl at
+  # startup and smoke tests merge pluginConfig from every plugin in this workspace.
+  # jenkins-backend rejects having both styles in the same config.
   appConfigExamples:
     - title: Default configuration
       content:

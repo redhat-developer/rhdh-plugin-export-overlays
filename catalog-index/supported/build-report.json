@@ -949,7 +949,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fe9c2ce163a23aa9ebd9d76678241a0a5bb776b4423fb4e8d4d6aa20aac02984"
+          "digest": "sha256:63388b341685d20452b810f31ac86bd7c075fdf93444792263e5f1faa5267a3c"
         },
         "validate": {
           "status": "pass",
@@ -1139,7 +1139,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:91c78ecaf2afd46b7b6a312aa5513830cb1f3fb870ef9429e05e6e87916d3c6d"
+          "digest": "sha256:b1c23a942b384a686b54e58fc17d13a371f6ce68e13537c9cbd3fbade8a90cf8"
         },
         "validate": {
           "status": "pass",
@@ -1272,7 +1272,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4e82180ca698595848c1f53f9cfdce59f845e0d71844bc2f101ad9ed351c73c5"
+          "digest": "sha256:a9ceab1631dd845d7f2c71f50c6fd2e808833ebe4e330d29ec4b8e983ee26db0"
         },
         "validate": {
           "status": "pass",
@@ -1394,12 +1394,11 @@
           "status": "pass"
         },
         "catalog-index": {
-          "status": "fail",
-          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor:bs_1.54.6__2.17.1"
+          "status": "pass"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:573bb2bf04e177c404e8268b44ab78de5ac2f78af39f77b1cf566b41fa13728b"
+          "digest": "sha256:89a5e18ee06aab89edbc22505fe694c0e714d23db1f4762e01825665d1b436a5"
         },
         "validate": {
           "status": "pass",
@@ -1411,7 +1410,7 @@
       "package": "@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor",
       "version": "2.17.1",
       "workspace": "scaffolder-relation-processor",
-      "overall": "fail"
+      "overall": "pass"
     },
     "backstage-community-plugin-tech-radar-backend": {
       "stages": {
@@ -1517,7 +1516,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ce3031320b5e9253b7741131130797a3c8851049783ada4e75dd581cfe3debd6"
+          "digest": "sha256:0599e810ffea388c3c766e931e4f1166d70f5ae0191d4da492d512f404b76da1"
         },
         "dpdy": {
           "status": "pass"
@@ -1556,7 +1555,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1584,7 +1583,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__4.2.0 after bs_1.54.6__5.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1695,8 +1694,8 @@
   },
   "summary": {
     "total": 53,
-    "succeeded": 43,
-    "failed": 10
+    "succeeded": 44,
+    "failed": 9
   },
   "status": "partial"
 }
