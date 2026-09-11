@@ -30,6 +30,11 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
       },
     );
 
+    // Intentionally outside runOnce: the repo name embeds Date.now()/process.pid,
+    // so a worker restart would regenerate the name and runOnce would skip
+    // creating the repo the new name points to. A restart can therefore orphan
+    // the previous run's repo; afterAll below only cleans up the current one.
+    // Same pattern as bulk-import.spec.ts and bulk-import-orchestrator.spec.ts.
     await APIHelper.createGitHubRepoWithFile(
       repositoryParametersGitHub.organization,
       repositoryParametersGitHub.name,
