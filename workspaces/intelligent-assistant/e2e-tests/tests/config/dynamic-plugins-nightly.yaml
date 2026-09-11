@@ -6,6 +6,6 @@ plugins:
   - package: ref://red-hat-developer-hub-backstage-plugin-intelligent-assistant
     enabled: true
   - package: ref://red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
-    disabled: false
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
     enabled: true
