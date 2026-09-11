@@ -1,6 +1,13 @@
 name: Publish RHDH Release Dynamic Plugin Images 
 on:
   workflow_call:
+    outputs:
+      last-published-commit:
+        description: >-
+          The commit the previous successful publish ran from. The post-publish smoke in
+          publish-workspace-plugins.yaml diffs against it to find which workspaces this
+          push actually republished (RHDHBUGS-3634).
+        value: ${{ jobs.prepare.outputs.last-published-commit }}
 
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.ref }}

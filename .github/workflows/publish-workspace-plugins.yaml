@@ -1,9 +1,20 @@
+# Publishes the dynamic plugin images for every workspace this push changed, then smoke
+# tests what it just published (RHDHBUGS-3634).
+#
+# The second half is the point: until now nothing validated a `bs_*` tag at the moment it
+# was published. The nightly sweep reads those tags, but a bad artifact stayed undetected
+# until the next night, and only if it sat at a tier the schedule happened to cover. This
+# closes that window to the length of one publish run.
 name: Publish RHDH Release Dynamic Plugin Images
+
 on:
   push:
     branches:
-      - 'release-**'
-      - 'main'
+      - "release-**"
+      - "main"
+
+permissions:
+  contents: read
 
 jobs:
   export:
@@ -13,3 +24,135 @@ jobs:
       attestations: write
       packages: write
       id-token: write
+
+  # Which workspaces did that publish actually touch? The export tool works this out
+  # internally and does not report it back, so recompute it from the same base commit the
+  # publish used. Runs even when export failed: a partially failed publish is exactly the
+  # run most likely to have shipped something broken.
+  published:
+    needs: export
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      workspaces: ${{ steps.resolve.outputs.workspaces }}
+      count: ${{ steps.resolve.outputs.count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The base can be several pushes back when a publish was cancelled or failed,
+          # so a shallow clone is not enough to diff against it.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve the workspaces this push published
+        id: resolve
+        env:
+          # Set by the publish workflow from its own last successful run. Empty on the
+          # very first publish of a branch, and after a run whose export jobs all failed.
+          LAST_PUBLISHED: ${{ needs.export.outputs.last-published-commit }}
+        run: |
+          set -euo pipefail
+          # The logic lives in a script so it can be tested — see
+          # scripts/tests/test_resolve_published_workspaces.py. Its first version, inline
+          # here, swallowed a failing git diff and reported "nothing to test".
+          resolved=$(scripts/resolve-published-workspaces.sh "$LAST_PUBLISHED" "$GITHUB_SHA")
+          echo "$resolved" | grep -E '^(workspaces|count)=' >> "$GITHUB_OUTPUT"
+
+          reason=$(echo "$resolved" | sed -n 's/^reason=//p')
+          if [[ -n "$reason" ]]; then
+            echo "::warning::skipping the post-publish smoke: ${reason}. The nightly \
+                  sweep still covers these tags."
+          fi
+
+  # One job per workspace, against the tag that was just published. No support filter, so
+  # every tier the workspace ships is covered rather than one of them — minus whatever
+  # plugin-sweep-excludes.txt drops at `install` scope, same as the nightly sweep.
+  smoke:
+    needs: published
+    # A job is skipped when any ancestor failed, so without `!cancelled()` a failed
+    # export takes the smoke down with it — the run most likely to have shipped
+    # something broken. `result == 'success'` then guards the edge that opens up:
+    # `count` is '' when `published` failed, and `fromJSON('')` fails the strategy.
+    if: >-
+      ${{ !cancelled()
+      && needs.published.result == 'success'
+      && needs.published.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    timeout-minutes: 30
+    strategy:
+      # One broken workspace must not hide the verdict on the others it was published
+      # alongside — the same reason the nightly sweep sets this.
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(needs.published.outputs.workspaces) }}
+    defaults:
+      run:
+        working-directory: smoke-tests-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: yarn
+          cache-dependency-path: smoke-tests-native/yarn.lock
+
+      - name: Install skopeo
+        # The install-dynamic-plugins CLI shells out to skopeo to pull OCI plugins.
+        run: sudo apt-get update && sudo apt-get install -y skopeo
+
+      - name: Log in to ghcr.io
+        # A freshly published tag can take a moment to become anonymously pullable, so
+        # unlike the nightly sweep this login is worth more than rate-limit headroom.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+        run: |
+          echo "$GH_TOKEN" | skopeo login ghcr.io -u "$GH_ACTOR" --password-stdin \
+            || echo "::warning::ghcr.io login failed — pulling anonymously"
+
+      - name: Install dependencies
+        # better-sqlite3 compiles a native binding at install time; with build scripts
+        # off, every startTestBackend boot fails with "Could not locate the bindings
+        # file". Rebuild just that one rather than enabling lifecycle scripts repo-wide
+        # (Sonar S6505). Same reasoning as community-plugin-sweep.yaml.
+        run: |
+          yarn install --immutable --mode=skip-build
+          yarn rebuild better-sqlite3
+
+      - name: Smoke test the published workspace
+        env:
+          WORKSPACE: ${{ matrix.workspace }}
+        run: |
+          set -euo pipefail
+          # Flat, not results/<ws>.json: native-smoke writes --out with no mkdir, so a
+          # nested path is ENOENT after the full run. catalog-index-sanity.yaml writes
+          # flat for the same reason.
+          yarn smoke \
+            --workspace "$WORKSPACE" \
+            --exclusions plugin-sweep-excludes.txt \
+            --out "publish-smoke-$WORKSPACE.json"
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: publish-smoke-${{ matrix.workspace }}
+          path: smoke-tests-native/publish-smoke-*.json
+          # `error`, unlike the nightly sweep: there is no aggregate job here to notice
+          # a shard that produced nothing, so a missing report must fail on its own.
+          if-no-files-found: error
+          retention-days: 7
