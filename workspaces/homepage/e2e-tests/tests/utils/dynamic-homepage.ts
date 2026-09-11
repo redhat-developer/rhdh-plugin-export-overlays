@@ -94,7 +94,7 @@ export async function setupKeycloakGroups(): Promise<void> {
     );
   }
 
-  // Local Keycloak from e2e-test-utils uses admin/admin123. Vault secrets are for CI.
+  // Local Keycloak uses admin/admin123; CI values are supplied through the environment.
   const username =
     process.env.VAULT_KEYCLOAK_ADMIN_USERNAME ||
     process.env.KEYCLOAK_ADMIN_USERNAME ||

@@ -18,8 +18,8 @@ set -euo pipefail
 #   ./run-e2e.sh -w tech-radar --list          # List projects in a workspace
 #   ./run-e2e.sh -w backstage --workers=2      # Combine workspace filter with Playwright args
 #
-#   # Auto-fetch secrets from HashiCorp Vault during global setup
-#   VAULT=1 ./run-e2e.sh -w tech-radar
+#   # Load readable local secrets from Bitwarden for the test process
+#   ./run-e2e.sh --secrets -w tech-radar
 ##
 #   # Use a local build of e2e-test-utils (for testing unpublished changes)
 #   E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
@@ -63,6 +63,9 @@ export CATALOG_INDEX_IMAGE="${CATALOG_INDEX_IMAGE:-}"
 # Nightly mode
 E2E_NIGHTLY_MODE="${E2E_NIGHTLY_MODE:-false}"
 
+# Readable local secrets
+SECRETS_ENABLED=false
+
 # Coverage collection (Istanbul) — enabled by default
 #
 # PR checks: auto-publish-pr.yaml builds __coverage images
@@ -96,6 +99,10 @@ PLAYWRIGHT_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --secrets)
+            SECRETS_ENABLED=true
+            shift
+            ;;
         -w|--workspace)
             SELECTED_WORKSPACES+=("$2")
             shift 2
@@ -110,6 +117,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "${PLAYWRIGHT_ARGS[0]:-}" != "--list" \
+    && "$CI" == "true" \
+    && -z "$GIT_PR_NUMBER" \
+    && ( "$E2E_NIGHTLY_MODE" == "true" || "$E2E_NIGHTLY_MODE" == "1" || "$JOB_NAME" == *periodic-* ) \
+    && -z "${RELEASE_BRANCH_NAME:-}" ]]; then
+    echo "[ERROR] RELEASE_BRANCH_NAME is required for CI nightly/periodic runs."
+    echo "[ERROR] Set it to 'main' or the target release branch."
+    exit 1
+fi
 
 # Auto-skip tests tagged @skip-<job-suffix> based on JOB_NAME.
 # (?!-) ensures exact match — @skip-ocp-helm won't match @skip-ocp-helm-nightly.
@@ -135,7 +152,19 @@ for bin in node yarn jq; do
 done
 
 corepack enable 2>/dev/null || true
-echo "[INFO] Node $(node --version) | Yarn $(yarn --version)"
+NODE_VERSION="$(node --version)"
+REQUIRED_NODE_VERSION="$(jq -r '.node' versions.json)"
+if [[ -z "$REQUIRED_NODE_VERSION" || "$REQUIRED_NODE_VERSION" == "null" ]]; then
+    echo "[ERROR] Could not read the required Node.js version from versions.json."
+    exit 1
+fi
+REQUIRED_NODE_SERIES="${REQUIRED_NODE_VERSION%.*}"
+if [[ "${NODE_VERSION#v}" != "$REQUIRED_NODE_SERIES".* ]]; then
+    echo "[ERROR] Node.js ${NODE_VERSION#v} is not supported; versions.json requires ${REQUIRED_NODE_SERIES}.x."
+    echo "[ERROR] Switch runtimes before running E2E tests, for example: nvm use ${REQUIRED_NODE_VERSION}"
+    exit 1
+fi
+echo "[INFO] Node $NODE_VERSION | Yarn $(yarn --version)"
 
 if command -v oc &>/dev/null && oc whoami &>/dev/null 2>&1; then
     echo "[INFO] Cluster: $(oc whoami --show-server) ($(oc whoami))"
@@ -312,7 +341,22 @@ npx playwright install chromium
 
 echo ""
 TEST_EXIT_CODE=0
-npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+if [[ "$SECRETS_ENABLED" == "true" ]]; then
+    SECRETS_EXECUTABLE="$SCRIPT_DIR/node_modules/.bin/rhdh-e2e-secrets"
+    if [[ ! -x "$SECRETS_EXECUTABLE" ]]; then
+        echo "[ERROR] rhdh-e2e-secrets is not installed. Install the pinned e2e-test-utils package first."
+        exit 1
+    fi
+
+    SECRET_ARGS=(exec --profile "$SCRIPT_DIR/e2e-secrets.profile.json")
+    for ws in "${E2E_WORKSPACES[@]}"; do
+        SECRET_ARGS+=(--workspace "$ws")
+    done
+    SECRET_ARGS+=(-- npx playwright test)
+    "$SECRETS_EXECUTABLE" "${SECRET_ARGS[@]}" "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+else
+    npx playwright test "${PLAYWRIGHT_ARGS[@]+"${PLAYWRIGHT_ARGS[@]}"}" || TEST_EXIT_CODE=$?
+fi
 
 # ── Coverage artifacts ───────────────────────────────────────────────────
 # The instrumented plugins emit per-test coverage JSONs (written by the
