@@ -155,6 +155,17 @@ After creating/editing, add the file to `plugins/all.yaml`.
 
 Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OCI reference), `spec.version`, `spec.backstage.role` (frontend-plugin/backend-plugin), `spec.support` (community/production/tech-preview), `spec.appConfigExamples`.
 
+### Reviewing New Plugin Additions
+
+When a PR adds a new plugin to an existing workspace (new entry in `plugins-list.yaml` + new `metadata/*.yaml`), verify catalog entity completeness:
+
+1. **Check for a corresponding Plugin catalog entity** in `catalog-entities/extensions/plugins/`. Without one, the plugin is built and published as an OCI image but does not appear in the RHDH Extensions UI — users cannot discover or enable it through the standard interface.
+2. **Flag a missing Plugin entity at Medium or higher severity.** A plugin that is built but invisible to users is a functional gap, not a cosmetic one.
+3. **Check that `catalog-entities/extensions/plugins/all.yaml` lists the new Plugin entity.** Every Plugin YAML must be registered in the index file.
+4. **Check that the parent Plugin entity's `spec.packages` references the new Package entity.** The Package (in `workspaces/*/metadata/`) must be linked from a Plugin entity for the Extensions UI to associate them.
+
+**Why this matters:** The build pipeline (`publish-workspace-plugins.yaml`) publishes OCI images from workspace metadata regardless of whether a Plugin entity exists. Without the catalog entity, the plugin is available for manual installation via OCI reference but is absent from the Extensions UI — the primary discovery mechanism for RHDH users. This gap is easy to miss because the build succeeds without error.
+
 ## E2E Testing
 
 E2E tests live in `workspaces/<name>/e2e-tests/` and use `@red-hat-developer-hub/e2e-test-utils` — a shared package that handles RHDH deployment, Playwright fixtures, helpers, and plugin configuration. For the latest and most complete documentation, see: https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs
