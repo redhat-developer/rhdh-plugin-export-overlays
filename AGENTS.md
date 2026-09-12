@@ -141,6 +141,34 @@ When reviewing a PR where a patch bumps a dependency across a major version:
 
 **Leverage CI verification.** If the workspace has E2E tests (`e2e-tests/` directory), they exercise the plugin through basic acceptance criteria and can catch runtime breakage from major version bumps — use the `/test` PR command to run them. Smoke tests (`/smoketest` PR command) attempt to load all workspace plugins as a basic build consistency check and should be considered a minimum verification step. Neither replaces a manual review of breaking API changes, but passing E2E and smoke tests increases confidence that exported plugins are compatible with the updated dependency.
 
+### Security-Relevant Configuration Changes
+
+When fixing a problem that involves modifying a security control — dependency quarantine, authentication, CORS, access controls, rate limiting, TLS settings, or similar — prefer the narrowest targeted exemption over disabling the control entirely. A global disable removes protection for all consumers, not just the one that needs the exemption.
+
+**Principle:** Identify what the security control protects against, research whether the tool offers a scoped exemption mechanism, and use the narrowest option that solves the problem. Only disable a control entirely as a last resort, with explicit justification for why no scoped alternative exists.
+
+**Procedure for security-relevant configuration changes:**
+
+1. **Identify the security control and its purpose.** Understand what attack vector or risk the control mitigates. A fix that disables a control without understanding its purpose cannot assess the trade-off.
+2. **Search the tool's documentation for granular exemption mechanisms.** Most security controls offer scoped alternatives — allowlists, per-package exemptions, per-origin policies, per-route bypasses. Check the tool's official documentation before concluding that a global disable is the only option.
+3. **Prefer the narrowest exemption that solves the problem.** If a scoped mechanism exists, use it — even if a global disable is simpler to implement. The broader fix may work, but it removes protection for everything else.
+4. **Only disable a control entirely as a last resort.** If no scoped alternative exists, document why in the PR description and commit message. Explicitly state what protection is lost and why the trade-off is acceptable.
+
+**Example from this repo:** Yarn 4.17 introduced supply-chain quarantine (`npmMinimalAgeGate`) that blocked `yarn install` for newly published packages. Two fixes were proposed:
+
+- ❌ `npmMinimalAgeGate: 0` — disables quarantine for **all** packages. Simple, but removes supply-chain protection entirely.
+- ✅ `npmPreapprovedPackages: ["@red-hat-developer-hub/e2e-test-utils"]` — exempts only the team's own first-party package while preserving quarantine for all third-party dependencies.
+
+Both fixes resolved the immediate problem, but the scoped exemption preserved security for the broader dependency tree.
+
+**Common patterns where this applies:**
+
+- **CORS:** Use specific origin allowlists (`https://example.com`) instead of wildcards (`*`)
+- **Authentication:** Add scoped bypasses for specific endpoints instead of disabling auth checks globally
+- **Dependency policies:** Use per-package exemptions instead of disabling version or audit policies entirely
+- **Network policies:** Open specific ports or CIDRs instead of allowing all traffic
+- **Linter/scanner rules:** Suppress specific findings with inline annotations instead of disabling the rule project-wide
+
 ## Working with Catalog Entities
 
 ### Plugin YAML (`catalog-entities/extensions/plugins/*.yaml`)
