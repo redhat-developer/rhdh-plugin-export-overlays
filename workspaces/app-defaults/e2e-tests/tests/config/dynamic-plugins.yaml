@@ -1,0 +1,44 @@
+# The third spec ("GitHub session sign-in from Authentication Providers") drives the
+# session-auth API for `github`, but the backend never had that provider: it answers
+# `Unknown auth provider 'github'` with a 404 on /api/auth/github/start, because
+# `auth.providers.github` in app-config-rhdh.yaml only CONFIGURES a provider — the backend
+# module has to be installed as a dynamic plugin, and RHDH's default plugin list does not
+# carry it (see rhdh:docs/auth.md, "Enable the GitHub auth backend overlay package").
+#
+# Only TWO entries here, and the omissions are deliberate. Adding this file suppresses the
+# auto-generation from metadata/ — e2e-test-utils uses the user config INSTEAD of the
+# metadata-derived one (deployment.js `_buildDynamicPluginsConfig`) — so anything the base
+# layers do not already provide has to be listed. `app-defaults` is one of those.
+#
+# `app-auth` and `app-integrations` are NOT, and must not be added back: the
+# new-frontend-system layer already ships them, and it is merged in automatically because
+# this project's namespace ends in `-app-next`. Listing them again duplicates them. The two
+# merge paths do not dedupe alike — `_mergeGeneratedWithBase` passes `normalizeKey:
+# getNormalizedPluginMergeKey`, which collapses the same plugin across differing tags,
+# while `_mergeBaseConfigs` (the path a user config takes) keys on the raw `package` string
+# alone. So `app-auth:bs_1.49.4__0.0.1` from that layer and `app-auth:bs_1.52.0__0.1.1`
+# survived as two entries, both resolved to the same pr_ ref, and the install container
+# aborted with "Duplicate OCI plugin configuration" before RHDH ever started.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true
+
+  # The provider the third spec needs. Published by this repo (workspaces/backstage), and
+  # the same package e2e-test-utils installs for `auth: "github"` — but that preset also
+  # sets `signInPage: github`, which would replace the OIDC/Keycloak sign-in this suite
+  # logs in with, so the module is added here instead of switching the auth preset.
+  # Credentials come from rhdh-secrets.yaml (VAULT_GITHUB_APP_CLIENT_ID/_SECRET), which is
+  # already what app-config-rhdh.yaml references.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.52.0__0.5.4
+    enabled: true
+    pluginConfig:
+      auth:
+        providers:
+          github:
+            production:
+              clientId: ${VAULT_GITHUB_APP_CLIENT_ID}
+              clientSecret: ${VAULT_GITHUB_APP_CLIENT_SECRET}
+              callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+              signIn:
+                resolvers:
+                  - resolver: usernameMatchingUserEntityName
