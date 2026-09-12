@@ -36,7 +36,9 @@ all fullsend `dispatch/*` checks (orchestration noise):
 
 ## Input
 
-Triggered by a `ci-diagnose` label on a PR. `GITHUB_ISSUE_URL` is the PR URL.
+Triggered by a `ci-diagnose` label on a PR, or a `/fs-diagnose` comment from
+a maintainer (requires write-level GitHub permission). `GITHUB_ISSUE_URL` is
+the PR URL in both cases.
 
 ```bash
 PR_URL="${GITHUB_ISSUE_URL:-}"
