@@ -1,3 +1,6 @@
 plugins:
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-pull-requests:bs_1.45.3__3.6.3
     disabled: false
