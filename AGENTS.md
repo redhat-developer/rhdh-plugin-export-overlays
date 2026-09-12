@@ -479,6 +479,14 @@ When fixing E2E test failures from `[fullsend] E2E:` issues:
 - CI configuration (`.github/`)
 - Repository config (`CLAUDE.md`, `CODEOWNERS`, `.fullsend/`)
 
+### Fixes requiring upstream framework changes
+When the issue remediation indicates the fix belongs in `@red-hat-developer-hub/e2e-test-utils` or another external dependency:
+1. Do NOT create per-workspace workaround PRs (e.g., adding entries to dynamic-plugins.yaml that the framework should handle automatically)
+2. Comment on the issue explaining the fix is outside the code agent's scope and identifying the upstream package that needs the change
+3. If the issue contains a clear upstream fix description, include it in the comment so a human can act on it
+
+Common signals: the issue remediation mentions e2e-test-utils, the fix involves modifying framework-managed config (auth profiles, deployment defaults), or the same fix would need to be duplicated across every workspace.
+
 ### Skipping tests (product_bug classification)
 When the issue says `fix_category: product_bug`, add `test.skip` instead
 of fixing the test:
