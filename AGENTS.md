@@ -285,7 +285,7 @@ test.beforeAll(async ({ rhdh }) => {
 `rhdh.deploy()` performs these steps:
 
 1. **Merges config files** — package defaults + auth config (keycloak/guest) + your `tests/config/` overrides (deep merge, later wins)
-2. **Processes dynamic plugins** — auto-generates from `metadata/*.yaml` if no `dynamic-plugins.yaml` exists; injects metadata configs; resolves OCI URLs based on mode
+2. **Processes dynamic plugins** — auto-generates from this workspace's `metadata/*.yaml` if no `dynamic-plugins.yaml` exists; injects metadata configs; resolves OCI URLs based on mode
 3. **Applies to cluster** — creates ConfigMaps (app-config, dynamic-plugins) and Secrets (with `envsubst` for env var substitution)
 4. **Installs RHDH** — via Helm chart or Operator based on `INSTALLATION_METHOD`
 5. **Waits for readiness** — two-phase: pod `Ready=True` (with early failure detection for CrashLoopBackOff, ImagePullBackOff) + HTTP health check against the route
@@ -314,7 +314,31 @@ Priority: `GIT_PR_NUMBER` (forces PR mode) > `E2E_NIGHTLY_MODE` > `JOB_NAME` con
 
 **Nightly mode** uses released OCI refs directly from each plugin's `spec.dynamicArtifact` in metadata (e.g., `oci://ghcr.io/.../plugin:bs_1.45.3__1.13.0`). No config injection — plugins use their baked-in defaults. Enabled via `E2E_NIGHTLY_MODE=true` or when `JOB_NAME` contains `periodic-`.
 
-When no `dynamic-plugins.yaml` exists, ALL metadata files are read to auto-generate the complete plugin configuration. This is the recommended approach — most workspaces don't need a `dynamic-plugins.yaml`.
+When no `dynamic-plugins.yaml` exists, all metadata files within this workspace's `metadata/` directory are read to auto-generate the plugin configuration. This is the recommended approach for workspaces whose tests only depend on their own plugins.
+
+> **⚠️ Cross-workspace plugin dependencies:** Auto-generation only covers plugins whose metadata lives in THIS workspace's `metadata/` directory. It cannot discover or configure plugins from other workspaces. If a workspace's tests depend on plugins from other workspaces (e.g., argocd, topology, and tekton all depend on `backstage-plugin-kubernetes-backend-dynamic` from the backstage workspace), those dependencies must be explicitly declared in `dynamic-plugins.yaml`. Do not delete `dynamic-plugins.yaml` or remove entries without verifying that every listed plugin is either (a) auto-generated from this workspace's metadata or (b) enabled by default in RHDH. See **Cross-Workspace Plugin Dependencies** below for details.
+
+### Cross-Workspace Plugin Dependencies
+
+Some RHDH plugins are **disabled by default** and will not appear in auto-generated configs or RHDH defaults. Workspaces whose E2E tests depend on these plugins must explicitly enable them in `dynamic-plugins.yaml`.
+
+**Known disabled-by-default plugins that require explicit configuration:**
+- `backstage-plugin-kubernetes-backend-dynamic`
+- `backstage-plugin-kubernetes`
+
+**Workspaces with cross-workspace dependencies:**
+
+The following workspaces depend on kubernetes-backend from the backstage workspace and MUST retain their `dynamic-plugins.yaml` entries for it:
+- `workspaces/argocd/` — depends on kubernetes-backend for cluster connectivity
+- `workspaces/topology/` — depends on kubernetes-backend for resource discovery
+- `workspaces/tekton/` — depends on kubernetes-backend for pipeline status
+
+**Rules for modifying `dynamic-plugins.yaml`:**
+
+1. **Never delete `dynamic-plugins.yaml` without checking for cross-workspace dependencies.** If the file contains entries for plugins NOT in this workspace's `metadata/` directory, those entries are cross-workspace dependencies and must be preserved.
+2. **When removing local-path plugin entries** (e.g., `./dynamic-plugins/dist/...`), replace them with OCI references rather than deleting the entry entirely. The plugin still needs to be configured — only the artifact source changes.
+3. **When an entry references a plugin package name that does not appear in this workspace's `metadata/*.yaml` files**, it is a cross-workspace dependency. Do not remove it.
+4. **When in doubt, keep the entry.** A redundant plugin entry is harmless; a missing dependency causes test failures.
 
 ### Configuration Files
 
@@ -322,7 +346,7 @@ All files in `tests/config/` are **optional** — only create them when you need
 
 - `app-config-rhdh.yaml` — RHDH app configuration (plugin settings, backend config)
 - `rhdh-secrets.yaml` — Kubernetes Secret manifest for injecting env vars into RHDH
-- `dynamic-plugins.yaml` — Plugin overrides (usually NOT needed — auto-generated from metadata)
+- `dynamic-plugins.yaml` — Plugin overrides (auto-generated from metadata when absent). **Required** when the workspace depends on plugins from other workspaces (cross-workspace dependencies) or on plugins that are disabled by default in RHDH. See **Cross-Workspace Plugin Dependencies** below.
 - `value_file.yaml` — Helm chart value overrides
 - `subscription.yaml` — Operator subscription overrides
 
@@ -377,7 +401,7 @@ export default defineConfig({
 });
 ```
 
-**Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files.
+**Don't create config files unless needed.** The package auto-generates plugin config from metadata. Most workspaces work with zero config files. However, `dynamic-plugins.yaml` IS needed when a workspace depends on cross-workspace plugins — see **Cross-Workspace Plugin Dependencies** below.
 
 ### Unified Test Runner (run-e2e.sh)
 
