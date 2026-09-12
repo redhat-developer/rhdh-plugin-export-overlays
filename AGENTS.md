@@ -485,6 +485,30 @@ of fixing the test:
 
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
+### Reference sibling workspace configs
+When adding or modifying E2E test configuration files
+(`app-config-rhdh.yaml`, `dynamic-plugins.yaml`, `value_file.yaml`,
+`rhdh-secrets.yaml`), search sibling workspaces for the same
+configuration keys before implementing. Other workspaces are
+reference implementations — they show the established pattern for a
+given feature.
+
+```bash
+grep -r '<config-key>' workspaces/*/e2e-tests/tests/config/
+```
+
+Follow the most common pattern unless the workspace has unique
+requirements that justify diverging. When multiple workspaces
+configure the same feature identically, that consensus is the
+baseline — deviate only with an explicit reason noted in the
+commit message.
+
+**Permission / RBAC config specifically:** A bare
+`permission.enabled: true` is almost never sufficient. Check
+whether other workspaces pair it with a full RBAC policy setup
+(CSV policy files, admin user entries, policy source config) and
+adapt accordingly.
+
 ### Verification
 After changes, run from the workspace's e2e-tests directory:
 
