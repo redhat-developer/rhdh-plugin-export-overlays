@@ -20,8 +20,8 @@
     },
     "verdict": {
       "type": "string",
-      "enum": ["pr_regression", "flake", "pre_existing", "product_bug", "config_env", "mixed", "needs_human"],
-      "description": "Overall rollup verdict across all failing checks. Use 'mixed' when checks fall into more than one classification."
+      "enum": ["pr_regression", "flake", "pre_existing", "product_bug", "config_env", "mixed", "needs_human", "pending"],
+      "description": "Overall rollup verdict across all failing checks. Use 'mixed' when checks fall into more than one classification. Use 'pending' when no checks are currently red but a curated check that failed on a prior commit has not yet been triggered on the current HEAD."
     },
     "summary": {
       "type": "string",
@@ -40,7 +40,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 65536,
-      "description": "Fully rendered markdown for the sticky PR comment. MUST contain the sticky marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
+      "description": "Fully rendered markdown for the sticky PR comment. MUST contain the sticky marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' (with optional '\"pending\":[...]' when untriggered checks have recent failures) so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
     }
   },
   "$defs": {
