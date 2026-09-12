@@ -227,6 +227,7 @@ export class BulkImportPO {
     }).toPass({ intervals, timeout });
 
     const popupWait = this.page.waitForEvent("popup", { timeout: 8_000 });
+    await expect(this.page.getByText("Workflow Link")).toBeVisible();
     await link.click();
     const popup = await popupWait.catch(() => null);
     if (popup) {
