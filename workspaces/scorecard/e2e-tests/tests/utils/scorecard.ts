@@ -70,7 +70,7 @@ export const DEPENDABOT_METRICS = [
   },
 ] as const;
 
-export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
+export function scorecardHelpers(page: Page, _uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
       .locator('[role="article"]')
@@ -142,7 +142,8 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       ).toBeVisible();
     },
     async navigateToHome() {
-      await uiHelper.openSidebar("Home");
+      await page.goto("/");
+      await page.waitForLoadState("domcontentloaded");
     },
     async enterEditMode() {
       await page.getByRole("button", { name: "Edit" }).click();
