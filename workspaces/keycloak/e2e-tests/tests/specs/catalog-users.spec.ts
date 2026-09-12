@@ -74,9 +74,11 @@ test.describe("Test Keycloak plugin", () => {
 
     for (let i = 0; i < backStageUsersCount; i++) {
       const backStageUser = backStageUsersLocator.nth(i);
-      const backStageUserText = await backStageUser.textContent();
+      // Link href is /catalog/.../user/<metadata.name> (= Keycloak username).
+      const href = await backStageUser.getAttribute("href");
+      const entityName = href?.split("/").filter(Boolean).pop();
       const userFound = keycloakUsers.find(
-        (user) => user.username === backStageUserText,
+        (user) => user.username === entityName,
       );
       expect(userFound).not.toBeNull();
 

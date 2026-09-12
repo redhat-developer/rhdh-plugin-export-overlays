@@ -21,10 +21,10 @@ export class CatalogUsersPO {
   }
 
   static async visitUserPage(page: Page, username: string) {
-    // Click on user link in the table by name
+    // Match by entity URL (metadata.name), not link label text.
     await page
       .getByRole("table")
-      .getByRole("link", { name: new RegExp(username, "i") })
+      .locator(`a[href*="/user/${username}"]`)
       .first()
       .click();
   }
