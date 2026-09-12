@@ -114,9 +114,9 @@ packages:
   - package: '@backstage/plugin-signals-backend'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-bulk-import'
-    support: "tech-preview"
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-bulk-import-backend'
-    support: "tech-preview"
+    support: "generally-available"
 
   # TODO move to GA in 2.1 in https://redhat.atlassian.net/browse/RHIDP-14103
   - package: '@red-hat-developer-hub/backstage-plugin-homepage-backend'
