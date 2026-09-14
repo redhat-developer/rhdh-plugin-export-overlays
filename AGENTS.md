@@ -81,6 +81,7 @@ On a PR, comment:
 | `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
 | `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
+| `e2e-code-quality.yaml` | PRs touching `workspaces/*/e2e-tests/` | Runs ESLint, Prettier, and TypeScript checks on changed E2E workspaces. Failures are merge-blocking |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
 ### Triggering Workflows Manually
@@ -158,6 +159,10 @@ Uses `kind: Package`. Key fields: `spec.packageName`, `spec.dynamicArtifact` (OC
 ## E2E Testing
 
 E2E tests live in `workspaces/<name>/e2e-tests/` and use `@red-hat-developer-hub/e2e-test-utils` — a shared package that handles RHDH deployment, Playwright fixtures, helpers, and plugin configuration. For the latest and most complete documentation, see: https://github.com/redhat-developer/rhdh-e2e-test-utils/tree/main/docs
+
+### E2E Code Quality CI Gate
+
+The `E2E Code Quality` workflow (`e2e-code-quality.yaml`) runs on every PR that touches `workspaces/*/e2e-tests/` files. It enforces ESLint, Prettier, and TypeScript (`tsc --noEmit`) checks on the affected workspaces. These checks are merge-blocking — a Prettier formatting violation (such as a missing trailing newline) will fail CI even if the issue appears minor in code review. When reviewing PRs that touch E2E test files, treat any Prettier, ESLint, or TypeScript finding as a CI-blocking defect, not a style suggestion.
 
 ### Workspace E2E Structure
 
