@@ -1,7 +1,6 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { $, requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { load as loadYaml } from "js-yaml";
@@ -478,4 +477,3 @@ test.describe(
     });
   },
 );
-

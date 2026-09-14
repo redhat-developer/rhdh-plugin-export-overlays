@@ -42,16 +42,19 @@ test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
 
     oauthHelper = new GitLabOAuthHelper(host, token);
 
-    await test.runOnce(`gitlab-auth-setup-${rhdh.deploymentConfig.namespace}`, async () => {
-      await rhdh.configure({
-        auth: "guest",
-        appConfig: APP_CONFIG_PATH,
-        secrets: "tests/config/gitlab-auth/rhdh-secrets.yaml",
-        dynamicPlugins: "tests/config/gitlab-auth/dynamic-plugins.yaml",
-        valueFile: "tests/config/gitlab-auth/value-file.yaml",
-        disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
-      });
-    });
+    await test.runOnce(
+      `gitlab-auth-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        await rhdh.configure({
+          auth: "guest",
+          appConfig: APP_CONFIG_PATH,
+          secrets: "tests/config/gitlab-auth/rhdh-secrets.yaml",
+          dynamicPlugins: "tests/config/gitlab-auth/dynamic-plugins.yaml",
+          valueFile: "tests/config/gitlab-auth/value-file.yaml",
+          disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
+        });
+      },
+    );
 
     if (oauthAppId !== null) {
       await oauthHelper.deleteOAuthApplication(oauthAppId);
@@ -320,4 +323,3 @@ test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
     await loginHelper.signOut();
   });
 });
-

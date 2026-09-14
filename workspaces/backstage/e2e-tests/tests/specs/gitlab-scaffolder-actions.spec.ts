@@ -35,8 +35,12 @@ async function runScaffolderTemplate(
   fillParameters: () => Promise<void>,
 ): Promise<void> {
   await uiHelper.verifyHeading("Templates");
-  await uiHelper.clickBtnInCard(templateTitle, "Choose");
-  await uiHelper.waitForTitle(templateTitle, 2);
+  await expect(async () => {
+    await uiHelper.clickBtnInCard(templateTitle, "Choose");
+    await expect(
+      page.getByRole("heading", { name: templateTitle, level: 2 }),
+    ).toBeVisible();
+  }).toPass({ timeout: 5000 });
   await fillParameters();
   const reviewButton = page.getByRole("button", { name: "Review" });
   await expect(reviewButton).toBeEnabled();

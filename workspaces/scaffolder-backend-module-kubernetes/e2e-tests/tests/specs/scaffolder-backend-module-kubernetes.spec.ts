@@ -44,15 +44,17 @@ test.describe("Test Kubernetes Actions plugin", () => {
         0,
         63,
       );
+    const templateTitle = "Create a kubernetes namespace";
     // NFS app uses the scaffolder's default heading ("Create").
     await uiHelper.verifyHeading("Create");
     // Wait for the specific template card title to be visible (more specific than article,
     // avoids matching sidebar navigation which also contains template names)
-    await page
-      .getByRole("heading", { name: "Create a kubernetes namespace" })
-      .waitFor({ state: "visible", timeout: 30000 });
-    await uiHelper.clickBtnInCard("Create a kubernetes namespace", "Choose");
-    await uiHelper.waitForTitle("Create a kubernetes namespace", 2);
+    await expect(async () => {
+      await uiHelper.clickBtnInCard(templateTitle, "Choose");
+      await expect(
+        page.getByRole("heading", { name: templateTitle, level: 2 }),
+      ).toBeVisible();
+    }).toPass({ timeout: 5000 });
 
     await uiHelper.fillTextInputByLabel("Namespace name", namespace);
     await uiHelper.checkCheckbox("Skip TLS verification");
