@@ -35,7 +35,11 @@ async function runScaffolderTemplate(
   fillParameters: () => Promise<void>,
 ): Promise<void> {
   await uiHelper.verifyHeading("Templates");
-  await uiHelper.clickBtnInCard(templateTitle, "Choose");
+  await page
+    .locator('div[class*="MuiCard-root"]')
+    .filter({ hasText: templateTitle })
+    .getByRole("button", { name: "Choose" })
+    .click();
   await uiHelper.waitForTitle(templateTitle, 2);
   await fillParameters();
   const reviewButton = page.getByRole("button", { name: "Review" });
