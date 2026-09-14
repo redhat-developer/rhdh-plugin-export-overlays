@@ -51,6 +51,7 @@ test.describe("Test Kubernetes Actions plugin", () => {
     await page
       .getByRole("heading", { name: "Create a kubernetes namespace" })
       .waitFor({ state: "visible", timeout: 30000 });
+    await page.getByRole("button", { name: "Choose" }).first().waitFor({ state: "visible" });
     await uiHelper.clickBtnInCard("Create a kubernetes namespace", "Choose");
     await uiHelper.waitForTitle("Create a kubernetes namespace", 2);
 
