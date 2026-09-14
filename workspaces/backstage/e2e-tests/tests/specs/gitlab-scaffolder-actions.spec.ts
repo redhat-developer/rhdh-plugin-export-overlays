@@ -35,6 +35,7 @@ async function runScaffolderTemplate(
   fillParameters: () => Promise<void>,
 ): Promise<void> {
   await uiHelper.verifyHeading("Templates");
+  await page.getByRole("button", { name: "Choose" }).first().waitFor({ state: "visible" });
   await uiHelper.clickBtnInCard(templateTitle, "Choose");
   await uiHelper.waitForTitle(templateTitle, 2);
   await fillParameters();
