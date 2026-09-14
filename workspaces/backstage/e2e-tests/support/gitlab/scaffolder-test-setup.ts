@@ -34,6 +34,7 @@ export interface GitLabScaffolderSharedState {
   publishCompleted: boolean;
 }
 
+// The VAULT_ prefix is retained for compatibility with existing CI secret exports.
 export function requireGitLabDiscoverySecretEnv(): void {
   requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 }
