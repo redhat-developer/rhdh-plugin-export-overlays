@@ -22,6 +22,7 @@ export type GitLabEventsRhdhWorker = {
   rhdhUrl: string;
 };
 
+// The VAULT_ prefix is retained for compatibility with existing CI secret exports.
 export function requireGitLabEventsSecretEnv(): void {
   requireEnv("VAULT_EVENTS_GITLAB_TOKEN");
   requireEnv("VAULT_EVENTS_GITLAB_HOST");
