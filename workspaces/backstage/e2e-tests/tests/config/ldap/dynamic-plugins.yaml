@@ -1,0 +1,10 @@
+# Keycloak auth and LDAP catalog modules are not in default.packages.yaml enabled list.
+# app-auth comes from the catalog index (OOTB, 0.1.1) — do not list it here or install-dynamic-plugins
+# sees duplicate OCI refs. Only suppress the stale NFS default from e2e-test-utils.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.49.4__0.0.1
+    disabled: true
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap:bs_1.52.0__0.12.6
+    disabled: false
