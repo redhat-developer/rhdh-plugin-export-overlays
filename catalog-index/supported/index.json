@@ -1,7 +1,7 @@
 {
   "backstage-community-plugin-analytics-provider-segment": {
     "workspacePath": "analytics/plugins/analytics-provider-segment",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:1dc9b72baf3cd5d379bf8ecf64c2fce211b9c714fa80ae28bbd6b86041c75dae",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-analytics-provider-segment@sha256:cc88ee5a8ef2d538acc528478c3dab82436fabfd3a8486fd863314cb8f06e5f5",
     "build-date": "2026-06-03T21:17:18Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -23,7 +23,7 @@
   },
   "backstage-community-plugin-catalog-backend-module-pingidentity": {
     "workspacePath": "pingidentity/plugins/catalog-backend-module-pingidentity",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:dece8aaa8af8518294db62486f4d47d431c10022a828a2be519cc0cd806125d2",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-pingidentity@sha256:3ef918ba6593937668ead2b807c0bd948bfaa5cec222f241bc592525ba33014b",
     "build-date": "2026-05-22T14:59:58Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -34,7 +34,7 @@
   },
   "backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor": {
     "workspacePath": "scaffolder-relation-processor/plugins/catalog-backend-module-scaffolder-relation-processor",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:9c0319d57387a6b4ffad61af087036974f0842892758d2d7abc123643c689501",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:eab7cfcd1d181c55811d7dd366fa882a5aad63353e457ba728c2ecdc18897894",
     "build-date": "2026-05-26T12:36:48Z",
     "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -45,7 +45,7 @@
   },
   "backstage-community-plugin-rbac": {
     "workspacePath": "rbac/plugins/rbac",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:1c7b638ab0be10d0bf90464ee38b10c7d545d0cf0d176b9dbe026414743bc3a4",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac@sha256:f4e1149ac0adfe096fcb487c5efd948b599dad0d57982e62b7920ab1737e4463",
     "build-date": "2026-06-03T21:19:15Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -56,7 +56,7 @@
   },
   "backstage-community-plugin-scaffolder-backend-module-kubernetes": {
     "workspacePath": "scaffolder-backend-module-kubernetes/plugins/kubernetes-actions",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:34181f9fa21705d92631286614a37b4170e12d17e9b1dc5a1fc43c285b7b8195",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:bcfdebbc7d02ad8801736fe48804b804996ae1db8c7f3105ae2967aa2508d944",
     "build-date": "2026-05-26T12:41:25Z",
     "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -67,7 +67,7 @@
   },
   "backstage-community-plugin-scaffolder-backend-module-regex": {
     "workspacePath": "scaffolder-backend-module-regex/plugins/regex-actions",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:0102c526297ffdce5315a288b97bdb4c1aac5ec58bed9a520fc04ec9b5913163",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:62689666c34b737e2248d53491a3124f9060357a535f21516acef263ee0bada7",
     "build-date": "2026-05-26T12:36:49Z",
     "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -78,7 +78,7 @@
   },
   "backstage-community-plugin-tech-radar": {
     "workspacePath": "tech-radar/plugins/tech-radar",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:76fc49b02c7423ecc83211d1425f639f97d93698f55690e15b88e3ff39c6eb14",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar@sha256:82b5ba3e3552080bcbdd9d58b59dc447fc03220fca9ae2d4a8369b00f0e7f36a",
     "build-date": "2026-06-03T21:08:19Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -89,7 +89,7 @@
   },
   "backstage-community-plugin-tech-radar-backend": {
     "workspacePath": "tech-radar/plugins/tech-radar-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:ec68e28ce8300d59a40cf4d291f141b1e98f5c2f7a3e1311c001aaf48bee9341",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:8b809f6913a170191ef8d819256f4aab9c402a1042cf4c9179ecd26a3b37ec6c",
     "build-date": "2026-05-22T15:09:03Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -111,7 +111,7 @@
   },
   "backstage-plugin-catalog-backend-module-github": {
     "workspacePath": "backstage/plugins/catalog-backend-module-github",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:9a012337839e0cda899dc9104791a60d1a321ba12a43b6ea620ea45ba966b530",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github@sha256:6d77cee4069af59ee9a2cf0812a3b70047abccae5aa53dbcb692a1537ade2ffb",
     "build-date": "2026-05-21T21:07:49Z",
     "vcs-ref": "2dc3d8acfb20c18dd49e6eb3466fbe6ffc9df65d",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -122,7 +122,7 @@
   },
   "backstage-plugin-catalog-backend-module-github-org": {
     "workspacePath": "backstage/plugins/catalog-backend-module-github-org",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:317c299b0738a069fc26c8052aa018547df049c305571b95fa0a5f514eb77adb",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github-org@sha256:e739edd74ffb63a25115d13d33838f3575f593f88f20bc38d14dfade60b397e4",
     "build-date": "2026-05-21T21:48:12Z",
     "vcs-ref": "ea72df87f79f812b5c15587fb1c757bcae34f5ca",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -133,7 +133,7 @@
   },
   "backstage-plugin-catalog-backend-module-gitlab": {
     "workspacePath": "backstage/plugins/catalog-backend-module-gitlab",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:86270d17fbf9745557d83f4f8bba2d52e8b34e10cc76a4ee985809b970a1eee5",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab@sha256:55aa34f106c4286739195ed99fa810e4c5bb60e54d1dbc8806eab795a313191e",
     "build-date": "2026-05-21T21:33:39Z",
     "vcs-ref": "5bb8c5959e37e7150e9c44f8ce61663dd99f20f9",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -144,7 +144,7 @@
   },
   "backstage-plugin-catalog-backend-module-gitlab-org": {
     "workspacePath": "backstage/plugins/catalog-backend-module-gitlab-org",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:639ff3f98ee674393d6310e3da9bdd26bca6a42e20d36a163f1b21dd73394e33",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org@sha256:e22a790a9b1f93af3c0a4485beeb58abcc26036ff4119100b93f675c0009ae6c",
     "build-date": "2026-05-21T21:07:19Z",
     "vcs-ref": "d77899bbdaf8d7ac29a3d6904aa029521369d420",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -155,7 +155,7 @@
   },
   "backstage-plugin-catalog-backend-module-ldap": {
     "workspacePath": "backstage/plugins/catalog-backend-module-ldap",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:843425209d5de7085ed728ce9006135a2f1899097add78a6a52e38ec8e9aa3b7",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-ldap@sha256:eccc94a07a987c89681a464fb4fd43bd2e0dac32760071a0d415083e42e853de",
     "build-date": "2026-05-21T21:26:30Z",
     "vcs-ref": "9fa895fc8f9593594b5189758228fed57c9bb38d",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -166,7 +166,7 @@
   },
   "backstage-plugin-catalog-backend-module-msgraph": {
     "workspacePath": "backstage/plugins/catalog-backend-module-msgraph",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:f5d3c9f3fad747b9be24d97a51ac903d02d35f9db5617e73a355ab0e16d1b074",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-msgraph@sha256:297e776e5b1503417cd6f6403cf80dce1fd9064cad8318ff73c259358168672f",
     "build-date": "2026-05-21T21:02:22Z",
     "vcs-ref": "d8560705ae45d99179f9e0336bf69223e90939d5",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -177,7 +177,7 @@
   },
   "backstage-plugin-events-backend-module-github": {
     "workspacePath": "backstage/plugins/events-backend-module-github",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:076b24acef6665c2f2922b252574647b9f5898c8e0a5afe48e9966a8f4693839",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-github@sha256:ef1e2231d707db7e7154cf17bb5f81a76a0cec68febf147e7db55bb1467a790d",
     "build-date": "2026-05-21T20:54:16Z",
     "vcs-ref": "3554ce45ee1326c9a0a567699327ce02bbec8cbc",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -188,7 +188,7 @@
   },
   "backstage-plugin-events-backend-module-gitlab": {
     "workspacePath": "backstage/plugins/events-backend-module-gitlab",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-gitlab@sha256:8e1661fddb0454d6c9f1fdc46a3e2913c72c2c5f19e9e2de9cf63f1bc7cc17a9",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-gitlab@sha256:df2f805a4afa0674161d6a62fa92cd6acb534e88a2c6cda51d24e269f2525a96",
     "build-date": "2026-05-29T19:01:39Z",
     "vcs-ref": "958e3166b107c91692ba6ae8133a1bc10ddbd2ac",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 0fdd14de35ad1d6546660a58ba2ad60807b2a093",
@@ -199,7 +199,7 @@
   },
   "backstage-plugin-kubernetes": {
     "workspacePath": "backstage/plugins/kubernetes",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:2e3b55cc6f8880906b0ad3dbab930931c706dbbe4327fcd10f886de23aac9832",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes@sha256:41991a67fd29a59afd56da0321e5441f30966c0551bac61ae1b62c69220294d3",
     "build-date": "2026-06-03T21:17:35Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -210,7 +210,7 @@
   },
   "backstage-plugin-kubernetes-backend": {
     "workspacePath": "backstage/plugins/kubernetes-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:882530006514cfddbb710f2e2e7cda3b20e18a96d931af7a7170c200c2057656",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-kubernetes-backend@sha256:f79e40d62d17d2a982e4c971c548a5ba2f08a56d1313f60621b3bff21ccc4bbe",
     "build-date": "2026-05-21T21:07:46Z",
     "vcs-ref": "a06f3ba4038a735aca90eac44b7fcc2a9450de2b",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -221,7 +221,7 @@
   },
   "backstage-plugin-notifications": {
     "workspacePath": "backstage/plugins/notifications",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:44e58198b17df20846bc053e3096252cf415e836a93b0e1f55a55f423cf153a9",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications@sha256:3aa8de4e7c6551bcd69b67ddb4b45e839f6fab0344c30f1ce4f7c5da48e34a49",
     "build-date": "2026-06-03T21:14:02Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -232,7 +232,7 @@
   },
   "backstage-plugin-notifications-backend": {
     "workspacePath": "backstage/plugins/notifications-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:a082fa1a44daca363c4fec1831201350d0a185f88edace53ab89bc0a2918e901",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend@sha256:1331bc1a42b119e84fb870d7cc13ccee61f77b29ac1900ad9987bba18f20ccbb",
     "build-date": "2026-05-21T21:01:27Z",
     "vcs-ref": "371a9a57bb4c09cba7f5abbbccb229a5744abc72",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -243,7 +243,7 @@
   },
   "backstage-plugin-notifications-backend-module-email": {
     "workspacePath": "backstage/plugins/notifications-backend-module-email",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:f71c99cf65c4836bc46483e6d32b009f67907cf540e08ae020777b551cf111c0",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-notifications-backend-module-email@sha256:e202b5b3e4f35ddd29ce1e5213f42a756d42a755a4d4845765eaacd1637cb4bc",
     "build-date": "2026-05-21T21:16:42Z",
     "vcs-ref": "81e2de280ebb84a1843a185bf69e31f4e0276d56",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -254,7 +254,7 @@
   },
   "backstage-plugin-scaffolder-backend-module-github": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-github",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:351f97d8badd4a158f6cbefc87b56c55690d7cdce1156b989d276a478ae89e49",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-github@sha256:4c6355f939e7899800a1050978aeaaa18a6abe531d61bdd7954cc95f5f5f6196",
     "build-date": "2026-05-21T21:24:29Z",
     "vcs-ref": "51edeaa135cffcb3535e7477241310ceadcb35d3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -265,7 +265,7 @@
   },
   "backstage-plugin-scaffolder-backend-module-gitlab": {
     "workspacePath": "backstage/plugins/scaffolder-backend-module-gitlab",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:22dbfa5d43bba8d5318d34d1a2ef443d291635b0ccaf8a978df052e35b220ebb",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:9c30330b9b7be4d3b9be88b56c8ed62dca8b147b8768e92730258225af6f574c",
     "build-date": "2026-05-21T21:20:59Z",
     "vcs-ref": "f8650111faeebe0bcbb1826a9521d46d812cbe7d",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -276,7 +276,7 @@
   },
   "backstage-plugin-signals": {
     "workspacePath": "backstage/plugins/signals",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:388b52bb57a8efb727d2f39785a372173a2f14021e36e0795df9d56ffb19d3fe",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:9ce0b8e8ab50f3597626f16345cbbec7deccf050a098dcc4191f6843c0ff72e8",
     "build-date": "2026-06-03T21:12:06Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -287,7 +287,7 @@
   },
   "backstage-plugin-signals-backend": {
     "workspacePath": "backstage/plugins/signals-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:92793fe7d7cbd6528e8c6722765f41d236b8835082ec5733fd6fe37ed4cb07f8",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:1bc4a4d6a5e67f8d61f5f894cae9b72c2b0fbbadbca466a3f3b0c282ff2ff2d5",
     "build-date": "2026-05-21T21:25:10Z",
     "vcs-ref": "c8a6542eb211840a501c82d35f6b30e5b0a32586",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -298,7 +298,7 @@
   },
   "backstage-plugin-techdocs": {
     "workspacePath": "backstage/plugins/techdocs",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:f15140b3f9098edd225006e5d21bc47bcd3738c591e8a9acab878cae99b9ffa3",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:d93824deee0364e31dabffd05935d3ec3e39470ecb3ff2bc19b235bfbc241517",
     "build-date": "2026-06-03T21:12:19Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -309,7 +309,7 @@
   },
   "backstage-plugin-techdocs-backend": {
     "workspacePath": "backstage/plugins/techdocs-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:93ffa1ff48dcc7fa40022b155fd4f3b4ef6d9ac6f77ef01ad6a5601d13680850",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-backend@sha256:f9cb6d4f1330028cfb3f7ad72295867e3153b1c3d7ced5051a0729c18cf3bdea",
     "build-date": "2026-05-21T21:24:29Z",
     "vcs-ref": "2ebbc8a4a987f47c3509c16bf3d678553d9210a3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -320,7 +320,7 @@
   },
   "backstage-plugin-techdocs-module-addons-contrib": {
     "workspacePath": "backstage/plugins/techdocs-module-addons-contrib",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:86a73dc96e0e5c96c69139820cdcdfc1dd4d34656de94bbca8600363ebf3e470",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs-module-addons-contrib@sha256:df36fc651691bc83187ccea0c99f46c4974b6d9e54c82faf86015c01248c96a4",
     "build-date": "2026-06-03T21:19:52Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
@@ -364,29 +364,29 @@
   },
   "red-hat-developer-hub-backstage-plugin-bulk-import": {
     "workspacePath": "bulk-import/plugins/bulk-import",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:c23fda16a1457c02cc8a0c6fa790ef891cd08f62e400a6662863841a4dad0ab9",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:6bfb8629725c142494178bed85464111f307721654f8a345fe761af0fd1e56cd",
     "build-date": "2026-06-03T21:22:55Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "support": "tech-preview",
+    "support": "generally-available",
     "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tYnVsay1pbXBvcnQiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1idWxrLWltcG9ydC1keW5hbWljIiwidmVyc2lvbiI6IjkuMC4xIiwiYmFja3N0YWdlIjp7InJvbGUiOiJmcm9udGVuZC1wbHVnaW4iLCJwbHVnaW5JZCI6ImJ1bGstaW1wb3J0IiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWJ1bGstaW1wb3J0IiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWJ1bGstaW1wb3J0LWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tYnVsay1pbXBvcnQtY29tbW9uIl0sImZlYXR1cmVzIjp7Ii4iOiJAYmFja3N0YWdlL0Zyb250ZW5kUGx1Z2luIiwiLi9idWxrLWltcG9ydC10cmFuc2xhdGlvbnMtbW9kdWxlIjoiQGJhY2tzdGFnZS9Gcm9udGVuZE1vZHVsZSJ9LCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjYifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9idWxrLWltcG9ydC9wbHVnaW5zL2J1bGstaW1wb3J0In0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQHJtM2wiLCJAZGVic21pdGExIl0sImF1dGhvciI6IlJlZCBIYXQiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
     "imageTag": "bs_1.54.6__9.0.1"
   },
   "red-hat-developer-hub-backstage-plugin-bulk-import-backend": {
     "workspacePath": "bulk-import/plugins/bulk-import-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:86b8ed18b0287901f48b22223b2ba8a2a27556547dfcf6d396b4b0b8db3107ae",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:2e83a9bbd14e10478f40c16dbe0dfe43cf3466c57fa9b6c15273f0c4f8260c88",
     "build-date": "2026-05-22T15:13:40Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "support": "tech-preview",
+    "support": "generally-available",
     "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tYnVsay1pbXBvcnQtYmFja2VuZCI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWJ1bGstaW1wb3J0LWJhY2tlbmQtZHluYW1pYyIsInZlcnNpb24iOiI5LjAuMSIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6ImJ1bGstaW1wb3J0IiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWJ1bGstaW1wb3J0IiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWJ1bGstaW1wb3J0LWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tYnVsay1pbXBvcnQtY29tbW9uIl0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNTQuNiJ9LCJob21lcGFnZSI6Imh0dHBzOi8vcmVkLmh0L3JoZGgiLCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMiLCJkaXJlY3RvcnkiOiJ3b3Jrc3BhY2VzL2J1bGstaW1wb3J0L3BsdWdpbnMvYnVsay1pbXBvcnQtYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsIm1haW50YWluZXJzIjpbIkBybTNsIl0sImF1dGhvciI6IlJlZCBIYXQiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
     "imageTag": "bs_1.54.6__9.0.1"
   },
   "red-hat-developer-hub-backstage-plugin-global-header": {
     "workspacePath": "global-header/plugins/global-header",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:3d468c3ccb8c27fc7d907b286c7042e2e773cb8367909760d069f9fd193b9b6c",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:c9d85f22d7e3fd33b8cb56f97bbcc5472eca529e27ebf2c3776e7ab30bf0f3e4",
     "build-date": "2026-06-03T21:16:21Z",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -397,14 +397,14 @@
   },
   "red-hat-developer-hub-backstage-plugin-homepage": {
     "workspacePath": "homepage/plugins/homepage",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:a6573c160e4c98a3176efffb0cf252b206398c48a01c5a1a070f515be86dd1f4",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage@sha256:f4dc15efedc2451aa3aef2d25efdc5aed507f36013b668dd1aaaff345678a2f7",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4taG9tZXBhZ2UiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1ob21lcGFnZS1keW5hbWljIiwidmVyc2lvbiI6IjEuMTguMCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJob21lcGFnZSIsInBsdWdpblBhY2thZ2VzIjpbIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1ob21lcGFnZSIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1ob21lcGFnZS1iYWNrZW5kIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWhvbWVwYWdlLWNvbW1vbiJdLCJmZWF0dXJlcyI6eyIuL2FscGhhIjoiQGJhY2tzdGFnZS9Gcm9udGVuZE1vZHVsZSIsIi4vaG9tZXBhZ2UtdHJhbnNsYXRpb25zLW1vZHVsZSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRNb2R1bGUifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC4wIn0sInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvaG9tZXBhZ2UvcGx1Z2lucy9ob21lcGFnZSJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0=",
     "imageTag": "bs_1.54.6__1.18.0"
   },
   "red-hat-developer-hub-backstage-plugin-homepage-backend": {
     "workspacePath": "homepage/plugins/homepage-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:e6cb0fb067b589dadbb70873923bf339016a0e7ecc589206bb677c4d8b0d50ea",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:e2f1157530a5c27f4474888646ae4f5f6659298d18e8fdda1af3f3867b552e28",
     "build-date": "2026-05-22T15:16:41Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
@@ -415,82 +415,72 @@
   },
   "red-hat-developer-hub-backstage-plugin-intelligent-assistant": {
     "workspacePath": "intelligent-assistant/plugins/intelligent-assistant",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:f9cf5a07ab51fc99d439fd9c9d8efada2446ed49dc19b6d41ce8e5f20a168743",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant@sha256:452edf49e74eaf0c7f99d649a3cca22cbf3d7dcc81050fd87905ffdc4cc62755",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50Ijp7Im5hbWUiOiJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50LWR5bmFtaWMiLCJ2ZXJzaW9uIjoiNS4wLjEiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImZyb250ZW5kLXBsdWdpbiIsInBsdWdpbklkIjoiaW50ZWxsaWdlbnQtYXNzaXN0YW50IiwicGx1Z2luUGFja2FnZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1pbnRlbGxpZ2VudC1hc3Npc3RhbnQiLCJwbHVnaW5QYWNrYWdlcyI6WyJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50IiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWludGVsbGlnZW50LWFzc2lzdGFudC1iYWNrZW5kIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWludGVsbGlnZW50LWFzc2lzdGFudC1jb21tb24iXSwiZmVhdHVyZXMiOnsiLiI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRQbHVnaW4iLCIuL2ludGVsbGlnZW50LWFzc2lzdGFudC1mYWItbW9kdWxlIjoiQGJhY2tzdGFnZS9Gcm9udGVuZE1vZHVsZSIsIi4vaW50ZWxsaWdlbnQtYXNzaXN0YW50LXRyYW5zbGF0aW9ucy1tb2R1bGUiOiJAYmFja3N0YWdlL0Zyb250ZW5kTW9kdWxlIn0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNTQuNiJ9LCJob21lcGFnZSI6Imh0dHBzOi8vcmVkLmh0L3JoZGgiLCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJnaXQraHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zLmdpdCIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvaW50ZWxsaWdlbnQtYXNzaXN0YW50L3BsdWdpbnMvaW50ZWxsaWdlbnQtYXNzaXN0YW50In0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQGthcnRoaWtqZWV5YXIiLCJAcm9oaXRrcmFpMDMiLCJAZGVic21pdGExIl0sImF1dGhvciI6IlJlZCBIYXQiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
     "imageTag": "bs_1.54.6__5.0.1"
   },
   "red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend": {
     "workspacePath": "intelligent-assistant/plugins/intelligent-assistant-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:727462a9515257a379bf0155b175f5a8637d89b718925421492f21d6976004d9",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend@sha256:43617fc62a0fed819407acaaea644667ca697dc20f29a4429207466b08530c13",
     "support": "generally-available",
     "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50LWJhY2tlbmQiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1pbnRlbGxpZ2VudC1hc3Npc3RhbnQtYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjUuMC4xIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbiIsInBsdWdpbklkIjoiaW50ZWxsaWdlbnQtYXNzaXN0YW50IiwicGx1Z2luUGFja2FnZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1pbnRlbGxpZ2VudC1hc3Npc3RhbnQtYmFja2VuZCIsInBsdWdpblBhY2thZ2VzIjpbIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1pbnRlbGxpZ2VudC1hc3Npc3RhbnQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50LWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4taW50ZWxsaWdlbnQtYXNzaXN0YW50LWNvbW1vbiJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjYifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiZ2l0K2h0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucy5naXQiLCJkaXJlY3RvcnkiOiJ3b3Jrc3BhY2VzL2ludGVsbGlnZW50LWFzc2lzdGFudC9wbHVnaW5zL2ludGVsbGlnZW50LWFzc2lzdGFudC1iYWNrZW5kIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQHlhbmdjYW83NyJdLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
     "imageTag": "bs_1.54.6__5.0.1"
   },
   "red-hat-developer-hub-backstage-plugin-orchestrator": {
     "workspacePath": "orchestrator/plugins/orchestrator",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:0d306c67f3d0674081e6a01430c89b1a47a1e121dca84be1e871f9453acd5c95",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:703e30206af978306a56236e2eb7b581e24b2a8b64cdc0018f191a2346ae0650",
     "build-date": "2026-06-02T17:21:47Z",
     "vcs-ref": "b93b7dcd7aa784d5faa9ef98d753bd9643532ce1",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__6.2.1",
     "support": "generally-available",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yIjp7Im5hbWUiOiJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiNi4xLjAiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImZyb250ZW5kLXBsdWdpbiIsInBsdWdpbklkIjoib3JjaGVzdHJhdG9yIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvciIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZCIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItY29tbW9uIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1ub2RlIl0sImZlYXR1cmVzIjp7Ii4iOiJAYmFja3N0YWdlL0Zyb250ZW5kUGx1Z2luIiwiLi9vcmNoZXN0cmF0b3ItdHJhbnNsYXRpb25zLW1vZHVsZSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRNb2R1bGUifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC40In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9yZWQuaHQvcmhkaCIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvb3JjaGVzdHJhdG9yIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQG1saWJyYSIsIkBiYXR6aW9uYiIsIkBnY2lhdmFycmluaSJdLCJhdXRob3IiOiJUaGUgQmFja3N0YWdlIENvbW11bml0eSIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIl19fV0=",
-    "imageTag": "bs_1.54.6__6.1.0"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yIjp7Im5hbWUiOiJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWR5bmFtaWMiLCJ2ZXJzaW9uIjoiNi4yLjEiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImZyb250ZW5kLXBsdWdpbiIsInBsdWdpbklkIjoib3JjaGVzdHJhdG9yIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvciIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZCIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItY29tbW9uIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1ub2RlIl0sImZlYXR1cmVzIjp7Ii4iOiJAYmFja3N0YWdlL0Zyb250ZW5kUGx1Z2luIiwiLi9vcmNoZXN0cmF0b3ItdHJhbnNsYXRpb25zLW1vZHVsZSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRNb2R1bGUiLCIuL29yY2hlc3RyYXRvci10ZW1wbGF0ZS1jYXJkLW1vZHVsZSI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRNb2R1bGUifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC42In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9yZWQuaHQvcmhkaCIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvb3JjaGVzdHJhdG9yIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIiwibWFpbnRhaW5lcnMiOlsiQG1saWJyYSIsIkBiYXR6aW9uYiIsIkBnY2lhdmFycmluaSJdLCJhdXRob3IiOiJUaGUgQmFja3N0YWdlIENvbW11bml0eSIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIl19fV0=",
+    "imageTag": "bs_1.54.6__6.2.1"
   },
   "red-hat-developer-hub-backstage-plugin-orchestrator-backend": {
     "workspacePath": "orchestrator/plugins/orchestrator-backend",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:410aa88a1466979e6aa68a5fc6c842c1997d802a52716902e93ae399df19b124",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend@sha256:89e6e8d4683fe471cd765c12c351934d92cc09f958693dc70fff11974cdb8296",
     "build-date": "2026-05-22T15:16:41Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__8.13.1",
     "support": "generally-available",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjguMTMuMCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6Im9yY2hlc3RyYXRvciIsInBsdWdpblBhY2thZ2VzIjpbIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3IiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWNvbW1vbiIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3Itbm9kZSJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjQifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9vcmNoZXN0cmF0b3IvcGx1Z2lucy9vcmNoZXN0cmF0b3ItYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsIm1haW50YWluZXJzIjpbIkBtbGlicmEiLCJAYmF0emlvbmIiLCJAZ2NpYXZhcnJpbmkiXSwiYXV0aG9yIjoiVGhlIEJhY2tzdGFnZSBDb21tdW5pdHkiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiIsIm9yY2hlc3RyYXRvciIsIndvcmtmbG93cyJdfX1d",
-    "imageTag": "bs_1.54.6__8.13.0"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZC1keW5hbWljIiwidmVyc2lvbiI6IjguMTMuMSIsImJhY2tzdGFnZSI6eyJyb2xlIjoiYmFja2VuZC1wbHVnaW4iLCJwbHVnaW5JZCI6Im9yY2hlc3RyYXRvciIsInBsdWdpblBhY2thZ2VzIjpbIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3IiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWNvbW1vbiIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3Itbm9kZSJdLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjYifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9vcmNoZXN0cmF0b3IvcGx1Z2lucy9vcmNoZXN0cmF0b3ItYmFja2VuZCJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsIm1haW50YWluZXJzIjpbIkBtbGlicmEiLCJAYmF0emlvbmIiLCJAZ2NpYXZhcnJpbmkiXSwiYXV0aG9yIjoiVGhlIEJhY2tzdGFnZSBDb21tdW5pdHkiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiIsIm9yY2hlc3RyYXRvciIsIndvcmtmbG93cyJdfX1d",
+    "imageTag": "bs_1.54.6__8.13.1"
   },
   "red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki": {
     "workspacePath": "orchestrator/plugins/orchestrator-backend-module-loki",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:25a8a88c1cdd3f077c81da6ac241a7b1d39f4dc1ae2e9187462e808e87f50d6e",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki@sha256:996992b3dd39ac19ec079f6fb64302b0018a7cde7432ba2dbd62424b21172f3c",
     "build-date": "2026-05-22T15:15:55Z",
     "vcs-ref": "716aa496e7ff7a048ff9aaa7fa6f30cc0d4157b3",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__1.5.1",
     "support": "generally-available",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQtbW9kdWxlLWxva2kiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZC1tb2R1bGUtbG9raS1keW5hbWljIiwidmVyc2lvbiI6IjEuNS4wIiwiZGVzY3JpcHRpb24iOiJUaGUgbG9raSBiYWNrZW5kIG1vZHVsZSBmb3IgdGhlIG9yY2hlc3RyYXRvciBwbHVnaW4uIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6Im9yY2hlc3RyYXRvciIsInBsdWdpblBhY2thZ2UiOiJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjQifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9vcmNoZXN0cmF0b3IvcGx1Z2lucy9vcmNoZXN0cmF0b3ItYmFja2VuZC1tb2R1bGUtbG9raSJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImF1dGhvciI6IlJlZCBIYXQiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
-    "imageTag": "bs_1.54.6__1.5.0"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQtbW9kdWxlLWxva2kiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1vcmNoZXN0cmF0b3ItYmFja2VuZC1tb2R1bGUtbG9raS1keW5hbWljIiwidmVyc2lvbiI6IjEuNS4xIiwiZGVzY3JpcHRpb24iOiJUaGUgbG9raSBiYWNrZW5kIG1vZHVsZSBmb3IgdGhlIG9yY2hlc3RyYXRvciBwbHVnaW4uIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6Im9yY2hlc3RyYXRvciIsInBsdWdpblBhY2thZ2UiOiJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWJhY2tlbmQiLCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjYifSwiaG9tZXBhZ2UiOiJodHRwczovL3JlZC5odC9yaGRoIiwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9vcmNoZXN0cmF0b3IvcGx1Z2lucy9vcmNoZXN0cmF0b3ItYmFja2VuZC1tb2R1bGUtbG9raSJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImF1dGhvciI6IlJlZCBIYXQiLCJidWdzIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zL2lzc3VlcyIsImtleXdvcmRzIjpbImJhY2tzdGFnZSIsInBsdWdpbiJdfX1d",
+    "imageTag": "bs_1.54.6__1.5.1"
   },
   "red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets": {
     "workspacePath": "orchestrator/plugins/orchestrator-form-widgets",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:684d1ed8b265c3feda1af8b8f7c23871e4eed20c735ea67968bf3e879be76c09",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:a8e7224033775d645fd22280d60d143b01d1c62554d4683ba61e66e9085a7989",
     "build-date": "2026-06-02T17:28:54Z",
     "vcs-ref": "b93b7dcd7aa784d5faa9ef98d753bd9643532ce1",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__2.2.0",
     "support": "generally-available",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWZvcm0td2lkZ2V0cyI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1mb3JtLXdpZGdldHMtZHluYW1pYyIsInZlcnNpb24iOiIyLjEuMCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJvcmNoZXN0cmF0b3ItZm9ybS13aWRnZXRzIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1mb3JtLXdpZGdldHMiXSwiZmVhdHVyZXMiOnsiLiI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRQbHVnaW4ifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC40In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9yZWQuaHQvcmhkaCIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvb3JjaGVzdHJhdG9yLWZvcm0td2lkZ2V0cyJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIiwicmpzZiIsIndpZGdldHMiLCJvcmNoZXN0cmF0b3IiXX19XQ==",
-    "imageTag": "bs_1.54.6__2.1.0"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWZvcm0td2lkZ2V0cyI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1mb3JtLXdpZGdldHMtZHluYW1pYyIsInZlcnNpb24iOiIyLjIuMCIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJvcmNoZXN0cmF0b3ItZm9ybS13aWRnZXRzIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLW9yY2hlc3RyYXRvci1mb3JtLXdpZGdldHMiXSwiZmVhdHVyZXMiOnsiLiI6IkBiYWNrc3RhZ2UvRnJvbnRlbmRQbHVnaW4ifSwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC42In0sImhvbWVwYWdlIjoiaHR0cHM6Ly9yZWQuaHQvcmhkaCIsInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvb3JjaGVzdHJhdG9yLWZvcm0td2lkZ2V0cyJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCIsImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIiwicmpzZiIsIndpZGdldHMiLCJvcmNoZXN0cmF0b3IiXX19XQ==",
+    "imageTag": "bs_1.54.6__2.2.0"
   },
   "red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator": {
     "workspacePath": "orchestrator/plugins/scaffolder-backend-module-orchestrator",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:8446fa0591cbeacd2a43dd25e3b840a3daea7cb49afc0279dacd2c8abbe38fcd",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator@sha256:fdf49dfde090b23f8c195cdd5ee649acb9d3744b8be32cbaed9294844fd118bf",
     "build-date": "2026-05-26T12:41:42Z",
     "vcs-ref": "95b98dafa0cfe6e44a98c32af70c1b151f2e1401",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 8d3f439ea50a23a136def6fb82466d7ce49cbf3f",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__1.8.1",
     "support": "generally-available",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1vcmNoZXN0cmF0b3IiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLW9yY2hlc3RyYXRvci1keW5hbWljIiwidmVyc2lvbiI6IjEuOC4wIiwiZGVzY3JpcHRpb24iOiJUaGUgb3JjaGVzdHJhdG9yIG1vZHVsZSBmb3IgQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6InNjYWZmb2xkZXIiLCJwbHVnaW5QYWNrYWdlcyI6WyJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWNvbW1vbiIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLW9yY2hlc3RyYXRvciJdLCJwbHVnaW5QYWNrYWdlIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kIiwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC40In0sInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1vcmNoZXN0cmF0b3IifSwibGljZW5zZSI6IkFwYWNoZS0yLjAiLCJtYWludGFpbmVycyI6WyJAbWxpYnJhIiwiQGJhdHppb25iIiwiQGdjaWF2YXJyaW5pIl0sImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIl19fV0=",
-    "imageTag": "bs_1.54.6__1.8.0"
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1vcmNoZXN0cmF0b3IiOnsibmFtZSI6IkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLW9yY2hlc3RyYXRvci1keW5hbWljIiwidmVyc2lvbiI6IjEuOC4xIiwiZGVzY3JpcHRpb24iOiJUaGUgb3JjaGVzdHJhdG9yIG1vZHVsZSBmb3IgQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kIiwiYmFja3N0YWdlIjp7InJvbGUiOiJiYWNrZW5kLXBsdWdpbi1tb2R1bGUiLCJwbHVnaW5JZCI6InNjYWZmb2xkZXIiLCJwbHVnaW5QYWNrYWdlcyI6WyJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tb3JjaGVzdHJhdG9yLWNvbW1vbiIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1zY2FmZm9sZGVyLWJhY2tlbmQtbW9kdWxlLW9yY2hlc3RyYXRvciJdLCJwbHVnaW5QYWNrYWdlIjoiQGJhY2tzdGFnZS9wbHVnaW4tc2NhZmZvbGRlci1iYWNrZW5kIiwic3VwcG9ydGVkLXZlcnNpb25zIjoiMS41NC42In0sInJlcG9zaXRvcnkiOnsidHlwZSI6ImdpdCIsInVybCI6Imh0dHBzOi8vZ2l0aHViLmNvbS9yZWRoYXQtZGV2ZWxvcGVyL3JoZGgtcGx1Z2lucyIsImRpcmVjdG9yeSI6IndvcmtzcGFjZXMvb3JjaGVzdHJhdG9yL3BsdWdpbnMvc2NhZmZvbGRlci1iYWNrZW5kLW1vZHVsZS1vcmNoZXN0cmF0b3IifSwibGljZW5zZSI6IkFwYWNoZS0yLjAiLCJtYWludGFpbmVycyI6WyJAbWxpYnJhIiwiQGJhdHppb25iIiwiQGdjaWF2YXJyaW5pIl0sImJ1Z3MiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMvaXNzdWVzIiwia2V5d29yZHMiOlsiYmFja3N0YWdlIiwicGx1Z2luIiwib3JjaGVzdHJhdG9yIiwid29ya2Zsb3dzIl19fV0=",
+    "imageTag": "bs_1.54.6__1.8.1"
   },
   "roadiehq-scaffolder-backend-module-http-request": {
     "workspacePath": "roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-http-request",

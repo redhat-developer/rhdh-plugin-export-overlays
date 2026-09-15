@@ -17,13 +17,13 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-bulk-import-backend"
   # Tag: bs_1.54.6__9.0.1, Build date: 2026-05-22T15:13:40Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:86b8ed18b0287901f48b22223b2ba8a2a27556547dfcf6d396b4b0b8db3107ae"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend@sha256:2e83a9bbd14e10478f40c16dbe0dfe43cf3466c57fa9b6c15273f0c4f8260c88"
   version: 9.0.1
   backstage:
     role: backend-plugin
     supportedVersions: 1.54.6
   author: Red Hat
-  support: tech-preview
+  support: generally-available
   lifecycle: active
   appConfigExamples:
     - title: Default PR-based import workflow
