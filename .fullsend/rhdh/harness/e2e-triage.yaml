@@ -36,7 +36,6 @@ host_files:
 
 skills:
   - skills/e2e-failure-analysis
-  - skills/playwright-trace
 
 post_script: rhdh/scripts/post-e2e-triage.sh
 
@@ -53,6 +52,13 @@ env:
   sandbox:
     SKILL_DIR: /sandbox/claude-config/skills/e2e-failure-analysis
     PLAYWRIGHT_BROWSERS_PATH: /tmp/playwright-browsers
+    # claude -p drops background Agent-tool subagents after 10 minutes of
+    # continuous idle waiting (no result trickling back) and returns a
+    # partial result. Phase 1 fans out one subagent per error-signature
+    # group, each doing deep trace/screenshot/log analysis — plausibly
+    # all still running past 10 minutes. Disable the ceiling; the
+    # existing timeout_minutes: 60 above is the real bound.
+    CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: "0"
     GH_TOKEN: "${GH_TOKEN}"
     GITHUB_ISSUE_URL: "${GITHUB_ISSUE_URL}"
     REPO_FULL_NAME: redhat-developer/rhdh-plugin-export-overlays

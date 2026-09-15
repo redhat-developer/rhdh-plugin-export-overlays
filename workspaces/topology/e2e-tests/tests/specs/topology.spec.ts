@@ -20,7 +20,7 @@ async function navigateToTopology(uiHelper: UIhelper) {
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("backstage-janus");
   await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
+  await uiHelper.clickLink("Topology");
 }
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {

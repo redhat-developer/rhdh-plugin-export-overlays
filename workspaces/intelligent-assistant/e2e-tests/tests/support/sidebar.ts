@@ -20,15 +20,36 @@ export async function assertChatDialogInitialState(page: Page): Promise<void> {
 
   await assertDrawerState(page, "open");
 
-  await expect(page.locator(".pf-v6-c-drawer__panel-main"))
-    .toMatchAriaSnapshot(`
-      - heading "Pinned chats"
-      - menu:
-        - menuitem "Pin chats to keep them on top"
-      - heading "Chats"
-      - menu:
-        - menuitem "No recent chats"
-      `);
+  const drawerPanel = page.locator(".pf-v6-c-drawer__panel-main");
+
+  await expect(
+    drawerPanel.getByRole("button", { name: "New chat" }),
+  ).toBeDisabled();
+  await expect(
+    drawerPanel.getByRole("button", { name: "Sort conversations" }),
+  ).toBeVisible();
+  await expect(
+    drawerPanel.getByRole("heading", {
+      name: "Pinned chats",
+      level: 3,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    drawerPanel.getByRole("menuitem", {
+      name: "Pin chats to keep them on top",
+    }),
+  ).toBeDisabled();
+  await expect(
+    drawerPanel.getByRole("heading", {
+      name: "Chats",
+      level: 3,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    drawerPanel.getByRole("menuitem", { name: "No recent chats" }),
+  ).toBeDisabled();
 }
 
 export async function closeChatDrawer(page: Page): Promise<void> {
