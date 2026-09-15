@@ -1,0 +1,148 @@
+import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { setupBulkImportRhdh } from "../../support/utils/deploy";
+import { SCAFFOLDER_TEMPLATE_HEADING } from "../../support/constants/bulk-import-selectors";
+import {
+  RepositoryParameters,
+  defaultGitHubRepositoryParameters,
+  defaultGitLabRepositoryParameters,
+} from "../../support/test-data/template-repository-data";
+import { fillFormFields } from "../../support/utils/fill-template-form";
+import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
+
+test.describe.serial("Bulk Import via Scaffolder Template", () => {
+  const repositoryParametersGitHub: RepositoryParameters =
+    defaultGitHubRepositoryParameters();
+
+  const repositoryParametersGitLab: RepositoryParameters =
+    defaultGitLabRepositoryParameters();
+
+  test.beforeAll(async ({ rhdh }) => {
+    await test.runOnce(
+      `bulk-import-scaffolder-template-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        await setupBulkImportRhdh(rhdh, {
+          appConfig: "tests/config/app-config-rhdh-scaffolder-template.yaml",
+          dynamicPlugins:
+            "tests/config/dynamic-plugins-with-scaffolder-template.yaml",
+          valueFile: "tests/config/values.yaml",
+        });
+      },
+    );
+
+    // Intentionally outside runOnce: the repo name embeds Date.now()/process.pid,
+    // so a worker restart would regenerate the name and runOnce would skip
+    // creating the repo the new name points to. A restart can therefore orphan
+    // the previous run's repo; afterAll below only cleans up the current one.
+    // Same pattern as bulk-import.spec.ts and bulk-import-orchestrator.spec.ts.
+    await APIHelper.createGitHubRepoWithFile(
+      repositoryParametersGitHub.organization,
+      repositoryParametersGitHub.name,
+      "README.md",
+      "Bulk import scaffolder template test repo",
+    );
+  });
+
+  test.beforeEach(async ({ loginHelper, uiHelper }) => {
+    await signInForScaffolderTemplateTests(loginHelper, uiHelper);
+  });
+
+  test.afterAll(async () => {
+    try {
+      await APIHelper.deleteGitHubRepo(
+        repositoryParametersGitHub.organization,
+        repositoryParametersGitHub.name,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[Cleanup] Failed to delete repo ${repositoryParametersGitHub.name}: ${message}`,
+      );
+    }
+  });
+
+  test("Verify bulk import scaffolder template page loads", async ({
+    page,
+    uiHelper,
+  }) => {
+    // templates list
+    await uiHelper.verifyHeading("Templates");
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+
+    // template detail page
+    await expect(page.getByText(SCAFFOLDER_TEMPLATE_HEADING)).toBeVisible();
+    await expect(
+      page.getByLabel("Repository URL (Backstage format)"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
+  });
+
+  test("Import a GitHub repository via scaffolder template", async ({
+    page,
+    uiHelper,
+  }) => {
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
+
+    // Repository Details screen
+    await fillFormFields(uiHelper, repositoryParametersGitHub);
+    await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
+    await uiHelper.clickButton("Review");
+
+    // Review screen
+    await expect(
+      page.getByRole("button", { name: "Create", exact: true }),
+    ).toBeVisible();
+    await uiHelper.clickButton("Create");
+
+    // Wait for the scaffolder task to complete
+    await expect(
+      page.getByRole("button", { name: "Create", exact: true }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole("article").getByRole("progressbar").first(),
+    ).toHaveAttribute("aria-valuenow", "100", { timeout: 120_000 });
+
+    // Verify no errors in the task output
+    await expect(page.getByRole("article").getByRole("alert")).toHaveCount(0);
+
+    // Verify the full scaffolder pipeline completed
+    await expect(
+      page
+        .getByRole("article")
+        .getByText("Finished step Register catalog-info.yaml in Backstage"),
+    ).toBeVisible();
+
+    // Verify exactly one PR was created on GitHub for this import (and not,
+    // say, an accidental double submission from the scaffolder template).
+    const prs = await APIHelper.getGitHubPRs(
+      repositoryParametersGitHub.organization,
+      repositoryParametersGitHub.name,
+      "open",
+    );
+    const templatePrs = prs.filter(
+      (pr: { head?: { ref?: string } }) =>
+        pr.head?.ref === repositoryParametersGitHub.branchName,
+    );
+    expect(templatePrs).toHaveLength(1);
+  });
+
+  test("GitLab form renders correctly", async ({ page, uiHelper }) => {
+    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
+
+    // Repository Details screen
+    await fillFormFields(uiHelper, repositoryParametersGitLab);
+    await expect(page.getByRole("button", { name: "Review" })).toBeEnabled();
+    await uiHelper.clickButton("Review");
+
+    // Review screen
+    await expect(
+      page.getByRole("button", { name: "Create", exact: true }),
+    ).toBeVisible();
+
+    // Intentionally partial: completing a real GitLab import requires a
+    // logged-in GitLab session/token, which this suite does not set up
+    // (only GitHub OAuth is configured in app-config-rhdh-scaffolder-template.yaml).
+  });
+});
