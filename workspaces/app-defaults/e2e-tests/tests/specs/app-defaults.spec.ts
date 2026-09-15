@@ -1,11 +1,6 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () => {
-  test.skip(
-    !!process.env.E2E_NIGHTLY_MODE,
-    "e2e-test-utils DPDY inherit resolves app-auth/app-integrations to {{inherit}} but plugins not yet in RHDH image (RHIDP-15482)",
-  );
-
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy();
@@ -16,6 +11,13 @@ test.describe("app-defaults plugins (app-next + OIDC + GitHub integration)", () 
   });
 
   test("loads Catalog after OIDC login", async ({ uiHelper }) => {
+    // Enable this test when https://redhat.atlassian.net/browse/RHDHBUGS-3627 is
+    // resolved: the global header covers the sidebar's first item, so no click
+    // reaches the Catalog link. Not conditional — it breaks the PR check too.
+    test.skip(
+      true,
+      "RHDHBUGS-3627: the global header covers the sidebar's first item, so the Catalog link cannot be clicked",
+    );
     await uiHelper.dismissQuickstartIfVisible();
     await uiHelper.openSidebar("Catalog");
     await uiHelper.verifyHeading(/catalog/i);

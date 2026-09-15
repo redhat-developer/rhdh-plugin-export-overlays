@@ -1,0 +1,14 @@
+# Explicit config — its presence suppresses plugin-list generation from metadata/, so
+# app-defaults has to be listed. app-auth and app-integrations must NOT be: the
+# new-frontend-system layer already ships them, and a second entry aborts the installer
+# with "Duplicate OCI plugin configuration". See PR #3419 for the merge-path details.
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true
+
+  # GitHub auth backend module, needed by the "GitHub session sign-in" spec. Added
+  # directly rather than through the e2e-test-utils `auth: "github"` preset, which would
+  # also set signInPage: github and displace the Keycloak sign-in this suite uses.
+  # Published by workspaces/backstage, so its tag tracks that workspace, not this one.
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.52.0__0.5.4
+    enabled: true
