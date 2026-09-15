@@ -29,38 +29,41 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs-module-addons-contrib:
-              techdocsAddons:
-                - importName: ReportIssue
+        app:
+          extensions:
+            - addon:techdocs/expandable-navigation
+            - addon:techdocs/report-issue
+            - addon:techdocs/text-size
+            - addon:techdocs/light-box
     - title: ReportIssue configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs-module-addons-contrib:
-              techdocsAddons:
-                - importName: ReportIssue
+        app:
+          extensions:
+            - addon:techdocs/expandable-navigation: false
+            - addon:techdocs/report-issue
+            - addon:techdocs/text-size: false
+            - addon:techdocs/light-box: false
     - title: TextSize configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs-module-addons-contrib:
-              techdocsAddons:
-                - importName: TextSize
+        app:
+          extensions:
+            - addon:techdocs/expandable-navigation: false
+            - addon:techdocs/report-issue: false
+            - addon:techdocs/text-size
+            - addon:techdocs/light-box: false
     - title: LightBox configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs-module-addons-contrib:
-              techdocsAddons:
-                - importName: LightBox
+        app:
+          extensions:
+            - addon:techdocs/expandable-navigation: false
+            - addon:techdocs/report-issue: false
+            - addon:techdocs/text-size: false
+            - addon:techdocs/light-box
     - title: All add-ons enabled configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage.plugin-techdocs-module-addons-contrib:
-              techdocsAddons:
-                - importName: ReportIssue
-                - importName: TextSize
-                - importName: LightBox
+        app:
+          extensions:
+            - addon:techdocs/expandable-navigation
+            - addon:techdocs/report-issue
+            - addon:techdocs/text-size
+            - addon:techdocs/light-box
