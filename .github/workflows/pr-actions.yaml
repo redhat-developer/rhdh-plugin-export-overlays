@@ -313,6 +313,7 @@ jobs:
                 'pr-number': String(${{ needs.prepare.outputs.pr-number }}),
                 'target-branch': '${{ needs.prepare.outputs.target-branch }}',
                 'rhdh-tag': '${{ needs.prepare.outputs.rhdh-tag }}',
+                'publish-run-id': '${{ needs.parse.outputs.command-name == 'publish' && github.run_id || '' }}',
               },
             });
 
