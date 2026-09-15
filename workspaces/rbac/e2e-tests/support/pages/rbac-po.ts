@@ -24,6 +24,13 @@ export class RbacPO {
     await this.page.goto("/rbac");
   }
 
+  /** NFS may render the 403 message across elements; use a partial match. */
+  public async verifyAccessDenied(): Promise<void> {
+    await expect(
+      this.page.getByText(/Insufficient permissions to access this page/i),
+    ).toBeVisible({ timeout: 30_000 });
+  }
+
   public async navigateToRBACPage(timeout?: number) {
     await this.go();
     await this.uiHelper.waitForLoad();
@@ -98,7 +105,9 @@ export class RbacPO {
     await this.switchToOverView();
     await this.uiHelper.verifyText("About");
 
-    await this.uiHelper.verifyText(description);
+    if (description) {
+      await this.uiHelper.verifyText(description);
+    }
 
     for (const heading of headings) {
       await this.uiHelper.verifyHeading(heading);
