@@ -178,6 +178,14 @@ workspaces/<plugin>/
             └── <plugin>.spec.ts # Test specification
 ```
 
+### Playwright Project Names vs Workspace Directories
+
+Playwright project names (defined in each workspace's `e2e-tests/playwright.config.ts`) may differ from workspace directory names. Some workspaces use abbreviated project names to stay under the 63-character OpenShift Route hostname limit (e.g., workspace `scaffolder-backend-module-kubernetes` uses project name `scaffolder-k8s-app-next`). When resolving an E2E failure from CI output, use the project name to find the correct workspace:
+
+    find workspaces -name 'playwright.config.ts' -exec grep -l '<project-name>' {} +
+
+Do not assume the project name matches the workspace directory path. Always verify file paths exist before referencing them in issues or tracking metadata.
+
 ### How Tests Work
 
 Each Playwright project creates a **separate Kubernetes namespace** (project name = namespace name). The test framework:
