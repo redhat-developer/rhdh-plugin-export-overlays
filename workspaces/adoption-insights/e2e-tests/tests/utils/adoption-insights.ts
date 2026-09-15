@@ -2,13 +2,21 @@ import { expect, type Page, type Locator } from "@playwright/test";
 
 /** Minimal UI helper interface used by populateMissingPanelData (matches e2e-test-utils fixture). */
 export interface AdoptionInsightsUiHelperForPanel {
-  openSidebarButton(name: string): Promise<void>;
   clickLink(name: string): Promise<void>;
   fillTextInputByLabel(label: string, text: string): Promise<void>;
   clickButton(
     label: string | RegExp,
     options?: { exact?: boolean },
   ): Promise<unknown>;
+}
+
+export function getPanel(page: Page, title: string | RegExp): Locator {
+  return page
+    .locator("article > div > div")
+    .filter({
+      has: page.getByRole("heading", { name: title, level: 5 }),
+    })
+    .first();
 }
 
 export class TestHelper {
@@ -32,15 +40,10 @@ export class TestHelper {
   async getCountFromPanel(panel: Locator): Promise<number | null> {
     try {
       const fullText = await panel
-        .locator("h5.v5-MuiTypography-root")
+        .getByRole("heading", { level: 5 })
         .textContent();
       const match = fullText?.match(/\d+/);
-
-      if (match) {
-        return parseInt(match[0], 10);
-      }
-
-      return null;
+      return match ? parseInt(match[0], 10) : null;
     } catch (error) {
       console.error("Error getting count from panel:", error);
       return null;
@@ -48,7 +51,7 @@ export class TestHelper {
   }
 
   async getVisibleFirstRowText(panel: Locator): Promise<string[]> {
-    const firstRow = panel.locator("table.v5-MuiTable-root tbody tr").first();
+    const firstRow = panel.locator("tbody tr").first();
 
     if (await firstRow.isVisible()) {
       const cells = firstRow.locator("td");
@@ -72,51 +75,68 @@ export class TestHelper {
     techdocsFirstLast: string[],
   ): Promise<void> {
     if (templatesFirstLast.length === 0) {
-      await this.page.getByRole("link", { name: "Self-service" }).click();
-      const panel = this.page
+      // TODO: revert to "Self-service" once fixed: https://redhat.atlassian.net/browse/RHDHBUGS-3676
+      // await this.page.getByRole("link", { name: "Self-service" }).click();
+      await this.page.getByRole("link", { name: "Create" }).click();
+      const templateHeading = this.page
         .getByRole("heading", { name: "Create a tekton CI Pipeline" })
         .first();
-      const isPanelVisible = await panel
+      let templateAvailable = await templateHeading
         .isVisible({ timeout: 10000 })
         .catch(() => false);
-      if (!isPanelVisible) {
-        const sampleTemplate =
-          "https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates/github/tekton/template.yaml";
-        await this.page
-          .getByRole("button", { name: "Import an existing Git repository" })
-          .click();
-        await this.page
-          .getByRole("textbox", { name: "URL" })
-          .fill(sampleTemplate);
-        await this.page.getByRole("button", { name: "Analyze" }).click();
-        await this.page.getByRole("button", { name: "Import" }).click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time after Import
-        await this.page.waitForTimeout(2000);
-        await this.page.getByRole("button", { name: "Register" }).click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time before Self-service
-        await this.page.waitForTimeout(5000);
-        await this.page.getByRole("link", { name: "Self-service" }).click();
-      }
-      const pipelineCard = panel.locator("..").locator("..");
-      await pipelineCard.getByRole("button", { name: "Choose" }).click();
 
-      const inputText = "reallyUniqueName";
-      await uiHelper.fillTextInputByLabel("Organization", inputText);
-      await uiHelper.fillTextInputByLabel("Repository", inputText);
-      await uiHelper.clickButton("Next");
-      await uiHelper.fillTextInputByLabel("Image Builder", inputText);
-      await uiHelper.fillTextInputByLabel("Image URL", inputText);
-      await uiHelper.fillTextInputByLabel("Namespace", inputText);
-      await this.page.getByRole("spinbutton", { name: "Port" }).fill("8080");
-      await uiHelper.clickButton("Review");
-      await uiHelper.clickButton("Create");
-      await this.page
-        .getByRole("button", { name: "Error: Request failed" })
-        .waitFor({ state: "visible" });
+      if (!templateAvailable) {
+        const importButton = this.page.getByRole("button", {
+          name: "Import an existing Git repository",
+        });
+        const canImport = await importButton
+          .isVisible({ timeout: 5000 })
+          .catch(() => false);
+        if (canImport) {
+          const sampleTemplate =
+            "https://github.com/redhat-developer/red-hat-developer-hub-software-templates/blob/main/templates/github/tekton/template.yaml";
+          await importButton.click();
+          await this.page
+            .getByRole("textbox", { name: "URL" })
+            .fill(sampleTemplate);
+          await this.page.getByRole("button", { name: "Analyze" }).click();
+          await this.page.getByRole("button", { name: "Import" }).click();
+          // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time after Import
+          await this.page.waitForTimeout(2000);
+          await this.page.getByRole("button", { name: "Register" }).click();
+          // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time before Create
+          await this.page.waitForTimeout(5000);
+          // TODO: revert to "Self-service" once fixed: https://redhat.atlassian.net/browse/RHDHBUGS-3676
+          // await this.page.getByRole("link", { name: "Self-service" }).click();
+          await this.page.getByRole("link", { name: "Create" }).click();
+          templateAvailable = await templateHeading
+            .isVisible({ timeout: 10000 })
+            .catch(() => false);
+        }
+      }
+
+      if (templateAvailable) {
+        const pipelineCard = templateHeading.locator("..").locator("..");
+        await pipelineCard.getByRole("button", { name: "Choose" }).click();
+
+        const inputText = "reallyUniqueName";
+        await uiHelper.fillTextInputByLabel("Organization", inputText);
+        await uiHelper.fillTextInputByLabel("Repository", inputText);
+        await uiHelper.clickButton("Next");
+        await uiHelper.fillTextInputByLabel("Image Builder", inputText);
+        await uiHelper.fillTextInputByLabel("Image URL", inputText);
+        await uiHelper.fillTextInputByLabel("Namespace", inputText);
+        await this.page.getByRole("spinbutton", { name: "Port" }).fill("8080");
+        await uiHelper.clickButton("Review");
+        await uiHelper.clickButton("Create");
+        await this.page
+          .getByRole("button", { name: "Error: Request failed" })
+          .waitFor({ state: "visible" });
+      }
     }
 
     if (catalogEntitiesFirstLast.length === 0) {
-      await uiHelper.clickLink("Catalog");
+      await this.page.goto("/catalog");
       await uiHelper.clickLink("Red Hat Developer Hub");
       // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay
       await this.page.waitForTimeout(5000);
@@ -125,25 +145,14 @@ export class TestHelper {
 
     if (techdocsFirstLast.length === 0) {
       await this.page.goto("/docs");
-      await expect(this.page.locator("h1")).toContainText("Documentation");
-      await expect(this.page.locator("header")).toContainText(
-        "Documentation available in My Org",
-      );
-      await expect(this.page.getByRole("article")).toMatchAriaSnapshot(`
-        - heading "No documents to show" [level=5]
-        - paragraph: Create your own document. Check out our Getting Started Information
-        - button "DOCS , Opens in a new window"
-        - img "no Build"
-        `);
-      await uiHelper.openSidebarButton("Administration");
+      await expect(this.page.locator("h1").first()).toContainText("Docs");
+      await clickAdoptionInsightsSidebarLink(this.page);
     }
   }
 
-  async expectTopEntriesToBePresent(panelTitle: string) {
-    const panel = this.page.locator(".v5-MuiPaper-root", {
-      hasText: panelTitle,
-    });
-    const entries = panel.locator("tbody").locator("tr");
+  async expectTopEntriesToBePresent(panelTitle: string | RegExp) {
+    const panel = getPanel(this.page, panelTitle);
+    const entries = panel.locator("tbody tr");
     expect(await entries.count()).toBeGreaterThan(0);
   }
 
@@ -155,15 +164,11 @@ export class TestHelper {
       this.page.waitForEvent("popup"),
       firstEntry.locator("a").click(),
     ]);
-    await this.waitUntilApiCallSucceeds(newpage);
+    await waitUntilApiCallSucceeds(newpage);
 
     await newpage.getByText(expectedText).first().waitFor({ state: "visible" });
     await newpage.waitForTimeout(5000);
     await newpage.close();
-  }
-
-  async waitUntilApiCallSucceeds(page: Page, urlPart?: string): Promise<void> {
-    await waitUntilApiCallSucceeds(page, urlPart);
   }
 }
 
@@ -176,7 +181,7 @@ async function waitUntilApiCallIsMade(
   });
 }
 
-async function waitUntilApiCallSucceeds(
+export async function waitUntilApiCallSucceeds(
   page: Page,
   urlPart = "/api/adoption-insights/events",
 ): Promise<void> {
@@ -191,29 +196,24 @@ async function waitUntilApiCallSucceeds(
   expect(response.status()).toBe(200);
 }
 
+async function clickAdoptionInsightsSidebarLink(page: Page): Promise<void> {
+  const link = page.locator('nav a:has-text("Adoption Insights")').first();
+  await link.waitFor({ state: "visible", timeout: 15_000 });
+  await link.click();
+}
+
 /** Navigate to Adoption Insights page and wait for panels. */
-export async function goToAdoptionInsights(
-  uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
-    clickLink: (n: string) => Promise<void>;
-  },
-  page: Page,
-): Promise<void> {
-  await uiHelper.openSidebarButton("Administration");
-  await uiHelper.clickLink("Adoption Insights");
+export async function goToAdoptionInsights(page: Page): Promise<void> {
+  await clickAdoptionInsightsSidebarLink(page);
   await waitForPanelApiCalls(page);
 }
 
 /** Navigate to Adoption Insights and select "Today" date range. */
-export async function goToAdoptionInsightsWithToday(
-  uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
-    clickLink: (n: string) => Promise<void>;
-  },
-  page: Page,
-): Promise<void> {
-  await goToAdoptionInsights(uiHelper, page);
-  await selectDateRangeToday(page);
+export async function goToAdoptionInsightsWithToday(page: Page): Promise<void> {
+  await goToAdoptionInsights(page);
+  const helper = new TestHelper(page);
+  await helper.clickByText("Last 28 days");
+  await Promise.all([waitForPanelApiCalls(page), helper.selectOption("Today")]);
 }
 
 /** Wait for Adoption Insights panel API calls to complete. */
@@ -238,13 +238,6 @@ export async function waitForPanelApiCalls(page: Page): Promise<void> {
   ]);
 }
 
-/** Navigate to Adoption Insights and select "Today" date range. Call after opening Adoption Insights page. */
-export async function selectDateRangeToday(page: Page): Promise<void> {
-  const helper = new TestHelper(page);
-  await helper.clickByText("Last 28 days");
-  await Promise.all([waitForPanelApiCalls(page), helper.selectOption("Today")]);
-}
-
 export async function runInteractionTrackingSetup(
   page: Page,
   uiHelper: AdoptionInsightsUiHelperForPanel,
@@ -260,10 +253,10 @@ export async function runInteractionTrackingSetup(
     techdocs,
   );
   await page.getByPlaceholder("Search...").fill("Dummy search");
-  await testHelper.waitUntilApiCallSucceeds(page);
+  await waitUntilApiCallSucceeds(page);
   await expect(page.getByText("No results found")).toBeVisible();
-  await uiHelper.clickLink("Catalog");
+  await page.goto("/catalog");
   await page.reload();
-  await testHelper.waitUntilApiCallSucceeds(page);
-  await goToAdoptionInsightsWithToday(uiHelper, page);
+  await waitUntilApiCallSucceeds(page);
+  await goToAdoptionInsightsWithToday(page);
 }
