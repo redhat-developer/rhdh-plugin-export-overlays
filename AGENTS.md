@@ -485,6 +485,17 @@ of fixing the test:
 
     test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
+The root cause summary should name the **specific** broken component, not
+a generic category. Preserve specificity from the triage issue's failure
+message:
+- Bad: `"Theme selector button not rendered"` (ambiguous — which theme button?)
+- Good: `"QE theme selector buttons not rendered in NFS/app-next mode"` (names the specific plugin/component)
+- Bad: `"API call fails"` (which API?)
+- Good: `"Catalog refresh API returns 503 when TechDocs backend is unavailable"` (specific endpoint and condition)
+
+This helps reviewers assess whether sibling tests are affected without
+needing to read the full failure log.
+
 ### Verification
 After changes, run from the workspace's e2e-tests directory:
 
