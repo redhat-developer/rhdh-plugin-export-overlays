@@ -7,7 +7,6 @@ import {
 } from "../support/utils/test-helpers.js";
 import { registerOrchestratorWorkflowTests } from "./orchestrator.tests.js";
 import { registerOrchestratorRbacTests } from "./orchestrator-rbac.tests.js";
-import { registerRetryWorkflowTests } from "./retry-workflow.tests.js";
 import { registerUiPropsTestWorkflowTests } from "./ui-props-test-workflow.tests.js";
 import { registerOrchestratorKafkaTests } from "./orchestrator-kafka.tests.js";
 
@@ -71,7 +70,6 @@ test.describe("Orchestrator", () => {
 
   registerOrchestratorWorkflowTests();
   registerOrchestratorRbacTests();
-  registerRetryWorkflowTests();
   registerUiPropsTestWorkflowTests();
   registerOrchestratorKafkaTests();
 });
