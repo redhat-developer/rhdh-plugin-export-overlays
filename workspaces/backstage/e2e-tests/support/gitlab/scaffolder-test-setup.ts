@@ -34,7 +34,8 @@ export interface GitLabScaffolderSharedState {
   publishCompleted: boolean;
 }
 
-export function requireGitLabDiscoveryVaultEnv(): void {
+// The VAULT_ prefix is retained for compatibility with existing CI secret exports.
+export function requireGitLabDiscoverySecretEnv(): void {
   requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 }
 
@@ -43,7 +44,7 @@ export function requireGitLabDiscoveryVaultEnv(): void {
  * gitlab-discovery and gitlab-scaffolder suites.
  */
 export function bootstrapGitLabDiscoveryApiClient(): string {
-  requireGitLabDiscoveryVaultEnv();
+  requireGitLabDiscoverySecretEnv();
   GitLabApiHelper.init(
     "https://gitlab.com",
     process.env.VAULT_GITLAB_TOKEN_DECODED!,
@@ -57,7 +58,7 @@ export function isGitLabScaffolderCleanupEnabled(): boolean {
 }
 
 /**
- * Validates vault/GitLab env, initializes {@link GitLabApiHelper}, and verifies
+ * Validates secret/GitLab env, initializes {@link GitLabApiHelper}, and verifies
  * the token can access the scaffolder parent group before RHDH deploy.
  */
 export async function bootstrapGitLabScaffolderPreflight(): Promise<void> {
