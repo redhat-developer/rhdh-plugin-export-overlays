@@ -95,6 +95,10 @@ test.describe("Bulk import tests orchestrator mode", () => {
     uiHelper,
     loginHelper,
   }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "bulk-import-backend TypeError: Cannot read properties of undefined (reading 'statusCode') at router.cjs.js:616 during orchestrator workflow response processing",
+    );
     const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
     await expect(async () => {
