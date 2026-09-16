@@ -92,7 +92,7 @@ spec:
       with optional TechDocs integration.
     - **OGX Entity Provider** — an optional, standalone alternative that
       pulls data from the `/v1/models` endpoint of OGX servers.
-      resources to import `AiModelServerAPI` entities. It depends only on
+      It depends only on
       the AI Model Server catalog module and does not integrate with the
       model-catalog or TechDocs plugins.
 
