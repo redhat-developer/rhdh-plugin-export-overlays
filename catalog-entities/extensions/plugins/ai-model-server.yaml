@@ -84,8 +84,18 @@ spec:
     ### Companion plugins
 
     This module only registers the entity kind. To discover and populate
-    `AiModelServerAPI` entities automatically, install the KServe/Kubeflow
-    Connector and AI Model Catalog plugins alongside this module.
+    `AiModelServerAPI` entities automatically, install one or more of the
+    following companion plugins alongside this module:
+
+    - **KServe/Kubeflow Connector** and **AI Model Catalog** — discover
+      model servers from Kubernetes clusters and generate catalog entities
+      with optional TechDocs integration.
+    - **OGX Entity Provider** — an optional, standalone alternative that
+      pulls data from the `/v1/models` endpoint of OGX servers and creates
+      a Kubernetes informer for `serving.kserve.io` `InferenceService`
+      resources to import `AiModelServerAPI` entities. It depends only on
+      the AI Model Server catalog module and does not integrate with the
+      model-catalog or TechDocs plugins.
 
     ## Support
 
@@ -94,6 +104,7 @@ spec:
 
   packages:
     - rhdh-bs-plugin-catalog-backend-module-ai-model-server
+    - red-hat-developer-hub-backstage-plugin-ogx-entity-provider
 
   installation: |
     ## Installation
@@ -107,6 +118,14 @@ spec:
       - dynamic-plugins.default.yaml
     plugins:
       - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server:bs_1.54.4__0.3.1
+        enabled: true
+    ```
+
+    To also enable the optional OGX Entity Provider, add:
+
+    ```yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ogx-entity-provider:bs_1.54.6__0.5.0
         enabled: true
     ```
 
@@ -129,4 +148,14 @@ spec:
               User,
               Group,
             ]
+    ```
+
+    When the OGX Entity Provider is enabled, configure the OGX server
+    endpoint:
+
+    ```yaml
+    ai-catalog:
+      entityProviders:
+        ogx:
+          baseUrl: https://your-ogx-url
     ```
