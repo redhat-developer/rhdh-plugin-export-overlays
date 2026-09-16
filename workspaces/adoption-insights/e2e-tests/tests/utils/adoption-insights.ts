@@ -135,6 +135,12 @@ export class TestHelper {
       }
     }
 
+    if (techdocsFirstLast.length === 0) {
+      await this.page.goto("/docs");
+      await expect(this.page.locator("h1").first()).toContainText("Docs");
+      await waitUntilApiCallSucceeds(this.page);
+    }
+
     if (catalogEntitiesFirstLast.length === 0) {
       await this.page.goto("/catalog");
       await uiHelper.clickLink("Red Hat Developer Hub");
@@ -143,11 +149,7 @@ export class TestHelper {
       await expect(this.page.getByText("Red Hat Developer Hub")).toBeVisible();
     }
 
-    if (techdocsFirstLast.length === 0) {
-      await this.page.goto("/docs");
-      await expect(this.page.locator("h1").first()).toContainText("Docs");
-      await clickAdoptionInsightsSidebarLink(this.page);
-    }
+    await clickAdoptionInsightsSidebarLink(this.page);
   }
 
   async expectTopEntriesToBePresent(panelTitle: string | RegExp) {
