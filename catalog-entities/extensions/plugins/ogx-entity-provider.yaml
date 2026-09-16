@@ -50,7 +50,6 @@ spec:
 
     1. **OGX server polling** — queries the `/v1/models` endpoint of
        configured OGX servers to retrieve the list of available models.
-       `serving.kserve.io` `InferenceService` resources to watch for
        add, update, and delete events.
 
     For each OGX server, the provider imports an `AiModelServerAPI`
