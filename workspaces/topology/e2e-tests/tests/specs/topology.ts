@@ -52,7 +52,7 @@ export class Topology {
       .locator(`[data-test-id="${name}"] image`)
       .first();
     await expect(deployment).toBeVisible();
-    await deployment.click();
+    await deployment.click({ force: true });
     await this.page.getByLabel("Pod").click();
     await this.page.getByLabel("Pod").getByText("1", { exact: true }).click();
   }
