@@ -915,7 +915,7 @@ class TestDynamicPackagesAnnotationReporting:
 
     REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-x:bs_1.52.0__1.0.0"
 
-    def _fetch_with_b64(self, annotations):
+    def _fetch_with_annotations(self, annotations):
         manifest = {
             "config": {"digest": "sha256:" + "0" * 64},
             "annotations": annotations,
@@ -939,7 +939,7 @@ class TestDynamicPackagesAnnotationReporting:
         return [call.args[0] for call in warn.call_args_list]
 
     def test_empty_annotation_is_reported_with_the_artifact_named(self):
-        warnings = self._fetch_with_b64(
+        warnings = self._fetch_with_annotations(
             {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(b"[]")}
         )
         assert any(
@@ -948,7 +948,7 @@ class TestDynamicPackagesAnnotationReporting:
         ), warnings
 
     def test_malformed_annotation_is_reported_as_malformed_not_empty(self):
-        warnings = self._fetch_with_b64(
+        warnings = self._fetch_with_annotations(
             {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"}
         )
         assert any(
@@ -957,7 +957,7 @@ class TestDynamicPackagesAnnotationReporting:
         assert not any("declares an empty" in w for w in warnings), warnings
 
     def test_a_populated_annotation_is_not_reported(self):
-        warnings = self._fetch_with_b64(
+        warnings = self._fetch_with_annotations(
             {
                 generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(
                     json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()
@@ -968,5 +968,5 @@ class TestDynamicPackagesAnnotationReporting:
 
     def test_an_image_without_the_annotation_is_not_reported(self):
         # Not every image publishes one; warning on its absence would fire on all of them.
-        warnings = self._fetch_with_b64({})
+        warnings = self._fetch_with_annotations({})
         assert not any("dynamic-packages" in w for w in warnings), warnings

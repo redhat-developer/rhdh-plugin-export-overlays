@@ -98,32 +98,31 @@ test("an install root that produced no plugins is reported off the layer itself"
   );
 });
 
-test("a directory without a backstage role does not close the gap left by a missing package", () => {
-  // Counting it would hide the shortfall by making the totals agree for the wrong reason.
-  const root = installRoot([
-    { name: "@scope/plugin-a", role: "backend-plugin" },
-    { name: "@scope/not-a-plugin" },
-  ]);
-  assert.equal(discoverPlugins(root).backend.length, 1);
-  assert.notEqual(shortfallFor(root, 2), null);
-});
+// Everything a layer can contain that is not an installed plugin. Counting any of them
+// would close the gap left by a package that never landed, making the totals agree for
+// the wrong reason.
+const NOT_A_PLUGIN: { label: string; entry: Installed }[] = [
+  {
+    label: "a directory without a backstage role",
+    entry: { name: "@scope/not-a-plugin" },
+  },
+  {
+    label: "a package.json that cannot be parsed",
+    entry: { name: "@scope/plugin-b", packageJson: "{ not json" },
+  },
+  {
+    label: "a directory with no package.json at all",
+    entry: { name: "@scope/plugin-b", packageJson: "" },
+  },
+];
 
-test("a package.json that cannot be parsed does not count as an installed plugin", () => {
-  // The artifact extracted, but what it laid out is not readable. Counting it would
-  // report a broken package as a working one.
-  const root = installRoot([
-    { name: "@scope/plugin-a", role: "backend-plugin" },
-    { name: "@scope/plugin-b", packageJson: "{ not json" },
-  ]);
-  assert.equal(discoverPlugins(root).backend.length, 1);
-  assert.notEqual(shortfallFor(root, 2), null);
-});
-
-test("a directory with no package.json at all does not count as an installed plugin", () => {
-  const root = installRoot([
-    { name: "@scope/plugin-a", role: "backend-plugin" },
-    { name: "@scope/plugin-b", packageJson: "" },
-  ]);
-  assert.equal(discoverPlugins(root).backend.length, 1);
-  assert.notEqual(shortfallFor(root, 2), null);
-});
+for (const { label, entry } of NOT_A_PLUGIN) {
+  test(`${label} does not close the gap left by a missing package`, () => {
+    const root = installRoot([
+      { name: "@scope/plugin-a", role: "backend-plugin" },
+      entry,
+    ]);
+    assert.equal(discoverPlugins(root).backend.length, 1);
+    assert.notEqual(shortfallFor(root, 2), null);
+  });
+}
