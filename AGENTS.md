@@ -198,7 +198,7 @@ test.describe("My Plugin", () => {
     await rhdh.configure({ auth: "keycloak" });
     // Optional: deploy external services before RHDH
     await $`bash scripts/setup.sh ${rhdh.deploymentConfig.namespace}`;
-    await rhdh.deploy();
+    await rhdh.deploy(); // Pass { timeout: 900_000 } when beforeAll includes slow setup (operator installs, external services)
   });
 
   test.beforeEach(async ({ loginHelper }) => {
@@ -279,6 +279,17 @@ test.beforeAll(async ({ rhdh }) => {
   A literal key is right when the setup really is shared — an operator installed once into a fixed namespace every project then uses. `bulk-import` has one of each, deliberately. The key is where you say which you mean.
 - Nesting is safe — `deploy()` uses `runOnce` internally, wrapping it in an outer `runOnce` is harmless. It does **not** rescue a project-shared outer key, though: that skips before `deploy()` is reached, so its own protection never gets a say.
 - Uses file-based flags in `/tmp/` scoped to the Playwright runner process. Flags reset automatically between test runs.
+
+### Timeouts for expensive beforeAll operations
+
+When a `beforeAll` block includes operations that take more than 60 seconds (operator installation, external service deployment, complex cluster setup), set an appropriate timeout:
+
+1. Call `test.setTimeout(timeout_ms)` at the top of `beforeAll`.
+2. Pass the same timeout to `rhdh.deploy({ timeout: timeout_ms })`.
+
+Use **900,000ms (15 minutes)** as the standard for blocks that include operator installs. See `workspaces/argocd/e2e-tests/tests/specs/argocd.spec.ts` for the reference pattern.
+
+The default Playwright `beforeAll` timeout (30s) is insufficient for operator installations, which typically take 5-10 minutes including CRD registration, webhook readiness, and endpoint availability.
 
 ### RHDH Deployment Flow
 
