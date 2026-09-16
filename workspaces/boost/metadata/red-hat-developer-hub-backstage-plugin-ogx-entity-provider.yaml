@@ -27,6 +27,8 @@ spec:
   lifecycle: active
   partOf:
     - boost
+    - ogx-entity-provider
+    - ai-model-server
   appConfigExamples:
     - title: Default configuration
       content:
