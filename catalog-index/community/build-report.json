@@ -1028,11 +1028,7 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.52.0__3.41.0",
-          "bs_version_mismatch": true,
-          "reason": "Backstage version mismatch",
-          "expected_version": "1.54.6",
-          "found_version": "1.52.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.54.6__4.0.2"
         },
         "registry-enrich": {
           "status": "pass",
@@ -1042,7 +1038,8 @@
           "status": "skip"
         },
         "catalog-index": {
-          "status": "pass"
+          "status": "fail",
+          "reason": "Image not found in registry: ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.54.6__4.0.2"
         },
         "image-metadata-fetch": {
           "status": "pass",
@@ -1050,9 +1047,9 @@
         }
       },
       "package": "@backstage-community/plugin-tekton",
-      "version": "3.41.0",
+      "version": "4.0.2",
       "workspace": "tekton",
-      "overall": "pass"
+      "overall": "fail"
     },
     "backstage-community-plugin-quay-backend": {
       "stages": {
@@ -1391,8 +1388,8 @@
   },
   "summary": {
     "total": 51,
-    "succeeded": 49,
-    "failed": 2
+    "succeeded": 48,
+    "failed": 3
   },
   "status": "partial"
 }
