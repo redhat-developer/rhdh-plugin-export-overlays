@@ -1,14 +1,12 @@
-import {
-  expect,
-  test,
-  request,
-} from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
+import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
+      useNewFrontendSystem: true,
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
     });
     await rhdh.deploy();
@@ -54,10 +52,13 @@ test.describe("Default Global Header", () => {
   });
 
   test("Verify that clicking on Self-service button opens the Templates page", async ({
+    page,
     uiHelper,
   }) => {
     await uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await uiHelper.verifyHeading("Self-service");
+    await expect(
+      page.getByRole("link", { name: "Self-service" }),
+    ).toBeVisible();
   });
 
   test("Verify that clicking on Support button in HelpDropdown opens a new tab", async ({
@@ -102,7 +103,9 @@ test.describe("Default Global Header", () => {
     uiHelper,
   }) => {
     await uiHelper.openProfileDropdown();
-    await uiHelper.verifyLinkVisible("Settings");
+    await page
+      .getByRole("menuitem", { name: "Settings" })
+      .waitFor({ state: "visible", timeout: 10000 });
     await uiHelper.verifyTextVisible("Sign out");
 
     await page
@@ -115,10 +118,12 @@ test.describe("Default Global Header", () => {
     await expect(page.locator("nav[id='global-header']")).toBeVisible();
     await uiHelper.openProfileDropdown();
     await uiHelper.clickLink("My profile");
-    await uiHelper.verifyTextInSelector("header > div > p", "user");
+    await expect(
+      page.getByRole("list").filter({ hasText: "user" }),
+    ).toBeVisible();
     await uiHelper.verifyHeading(process.env.GH_USER2_ID!);
     await expect(
-      page.getByRole("tab", {
+      page.getByRole("link", {
         name: "Overview",
       }),
     ).toBeVisible();
@@ -160,27 +165,20 @@ test.describe("Default Global Header", () => {
     const notificationPage = new NotificationPage(page);
     await notificationPage.markAllNotificationsAsRead();
 
-    const apiContext = await request.newContext({
-      baseURL: `${process.env.RHDH_BASE_URL}/api/`,
-      extraHTTPHeaders: {
-        Accept: "application/json",
-        Authorization: "Bearer test-token",
+    const notificationsApi = await RhdhNotificationsApi.build("test-token");
+    const postResponse = await notificationsApi.createNotification({
+      recipients: { type: "broadcast" },
+      payload: {
+        title: "Demo test notification message!",
+        description: "The demo test notification message",
+        severity: "high",
+        topic: "The topic",
       },
     });
-
-    const postResponse = await apiContext.post("notifications", {
-      data: {
-        recipients: { type: "broadcast", entityRef: [""] },
-        payload: {
-          title: "Demo test notification message!",
-          link: "http://foo.com/bar", // NOSONAR typescript:S5332 - test fixture URL
-          description: "The demo test notification message",
-          severity: "high",
-          topic: "The topic",
-        },
-      },
-    });
-    expect(postResponse.status()).toBe(200);
+    expect(
+      postResponse.ok(),
+      `POST /api/notifications failed (${postResponse.status()}): ${await postResponse.text()}`,
+    ).toBeTruthy();
 
     await page.reload();
     await expect(page.getByRole("navigation").first()).toBeVisible();

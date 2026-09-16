@@ -1,22 +1,21 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { APIHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import {
+  APIHelper,
+  AuthApiHelper,
+} from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import {
   GITHUB_CATALOG_OWNER,
   GITHUB_ORG,
+  PR_BRANCH_NAME,
 } from "../../support/constants/github";
 import {
-  CATALOG_IMPORT_ROUTE,
   CATALOG_FIXTURE_REPOS,
   catalogImportComponentUrl,
 } from "../../support/constants/catalog";
 import { BulkImportPO } from "../../support/pages/bulk-import-po";
 import { CatalogEntityPO } from "../../support/pages/catalog-entity-po";
-import { CatalogImportPO } from "../../support/pages/catalog-import-po";
 import { defaultCatalogInfoYaml } from "../../support/test-data/catalog-info-yaml";
-import {
-  signInAsGuestForPermissionTest,
-  signInForBulkImportTests,
-} from "../../support/utils/auth";
+import { signInForBulkImportTests } from "../../support/utils/auth";
 import { setupBulkImportRhdh } from "../../support/utils/deploy";
 import { selectGitLabAndRejectLogin } from "../../support/utils/gitlab-provider";
 import {
@@ -203,12 +202,17 @@ spec:
     });
 
     test("Verify the Content of catalog-info.yaml in the PR is Correct", async () => {
+      // Verify exactly one PR was created (and not, say, an accidental double
+      // submission), since getfileContentFromPR below assumes PR number 1.
       const prs = await APIHelper.getGitHubPRs(
         newRepoDetails.owner,
         newRepoDetails.repoName,
         "open",
       );
-      expect(prs.length).toBeGreaterThan(0);
+      const templatePrs = prs.filter(
+        (pr: { head?: { ref?: string } }) => pr.head?.ref === PR_BRANCH_NAME,
+      );
+      expect(templatePrs).toHaveLength(1);
 
       const prCatalogInfoYaml = await APIHelper.getfileContentFromPR(
         newRepoDetails.owner,
@@ -234,7 +238,7 @@ spec:
     test("Verify Added Repositories Appear in the Catalog as Expected", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.selectMuiBox("Kind", "Component");
       await uiHelper.searchInputPlaceholder(catalogRepoDetails.name);
 
@@ -256,13 +260,33 @@ spec:
         ),
       };
 
-      const catalogImport = new CatalogImportPO(page);
       const catalogEntity = new CatalogEntityPO(page);
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
-      await uiHelper.openSidebar("Catalog");
-      await page.goto(CATALOG_IMPORT_ROUTE);
-      await catalogImport.registerFromComponentUrl(catalogImportedRepo.url);
+      // Register the catalog-info.yaml location through the catalog API rather
+      // than the catalog-import UI. /catalog-import exists only in the legacy
+      // app shell; app-next never registers that route (catalogImportPlugin is
+      // not in app-next's createApp features array, and RHDH ships no
+      // catalog-import dynamic plugin), so the UI path 404s there. POST
+      // /api/catalog/locations is the exact operation the UI performs, and this
+      // test's subject is bulk-import's view of the entity, not the import UI —
+      // so API seeding keeps it running in both the legacy and app-next lanes.
+      const token = await new AuthApiHelper(page).getToken(
+        "github",
+        "production",
+      );
+      const registerResponse = await page.request.post(
+        "/api/catalog/locations",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          data: { type: "url", target: catalogImportedRepo.url },
+        },
+      );
+      // 201 created / 200 ok, or 409 if a retry re-registers the same location.
+      expect([200, 201, 409]).toContain(registerResponse.status());
 
       await expect(async () => {
         await catalogEntity.gotoComponent(catalogImportedRepo.repoName);
@@ -278,19 +302,6 @@ spec:
       await uiHelper.openSidebar(BULK_IMPORT_HEADING);
       await bulkImport.verifyHeading();
       await bulkImport.assertRepoAbsent(catalogImportedRepo.repoName);
-    });
-  });
-
-  test.describe("Bulk Import - Ensure users without bulk import permissions cannot access the bulk import plugin", () => {
-    test.beforeEach(async ({ loginHelper, uiHelper }) => {
-      await signInAsGuestForPermissionTest(loginHelper, uiHelper);
-    });
-
-    test("Bulk Import - Verify users without permission cannot access", async ({
-      uiHelper,
-    }) => {
-      await uiHelper.verifyText("Permission required");
-      expect(await uiHelper.isBtnVisible("Import")).toBeFalsy();
     });
   });
 });

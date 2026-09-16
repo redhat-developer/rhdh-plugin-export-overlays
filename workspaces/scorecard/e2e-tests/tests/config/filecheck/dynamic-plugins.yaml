@@ -3,7 +3,7 @@
 # GitHub, Jira, Dependabot, and OpenSSF backend modules are intentionally excluded.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.52.0__4.1.0
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
@@ -38,9 +38,9 @@ plugins:
                   props:
                     aggregationId: "filecheck.readme"
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend:bs_1.52.0__4.1.0
-    disabled: false
+    enabled: true
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck:bs_1.52.0__1.0.1
-    disabled: false
+    enabled: true
     pluginConfig:
       scorecard:
         metricProviders:
@@ -65,9 +65,5 @@ plugins:
             dynamicRoutes:
               - path: /
                 importName: DynamicCustomizableHomePage
-            mountPoints:
-              - mountPoint: home.page/cards
-                importName: EntitySection
-                config:
-                  id: "entity-section"
-                  title: "Entity section"
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
+    enabled: true

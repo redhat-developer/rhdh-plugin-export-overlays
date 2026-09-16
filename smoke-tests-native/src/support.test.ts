@@ -118,6 +118,7 @@ test("groupByWorkspace sorts regardless of the order it is handed", () => {
     support: "community",
     role: "backend-plugin",
     artifact: "oci://ghcr.io/example/x:tag",
+    frontendConfigKeys: [],
   });
   const groups = groupByWorkspace([
     entry("zebra", "z-frontend.yaml"),
@@ -159,6 +160,7 @@ function group(workspace: string, count: number): WorkspaceGroup {
     support: "community",
     role: "backend-plugin",
     artifact: `oci://ghcr.io/example/${workspace}-${i}:tag`,
+    frontendConfigKeys: [],
   }));
   return { workspace, packages };
 }

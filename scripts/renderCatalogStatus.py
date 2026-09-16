@@ -29,10 +29,21 @@ STAGE_LABELS = {
     "image-metadata-fetch": "Image Metadata Fetch",
     "dpdy": "DPDY Generation",
     "catalog-index": "Catalog Index Generation",
+    "validate": "Catalog Index Validation",
 }
 
 REASON_ANCHORS = {
     "Image not found in registry": "image-not-found-in-registry",
+    # Step 5 (validateCatalogIndex.py) writes its reason as "[rule-id] <message>", so
+    # the prefix IS the rule id. Anchor slugs must stay in sync with the headings in
+    # user-guide/troubleshooting-catalog-index.md — see AGENTS.md.
+    "[unresolved-image]": "validation-unresolved-image",
+    "[unknown-image]": "validation-unknown-image",
+    "[digest-mismatch]": "validation-digest-mismatch",
+    "[registry-not-allowed]": "validation-registry-not-allowed",
+    "[duplicate-ref]": "validation-duplicate-ref",
+    "[ref-form]": "validation-ref-form",
+    "[index-ref-mismatch]": "validation-index-ref-mismatch",
 }
 
 
@@ -210,7 +221,17 @@ def workspace_link(source_repo: str, branch: str, workspace: str) -> str:
 
 def first_failed_stage(stages: dict) -> tuple[str, str]:
     """Return (stage_label, reason) for the first failed stage."""
-    for stage_key in ["bootstrap", "image-metadata-fetch", "dpdy", "catalog-index"]:
+    # Generation order, so the FIRST failure is reported rather than a later
+    # consequence of it. `validate` runs last (Step 5 of update-index.sh); a stage
+    # missing from this list renders as "Unknown / Unknown error" however clearly it
+    # recorded its own failure.
+    for stage_key in [
+        "bootstrap",
+        "image-metadata-fetch",
+        "dpdy",
+        "catalog-index",
+        "validate",
+    ]:
         stage = stages.get(stage_key, {})
         if stage.get("status") == "fail":
             label = STAGE_LABELS.get(stage_key, stage_key)

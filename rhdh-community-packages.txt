@@ -69,3 +69,8 @@ scorecard/plugins/scorecard-backend-module-sonarqube
 
 # moved from TP to Community in 2.1 - https://redhat.atlassian.net/browse/RHDHPLAN-951
 acr/plugins/acr
+
+# moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
+apiconnect/plugins/apic-backstage
+dynatrace-dql/plugins/dql
+dynatrace-dql/plugins/dql-backend

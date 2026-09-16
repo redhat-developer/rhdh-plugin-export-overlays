@@ -23,6 +23,7 @@ import type {
   SweepSummary,
   SweepWorkspaceResult,
 } from "./report";
+import { describeConfigKeyMismatch } from "./harness-logic";
 import { compareStrings } from "./util";
 
 /** How a frontend bundle is packaged, from the systems its layout advertises. */
@@ -240,9 +241,24 @@ export function failureDetail(result: SweepWorkspaceResult): string {
   if (!report.backendStart.ok && report.backendStart.error) {
     return oneLine(`backend start: ${report.backendStart.error}`);
   }
-  const bundleError = report.frontend.errors?.[0];
+  // Both halves' bundle faults, because both produce `fail-bundle` and the status alone
+  // names nobody. Frontend first only to keep the line identical for reports that have
+  // one; where a workspace has both, the sweep panel shows one and results.json has the
+  // rest, which is the existing contract for two frontend faults too.
+  const bundleError =
+    report.frontend.errors?.[0] ?? report.backend.bundleErrors?.[0];
   if (bundleError) {
     return oneLine(`${bundleError.plugin.name}: ${bundleError.error}`);
+  }
+  // Above the mismatch branch: a short install is why a bundle is absent, so reporting a
+  // downstream symptom first would send the reader to edit metadata for a failed pull.
+  if (report.installShortfall) return oneLine(report.installShortfall);
+  // Last, because it is the only fail-bundle cause with no plugin behind it: the finding
+  // is about a metadata key, so there is nothing to put in the `name: error` shape above.
+  // Without this branch a workspace failing only on it printed the bare status.
+  const configKeyMismatch = report.frontend.configKeyMismatches?.[0];
+  if (configKeyMismatch) {
+    return oneLine(describeConfigKeyMismatch(configKeyMismatch));
   }
   return report.status;
 }
