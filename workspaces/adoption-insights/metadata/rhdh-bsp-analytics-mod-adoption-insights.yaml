@@ -34,3 +34,4 @@ spec:
             red-hat-developer-hub.backstage-plugin-analytics-module-adoption-insights:
               analyticsApiExtensions:
                 - importName: AdoptionInsightsAnalyticsApi
+                  module: Legacy
