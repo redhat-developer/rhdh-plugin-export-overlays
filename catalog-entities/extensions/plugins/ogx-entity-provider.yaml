@@ -41,7 +41,7 @@ spec:
     # OGX Entity Provider
 
     A Backstage backend plugin that discovers AI model servers by
-    querying the `/v1/models` endpoint of OGX servers and watching
+    querying the `/v1/models` endpoint of OGX servers.
     KServe `InferenceService` resources on Kubernetes clusters.
 
     ### How it works
