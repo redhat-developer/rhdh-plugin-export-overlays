@@ -12,6 +12,7 @@ plugins:
             mountPoints:
               - mountPoint: entity.page.topology/cards
                 importName: TopologyPage
+                module: Legacy
                 config:
                   layout:
                     gridColumn: 1 / -1
