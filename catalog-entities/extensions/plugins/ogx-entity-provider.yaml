@@ -50,7 +50,6 @@ spec:
 
     1. **OGX server polling** — queries the `/v1/models` endpoint of
        configured OGX servers to retrieve the list of available models.
-       add, update, and delete events.
 
     For each OGX server, the provider imports an `AiModelServerAPI`
     catalog entity whose model list includes the models returned from
