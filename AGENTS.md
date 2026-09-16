@@ -42,9 +42,10 @@ Plugins fall into three support levels, tracked in text files at the repo root:
 - `rhdh-supported-packages.txt` — Red Hat supported (GA or TP heading to GA)
 - `rhdh-community-packages.txt` — Community supported
 
-Note: the community plugin sweep (`community-plugin-sweep.yaml`) selects packages from
+Note: the plugin sweep (`community-plugin-sweep.yaml`) selects packages from
 `spec.support` in `workspaces/*/metadata/*.yaml`, not from these files — the metadata is
-what the build publishes from. The two currently disagree (41 workspaces carry a
+what the build publishes from. It sweeps one tier per nightly cron, not community
+alone. The two currently disagree (41 workspaces carry a
 community package; the txt file names 20), so do not treat either as authoritative for
 the other's purpose.
 
@@ -74,10 +75,11 @@ On a PR, comment:
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `update-plugins-repo-refs.yaml` | Daily + manual | Auto-generates PRs for plugin version updates |
-| `publish-workspace-plugins.yaml` | Push to release branches | Publishes final OCI images |
+| `publish-workspace-plugins.yaml` | Push to `main` / release branches | Publishes final OCI images, then smoke tests each workspace it just published against its new `bs_*` tag |
 | `pr-actions.yaml` | PR comments | Handles `/publish`, `/smoketest`, `/override-backstage`, `/update-versions`, and `/update-commit` commands |
-| `run-workspace-smoke-tests.yaml` | After publish | Verifies plugins load in RHDH container |
-| `community-plugin-sweep.yaml` | Daily + manual | Load-tests every `spec.support: community` package with the Docker-free `smoke-tests-native/` harness |
+| `run-workspace-smoke-tests.yaml` | `workflow_call`, from `workspace-tests.yaml` | Verifies plugins load in an RHDH container. Runs on the PR's `pr_*` images, NOT on what was published — the published tag is covered by `publish-workspace-plugins.yaml` and the nightly sweep |
+| `community-plugin-sweep.yaml` | Nightly per tier + manual | Load-tests every published package with the Docker-free `smoke-tests-native/` harness — one `spec.support` tier per nightly cron, largest tier first; the workflow's own `SUPPORT` block is the mapping |
+| `catalog-index-sanity.yaml` | Daily + manual | Installs and boots every package the published plugin-catalog-index declares (same harness, catalog-index mode) |
 | `check-backstage-compatibility.yaml` | Push + PRs | Gates release branch creation on compatibility |
 | `sync-user-guide-to-wiki.yaml` | Weekly + manual | Syncs `user-guide/` to GitHub Wiki with placeholder injection |
 
@@ -112,6 +114,7 @@ The hook only triggers when `workspaces/*/e2e-tests/**` files are staged — zer
    - `repo-flat`: `true` if plugins are at repo root, `false` if inside a workspace subdirectory
 2. Create `workspaces/<name>/plugins-list.yaml` listing plugin paths
 3. Create `workspaces/<name>/metadata/<package-name>.yaml` for each plugin (kind: Package)
+4. Add a CODEOWNERS entry in `.github/CODEOWNERS` for the new workspace (alphabetically ordered)
 
 ### Overlay vs Patch
 
@@ -219,7 +222,7 @@ Playwright's `beforeAll` runs once **per worker**, not once per test run. When a
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-setup", async () => {
+  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
 
     // Expensive: deploys an external service to the cluster
@@ -244,7 +247,7 @@ If a test **does** need an env var that was set inside `runOnce`, extract it fro
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("my-setup", async () => {
+  await test.runOnce(`my-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash deploy-service.sh ${rhdh.deploymentConfig.namespace}`;
     await rhdh.deploy();
@@ -258,8 +261,23 @@ test.beforeAll(async ({ rhdh }) => {
 ```
 
 **Key rules:**
-- The `key` (first argument) must be **globally unique** across all spec files and projects. Prefix with workspace name: `"tech-radar-setup"`, `"argocd-deploy"`.
-- Nesting is safe — `deploy()` uses `runOnce` internally, wrapping it in an outer `runOnce` is harmless.
+- The `key` (first argument) must be **globally unique** across all spec files **and projects**. A workspace prefix covers the first half; the second half is what bit us. The flag file is keyed by the key string alone, in a directory keyed only on the Playwright runner PID:
+
+  ```ts
+  const flagDir = path.join(os.tmpdir(), `playwright-once-${process.ppid}`);
+  const flagFile = path.join(flagDir, `${key}.done`);
+  ```
+
+  Nothing in that path comes from the project. So when one spec runs in two projects — which is what adding an `-app-next` lane does — the first project's setup satisfies the second, and the second skips its own. For a block that deploys, that means no deployment at all, then a failure much later on a missing element with nothing pointing at the cause (#3318).
+
+- **End the key with the namespace whenever the setup belongs to one project**, which is what `deploy()` does internally (`deploy-${namespace}`) and why `deploy()` was never affected:
+
+  ```typescript
+  await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, async () => { ... });
+  ```
+
+  A literal key is right when the setup really is shared — an operator installed once into a fixed namespace every project then uses. `bulk-import` has one of each, deliberately. The key is where you say which you mean.
+- Nesting is safe — `deploy()` uses `runOnce` internally, wrapping it in an outer `runOnce` is harmless. It does **not** rescue a project-shared outer key, though: that skips before `deploy()` is reached, so its own protection never gets a say.
 - Uses file-based flags in `/tmp/` scoped to the Playwright runner process. Flags reset automatically between test runs.
 
 ### RHDH Deployment Flow
@@ -445,10 +463,9 @@ Trigger nightly manually: comment `/test e2e-ocp-helm-nightly` on a PR.
 
 ### Failure Analysis
 
-Two Claude Code skills are available at `.claude/skills/` for investigating E2E failures:
+A Claude Code skill is available at `.claude/skills/` for investigating E2E failures:
 
-- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, trace correlation, cluster log search, and config comparison
-- **`playwright-trace`** — Playwright trace CLI for inspecting trace ZIP files (actions, DOM snapshots, requests, console, errors)
+- **`e2e-failure-analysis`** — structured workflow: artifact download, diagnostics, grouping by error signature, trace correlation (including the Playwright trace CLI), cluster log search, and config comparison
 
 ## E2E Nightly Fix Conventions
 

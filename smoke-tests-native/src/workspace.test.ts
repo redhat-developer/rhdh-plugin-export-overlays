@@ -183,6 +183,7 @@ test("readWorkspacePackages flattens the fields the sweep filters on", () => {
       support: "community",
       role: "backend-plugin",
       artifact: OCI_REF,
+      frontendConfigKeys: [],
     },
   ]);
 });
@@ -203,6 +204,7 @@ test("readWorkspacePackages falls back rather than yielding an empty package nam
       support: "",
       role: "",
       artifact: OCI_REF,
+      frontendConfigKeys: [],
     },
     {
       workspace: "odd",
@@ -211,6 +213,7 @@ test("readWorkspacePackages falls back rather than yielding an empty package nam
       support: "",
       role: "",
       artifact: "",
+      frontendConfigKeys: [],
     },
   ]);
 });
@@ -310,4 +313,115 @@ test("readWorkspacePackages sorts metadata files whatever order readdir returns"
     ]).map((p) => p.file),
     ["a.yaml", "m.yml", "z.yaml"],
   );
+});
+
+// --- dynamicPlugins.frontend keys (RHIDP-16690) -----------------------------------
+
+test("readWorkspacePackages collects dynamicPlugins.frontend keys across examples", () => {
+  // global-header's real shape: two keys, one of them RHDH's built-in namespace. Both
+  // are collected here — deciding which of them may go unmatched is the checker's job
+  // (findConfigKeyMismatches), not the reader's.
+  const root = makeWorkspace(freshRepo(), "hdr", {
+    "a.yaml": [
+      "spec:",
+      '  packageName: "@scope/hdr"',
+      `  dynamicArtifact: ${OCI_REF}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            default.main-menu-items:",
+      "              menuItems: {}",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            scope.hdr:",
+      "              mountPoints: []",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual(readWorkspacePackages(root, "hdr")[0].frontendConfigKeys, [
+    "default.main-menu-items",
+    "scope.hdr",
+  ]);
+});
+
+test("a malformed appConfigExamples yields no keys rather than throwing", () => {
+  // Repo YAML that no schema validates at rest. Every one of these shapes reached the
+  // reader during development; a cast instead of the checks would have published
+  // "0"/"1" (a list's indices) as plugin names, or thrown and failed the whole run for
+  // a package that simply configures nothing.
+  const root = makeWorkspace(freshRepo(), "odd", {
+    "a.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n  appConfigExamples: "not-a-list"\n`,
+    "b.yaml": `spec:\n  dynamicArtifact: ${OCI_REF}\n  appConfigExamples:\n    - content: "a string"\n`,
+    "c.yaml": [
+      "spec:",
+      `  dynamicArtifact: ${OCI_REF}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            - listed",
+      "",
+    ].join("\n"),
+  });
+  for (const pkg of readWorkspacePackages(root, "odd")) {
+    assert.deepEqual(
+      pkg.frontendConfigKeys,
+      [],
+      `${pkg.file} should yield no keys`,
+    );
+  }
+});
+
+test("collectWorkspaceRefs returns keys only for the packages it included", () => {
+  // The bug this shape exists to prevent: a --support sweep installs a subset, so a key
+  // belonging to a filtered-out package would match no installed bundle and be reported
+  // as a defect. The check would go red on exactly the runs that validate less.
+  const meta = (name: string, support: string, key: string) =>
+    [
+      "spec:",
+      `  packageName: "@scope/${name}"`,
+      `  dynamicArtifact: ${OCI_REF}`,
+      `  support: ${support}`,
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      `            ${key}: {}`,
+      "",
+    ].join("\n");
+  const root = makeWorkspace(freshRepo(), "mixed", {
+    "ga.yaml": meta("ga", "generally-available", "scope.ga"),
+    "comm.yaml": meta("comm", "community", "scope.comm"),
+  });
+  assert.deepEqual(
+    collectWorkspaceRefs(root, "mixed", { support: "community" })
+      .frontendConfigKeys,
+    [{ key: "scope.comm", source: "comm.yaml" }],
+  );
+  assert.deepEqual(
+    collectWorkspaceRefs(root, "mixed").frontendConfigKeys.map((k) => k.key),
+    ["scope.comm", "scope.ga"],
+  );
+});
+
+test("a package bundled in the RHDH image contributes no keys", () => {
+  // Its artifact is a local ./dynamic-plugins/dist path, so nothing is installed for it
+  // and its key has no bundle to match — the same false positive from the other end.
+  const root = makeWorkspace(freshRepo(), "local", {
+    "a.yaml": [
+      "spec:",
+      '  packageName: "@scope/bundled"',
+      "  dynamicArtifact: ./dynamic-plugins/dist/scope-bundled",
+      "  appConfigExamples:",
+      "    - content:",
+      "        dynamicPlugins:",
+      "          frontend:",
+      "            scope.bundled: {}",
+      "",
+    ].join("\n"),
+    "b.yaml": `spec:\n  packageName: "@scope/real"\n  dynamicArtifact: ${OCI_REF}\n`,
+  });
+  assert.deepEqual(collectWorkspaceRefs(root, "local").frontendConfigKeys, []);
 });

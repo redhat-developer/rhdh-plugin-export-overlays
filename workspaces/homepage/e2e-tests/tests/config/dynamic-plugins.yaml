@@ -1,79 +1,16 @@
+# NFS (Backstage app) dynamic plugins for homepage e2e.
+# Upstream @backstage/plugin-home provides page:home / visits / layout blueprints;
+# the RHDH homepage alpha module extends pluginId "home" and requires this OCI.
+#
+# homepage.defaultWidgets (homepage-backend) is not supported on NFS yet. NFS tests seed widgets via
+# the UI until then.
 plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.0
+  # Version from workspaces/backstage export: backstage-plugin-home
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          red-hat-developer-hub.backstage-plugin-homepage:
-            dynamicRoutes:
-              - path: /
-                importName: DynamicCustomizableHomePage
-            mountPoints:
-              - mountPoint: home.page/cards
-                importName: OnboardingSection
-                config:
-                  id: onboarding-section
-                  title: Onboarding section
-              - mountPoint: home.page/cards
-                importName: EntitySection
-                config:
-                  id: entity-section
-                  title: Entity section
-              - mountPoint: home.page/cards
-                importName: TemplateSection
-                config:
-                  id: template-section
-                  title: Template section
-              - mountPoint: home.page/cards
-                importName: QuickAccessCard
-                config:
-                  id: quickaccess-card
-                  title: Quick Access
-              - mountPoint: home.page/cards
-                importName: RecentlyVisitedCard
-                config:
-                  id: recently-visited-card
-                  title: Recently Visited
-              - mountPoint: home.page/cards
-                importName: TopVisitedCard
-                config:
-                  id: top-visited-card
-                  title: Top Visited
-            translationResources:
-              - importName: homepageTranslations
-                ref: homepageTranslationRef
+  # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
+    enabled: true
+  # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage-backend.yaml
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.4.0
     enabled: true
-    pluginConfig:
-      homepage:
-        defaultWidgets:
-          - id: onboarding-section
-            ref: onboarding-section
-            props:
-              title: Onboarding section
-          - id: entity-section
-            ref: entity-section
-            props:
-              title: Entity section
-          - if:
-              groups: [group:default/admins]
-            children:
-              - id: template-section
-                ref: template-section
-                props:
-                  title: Template section
-              - id: quickaccess-card
-                ref: quickaccess-card
-                props:
-                  title: Quick Access
-          - if:
-              groups: [group:default/developers]
-            children:
-              - id: recently-visited-card
-                ref: recently-visited-card
-                props:
-                  title: Recently Visited
-              - id: top-visited-card
-                ref: top-visited-card
-                props:
-                  title: Top Visited

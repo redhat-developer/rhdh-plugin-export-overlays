@@ -98,7 +98,15 @@ To add a new workspace with plugins:
      - `true` if the plugins are at the root level (e.g., `backstage/backstage`)
    - `repo-backstage-version`: The backstage version of the source repository. This is used to check if the plugin is compatible with the target backstage version.
 
-### 2. Add Additional Dynamic Plugin Export Information (If Needed)
+### 2. Add a CODEOWNERS Entry
+
+Add an entry for your new workspace in [`.github/CODEOWNERS`](./.github/CODEOWNERS) so that pull requests touching the workspace require review from the right team or individuals. The list is alphabetically ordered.
+
+```
+/workspaces/<name>                                                      @your-team @your-username
+```
+
+### 3. Add Additional Dynamic Plugin Export Information (If Needed)
 
 Sometimes, additional configuration is required in the PR:
 
@@ -120,7 +128,7 @@ To add this additional configuration (excluding the patches, since the patch fil
 - Create a `plugins/` folder within the appropriate `workspace/`
 - Inside `plugins/`, create one folder per plugin you wish to enhance with additional information
 
-### 3. Test the OCI image against an RHDH instance
+### 4. Test the OCI image against an RHDH instance
 
 Plugin testing can be performed automatically via CI workflows or manually in your own RHDH environment.
 
@@ -179,7 +187,7 @@ This creates `backstage.json` with the target version and updates all metadata O
 
 Workspaces with E2E tests collect Istanbul coverage from the instrumented plugin running inside RHDH. That coverage reaches this repository's Codecov project (one `e2e-<workspace>` flag per workspace) through a committed snapshot that is seeded to `main` — not by uploading directly from the PR e2e run (see below).
 
-Each `workspaces/<workspace>/coverage-anchors/` directory holds one empty, static file per deployed plugin, named after its scalprum name. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
+Each `workspaces/<workspace>/coverage-anchors/` directory holds empty, static files named after the webpack remotes a deployed plugin can publish under — one per plugin for each of the two builds that can serve it, since Scalprum and Module Federation name the remote differently and which one RHDH loads is not visible from the manifest. Codecov only keeps coverage for paths that exist in this repository's git tree, but the plugins' real sources live upstream — so `scripts/remap-coverage.cjs` concatenates each plugin's coverage onto its anchor (line ranges shifted; the aggregated percentage is preserved exactly). Only the path's existence matters; file content and length are never validated.
 
 These anchors never change with plugin versions. Regenerate them only when a new plugin gains a metadata `Package` entity:
 
@@ -193,7 +201,7 @@ See `scripts/generate-coverage-anchors.sh` and `codecov.yml` for the full mechan
 
 Coverage is produced only by the Prow PR e2e jobs — they deploy the instrumented `__coverage` plugin images that `/publish` builds. Those jobs emit per-test coverage **as run artifacts**; they do not upload to Codecov directly. (A PR-head upload would be pointless anyway: squash-merge creates a fresh `main` commit the upload never reaches, and Codecov's carryforward can't cross the squash.)
 
-Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (every 6h, on snapshot change, or manually). This is the **only** path that uploads to Codecov, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits.
+Instead, coverage reaches the dashboard through `main`: `coverage-snapshots/<workspace>.lcov` holds the latest captured coverage for each rolled-out workspace, and `.github/workflows/seed-coverage-main.yaml` uploads them to the current `main` commit (via the Codecov CLI `--sha`), one `e2e-<workspace>` flag each (every 6h, on snapshot change, or manually). This is the **only** path that uploads to *this repository's* Codecov project, so the dashboard only ever reflects `main` — no orphan flags on PR-head commits. (A workspace whose sources live in a repo with its own Codecov project can additionally be published there, per file — see below.)
 
 **A red seed run means a flag is stale.** Uploading is that job's only purpose, so it runs strict: if any workspace fails to reach Codecov — a failed upload or a missing token — the run goes red instead of leaving a carried-forward number behind a green check. Uploads retry once, so a red run means a real outage rather than a blip. Re-running the workflow is the fix.
 
@@ -212,3 +220,40 @@ git add coverage-snapshots/<workspace>.lcov
 ```
 
 A snapshot's number only moves when it's refreshed — which is also the only time the coverage itself changes, since a workspace's coverage is fixed until its plugin code changes (and code changes come through PRs that re-run e2e). This keeps the dashboard effectively current without a separate coverage run: the nightly stays entirely on the shipped `{{inherit}}`/Konflux builds and is not involved in coverage.
+
+### Publishing the same coverage upstream, per file
+
+The anchor keeps the percentage and loses the detail: you cannot click into a plugin and see which files are untested, because the sources are not in this repository. `scripts/upload-coverage-upstream.sh` publishes the *same* measurements to the repository the sources actually live in, where Codecov resolves every path and the report becomes browsable file by file. This **complements** the anchor path and never replaces it — most workspaces have nowhere else to publish, and are skipped with a message rather than an error.
+
+```bash
+# a local coverage dir, or the run's gcsweb .../artifacts/e2e-test-results/coverage/
+./scripts/upload-coverage-upstream.sh <workspace> <coverage-dir-or-gcsweb-url> --dry-run
+```
+
+`.github/workflows/publish-coverage-upstream.yaml` runs it from CI, on every push to `main` that touches a workspace. It resolves the merged PR, reads the e2e bot's PASSING comment, and takes the artifact URL from the build-log link already in that comment — the same place `refresh-stale-coverage-snapshots.yaml` reads it from. Only a passing run publishes, and a run whose comment predates the merged commit is skipped rather than attributed to a tree it never measured. `workflow_dispatch` is kept for backfilling a specific run by hand.
+
+The input is the run's **raw** coverage JSONs, which live in that Prow run's artifacts. It cannot read `coverage-snapshots/<ws>.lcov`, which is already anchor-mapped down to a single entry.
+
+After each upload the script checks that the session it just sent is on the commit, through the uploads endpoint — which paginates. Codecov accepts an upload and returns before processing it, so "queued for processing" is a receipt rather than a result, and without this check a run could publish nothing and still report success. An unconfirmed upload is raised as a run annotation, never a failure: a slow processing queue is not a failed publish.
+
+A landed upload is still not a *visible* one. A Codecov admin can delete a flag, and the deletion is soft: uploads keep being accepted, the coverage stays in the report, and the REST listing the session check reads still returns the flag — only the UI hides it, because the GraphQL resolver behind every UI surface filters deleted flags while the REST one does not. So the script also asks the GraphQL endpoint, once per run, whether the flag is actually in the list the dashboard renders. That is how `e2e-orchestrator` was found: two green publishes, coverage present on `main` HEAD, and absent from the flag picker for four days. Also a run annotation, for the same reason — a deleted flag needs a Codecov admin, not a red merge.
+
+Five things make this work, each of which is easy to get wrong:
+
+- **The upload must run from a checkout of the target repo at the pinned ref.** The Codecov CLI builds the file network it sends from the git repo in the *current working directory* and resolves report paths against it; `--slug` and `--sha` do not change that. Uploading from this checkout sends this repo's file list and the report is rejected as `REPORT_EMPTY` even though every path is valid upstream. The script does the shallow clone for you.
+- **Coverage is uploaded twice: to the pinned `repo-ref` and to the source repo's default-branch HEAD.** The pinned ref is what the tested plugin was built from, so it is the exactly-attributed copy — but a report on a historical commit is never reachable from the default branch. Carryforward inherits from the parent commit's finalised report, and every commit between the pinned ref and now was finalised without the flag. Measured 2026-08-10: `e2e-orchestrator` has a report at its pinned ref and `files=0` on all ~30 `main` commits processed *after* that upload landed, while the unit-test flag carries forward normally on those same commits. The HEAD copy is the one anyone sees.
+- **The HEAD copy trades exactness for visibility.** It attributes coverage to code that has drifted since the measurement, because Codecov matches by path plus line number and does not rebase. Measured across the workspaces: 0–14% of files had shifted lines, and the share does not track the pinned ref's age — churn does, so `adoption-insights` at 9.6 days drifted 0% while `intelligent-assistant` at 10.1 days drifted 14%. Use `--pinned-only` to publish just the exact copy; note that it is then visible nowhere.
+- **Only repos with an active Codecov project are eligible** — today just `redhat-developer/rhdh-plugins`, which covers 11 of the workspaces that have E2E tests.
+- **The flag is `e2e-<workspace>`, except where Codecov has deleted that name.** Deleting a flag is a soft delete with no inverse: the API exposes `deleteFlag` and nothing that undoes it, and the name cannot be reused. The data is not lost — it stays in the report and in the v2 REST flag listing — but every UI surface hides it, because the GraphQL resolver behind them filters `deleted__isnot=True` while REST does not. That is why `e2e-orchestrator` published green twice (2026-08-13 and 2026-08-17) with 142 files at `main` HEAD and was still absent from the dashboard's flag picker. `upstream_flag_for()` in the script holds the replacements. Each one wants a matching `flag_management.individual_flags` entry in the destination repo's `codecov.yml` — without it the flag still publishes, it just falls back to `default_rules` and loses the path scoping every other `e2e-*` flag has, so land the upstream entry first rather than registering an unscoped flag on a project we do not administer. Orchestrator's is `redhat-developer/rhdh-plugins#4436`. The visibility check above is what confirms a replacement worked: the first publish under the new name either reports the flag visible, or says it is not — which for a name that has never existed means the upstream entry is still missing rather than that anything was deleted. Note the scope: flags are per project, and this repo's own `e2e-orchestrator` is healthy — do not mirror a replacement into `scripts/upload-coverage.sh` or `scripts/seed-main-coverage.sh`.
+
+Resolution is by unique suffix match against the pinned ref's tree. Several plugins in one workspace ship the same relative path — `src/index.ts`, `src/plugin.ts`, `src/api/index.ts` — so a name alone is not always enough. The tie is broken by the plugin the coverage came from: every entry carries its webpack remote, and each plugin declares that remote in its own `package.json` (`scalprum.name`), so the remap maps remote to plugin directory against the checkout and prefers that plugin's copy. A unique workspace-wide match still wins outright, which is what keeps a sibling package's file (`<pkg>-common/src/x.ts`) resolving even though it sits outside the owning plugin.
+
+The owner is not only a tie-break. A single match is accepted only when the owning plugin could legitimately have produced it — its own copy, or a path that names the package it lives in. A bare `src/x.ts` resolving into a sibling package means the owner does not ship that file at this ref, and taking it would write one plugin's coverage onto another plugin's file with real line numbers. Anything else is dropped rather than guessed, under three distinguishable reasons: `not-in-tree` points at the pinned ref, `not-in-owner` at a moved or newly added file, `ambiguous` at plugins sharing a name with no owner to settle it. Measured after the tie-break, both published workspaces drop nothing: `intelligent-assistant` resolves 105 of 105 and `adoption-insights` 45 of 45.
+
+That tie-break is not cosmetic. Before it, `adoption-insights` lost `src/api/index.ts` (48 of 55 lines covered) to a clash with `analytics-module-adoption-insights`, and the plugin repo's `codecov.yml` deliberately keeps nested `index.ts` under `api/` in the denominator — so unlike the `src/index.ts` and `src/plugin.ts` cases, that one was a real loss rather than a file that would have been ignored anyway.
+
+The remap prints what it dropped and warns when the share of lost lines exceeds the usual wiring-file noise.
+
+Verified end to end on 2026-08-10 with the Prow run of PR #3200: 103 files resolved, and `e2e-intelligent-assistant` went from `files=0` to `files=99` at `rhdh-plugins` `main` HEAD — browsable per file, with that commit's own coverage moving 58.52 → 58.74. (103 becomes 99 because Codecov then applies the plugin repo's `ignore:` rules.)
+
+**This needs its own secret.** Codecov upload tokens are per project, so the workflow reads `CODECOV_RHDH_PLUGINS_TOKEN` — not the `CODECOV_TOKEN` the anchor path uses, which belongs to this repository's own project. Its value is the same one `redhat-developer/rhdh-plugins` already holds as its `CODECOV_TOKEN`; it has to be copied here because GitHub secrets do not cross repositories. The secret is named for the project rather than for "upstream" because a Codecov token authorises exactly one destination, and a generic name would suggest it covers more. Without it the job fails fast rather than uploading nothing behind a green check.

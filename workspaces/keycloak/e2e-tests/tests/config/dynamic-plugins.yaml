@@ -1,0 +1,4 @@
+# Auth provider metadata exists for publish, but E2E keeps the standard OIDC path
+# (e2e-test-utils keycloak auth profile) until RHIDP-11651. An empty list here
+# prevents metadata auto-generation from enabling the auth provider plugin.
+plugins: []

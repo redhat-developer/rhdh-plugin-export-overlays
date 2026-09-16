@@ -15,6 +15,24 @@ export class OrchestratorPO {
     private readonly uiHelper: UIhelper,
   ) {}
 
+  private workflowsCatalogControl(): Locator {
+    // NFS entity header looks like tabs but the control is often a link.
+    return ORCHESTRATOR_COMPONENTS.workflowsTab(this.page).or(
+      ORCHESTRATOR_COMPONENTS.workflowsLink(this.page),
+    );
+  }
+
+  async clickWorkflowsCatalogControl(): Promise<void> {
+    await this.workflowsCatalogControl().click({ timeout: 30_000 });
+    await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  async verifyWorkflowsCatalogControlVisible(): Promise<void> {
+    await expect(this.workflowsCatalogControl()).toBeVisible({
+      timeout: 30_000,
+    });
+  }
+
   async openWorkflowsPage(): Promise<void> {
     await this.page.goto("/orchestrator");
     await expect(this.page).toHaveURL("/orchestrator");
@@ -98,6 +116,48 @@ export class OrchestratorPO {
     const runButton = ORCHESTRATOR_COMPONENTS.runButton(this.page);
     await expect(runButton).toBeVisible();
     await runButton.click();
+  }
+
+  async openLockFlowWorkflowFromSidebar(): Promise<void> {
+    // SonataFlow CR is lock-flow; Data Index / UI catalog name is callback-flow.
+    await this.openWorkflowFromSidebar(/callback-flow|lock-flow/i);
+  }
+
+  /**
+   * On the execute/review page, click Run as Event (not the HTTP Run submit).
+   * Event-only workflows reject plain Run with "no start node that matches the trigger none".
+   */
+  async clickRunAsEvent(): Promise<void> {
+    const runAsEvent = ORCHESTRATOR_COMPONENTS.runAsEventButton(this.page);
+    await expect(runAsEvent).toBeVisible({ timeout: 30_000 });
+    await expect(runAsEvent).toBeEnabled();
+    await runAsEvent.click();
+  }
+
+  /**
+   * After Run as Event: wait for a live run status only.
+   * The pre-run alert only proves RHDH accepted the request; Access Denied is an
+   * RBAC failure (this suite grants instanceAdminView) and must not pass.
+   */
+  async verifyEventTriggeredOrRunVisible(timeoutMs = 300_000): Promise<void> {
+    // Prefer .first(): diagram nodes also render exact "Completed"/"Running" text,
+    // so a bare getByText union hits Playwright strict mode once the run is live.
+    const completed = ORCHESTRATOR_COMPONENTS.completedStatus(
+      this.page,
+    ).first();
+    const running = ORCHESTRATOR_COMPONENTS.runningStatus(this.page).first();
+    await expect(completed.or(running).first()).toBeVisible({
+      timeout: timeoutMs,
+    });
+  }
+
+  async runLockFlowAsEvent(): Promise<void> {
+    await this.openLockFlowWorkflowFromSidebar();
+    await this.runWorkflowInDetailsPage();
+    await this.clickRunAsEvent();
+    // Keep assertion budget under the 600s test timeout so failures surface as
+    // locator errors instead of generic "Test timeout exceeded".
+    await this.verifyEventTriggeredOrRunVisible(300_000);
   }
 
   async runGreetingWorkflow(
@@ -303,9 +363,7 @@ export class OrchestratorPO {
   async openGreetingTemplateFromCatalog(
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       /Greeting Test Picker/i,
@@ -314,11 +372,27 @@ export class OrchestratorPO {
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
+  private async clickChooseOnTemplateCard(
+    templateTitle: string,
+  ): Promise<void> {
+    // Match hashed MUI classes (css-*-MuiCard-root); exact .MuiCard-root misses them.
+    const chooseButton = this.page
+      .locator('[class*="MuiCard-root"]')
+      .filter({ hasText: templateTitle })
+      .getByRole("button", { name: /Choose/i })
+      .first();
+    await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+    await chooseButton.click();
+  }
+
   async openGreetingTemplateFromSelfService(): Promise<void> {
-    await this.uiHelper.clickLink({ ariaLabel: "Self-service" });
-    await this.uiHelper.verifyHeading("Self-service");
+    await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
-    await this.uiHelper.clickBtnInCard("Greeting Test Picker", "Choose");
+    await expect(
+      this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
+    ).toBeVisible({ timeout: 30_000 });
+    // clickBtnInCard can detach under NFS re-renders; click Choose directly.
+    await this.clickChooseOnTemplateCard("Greeting Test Picker");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });
     await this.page.waitForLoadState("domcontentloaded");
     await this.uiHelper.verifyHeading(/Greeting Test Picker/i, 30_000);
@@ -328,9 +402,7 @@ export class OrchestratorPO {
     templateName: string | RegExp,
     catalogHeading: string | RegExp = /Catalog|All/,
   ): Promise<void> {
-    await this.uiHelper.openSidebar("Catalog");
-    await this.uiHelper.verifyHeading(catalogHeading);
-    await this.uiHelper.selectMuiBox("Kind", "Template");
+    await this.openCatalogTemplates(catalogHeading);
     const templateLink = ORCHESTRATOR_COMPONENTS.templateLink(
       this.page,
       templateName,
@@ -338,6 +410,15 @@ export class OrchestratorPO {
     await expect(templateLink).toBeVisible({ timeout: 30_000 });
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
+  }
+
+  private async openCatalogTemplates(
+    catalogHeading: string | RegExp,
+  ): Promise<void> {
+    await this.page.goto("/catalog");
+    await this.page.waitForLoadState("domcontentloaded");
+    await this.uiHelper.verifyHeading(catalogHeading);
+    await this.uiHelper.selectMuiBox("Kind", "Template");
   }
 
   async fillGreetingTemplateFormAndSubmit(options?: {
@@ -392,12 +473,12 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsTabIfVisible(): Promise<boolean> {
-    const workflowsTab = ORCHESTRATOR_COMPONENTS.workflowsTab(this.page);
-    const count = await workflowsTab.count();
+    const workflowsControl = this.workflowsCatalogControl();
+    const count = await workflowsControl.count();
     if (count === 0) {
       return false;
     }
-    await workflowsTab.click();
+    await workflowsControl.click();
     await this.page.waitForLoadState("domcontentloaded");
     return true;
   }

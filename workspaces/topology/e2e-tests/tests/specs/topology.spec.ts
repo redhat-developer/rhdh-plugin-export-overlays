@@ -20,7 +20,7 @@ async function navigateToTopology(uiHelper: UIhelper) {
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("backstage-janus");
   await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
+  await uiHelper.clickLink("Topology");
 }
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
@@ -35,7 +35,6 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-
     await rhdh.configure({ auth: "keycloak" });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(

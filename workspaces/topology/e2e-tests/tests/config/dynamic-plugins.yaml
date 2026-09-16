@@ -1,21 +1,25 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes-backend:{{inherit}}
+    enabled: true
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes:{{inherit}}
+    enabled: true
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
     enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
-          backstage.plugin-kubernetes:
+          backstage-community.plugin-topology:
             mountPoints:
-              - mountPoint: entity.page.kubernetes/cards
-                importName: EntityKubernetesContent
+              - mountPoint: entity.page.topology/cards
+                importName: TopologyPage
                 config:
                   layout:
                     gridColumn: 1 / -1
+                    height: 75vh
                   if:
                     anyOf:
                       - hasAnnotation: backstage.io/kubernetes-id
                       - hasAnnotation: backstage.io/kubernetes-namespace
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-    enabled: true
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
-    enabled: true
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false

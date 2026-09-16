@@ -92,10 +92,14 @@ export async function submitFeedback(
 ): Promise<void> {
   await page.getByRole("button", { name: ratingButtonName }).click();
 
-  const feedbackCard = page.getByLabel("Why did you choose this rating?");
+  // NFS: getByLabel("Why did you choose this rating?").locator("li") matches the
+  // focus wrapper but not the label-group chips. The card class is the real root.
+  const feedbackCard = page.locator(".pf-chatbot__feedback-card");
   await expect(feedbackCard).toBeVisible();
 
-  const quickFeedbackLabels = feedbackCard.locator("li");
+  const quickFeedbackLabels = feedbackCard.locator(
+    ".pf-v6-c-label-group__list-item",
+  );
   await expect(quickFeedbackLabels).toHaveCount(3);
   await quickFeedbackLabels.first().click();
 

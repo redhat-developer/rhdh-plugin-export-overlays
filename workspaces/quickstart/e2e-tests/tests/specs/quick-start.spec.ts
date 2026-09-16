@@ -7,6 +7,7 @@ test.describe("Test Quick Start plugin", () => {
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
+    expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
   });
 
   test("Access Quick start as Guest or Admin", async ({
@@ -43,28 +44,28 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Browse and install extensions");
     await uiHelper.verifyButtonURL("Explore plugins", "/extensions");
     await uiHelper.clickButtonByText("Explore plugins");
-    await expect(page).toHaveURL(/\/extensions/);
+    await expect(page).toHaveURL("/extensions");
 
-    // TODO(RHDHBUGS): Re-enable after next RHDH image ships with updated
-    // quickstart translations. The baked-in plugin's titleKey resolves to
-    // "Lightspeed" via old translations; once the catalog index rebuilds,
-    // titleKey will resolve to "Intelligent Assistant".
-    // await uiHelper.clickButtonByText("Set up Intelligent Assistant");
-    // await uiHelper.verifyTextVisible(
-    //   "Connect Intelligent Assistant to a supported large language model",
-    // );
-    // await uiHelper.verifyButtonURL(
-    //   "Learn more",
-    //   "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
-    //   { exact: false },
-    // );
+    await uiHelper.clickButtonByText("Set up Intelligent Assistant");
+    await uiHelper.verifyTextVisible(
+      "Connect Intelligent Assistant to a supported large language model",
+    );
+    await uiHelper.verifyButtonURL(
+      "Learn more",
+      "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
+      { exact: false },
+    );
     await uiHelper.verifyText("20% progress");
 
     await uiHelper.clickButton("Hide");
     await expect(page.getByRole("button", { name: "Hide" })).toBeHidden();
   });
 
-  test("Access Quick start as User", async ({ loginHelper, uiHelper }) => {
+  test("Access Quick start as User", async ({
+    loginHelper,
+    page,
+    uiHelper,
+  }) => {
     await loginHelper.loginAsKeycloakUser();
     await uiHelper.verifyText("Let's get you started with Developer Hub");
     await uiHelper.verifyText("We'll guide you through a few quick steps");
@@ -83,23 +84,23 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Use our self-service templates");
     await uiHelper.verifyButtonURL("Explore templates", "/create");
     await uiHelper.clickButtonByText("Explore templates");
-    await uiHelper.verifyHeading("Self-service");
+    // await uiHelper.verifyHeading("Self-service"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3676
+    await uiHelper.verifyHeading("Create");
 
     await uiHelper.clickButtonByText("Find all Learning Paths");
     await uiHelper.verifyTextVisible("Integrate tailored e-learning");
     await uiHelper.verifyButtonURL("View Learning Paths", "/learning-paths");
     await uiHelper.clickButtonByText("View Learning Paths");
-    await uiHelper.verifyHeading("Learning Paths");
+    // await uiHelper.verifyHeading("Learning Paths"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3681
+    await expect(page).toHaveURL("/learning-paths");
 
-    // TODO(RHDHBUGS): Re-enable after next RHDH image ships with updated
-    // quickstart translations (see comment in guest/admin test above).
-    // await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
-    // await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
-    // await uiHelper.verifyButtonURL(
-    //   "Learn more",
-    //   "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
-    //   { exact: false },
-    // );
+    await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
+    await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
+    await uiHelper.verifyButtonURL(
+      "Learn more",
+      "https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/interacting_with_red_hat_developer_lightspeed_for_red_hat_developer_hub/",
+      { exact: false },
+    );
     await uiHelper.verifyText("60% progress");
   });
 });

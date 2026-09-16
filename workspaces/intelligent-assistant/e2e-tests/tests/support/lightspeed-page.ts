@@ -69,16 +69,17 @@ export async function expectRhdhContentVisible(
   page: Page,
   visible = true,
 ): Promise<void> {
-  // The homepage plugin may be absent in some CI images, so also check for the
-  // header search box which is always visible when the RHDH shell is loaded.
+  // Overlay/dock leave catalog page content in place. Fullscreen replaces it.
+  // Do not use the sidebar Catalog link: NFS fullscreen keeps RHDH nav visible
+  // while covering only the main page. Homepage is disabled in this workspace.
   const shell = page
-    .getByText(/welcome back!/i)
-    .or(page.getByText("My Org Catalog"));
+    .getByText("My Org Catalog")
+    .or(page.getByRole("main").getByRole("heading", { name: /^catalog$/i }));
 
   if (visible) {
-    await expect(shell).toBeVisible({ timeout: 30_000 });
+    await expect(shell.first()).toBeVisible({ timeout: 30_000 });
   } else {
-    await expect(shell).toBeHidden({ timeout: 30_000 });
+    await expect(shell.first()).toBeHidden({ timeout: 30_000 });
   }
 }
 

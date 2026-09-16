@@ -8,6 +8,8 @@ spec:
     - ./3scale.yaml
     - ./adoption-insights.yaml
     - ./ai-model-catalog.yaml
+    - ./ai-model-server.yaml
+    - ./ai-resource.yaml
     - ./analytics-provider-segment.yaml
     - ./ansible-plugin.yaml
     - ./argocd-scaffolder-actions.yaml
@@ -18,6 +20,7 @@ spec:
     - ./azure-container-registry.yaml
     - ./azure-devops.yaml
     - ./azure-scaffolder-actions.yaml
+    - ./backstage-community-plugin-bookmarks.yaml
     - ./backstage-community-plugin-quay.yaml
     - ./bitbucket-cloud-catalog-integration.yaml
     - ./bitbucket-cloud-scaffolder-actions.yaml
@@ -54,6 +57,7 @@ spec:
     - ./jira.yaml
     - ./keycloak-catalog-integration.yaml
     - ./konflux.yaml
+    - ./kserve-kubeflow-connector.yaml
     - ./kubernetes-backend.yaml
     - ./kubernetes-scaffolder-actions.yaml
     - ./kubernetes.yaml

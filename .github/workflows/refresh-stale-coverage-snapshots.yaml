@@ -54,7 +54,7 @@ jobs:
       BRANCH: chore/refresh-coverage-snapshots
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # find-stale-snapshots.sh compares commit dates per path, which a
           # shallow clone cannot answer.
@@ -62,7 +62,7 @@ jobs:
           persist-credentials: true
 
       - name: Setup Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
 
@@ -179,6 +179,10 @@ jobs:
 
           refreshed=()
           skipped=()
+          # Workspaces whose run produced no snapshot. Surfaced at the end so a
+          # workspace that never yields one is visible rather than inferred from
+          # its absence in the refreshed list.
+          no_snapshot=()
           processed=0
 
           for ws in "${stale[@]}"; do
@@ -255,6 +259,21 @@ jobs:
               echo "[WARN] $ws: refresh failed — continuing with the rest."
               continue
             fi
+
+            # The exit-0-without-writing case the comment above describes: the
+            # run had no coverage JSONs, or the remap resolved none of them, and
+            # the script says so and returns success. There is nothing to stage,
+            # and `git add` on a path that does not exist exits 128 — under
+            # `set -e` that takes the whole batch down, which is how one
+            # workspace stopped every other workspace's snapshot from refreshing
+            # for six days. Skip it, loudly: a workspace that keeps landing here
+            # is publishing a stale number and nobody would otherwise know.
+            if [[ ! -f "coverage-snapshots/$ws.lcov" ]]; then
+              echo "[WARN] $ws: the run produced no snapshot (no coverage JSONs, or none resolved) — its committed number stays as it is."
+              no_snapshot+=("$ws")
+              continue
+            fi
+
             # Staged first, because `git diff` only sees TRACKED files and the
             # dominant case here is a workspace that has no snapshot at all —
             # 16 of the 20 currently stale. For those the refresh writes a new,
@@ -270,6 +289,11 @@ jobs:
 
           if [[ ${#skipped[@]} -gt 0 ]]; then
             echo "[INFO] Deferred to the next run (MAX_WORKSPACES=$MAX_WORKSPACES): ${skipped[*]}"
+          fi
+
+          if [[ ${#no_snapshot[@]} -gt 0 ]]; then
+            echo "[WARN] No snapshot produced for: ${no_snapshot[*]}"
+            echo "[WARN] Each keeps publishing whatever number it last had. A workspace that stays on this list run after run is not collecting coverage at all — check its coverage-anchors against the remotes its e2e reports."
           fi
 
           {

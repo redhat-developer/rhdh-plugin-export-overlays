@@ -17,6 +17,7 @@ test.describe("Github Discovery Catalog", () => {
       appConfig: "tests/config/github-discovery/app-config-rhdh.yaml",
       secrets: "tests/config/github-discovery/rhdh-secrets.yaml",
       dynamicPlugins: "tests/config/github-discovery/dynamic-plugins.yaml",
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
