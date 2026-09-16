@@ -138,3 +138,20 @@ packages:
     support: "generally-available"
   - package: '@roadiehq/scaffolder-backend-module-http-request'
     support: "generally-available"
+
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot'
+    support: "tech-preview"
