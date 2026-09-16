@@ -308,7 +308,7 @@ class TestFetchImageMetadata:
         assert metadata is not None
         assert SHA256_DIGEST_RE.match(metadata["digest"])
 
-    def test_ghcr_returns_dynamic_packages_annotation(self):
+    def test_ghcr_returns_dynamic_packages_b64(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
         assert "io.backstage.dynamic-packages" in metadata
@@ -852,7 +852,7 @@ spec:
 # ---------------------------------------------------------------------------
 
 
-def _annotation(payload: bytes) -> str:
+def _b64(payload: bytes) -> str:
     return base64.b64encode(payload).decode()
 
 
@@ -861,7 +861,7 @@ class TestDecodeDynamicPackages:
 
     def test_decodes_a_real_package_list(self):
         packages = generatePluginBuildInfo.decode_dynamic_packages(
-            _annotation(json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode())
+            _b64(json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode())
         )
         assert packages == [{"plugin-a": {"name": "@scope/plugin-a"}}]
 
@@ -869,17 +869,40 @@ class TestDecodeDynamicPackages:
     def test_absent_annotation_decodes_to_nothing_declared(self, annotation):
         assert generatePluginBuildInfo.decode_dynamic_packages(annotation) == []
 
-    def test_empty_list_is_distinguishable_from_undecodable(self):
+    def test_an_explicitly_empty_list_decodes_to_empty(self):
         # [] means "declares nothing", None means "could not be read". Collapsing the
         # two would report a broken artifact as an empty one, or the reverse.
-        assert generatePluginBuildInfo.decode_dynamic_packages(_annotation(b"[]")) == []
+        assert generatePluginBuildInfo.decode_dynamic_packages(_b64(b"[]")) == []
+
+    @pytest.mark.parametrize(
+        "wrap",
+        [
+            lambda p: base64.encodebytes(p).decode(),
+            lambda p: base64.b64encode(p).decode() + "\n",
+            lambda p: " " + base64.b64encode(p).decode() + " ",
+        ],
+        ids=["mime-wrapped", "trailing-newline", "surrounding-spaces"],
+    )
+    def test_whitespace_in_the_annotation_is_not_malformed(self, wrap):
+        # `base64` without `-w 0` wraps its output. A healthy artifact whose
+        # annotation carries a newline must not be reported as broken.
+        payload = json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode()
+        assert generatePluginBuildInfo.decode_dynamic_packages(wrap(payload)) == [
+            {"plugin-a": {"name": "@scope/plugin-a"}}
+        ]
+
+    def test_an_annotation_that_was_never_encoded_is_undecodable(self):
+        # Stripping whitespace must not soften the check into accepting raw JSON.
+        assert (
+            generatePluginBuildInfo.decode_dynamic_packages('[{"a": 1}]') is None
+        )
 
     @pytest.mark.parametrize(
         "annotation",
         [
             "!!!not-base64!!!",
-            _annotation(b"not json at all"),
-            _annotation(b'{"packages": []}'),  # an object, not the expected list
+            _b64(b"not json at all"),
+            _b64(b'{"packages": []}'),  # an object, not the expected list
         ],
         ids=["not-base64", "not-json", "not-a-list"],
     )
@@ -887,12 +910,12 @@ class TestDecodeDynamicPackages:
         assert generatePluginBuildInfo.decode_dynamic_packages(annotation) is None
 
 
-class TestEmptyDynamicPackagesAnnotation:
-    """_fetch_image_metadata must name the artifact when its annotation ships nothing."""
+class TestDynamicPackagesAnnotationReporting:
+    """What _fetch_image_metadata reports for each shape of the annotation."""
 
     REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-x:bs_1.52.0__1.0.0"
 
-    def _fetch_with_annotation(self, annotations):
+    def _fetch_with_b64(self, annotations):
         manifest = {
             "config": {"digest": "sha256:" + "0" * 64},
             "annotations": annotations,
@@ -916,8 +939,8 @@ class TestEmptyDynamicPackagesAnnotation:
         return [call.args[0] for call in warn.call_args_list]
 
     def test_empty_annotation_is_reported_with_the_artifact_named(self):
-        warnings = self._fetch_with_annotation(
-            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _annotation(b"[]")}
+        warnings = self._fetch_with_b64(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(b"[]")}
         )
         assert any(
             "plugin-x:bs_1.52.0__1.0.0" in w and "empty" in w and "no-op" in w
@@ -925,16 +948,18 @@ class TestEmptyDynamicPackagesAnnotation:
         ), warnings
 
     def test_malformed_annotation_is_reported_as_malformed_not_empty(self):
-        warnings = self._fetch_with_annotation(
+        warnings = self._fetch_with_b64(
             {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"}
         )
-        assert any("malformed" in w for w in warnings), warnings
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "malformed" in w for w in warnings
+        ), warnings
         assert not any("declares an empty" in w for w in warnings), warnings
 
     def test_a_populated_annotation_is_not_reported(self):
-        warnings = self._fetch_with_annotation(
+        warnings = self._fetch_with_b64(
             {
-                generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _annotation(
+                generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(
                     json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()
                 )
             }
@@ -943,5 +968,5 @@ class TestEmptyDynamicPackagesAnnotation:
 
     def test_an_image_without_the_annotation_is_not_reported(self):
         # Not every image publishes one; warning on its absence would fire on all of them.
-        warnings = self._fetch_with_annotation({})
+        warnings = self._fetch_with_b64({})
         assert not any("dynamic-packages" in w for w in warnings), warnings

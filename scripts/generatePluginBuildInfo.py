@@ -16,7 +16,6 @@
 
 import argparse
 import base64
-import binascii
 import hashlib
 import json
 import os
@@ -51,26 +50,32 @@ RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
 
-def decode_dynamic_packages(annotation):
+# Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
+VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
+
+
+def decode_dynamic_packages(annotation: str | None) -> list | None:
     """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
 
     The annotation is base64-encoded JSON: a list of one-key objects, each mapping a
     plugin directory name to its package.json. Returns the list, or ``None`` when the
     annotation cannot be decoded — the caller distinguishes "declares nothing" (an empty
     list) from "could not be read" (None), because only the first is the RHDHBUGS-3556
-    defect.
+    defect. An annotation present but empty reads as "declares nothing".
+
+    Whitespace is stripped before decoding: ``base64`` without ``-w 0`` wraps its output,
+    and a wrapped annotation from a healthy artifact must not read as malformed.
+    ``validate=True`` still rejects an annotation that was never encoded at all.
     """
     if not annotation:
         return []
     try:
-        decoded = base64.b64decode(annotation, validate=True)
+        decoded = base64.b64decode("".join(annotation.split()), validate=True)
         packages = json.loads(decoded)
-    except (ValueError, binascii.Error, UnicodeDecodeError):
+    except ValueError:
         return None
     return packages if isinstance(packages, list) else None
 
-# Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
-VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
 
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
 THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
@@ -486,16 +491,9 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         if dynamic_packages:
             metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
 
-        # An artifact that ships no dynamic packages installs as a no-op: the pull
-        # succeeds, nothing lands, and the failure only shows up much later as a plugin
-        # that is silently absent. Say so here, where the artifact is still named.
-        # Only when the annotation is present: not every image publishes one, and
-        # warning about its absence would fire on every such image.
-        packages = (
-            decode_dynamic_packages(dynamic_packages)
-            if DYNAMIC_PACKAGES_ANNOTATION in manifest_annotations
-            else []
-        )
+        # An artifact that ships no dynamic packages installs as a no-op, and the
+        # absence only surfaces much later. Report it here, where it is still named.
+        packages = decode_dynamic_packages(dynamic_packages)
         if packages is None:
             log_warn(
                 f"{registry_reference} has a malformed {DYNAMIC_PACKAGES_ANNOTATION} "
