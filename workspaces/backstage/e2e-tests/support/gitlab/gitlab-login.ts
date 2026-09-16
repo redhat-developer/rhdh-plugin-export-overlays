@@ -26,13 +26,6 @@ export async function gitlabLogin(
     timeout: 20_000,
   });
 
-  try {
-    await popup.waitForEvent("close", { timeout: 5000 });
-    return "Already logged in";
-  } catch {
-    // Popup stayed open — continue with credentials.
-  }
-
   await popup.locator("#user_login").click({ timeout: 5000 });
   await popup.locator("#user_login").fill(username, { timeout: 5000 });
   await popup.locator("#user_password").click({ timeout: 5000 });
