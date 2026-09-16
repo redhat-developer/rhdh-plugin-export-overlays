@@ -34,7 +34,6 @@ spec:
 
   highlights:
     - Pulls model data from the /v1/models endpoint of OGX servers
-    - Creates a Kubernetes informer for serving.kserve.io InferenceService resources
     - Imports AiModelServerAPI entities with discovered model lists
     - Optional standalone provider — depends only on the AI Model Server catalog module
 
