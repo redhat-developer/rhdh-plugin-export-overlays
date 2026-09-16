@@ -21,7 +21,7 @@ metadata:
   description: |
     Backend plugin that pulls data from the /v1/models endpoint of OGX
     servers and creates a Kubernetes informer for serving.kserve.io
-    InferenceService resources to import AiModelServerAPI catalog entities.
+    to import AiModelServerAPI catalog entities.
 spec:
   author: Red Hat
   support: dev-preview
