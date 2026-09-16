@@ -7,7 +7,6 @@ import {
 } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import { KUBERNETES_USERS } from "../../support/constants/kubernetes/users";
 import { KubernetesPage } from "../../support/pages/kubernetes";
-import { KUBERNETES_COMPONENTS } from "../../support/pages/kubernetes-po";
 
 const $pipe = $({ stdio: "pipe" });
 
@@ -94,7 +93,6 @@ test.describe("Kubernetes", () => {
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await page
-        .locator(KUBERNETES_COMPONENTS.MuiAccordion)
         .getByRole("button", { name: `${clusterName} Cluster` })
         .click();
     });
@@ -146,7 +144,6 @@ test.describe("Kubernetes", () => {
       await kubernetesPage.navigateToTabForComponent("Red Hat Developer Hub");
 
       await page
-        .locator(KUBERNETES_COMPONENTS.MuiAccordion)
         .getByRole("button", { name: `${clusterName} Cluster` })
         .click();
       await kubernetesPage.verifyPodLogs("kubernetes-test", "kubernetes-test");

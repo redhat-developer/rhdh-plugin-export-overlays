@@ -24,6 +24,10 @@ on:
       rhdh-tag:
         type: string
         required: false
+      publish-run-id:
+        description: Exact /publish workflow run that produced the artifact
+        type: string
+        required: false
 
 jobs:
   resolve:
@@ -42,8 +46,16 @@ jobs:
       target-branch: ${{ inputs.target-branch }}
       rhdh-tag: ${{ inputs.rhdh-tag }}
     steps:
+      - name: Download published-exports artifact from publish run
+        if: inputs.publish-run-id != ''
+        uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4 # v23
+        with:
+          name: published-exports-pr-${{ inputs.pr-number }}
+          run_id: ${{ inputs.publish-run-id }}
+          if_no_artifact_found: fail
+
       - name: Download published-exports artifact for this PR
-        if: inputs.workspace != '' && inputs.pr-number != ''
+        if: inputs.publish-run-id == '' && inputs.workspace != '' && inputs.pr-number != ''
         uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4 # v23
         with:
           name: published-exports-pr-${{ inputs.pr-number }}
