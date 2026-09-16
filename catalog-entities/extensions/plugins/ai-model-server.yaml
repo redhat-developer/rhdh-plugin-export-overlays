@@ -91,7 +91,7 @@ spec:
       model servers from Kubernetes clusters and generate catalog entities
       with optional TechDocs integration.
     - **OGX Entity Provider** — an optional, standalone alternative that
-      pulls data from the `/v1/models` endpoint of OGX servers and creates
+      pulls data from the `/v1/models` endpoint of OGX servers.
       a Kubernetes informer for `serving.kserve.io` `InferenceService`
       resources to import `AiModelServerAPI` entities. It depends only on
       the AI Model Server catalog module and does not integrate with the
