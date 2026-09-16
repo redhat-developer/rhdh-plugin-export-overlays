@@ -57,15 +57,8 @@ VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
 def decode_dynamic_packages(annotation: str | None) -> list | None:
     """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
 
-    The annotation is base64-encoded JSON: a list of one-key objects, each mapping a
-    plugin directory name to its package.json. Returns the list, or ``None`` when the
-    annotation cannot be decoded — the caller distinguishes "declares nothing" (an empty
-    list) from "could not be read" (None), because only the first is the RHDHBUGS-3556
-    defect. An annotation present but empty reads as "declares nothing".
-
-    Whitespace is stripped before decoding: ``base64`` without ``-w 0`` wraps its output,
-    and a wrapped annotation from a healthy artifact must not read as malformed.
-    ``validate=True`` still rejects an annotation that was never encoded at all.
+    Returns the list, ``[]`` when the annotation declares nothing, or ``None`` when it
+    cannot be read. Callers act on those three differently, so they stay distinct.
     """
     if not annotation:
         return []
@@ -488,7 +481,9 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         # Extract OCI manifest-level annotations (e.g., io.backstage.dynamic-packages)
         manifest_annotations = manifest.get('annotations', {})
         dynamic_packages = manifest_annotations.get(DYNAMIC_PACKAGES_ANNOTATION)
-        if dynamic_packages:
+        # Kept even when empty: dropping it here is what made an artifact that ships
+        # nothing indistinguishable downstream from one that never declared anything.
+        if dynamic_packages is not None:
             metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
 
         # An artifact that ships no dynamic packages installs as a no-op, and the
@@ -915,6 +910,15 @@ def _record_image_metadata_report(report: BuildReport, data: dict) -> None:
         if not digest:
             continue
         stage_kwargs: dict = {"digest": digest}
+        # The fetch succeeded, so the stage stays a pass — but an artifact that ships
+        # no readable package list installs as a no-op, and a green stage with no
+        # detail says the opposite.
+        if DYNAMIC_PACKAGES_ANNOTATION in pdata:
+            packages = decode_dynamic_packages(pdata[DYNAMIC_PACKAGES_ANNOTATION])
+            if packages is None:
+                stage_kwargs["dynamicPackagesUnreadable"] = True
+            elif not packages:
+                stage_kwargs["dynamicPackages"] = 0
         if pdata.get("fallback"):
             resolved_ref = pdata.get("registryReference", "")
             ref_tag = resolved_ref.rsplit(":", 1)[-1]

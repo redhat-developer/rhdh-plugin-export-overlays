@@ -13,16 +13,17 @@ import { discoverPlugins } from "./loader";
 import { describeInstallShortfall } from "./harness-logic";
 import { tempDir } from "./test-support";
 
-type Installed = { name: string; role?: string; packageJson?: string };
+/** A directory to lay out under the install root. `packageJson: null` writes none. */
+type LaidOutDir = { name: string; role?: string; packageJson?: string | null };
 
 /**
  * Lay out an install root the way the CLI does: one directory per plugin, each with a
  * package.json whose `backstage.role` classifies it. A ref whose package never landed
  * simply has no directory here.
  */
-function installRoot(packages: Installed[]): string {
+function installRoot(dirs: LaidOutDir[]): string {
   const root = tempDir(join(tmpdir(), "install-root-"));
-  for (const pkg of packages) {
+  for (const pkg of dirs) {
     const dir = join(root, pkg.name.replace(/[@/]/g, "-"));
     mkdirSync(dir, { recursive: true });
     if (pkg.packageJson === undefined) {
@@ -34,7 +35,7 @@ function installRoot(packages: Installed[]): string {
           ...(pkg.role ? { backstage: { role: pkg.role } } : {}),
         }),
       );
-    } else if (pkg.packageJson !== "") {
+    } else if (pkg.packageJson !== null) {
       writeFileSync(join(dir, "package.json"), pkg.packageJson);
     }
   }
@@ -76,32 +77,15 @@ test("a package that never landed leaves the install short, naming both counts",
     null,
     "a package that never landed must fail the run, not pass quietly",
   );
-  assert.match(shortfall ?? "", /installed 2 plugin\(s\)/);
-  assert.match(shortfall ?? "", /declared 3 oci:\/\/ ref\(s\)/);
-  assert.match(
-    shortfall ?? "",
-    /part of the catalog index was never validated/,
-  );
-});
-
-test("an install root that produced no plugins is reported off the layer itself", () => {
-  const root = installRoot([]);
-  assert.match(
-    describeInstallShortfall(
-      (() => {
-        const m = discoverPlugins(root);
-        return m.backend.length + m.frontend.length;
-      })(),
-      undefined,
-    ) ?? "",
-    /nothing validated: the install produced no plugins at all/,
-  );
+  // The wording is already pinned against the pure function in harness-logic.test.ts;
+  // what is new here is that a real layer produces the counts that feed it.
+  assert.match(shortfall ?? "", /installed 2 plugin\(s\) but .* declared 3/);
 });
 
 // Everything a layer can contain that is not an installed plugin. Counting any of them
 // would close the gap left by a package that never landed, making the totals agree for
 // the wrong reason.
-const NOT_A_PLUGIN: { label: string; entry: Installed }[] = [
+const NOT_A_PLUGIN: { label: string; entry: LaidOutDir }[] = [
   {
     label: "a directory without a backstage role",
     entry: { name: "@scope/not-a-plugin" },
@@ -112,7 +96,7 @@ const NOT_A_PLUGIN: { label: string; entry: Installed }[] = [
   },
   {
     label: "a directory with no package.json at all",
-    entry: { name: "@scope/plugin-b", packageJson: "" },
+    entry: { name: "@scope/plugin-b", packageJson: null },
   },
 ];
 

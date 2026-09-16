@@ -970,3 +970,48 @@ class TestDynamicPackagesAnnotationReporting:
         # Not every image publishes one; warning on its absence would fire on all of them.
         warnings = self._fetch_with_annotations({})
         assert not any("dynamic-packages" in w for w in warnings), warnings
+
+
+class TestDynamicPackagesInBuildReport:
+    """The image-metadata-fetch stage must not read green for an empty artifact."""
+
+    @staticmethod
+    def _stage(annotation, tmp_path):
+        report = BuildReport(tmp_path / "build-report.json")
+        data = {
+            "plugin-x": {
+                "digest": "sha256:" + "0" * 64,
+                **(
+                    {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: annotation}
+                    if annotation is not None
+                    else {}
+                ),
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        return report.get_stage("plugin-x", "image-metadata-fetch")
+
+    def test_an_empty_annotation_is_recorded_on_the_stage(self, tmp_path):
+        # Without this the stage is a bare pass and build-report.json contradicts the
+        # warning the fetch already logged.
+        stage = self._stage(_b64(b"[]"), tmp_path)
+        assert stage["status"] == "pass"
+        assert stage["dynamicPackages"] == 0
+
+    def test_an_unreadable_annotation_is_recorded_as_unreadable(self, tmp_path):
+        stage = self._stage("!!!not-base64!!!", tmp_path)
+        assert stage["dynamicPackagesUnreadable"] is True
+        assert "dynamicPackages" not in stage
+
+    def test_a_populated_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(
+            _b64(json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()),
+            tmp_path,
+        )
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage
+
+    def test_an_image_without_the_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(None, tmp_path)
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage

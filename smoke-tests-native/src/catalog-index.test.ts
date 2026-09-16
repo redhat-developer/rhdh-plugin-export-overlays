@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,7 @@ import {
   readCatalogIndexRefs,
   writeCatalogIndexConfig,
 } from "./catalog-index";
+import { tempDir as sharedTempDir } from "./test-support";
 
 // src/ → smoke-tests-native/
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -25,16 +26,7 @@ const EXCLUDES_FILE = join(HARNESS_ROOT, "catalog-index-sanity-excludes.txt");
 const REGISTRY = "quay.io/rhdh";
 const DIGEST = `sha256:${"a".repeat(64)}`;
 
-// Same leak guard as workspace.test.ts: an unbounded pile of temp dirs per run.
-const TEMP_DIRS: string[] = [];
-function tempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "catalog-index-test-"));
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+const tempDir = () => sharedTempDir(join(tmpdir(), "catalog-index-test-"));
 
 /** Write a dynamic-plugins.default.yaml with the given plugins[] list verbatim. */
 function writeIndex(plugins: unknown[]): string {
