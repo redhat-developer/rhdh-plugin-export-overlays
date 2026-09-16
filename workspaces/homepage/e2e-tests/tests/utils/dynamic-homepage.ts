@@ -314,6 +314,7 @@ export class DynamicHomePagePo {
     if (await dialog.isVisible()) {
       await this.page.keyboard.press("Escape");
       await expect(dialog).toBeHidden({ timeout: 5_000 });
+      await this.ui.verifyHeading("Welcome back");
     }
   }
 
