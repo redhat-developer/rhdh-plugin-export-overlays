@@ -67,6 +67,9 @@ def resolve(
     prs=(),
     comments=(),
     head_committed_at=HEAD_COMMITTED_AT,
+    list_prs_failures=0,
+    list_prs_failure_status=500,
+    get_commit_failures=0,
 ):
     """Drive the module against stubbed github/context/core.
 
@@ -90,6 +93,9 @@ def resolve(
             else [{"created_at": AFTER_HEAD, **c} for c in comments]
         ),
         "headCommittedAt": head_committed_at,
+        "listPrsFailures": list_prs_failures,
+        "listPrsFailureStatus": list_prs_failure_status,
+        "getCommitFailures": get_commit_failures,
     }
     script = f"""
         const {{ resolvePublishTargets }} = require({str(MODULE)!r});
@@ -101,12 +107,32 @@ def resolve(
           info: (m) => infos.push(m),
           setOutput: () => {{}},
         }};
+        let listPrsCallCount = 0;
+        let getCommitCallCount = 0;
         const github = {{
           rest: {{
             repos: {{
-              listPullRequestsAssociatedWithCommit: async () => ({{ data: fixture.prs }}),
+              listPullRequestsAssociatedWithCommit: async () => {{
+                listPrsCallCount++;
+                if (listPrsCallCount <= fixture.listPrsFailures) {{
+                  const err = new Error("Internal Server Error");
+                  err.status = fixture.listPrsFailureStatus;
+                  throw err;
+                }}
+                return {{ data: fixture.prs }};
+              }},
               getCommit: async () => {{
-                if (!fixture.headCommittedAt) throw new Error("no such commit");
+                getCommitCallCount++;
+                if (getCommitCallCount <= fixture.getCommitFailures) {{
+                  const err = new Error("Internal Server Error");
+                  err.status = 500;
+                  throw err;
+                }}
+                if (!fixture.headCommittedAt) {{
+                  const err = new Error("no such commit");
+                  err.status = 404;
+                  throw err;
+                }}
                 return {{ data: {{ commit: {{ committer: {{ date: fixture.headCommittedAt }} }} }} }};
               }},
             }},
@@ -126,9 +152,15 @@ def resolve(
           payload: {{ inputs: fixture.inputs }},
         }};
         resolvePublishTargets({{ github, context, core }}).then((targets) => {{
-          process.stdout.write(JSON.stringify({{ targets, warnings, infos, error: null }}));
+          process.stdout.write(JSON.stringify({{
+            targets, warnings, infos, error: null,
+            listPrsCallCount, getCommitCallCount,
+          }}));
         }}, (e) => {{
-          process.stdout.write(JSON.stringify({{ targets: [], warnings, infos, error: String(e.message) }}));
+          process.stdout.write(JSON.stringify({{
+            targets: [], warnings, infos, error: String(e.message),
+            listPrsCallCount, getCommitCallCount,
+          }}));
         }});
     """
     result = subprocess.run(
@@ -573,3 +605,76 @@ def test_a_passing_comment_that_mentions_a_failure_in_prose_still_publishes():
     )
     assert [t["workspace"] for t in out["targets"]] == ["extensions"]
     assert not any("cannot retract anything" in m for m in out["warnings"])
+
+
+# ---------------------------------------------------------------------------
+# Retry-with-backoff tests
+# ---------------------------------------------------------------------------
+
+
+def test_list_prs_retries_on_transient_500():
+    """A single 500 from listPullRequestsAssociatedWithCommit should be retried
+    and succeed on the next attempt, matching the retry pattern in
+    upload-coverage.sh."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+        list_prs_failures=1,
+    )
+    assert out["error"] is None
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+    assert out["listPrsCallCount"] == 2
+
+
+def test_list_prs_retry_exhausted_raises():
+    """After all retry attempts are exhausted, the 500 should propagate as an
+    error — a persistent outage must not be silenced."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+        list_prs_failures=5,
+    )
+    assert out["error"] is not None
+    assert "Internal Server Error" in out["error"]
+    assert out["listPrsCallCount"] == 3
+
+
+def test_list_prs_no_retry_on_4xx():
+    """Client errors (4xx) should not be retried — they indicate a bug in the
+    caller, not a transient outage."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        list_prs_failures=1,
+        list_prs_failure_status=404,
+    )
+    assert out["error"] is not None
+    assert out["listPrsCallCount"] == 1
+
+
+def test_get_commit_retries_on_transient_500():
+    """A single 500 from getCommit should be retried transparently — the head
+    commit timestamp is still available for the staleness check."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+        get_commit_failures=1,
+    )
+    assert out["error"] is None
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+    # No "could not read" warning — the retry succeeded.
+    assert not any("could not read" in m for m in out["warnings"])
+    assert out["getCommitCallCount"] == 2
+
+
+def test_get_commit_retry_exhausted_still_warns_and_continues():
+    """When getCommit fails on every retry, the existing fallback applies: a
+    warning that the staleness check is unavailable, but publishing proceeds."""
+    out = resolve(
+        prs=[{"number": 1, "merged_at": "2026-08-11T00:00:00Z"}],
+        comments=[{"user": {"login": BOT}, "body": passing_comment("extensions")}],
+        get_commit_failures=5,
+    )
+    assert out["error"] is None
+    assert [t["workspace"] for t in out["targets"]] == ["extensions"]
+    assert any("could not read" in m for m in out["warnings"])
+    assert out["getCommitCallCount"] == 3
