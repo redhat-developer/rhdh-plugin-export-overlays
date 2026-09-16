@@ -15,6 +15,8 @@
 # - midstream: from container env MIDSTREAM_REPO
 
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -47,6 +49,25 @@ RARC_DOMAIN = "registry.access.redhat.com"
 RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 
 DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
+
+
+def decode_dynamic_packages(annotation):
+    """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
+
+    The annotation is base64-encoded JSON: a list of one-key objects, each mapping a
+    plugin directory name to its package.json. Returns the list, or ``None`` when the
+    annotation cannot be decoded — the caller distinguishes "declares nothing" (an empty
+    list) from "could not be read" (None), because only the first is the RHDHBUGS-3556
+    defect.
+    """
+    if not annotation:
+        return []
+    try:
+        decoded = base64.b64decode(annotation, validate=True)
+        packages = json.loads(decoded)
+    except (ValueError, binascii.Error, UnicodeDecodeError):
+        return None
+    return packages if isinstance(packages, list) else None
 
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
@@ -464,6 +485,29 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         dynamic_packages = manifest_annotations.get(DYNAMIC_PACKAGES_ANNOTATION)
         if dynamic_packages:
             metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
+
+        # An artifact that ships no dynamic packages installs as a no-op: the pull
+        # succeeds, nothing lands, and the failure only shows up much later as a plugin
+        # that is silently absent. Say so here, where the artifact is still named.
+        # Only when the annotation is present: not every image publishes one, and
+        # warning about its absence would fire on every such image.
+        packages = (
+            decode_dynamic_packages(dynamic_packages)
+            if DYNAMIC_PACKAGES_ANNOTATION in manifest_annotations
+            else []
+        )
+        if packages is None:
+            log_warn(
+                f"{registry_reference} has a malformed {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: it is not base64-encoded JSON, so the packages it ships "
+                "cannot be determined"
+            )
+        elif not packages and DYNAMIC_PACKAGES_ANNOTATION in manifest_annotations:
+            log_warn(
+                f"{registry_reference} declares an empty {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: the artifact ships no dynamic packages and installing it "
+                "is a no-op"
+            )
 
         if config_digest:
             blob_url = f"https://{registry}/v2/{repository}/blobs/{config_digest}"
