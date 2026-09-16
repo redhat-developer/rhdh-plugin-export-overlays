@@ -31,10 +31,10 @@ spec:
       content:
         app:
           extensions:
-            - addon:techdocs/expandable-navigation
+            - addon:techdocs/expandable-navigation: false
             - addon:techdocs/report-issue
-            - addon:techdocs/text-size
-            - addon:techdocs/light-box
+            - addon:techdocs/text-size: false
+            - addon:techdocs/light-box: false
     - title: ReportIssue configuration
       content:
         app:
