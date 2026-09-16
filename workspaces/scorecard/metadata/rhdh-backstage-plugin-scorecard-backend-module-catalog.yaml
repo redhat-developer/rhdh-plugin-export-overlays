@@ -35,12 +35,12 @@ spec:
             catalog:
               requiredAttributes:
                 options:
+                  filter:
+                    kind: Component
                   metrics:
                     title:
                       title: Title is required
                       description: Every component should have a human-readable title.
-                      filter:
-                        kind: Component
                       field: metadata.title
     - title: Value whitelist metric
       content:
@@ -49,12 +49,12 @@ spec:
             catalog:
               requiredAttributes:
                 options:
+                  filter:
+                    kind: Component
                   metrics:
                     lifecycle:
                       title: Lifecycle must be a known value
                       description: The spec.lifecycle field should be prod, stage, test, or dev.
-                      filter:
-                        kind: Component
                       field: spec.lifecycle
                       statusMapping:
                         exists: invalid
@@ -77,6 +77,8 @@ spec:
                   initialDelay:
                     seconds: 30
                 options:
+                  filter:
+                    kind: Component
                   statusMapping:
                     exists: found
                     missed: missed
@@ -84,14 +86,10 @@ spec:
                     title:
                       title: Title is required
                       description: Every component should have a human-readable title.
-                      filter:
-                        kind: Component
                       field: metadata.title
                     lifecycle:
                       title: Lifecycle must be valid
                       description: The spec.lifecycle field should be one of the accepted values.
-                      filter:
-                        kind: Component
                       field: spec.lifecycle
                       statusMapping:
                         exists: invalid
