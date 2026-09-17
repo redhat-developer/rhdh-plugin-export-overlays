@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@backstage-community/plugin-tekton'
   # Tag: bs_1.54.6__4.0.2
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:659e341ccab6e5f20de217bf9a6f47c451e8290c0aef8efc5f843502a740472b"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton@sha256:379e668869c5220777eb3964e3b3b01e7df0af21d7bf018fa78b4b0babf7ee83"
   version: 4.0.2
   backstage:
     role: frontend-plugin
