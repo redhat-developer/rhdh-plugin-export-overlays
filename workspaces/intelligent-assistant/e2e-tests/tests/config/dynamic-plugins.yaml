@@ -5,6 +5,7 @@
 #
 # app-defaults provides the host drawer used by the Intelligent Assistant FAB.
 # Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
+# test-helper.ts deploys dynamic-plugins-mcp.yaml by default; this file is the non-MCP baseline.
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-analytics-provider-segment
     disabled: true

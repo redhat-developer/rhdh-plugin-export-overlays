@@ -4,8 +4,9 @@
 # Sidecar EmptyDir vector stores are per-namespace.
 upstream:
   backstage:
-    # This is rendered into redhat-developer-hub-app-config (loaded last at runtime),
-    # so keep MCP auth + server definitions here to avoid array-merge overrides.
+    # Rendered into redhat-developer-hub-app-config (loaded last at runtime), so keep
+    # MCP auth + server definitions here to avoid array-merge overrides. Mirror changes
+    # in app-config-rhdh.yaml (e2e-test-utils config injection path).
     appConfig:
       backend:
         actions:
