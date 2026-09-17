@@ -24,6 +24,8 @@ permission:
       superUsers:
         - name: user:default/test1
 
+# MCP auth, actions, and server config is duplicated in value_file.yaml
+# (upstream.backstage.appConfig) so Helm's last-loaded app-config keeps array values.
 backend:
   actions:
     pluginSources:
