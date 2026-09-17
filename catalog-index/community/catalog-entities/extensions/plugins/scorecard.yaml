@@ -26,7 +26,7 @@ spec:
   author: Red Hat
   support:
     provider: Red Hat
-    level: dev-preview
+    level: tech-preview
   lifecycle: active
   publisher: Red Hat
 
@@ -63,6 +63,7 @@ spec:
     - rhdh-backstage-plugin-scorecard-backend-module-catalog
     - rhdh-backstage-plugin-scorecard-backend-module-code-coverage
     - rhdh-backstage-plugin-scorecard-backend-module-dora
+    - rhdh-backstage-plugin-scorecard-backend-module-sonarqube
     - rhdh-backstage-plugin-scorecard-backend-module-dependabot
     - rhdh-backstage-plugin-scorecard-backend-module-openssf
     - rhdh-backstage-plugin-scorecard-backend-module-github
