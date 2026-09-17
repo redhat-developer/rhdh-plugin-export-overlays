@@ -167,8 +167,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
+      only-e2e-tests-changed: ${{ steps.check.outputs.only-e2e-tests-changed }}
     steps:
-      - name: Check if only metadata files changed
+      - name: Check change scope
         id: check
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -184,10 +185,15 @@ jobs:
             });
             const workspace = core.getInput('workspace');
             const metadataPrefix = `${workspace}/metadata/`;
+            const e2eTestsPrefix = `${workspace}/e2e-tests/`;
             const onlyMetadata = prFiles.data.length > 0 &&
               prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
+            const onlyE2eTests = prFiles.data.length > 0 &&
+              prFiles.data.every(f => f.filename.startsWith(e2eTestsPrefix));
             core.setOutput('only-metadata-changed', String(onlyMetadata));
+            core.setOutput('only-e2e-tests-changed', String(onlyE2eTests));
             core.info(`Only metadata changed: ${onlyMetadata}`);
+            core.info(`Only E2E tests changed: ${onlyE2eTests}`);
             if (onlyMetadata) {
               core.info('Build will be skipped - only metadata files were modified.');
             }
@@ -319,6 +325,9 @@ jobs:
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
       workspace-path: ${{ needs.prepare.outputs.workspace }}
       artifact-name-suffix: -pr-${{ needs.prepare.outputs.pr-number }}
+      # E2E-only fixes do not change the plugin source and should warn, rather than
+      # fail, when the workspace's declared Backstage version is incompatible.
+      fail-for-required-only: ${{ needs.detect-changes.outputs.only-e2e-tests-changed == 'true' }}
 
   add-completion-comment:
     needs:
