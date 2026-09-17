@@ -160,7 +160,10 @@ spec:
     - ./red-hat-developer-hub-backstage-plugin-x2a-mcp-extras.yaml
     - ./red-hat-developer-hub-backstage-plugin-x2a-scaffolder-module.yaml
     - ./red-hat-developer-hub-backstage-plugin-x2a.yaml
+    - ./rhdh-backstage-plugin-scorecard-backend-module-catalog.yaml
+    - ./rhdh-backstage-plugin-scorecard-backend-module-code-coverage.yaml
     - ./rhdh-backstage-plugin-scorecard-backend-module-dependabot.yaml
+    - ./rhdh-backstage-plugin-scorecard-backend-module-dora.yaml
     - ./rhdh-backstage-plugin-scorecard-backend-module-filecheck.yaml
     - ./rhdh-backstage-plugin-scorecard-backend-module-github.yaml
     - ./rhdh-backstage-plugin-scorecard-backend-module-jira.yaml
