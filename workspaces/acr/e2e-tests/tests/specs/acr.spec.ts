@@ -13,21 +13,12 @@ test.describe("Test ACR plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test("Verify ACR Images are visible", async ({
-    uiHelper,
-    page,
-  }, testInfo) => {
+  test("Verify ACR Images are visible", async ({ uiHelper, page }) => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
-    // eslint-disable-next-line playwright/no-conditional-in-test -- NFS nav differs from legacy
-    if (testInfo.project.name === "acr-app-next") {
-      const acrImagesLink = page.getByRole("link", { name: "ACR images" });
-      // eslint-disable-next-line playwright/no-conditional-expect -- NFS nav differs from legacy
-      await expect(acrImagesLink).toBeVisible();
-      await acrImagesLink.click();
-    } else {
-      await uiHelper.clickTab("Image Registry");
-    }
+    const acrImagesLink = page.getByRole("link", { name: "ACR images" });
+    await expect(acrImagesLink).toBeVisible();
+    await acrImagesLink.click();
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );
