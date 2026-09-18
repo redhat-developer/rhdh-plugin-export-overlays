@@ -39,11 +39,10 @@ export class Topology {
     await this.page.waitForTimeout(1000);
   }
 
-  async verifyMissingTopologyPermission() {
-    await this.uiHelper.verifyText("Missing Permission");
-    await this.uiHelper.verifyText("kubernetes.clusters.read");
-    await this.uiHelper.verifyText("kubernetes.resources.read");
-    await expect(this.page.getByLabel("Pod")).toBeHidden();
+  async verifyMissingTopologyTab() {
+    await expect(
+      this.page.getByRole("link", { name: "Topology", exact: true }),
+    ).toBeHidden();
   }
 
   async verifyDeployment(name: string) {
