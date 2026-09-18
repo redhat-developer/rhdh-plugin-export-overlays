@@ -1,7 +1,7 @@
 import { unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runOc } from "./workflow-deployment-helpers.js";
+import { runOc } from "./oc-helpers.js";
 
 type EnvEntry = { name: string; value: string };
 

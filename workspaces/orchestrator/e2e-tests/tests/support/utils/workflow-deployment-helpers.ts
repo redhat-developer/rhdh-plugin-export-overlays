@@ -16,8 +16,6 @@ import {
 import { patchWorkflowPropsForLokiLogging } from "./orchestrator-loki-helpers.js";
 import { runOc } from "./oc-helpers.js";
 
-export { runOc } from "./oc-helpers.js";
-
 const WORKFLOW_REPO =
   "https://github.com/rhdhorchestrator/serverless-workflows.git";
 const DEMO_WORKFLOW_REPO =

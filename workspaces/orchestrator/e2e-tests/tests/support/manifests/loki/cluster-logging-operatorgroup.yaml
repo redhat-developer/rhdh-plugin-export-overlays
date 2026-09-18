@@ -1,0 +1,8 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cluster-logging
+  namespace: ${LOKI_NS}
+spec:
+  targetNamespaces:
+    - ${LOKI_NS}

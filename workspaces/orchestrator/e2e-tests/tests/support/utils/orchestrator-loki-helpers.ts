@@ -77,52 +77,6 @@ function normalizeLokiApiPath(path: string): string {
   return trimmed || "/api/logs/v1/application";
 }
 
-async function resolveLokiInternalUrl(): Promise<string | undefined> {
-  const ns = process.env.LOKI_NAMESPACE ?? "openshift-logging";
-  const svc = process.env.LOKI_GATEWAY_SERVICE ?? "logging-loki-gateway-http";
-  try {
-    let portNum = "";
-    for (const portName of ["public", "https", "http"]) {
-      const result = runOcOptional([
-        "get",
-        "svc",
-        svc,
-        "-n",
-        ns,
-        "-o",
-        `jsonpath={.spec.ports[?(@.name=="${portName}")].port}`,
-      ]);
-      if (result.exitCode === 0) {
-        portNum = result.stdout;
-      }
-      if (portNum) {
-        break;
-      }
-    }
-    if (!portNum) {
-      const fallback = runOcOptional([
-        "get",
-        "svc",
-        svc,
-        "-n",
-        ns,
-        "-o",
-        "jsonpath={.spec.ports[0].port}",
-      ]);
-      if (fallback.exitCode === 0) {
-        portNum = fallback.stdout;
-      }
-    }
-    if (!portNum) {
-      return undefined;
-    }
-    const apiPath = normalizeLokiApiPath(LOKI_API_PATH_SUFFIX);
-    return `https://${svc}.${ns}.svc.cluster.local:${portNum}${apiPath}`;
-  } catch {
-    return undefined;
-  }
-}
-
 /** install-orchestrator-loki.sh prints the URL on stdout; logs go to stderr. */
 function parseLokiInstallScriptUrl(
   stdout: string,
@@ -218,37 +172,15 @@ async function verifyLokiApiReturnsJson(
   }
 }
 
-async function selectLokiBaseUrlForRhdh(
+async function verifyLokiExternalBaseUrl(
   externalUrl: string,
   token: string,
 ): Promise<string> {
-  const preferExternal = process.env.LOKI_USE_EXTERNAL_ROUTE === "true";
-  const internalUrl = await resolveLokiInternalUrl();
-  const candidates = preferExternal
-    ? [externalUrl, internalUrl]
-    : [internalUrl, externalUrl];
-
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-    try {
-      await verifyLokiApiReturnsJson(candidate, token);
-      console.warn(
-        `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
-      );
-      return candidate;
-    } catch (error) {
-      console.warn(
-        `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
-        error instanceof Error ? error.message : error,
-      );
-    }
-  }
-
-  throw new Error(
-    "No Loki baseUrl passed query_range probe (tried in-cluster gateway and external route)",
+  await verifyLokiApiReturnsJson(externalUrl, token);
+  console.warn(
+    `[configureOrchestratorLoki] Using Loki baseUrl: ${externalUrl}`,
   );
+  return externalUrl;
 }
 
 function buildLokiInstanceLogQuery(instanceId: string): string {
@@ -334,7 +266,7 @@ export async function configureOrchestratorLoki(): Promise<void> {
         `Loki install script returned invalid URL: ${externalUrl ?? "(empty)"}`,
       );
     }
-    process.env.LOKI_BASE_URL = await selectLokiBaseUrlForRhdh(
+    process.env.LOKI_BASE_URL = await verifyLokiExternalBaseUrl(
       externalUrl,
       process.env.AUTH_TOKEN ?? "",
     );

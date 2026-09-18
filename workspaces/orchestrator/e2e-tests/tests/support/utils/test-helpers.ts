@@ -19,10 +19,10 @@ export {
   configureOrchestratorLoki,
   waitForLokiWorkflowLogs,
 } from "./orchestrator-loki-helpers.js";
+export { runOc } from "./oc-helpers.js";
 export {
   deploySonataflow,
   prepareRhdhHelmRedeploy,
-  runOc,
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
 export {
