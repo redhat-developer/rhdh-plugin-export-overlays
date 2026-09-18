@@ -39,16 +39,14 @@ spec:
               appIcons:
                 - name: adoptionInsightsIcon
                   importName: AdoptionInsightsIcon
-                  module: Legacy
               dynamicRoutes:
                 - path: /adoption-insights
                   importName: AdoptionInsightsPage
-                  module: Legacy
                   menuItem:
                     icon: adoptionInsightsIcon
                     text: Adoption Insights
                     textKey: menuItem.adoptionInsights
               menuItems:
                 adoption-insights:
-                  parent: admin
+                  parent: default.admin
                   icon: adoptionInsightsIcon
