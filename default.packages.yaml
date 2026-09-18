@@ -40,7 +40,7 @@ packages:
   - package: '@red-hat-developer-hub/backstage-plugin-homepage'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-homepage-backend'
-    support: "gernerally-available"
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-global-header'
     support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-extensions'
@@ -52,21 +52,20 @@ packages:
 
   # should only include GA (or TP with a path to GA) content here
   disabled: 
-  # TODO enable these once we have time to onboard them correctly for 2.1
-  #- package: '@backstage/plugin-auth-backend-module-github-provider'
-  #  support: "generally-available"
-  #- package: '@backstage/plugin-auth-backend-module-gitlab-provider'
-  #  support: "generally-available"
-  #- package: '@backstage/plugin-auth-backend-module-guest-provider'
-  #  support: "generally-available"
-  #- package: '@backstage/plugin-auth-backend-module-microsoft-provider'
-  #  support: "generally-available"
-  #- package: '@backstage/plugin-auth-backend-module-oidc-provider'
-  #  support: "generally-available"
-  #- package: '@backstage-community/plugin-auth-backend-module-keycloak-provider'
-  #  support: "generally-available"
-  #- package: '@backstage-community/plugin-auth-backend-module-pingfederate-provider'
-  #  support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-github-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-gitlab-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-guest-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-microsoft-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-oidc-provider'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-auth-backend-module-keycloak-provider'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-auth-backend-module-pingfederate-provider'
+    support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
     support: "generally-available"
   - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
@@ -153,4 +152,6 @@ packages:
   - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck'
     support: "tech-preview"
   - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora'
     support: "tech-preview"

@@ -13,14 +13,13 @@ app-defaults/plugins/app-auth
 app-defaults/plugins/app-defaults
 app-defaults/plugins/app-integrations
 
-# TODO enable these once we have time to onboard them correctly for 2.1
-#backstage/plugins/auth-backend-module-github-provider
-#backstage/plugins/auth-backend-module-gitlab-provider
-#backstage/plugins/auth-backend-module-guest-provider
-#backstage/plugins/auth-backend-module-microsoft-provider
-#backstage/plugins/auth-backend-module-oidc-provider
-#keycloak/plugins/auth-backend-module-keycloak
-#pingidentity/plugins/auth-backend-module-pingfederate-provider
+backstage/plugins/auth-backend-module-github-provider
+backstage/plugins/auth-backend-module-gitlab-provider
+backstage/plugins/auth-backend-module-guest-provider
+backstage/plugins/auth-backend-module-microsoft-provider
+backstage/plugins/auth-backend-module-oidc-provider
+keycloak/plugins/auth-backend-module-keycloak
+pingidentity/plugins/auth-backend-module-pingfederate-provider
 
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
@@ -108,3 +107,4 @@ scorecard/plugins/scorecard-backend-module-openssf
 scorecard/plugins/scorecard-backend-module-filecheck
 scorecard/plugins/scorecard-backend-module-sonarqube
 scorecard/plugins/scorecard-backend-module-dependabot
+scorecard/plugins/scorecard-backend-module-dora

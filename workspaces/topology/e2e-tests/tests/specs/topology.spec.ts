@@ -35,7 +35,7 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak" });
+    await rhdh.configure({ auth: "keycloak", useNewFrontendSystem: true });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(
       "tests/config/rbac-configmap.yaml",
@@ -132,16 +132,13 @@ test.describe("Test Topology plugin", () => {
   });
 
   test.describe("Test Topology Plugin with RBAC", () => {
-    test("Verify guest user cannot see Topology pods", async ({
+    test("Verify guest user cannot see Topology tab", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
-
       await loginHelper.loginAsGuest();
-      await navigateToTopology(uiHelper);
-      await topo.verifyMissingTopologyPermission();
+      await topo.verifyMissingTopologyTab();
     });
 
     test("Verify limited user can see Topology but cannot view pod logs", async ({
