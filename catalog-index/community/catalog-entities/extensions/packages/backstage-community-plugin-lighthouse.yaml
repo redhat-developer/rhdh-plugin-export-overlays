@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@backstage-community/plugin-lighthouse'
   # Tag: bs_1.54.6__0.26.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:7c34edd572aa6ddc97b555e8278145cef1840637a11f04cca8b95ff6ef79cbaf"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-lighthouse@sha256:edeb9a9bac901471e848104df8c9672499f0586ddfe6f3f95e34306c79f6d75d"
   version: 0.26.0
   backstage:
     role: frontend-plugin
