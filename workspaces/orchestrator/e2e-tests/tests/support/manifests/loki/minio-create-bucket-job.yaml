@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${MINIO_NAME}-create-bucket
+  namespace: ${LOKI_NS}
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: ${MINIO_MC_IMAGE}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+          env:
+            - name: MC_CONFIG_DIR
+              value: /tmp/.mc
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${MINIO_NAME}-credentials
+                  key: rootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${MINIO_NAME}-credentials
+                  key: rootPassword
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              mc alias set local ${MINIO_ENDPOINT} "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
+              mc mb --ignore-existing "local/${MINIO_BUCKET}"
+              mc ls local

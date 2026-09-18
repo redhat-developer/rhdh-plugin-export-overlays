@@ -16,8 +16,13 @@ import {
   Response,
 } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 export {
+  configureOrchestratorLoki,
+  waitForLokiWorkflowLogs,
+} from "./orchestrator-loki-helpers.js";
+export { runOc } from "./oc-helpers.js";
+export {
   deploySonataflow,
-  runOc,
+  prepareRhdhHelmRedeploy,
   logOrchestratorDeployFailureDiagnostics,
 } from "./workflow-deployment-helpers.js";
 export {
