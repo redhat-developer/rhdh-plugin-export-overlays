@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${MINIO_NAME}
+  namespace: ${LOKI_NS}
+  labels:
+    app: ${MINIO_NAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${MINIO_NAME}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: ${MINIO_NAME}
+    spec:
+      containers:
+        - name: minio
+          image: ${MINIO_IMAGE}
+          args:
+            - server
+            - /data
+            - --console-address
+            - ":9090"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${MINIO_NAME}-credentials
+                  key: rootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ${MINIO_NAME}-credentials
+                  key: rootPassword
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9090
+              name: console
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ${MINIO_NAME}-data

@@ -6,6 +6,8 @@
 # Discovery (when logging-loki route already exists):
 #   https://$LOKI_HOST/api/logs/v1/application/
 #
+# Manifests: tests/support/manifests/loki/ (applied via envsubst + oc apply — idempotent).
+#
 # Environment:
 #   LOKI_NAMESPACE              (default: openshift-logging)
 #   LOKI_ROUTE_NAME             (default: logging-loki)
@@ -21,13 +23,15 @@
 #   LOKI_MINIO_SECRET_KEY       MinIO secret key (default: e2e-loki-minio-secret)
 #   LOKI_MINIO_STORAGE_SIZE     MinIO PVC size (default: 10Gi)
 #   LOKI_MINIO_IMAGE            MinIO server image
-#   LOKI_MINIO_MC_IMAGE            MinIO client image for bucket bootstrap
-#   LOKI_MINIO_USE_PVC            Use PVC for MinIO data (default: false = emptyDir, ROSA-friendly)
-#   LOKI_MINIO_ROLLOUT_TIMEOUT    MinIO deployment wait (default: 600)
+#   LOKI_MINIO_MC_IMAGE         MinIO client image for bucket bootstrap
+#   LOKI_MINIO_USE_PVC          Use PVC for MinIO data (default: false = emptyDir, ROSA-friendly)
+#   LOKI_MINIO_ROLLOUT_TIMEOUT  MinIO deployment wait (default: 600)
 #   LOKI_DISCOVER_ONLY          If true/1, skip install and fail when route is missing
 #
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MANIFESTS_DIR="${SCRIPT_DIR}/../manifests/loki"
 LOKI_STORAGE_CLASS="${LOKI_STORAGE_CLASS:-${VAULT_LOKI_STORAGE_CLASS:-}}"
 
 LOKI_NS="${LOKI_NAMESPACE:-openshift-logging}"
@@ -52,8 +56,21 @@ MINIO_ROLLOUT_TIMEOUT="${LOKI_MINIO_ROLLOUT_TIMEOUT:-600}"
 MINIO_USE_PVC="${LOKI_MINIO_USE_PVC:-false}"
 MINIO_ENDPOINT="http://${MINIO_NAME}.${LOKI_NS}.svc:9000"
 
+# envsubst only substitutes exported variables — export all manifest placeholders.
+export LOKI_NS LOKI_OPERATORS_NS LOKI_SIZE LOKI_SECRET_NAME \
+  MINIO_NAME MINIO_BUCKET MINIO_REGION MINIO_ACCESS_KEY MINIO_SECRET_KEY \
+  MINIO_STORAGE_SIZE MINIO_IMAGE MINIO_MC_IMAGE MINIO_ENDPOINT
+
 log() {
   echo "[install-orchestrator-loki] $*" >&2
+}
+
+# Only these placeholders are expanded — leaves shell vars like $MINIO_ROOT_USER intact.
+LOKI_MANIFEST_ENVS='$LOKI_NS $LOKI_OPERATORS_NS $LOKI_SIZE $LOKI_SECRET_NAME $LOKI_STORAGE_CLASS $LOKI_EFFECTIVE_DATE $LOKI_GATEWAY_CA_CONFIGMAP $MINIO_NAME $MINIO_BUCKET $MINIO_REGION $MINIO_ACCESS_KEY $MINIO_SECRET_KEY $MINIO_ENDPOINT $MINIO_IMAGE $MINIO_MC_IMAGE $MINIO_STORAGE_SIZE $SUBSCRIPTION_PACKAGE $SUBSCRIPTION_NAMESPACE $OPERATOR_CHANNEL'
+
+apply_loki_manifest() {
+  local template="$1"
+  envsubst "${LOKI_MANIFEST_ENVS}" < "${MANIFESTS_DIR}/${template}" | oc apply -f -
 }
 
 loki_url_from_route() {
@@ -70,83 +87,52 @@ print_loki_url() {
 }
 
 wait_for_loki_route() {
-  local elapsed=0 interval=15 url
-  while [[ "${elapsed}" -lt "${WAIT_TIMEOUT}" ]]; do
-    if url="$(loki_url_from_route)"; then
-      print_loki_url "${url}"
-      return 0
-    fi
-    sleep "${interval}"
-    elapsed=$((elapsed + interval))
-    log "Waiting for route ${LOKI_ROUTE} in ${LOKI_NS} (${elapsed}s/${WAIT_TIMEOUT}s)..."
-  done
-  return 1
+  local url
+  log "Waiting for route ${LOKI_ROUTE} in ${LOKI_NS} (timeout ${WAIT_TIMEOUT}s)..."
+  oc wait route/"${LOKI_ROUTE}" -n "${LOKI_NS}" \
+    --for=jsonpath='{.spec.host}' \
+    --timeout="${WAIT_TIMEOUT}s" || return 1
+  url="$(loki_url_from_route)" || return 1
+  print_loki_url "${url}"
 }
 
 wait_for_operator_csv() {
   local namespace="$1"
   local package_name="$2"
   local display_name="$3"
-  local timeout="$4"
-  log "Waiting for operator CSV '${display_name}' (${package_name}) in ${namespace} (timeout ${timeout}s)..."
-  timeout "${timeout}" bash <<EOF || {
-    ns='${namespace}'
-    pkg='${package_name}'
-    display='${display_name}'
-    elapsed=0
-    while true; do
-      row=\$(oc get csv -n "\${ns}" -o json 2>/dev/null \\
-        | jq -r --arg pkg "\${pkg}" --arg display "\${display}" '
-            [.items[]
-              | select(
-                  (.metadata.name | startswith(\$pkg))
-                  or (.spec.displayName == \$display)
-                )
-              | {name: .metadata.name, phase: (.status.phase // "unknown")}
-            ][0] // empty')
-      if [[ -n "\${row}" ]]; then
-        phase=\$(echo "\${row}" | jq -r '.phase')
-        name=\$(echo "\${row}" | jq -r '.name')
-        echo "[wait_for_operator_csv] \${name}: \${phase} (\${elapsed}s)" >&2
-        [[ "\${phase}" == "Succeeded" ]] && break
-      else
-        if oc get subscription "\${pkg}" -n "\${ns}" -o jsonpath='{.status.conditions[?(@.type=="ResolutionFailed")].status}' 2>/dev/null | grep -q True; then
-          echo "[wait_for_operator_csv] Subscription ResolutionFailed — check operator channel" >&2
-          oc describe subscription "\${pkg}" -n "\${ns}" 2>/dev/null | tail -20 >&2 || true
-          exit 1
-        fi
-        echo "[wait_for_operator_csv] CSV not created yet (\${elapsed}s)" >&2
-        oc get subscription,installplan -n "\${ns}" 2>/dev/null | head -10 >&2 || true
-      fi
-      sleep 15
-      elapsed=\$((elapsed + 15))
-    done
-EOF
-    log "ERROR: Operator ${package_name} did not reach Succeeded in ${namespace}"
-    log "Subscription / InstallPlan:"
-    oc get subscription,installplan -n "${namespace}" 2>/dev/null >&2 || true
-    log "ClusterServiceVersions:"
-    oc get csv -n "${namespace}" 2>/dev/null >&2 || true
+  local timeout_secs="$4"
+  local csv_label="operators.coreos.com/${package_name}.${namespace}"
+  local rc=0
+
+  log "Waiting for operator CSV '${display_name}' (${package_name}) in ${namespace} (timeout ${timeout_secs}s)..."
+
+  if oc get subscription "${package_name}" -n "${namespace}" \
+    -o jsonpath='{.status.conditions[?(@.type=="ResolutionFailed")].status}' 2>/dev/null \
+    | grep -q True; then
+    log "ERROR: Subscription ${package_name} ResolutionFailed — check operator channel"
     oc describe subscription "${package_name}" -n "${namespace}" 2>/dev/null | tail -30 >&2 || true
     return 1
-  }
-}
+  fi
 
-ensure_global_operator_group() {
-  if oc get operatorgroup -n "${LOKI_OPERATORS_NS}" -o name 2>/dev/null | grep -q .; then
-    log "OperatorGroup already present in ${LOKI_OPERATORS_NS}"
+  timeout "${timeout_secs}" sh -euc "
+    oc wait --for=create csv -l '${csv_label}' -n '${namespace}' --timeout=24h
+    oc wait csv -l '${csv_label}' -n '${namespace}' \
+      --for=jsonpath='{.status.phase}'=Succeeded --timeout=24h
+  " || rc=$?
+  if [[ "${rc}" -eq 0 ]]; then
     return 0
   fi
-  log "Creating global OperatorGroup in ${LOKI_OPERATORS_NS} (required for OLM CSV install)..."
-  oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: global-operators
-  namespace: ${LOKI_OPERATORS_NS}
-spec:
-  upgradeStrategy: Default
-EOF
+  if [[ "${rc}" -eq 124 ]]; then
+    log "ERROR: Timed out after ${timeout_secs}s waiting for operator ${package_name} in ${namespace}"
+  else
+    log "ERROR: Operator ${package_name} did not reach Succeeded in ${namespace} (exit ${rc})"
+  fi
+  log "Subscription / InstallPlan:"
+  oc get subscription,installplan -n "${namespace}" 2>/dev/null >&2 || true
+  log "ClusterServiceVersions:"
+  oc get csv -n "${namespace}" 2>/dev/null >&2 || true
+  oc describe subscription "${package_name}" -n "${namespace}" 2>/dev/null | tail -30 >&2 || true
+  return 1
 }
 
 get_default_storage_class() {
@@ -231,6 +217,10 @@ ensure_operator_subscription() {
   local channel="$3"
   local current=""
 
+  export SUBSCRIPTION_NAMESPACE="${namespace}"
+  export SUBSCRIPTION_PACKAGE="${package}"
+  export OPERATOR_CHANNEL="${channel}"
+
   if oc get subscription "${package}" -n "${namespace}" &>/dev/null; then
     current="$(oc get subscription "${package}" -n "${namespace}" -o jsonpath='{.spec.channel}')"
     if [[ "${current}" == "${channel}" ]] \
@@ -244,59 +234,14 @@ ensure_operator_subscription() {
   fi
 
   log "Subscribing to ${package} (channel=${channel}, namespace=${namespace})..."
-  oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ${package}
-  namespace: ${namespace}
-spec:
-  channel: ${channel}
-  installPlanApproval: Automatic
-  name: ${package}
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-EOF
-}
-
-ensure_loki_operators_namespace() {
-  if oc get namespace "${LOKI_OPERATORS_NS}" &>/dev/null; then
-    return 0
-  fi
-  log "Creating namespace ${LOKI_OPERATORS_NS}..."
-  oc apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${LOKI_OPERATORS_NS}
-  annotations:
-    openshift.io/node-selector: ""
-  labels:
-    openshift.io/cluster-monitoring: "true"
-EOF
-}
-
-ensure_logging_namespace() {
-  if oc get namespace "${LOKI_NS}" &>/dev/null; then
-    return 0
-  fi
-  log "Creating namespace ${LOKI_NS}..."
-  oc apply -f - <<EOF
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${LOKI_NS}
-  annotations:
-    openshift.io/node-selector: ""
-  labels:
-    openshift.io/cluster-logging: "true"
-    openshift.io/cluster-monitoring: "true"
-EOF
+  apply_loki_manifest "operator-subscription.yaml"
 }
 
 install_loki_operator() {
   local channel="$1"
-  ensure_global_operator_group
+  log "Applying global OperatorGroup in ${LOKI_OPERATORS_NS}..."
+  apply_loki_manifest "operators-namespace.yaml"
+  apply_loki_manifest "global-operatorgroup.yaml"
   ensure_operator_subscription "${LOKI_OPERATORS_NS}" "loki-operator" "${channel}"
   wait_for_operator_csv \
     "${LOKI_OPERATORS_NS}" \
@@ -307,22 +252,9 @@ install_loki_operator() {
 
 install_cluster_logging_operator() {
   local channel="$1"
-  ensure_logging_namespace
-
-  if ! oc get operatorgroup cluster-logging -n "${LOKI_NS}" &>/dev/null; then
-    log "Creating OperatorGroup cluster-logging in ${LOKI_NS}..."
-    oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: cluster-logging
-  namespace: ${LOKI_NS}
-spec:
-  targetNamespaces:
-    - ${LOKI_NS}
-EOF
-  fi
-
+  log "Applying logging namespace and OperatorGroup in ${LOKI_NS}..."
+  apply_loki_manifest "logging-namespace.yaml"
+  apply_loki_manifest "cluster-logging-operatorgroup.yaml"
   ensure_operator_subscription "${LOKI_NS}" "cluster-logging" "${channel}"
   wait_for_operator_csv \
     "${LOKI_NS}" \
@@ -332,20 +264,7 @@ EOF
 }
 
 install_minio() {
-  local storage_class volume_block minio_data_volume
-
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null \
-    && oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout=30s &>/dev/null; then
-    log "MinIO deployment already ready in ${LOKI_NS}"
-    ensure_minio_bucket
-    return 0
-  fi
-
-  # Replace a failed deployment (e.g. old runAsUser:1000 spec blocked by restricted-v2 SCC)
-  if oc get deployment "${MINIO_NAME}" -n "${LOKI_NS}" &>/dev/null; then
-    log "Replacing existing MinIO deployment in ${LOKI_NS}..."
-    oc delete deployment "${MINIO_NAME}" -n "${LOKI_NS}" --wait=true
-  fi
+  local storage_class
 
   if [[ "${MINIO_USE_PVC}" == "true" ]]; then
     storage_class="${LOKI_STORAGE_CLASS:-$(get_default_storage_class)}"
@@ -353,129 +272,19 @@ install_minio() {
       log "ERROR: Could not determine storageClassName for MinIO PVC"
       return 1
     }
-    volume_block="
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: ${MINIO_NAME}-data
-  namespace: ${LOKI_NS}
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: ${MINIO_STORAGE_SIZE}
-  storageClassName: ${storage_class}"
-    minio_data_volume="
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: ${MINIO_NAME}-data"
+    export LOKI_STORAGE_CLASS="${storage_class}"
     log "Ensuring in-cluster MinIO (${MINIO_NAME}) with PVC (${MINIO_STORAGE_SIZE}, ${storage_class})..."
+    apply_loki_manifest "minio-credentials-secret.yaml"
+    apply_loki_manifest "minio-pvc.yaml"
+    apply_loki_manifest "minio-service.yaml"
+    apply_loki_manifest "minio-deployment-pvc.yaml"
   else
     oc delete pvc "${MINIO_NAME}-data" -n "${LOKI_NS}" --ignore-not-found --wait=false
-    volume_block=""
-    minio_data_volume="
-      volumes:
-        - name: data
-          emptyDir: {}"
     log "Ensuring in-cluster MinIO (${MINIO_NAME}) with emptyDir (ROSA-compatible)..."
+    apply_loki_manifest "minio-credentials-secret.yaml"
+    apply_loki_manifest "minio-service.yaml"
+    apply_loki_manifest "minio-deployment-emptydir.yaml"
   fi
-
-  oc apply -f - <<EOF
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ${MINIO_NAME}-credentials
-  namespace: ${LOKI_NS}
-type: Opaque
-stringData:
-  rootUser: ${MINIO_ACCESS_KEY}
-  rootPassword: ${MINIO_SECRET_KEY}
-EOF
-
-  if [[ -n "${volume_block}" ]]; then
-    oc apply -f - <<<"${volume_block#---
-}"
-  fi
-
-  oc apply -f - <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: ${MINIO_NAME}
-  namespace: ${LOKI_NS}
-  labels:
-    app: ${MINIO_NAME}
-spec:
-  ports:
-    - name: api
-      port: 9000
-      targetPort: 9000
-  selector:
-    app: ${MINIO_NAME}
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: ${MINIO_NAME}
-  namespace: ${LOKI_NS}
-  labels:
-    app: ${MINIO_NAME}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: ${MINIO_NAME}
-  strategy:
-    type: Recreate
-  template:
-    metadata:
-      labels:
-        app: ${MINIO_NAME}
-    spec:
-      containers:
-        - name: minio
-          image: ${MINIO_IMAGE}
-          args:
-            - server
-            - /data
-            - --console-address
-            - ":9090"
-          env:
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-          ports:
-            - containerPort: 9000
-              name: api
-            - containerPort: 9090
-              name: console
-          readinessProbe:
-            httpGet:
-              path: /minio/health/ready
-              port: 9000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          volumeMounts:
-            - name: data
-              mountPath: /data
-${minio_data_volume}
-EOF
 
   log "Waiting for MinIO deployment (timeout ${MINIO_ROLLOUT_TIMEOUT}s)..."
   if ! oc rollout status "deployment/${MINIO_NAME}" -n "${LOKI_NS}" --timeout="${MINIO_ROLLOUT_TIMEOUT}s"; then
@@ -493,68 +302,22 @@ EOF
 
 ensure_minio_bucket() {
   oc delete job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" --ignore-not-found
-  oc apply -f - <<EOF
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: ${MINIO_NAME}-create-bucket
-  namespace: ${LOKI_NS}
-spec:
-  backoffLimit: 6
-  template:
-    spec:
-      restartPolicy: OnFailure
-      containers:
-        - name: mc
-          image: ${MINIO_MC_IMAGE}
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-          env:
-            - name: MC_CONFIG_DIR
-              value: /tmp/.mc
-            - name: MINIO_ROOT_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootUser
-            - name: MINIO_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ${MINIO_NAME}-credentials
-                  key: rootPassword
-          command:
-            - /bin/sh
-            - -ec
-            - |
-              mc alias set local ${MINIO_ENDPOINT} "\${MINIO_ROOT_USER}" "\${MINIO_ROOT_PASSWORD}"
-              mc mb --ignore-existing "local/${MINIO_BUCKET}"
-              mc ls local
-EOF
+  apply_loki_manifest "minio-create-bucket-job.yaml"
 
   log "Waiting for MinIO bucket job..."
-  timeout 180 oc wait "job/${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" \
-    --for=condition=complete --timeout=180s
+  if ! timeout 180 oc wait "job/${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" \
+    --for=condition=complete --timeout=180s; then
+    log "ERROR: MinIO bucket job did not complete"
+    oc describe job "${MINIO_NAME}-create-bucket" -n "${LOKI_NS}" >&2 || true
+    oc logs -n "${LOKI_NS}" -l "job-name=${MINIO_NAME}-create-bucket" --all-containers >&2 || true
+    return 1
+  fi
   log "MinIO ready at ${MINIO_ENDPOINT}, bucket=${MINIO_BUCKET}"
 }
 
-create_loki_object_storage_secret() {
-  if oc get secret "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" &>/dev/null; then
-    log "Secret ${LOKI_SECRET_NAME} already exists in ${LOKI_NS}"
-    return 0
-  fi
-
-  log "Creating Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
-  oc create secret generic "${LOKI_SECRET_NAME}" -n "${LOKI_NS}" \
-    --from-literal=bucketnames="${MINIO_BUCKET}" \
-    --from-literal=endpoint="${MINIO_ENDPOINT}" \
-    --from-literal=access_key_id="${MINIO_ACCESS_KEY}" \
-    --from-literal=access_key_secret="${MINIO_SECRET_KEY}" \
-    --from-literal=region="${MINIO_REGION}" \
-    --from-literal=forcepathstyle="true"
+apply_loki_object_storage_secret() {
+  log "Applying Loki object storage secret ${LOKI_SECRET_NAME} (MinIO endpoint=${MINIO_ENDPOINT})..."
+  apply_loki_manifest "loki-object-storage-secret.yaml"
 }
 
 lokistack_ready() {
@@ -581,74 +344,49 @@ diagnose_lokistack_scheduling() {
 }
 
 ensure_lokistack() {
-  local storage_class effective_date current replication_block=""
+  local storage_class current
   storage_class="${LOKI_STORAGE_CLASS:-$(get_default_storage_class)}"
   [[ -n "${storage_class}" ]] || {
     log "ERROR: Could not determine a storageClassName for LokiStack"
     return 1
   }
-  effective_date="$(date -u +%Y-%m-%d)"
-
-  if [[ "${LOKI_SIZE}" == "1x.demo" ]]; then
-    replication_block="
-  replicationFactor: 1"
-  fi
+  export LOKI_STORAGE_CLASS="${storage_class}"
+  export LOKI_EFFECTIVE_DATE="$(date -u +%Y-%m-%d)"
 
   if oc get lokistack logging-loki -n "${LOKI_NS}" &>/dev/null; then
     current="$(oc get lokistack logging-loki -n "${LOKI_NS}" -o jsonpath='{.spec.size}')"
-    if lokistack_ready; then
-      if [[ "${current}" != "${LOKI_SIZE}" ]]; then
+    if [[ "${current}" != "${LOKI_SIZE}" ]]; then
+      if lokistack_ready; then
         log "LokiStack logging-loki Ready at size=${current}; LOKI_SIZE=${LOKI_SIZE} ignored"
       else
-        log "LokiStack logging-loki already Ready (size=${current})"
+        log "LokiStack size=${current} not Ready; patching to ${LOKI_SIZE}..."
+        if [[ "${LOKI_SIZE}" == "1x.demo" ]]; then
+          oc patch lokistack logging-loki -n "${LOKI_NS}" --type=merge \
+            -p "{\"spec\":{\"size\":\"${LOKI_SIZE}\",\"replicationFactor\":1}}" || return 1
+        else
+          oc patch lokistack logging-loki -n "${LOKI_NS}" --type=merge \
+            -p "{\"spec\":{\"size\":\"${LOKI_SIZE}\"}}" || return 1
+        fi
       fi
       return 0
     fi
-    if [[ "${current}" != "${LOKI_SIZE}" ]]; then
-      log "LokiStack size=${current} not Ready; patching to ${LOKI_SIZE}..."
-      if [[ "${LOKI_SIZE}" == "1x.demo" ]]; then
-        oc patch lokistack logging-loki -n "${LOKI_NS}" --type=merge \
-          -p "{\"spec\":{\"size\":\"${LOKI_SIZE}\",\"replicationFactor\":1}}" || return 1
-      else
-        oc patch lokistack logging-loki -n "${LOKI_NS}" --type=merge \
-          -p "{\"spec\":{\"size\":\"${LOKI_SIZE}\"}}" || return 1
-      fi
-      return 0
-    fi
-    log "LokiStack logging-loki exists (size=${current}), waiting for Ready..."
+    log "LokiStack logging-loki exists (size=${current})"
     return 0
   fi
 
   log "Creating LokiStack logging-loki (size=${LOKI_SIZE}, storageClass=${storage_class})..."
-  oc apply -f - <<EOF
-apiVersion: loki.grafana.com/v1
-kind: LokiStack
-metadata:
-  name: logging-loki
-  namespace: ${LOKI_NS}
-spec:
-  size: ${LOKI_SIZE}${replication_block}
-  storage:
-    schemas:
-      - version: v13
-        effectiveDate: "${effective_date}"
-    secret:
-      name: ${LOKI_SECRET_NAME}
-      type: s3
-  storageClassName: ${storage_class}
-  tenants:
-    mode: openshift-logging
-EOF
+  if [[ "${LOKI_SIZE}" == "1x.demo" ]]; then
+    apply_loki_manifest "lokistack-demo.yaml"
+  else
+    apply_loki_manifest "lokistack.yaml"
+  fi
 }
 
 ensure_collector_service_account() {
   local sa="collector"
   local sa_ref="system:serviceaccount:${LOKI_NS}:${sa}"
 
-  if ! oc get sa "${sa}" -n "${LOKI_NS}" &>/dev/null; then
-    log "Creating collector ServiceAccount in ${LOKI_NS}..."
-    oc create sa "${sa}" -n "${LOKI_NS}"
-  fi
+  apply_loki_manifest "collector-serviceaccount.yaml"
 
   for role in \
     collect-application-logs \
@@ -671,7 +409,7 @@ loki_gateway_ca_configmap() {
 }
 
 wait_for_cluster_log_forwarder_ready() {
-  local elapsed=0 interval=15 clf="collector"
+  local clf="collector"
 
   if ! oc get crd clusterlogforwarders.observability.openshift.io &>/dev/null; then
     return 0
@@ -681,25 +419,15 @@ wait_for_cluster_log_forwarder_ready() {
   fi
 
   log "Waiting for ClusterLogForwarder ${clf} to become Ready (timeout ${WAIT_TIMEOUT}s)..."
-  while [[ "${elapsed}" -lt "${WAIT_TIMEOUT}" ]]; do
-    if [[ "$(oc get clusterlogforwarder "${clf}" -n "${LOKI_NS}" \
-      -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null)" == "True" ]]; then
-      log "ClusterLogForwarder ${clf} is Ready"
-      return 0
-    fi
-    sleep "${interval}"
-    elapsed=$((elapsed + interval))
-    log "ClusterLogForwarder not Ready yet (${elapsed}s/${WAIT_TIMEOUT}s)..."
-  done
+  if oc wait clusterlogforwarder/"${clf}" -n "${LOKI_NS}" \
+    --for=condition=Ready --timeout="${WAIT_TIMEOUT}s"; then
+    log "ClusterLogForwarder ${clf} is Ready"
+    return 0
+  fi
 
   log "WARNING: ClusterLogForwarder ${clf} Ready condition not reached"
   oc get clusterlogforwarder "${clf}" -n "${LOKI_NS}" -o yaml >&2 || true
   return 0
-}
-
-ensure_log_collection() {
-  apply_cluster_log_forwarder
-  wait_for_cluster_log_forwarder_ready
 }
 
 apply_cluster_log_forwarder() {
@@ -710,67 +438,21 @@ apply_cluster_log_forwarder() {
 
   ensure_collector_service_account
 
-  if oc get clusterlogforwarder collector -n "${LOKI_NS}" &>/dev/null; then
-    log "ClusterLogForwarder collector already exists"
-    return 0
-  fi
-
-  local ca_cm
-  ca_cm="$(loki_gateway_ca_configmap)"
-
-  log "Creating ClusterLogForwarder collector (Logging 6.x API, tls.ca=${ca_cm})..."
-  oc apply -f - <<EOF
-apiVersion: observability.openshift.io/v1
-kind: ClusterLogForwarder
-metadata:
-  name: collector
-  namespace: ${LOKI_NS}
-spec:
-  serviceAccount:
-    name: collector
-  outputs:
-    - name: default-lokistack
-      type: lokiStack
-      lokiStack:
-        authentication:
-          token:
-            from: serviceAccount
-        target:
-          name: logging-loki
-          namespace: ${LOKI_NS}
-      tls:
-        ca:
-          key: service-ca.crt
-          configMapName: ${ca_cm}
-  pipelines:
-    - name: default-logstore
-      inputRefs:
-        - application
-        - infrastructure
-      outputRefs:
-        - default-lokistack
-EOF
+  export LOKI_GATEWAY_CA_CONFIGMAP="$(loki_gateway_ca_configmap)"
+  log "Applying ClusterLogForwarder collector (Logging 6.x API, tls.ca=${LOKI_GATEWAY_CA_CONFIGMAP})..."
+  apply_loki_manifest "cluster-log-forwarder.yaml"
 }
 
 wait_for_lokistack_ready() {
-  local elapsed=0 interval=30
   if ! oc get lokistack logging-loki -n "${LOKI_NS}" &>/dev/null; then
     return 0
   fi
   log "Waiting for LokiStack logging-loki to become Ready (timeout ${WAIT_TIMEOUT}s)..."
-  while [[ "${elapsed}" -lt "${WAIT_TIMEOUT}" ]]; do
-    if lokistack_ready; then
-      log "LokiStack logging-loki is Ready"
-      return 0
-    fi
-    if (( elapsed > 0 && elapsed % 120 == 0 )); then
-      diagnose_lokistack_scheduling
-      oc get pods -n "${LOKI_NS}" -l app.kubernetes.io/name=lokistack 2>/dev/null >&2 || true
-    fi
-    sleep "${interval}"
-    elapsed=$((elapsed + interval))
-    log "LokiStack not Ready yet (${elapsed}s/${WAIT_TIMEOUT}s)..."
-  done
+  if oc wait lokistack/logging-loki -n "${LOKI_NS}" \
+    --for=condition=Ready --timeout="${WAIT_TIMEOUT}s"; then
+    log "LokiStack logging-loki is Ready"
+    return 0
+  fi
   diagnose_lokistack_scheduling
   log "WARNING: LokiStack Ready condition not reached; continuing to wait for route"
   oc get lokistack logging-loki -n "${LOKI_NS}" -o yaml >&2 || true
@@ -783,11 +465,10 @@ install_openshift_logging() {
   channel="$(resolve_logging_stack_channel)" || return 1
 
   log "Installing OpenShift Logging (Loki) with in-cluster MinIO..."
-  ensure_loki_operators_namespace
   install_loki_operator "${channel}"
   install_cluster_logging_operator "${channel}"
   install_minio
-  create_loki_object_storage_secret
+  apply_loki_object_storage_secret
   ensure_lokistack
   wait_for_lokistack_ready
   apply_cluster_log_forwarder
@@ -807,10 +488,15 @@ loki_is_healthy() {
 
 recover_lokistack() {
   log "Recovering unhealthy LokiStack in ${LOKI_NS} (target size=${LOKI_SIZE})..."
-  create_loki_object_storage_secret
+  apply_loki_object_storage_secret
   ensure_lokistack
   wait_for_lokistack_ready
   apply_cluster_log_forwarder
+}
+
+ensure_log_collection() {
+  apply_cluster_log_forwarder
+  wait_for_cluster_log_forwarder_ready
 }
 
 main() {
