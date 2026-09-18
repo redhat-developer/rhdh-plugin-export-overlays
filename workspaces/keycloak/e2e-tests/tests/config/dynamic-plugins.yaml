@@ -1,4 +1,8 @@
 # Auth provider metadata exists for publish, but E2E keeps the standard OIDC path
 # (e2e-test-utils keycloak auth profile) until RHIDP-11651. An empty list here
 # prevents metadata auto-generation from enabling the auth provider plugin.
-plugins: []
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.2
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org:bs_1.54.6__0.7.8
+    disabled: false
