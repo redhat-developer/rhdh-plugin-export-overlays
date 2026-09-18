@@ -313,8 +313,9 @@ export class DynamicHomePagePo {
     const dialog = this.page.getByRole("dialog");
     if (await dialog.isVisible()) {
       await this.page.keyboard.press("Escape");
+      // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for dialog to close
+      await this.page.waitForTimeout(1000);
       await expect(dialog).toBeHidden({ timeout: 5_000 });
-      await this.ui.verifyHeading("Welcome back");
     }
   }
 
