@@ -66,8 +66,8 @@ jobs:
           fi
 
           PERIODIC="periodic-ci-redhat-developer-rhdh-plugin-export-overlays-${INPUT_BRANCH}-e2e-ocp-helm-nightly"
-          GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/${PERIODIC}"
-          PROW="https://prow.ci.openshift.org/view/gs/test-platform-results/logs/${PERIODIC}"
+          GCS="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public/logs/${PERIODIC}"
+          PROW="https://prow.ci.openshift.org/view/gs/test-platform-results-public/logs/${PERIODIC}"
 
           RUN_ID=$(curl -fsSL --proto =https "${GCS}/" | grep -oE '[0-9]{19,}' | sort -u -r | head -1) || true
           if [[ -z "${RUN_ID}" ]]; then
