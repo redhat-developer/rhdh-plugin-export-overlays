@@ -7,7 +7,7 @@ export const BULK_IMPORT_ACCORDION_LABEL =
   "Import to Red Hat Developer Hub" as const;
 
 /**
- * Holds for both the legacy and the app-next lanes, from different sources:
+ * Holds across the current frontend's supported navigation sources:
  * the nav item comes from the plugin's `PageBlueprint` (`title: 'Bulk import'`) under
  * NFS and from the Scalprum `menuItem.text` under the legacy shell, while the H1 comes
  * from the plugin's own `<Header title={t('page.title')}>` in both — the blueprint sets

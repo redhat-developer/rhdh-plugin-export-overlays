@@ -35,7 +35,7 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-    await rhdh.configure({ auth: "keycloak", useNewFrontendSystem: true });
+    await rhdh.configure({ auth: "keycloak" });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(
       "tests/config/rbac-configmap.yaml",

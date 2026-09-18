@@ -38,7 +38,7 @@ test.describe("Test Kubernetes Actions plugin", () => {
 
   test("Creates kubernetes namespace", async ({ page, uiHelper }, testInfo) => {
     // Keep the name unique per project/worker/retry so parallel lanes (legacy +
-    // app-next) never collide, while staying within the 63-char RFC 1123 limit.
+    // never collide, while staying within the 63-char RFC 1123 limit.
     namespace =
       `tka-${testInfo.workerIndex}-${testInfo.retry}-${Date.now()}`.slice(
         0,
