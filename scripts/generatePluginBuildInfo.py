@@ -15,6 +15,7 @@
 # - midstream: from container env MIDSTREAM_REPO
 
 import argparse
+import base64
 import hashlib
 import json
 import os
@@ -48,8 +49,26 @@ RARC_RHDH_PREFIX = RARC_DOMAIN + "/rhdh/"
 
 DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
 
+
 # Matches a clean version suffix: "2.18.0", "1.5", but NOT ".att", ".sbom", bare SHAs, etc.
 VERSION_SUFFIX_RE = re.compile(r'^\d+\.\d+(\.\d+)?$')
+
+
+def decode_dynamic_packages(annotation: str | None) -> list | None:
+    """Decode the ``io.backstage.dynamic-packages`` annotation into its package list.
+
+    Returns the list, ``[]`` when the annotation declares nothing, or ``None`` when it
+    cannot be read. Callers act on those three differently, so they stay distinct.
+    """
+    if not annotation:
+        return []
+    try:
+        decoded = base64.b64decode("".join(annotation.split()), validate=True)
+        packages = json.loads(decoded)
+    except ValueError:
+        return None
+    return packages if isinstance(packages, list) else None
+
 
 # Matches a three-part version prefix (x.y.z), captures x.y for alias resolution
 THREE_PART_PREFIX_RE = re.compile(r'^(\d+\.\d+)\.\d+$')
@@ -462,8 +481,26 @@ def _fetch_image_metadata(registry_reference: str) -> dict[str, str] | None:
         # Extract OCI manifest-level annotations (e.g., io.backstage.dynamic-packages)
         manifest_annotations = manifest.get('annotations', {})
         dynamic_packages = manifest_annotations.get(DYNAMIC_PACKAGES_ANNOTATION)
-        if dynamic_packages:
+        # Kept even when empty: dropping it here is what made an artifact that ships
+        # nothing indistinguishable downstream from one that never declared anything.
+        if dynamic_packages is not None:
             metadata[DYNAMIC_PACKAGES_ANNOTATION] = dynamic_packages
+
+        # An artifact that ships no dynamic packages installs as a no-op, and the
+        # absence only surfaces much later. Report it here, where it is still named.
+        packages = decode_dynamic_packages(dynamic_packages)
+        if packages is None:
+            log_warn(
+                f"{registry_reference} has a malformed {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: it is not base64-encoded JSON, so the packages it ships "
+                "cannot be determined"
+            )
+        elif not packages and DYNAMIC_PACKAGES_ANNOTATION in manifest_annotations:
+            log_warn(
+                f"{registry_reference} declares an empty {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation: the artifact ships no dynamic packages and installing it "
+                "is a no-op"
+            )
 
         if config_digest:
             blob_url = f"https://{registry}/v2/{repository}/blobs/{config_digest}"
@@ -873,6 +910,15 @@ def _record_image_metadata_report(report: BuildReport, data: dict) -> None:
         if not digest:
             continue
         stage_kwargs: dict = {"digest": digest}
+        # The fetch succeeded, so the stage stays a pass — but an artifact that ships
+        # no readable package list installs as a no-op, and a green stage with no
+        # detail says the opposite.
+        if DYNAMIC_PACKAGES_ANNOTATION in pdata:
+            packages = decode_dynamic_packages(pdata[DYNAMIC_PACKAGES_ANNOTATION])
+            if packages is None:
+                stage_kwargs["dynamicPackagesUnreadable"] = True
+            elif not packages:
+                stage_kwargs["dynamicPackages"] = 0
         if pdata.get("fallback"):
             resolved_ref = pdata.get("registryReference", "")
             ref_tag = resolved_ref.rsplit(":", 1)[-1]
