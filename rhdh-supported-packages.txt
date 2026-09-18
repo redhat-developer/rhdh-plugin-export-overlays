@@ -102,10 +102,10 @@ intelligent-assistant/plugins/intelligent-assistant-backend
 # Scorecard plugins (TP in 2.1)
 scorecard/plugins/scorecard
 scorecard/plugins/scorecard-backend
-scorecard/plugins/scorecard-backend-module-jira
-scorecard/plugins/scorecard-backend-module-github
-scorecard/plugins/scorecard-backend-module-openssf
-scorecard/plugins/scorecard-backend-module-filecheck
-scorecard/plugins/scorecard-backend-module-sonarqube
 scorecard/plugins/scorecard-backend-module-dependabot
 scorecard/plugins/scorecard-backend-module-dora
+scorecard/plugins/scorecard-backend-module-filecheck
+scorecard/plugins/scorecard-backend-module-github
+scorecard/plugins/scorecard-backend-module-jira
+scorecard/plugins/scorecard-backend-module-openssf
+scorecard/plugins/scorecard-backend-module-sonarqube
