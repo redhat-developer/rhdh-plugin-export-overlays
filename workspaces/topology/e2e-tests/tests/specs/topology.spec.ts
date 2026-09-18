@@ -135,7 +135,6 @@ test.describe("Test Topology plugin", () => {
     test("Verify guest user cannot see Topology tab", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
       await loginHelper.loginAsGuest();
