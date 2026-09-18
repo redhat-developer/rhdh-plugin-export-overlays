@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@roadiehq/backstage-plugin-jira"
   # Tag: bs_1.54.6__2.14.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira@sha256:32f5dc9ff5db2b639dbac70aefd3c4581062aa4dba158538ba896113d750b13b"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira@sha256:a50a7bf0e9f6de2a7e35a97e7203c478f5ad3fd1ba8722c10a20eddf4a901003"
   version: 2.14.0
   backstage:
     role: frontend-plugin
