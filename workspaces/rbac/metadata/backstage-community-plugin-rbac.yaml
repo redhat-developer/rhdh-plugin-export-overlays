@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/rbac
   tags: []
 spec:
-  packageName: '@backstage-community/plugin-rbac'
+  packageName: "@backstage-community/plugin-rbac"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-rbac:bs_1.54.9__2.3.1
   version: 2.3.1
   backstage:
