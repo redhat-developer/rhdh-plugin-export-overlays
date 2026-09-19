@@ -1,9 +1,3 @@
 plugins:
-  - package: ref://red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions
-    disabled: false
-  - package: ref://red-hat-developer-hub-backstage-plugin-extensions-backend
-    disabled: false
-  - package: ref://red-hat-developer-hub-backstage-plugin-extensions
-    disabled: false
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
     disabled: false
