@@ -80,6 +80,10 @@ configure_rbac() {
 get_argocd_credentials() {
   echo "=== Retrieving ArgoCD credentials ==="
 
+  # Wait for the operator to create the Route (may lag behind Deployment readiness)
+  wait_for "ArgoCD server route" \
+    "oc get route openshift-gitops-server -n ${GITOPS_NAMESPACE}" 120 10
+
   ARGOCD_URL="https://$(oc get route openshift-gitops-server -n "${GITOPS_NAMESPACE}" -o jsonpath='{.spec.host}')"
   echo "ArgoCD URL: ${ARGOCD_URL}"
 
