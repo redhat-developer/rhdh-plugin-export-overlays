@@ -492,6 +492,27 @@ After changes, run from the workspace's e2e-tests directory:
     npx eslint <changed-files>
     npx prettier --check <changed-files>
 
+### Nightly config plugin enablement
+
+Nightly E2E configs (`dynamic-plugins-nightly.yaml`) must explicitly enable every
+plugin the tests require. Never assume plugins are enabled by default in the
+catalog index -- the chart's `dynamic-plugins.default.yaml` may disable them.
+
+Prefer `ref://` entries over hardcoded OCI URLs:
+```yaml
+# Correct: ref:// entries auto-resolve from metadata, stay current across versions
+- package: ref://plugin-name
+  disabled: false
+
+# Avoid: hardcoded OCI entries go stale when versions change
+- package: oci://ghcr.io/.../plugin-name:bs_1.52.0__3.0.3
+  disabled: false
+```
+
+When fixing a workspace where nightly tests fail because a plugin is not loaded,
+check the install log for "Disabling OCI plugin" messages to confirm the plugin
+was disabled by default, then add explicit `ref://` entries.
+
 ## Documentation
 
 - `README.md` — Repo overview, PR workflow, testing procedures
