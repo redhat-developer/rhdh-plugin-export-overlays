@@ -118,8 +118,35 @@ for all subagent results before proceeding.
 Subagents return evidence, not classifications. This phase is where
 classification happens — using the evidence from all workspaces together.
 
+### Pre-check: Workspace-Wide Failure Ratio
+
+Before classifying individual failures, assess the workspace-level failure
+ratio. This check prevents filing individual test-fix issues for workspaces
+with systemic problems.
+
+For each workspace in the nightly run:
+
+1. Count the total number of tests and the number of failures.
+2. If the workspace has ≥4 tests and ≥75% failed, flag it as a
+   **systemic workspace failure**.
+3. For flagged workspaces:
+   - Set `fix_category: product_bug` regardless of individual test analysis.
+   - Create a single workspace-level issue (not per-test issues) listing
+     all failing tests and describing the systemic pattern.
+   - Title: `[fullsend] E2E: <workspace> — systemic workspace failure (<failed>/<total> tests)`
+   - Do NOT emit individual `test_fix` issues for tests in a flagged
+     workspace — fixing one test is pointless when the workspace itself
+     is broken.
+
+This pre-check overrides per-test classification. A workspace where 7 of 8
+tests fail has an infrastructure or configuration problem — not 7
+independent test bugs. Skip the per-test classification below for any
+workspace flagged as systemic.
+
+### Per-test classification
+
 Classify each failure independently, then organize by workspace. For each
-workspace, assign a `fix_category`:
+workspace (not flagged as systemic above), assign a `fix_category`:
 
 | Category | When |
 |----------|------|
