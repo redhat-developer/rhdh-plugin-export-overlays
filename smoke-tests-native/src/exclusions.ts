@@ -22,9 +22,9 @@
  *   install — the artifact is not pulled at all (cannot be pulled anonymously, or
  *             installing it breaks the whole run). Loses everything.
  *   boot    — the artifact IS pulled and its layout validated, but the plugin is not
- *             loaded into `startTestBackend`. Loses only the boot signal. This is
- *             what the catalog-extending modules need: the catalog core does not boot
- *             standalone, but their published artifacts are still worth validating.
+ *             loaded into `startTestBackend`. Loses only the boot signal. Use when a
+ *             plugin crashes the backend (e.g. the pagerduty entity-processor,
+ *             RHDHBUGS-3707) but its published artifact is still worth validating.
  *
  * The regex is matched against the npm PACKAGE NAME (`spec.packageName` in metadata,
  * `name` in the installed package.json) — one identifier space for both scopes.
