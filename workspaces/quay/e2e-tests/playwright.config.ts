@@ -5,7 +5,7 @@ process.env.SKIP_KEYCLOAK_DEPLOYMENT = "true";
 export default defineConfig({
   projects: [
     {
-      name: "quay", // Also used as Kubernetes namespace
+      name: "quay-app-next", // Also used as Kubernetes namespace
     },
   ],
 });
