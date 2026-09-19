@@ -6,11 +6,11 @@
 # the UI until then.
 plugins:
   # Version from workspaces/backstage export: backstage-plugin-home
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.52.0__0.9.7
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-home:bs_1.54.6__0.9.9
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.52.0__1.17.1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage:bs_1.54.6__2.0.0
     enabled: true
   # Version from workspaces/homepage/metadata/red-hat-developer-hub-backstage-plugin-homepage-backend.yaml
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.52.0__0.4.0
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend:bs_1.54.6__0.6.0
     enabled: true
