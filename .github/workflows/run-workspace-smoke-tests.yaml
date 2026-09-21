@@ -206,8 +206,10 @@ jobs:
           echo "===== Checking logs for plugin loaded messages"
           for plugin in "${PLUGINS[@]}"; do
             echo "Asserting plugin loaded: $plugin"
-            # Match loaded plugins by unpack path; allow both root and /alpha module paths.
-            if echo "$LOGS" | grep -qiE "loaded dynamic (frontend|backend) plugin .* from 'file:///opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?'" ; then
+            # Scalprum (OFS): "Loaded dynamic … from 'file:///…/<plugin>'"
+            # NFS:           "Exposed dynamic … from '/…/<plugin>/dist'"
+            # rhdh:next may emit only the NFS line for NFS-only packages.
+            if echo "$LOGS" | grep -qiE "(loaded|exposed) dynamic (frontend|backend) plugin .* from ['\"]?(file://)?/opt/app-root/src/dynamic-plugins-root/${plugin}(/alpha)?(/dist)?['\"]?" ; then
               echo "Plugin loaded: $plugin"
             else
               echo "Plugin NOT loaded: $plugin"
