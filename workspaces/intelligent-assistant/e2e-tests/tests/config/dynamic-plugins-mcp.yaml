@@ -1,4 +1,7 @@
-# Same 1.11-CI overlay as dynamic-plugins.yaml, plus MCP actions + extras.
+# Default dynamic-plugins overlay for IA E2E (selected by test-helper.ts).
+# IA + MCP actions/extras. Nightly without MCP uses dynamic-plugins-nightly.yaml
+# when DISABLE_MCP_NIGHTLY is set.
+#
 # RHDH 1.11-CI catalog index is on quay.io; e2e-test-utils 2.1.8 still emits
 # registry.access.redhat.com {{inherit}} for keycloak. inherit only matches
 # the same image registry/repo, so remap keycloak to quay and disable the
