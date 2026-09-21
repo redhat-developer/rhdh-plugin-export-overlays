@@ -11,8 +11,8 @@ app:
     - translation:app/global-header-translations
     - api:app/app-language:
         config:
-          availableLanguages: ['en', 'de', 'es', 'fr', 'it', 'ja']
-          defaultLanguage: 'en'
+          availableLanguages: ["en", "de", "es", "fr", "it", "ja"]
+          defaultLanguage: "en"
   support:
     url: https://github.com/redhat-developer/rhdh/issues
     items:

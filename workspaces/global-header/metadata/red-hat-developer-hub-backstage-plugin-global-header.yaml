@@ -15,7 +15,7 @@ metadata:
     backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-header
   tags: []
 spec:
-  packageName: '@red-hat-developer-hub/backstage-plugin-global-header'
+  packageName: "@red-hat-developer-hub/backstage-plugin-global-header"
   dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.6__3.1.0
   version: 3.1.0
   backstage:
@@ -41,14 +41,14 @@ spec:
             - translation:app/global-header-translations
             - api:app/app-language:
                 config:
-                  availableLanguages: ['en', 'de', 'es', 'fr', 'it', 'ja']
-                  defaultLanguage: 'en'
+                  availableLanguages: ["en", "de", "es", "fr", "it", "ja"]
+                  defaultLanguage: "en"
         dynamicPlugins:
           frontend:
             default.main-menu-items:
               menuItems:
                 default.create:
-                  title: ''
+                  title: ""
                 default.admin:
                   title: Administration
                   textKey: menuItem.administration
@@ -67,7 +67,7 @@ spec:
             default.main-menu-items:
               menuItems:
                 default.create:
-                  title: ''
+                  title: ""
                 default.admin:
                   title: Administration
                   textKey: menuItem.administration
