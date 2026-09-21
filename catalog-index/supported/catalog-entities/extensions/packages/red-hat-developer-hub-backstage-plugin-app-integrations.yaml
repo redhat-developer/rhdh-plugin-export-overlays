@@ -17,13 +17,13 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-app-integrations"
   # Tag: bs_1.54.6__1.1.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:b8be810e2aea8b4cbe0a387fddaac70e51068fdba7130f0c69be1c5e8562160c"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-integrations@sha256:52db38fb56d898cf1bac55faf328a2f6b766d626a129885bf4d76739b71ae057"
   version: 1.1.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.6
   author: Red Hat
-  support: tech-preview
+  support: generally-available
   lifecycle: active
   partOf:
     - app-integrations

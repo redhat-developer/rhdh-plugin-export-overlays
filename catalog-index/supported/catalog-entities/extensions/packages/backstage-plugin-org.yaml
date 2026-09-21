@@ -1,0 +1,31 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-org
+  namespace: rhdh
+  title: "Org"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/org
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/org
+  tags: []
+spec:
+  packageName: "@backstage/plugin-org"
+  # Tag: bs_1.54.6__0.7.8
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-org@sha256:b232328406fe8ba3c72d1064b4eb32f0a056913a401016379fc91780137f522b"
+  version: 0.7.8
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - org
+  appConfigNotRequired: true
+  appConfigExamples: []
