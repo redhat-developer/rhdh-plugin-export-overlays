@@ -27,7 +27,35 @@ spec:
   partOf:
     - global-header
   appConfigExamples:
-    - title: Default configuration
+    # v3+ default module is NFS-only; Scalprum Legacy exposedModules were removed.
+    # Keep this example first — smoke/e2e inject appConfigExamples[0].
+    - title: Default configuration (NFS)
+      content:
+        app:
+          sidebar:
+            search: false
+            settings: false
+            logo: false
+          extensions:
+            - app-root-wrapper:app/global-header
+            - translation:app/global-header-translations
+            - api:app/app-language:
+                config:
+                  availableLanguages: ['en', 'de', 'es', 'fr', 'it', 'ja']
+                  defaultLanguage: 'en'
+        dynamicPlugins:
+          frontend:
+            default.main-menu-items:
+              menuItems:
+                default.create:
+                  title: ''
+                default.admin:
+                  title: Administration
+                  textKey: menuItem.administration
+                  icon: admin
+    # OFS / Scalprum Legacy mount points — only for Old Frontend System hosts that
+    # still resolve module: Legacy. Not used by NFS e2e (examples[0] above).
+    - title: Old frontend system (Legacy / OFS)
       content:
         app:
           sidebar:

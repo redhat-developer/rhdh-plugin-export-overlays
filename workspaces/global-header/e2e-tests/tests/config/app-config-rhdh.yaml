@@ -1,4 +1,18 @@
+# NFS global-header requires these app.extensions (see upstream
+# plugins/global-header/app-config.dynamic.yaml). Sidebar chrome is disabled so
+# search/settings live in the header, matching the e2e assertions.
 app:
+  sidebar:
+    search: false
+    settings: false
+    logo: false
+  extensions:
+    - app-root-wrapper:app/global-header
+    - translation:app/global-header-translations
+    - api:app/app-language:
+        config:
+          availableLanguages: ['en', 'de', 'es', 'fr', 'it', 'ja']
+          defaultLanguage: 'en'
   support:
     url: https://github.com/redhat-developer/rhdh/issues
     items:
