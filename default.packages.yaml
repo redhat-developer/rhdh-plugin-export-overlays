@@ -106,6 +106,8 @@ packages:
     support: "tech-preview"
   - package: '@backstage/plugin-notifications-backend-module-email'
     support: "tech-preview"
+  - package: '@backstage/plugin-org'
+    support: "generally-available"
   - package: '@backstage/plugin-scaffolder-backend-module-github'
     support: generally-available
   - package: '@backstage/plugin-scaffolder-backend-module-gitlab'
