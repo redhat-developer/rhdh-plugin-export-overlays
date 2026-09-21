@@ -1588,7 +1588,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9d8a066de1d3c29cc72645f72a590189221e1a545c3eabda5626545fe5646d01"
+          "digest": "sha256:9d8a066de1d3c29cc72645f72a590189221e1a545c3eabda5626545fe5646d01",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__1.1.1",
+          "resolvedTag": "bs_1.54.6__1.1.0"
         },
         "dpdy": {
           "status": "pass"
@@ -1599,7 +1602,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[index-missing-entry] 'red-hat-developer-hub-backstage-plugin-app-auth' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.6__1.1.0 after bs_1.54.6__1.1.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1616,7 +1619,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c70b2eee71e5019b656bdb549f0235c95ddb489c75905357844fa9ce783eb45c"
+          "digest": "sha256:c70b2eee71e5019b656bdb549f0235c95ddb489c75905357844fa9ce783eb45c",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__1.1.1",
+          "resolvedTag": "bs_1.54.6__1.1.0"
         },
         "dpdy": {
           "status": "pass"
@@ -1627,7 +1633,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[index-missing-entry] 'red-hat-developer-hub-backstage-plugin-app-integrations' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.6__1.1.0 after bs_1.54.6__1.1.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1644,7 +1650,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:fd91fc7d3800b0568a906aec41274cc2f924eaeb790466b4c290fa20a3282abc"
+          "digest": "sha256:fd91fc7d3800b0568a906aec41274cc2f924eaeb790466b4c290fa20a3282abc",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__1.5.0",
+          "resolvedTag": "bs_1.54.6__1.3.0"
         },
         "dpdy": {
           "status": "pass"
@@ -1655,7 +1664,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[index-missing-entry] 'red-hat-developer-hub-backstage-plugin-app-defaults' is declared in dynamic-plugins.default.yaml but has no index.json entry"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.6__1.3.0 after bs_1.54.6__1.5.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
