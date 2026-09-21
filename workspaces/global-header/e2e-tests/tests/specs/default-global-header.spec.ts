@@ -6,7 +6,6 @@ test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      useNewFrontendSystem: true,
       disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
     });
     await rhdh.deploy();

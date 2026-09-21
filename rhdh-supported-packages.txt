@@ -13,14 +13,13 @@ app-defaults/plugins/app-auth
 app-defaults/plugins/app-defaults
 app-defaults/plugins/app-integrations
 
-# TODO enable these once we have time to onboard them correctly for 2.1
-#backstage/plugins/auth-backend-module-github-provider
-#backstage/plugins/auth-backend-module-gitlab-provider
-#backstage/plugins/auth-backend-module-guest-provider
-#backstage/plugins/auth-backend-module-microsoft-provider
-#backstage/plugins/auth-backend-module-oidc-provider
-#keycloak/plugins/auth-backend-module-keycloak
-#pingidentity/plugins/auth-backend-module-pingfederate-provider
+backstage/plugins/auth-backend-module-github-provider
+backstage/plugins/auth-backend-module-gitlab-provider
+backstage/plugins/auth-backend-module-guest-provider
+backstage/plugins/auth-backend-module-microsoft-provider
+backstage/plugins/auth-backend-module-oidc-provider
+keycloak/plugins/auth-backend-module-keycloak
+pingidentity/plugins/auth-backend-module-pingfederate-provider
 
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
@@ -28,6 +27,7 @@ backstage/plugins/catalog-backend-module-ldap
 backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
+backstage/plugins/org
 backstage/plugins/signals
 backstage/plugins/signals-backend
 backstage/plugins/techdocs
@@ -102,9 +102,10 @@ intelligent-assistant/plugins/intelligent-assistant-backend
 # Scorecard plugins (TP in 2.1)
 scorecard/plugins/scorecard
 scorecard/plugins/scorecard-backend
-scorecard/plugins/scorecard-backend-module-jira
-scorecard/plugins/scorecard-backend-module-github
-scorecard/plugins/scorecard-backend-module-openssf
-scorecard/plugins/scorecard-backend-module-filecheck
-scorecard/plugins/scorecard-backend-module-sonarqube
 scorecard/plugins/scorecard-backend-module-dependabot
+scorecard/plugins/scorecard-backend-module-dora
+scorecard/plugins/scorecard-backend-module-filecheck
+scorecard/plugins/scorecard-backend-module-github
+scorecard/plugins/scorecard-backend-module-jira
+scorecard/plugins/scorecard-backend-module-openssf
+scorecard/plugins/scorecard-backend-module-sonarqube
