@@ -28,27 +28,16 @@ spec:
     - global-header
   appConfigExamples:
     # v3+ default module is NFS-only; Scalprum Legacy exposedModules were removed.
-    # Keep this example first — smoke/e2e inject appConfigExamples[0].
+    # Keep this example first — smoke/e2e inject appConfigExamples[0] into pluginConfig.
+    # NFS app.extensions live in e2e app-config-rhdh.yaml (and RHDH app-config), not here.
     - title: Default configuration (NFS)
       content:
-        app:
-          sidebar:
-            search: false
-            settings: false
-            logo: false
-          extensions:
-            - app-root-wrapper:app/global-header
-            - translation:app/global-header-translations
-            - api:app/app-language:
-                config:
-                  availableLanguages: ["en", "de", "es", "fr", "it", "ja"]
-                  defaultLanguage: "en"
         dynamicPlugins:
           frontend:
             default.main-menu-items:
               menuItems:
                 default.create:
-                  title: ""
+                  title: ''
                 default.admin:
                   title: Administration
                   textKey: menuItem.administration

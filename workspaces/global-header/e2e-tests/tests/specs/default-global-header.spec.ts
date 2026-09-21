@@ -4,9 +4,11 @@ import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/help
 
 test.describe("Default Global Header", () => {
   test.beforeAll(async ({ rhdh }) => {
+    // Do not set disablePlugins for global-header: it marks the OCI entry from
+    // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.
     await rhdh.configure({
       auth: "keycloak",
-      disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
