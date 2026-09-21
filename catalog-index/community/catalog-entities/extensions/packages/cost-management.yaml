@@ -22,10 +22,10 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/plugin-cost-management"
   dynamicArtifact: oci://quay.io/redhat-resource-optimization/dynamic-plugins:2.2.2
-  version: 2.3.0
+  version: 2.4.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.54.4
+    supportedVersions: 1.54.6
   author: Red Hat
   support: tech-preview
   lifecycle: active
