@@ -8,7 +8,6 @@ test.describe("Default Global Header", () => {
     // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.
     await rhdh.configure({
       auth: "keycloak",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });
