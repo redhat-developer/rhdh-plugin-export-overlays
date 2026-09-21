@@ -12,7 +12,6 @@ const GITLAB_EVENTS_RHDH_CONFIG: DeploymentOptions = {
   secrets: "tests/config/gitlab-events/rhdh-secrets.yaml",
   dynamicPlugins: "tests/config/gitlab-events/dynamic-plugins.yaml",
   valueFile: "tests/config/gitlab-events/value-file.yaml",
-  useNewFrontendSystem: true,
 };
 
 /** Worker fixture shape used by GitLab events E2E suites */
