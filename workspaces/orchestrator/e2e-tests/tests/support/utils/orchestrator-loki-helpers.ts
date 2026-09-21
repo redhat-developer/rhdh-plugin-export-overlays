@@ -218,32 +218,49 @@ async function verifyLokiApiReturnsJson(
   }
 }
 
+async function tryLokiUrlCandidate(
+  candidate: string,
+  token: string,
+): Promise<string | undefined> {
+  try {
+    await verifyLokiApiReturnsJson(candidate, token);
+    console.warn(
+      `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
+    );
+    return candidate;
+  } catch (error) {
+    console.warn(
+      `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
+}
+
 async function selectLokiBaseUrlForRhdh(
   externalUrl: string,
   token: string,
+  timeoutMs = 600_000,
 ): Promise<string> {
   const preferExternal = process.env.LOKI_USE_EXTERNAL_ROUTE === "true";
-  const internalUrl = await resolveLokiInternalUrl();
-  const candidates = preferExternal
-    ? [externalUrl, internalUrl]
-    : [internalUrl, externalUrl];
+  const deadline = Date.now() + timeoutMs;
 
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
+  while (Date.now() < deadline) {
+    const internalUrl = await resolveLokiInternalUrl();
+    const candidates = preferExternal
+      ? [externalUrl, internalUrl]
+      : [internalUrl, externalUrl];
+
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      const accepted = await tryLokiUrlCandidate(candidate, token);
+      if (accepted) {
+        return accepted;
+      }
     }
-    try {
-      await verifyLokiApiReturnsJson(candidate, token);
-      console.warn(
-        `[configureOrchestratorLoki] Using Loki baseUrl: ${candidate}`,
-      );
-      return candidate;
-    } catch (error) {
-      console.warn(
-        `[configureOrchestratorLoki] Loki URL candidate rejected (${candidate}):`,
-        error instanceof Error ? error.message : error,
-      );
-    }
+    await sleep(15_000);
   }
 
   throw new Error(

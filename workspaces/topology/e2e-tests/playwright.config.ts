@@ -1,5 +1,8 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
+/**
+ * Topology plugin E2E test configuration using the current RHDH frontend.
+ */
 export default defineConfig({
   projects: [
     {

@@ -13,7 +13,7 @@
 #   The plugins' real sources live in the upstream repo, so remap-coverage.cjs
 #   concatenates each plugin's coverage onto a single committed ANCHOR file:
 #
-#     workspaces/<workspace>/coverage-anchors/<scalprum-name>
+#     workspaces/<workspace>/coverage-anchors/<webpack-remote>
 #
 #   Codecov validates the path's existence but not its content or length, so
 #   the anchors are empty and STATIC: they never need regenerating when the
@@ -21,9 +21,11 @@
 #   gains a metadata Package entity (the remap warns when a covered plugin has
 #   no anchor). Idempotent — regenerates the anchor set from scratch.
 #
-#   The anchor name is the plugin's scalprum name (explicit `scalprum.name`
-#   from the plugin's package.json, or the default `<scope>.<name>`), which is
-#   exactly the webpack remote that keys the coverage source maps.
+#   An anchor is named after a webpack remote — the name that keys the coverage
+#   source maps. A plugin gets one anchor per remote it can publish under,
+#   because the two builds that can serve it name that remote differently; see
+#   scripts/print-plugin-remotes.sh for the derivation and why emitting only one
+#   silently cost app-defaults every byte of its coverage.
 #
 # Requires: gh (authenticated), jq
 
@@ -86,6 +88,10 @@ echo "  Source:    $SLUG @ $REPO_REF"
 echo "  Output:    $OUT_ROOT"
 
 GENERATED=0
+# Which plugin claimed each anchor name, so a second plugin deriving the same one
+# is reported rather than silently skipped. Declared associative: without this
+# bash treats the subscript as arithmetic and every key collapses onto index 0.
+declare -A ANCHOR_OWNER=()
 
 # plugins-list.yaml keys are plugin paths relative to the source workspace
 # (e.g. `plugins/theme:`), optionally with export args as values. Quotes are
@@ -103,17 +109,36 @@ while IFS= read -r plugin_path; do
     continue
   fi
 
-  # The webpack remote in the coverage source maps is the plugin's scalprum
-  # name: explicit `scalprum.name`, or the default `<scope>.<name>` derived
-  # from the package name.
-  SCALPRUM_NAME=$(echo "$PKG_JSON" | jq -r '.scalprum.name // empty')
-  if [[ -z "$SCALPRUM_NAME" ]]; then
-    SCALPRUM_NAME=$(echo "$PKG_NAME" | sed 's|^@||; s|/|.|')
-  fi
+  # A plugin can reach the browser through either of two builds, which name the
+  # webpack remote differently, and which one serves it is not visible from
+  # here. Both names get an anchor; they are empty files, so covering both costs
+  # nothing. See scripts/print-plugin-remotes.sh for the derivation and why emitting
+  # only one silently cost app-defaults every byte of its coverage.
+  DECLARED_NAME=$(echo "$PKG_JSON" | jq -r '.scalprum.name // empty')
 
-  : > "$OUT_ROOT/$SCALPRUM_NAME"
-  echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-anchors/$SCALPRUM_NAME"
-  GENERATED=$((GENERATED + 1))
+  # Command substitution, not `< <(...)`: process substitution discards the
+  # helper's exit status even under `set -e`, so a failing derivation would
+  # produce no anchors, no warning and a green run — the silent drop this whole
+  # change exists to remove.
+  REMOTES=$("$SCRIPT_DIR/print-plugin-remotes.sh" "$PKG_NAME" "$DECLARED_NAME")
+
+  while IFS= read -r anchor; do
+    if [[ -e "$OUT_ROOT/$anchor" ]]; then
+      # Two causes, and only one is benign. A plugin whose two forms coincide
+      # (`foo` derives to `foo` both ways) writes one file and moves on. Two
+      # DIFFERENT plugins deriving one name — `@scope/a-b` and `@scope/a_b` both
+      # give `scope__a_b` — is a real ambiguity, and swallowing it is how
+      # coverage goes missing without anyone noticing.
+      if [[ "${ANCHOR_OWNER[$anchor]:-}" != "$plugin_path" ]]; then
+        echo "  [WARN] $plugin_path ($PKG_NAME): anchor '$anchor' already claimed by ${ANCHOR_OWNER[$anchor]} — its coverage cannot be told apart" >&2
+      fi
+      continue
+    fi
+    : > "$OUT_ROOT/$anchor"
+    ANCHOR_OWNER[$anchor]="$plugin_path"
+    echo "  [OK]   $plugin_path ($PKG_NAME) -> coverage-anchors/$anchor"
+    GENERATED=$((GENERATED + 1))
+  done <<<"$REMOTES"
 done < <(grep -E '^[^ #].*:' "$WORKSPACE_DIR/plugins-list.yaml" | sed "s/:.*//; s/[\"']//g")
 
 # No per-workspace README is written: the anchor mechanism is documented once

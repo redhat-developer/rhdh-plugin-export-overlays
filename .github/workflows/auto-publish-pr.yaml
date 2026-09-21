@@ -169,8 +169,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       only-metadata-changed: ${{ steps.check.outputs.only-metadata-changed }}
+      only-e2e-tests-changed: ${{ steps.check.outputs.only-e2e-tests-changed }}
     steps:
-      - name: Check if only metadata files changed
+      - name: Check change scope
         id: check
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
@@ -186,10 +187,15 @@ jobs:
             });
             const workspace = core.getInput('workspace');
             const metadataPrefix = `${workspace}/metadata/`;
+            const e2eTestsPrefix = `${workspace}/e2e-tests/`;
             const onlyMetadata = prFiles.data.length > 0 &&
               prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
+            const onlyE2eTests = prFiles.data.length > 0 &&
+              prFiles.data.every(f => f.filename.startsWith(e2eTestsPrefix));
             core.setOutput('only-metadata-changed', String(onlyMetadata));
+            core.setOutput('only-e2e-tests-changed', String(onlyE2eTests));
             core.info(`Only metadata changed: ${onlyMetadata}`);
+            core.info(`Only E2E tests changed: ${onlyE2eTests}`);
             if (onlyMetadata) {
               core.info('Build will be skipped - only metadata files were modified.');
             }
@@ -213,7 +219,7 @@ jobs:
 
     steps:
       - name: Checkout overlay repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ needs.prepare.outputs.overlay-repo }}
           ref: ${{ needs.prepare.outputs.overlay-branch }}
@@ -244,7 +250,7 @@ jobs:
           echo "node-version=${node_version}" >> $GITHUB_OUTPUT
 
       - name: Checkout plugins repository (flat)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.source-config.outputs.plugins-root == '.'
         with:
           repository: ${{ steps.source-config.outputs.plugins-repo }}
@@ -252,7 +258,7 @@ jobs:
           path: source-repo
 
       - name: Checkout plugins repository (workspace)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.source-config.outputs.plugins-root != '.'
         with:
           repository: ${{ steps.source-config.outputs.plugins-repo }}
@@ -263,7 +269,7 @@ jobs:
           path: source-repo
 
       - name: Setup Node.js ${{ steps.source-config.outputs.node-version }}
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ steps.source-config.outputs.node-version }}
 
@@ -348,7 +354,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ needs.prepare.outputs.overlay-repo }}
           ref: ${{ needs.prepare.outputs.overlay-branch }}
@@ -374,7 +380,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.check-e2e.outputs.has-e2e == 'true'
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
 
@@ -404,6 +410,9 @@ jobs:
       overlay-repo: ${{ needs.prepare.outputs.overlay-repo }}
       workspace-path: ${{ needs.prepare.outputs.workspace }}
       artifact-name-suffix: -pr-${{ needs.prepare.outputs.pr-number }}
+      # E2E-only fixes do not change the plugin source and should warn, rather than
+      # fail, when the workspace's declared Backstage version is incompatible.
+      fail-for-required-only: ${{ needs.detect-changes.outputs.only-e2e-tests-changed == 'true' }}
 
   add-completion-comment:
     needs:

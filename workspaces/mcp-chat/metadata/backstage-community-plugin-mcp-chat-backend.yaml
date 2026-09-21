@@ -17,7 +17,7 @@ metadata:
     - mcp
 spec:
   packageName: '@backstage-community/plugin-mcp-chat-backend'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-mcp-chat-backend:bs_1.49.4__0.8.0!backstage-community-plugin-mcp-chat-backend
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-mcp-chat-backend:bs_1.49.4__0.8.0
   version: 0.8.0
   author: Backstage Community
   support: community

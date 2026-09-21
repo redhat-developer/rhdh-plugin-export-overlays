@@ -62,9 +62,8 @@ test.describe("Test Quay.io plugin", () => {
     const quayClient = new QuayClient();
 
     test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.clickLink({
-        ariaLabel: "Self-service",
-      });
+      await uiHelper.openCatalogSidebar("Component");
+      await uiHelper.clickButton("Self-service");
       await uiHelper.verifyHeading("Self-service");
     });
 

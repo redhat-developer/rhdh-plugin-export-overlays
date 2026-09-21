@@ -2,7 +2,7 @@
 # Manual changes might be lost - proceed with caution!
 
 __metadata:
-  version: 8
+  version: 10
   cacheKey: 10c0
 
 "@axe-core/playwright@npm:4.11.1":
@@ -289,9 +289,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@red-hat-developer-hub/e2e-test-utils@npm:2.1.3":
-  version: 2.1.3
-  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.3"
+"@red-hat-developer-hub/e2e-test-utils@npm:2.1.17":
+  version: 2.1.17
+  resolution: "@red-hat-developer-hub/e2e-test-utils@npm:2.1.17"
   dependencies:
     "@axe-core/playwright": "npm:4.11.1"
     "@backstage-community/plugin-rbac-common": "npm:1.26.0"
@@ -314,7 +314,9 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
-  checksum: 10c0/1af02f980aaadde041c110f827788187e360b498be5dec0aef18e6862e9d2f8f070df3c7dee97380b5bef1a95f353feae4db0d08b133a2f41453764ca4fffda9
+  bin:
+    rhdh-e2e-secrets: ./dist/secrets/cli.js
+  checksum: 10c0/510e2d3870d7b198747e59b9259129c96e772935b02f6cf799958b34064d0cb7f70d5c30ad6605aae6c8059795ed52fe82c247e3b60fbf69927fa05bdef449ff
   languageName: node
   linkType: hard
 
@@ -1936,7 +1938,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:10.0.1"
     "@playwright/test": "npm:1.59.1"
-    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.3"
+    "@red-hat-developer-hub/e2e-test-utils": "npm:2.1.17"
     "@types/node": "npm:25.5.2"
     eslint: "npm:10.2.0"
     eslint-plugin-check-file: "npm:3.3.1"

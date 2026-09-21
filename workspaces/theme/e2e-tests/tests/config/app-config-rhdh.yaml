@@ -9,19 +9,13 @@ app:
     theme:
       light:
         primaryColor: "#2A61A7"
-        headerColor1: "rgb(216, 98, 208)"
-        headerColor2: "rgb(216, 164, 98)"
-        navigationIndicatorColor: "rgb(98, 216, 105)"
         palette:
           rhdh:
             general:
-              sidebarItemSelectedBackgroundColor: "#f0f0f0"
+              appBarBackgroundColor: "rgb(216, 98, 208)"
       dark:
         primaryColor: "#DC6ED9"
-        headerColor1: "rgb(190, 122, 45)"
-        headerColor2: "rgb(45, 190, 50)"
-        navigationIndicatorColor: "rgb(45, 113, 190)"
         palette:
           rhdh:
             general:
-              sidebarItemSelectedBackgroundColor: "#333333"
+              appBarBackgroundColor: "rgb(190, 122, 45)"

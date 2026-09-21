@@ -1,4 +1,4 @@
-import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
   const dateRegex =
@@ -13,10 +13,12 @@ test.describe("Test ACR plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test("Verify ACR Images are visible", async ({ uiHelper }) => {
+  test("Verify ACR Images are visible", async ({ uiHelper, page }) => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
-    await uiHelper.clickTab("Image Registry");
+    const acrImagesLink = page.getByRole("link", { name: "ACR images" });
+    await expect(acrImagesLink).toBeVisible();
+    await acrImagesLink.click();
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
     );

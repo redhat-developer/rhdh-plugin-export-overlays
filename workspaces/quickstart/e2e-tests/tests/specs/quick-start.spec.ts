@@ -4,7 +4,7 @@ test.describe("Test Quick Start plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "keycloak",
-      disableWrappers: ["red-hat-developer-hub-backstage-plugin-quickstart"],
+      disablePlugins: ["red-hat-developer-hub-backstage-plugin-quickstart"],
     });
     await rhdh.deploy();
   });
@@ -43,12 +43,11 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Browse and install extensions");
     await uiHelper.verifyButtonURL("Explore plugins", "/extensions");
     await uiHelper.clickButtonByText("Explore plugins");
-    await uiHelper.verifyText("Catalog");
-    await uiHelper.verifyText(/Plugins \((\d+)\)/);
+    await expect(page).toHaveURL("/extensions");
 
-    await uiHelper.clickButtonByText("Set up Lightspeed");
+    await uiHelper.clickButtonByText("Set up Intelligent Assistant");
     await uiHelper.verifyTextVisible(
-      "Connect Lightspeed to a supported large language model",
+      "Connect Intelligent Assistant to a supported large language model",
     );
     await uiHelper.verifyButtonURL(
       "Learn more",
@@ -61,7 +60,11 @@ test.describe("Test Quick Start plugin", () => {
     await expect(page.getByRole("button", { name: "Hide" })).toBeHidden();
   });
 
-  test("Access Quick start as User", async ({ loginHelper, uiHelper }) => {
+  test("Access Quick start as User", async ({
+    loginHelper,
+    page,
+    uiHelper,
+  }) => {
     await loginHelper.loginAsKeycloakUser();
     await uiHelper.verifyText("Let's get you started with Developer Hub");
     await uiHelper.verifyText("We'll guide you through a few quick steps");
@@ -80,15 +83,17 @@ test.describe("Test Quick Start plugin", () => {
     await uiHelper.verifyTextVisible("Use our self-service templates");
     await uiHelper.verifyButtonURL("Explore templates", "/create");
     await uiHelper.clickButtonByText("Explore templates");
-    await uiHelper.verifyHeading("Self-service");
+    // await uiHelper.verifyHeading("Self-service"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3676
+    await uiHelper.verifyHeading("Create");
 
     await uiHelper.clickButtonByText("Find all Learning Paths");
     await uiHelper.verifyTextVisible("Integrate tailored e-learning");
     await uiHelper.verifyButtonURL("View Learning Paths", "/learning-paths");
     await uiHelper.clickButtonByText("View Learning Paths");
-    await uiHelper.verifyHeading("Learning Paths");
+    // await uiHelper.verifyHeading("Learning Paths"); // TODO: https://redhat.atlassian.net/browse/RHDHBUGS-3681
+    await expect(page).toHaveURL("/learning-paths");
 
-    await uiHelper.clickButtonByText("Get started with Lightspeed");
+    await uiHelper.clickButtonByText("Get started with Intelligent Assistant");
     await uiHelper.verifyTextVisible("Troubleshoot issues, generate code");
     await uiHelper.verifyButtonURL(
       "Learn more",

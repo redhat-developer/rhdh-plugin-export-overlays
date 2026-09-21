@@ -201,7 +201,7 @@ Comment on your workspace PR:
 | Before | After |
 |--------|-------|
 | No `backstage.json` | `backstage.json` with `{"version": "1.49.4"}` |
-| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1!...` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1!...` |
+| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1` |
 
 > **Note:** Metadata files with local paths (e.g., `./dynamic-plugins/dist/...`) are left unchanged.
 

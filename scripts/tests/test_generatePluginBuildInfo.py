@@ -1,5 +1,7 @@
 """Tests for generatePluginBuildInfo.py — parsing, tag listing, and registry reference transforms."""
 
+import base64
+import json
 import re
 from unittest.mock import MagicMock, patch
 
@@ -8,6 +10,7 @@ import pytest
 SHA256_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 import generatePluginBuildInfo
+from plugin_utils import BuildReport
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +308,7 @@ class TestFetchImageMetadata:
         assert metadata is not None
         assert SHA256_DIGEST_RE.match(metadata["digest"])
 
-    def test_ghcr_returns_dynamic_packages_annotation(self):
+    def test_ghcr_returns_dynamic_packages_b64(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
         assert "io.backstage.dynamic-packages" in metadata
@@ -549,7 +552,7 @@ class TestCollectFallbackEntries:
         )
         result = generatePluginBuildInfo.collect_fallback_entries(tmp_path)
         assert result == [
-            ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
+            ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0", "topology"),
         ]
 
     def test_empty_when_no_fallbacks(self, tmp_path):
@@ -562,49 +565,66 @@ class TestCollectFallbackEntries:
 
 
 # ---------------------------------------------------------------------------
-# _fallback_regex_fragment / print_fallback_rebuild_cta
+# print_fallback_rebuild_cta
 # ---------------------------------------------------------------------------
 
-class TestFallbackRegexFragment:
-    """Unit tests for packages-list path fragments used in rebuild CTA regex."""
+class TestFallbackRebuildCta:
+    """Unit tests for the outdated-plugin rebuild CTA."""
 
-    @pytest.mark.parametrize(
-        "container, expected",
-        [
-            ("backstage-community-plugin-topology", "topology"),
-            (
-                "backstage-community-plugin-catalog-backend-module-pingidentity",
-                "catalog-backend-module-pingidentity",
-            ),
-            ("backstage-plugin-kubernetes", "kubernetes"),
-            ("redhat-backstage-plugin-orchestrator", "orchestrator"),
-            ("red-hat-developer-hub-backstage-plugin-lightspeed", "backstage-plugin-lightspeed"),
-            ("custom-container-name", "custom-container-name"),
-        ],
-    )
-    def test_strips_known_prefixes(self, container, expected):
-        assert generatePluginBuildInfo._fallback_regex_fragment(container) == expected
-
-    def test_cta_regex_includes_fetched_version(self, capsys):
-        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1-rhel-9"):
+    def test_cta_upstream_lists_fallbacks_without_midstream_steps(self, capsys):
+        with patch("generatePluginBuildInfo._in_midstream_repo", return_value=False), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version") as fetch_version:
             generatePluginBuildInfo.print_fallback_rebuild_cta(
                 [
-                    ("backstage-community-plugin-topology", "1.11--1.5.4", "1.11--1.6.0"),
-                    ("backstage-plugin-kubernetes", "1.11--1.5.4", "1.11--1.6.0"),
+                    ("backstage-community-plugin-topology", "2.0--1.5.4", "2.0--1.6.0", "topology"),
+                    ("backstage-plugin-kubernetes", "2.0--1.5.4", "2.0--1.6.0", "kubernetes"),
                 ]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology|kubernetes' -v 1.next" in out
-        assert "--regex '|" not in out
+        assert "backstage-community-plugin-topology" in out
+        assert "backstage-plugin-kubernetes" in out
+        assert "2.0--1.5.4" in out
+        assert "2.0--1.6.0" in out
+        # Midstream-only guidance must not appear from the upstream overlays repo.
+        assert "sync-midstream.sh" not in out
+        assert "generatePipelineRunsForPlugins.sh" not in out
+        assert "./build/ci/update-index.sh" not in out
+        fetch_version.assert_not_called()
+
+    def test_cta_includes_midstream_steps_when_in_midstream(self, capsys):
+        with patch("generatePluginBuildInfo.current_midstream_branch", return_value="main"), \
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="2.0.0"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
+            generatePluginBuildInfo.print_fallback_rebuild_cta(
+                [
+                    (
+                        "red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions",
+                        "2.0.0--0.19.0",
+                        "2.0.0--0.19.1",
+                        "extensions",
+                    ),
+                ]
+            )
+        out = capsys.readouterr().out
+        assert "sync-midstream.sh --force-clone 'extensions' --yes" in out
+        assert (
+            "-p 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' "
+            "-v 2.0.0 --next"
+        ) in out
+        assert "./build/ci/update-index.sh" in out
 
     def test_cta_uses_package_version_on_release_branch(self, capsys):
         with patch("generatePluginBuildInfo.current_midstream_branch", return_value="rhdh-1.10-rhel-9"), \
-             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"):
+             patch("generatePluginBuildInfo.fetch_rhdh_package_version", return_value="1.10.3"), \
+             patch("generatePluginBuildInfo._in_midstream_repo", return_value=True):
             generatePluginBuildInfo.print_fallback_rebuild_cta(
-                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0")]
+                [("backstage-community-plugin-topology", "1.10--1.5.4", "1.10--1.6.0", "topology")]
             )
         out = capsys.readouterr().out
-        assert "--regex 'topology' -v 1.10.3" in out
+        assert "-p 'backstage-community-plugin-topology' -v 1.10.3" in out
+        assert "--next" not in out
+        assert "sync-midstream.sh --force-clone 'topology' --yes" in out
+        assert "./build/ci/update-index.sh" in out
 
 
 class TestRhdhBranchAndVersion:
@@ -614,10 +634,10 @@ class TestRhdhBranchAndVersion:
         "midstream, expected",
         [
             ("main", "main"),
-            ("rhdh-1-rhel-9", "main"),
             ("rhdh-1.10-rhel-9", "release-1.10"),
             ("rhdh-1.9-rhel-9", "release-1.9"),
             ("feature/foo", "main"),
+            ("", "main"),
         ],
     )
     def test_rhdh_git_branch_for_midstream(self, midstream, expected):
@@ -631,3 +651,367 @@ class TestRhdhBranchAndVersion:
             assert generatePluginBuildInfo.fetch_rhdh_package_version("release-1.10") == "1.10.3"
             mock_get.assert_called_once()
             assert "release-1.10" in mock_get.call_args.args[0]
+
+
+# ---------------------------------------------------------------------------
+# update_plugin_build_files — metadata sync vs plugin_builds modified gate
+# ---------------------------------------------------------------------------
+
+_TEST_PLUGIN = "test-plugin"
+_TEST_REF = "registry.access.redhat.com/rhdh/test-plugin:1.10--1.0.0"
+_TEST_DIGEST = "sha256:" + "a" * 64
+_TEST_BUILD_DATE = "2026-01-01T00:00:00Z"
+
+
+def _stable_image_metadata():
+    return {
+        "digest": _TEST_DIGEST,
+        "registryReference": _TEST_REF,
+        "build-date": _TEST_BUILD_DATE,
+    }
+
+
+def _write_plugin_build_fixtures(tmp_path):
+    plugin_builds_dir = tmp_path / "plugin_builds" / "lightspeed"
+    plugin_builds_dir.mkdir(parents=True)
+    json_path = plugin_builds_dir / f"{_TEST_PLUGIN}.json"
+    json_path.write_text(
+        json.dumps(
+            {
+                _TEST_PLUGIN: {
+                    "workspacePath": "lightspeed/plugins/test",
+                    "registryReference": _TEST_REF,
+                    "digest": _TEST_DIGEST,
+                    "build-date": _TEST_BUILD_DATE,
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    metadata_dir = tmp_path / "workspaces" / "lightspeed" / "metadata"
+    metadata_dir.mkdir(parents=True)
+    return json_path, metadata_dir
+
+
+def _metadata_yaml_body(dynamic_artifact: str) -> str:
+    return f"""apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: {_TEST_PLUGIN}
+spec:
+  packageName: "@example/test-plugin"
+  dynamicArtifact: {dynamic_artifact}
+  version: 1.0.0
+"""
+
+
+class TestUpdatePluginBuildFiles:
+    @pytest.fixture(autouse=True)
+    def _rarc_registry(self, monkeypatch):
+        monkeypatch.setattr(
+            generatePluginBuildInfo,
+            "REGISTRY_BASE",
+            "registry.access.redhat.com/rhdh",
+        )
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_metadata_yaml_resolved_even_when_registry_reference_unchanged(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        json_path, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        original_json = json_path.read_text(encoding="utf-8")
+
+        updated_count, _, _, overlays_metadata_changes, _, _ = (
+            generatePluginBuildInfo.update_plugin_build_files(
+                tmp_path / "plugin_builds",
+                tmp_path,
+                None,
+            )
+        )
+
+        assert updated_count == 0
+        assert json_path.read_text(encoding="utf-8") == original_json
+        assert overlays_metadata_changes == 1
+        resolved = (
+            f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+        )
+        assert resolved in meta_path.read_text(encoding="utf-8")
+        assert "ghcr.io" not in meta_path.read_text(encoding="utf-8")
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_report_stage_marked_pass_when_unchanged(self, mock_get_metadata, tmp_path):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _write_plugin_build_fixtures(tmp_path)
+        metadata_dir = tmp_path / "workspaces" / "lightspeed" / "metadata"
+        metadata_dir.joinpath(f"{_TEST_PLUGIN}.yaml").write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        report_path = tmp_path / "build-report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin(_TEST_PLUGIN)
+        report.set_stage(
+            _TEST_PLUGIN,
+            "bootstrap",
+            "pass",
+            oci_ref="ghcr.io/placeholder",
+        )
+
+        generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds",
+            tmp_path,
+            report,
+        )
+
+        stage = report.get_stage(_TEST_PLUGIN, "image-metadata-fetch")
+        assert stage is not None
+        assert stage["status"] == "pass"
+        assert stage["digest"] == _TEST_DIGEST
+        bootstrap = report.get_stage(_TEST_PLUGIN, "bootstrap")
+        assert bootstrap["oci_ref"] == _TEST_REF
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_metadata_yaml_not_rewritten_when_already_correct(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        _, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        resolved_oci = (
+            f"oci://registry.access.redhat.com/rhdh/{_TEST_PLUGIN}@{_TEST_DIGEST}"
+        )
+        meta_path = metadata_dir / f"{_TEST_PLUGIN}.yaml"
+        meta_path.write_text(
+            f"""apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: {_TEST_PLUGIN}
+spec:
+  packageName: "@example/test-plugin"
+  # Tag: 1.10--1.0.0, Build date: {_TEST_BUILD_DATE}
+  dynamicArtifact: "{resolved_oci}"
+  version: 1.0.0
+""",
+            encoding="utf-8",
+        )
+        original_meta = meta_path.read_text(encoding="utf-8")
+
+        _, _, _, overlays_metadata_changes, _, _ = (
+            generatePluginBuildInfo.update_plugin_build_files(
+                tmp_path / "plugin_builds",
+                tmp_path,
+                None,
+            )
+        )
+
+        assert overlays_metadata_changes == 0
+        assert meta_path.read_text(encoding="utf-8") == original_meta
+
+    @patch("generatePluginBuildInfo.get_image_metadata")
+    def test_plugin_builds_json_untouched_when_unchanged(
+        self, mock_get_metadata, tmp_path
+    ):
+        mock_get_metadata.return_value = _stable_image_metadata()
+        json_path, metadata_dir = _write_plugin_build_fixtures(tmp_path)
+        metadata_dir.joinpath(f"{_TEST_PLUGIN}.yaml").write_text(
+            _metadata_yaml_body(
+                'oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/'
+                f"{_TEST_PLUGIN}:bs_1.49.4__1.0.0!{_TEST_PLUGIN}"
+            ),
+            encoding="utf-8",
+        )
+        before_mtime = json_path.stat().st_mtime_ns
+        original_json = json_path.read_text(encoding="utf-8")
+
+        updated_count, _, _, _, _, _ = generatePluginBuildInfo.update_plugin_build_files(
+            tmp_path / "plugin_builds",
+            tmp_path,
+            None,
+        )
+
+        assert updated_count == 0
+        assert json_path.read_text(encoding="utf-8") == original_json
+        assert json_path.stat().st_mtime_ns == before_mtime
+
+
+# ---------------------------------------------------------------------------
+# decode_dynamic_packages / empty-annotation detection
+# ---------------------------------------------------------------------------
+
+
+def _b64(payload: bytes) -> str:
+    return base64.b64encode(payload).decode()
+
+
+class TestDecodeDynamicPackages:
+    """The annotation is base64-encoded JSON; an empty list is RHDHBUGS-3556."""
+
+    def test_decodes_a_real_package_list(self):
+        packages = generatePluginBuildInfo.decode_dynamic_packages(
+            _b64(json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode())
+        )
+        assert packages == [{"plugin-a": {"name": "@scope/plugin-a"}}]
+
+    @pytest.mark.parametrize("annotation", ["", None])
+    def test_absent_annotation_decodes_to_nothing_declared(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) == []
+
+    def test_an_explicitly_empty_list_decodes_to_empty(self):
+        # [] means "declares nothing", None means "could not be read". Collapsing the
+        # two would report a broken artifact as an empty one, or the reverse.
+        assert generatePluginBuildInfo.decode_dynamic_packages(_b64(b"[]")) == []
+
+    @pytest.mark.parametrize(
+        "wrap",
+        [
+            lambda p: base64.encodebytes(p).decode(),
+            lambda p: base64.b64encode(p).decode() + "\n",
+            lambda p: " " + base64.b64encode(p).decode() + " ",
+        ],
+        ids=["mime-wrapped", "trailing-newline", "surrounding-spaces"],
+    )
+    def test_whitespace_in_the_annotation_is_not_malformed(self, wrap):
+        # `base64` without `-w 0` wraps its output. A healthy artifact whose
+        # annotation carries a newline must not be reported as broken.
+        payload = json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode()
+        assert generatePluginBuildInfo.decode_dynamic_packages(wrap(payload)) == [
+            {"plugin-a": {"name": "@scope/plugin-a"}}
+        ]
+
+    def test_an_annotation_that_was_never_encoded_is_undecodable(self):
+        # Stripping whitespace must not soften the check into accepting raw JSON.
+        assert (
+            generatePluginBuildInfo.decode_dynamic_packages('[{"a": 1}]') is None
+        )
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            "!!!not-base64!!!",
+            _b64(b"not json at all"),
+            _b64(b'{"packages": []}'),  # an object, not the expected list
+        ],
+        ids=["not-base64", "not-json", "not-a-list"],
+    )
+    def test_undecodable_annotation_returns_none(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) is None
+
+
+class TestDynamicPackagesAnnotationReporting:
+    """What _fetch_image_metadata reports for each shape of the annotation."""
+
+    REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-x:bs_1.52.0__1.0.0"
+
+    def _fetch_with_annotations(self, annotations):
+        manifest = {
+            "config": {"digest": "sha256:" + "0" * 64},
+            "annotations": annotations,
+        }
+        manifest_response = MagicMock(
+            status_code=200,
+            json=MagicMock(return_value=manifest),
+            headers={"Docker-Content-Digest": "sha256:" + "1" * 64},
+        )
+        blob_response = MagicMock(status_code=404)
+        # get_registry_auth issues its own token request for ghcr.io; without stubbing it
+        # the first queued response is consumed there and the manifest never arrives.
+        with patch.object(
+            generatePluginBuildInfo, "get_registry_auth", return_value=(None, {})
+        ), patch.object(
+            generatePluginBuildInfo.requests,
+            "get",
+            side_effect=[manifest_response, blob_response],
+        ), patch.object(generatePluginBuildInfo, "log_warn") as warn:
+            generatePluginBuildInfo._fetch_image_metadata(self.REF)
+        return [call.args[0] for call in warn.call_args_list]
+
+    def test_empty_annotation_is_reported_with_the_artifact_named(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(b"[]")}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "empty" in w and "no-op" in w
+            for w in warnings
+        ), warnings
+
+    def test_malformed_annotation_is_reported_as_malformed_not_empty(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "malformed" in w for w in warnings
+        ), warnings
+        assert not any("declares an empty" in w for w in warnings), warnings
+
+    def test_a_populated_annotation_is_not_reported(self):
+        warnings = self._fetch_with_annotations(
+            {
+                generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(
+                    json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()
+                )
+            }
+        )
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+    def test_an_image_without_the_annotation_is_not_reported(self):
+        # Not every image publishes one; warning on its absence would fire on all of them.
+        warnings = self._fetch_with_annotations({})
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+
+class TestDynamicPackagesInBuildReport:
+    """The image-metadata-fetch stage must not read green for an empty artifact."""
+
+    @staticmethod
+    def _stage(annotation, tmp_path):
+        report = BuildReport(tmp_path / "build-report.json")
+        data = {
+            "plugin-x": {
+                "digest": "sha256:" + "0" * 64,
+                **(
+                    {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: annotation}
+                    if annotation is not None
+                    else {}
+                ),
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        return report.get_stage("plugin-x", "image-metadata-fetch")
+
+    def test_an_empty_annotation_is_recorded_on_the_stage(self, tmp_path):
+        # Without this the stage is a bare pass and build-report.json contradicts the
+        # warning the fetch already logged.
+        stage = self._stage(_b64(b"[]"), tmp_path)
+        assert stage["status"] == "pass"
+        assert stage["dynamicPackages"] == 0
+
+    def test_an_unreadable_annotation_is_recorded_as_unreadable(self, tmp_path):
+        stage = self._stage("!!!not-base64!!!", tmp_path)
+        assert stage["dynamicPackagesUnreadable"] is True
+        assert "dynamicPackages" not in stage
+
+    def test_a_populated_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(
+            _b64(json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()),
+            tmp_path,
+        )
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage
+
+    def test_an_image_without_the_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(None, tmp_path)
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage

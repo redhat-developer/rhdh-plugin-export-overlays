@@ -1,0 +1,50 @@
+# Packages excluded from the support-level sweep (src/sweep.ts, RHIDP-13510).
+#
+# Format, one entry per line:
+#
+#   <scope> <javascript-regex>
+#
+# The regex is matched against the npm PACKAGE NAME — `spec.packageName` in
+# workspaces/*/metadata/*.yaml, and `name` in the installed package.json. Anchor with
+# `$` when a shorter name would otherwise match a longer one that shares its prefix.
+#
+# `scope` says how much validation the package loses. The two are genuinely
+# different, and collapsing them into one would throw away coverage that costs
+# nothing to keep:
+#
+#   install — the artifact is not pulled at all. Use when it cannot be pulled
+#             anonymously, or when installing it breaks the whole run. Loses
+#             everything: no install check, no layout check, no boot.
+#   boot    — the artifact IS pulled and its layout validated; the plugin is just not
+#             loaded into startTestBackend. Loses only the boot signal.
+#
+# Prefer `boot` over `install`, and prefer a dummy config entry in
+# src/plugin-config.ts over either, whenever the failure is only startup config
+# validation.
+#
+# Every entry MUST carry a `# TODO(TICKET-123):` above it saying why it is here and
+# what removes it. A pattern with no ticket in scope is a parse error, not a warning —
+# the point of this file is that exclusions get deleted, not accumulated. A blank line
+# ends a block, so consecutive patterns can share one ticket.
+#
+# NOTE: src/plugin-config.ts also carries a KNOWN_FAILURES set — an older, dirName-keyed
+# skip list ported from RHDH PR #4967, predating this file and carrying no tickets. It has
+# the same effect as a `boot` entry here. New skips belong in THIS file; those five should
+# migrate once each has a ticket, at which point KNOWN_FAILURES can go.
+#
+# This mirrors the discipline of RHDH's e2e-tests/local-harness/plugin-sanity-excludes.txt
+# (PR #4967). It differs in matching package names rather than OCI refs — the catalog
+# index gives RHDH only refs, while this repo's metadata carries the package name,
+# which is stable whether the artifact is tag- or digest-pinned.
+
+# TODO(RHDHBUGS-3707): pagerduty's entity-processor loads (1/1, no load errors) and then
+# takes its host down: `Plugin 'catalog' startup failed; caused by TypeError: Cannot read
+# properties of undefined (reading 'id')`. Reproduced in isolation with nothing else
+# installed, so it is the plugin and not an interaction.
+#
+# This block used to exclude six packages on the theory that the catalog core could not
+# boot in this harness. RHIDP-16017 disproved that: catalogPlugin boots here with only the
+# rootConfig mock, and the four `*-catalog-backend-module-*` packages plus
+# @backstage-community/plugin-3scale-backend now start against it. Only this one fails, and
+# it fails differently — the catalog is present, and this plugin breaks it.
+boot ^@pagerduty/backstage-plugin-entity-processor$
