@@ -73,6 +73,8 @@ VALIDATION_JSON=""
 SANITY_CHECK=0
 DEBUG_FLAG=""
 DEBUG=0
+STRICT=0
+PREVIOUS_INDEX_REF=""
 
 usage() {
     cat <<'USAGE'
@@ -89,6 +91,7 @@ Usage:
         [-cr|--community-registry BASE] \
         [--validate-mode report|gate|off] \
         [--validate-allowlist PATH] [--validation-json PATH] \
+        [--strict] [--previous-index-ref REF] \
         [--sanity-check] \
         [--debug] \
         [-h|--help]
@@ -118,6 +121,12 @@ Arguments:
        --validate-allowlist    Ticketed exceptions file for Step 5
                                (default: scripts/catalog-index-validation-allowlist.txt)
        --validation-json       Write the Step 5 findings as JSON to this path (optional).
+       --strict                Treat validation warnings as errors and fail the build.
+                               Passed through to validateCatalogIndex.py. On
+                               release-* the workflow sets this with --validate-mode gate.
+       --previous-index-ref    OCI ref or local DPDY/dir for version-regression.
+                               OCI refs are extracted with extractCatalogIndex.sh
+                               before Step 5 (the validator itself does not use the network).
        --sanity-check          Step 6, install and boot every package the generated
                                index declares, via smoke-tests-native. Off by default:
                                it pulls every artifact and needs Node 24 + Yarn 4, which
@@ -179,6 +188,14 @@ while [[ "$#" -gt 0 ]]; do
         SANITY_CHECK=1
         shift 1
         ;;
+    '--strict')
+        STRICT=1
+        shift 1
+        ;;
+    '--previous-index-ref')
+        PREVIOUS_INDEX_REF="$2"
+        shift 2
+        ;;
     '--debug')
         DEBUG=1
         DEBUG_FLAG="--debug"
@@ -224,6 +241,8 @@ if [[ $DEBUG -eq 1 ]]; then
     echo "REPORT_FILE        = ${REPORT_FILE:-<none>}"
     echo "VALIDATE_MODE      = $VALIDATE_MODE"
     echo "SANITY_CHECK       = $SANITY_CHECK"
+    echo "STRICT             = $STRICT"
+    echo "PREVIOUS_INDEX_REF = ${PREVIOUS_INDEX_REF:-<none>}"
     echo "#################################"
 fi
 
@@ -402,9 +421,40 @@ else
     if [[ -n "$DEBUG_FLAG" ]]; then
         VALIDATE_ARGS+=("$DEBUG_FLAG")
     fi
+    if [[ "$STRICT" -eq 1 ]]; then
+        VALIDATE_ARGS+=(--strict)
+    fi
+    if [[ -n "$DEFAULT_PACKAGES_FILE" ]]; then
+        VALIDATE_ARGS+=(--default-packages-file "$DEFAULT_PACKAGES_FILE")
+    fi
+    PREV_EXTRACTED=""
+    if [[ -n "$PREVIOUS_INDEX_REF" ]]; then
+        PREV_DPDY=""
+        if [[ -f "$PREVIOUS_INDEX_REF" ]]; then
+            PREV_DPDY="$PREVIOUS_INDEX_REF"
+        elif [[ -d "$PREVIOUS_INDEX_REF" && -f "$PREVIOUS_INDEX_REF/dynamic-plugins.default.yaml" ]]; then
+            PREV_DPDY="$PREVIOUS_INDEX_REF/dynamic-plugins.default.yaml"
+        elif [[ -d "$PREVIOUS_INDEX_REF" && -f "$PREVIOUS_INDEX_REF/index.json" ]]; then
+            PREV_DPDY="$PREVIOUS_INDEX_REF/index.json"
+        else
+            PREV_DPDY="$OUTPUT_DIR/.previous-index-dpdy.yaml"
+            if "$SCRIPT_DIR/extractCatalogIndex.sh" "$PREVIOUS_INDEX_REF" "$PREV_DPDY"; then
+                PREV_EXTRACTED="$PREV_DPDY"
+            else
+                echo -e "${yellow}[WARN] Previous catalog index not found at $PREVIOUS_INDEX_REF; skipping version-regression${norm}" >&2
+                PREV_DPDY=""
+            fi
+        fi
+        if [[ -n "$PREV_DPDY" ]]; then
+            VALIDATE_ARGS+=(--previous-index-dpdy "$PREV_DPDY")
+        fi
+    fi
 
     VALIDATE_RC=0
     python "$SCRIPT_DIR/validateCatalogIndex.py" "${VALIDATE_ARGS[@]}" || VALIDATE_RC=$?
+    if [[ -n "$PREV_EXTRACTED" ]]; then
+        rm -f "$PREV_EXTRACTED"
+    fi
 
     # Exit 2 is a USAGE error (a path that escapes the working directory, a missing
     # --registry) — not a finding about the index. Report mode must not swallow it:
@@ -415,8 +465,8 @@ else
     fi
 
     if [[ $VALIDATE_RC -ne 0 ]]; then
-        if [[ "$VALIDATE_MODE" == "gate" ]]; then
-            echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode gate)${norm}" >&2
+        if [[ "$VALIDATE_MODE" == "gate" || "$STRICT" -eq 1 ]]; then
+            echo -e "${red}[ERROR] Catalog index validation failed (--validate-mode ${VALIDATE_MODE})${norm}" >&2
             exit 1
         fi
         # Deliberately not fatal in report mode — see VALIDATE_MODE above. Say so

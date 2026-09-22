@@ -44,6 +44,8 @@ REASON_ANCHORS = {
     "[duplicate-ref]": "validation-duplicate-ref",
     "[ref-form]": "validation-ref-form",
     "[index-ref-mismatch]": "validation-index-ref-mismatch",
+    "[missing-annotation]": "validation-missing-annotation",
+    "[dpdy-missing-package]": "validation-dpdy-missing-package",
 }
 
 

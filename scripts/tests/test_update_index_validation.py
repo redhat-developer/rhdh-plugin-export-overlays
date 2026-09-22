@@ -176,6 +176,7 @@ def resolved(image, digest=DIGEST, **extra):
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
         "digest": digest,
+        "io.backstage.dynamic-packages": "present",
         **extra,
     }
 
@@ -265,6 +266,19 @@ class TestValidateMode:
         assert result.returncode != 0
         assert "Invalid --validate-mode: gates" in result.stderr
         assert not (clean_repo / "steps.calls").exists()
+
+    def test_strict_fails_the_build_on_warnings(self, tmp_path):
+        """--strict is passed through to validateCatalogIndex.py (one meaning)."""
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(root, "--strict")
+        assert result.returncode == 1
+        assert "fallback-tag" in result.stdout
 
 
 class TestValidationOutputs:

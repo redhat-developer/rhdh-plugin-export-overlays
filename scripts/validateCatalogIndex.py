@@ -117,6 +117,28 @@ RULES: dict[str, Rule] = {
         "index.json and dynamic-plugins.default.yaml disagree on a package's "
         "registry reference",
     ),
+    "missing-annotation": Rule(
+        ERROR,
+        "the image exists but lacks io.backstage.dynamic-packages "
+        " — always fails the build",
+        needs_builds=True,
+    ),
+    "backstage-version-mismatch": Rule(
+        WARNING,
+        "the workspace targets an older Backstage minor than this branch "
+        "expects — fails the build only under --strict",
+    ),
+    "version-regression": Rule(
+        WARNING,
+        "this plugin's version is lower than the previous published catalog "
+        "index — fails only under --strict",
+    ),
+    "dpdy-missing-package": Rule(
+        ERROR,
+        "a package listed in default.packages.yaml is absent from "
+        "dynamic-plugins.default.yaml (matched by npm name / image name, "
+        "not by count)",
+    ),
 }
 
 #: The rules `--no-build-metadata` cannot run, derived rather than listed.
@@ -124,6 +146,13 @@ RULES_NEEDING_BUILDS = sorted(r for r, spec in RULES.items() if spec.needs_build
 
 OCI_PREFIX = "oci://"
 LOCAL_PREFIX = "./dynamic-plugins/dist/"
+DPDY_FILENAME = "dynamic-plugins.default.yaml"
+INDEX_JSON_FILENAME = "index.json"
+# Same key generatePluginBuildInfo.py writes onto plugin_builds entries.
+DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages"
+# Plugin version is the suffix after RHDH (`1.10--5.7.12`) or Backstage
+# (`bs_1.49.4__5.7.12`) tag prefixes.
+TAG_VERSION_RE = re.compile(r"(?:--|__)([^:@]+)$")
 
 # A well-formed content digest. Checked separately from the rest of the reference
 # because `not-digest-pinned` and `digest-mismatch` both key off `ref.digest`: a
@@ -603,6 +632,256 @@ def _check_ref(
             )
         )
 
+    if digest and not build.get(DYNAMIC_PACKAGES_ANNOTATION):
+        findings.append(_annotation_finding(ref.image))
+
+    return findings
+
+
+def _annotation_finding(image: str) -> Finding:
+    return Finding(
+        rule="missing-annotation",
+        message=f"'{image}' is missing or empty {DYNAMIC_PACKAGES_ANNOTATION}",
+        image=image,
+    )
+
+
+def npm_to_image_name(package_name: str) -> str:
+    """Same mapping bootstrapPluginBuilds.package_name_to_image_name uses."""
+    return package_name.lstrip("@").replace("/", "-")
+
+
+def plugin_version_from_tag(tag: str) -> str | None:
+    """Plugin version suffix from an RHDH or Backstage image tag."""
+    if not tag:
+        return None
+    body = tag.split("@", 1)[0]
+    matched = TAG_VERSION_RE.search(body)
+    if matched:
+        return matched.group(1)
+    if "--" in body:
+        return body.rsplit("--", 1)[-1]
+    if "__" in body:
+        return body.rsplit("__", 1)[-1]
+    return None
+
+
+def parse_version_tuple(version: str) -> tuple[int, ...]:
+    parts: list[int] = []
+    for piece in re.split(r"[.\-+]", version):
+        if not piece:
+            continue
+        if piece.isdigit():
+            parts.append(int(piece))
+        else:
+            matched = re.match(r"^(\d+)", piece)
+            parts.append(int(matched.group(1)) if matched else 0)
+    return tuple(parts) if parts else (0,)
+
+
+def version_less_than(left: str, right: str) -> bool:
+    return parse_version_tuple(left) < parse_version_tuple(right)
+
+
+def expected_packages_from_default(default_packages_file: Path) -> list[str]:
+    with open(default_packages_file, encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    packages = data.get("packages") or {}
+    names: list[str] = []
+    for section in ("enabled", "disabled"):
+        for entry in packages.get(section) or []:
+            if isinstance(entry, dict):
+                pkg = entry.get("package")
+                if isinstance(pkg, str) and pkg:
+                    names.append(pkg)
+    return names
+
+
+def versions_from_dpdy_entries(entries: list[DpdyEntry]) -> dict[str, str]:
+    """image name -> plugin version declared by dynamic-plugins.default.yaml."""
+    versions: dict[str, str] = {}
+    for entry in entries:
+        ref = parse_oci_ref(entry.package)
+        if ref is None:
+            continue
+        version = plugin_version_from_tag(ref.tag) or plugin_version_from_tag(
+            entry.package
+        )
+        if version:
+            versions[ref.image] = version
+    return versions
+
+
+def versions_from_index_json(index: dict[str, dict]) -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for name, pdata in index.items():
+        tag = pdata.get("imageTag")
+        if isinstance(tag, str) and tag:
+            version = plugin_version_from_tag(tag)
+            if version:
+                versions[name] = version
+                continue
+        ref = pdata.get("registryReference", "")
+        if isinstance(ref, str) and ref:
+            version = plugin_version_from_tag(ref)
+            if version:
+                versions[name] = version
+    return versions
+
+
+def check_builds_outside_dpdy(
+    builds: dict[str, dict],
+    seen_images: set[str],
+) -> list[Finding]:
+    """Search for packages not in generated DPDY (community catalog, omitted images)."""
+    findings: list[Finding] = []
+    for image, build in sorted(builds.items()):
+        if image in seen_images:
+            continue
+        digest = build.get("digest")
+        if not digest:
+            findings.append(
+                Finding(
+                    rule="unresolved-image",
+                    message=(
+                        f"'{image}' was never resolved in the registry "
+                        f"(plugin_builds/ has no digest)"
+                    ),
+                    image=image,
+                )
+            )
+            continue
+        if not build.get(DYNAMIC_PACKAGES_ANNOTATION):
+            findings.append(_annotation_finding(image))
+        if build.get("fallback"):
+            findings.append(
+                Finding(
+                    rule="fallback-tag",
+                    message=(
+                        f"'{image}' resolved to {_resolved_tag(build)} "
+                        f"after {build.get('requestedTag') or '<unknown>'} "
+                        f"was not found — the index ships an older build"
+                    ),
+                    image=image,
+                )
+            )
+    return findings
+
+
+def check_dpdy_vs_default_packages(
+    default_packages_file: Path | None,
+    entries: list[DpdyEntry],
+) -> list[Finding]:
+    """Every default.packages.yaml npm name must appear in the DPDY (by identity)."""
+    if default_packages_file is None:
+        return []
+    if not default_packages_file.is_file():
+        return [
+            Finding(
+                rule="dpdy-missing-package",
+                message=f"default.packages.yaml not found: {default_packages_file}",
+            )
+        ]
+    expected = expected_packages_from_default(default_packages_file)
+    findings: list[Finding] = []
+    for npm_name in expected:
+        image = npm_to_image_name(npm_name)
+        if _dpdy_covers(entries, npm_name, image):
+            continue
+        findings.append(
+            Finding(
+                rule="dpdy-missing-package",
+                message=(
+                    f"'{npm_name}' is listed in default.packages.yaml but is not "
+                    f"in dynamic-plugins.default.yaml (expected image '{image}')"
+                ),
+                image=image,
+            )
+        )
+    return findings
+
+
+def _dpdy_covers(entries: list[DpdyEntry], npm_name: str, image: str) -> bool:
+    for entry in entries:
+        package = entry.package
+        if npm_name in package or image in package:
+            return True
+        ref = parse_oci_ref(package)
+        if ref is not None and ref.image == image:
+            return True
+    return False
+
+
+def check_version_regression(
+    current_versions: dict[str, str],
+    previous_versions: dict[str, str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for image, prev_version in previous_versions.items():
+        current_version = current_versions.get(image)
+        if current_version is None:
+            continue
+        if version_less_than(current_version, prev_version):
+            findings.append(
+                Finding(
+                    rule="version-regression",
+                    message=(
+                        f"'{image}' version regressed from {prev_version} "
+                        f"to {current_version}"
+                    ),
+                    image=image,
+                )
+            )
+    return findings
+
+
+def load_previous_versions(previous_index_dpdy: Path | None) -> dict[str, str]:
+    if previous_index_dpdy is None:
+        return {}
+    if previous_index_dpdy.is_file() and previous_index_dpdy.name.endswith(
+        (".yaml", ".yml")
+    ):
+        return versions_from_dpdy_entries(load_dpdy_entries(previous_index_dpdy))
+    if previous_index_dpdy.is_file() and previous_index_dpdy.name == INDEX_JSON_FILENAME:
+        index = load_index_json(previous_index_dpdy)
+        return versions_from_index_json(index) if index else {}
+    if previous_index_dpdy.is_dir():
+        dpdy = previous_index_dpdy / DPDY_FILENAME
+        if dpdy.is_file():
+            return versions_from_dpdy_entries(load_dpdy_entries(dpdy))
+        index_path = previous_index_dpdy / INDEX_JSON_FILENAME
+        index = load_index_json(index_path)
+        return versions_from_index_json(index) if index else {}
+    return {}
+
+
+def check_backstage_mismatch(report_file: Path | None) -> list[Finding]:
+    if report_file is None or not report_file.is_file():
+        return []
+    try:
+        with open(report_file, encoding="utf-8") as handle:
+            report = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return []
+    findings: list[Finding] = []
+    for plugin_name, plugin in (report.get("plugins") or {}).items():
+        if not isinstance(plugin, dict):
+            continue
+        bootstrap = (plugin.get("stages") or {}).get("bootstrap") or {}
+        if not bootstrap.get("bs_version_mismatch"):
+            continue
+        expected = bootstrap.get("expected_version", "?")
+        found = bootstrap.get("found_version", "?")
+        findings.append(
+            Finding(
+                rule="backstage-version-mismatch",
+                message=(
+                    f"'{plugin_name}': Backstage version mismatch "
+                    f"(workspace {found}, expected {expected})"
+                ),
+                image=plugin_name,
+            )
+        )
     return findings
 
 
@@ -686,20 +965,56 @@ def validate(
     allowed_registries: set[str],
     allowlist: list[AllowlistEntry],
     has_build_metadata: bool,
+    default_packages_file: Path | None = None,
+    previous_index_dpdy: Path | None = None,
+    report_file: Path | None = None,
 ) -> ValidationResult:
     """Run every rule and return the surviving findings plus run statistics.
 
     `has_build_metadata=False` drops the rules RULES_NEEDING_BUILDS names, for a published
     index that ships without the plugin_builds/ tree that produced it.
-    """
-    entries = load_dpdy_entries(output_dir / "dynamic-plugins.default.yaml")
-    builds = load_plugin_builds(plugin_builds_dir) if has_build_metadata else {}
-    index = load_index_json(output_dir / "index.json")
 
-    findings, by_image = check_dpdy(
-        entries, builds, allowed_registries, has_build_metadata
-    )
-    findings.extend(check_index_json(index, by_image, builds, has_build_metadata))
+    A missing DPDY (community tier) still runs plugin_builds checks so unresolved
+    community images fail under `--validate-mode gate` (RHIDP-15725).
+    """
+    dpdy_path = output_dir / DPDY_FILENAME
+    builds = load_plugin_builds(plugin_builds_dir) if has_build_metadata else {}
+    index = load_index_json(output_dir / INDEX_JSON_FILENAME)
+
+    findings: list[Finding] = []
+    by_image: dict[str, ParsedRef] = {}
+    entries: list[DpdyEntry] = []
+    skipped = [] if has_build_metadata else list(RULES_NEEDING_BUILDS)
+
+    if dpdy_path.is_file():
+        entries = load_dpdy_entries(dpdy_path)
+        dpdy_findings, by_image = check_dpdy(
+            entries, builds, allowed_registries, has_build_metadata
+        )
+        findings.extend(dpdy_findings)
+        findings.extend(check_index_json(index, by_image, builds, has_build_metadata))
+    elif not has_build_metadata:
+        skipped = list(RULES_NEEDING_BUILDS)
+
+    if has_build_metadata:
+        findings.extend(
+            check_builds_outside_dpdy(builds, set(by_image))
+        )
+
+    findings.extend(check_dpdy_vs_default_packages(default_packages_file, entries))
+    findings.extend(check_backstage_mismatch(report_file))
+
+    current_versions = versions_from_dpdy_entries(entries)
+    if not current_versions and index:
+        current_versions = versions_from_index_json(index)
+    previous_versions = load_previous_versions(previous_index_dpdy)
+    if previous_index_dpdy is not None and not previous_versions:
+        log_warn(
+            f"Previous catalog index at {previous_index_dpdy} contains no "
+            "comparable plugin versions; skipping version-regression"
+        )
+    elif previous_versions:
+        findings.extend(check_version_regression(current_versions, previous_versions))
 
     kept, suppressed = apply_allowlist(findings, allowlist)
 
@@ -720,7 +1035,7 @@ def validate(
             "plugin_builds": len(builds),
             "index_entries": len(index) if index is not None else 0,
         },
-        skipped_rules=[] if has_build_metadata else RULES_NEEDING_BUILDS,
+        skipped_rules=skipped,
     )
 
 
@@ -869,7 +1184,9 @@ Usage: python3 validateCatalogIndex.py \\
     -r|--registry BASE \\
     [-cr|--community-registry BASE] \\
     [-a|--allowlist FILE] \\
-    [--report-file FILE] [--json FILE] [--strict] [--list-rules] [--debug]
+    [--report-file FILE] [--json FILE] [--strict] \\
+    [--default-packages-file FILE] \\
+    [--previous-index-dpdy FILE] [--list-rules] [--debug]
 
 Examples:
 
@@ -927,7 +1244,8 @@ Examples:
     )
     parser.add_argument(
         "--report-file", type=str, metavar="FILE",
-        help="build-report.json to record a per-plugin 'validate' stage into",
+        help="build-report.json to record a per-plugin 'validate' stage into "
+             "and to read bootstrap Backstage-mismatch flags from",
     )
     parser.add_argument(
         "--json", type=str, metavar="FILE", dest="json_out",
@@ -935,7 +1253,18 @@ Examples:
     )
     parser.add_argument(
         "--strict", action="store_true",
-        help="Treat warnings as errors",
+        help="Treat warnings as errors (fallback-tag, backstage-version-mismatch, "
+             "version-regression, not-digest-pinned, index-missing-entry)",
+    )
+    parser.add_argument(
+        "--default-packages-file", type=str, metavar="FILE",
+        help="default.packages.yaml for dpdy-missing-package identity check",
+    )
+    parser.add_argument(
+        "--previous-index-dpdy", type=str, metavar="FILE",
+        help="Previous catalog index DPDY (or directory / index.json) for "
+             "version-regression. Extract an OCI ref with extractCatalogIndex.sh "
+             "first — this validator does not touch the network.",
     )
     parser.add_argument(
         "--no-build-metadata", action="store_true",
@@ -964,17 +1293,29 @@ Examples:
 
     try:
         output_dir, plugin_builds_dir, allowlist_path, json_out = _resolve_paths(args)
+        default_packages_file = (
+            require_contained("--default-packages-file", args.default_packages_file)
+            if args.default_packages_file
+            else None
+        )
+        previous_index_dpdy = (
+            require_contained("--previous-index-dpdy", args.previous_index_dpdy)
+            if args.previous_index_dpdy
+            else None
+        )
     except ValueError as exc:
         log_error(str(exc))
         return 2
     allowed = {args.registry, *(args.community_registry or [])}
 
-    dpdy = output_dir / "dynamic-plugins.default.yaml"
+    dpdy = output_dir / DPDY_FILENAME
     if not dpdy.is_file():
-        # Not every index carries a DPDY (the community tier is generated without one),
-        # and a missing file there is expected rather than a defect.
-        log_info(f"No {dpdy} — nothing to validate")
-        return 0
+        # Community tier is generated without a DPDY. plugin_builds/ checks still run
+        # so a missing community image fails under --validate-mode gate (RHIDP-15725).
+        log_info(
+            f"No {dpdy} — validating plugin_builds/ "
+            "(unresolved-image, missing-annotation, fallback-tag)"
+        )
 
     log_debug(f"output-dir={output_dir} plugin-builds-dir={plugin_builds_dir}")
     log_debug(f"allowed registries: {', '.join(sorted(allowed))}")
@@ -987,6 +1328,9 @@ Examples:
             allowed,
             allowlist,
             has_build_metadata=not args.no_build_metadata,
+            default_packages_file=default_packages_file,
+            previous_index_dpdy=previous_index_dpdy,
+            report_file=Path(args.report_file) if args.report_file else None,
         )
     except (ValueError, OSError, yaml.YAMLError) as exc:
         log_error(f"Catalog index validation could not run: {exc}")

@@ -26,6 +26,15 @@ on:
         required: false
         type: string
         default: ''
+      strict:
+        description: 'Policy strictness: auto (release-* only), true, or false'
+        required: false
+        type: choice
+        options:
+          - auto
+          - 'true'
+          - 'false'
+        default: auto
 
 concurrency:
   group: catalog-index-${{ github.ref }}
@@ -130,14 +139,44 @@ jobs:
           echo "Backstage version: $BS_VERSION"
           echo "RHDH version: $RHDH_VERSION (from upstream RHDH $RHDH_BRANCH package.json: $RHDH_FULL_VERSION)"
 
+      - name: Resolve policy strictness
+        id: policy
+        env:
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
+          STRICT_INPUT: ${{ inputs.strict || 'auto' }}
+        run: |
+          USE_STRICT=false
+          case "${STRICT_INPUT}" in
+            true) USE_STRICT=true ;;
+            false) USE_STRICT=false ;;
+            auto|*)
+              if [[ "${SOURCE_BRANCH}" == release-* ]]; then
+                USE_STRICT=true
+              fi
+              ;;
+          esac
+          echo "use-strict=${USE_STRICT}" >> "$GITHUB_OUTPUT"
+          echo "Policy strict mode: ${USE_STRICT} (input=${STRICT_INPUT}, branch=${SOURCE_BRANCH})"
+
       - name: Generate supported catalog
         id: gen-supported
         env:
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
+          BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
+          USE_STRICT: ${{ steps.policy.outputs.use-strict }}
         run: |
           RHDH_VERSION_ARG=""
           if [[ -n "$RHDH_VERSION" ]]; then
             RHDH_VERSION_ARG="--rhdh-version $RHDH_VERSION"
+          fi
+
+          STRICT_ARGS=()
+          if [[ "${USE_STRICT}" == "true" ]]; then
+            STRICT_ARGS+=(--strict)
+          fi
+          PREV_ARGS=()
+          if [[ -n "$RHDH_VERSION" && -n "$BS_VERSION" ]]; then
+            PREV_ARGS+=(--previous-index-ref "${SUPPORTED_CATALOG_INDEX}:${RHDH_VERSION}-bs_${BS_VERSION}")
           fi
 
           # shellcheck disable=SC2086
@@ -149,6 +188,9 @@ jobs:
             --packages-file default.packages.yaml \
             --packages-file rhdh-supported-packages.txt \
             --report-file catalog-index/supported/build-report.json \
+            --validate-mode gate \
+            "${PREV_ARGS[@]}" \
+            "${STRICT_ARGS[@]}" \
             $RHDH_VERSION_ARG; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
@@ -171,14 +213,23 @@ jobs:
 
       - name: Generate community catalog
         id: gen-community
+        env:
+          USE_STRICT: ${{ steps.policy.outputs.use-strict }}
         run: |
+          STRICT_ARGS=()
+          if [[ "${USE_STRICT}" == "true" ]]; then
+            STRICT_ARGS+=(--strict)
+          fi
+
           if scripts/update-index.sh \
             --overlays-dir . \
             --registry "$COMMUNITY_REGISTRY" \
             --output-dir catalog-index/community \
             --plugin-builds-dir plugin_builds/community \
             --packages-file rhdh-community-packages.txt \
-            --report-file catalog-index/community/build-report.json; then
+            --report-file catalog-index/community/build-report.json \
+            --validate-mode gate \
+            "${STRICT_ARGS[@]}"; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Community catalog generation failed"
@@ -273,7 +324,7 @@ jobs:
             exit 1
           fi
 
-          # Surface fallbacks and missing plugins as warnings
+          # Surface fallbacks and outdated Backstage/RHDH as warnings on non-strict builds
           HAS_ISSUES=false
           for TIER in supported community; do
             REPORT="catalog-index/$TIER/build-report.json"
@@ -281,15 +332,21 @@ jobs:
 
             FAILED_COUNT=$(jq '.summary.failed // 0' "$REPORT" 2>/dev/null || echo 0)
             FALLBACK_COUNT=$(jq '[.plugins[] | select(.stages["image-metadata-fetch"].fallback == true)] | length' "$REPORT" 2>/dev/null || echo 0)
+            BS_MISMATCH_COUNT=$(jq '[.plugins[] | select(.stages.bootstrap.bs_version_mismatch == true)] | length' "$REPORT" 2>/dev/null || echo 0)
 
             if [[ "$FAILED_COUNT" -gt 0 ]]; then
               FAILED_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.overall == "fail") | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
-              echo "::warning::$TIER catalog: $FAILED_COUNT plugin(s) missing from registry: $FAILED_PLUGINS"
+              echo "::error::$TIER catalog: $FAILED_COUNT plugin(s) missing from registry: $FAILED_PLUGINS"
               HAS_ISSUES=true
             fi
             if [[ "$FALLBACK_COUNT" -gt 0 ]]; then
               FALLBACK_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages["image-metadata-fetch"].fallback == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
               echo "::warning::$TIER catalog: $FALLBACK_COUNT plugin(s) using fallback tags: $FALLBACK_PLUGINS"
+              HAS_ISSUES=true
+            fi
+            if [[ "$BS_MISMATCH_COUNT" -gt 0 ]]; then
+              BS_MISMATCH_PLUGINS=$(jq -r '[.plugins | to_entries[] | select(.value.stages.bootstrap.bs_version_mismatch == true) | .key] | join(", ")' "$REPORT" 2>/dev/null || echo "")
+              echo "::warning::$TIER catalog: $BS_MISMATCH_COUNT plugin(s) with Backstage version mismatch: $BS_MISMATCH_PLUGINS"
               HAS_ISSUES=true
             fi
           done

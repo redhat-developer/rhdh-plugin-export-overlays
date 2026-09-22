@@ -203,11 +203,15 @@ that matter most:
 | Rule                   | Severity | What it means                                                                                             |
 | ---------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
 | `unresolved-image`     | error    | The index ships a package whose image was never resolved. Enabling it fails at pull time.                 |
+| `missing-annotation`   | error    | The image exists but lacks `io.backstage.dynamic-packages` (RHIDP-16251). Always fails. |
+| `dpdy-missing-package` | error    | A `default.packages.yaml` npm name has no matching DPDY entry (identity, not count).                      |
 | `unknown-image`        | error    | An `oci://` ref names an image with no `plugin_builds/` entry — the index and build metadata disagree.     |
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
 | `registry-not-allowed` | error    | A ref points at a registry this index is not built against (the `ghcr.io`-into-`quay.io/rhdh` leak).      |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
 | `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
+| `backstage-version-mismatch` | warning | Workspace Backstage minor is older than this branch expects.                                      |
+| `version-regression`   | warning  | Plugin version is lower than the previous published catalog index (RHIDP-16252).                           |
 | `not-digest-pinned`    | warning  | A ref carries a tag rather than a digest, so what it resolves to can change under the index.               |
 | `index-missing-entry`  | warning  | A resolved package is in the DPDY but absent from `index.json`, so the Extensions UI will not list it.     |
 
@@ -217,10 +221,13 @@ that matter most:
 - `gate` — fails the build on any error.
 - `off` — skips the step.
 
-The default is `report` on purpose. The check is new, and the indexes it runs against
-today already carry findings nobody has triaged; landing it as a hard gate would turn
-those into a red build for whoever happens to push next. **Flip it to `gate` once the
-standing findings are fixed or allowlisted** — that is the point of shipping it.
+The overlays `generate-catalog-index` workflow runs with `--validate-mode gate`, so
+errors fail generation and skip OCI publish (RHIDP-15725). The script default remains
+`report` for local and midstream runs until those pipelines opt in.
+
+`--strict` (the validator's flag, passed through from `update-index.sh`) treats
+**warnings** as errors. The GitHub workflow sets it on `release-*` (override with
+`workflow_dispatch` `strict: false` for an emergency rollback).
 
 **Allowlist.** Known and accepted findings go in
 [`scripts/catalog-index-validation-allowlist.txt`](../scripts/catalog-index-validation-allowlist.txt),
@@ -233,13 +240,12 @@ Findings are also recorded per plugin in `build-report.json` as a `validate` sta
 they reach the generated status page. Only errors set that stage to `fail` — a stale tag
 should not turn a plugin red and drown the ones that really are broken.
 
-**It only checks a tier that has a DPDY.** Every rule is driven by
-`dynamic-plugins.default.yaml`, and Step 3 generates that file only when a
-`default.packages.yaml` is among the `--packages-file` arguments. The community tier is
-generated with `--packages-file rhdh-community-packages.txt` alone, so for that tier
-Step 5 logs `nothing to validate` and exits 0 — including under `--validate-mode gate`.
-It says so in the log rather than passing silently, but do not read a green community
-run as a validated one.
+**Community without a DPDY.** Step 3 generates `dynamic-plugins.default.yaml` only when
+a `default.packages.yaml` is among the `--packages-file` arguments. The community tier
+is generated with `--packages-file rhdh-community-packages.txt` alone, so it has no DPDY.
+Step 5 still walks `plugin_builds/` for `unresolved-image`, `missing-annotation`, and
+`fallback-tag` so a missing community image fails under `--validate-mode gate`
+(RHIDP-15725). DPDY-only rules do not run.
 
 ### Step 6: Catalog Index Sanity Check (opt-in)
 
@@ -355,6 +361,39 @@ The raw `build-report.json` files are also available on the `catalog-index-{bran
 
 ---
 
+## Publication policy gates
+
+Step 5 (`validateCatalogIndex.py`) is the publish gate for RHIDP-15725, RHIDP-16251, and
+RHIDP-16252. There is no second policy process.
+
+| Check | `main` (`--validate-mode gate`) | `release-*` (`--validate-mode gate --strict`) |
+|-------|--------|---------------------------|
+| Image missing entirely (no tag, no fallback) | **Fail** — no OCI publish | **Fail** |
+| Missing `io.backstage.dynamic-packages` | **Fail** | **Fail** |
+| DPDY missing a `default.packages.yaml` entry (by name) | **Fail** | **Fail** |
+| Version fallback (older plugin tag used) | Warn, publish | **Fail** |
+| Backstage version mismatch (workspace outdated) | Warn, publish | **Fail** |
+| Plugin version lower than previous published index | Warn, publish (supported only) | **Fail** |
+
+On `release-*` branches the GitHub workflow sets `--strict` automatically. For a deliberate emergency rollback on a release line, run the workflow manually with `strict: false` — this relaxes fallback, outdated-version, and regression checks together. Structural errors (`unresolved-image`, `missing-annotation`, incomplete DPDY) still fail.
+
+`--previous-index-ref` is an OCI ref or a local DPDY/directory. `update-index.sh` extracts an OCI ref with `extractCatalogIndex.sh` before Step 5 so the validator itself stays offline.
+
+Local / midstream runs can pass the same flags:
+
+```bash
+scripts/update-index.sh \
+  --registry ghcr.io/redhat-developer/rhdh-plugin-export-overlays \
+  --output-dir catalog-index/supported \
+  --plugin-builds-dir plugin_builds/supported \
+  --packages-file default.packages.yaml \
+  --validate-mode gate \
+  --strict \
+  --previous-index-ref quay.io/rhdh-community/plugin-catalog-index:1.10-bs_1.49.4
+```
+
+---
+
 ## Triggering a Build
 
 ### Automatic
@@ -373,8 +412,13 @@ Pushes to `main` or `release-*` branches that modify any of these paths trigger 
 # Build from main, push to catalog-index-main
 gh workflow run generate-catalog-index.yaml
 
-# Build from a specific branch
+# Build from a specific branch (strict on release-* by default)
 gh workflow run generate-catalog-index.yaml -f source-branch=release-1.9
+
+# Emergency rollback on a release branch — warn instead of fail on fallback/regression
+gh workflow run generate-catalog-index.yaml \
+  -f source-branch=release-1.9 \
+  -f strict=false
 
 # Build from one branch, push catalog to a custom target branch
 gh workflow run generate-catalog-index.yaml \
