@@ -356,9 +356,9 @@ class TestPathContainment:
             pytest.param("--validation-json", "/tmp/escaped.json", id="json_absolute"),
             pytest.param("--output-dir", "../elsewhere", id="output_dir_escape"),
             pytest.param("--plugin-builds-dir", "/etc", id="builds_dir_absolute"),
-            pytest.param(
-                "--validate-allowlist", "/etc/passwd", id="allowlist_absolute"
-            ),
+            pytest.param("--validate-allowlist", "/etc/passwd", id="allowlist_absolute"),
+            pytest.param("--report-file", "../escaped.json", id="report_relative_escape"),
+            pytest.param("--report-file", "/tmp/escaped.json", id="report_absolute"),
         ],
     )
     def test_a_path_escaping_the_working_directory_is_refused(

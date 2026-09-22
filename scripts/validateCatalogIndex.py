@@ -1309,6 +1309,11 @@ Examples:
             if args.previous_index_dpdy
             else None
         )
+        report_file = (
+            require_contained("--report-file", args.report_file)
+            if args.report_file
+            else None
+        )
     except ValueError as exc:
         log_error(str(exc))
         return 2
@@ -1336,17 +1341,22 @@ Examples:
             has_build_metadata=not args.no_build_metadata,
             default_packages_file=default_packages_file,
             previous_index_dpdy=previous_index_dpdy,
-            report_file=Path(args.report_file) if args.report_file else None,
+            report_file=report_file,
         )
     except (ValueError, OSError, yaml.YAMLError) as exc:
         log_error(f"Catalog index validation could not run: {exc}")
         return 1
 
     print(render(result))
-    return _emit(result, args, json_out)
+    return _emit(result, args, json_out, report_file)
 
 
-def _emit(result: ValidationResult, args, json_out: Path | None) -> int:
+def _emit(
+    result: ValidationResult,
+    args,
+    json_out: Path | None,
+    report_file: Path | None,
+) -> int:
     """Write the optional outputs and turn the findings into an exit code."""
     if json_out:
         json_out.parent.mkdir(parents=True, exist_ok=True)
@@ -1355,8 +1365,8 @@ def _emit(result: ValidationResult, args, json_out: Path | None) -> int:
             f.write("\n")
         log_debug(f"Wrote {json_out}")
 
-    if args.report_file:
-        record_in_report(result, BuildReport(args.report_file))
+    if report_file:
+        record_in_report(result, BuildReport(str(report_file)))
 
     if _failed(result, args.strict):
         log_error(
