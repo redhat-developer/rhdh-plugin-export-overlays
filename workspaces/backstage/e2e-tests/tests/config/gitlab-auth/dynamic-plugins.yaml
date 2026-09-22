@@ -1,0 +1,9 @@
+# GitLab auth and GitLab org catalog modules are disabled in default.packages.yaml,
+# so {{inherit}} fails at install. Use explicit overlays tags until published on quay.io/rhdh.
+plugins:
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-gitlab-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider:bs_1.52.0__0.4.4
+    disabled: false
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-catalog-backend-module-gitlab-org:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-gitlab-org:bs_1.52.0__0.2.22
+    disabled: false

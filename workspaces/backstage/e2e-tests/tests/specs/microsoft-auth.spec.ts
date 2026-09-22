@@ -1,7 +1,6 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import type { RHDHDeployment } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 import { $, requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
-import { request } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { load as loadYaml } from "js-yaml";
@@ -12,6 +11,12 @@ import {
   MICROSOFT_TEST_USERS,
   NO_USER_FOUND_IN_CATALOG_ERROR_MESSAGE,
 } from "../../support/constants/microsoft.js";
+
+import {
+  checkGroupDisplayNamesInCatalog,
+  checkUserDisplayNamesInCatalog,
+  groupHasRelation,
+} from "../../support/api/catalog-query-helpers.js";
 
 /** Static token from tests/config/microsoft/value-file.yaml */
 const CATALOG_TOKEN = "microsoft-e2e-token";
@@ -202,7 +207,7 @@ test.describe(
       await expect
         .poll(
           () =>
-            checkUserDisplayNamesInCatalog(baseUrl, [
+            checkUserDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
               "TEST Admin",
               "TEST Atena",
               "TEST Elio",
@@ -216,7 +221,7 @@ test.describe(
       await expect
         .poll(
           () =>
-            checkGroupDisplayNamesInCatalog(baseUrl, [
+            checkGroupDisplayNamesInCatalog(baseUrl, CATALOG_TOKEN, [
               "TEST_admins",
               "TEST_goddesses",
               "TEST_gods",
@@ -279,27 +284,53 @@ test.describe(
 
       await expect
         .poll(
-          () => groupHasRelation(baseUrl, "test_gods", "childOf", "test_all"),
+          () =>
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_gods",
+              "childOf",
+              "test_all",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
       await expect
         .poll(
           () =>
-            groupHasRelation(baseUrl, "test_goddesses", "childOf", "test_all"),
-          { timeout: 120_000, intervals: [3_000] },
-        )
-        .toBe(true);
-      await expect
-        .poll(
-          () => groupHasRelation(baseUrl, "test_all", "parentOf", "test_gods"),
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_goddesses",
+              "childOf",
+              "test_all",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
       await expect
         .poll(
           () =>
-            groupHasRelation(baseUrl, "test_all", "parentOf", "test_goddesses"),
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_all",
+              "parentOf",
+              "test_gods",
+            ),
+          { timeout: 120_000, intervals: [3_000] },
+        )
+        .toBe(true);
+      await expect
+        .poll(
+          () =>
+            groupHasRelation(
+              baseUrl,
+              CATALOG_TOKEN,
+              "test_all",
+              "parentOf",
+              "test_goddesses",
+            ),
           { timeout: 120_000, intervals: [3_000] },
         )
         .toBe(true);
@@ -446,73 +477,3 @@ test.describe(
     });
   },
 );
-
-async function catalogQuery(
-  baseUrl: string,
-  filter: string,
-): Promise<unknown[]> {
-  const context = await request.newContext({ ignoreHTTPSErrors: true });
-  try {
-    const url = `${baseUrl}/api/catalog/entities/by-query?orderField=metadata.name%2Casc&filter=${encodeURIComponent(filter)}`;
-    const response = await context.get(url, {
-      headers: { Authorization: `Bearer ${CATALOG_TOKEN}` },
-    });
-    if (!response.ok()) {
-      return [];
-    }
-    const body = (await response.json()) as { items?: unknown[] };
-    return body.items ?? [];
-  } finally {
-    await context.dispose();
-  }
-}
-
-function profileDisplayName(entity: unknown): string | undefined {
-  if (typeof entity !== "object" || entity === null) {
-    return undefined;
-  }
-  const spec = (entity as { spec?: { profile?: { displayName?: unknown } } })
-    .spec;
-  const name = spec?.profile?.displayName;
-  return typeof name === "string" ? name : undefined;
-}
-
-async function checkUserDisplayNamesInCatalog(
-  baseUrl: string,
-  displayNames: string[],
-): Promise<boolean> {
-  const users = await catalogQuery(baseUrl, "kind=user");
-  const found = users
-    .map(profileDisplayName)
-    .filter((name): name is string => typeof name === "string");
-  return displayNames.every((name) => found.includes(name));
-}
-
-async function checkGroupDisplayNamesInCatalog(
-  baseUrl: string,
-  displayNames: string[],
-): Promise<boolean> {
-  const groups = await catalogQuery(baseUrl, "kind=group");
-  const found = groups
-    .map(profileDisplayName)
-    .filter((name): name is string => typeof name === "string");
-  return displayNames.every((name) => found.includes(name));
-}
-
-async function groupHasRelation(
-  baseUrl: string,
-  groupName: string,
-  relationType: string,
-  relatedName: string,
-): Promise<boolean> {
-  const entity = await CatalogApiHelper.getGroupEntity(
-    baseUrl,
-    CATALOG_TOKEN,
-    groupName,
-  );
-  const names =
-    entity.relations
-      ?.filter((r: { type: string }) => r.type === relationType)
-      .map((r: { targetRef: string }) => r.targetRef.split("/")[1]) ?? [];
-  return names.includes(relatedName);
-}
