@@ -1,5 +1,9 @@
 # Lightspeed is being disabled due to https://redhat.atlassian.net/browse/RHDHBUGS-3145
+# Allow Red Hat PostgreSQL image under Bitnami chart image verification
+# (quay.io/rhdh/chart:2.0-90-CI+). See bitnami/charts#30850 / rhdh#5490.
 global:
+  security:
+    allowInsecureImages: true
   lightspeed:
     enabled: false
 upstream:
