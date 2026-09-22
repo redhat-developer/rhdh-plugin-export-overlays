@@ -1,5 +1,9 @@
 # Chart quay.io/rhdh/chart — lightspeed lives under global, not upstream.backstage (schema rejects the latter).
 global:
+  # Allow Red Hat PostgreSQL image under Bitnami chart image verification
+  # (quay.io/rhdh/chart:2.0-90-CI+). See bitnami/charts#30850 / rhdh#5490.
+  security:
+    allowInsecureImages: true
   lightspeed:
     enabled: false
 
