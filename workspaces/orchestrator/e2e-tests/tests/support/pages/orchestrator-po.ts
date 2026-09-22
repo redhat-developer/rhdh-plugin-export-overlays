@@ -118,6 +118,48 @@ export class OrchestratorPO {
     await runButton.click();
   }
 
+  async openLockFlowWorkflowFromSidebar(): Promise<void> {
+    // SonataFlow CR is lock-flow; Data Index / UI catalog name is callback-flow.
+    await this.openWorkflowFromSidebar(/callback-flow|lock-flow/i);
+  }
+
+  /**
+   * On the execute/review page, click Run as Event (not the HTTP Run submit).
+   * Event-only workflows reject plain Run with "no start node that matches the trigger none".
+   */
+  async clickRunAsEvent(): Promise<void> {
+    const runAsEvent = ORCHESTRATOR_COMPONENTS.runAsEventButton(this.page);
+    await expect(runAsEvent).toBeVisible({ timeout: 30_000 });
+    await expect(runAsEvent).toBeEnabled();
+    await runAsEvent.click();
+  }
+
+  /**
+   * After Run as Event: wait for a live run status only.
+   * The pre-run alert only proves RHDH accepted the request; Access Denied is an
+   * RBAC failure (this suite grants instanceAdminView) and must not pass.
+   */
+  async verifyEventTriggeredOrRunVisible(timeoutMs = 300_000): Promise<void> {
+    // Prefer .first(): diagram nodes also render exact "Completed"/"Running" text,
+    // so a bare getByText union hits Playwright strict mode once the run is live.
+    const completed = ORCHESTRATOR_COMPONENTS.completedStatus(
+      this.page,
+    ).first();
+    const running = ORCHESTRATOR_COMPONENTS.runningStatus(this.page).first();
+    await expect(completed.or(running).first()).toBeVisible({
+      timeout: timeoutMs,
+    });
+  }
+
+  async runLockFlowAsEvent(): Promise<void> {
+    await this.openLockFlowWorkflowFromSidebar();
+    await this.runWorkflowInDetailsPage();
+    await this.clickRunAsEvent();
+    // Keep assertion budget under the 600s test timeout so failures surface as
+    // locator errors instead of generic "Test timeout exceeded".
+    await this.verifyEventTriggeredOrRunVisible(300_000);
+  }
+
   async runGreetingWorkflow(
     language = "English",
     status = "Completed",

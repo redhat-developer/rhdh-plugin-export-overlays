@@ -10,11 +10,10 @@ const setupScript = path.join(
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     const project = rhdh.deploymentConfig.namespace;
-    // This skip can be removed once the tech-radar wrapper is removed
+    // This skip can be removed once the tech-radar wrapper is removed.
     test.skip(
-      project === "tech-radar-app-next" &&
-        process.env.E2E_NIGHTLY_MODE === "true",
-      "app-next not ready for nightly",
+      process.env.E2E_NIGHTLY_MODE === "true",
+      "Tech Radar nightly coverage is blocked by the bundled RHDH Tech Radar wrapper; remove this skip when the wrapper is removed from the product image.",
     );
     await rhdh.configure({
       auth: "keycloak",

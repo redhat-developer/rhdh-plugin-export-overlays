@@ -8,6 +8,8 @@
 # Flow:
 #   check_suite/status completes → this workflow
 #     ├─ resolve the PR for the event's commit (skip forks, stale commits)
+#     ├─ settle-gate: if any curated check is still pending/running, exit —
+#     │  diagnose once, when the LAST curated check settles, with the full set
 #     ├─ compute the RED curated checks from the PR's live rollup
 #     ├─ dedup against the sticky comment's <!-- ci-diagnose-state --> marker
 #     └─ if state changed: cycle the `ci-diagnose` label (remove → add)
@@ -17,6 +19,7 @@
 #              CEL trigger matches → ci-diagnose agent runs (read-only)
 #                                          ↓
 #              post-ci-diagnose.sh upserts ONE sticky diagnostic comment
+#              and may request-changes (review App) so the fix agent runs
 #
 # Why cycle (remove → add) instead of just add: re-adding an already-present
 # label is a no-op — fires no webhook — so re-firing as more checks go red
@@ -37,8 +40,9 @@ on:
   check_suite:
     types: [completed]
   # Prow (ci/prow/*) and comment-commands (publish, smoketest) surface as
-  # commit statuses. No type filter — every status update fires this; the
-  # job below filters to curated red checks and exits fast otherwise.
+  # commit statuses. No type filter — every non-pending status update fires
+  # this (the `if` skips `pending`); the settle-gate and dedup in the job then
+  # exit fast unless the full curated set has settled into a new red state.
   status: {}
   # Manual re-diagnose for a specific PR.
   workflow_dispatch:
@@ -50,13 +54,20 @@ on:
 
 # Collapse a burst of check completions for one commit into one trigger.
 # Safe to cancel-in-progress: every run recomputes the full live rollup.
+#
+# Pending status events get their OWN group (the `-pending` suffix) so they can
+# never cancel an in-progress actionable run. A status webhook fires on every
+# state — including `pending` — and a new run cancels the group's in-progress
+# run BEFORE the job `if` skips it, so without this a `pending` arriving right
+# after a `failure` on the same commit would kill the failure's run and the
+# diagnosis would be silently lost (#3439).
 concurrency:
   group: >-
     ci-diagnose-bootstrap-${{
       github.event.check_suite.head_sha
       || github.event.sha
       || format('dispatch-{0}', github.event.inputs.pr_number)
-    }}
+    }}${{ (github.event_name == 'status' && github.event.state == 'pending') && '-pending' || '' }}
   cancel-in-progress: true
 
 permissions:
@@ -69,14 +80,15 @@ jobs:
   label:
     name: Evaluate CI state and label
     runs-on: ubuntu-latest
-    # Only failing statuses matter (Prow/publish/smoketest report as commit
-    # statuses) — skip pending/success to avoid a runner spin-up per green
-    # status repo-wide. A green transition is instead caught by
-    # check_suite:completed, which always re-reads the full live rollup.
+    # Run for every settled status (failure/error AND success), skipping only
+    # `pending`: the settle-gate below diagnoses once all curated checks have
+    # finished, so the last check to settle must reach the job even when it's a
+    # green `success` — otherwise a success arriving last would leave earlier
+    # failures on other checks undiagnosed. `pending` is skipped (it can never
+    # satisfy the settle-gate) to avoid a job per pending status repo-wide.
     if: >-
       github.event_name != 'status'
-      || github.event.state == 'failure'
-      || github.event.state == 'error'
+      || github.event.state != 'pending'
     steps:
       # Only the shared jq filter is needed — sparse-checkout keeps this fast.
       - name: Checkout curated-check filter
@@ -156,6 +168,28 @@ jobs:
             echo "::notice::Event SHA ${EVENT_SHA} != head ${HEAD_SHA} — stale, skipping"
             echo "fire=false" >> "${GITHUB_OUTPUT}"
             exit 0
+          fi
+
+          # -- Settle-gate: wait until every curated check has finished -------
+          # Diagnose ONCE, with the complete picture. While any curated check
+          # is still pending/running, exit without firing — the event fired
+          # when the last one settles (a failure/error OR a success) re-reads
+          # the full rollup and diagnoses then. This also makes a re-triggered
+          # check (e.g. /retest) block diagnosis until it completes, and
+          # collapses "checks fail minutes apart" into a single agent run
+          # instead of one wasteful run per completion.
+          # Same shared filter, "settling" mode (see curated-check-filter.jq).
+          # workflow_dispatch bypasses the gate: a human asking to re-diagnose
+          # now wants an answer even if a check is stuck pending.
+          if [[ "${EVENT_NAME}" != "workflow_dispatch" ]]; then
+            SETTLING_NAMES=$(echo "${ROLLUP}" \
+              | CURATED_MODE=settling jq -c -f .fullsend/rhdh/scripts/curated-check-filter.jq \
+              | jq -c 'map(.name // .context) | sort')
+            if [[ "${SETTLING_NAMES}" != "[]" ]]; then
+              echo "::notice::Curated checks still settling: ${SETTLING_NAMES} — deferring diagnose until all finish"
+              echo "fire=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
           fi
 
           # -- Compute the sorted RED curated check names --------------------

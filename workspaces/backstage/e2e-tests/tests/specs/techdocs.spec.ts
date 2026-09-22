@@ -91,7 +91,6 @@ test.describe("TechDocs", () => {
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       secrets: "tests/config/techdocs/rhdh-secrets.yaml",
       disablePlugins: TECHDOCS_WRAPPER_DIST_NAMES,
-      useNewFrontendSystem: true,
     });
 
     await rhdh.deploy();
@@ -120,12 +119,15 @@ test.describe("TechDocs", () => {
   });
 
   test("Verify that TechDocs entity tab page for Red Hat Developer Hub works", async ({
+    page,
     uiHelper,
   }) => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    await uiHelper.clickTab("Docs");
+    const linkLocator = page.getByRole("link", { name: "TechDocs" });
+    await linkLocator.waitFor({ state: "visible" });
+    await linkLocator.click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
   });
 
@@ -148,7 +150,9 @@ test.describe("TechDocs", () => {
     await uiHelper.openSidebar("Catalog");
     await uiHelper.selectMuiBox("Kind", "Component");
     await uiHelper.clickLink("Red Hat Developer Hub");
-    await uiHelper.clickTab("Docs");
+    const linkLocator = page.getByRole("link", { name: "TechDocs" });
+    await linkLocator.waitFor({ state: "visible" });
+    await linkLocator.click();
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
     expect(await pollForReportIssueLink(page)).toBe(true);
   });

@@ -1,5 +1,6 @@
 """Tests for generatePluginBuildInfo.py — parsing, tag listing, and registry reference transforms."""
 
+import base64
 import json
 import re
 from unittest.mock import MagicMock, patch
@@ -307,7 +308,7 @@ class TestFetchImageMetadata:
         assert metadata is not None
         assert SHA256_DIGEST_RE.match(metadata["digest"])
 
-    def test_ghcr_returns_dynamic_packages_annotation(self):
+    def test_ghcr_returns_dynamic_packages_b64(self):
         metadata = generatePluginBuildInfo._fetch_image_metadata(GHCR_KNOWN_REF)
         assert metadata is not None
         assert "io.backstage.dynamic-packages" in metadata
@@ -859,3 +860,173 @@ spec:
         assert updated_count == 0
         assert json_path.read_text(encoding="utf-8") == original_json
         assert json_path.stat().st_mtime_ns == before_mtime
+
+
+# ---------------------------------------------------------------------------
+# decode_dynamic_packages / empty-annotation detection
+# ---------------------------------------------------------------------------
+
+
+def _b64(payload: bytes) -> str:
+    return base64.b64encode(payload).decode()
+
+
+class TestDecodeDynamicPackages:
+    """The annotation is base64-encoded JSON; an empty list is RHDHBUGS-3556."""
+
+    def test_decodes_a_real_package_list(self):
+        packages = generatePluginBuildInfo.decode_dynamic_packages(
+            _b64(json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode())
+        )
+        assert packages == [{"plugin-a": {"name": "@scope/plugin-a"}}]
+
+    @pytest.mark.parametrize("annotation", ["", None])
+    def test_absent_annotation_decodes_to_nothing_declared(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) == []
+
+    def test_an_explicitly_empty_list_decodes_to_empty(self):
+        # [] means "declares nothing", None means "could not be read". Collapsing the
+        # two would report a broken artifact as an empty one, or the reverse.
+        assert generatePluginBuildInfo.decode_dynamic_packages(_b64(b"[]")) == []
+
+    @pytest.mark.parametrize(
+        "wrap",
+        [
+            lambda p: base64.encodebytes(p).decode(),
+            lambda p: base64.b64encode(p).decode() + "\n",
+            lambda p: " " + base64.b64encode(p).decode() + " ",
+        ],
+        ids=["mime-wrapped", "trailing-newline", "surrounding-spaces"],
+    )
+    def test_whitespace_in_the_annotation_is_not_malformed(self, wrap):
+        # `base64` without `-w 0` wraps its output. A healthy artifact whose
+        # annotation carries a newline must not be reported as broken.
+        payload = json.dumps([{"plugin-a": {"name": "@scope/plugin-a"}}]).encode()
+        assert generatePluginBuildInfo.decode_dynamic_packages(wrap(payload)) == [
+            {"plugin-a": {"name": "@scope/plugin-a"}}
+        ]
+
+    def test_an_annotation_that_was_never_encoded_is_undecodable(self):
+        # Stripping whitespace must not soften the check into accepting raw JSON.
+        assert (
+            generatePluginBuildInfo.decode_dynamic_packages('[{"a": 1}]') is None
+        )
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            "!!!not-base64!!!",
+            _b64(b"not json at all"),
+            _b64(b'{"packages": []}'),  # an object, not the expected list
+        ],
+        ids=["not-base64", "not-json", "not-a-list"],
+    )
+    def test_undecodable_annotation_returns_none(self, annotation):
+        assert generatePluginBuildInfo.decode_dynamic_packages(annotation) is None
+
+
+class TestDynamicPackagesAnnotationReporting:
+    """What _fetch_image_metadata reports for each shape of the annotation."""
+
+    REF = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/plugin-x:bs_1.52.0__1.0.0"
+
+    def _fetch_with_annotations(self, annotations):
+        manifest = {
+            "config": {"digest": "sha256:" + "0" * 64},
+            "annotations": annotations,
+        }
+        manifest_response = MagicMock(
+            status_code=200,
+            json=MagicMock(return_value=manifest),
+            headers={"Docker-Content-Digest": "sha256:" + "1" * 64},
+        )
+        blob_response = MagicMock(status_code=404)
+        # get_registry_auth issues its own token request for ghcr.io; without stubbing it
+        # the first queued response is consumed there and the manifest never arrives.
+        with patch.object(
+            generatePluginBuildInfo, "get_registry_auth", return_value=(None, {})
+        ), patch.object(
+            generatePluginBuildInfo.requests,
+            "get",
+            side_effect=[manifest_response, blob_response],
+        ), patch.object(generatePluginBuildInfo, "log_warn") as warn:
+            generatePluginBuildInfo._fetch_image_metadata(self.REF)
+        return [call.args[0] for call in warn.call_args_list]
+
+    def test_empty_annotation_is_reported_with_the_artifact_named(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(b"[]")}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "empty" in w and "no-op" in w
+            for w in warnings
+        ), warnings
+
+    def test_malformed_annotation_is_reported_as_malformed_not_empty(self):
+        warnings = self._fetch_with_annotations(
+            {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"}
+        )
+        assert any(
+            "plugin-x:bs_1.52.0__1.0.0" in w and "malformed" in w for w in warnings
+        ), warnings
+        assert not any("declares an empty" in w for w in warnings), warnings
+
+    def test_a_populated_annotation_is_not_reported(self):
+        warnings = self._fetch_with_annotations(
+            {
+                generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: _b64(
+                    json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()
+                )
+            }
+        )
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+    def test_an_image_without_the_annotation_is_not_reported(self):
+        # Not every image publishes one; warning on its absence would fire on all of them.
+        warnings = self._fetch_with_annotations({})
+        assert not any("dynamic-packages" in w for w in warnings), warnings
+
+
+class TestDynamicPackagesInBuildReport:
+    """The image-metadata-fetch stage must not read green for an empty artifact."""
+
+    @staticmethod
+    def _stage(annotation, tmp_path):
+        report = BuildReport(tmp_path / "build-report.json")
+        data = {
+            "plugin-x": {
+                "digest": "sha256:" + "0" * 64,
+                **(
+                    {generatePluginBuildInfo.DYNAMIC_PACKAGES_ANNOTATION: annotation}
+                    if annotation is not None
+                    else {}
+                ),
+            }
+        }
+        generatePluginBuildInfo._record_image_metadata_report(report, data)
+        return report.get_stage("plugin-x", "image-metadata-fetch")
+
+    def test_an_empty_annotation_is_recorded_on_the_stage(self, tmp_path):
+        # Without this the stage is a bare pass and build-report.json contradicts the
+        # warning the fetch already logged.
+        stage = self._stage(_b64(b"[]"), tmp_path)
+        assert stage["status"] == "pass"
+        assert stage["dynamicPackages"] == 0
+
+    def test_an_unreadable_annotation_is_recorded_as_unreadable(self, tmp_path):
+        stage = self._stage("!!!not-base64!!!", tmp_path)
+        assert stage["dynamicPackagesUnreadable"] is True
+        assert "dynamicPackages" not in stage
+
+    def test_a_populated_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(
+            _b64(json.dumps([{"plugin-x": {"name": "@scope/plugin-x"}}]).encode()),
+            tmp_path,
+        )
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage
+
+    def test_an_image_without_the_annotation_adds_no_detail(self, tmp_path):
+        stage = self._stage(None, tmp_path)
+        assert "dynamicPackages" not in stage
+        assert "dynamicPackagesUnreadable" not in stage

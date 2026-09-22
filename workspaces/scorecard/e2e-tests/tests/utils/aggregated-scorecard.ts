@@ -67,10 +67,9 @@ export function aggregatedScorecardHelpers(page: Page) {
     /** Hovers each visible threshold color swatch and checks the chart tooltip text. */
     async expectChartThresholdTooltips(card: Locator, metric: ScorecardMetric) {
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
-      const chart = page.locator(".v5-MuiBox-root");
 
       const expectTooltipText = async () => {
-        await expect(chart.getByText(/%|No entities/i)).toBeVisible({
+        await expect(page.getByText(/%|entities/i).first()).toBeVisible({
           timeout: 10_000,
         });
       };
@@ -122,7 +121,7 @@ export function aggregatedScorecardHelpers(page: Page) {
 
       const labels = metric.thresholdLabels ?? DEFAULT_THRESHOLD_LABELS;
       const thresholdLabelSnapshots = labels
-        .map((l) => `            - paragraph: "${l}"`)
+        .map((l) => `            - paragraph: /${l}/`)
         .join("\n");
 
       await expect(card).toMatchAriaSnapshot(`

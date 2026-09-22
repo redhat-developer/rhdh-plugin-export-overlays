@@ -7,8 +7,5 @@ export default defineConfig({
     {
       name: "analytics-segment",
     },
-    {
-      name: "analytics-segment-app-next",
-    },
   ],
 });
