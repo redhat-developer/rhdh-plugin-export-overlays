@@ -1,3 +1,9 @@
+# Disable Lightspeed/IA sidecar — chart 2.0-90-CI uses intelligentAssistant.enabled
+# (global.lightspeed is ignored). Default enabled:true starts lightspeed-core with
+# --synthesized-config-output which CrashLoops. See RHDHBUGS-3145.
+intelligentAssistant:
+  enabled: false
+
 # Chart quay.io/rhdh/chart — lightspeed lives under global, not upstream.backstage (schema rejects the latter).
 global:
   # Allow Red Hat PostgreSQL image under Bitnami chart image verification
