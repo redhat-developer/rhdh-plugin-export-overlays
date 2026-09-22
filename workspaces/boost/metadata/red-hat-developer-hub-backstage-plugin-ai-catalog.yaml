@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-ai-catalog
+  namespace: rhdh
+  title: "AI Catalog"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/boost/plugins/ai-catalog
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/boost/plugins/ai-catalog
+  tags:
+    - ai
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-ai-catalog"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ai-catalog:bs_1.54.6__0.8.0
+  version: 0.8.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - boost
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        app:
+          extensions:
+            - page:ai-catalog/ai-catalog: {}
+            - entity-card:ai-catalog/ai-asset-details: {}
+            - entity-card:ai-catalog/agent-instructions: {}
+            - entity-card:ai-catalog/usage: {}
