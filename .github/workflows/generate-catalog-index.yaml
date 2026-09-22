@@ -104,10 +104,14 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
+          # skopeo: extractCatalogIndex.sh pulls the previous catalog-index image
+          # for version-regression. Without it the extractor exits 2 and the
+          # gate cannot run.
+          sudo apt-get update && sudo apt-get install -y skopeo
           pip install -r scripts/requirements.txt
 
           # Install mikefarah yq (required by generateDynamicPluginsDefaultYaml.sh)
@@ -120,24 +124,28 @@ jobs:
 
       - name: Read versions
         id: versions
+        env:
+          SOURCE_BRANCH: ${{ steps.branches.outputs.source-branch }}
         run: |
           BS_VERSION=$(jq -r '.backstage' versions.json)
 
-          # Fetch RHDH version from upstream package.json (matches downstream approach)
+          # Fetch RHDH version from the source branch, not GITHUB_REF_NAME: a
+          # workflow_dispatch of this file from main with source-branch=release-*
+          # must tag the previous index with the release line.
           RHDH_FULL_VERSION=$(curl -sSLf \
-            "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/${GITHUB_REF_NAME}/package.json" \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/${SOURCE_BRANCH}/package.json" \
             | jq -r '.version') || true
           if [[ -n "$RHDH_FULL_VERSION" && "$RHDH_FULL_VERSION" != "null" ]]; then
             RHDH_VERSION="${RHDH_FULL_VERSION%.*}"
           else
-            echo "::warning::Failed to fetch RHDH version from upstream for branch ${GITHUB_REF_NAME}"
+            echo "::warning::Failed to fetch RHDH version from upstream for branch ${SOURCE_BRANCH}"
             RHDH_VERSION=""
           fi
 
           echo "backstage-version=$BS_VERSION" >> "$GITHUB_OUTPUT"
           echo "rhdh-version=$RHDH_VERSION" >> "$GITHUB_OUTPUT"
           echo "Backstage version: $BS_VERSION"
-          echo "RHDH version: $RHDH_VERSION (from upstream RHDH $RHDH_BRANCH package.json: $RHDH_FULL_VERSION)"
+          echo "RHDH version: $RHDH_VERSION (from upstream RHDH ${SOURCE_BRANCH} package.json: $RHDH_FULL_VERSION)"
 
       - name: Resolve policy strictness
         id: policy
@@ -479,7 +487,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt

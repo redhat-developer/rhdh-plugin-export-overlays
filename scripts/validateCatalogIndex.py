@@ -136,8 +136,8 @@ RULES: dict[str, Rule] = {
     "dpdy-missing-package": Rule(
         ERROR,
         "a package listed in default.packages.yaml is absent from "
-        "dynamic-plugins.default.yaml (matched by npm name / image name, "
-        "not by count)",
+        "dynamic-plugins.default.yaml (matched by exact npm name or OCI "
+        "image name, not by count or substring)",
     ),
 }
 
@@ -802,9 +802,15 @@ def check_dpdy_vs_default_packages(
 
 
 def _dpdy_covers(entries: list[DpdyEntry], npm_name: str, image: str) -> bool:
+    """True when one DPDY entry is this default.packages.yaml package, by identity.
+
+    Substring matches are forbidden: ``backstage-plugin-techdocs-backend``
+    contains ``backstage-plugin-techdocs``, and that false cover is what would
+    let a missing frontend package publish.
+    """
     for entry in entries:
         package = entry.package
-        if npm_name in package or image in package:
+        if package == npm_name:
             return True
         ref = parse_oci_ref(package)
         if ref is not None and ref.image == image:

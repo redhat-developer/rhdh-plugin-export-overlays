@@ -377,7 +377,7 @@ RHIDP-16252. There is no second policy process.
 
 On `release-*` branches the GitHub workflow sets `--strict` automatically. For a deliberate emergency rollback on a release line, run the workflow manually with `strict: false` — this relaxes fallback, outdated-version, and regression checks together. Structural errors (`unresolved-image`, `missing-annotation`, incomplete DPDY) still fail.
 
-`--previous-index-ref` is an OCI ref or a local DPDY/directory. `update-index.sh` extracts an OCI ref with `extractCatalogIndex.sh` before Step 5 so the validator itself stays offline.
+`--previous-index-ref` is an OCI ref or a local DPDY/directory. `update-index.sh` extracts an OCI ref with `extractCatalogIndex.sh` before Step 5 so the validator itself stays offline. A missing previous image skips version-regression with a warning. A missing extractor toolchain (`skopeo`, `jq`, `tar`) fails the build rather than skipping the comparison.
 
 Local / midstream runs can pass the same flags:
 

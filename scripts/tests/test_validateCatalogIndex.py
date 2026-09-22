@@ -1038,6 +1038,49 @@ class TestPolicyRules:
         assert "plugin-b" in missing[0].message
         assert missing[0].image == "scope-plugin-b"
 
+    def test_dpdy_completeness_does_not_treat_a_prefix_as_identity(self, tmp_path):
+        """A backend image must not cover the frontend package whose name it prefixes.
+
+        ``backstage-plugin-techdocs`` is a substring of
+        ``backstage-plugin-techdocs-backend``. Matching on containment would
+        swallow the missing frontend and publish anyway.
+        """
+        default_packages = tmp_path / "default.packages.yaml"
+        default_packages.write_text(
+            yaml.safe_dump(
+                {
+                    "packages": {
+                        "enabled": [
+                            {"package": "@backstage/plugin-techdocs"},
+                            {"package": "@backstage/plugin-techdocs-backend"},
+                        ],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": (
+                        f"oci://{REGISTRY}/backstage-plugin-techdocs-backend@{DIGEST}"
+                    )
+                }
+            ],
+            builds={
+                "backstage-plugin-techdocs-backend": resolved(
+                    "backstage-plugin-techdocs-backend"
+                )
+            },
+            default_packages_file=default_packages,
+        )
+        missing = [f for f in result.findings if f.rule == "dpdy-missing-package"]
+        assert len(missing) == 1
+        assert missing[0].severity == ERROR
+        assert missing[0].message.startswith("'@backstage/plugin-techdocs'")
+        assert missing[0].image == "backstage-plugin-techdocs"
+
     def test_version_regression_rhdhbugs_3503_shape(self):
         assert version_less_than("5.4.1", "5.7.12")
         findings = check_version_regression(

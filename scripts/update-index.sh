@@ -127,6 +127,9 @@ Arguments:
        --previous-index-ref    OCI ref or local DPDY/dir for version-regression.
                                OCI refs are extracted with extractCatalogIndex.sh
                                before Step 5 (the validator itself does not use the network).
+                               A missing extractor toolchain (skopeo/jq/tar) fails
+                               the build. A missing previous image skips
+                               version-regression with a warning.
        --sanity-check          Step 6, install and boot every package the generated
                                index declares, via smoke-tests-native. Off by default:
                                it pulls every artifact and needs Node 24 + Yarn 4, which
@@ -438,8 +441,16 @@ else
             PREV_DPDY="$PREVIOUS_INDEX_REF/index.json"
         else
             PREV_DPDY="$OUTPUT_DIR/.previous-index-dpdy.yaml"
-            if "$SCRIPT_DIR/extractCatalogIndex.sh" "$PREVIOUS_INDEX_REF" "$PREV_DPDY"; then
+            EXTRACT_RC=0
+            "$SCRIPT_DIR/extractCatalogIndex.sh" "$PREVIOUS_INDEX_REF" "$PREV_DPDY" || EXTRACT_RC=$?
+            if [[ "$EXTRACT_RC" -eq 0 ]]; then
                 PREV_EXTRACTED="$PREV_DPDY"
+            elif [[ "$EXTRACT_RC" -ge 2 ]]; then
+                # Exit 2 is a missing toolchain (skopeo/jq/tar) or usage error.
+                # Treating that as "image not found" would skip version-regression
+                # and publish a catalog the gate never compared.
+                echo -e "${red}[ERROR] Cannot extract previous catalog index from $PREVIOUS_INDEX_REF (extractCatalogIndex.sh exit ${EXTRACT_RC}); version-regression cannot run${norm}" >&2
+                exit 1
             else
                 echo -e "${yellow}[WARN] Previous catalog index not found at $PREVIOUS_INDEX_REF; skipping version-regression${norm}" >&2
                 PREV_DPDY=""
