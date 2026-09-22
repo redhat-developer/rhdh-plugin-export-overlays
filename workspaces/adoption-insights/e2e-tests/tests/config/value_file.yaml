@@ -1,5 +1,8 @@
 # Allow Red Hat PostgreSQL image under Bitnami chart image verification
 # (quay.io/rhdh/chart:2.0-90-CI+). See bitnami/charts#30850 / rhdh#5490.
+# Disable Lightspeed sidecar — chart 2.0-90-CI LCS CrashLoop (--synthesized-config-output). See RHDHBUGS-3145.
 global:
+  lightspeed:
+    enabled: false
   security:
     allowInsecureImages: true
