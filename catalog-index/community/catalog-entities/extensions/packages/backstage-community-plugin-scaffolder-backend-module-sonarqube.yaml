@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-scaffolder-backend-module-sonarqube"
   # Tag: bs_1.54.6__2.17.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube@sha256:2ba17d2547e3373ec6eca5787793dd548ece804e4f8c9109f0ee5ab2e6c294a4"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-sonarqube@sha256:42a18a6bdf288280045a3716b3d390bd21989ae777596f8f06066440955f8199"
   version: 2.17.0
   backstage:
     role: backend-plugin-module

@@ -16,9 +16,9 @@ metadata:
   tags: []
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-global-header"
-  # Tag: bs_1.54.6__2.0.1, Build date: 2026-06-03T21:16:21Z
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:6a25bc21b2ec493aeb614b946bbbcde1f519be175c048cf0b05772f91136f481"
-  version: 2.0.1
+  # Tag: bs_1.54.6__3.1.0, Build date: 2026-06-03T21:16:21Z
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header@sha256:5b5436e37fc09febe4e24303c8111a739307767428d88d951b2c793a72a46e21"
+  version: 3.1.0
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.6

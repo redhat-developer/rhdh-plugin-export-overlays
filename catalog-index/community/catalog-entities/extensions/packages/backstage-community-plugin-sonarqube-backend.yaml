@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-sonarqube-backend"
   # Tag: bs_1.54.6__1.2.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend@sha256:5f42a58e082313c935683970901d1bad20bbe80a8331edf96205f0106c112e2a"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-sonarqube-backend@sha256:aa83f66e18437186c6f7bb15e0c78910f16f409d1ebecb97f43366e89a64f1be"
   version: 1.2.0
   backstage:
     role: backend-plugin
