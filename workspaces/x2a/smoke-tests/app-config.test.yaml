@@ -20,11 +20,15 @@ x2a:
     skipTLSVerify: true
 
 # -- kubeconfig keys (read by @kubernetes/client-node via KUBECONFIG) --
+# The smoke-test container has no Kubernetes API. The exec credential helper
+# starts a tiny local HTTP server before returning a token. The server answers
+# the list-pods request used by x2a's startup health check with an empty
+# PodList, allowing the plugin to initialize without a real cluster.
 apiVersion: v1
 kind: Config
 clusters:
   - cluster:
-      server: https://localhost:9443
+      server: http://127.0.0.1:9443
       insecure-skip-tls-verify: true
     name: smoke-test
 contexts:
@@ -37,4 +41,13 @@ current-context: smoke-test
 users:
   - name: smoke-test
     user:
-      token: smoke-test-token
+      exec:
+        apiVersion: client.authentication.k8s.io/v1beta1
+        command: node
+        args:
+          - -e
+          - >-
+            const{spawn}=require('child_process'),net=require('net');const
+            script="require('http').createServer((req,res)=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({apiVersion:'v1',kind:'PodList',items:[]}))}).listen(9443,'127.0.0.1')";
+            try{spawn(process.execPath,['-e',script],{detached:true,stdio:'ignore'}).unref()}catch{}
+            const ready=()=>{const s=net.connect(9443,'127.0.0.1',()=>{s.destroy();process.stdout.write(JSON.stringify({apiVersion:'client.authentication.k8s.io/v1beta1',kind:'ExecCredential',status:{token:'smoke-test-token'}}))});s.on('error',()=>setTimeout(ready,10))};ready()
