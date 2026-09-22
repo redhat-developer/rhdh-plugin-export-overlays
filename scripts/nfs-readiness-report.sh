@@ -10,8 +10,6 @@
 #   mixed              — Some NFS entry points, some legacy/unrecognized
 #   legacy-only        — Entry points present but none are NFS types
 #   no-features        — backstage.features field absent or empty in OCI artifact
-#   baked-in           — Ships inside the RHDH container image (local path, not OCI)
-#   external-registry  — Hosted on a non-GHCR registry (cannot inspect)
 #   unknown            — Could not determine status (no --oci flag or OCI pull failed)
 #   backend-only       — Plugin role is backend-plugin (not applicable)
 #
@@ -53,14 +51,32 @@ fi
 # NFS feature types (must match nfsModuleFilter.ts)
 NFS_FEATURE_TYPES=("@backstage/FrontendPlugin" "@backstage/FrontendModule")
 
-is_nfs_type() {
-  local type="$1"
-  for nfs_type in "${NFS_FEATURE_TYPES[@]}"; do
-    if [[ "$type" == "$nfs_type" ]]; then
+# Roles that constitute frontend surface. Both carry backstage.features and reach the
+# browser through the same module-federation remote.
+FRONTEND_ROLES=("frontend-plugin" "frontend-plugin-module")
+
+# Exact membership, not a prefix or glob match: `frontend-plugin` must not admit a
+# hypothetical `frontend-plugin-widget` that the classifier would then call backend-only.
+contains_exact() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    if [[ "$needle" == "$item" ]]; then
       return 0
     fi
   done
   return 1
+}
+
+is_frontend_role() {
+  local role="$1"
+  contains_exact "$role" "${FRONTEND_ROLES[@]}"
+}
+
+is_nfs_type() {
+  local feature_type="$1"
+  contains_exact "$feature_type" "${NFS_FEATURE_TYPES[@]}"
 }
 
 # Read support tier files into associative arrays
@@ -190,17 +206,76 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
 
   support_tier=$(get_support_tier "$workspace" "$package_name")
 
-  if [[ "$role" != "frontend-plugin" ]]; then
+  # frontend-plugin-module counts as frontend surface: those packages carry
+  # backstage.features and load through the same module-federation remote. Filtering on
+  # frontend-plugin alone bucketed them as backend-only, understating the denominator
+  # (80 frontend packages reported as 75) and hiding 4 already-NFS-ready modules.
+  #
+  # One decision, taken once. It travels in the emitted JSON as `frontend` so the markdown
+  # filters select on it rather than re-deriving it — a second expression of the same
+  # predicate is how the classifier and the denominator drifted apart in the first place.
+  is_frontend=true
+  if ! is_frontend_role "$role"; then
+    is_frontend=false
     status="backend-only"
     features_json="{}"
   elif [[ -z "$oci_ref" || "$oci_ref" == "./"* ]]; then
-    # Plugin ships inside the RHDH container image (local path)
-    status="baked-in"
+    # Plugin ships inside the RHDH container image (local path).
+    # Infer NFS readiness from source package.json exports field.
     features_json="{}"
-  elif [[ "$oci_ref" != *"ghcr.io"* ]]; then
-    # Hosted on a non-GHCR registry we can't inspect
-    status="external-registry"
-    features_json="{}"
+    source_json="$REPO_ROOT/workspaces/$workspace/source.json"
+    if [[ -f "$source_json" ]]; then
+      repo_url=$(jq -r '.repo // empty' "$source_json" 2>/dev/null) || repo_url=""
+      repo_ref=$(jq -r '."repo-ref" // empty' "$source_json" 2>/dev/null) || repo_ref=""
+      repo_flat=$(jq -r '."repo-flat" // empty' "$source_json" 2>/dev/null) || repo_flat=""
+
+      if [[ -n "$repo_url" && -n "$repo_ref" && "$repo_url" == *"github.com"* ]]; then
+        # Convert GitHub URL to raw content URL
+        raw_base=$(echo "$repo_url" | sed 's|github.com|raw.githubusercontent.com|')
+
+        # Build path to source package.json
+        load_plugin_paths "$workspace"
+        baked_paths="${PLUGINS_LIST_CACHE[$workspace]:-}"
+        baked_bare="${package_name#@*/}"
+        baked_stripped_plugin="${baked_bare#plugin-}"
+        baked_stripped_backstage="${baked_bare#backstage-plugin-}"
+        matched_pp=""
+        for pp in $baked_paths; do
+          folder="${pp##*/}"
+          if [[ "$folder" == "$baked_bare" || "$folder" == "$baked_stripped_plugin" || "$folder" == "$baked_stripped_backstage" ]]; then
+            matched_pp="$pp"
+            break
+          fi
+        done
+
+        if [[ -n "$matched_pp" ]]; then
+          if [[ "$repo_flat" == "true" ]]; then
+            pkg_url="$raw_base/$repo_ref/$matched_pp/package.json"
+          else
+            pkg_url="$raw_base/$repo_ref/workspaces/$workspace/$matched_pp/package.json"
+          fi
+
+          src_exports=$(curl -fsSL --proto '=https' --tlsv1.2 "$pkg_url" 2>/dev/null | jq -c '.exports // {}' 2>/dev/null || echo '{}')
+          if [[ -n "$src_exports" && "$src_exports" != "{}" ]]; then
+            # Build inferred features from exports keys that look like NFS entry points
+            inferred=$(echo "$src_exports" | jq -c '
+              [to_entries[]
+               | select((.key | startswith("./")) and .key != "./package.json")
+              ]
+              | map({(.key): "@backstage/FrontendPlugin"})
+              | add // {}
+            ' 2>/dev/null || echo '{}')
+            features_json="$inferred"
+          fi
+        fi
+      fi
+    fi
+    if [[ "$features_json" == "{}" || -z "$features_json" ]]; then
+      # Inference failed or no exports found — can't determine status
+      status="unknown"
+    else
+      status=$(classify_features "$features_json")
+    fi
   elif [[ "$USE_OCI" == "true" ]]; then
     # Pull OCI artifact and extract backstage.features
     mkdir -p "$WORKDIR"
@@ -248,10 +323,12 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     --arg tier "$support_tier" \
     --arg oci "$oci_ref" \
     --argjson features "$features_json" \
+    --argjson frontend "$is_frontend" \
     '{
       workspace: $ws,
       packageName: $pkg,
       role: $role,
+      frontend: $frontend,
       status: $status,
       supportTier: $tier,
       ociRef: $oci,
@@ -268,13 +345,11 @@ fi
 
 if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   # Generate markdown report
-  total_frontend=$(echo "$RESULTS" | jq '[.[] | select(.role == "frontend-plugin")] | length')
+  total_frontend=$(echo "$RESULTS" | jq '[.[] | select(.frontend)] | length')
   nfs_ready=$(echo "$RESULTS" | jq '[.[] | select(.status == "nfs-ready")] | length')
   mixed=$(echo "$RESULTS" | jq '[.[] | select(.status == "mixed")] | length')
   legacy_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "legacy-only")] | length')
   no_features=$(echo "$RESULTS" | jq '[.[] | select(.status == "no-features")] | length')
-  baked_in=$(echo "$RESULTS" | jq '[.[] | select(.status == "baked-in")] | length')
-  external_reg=$(echo "$RESULTS" | jq '[.[] | select(.status == "external-registry")] | length')
   unknown=$(echo "$RESULTS" | jq '[.[] | select(.status == "unknown")] | length')
   backend_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "backend-only")] | length')
 
@@ -291,8 +366,6 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 | :yellow_circle: mixed | $mixed | Some NFS entry points, some legacy/unrecognized |
 | :orange_circle: legacy-only | $legacy_only | Entry points present but none are NFS types |
 | :red_circle: no-features | $no_features | \`backstage.features\` field absent or empty in OCI artifact |
-| :blue_circle: baked-in | $baked_in | Ships inside the RHDH container image (local path, not OCI) |
-| :purple_circle: external-registry | $external_reg | Hosted on a non-GHCR registry (cannot inspect) |
 | :white_circle: unknown | $unknown | Could not determine status (no \`--oci\` flag or pull failed) |
 | — backend-only | $backend_only | Backend plugin (not applicable) |
 
@@ -309,7 +382,7 @@ EOF
       other)     tier_label="Other" ;;
       *)         tier_label="$tier" ;;
     esac
-    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .role == "frontend-plugin")] | length')
+    tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .frontend)] | length')
     tier_ready=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .status == "nfs-ready")] | length')
 
     [[ "$tier_frontend" -eq 0 ]] && continue
@@ -321,7 +394,7 @@ EOF
     echo "|--------|-----------|--------|----------|"
 
     echo "$RESULTS" | jq -r --arg t "$tier" '
-      [.[] | select(.supportTier == $t and .role == "frontend-plugin")]
+      [.[] | select(.supportTier == $t and .frontend)]
       | sort_by(.status, .workspace, .packageName)
       | .[]
       | {
@@ -332,8 +405,6 @@ EOF
                  elif .status == "mixed" then ":yellow_circle:"
                  elif .status == "legacy-only" then ":orange_circle:"
                  elif .status == "no-features" then ":red_circle:"
-                 elif .status == "baked-in" then ":blue_circle:"
-                 elif .status == "external-registry" then ":purple_circle:"
                  else ":white_circle:" end),
           features_str: (if (.features | length) == 0 then "—"
                          else (.features | to_entries | map("`\(.key)` → \(.value)") | join(", ")) end)
@@ -378,11 +449,22 @@ logic in RHDH, which recognizes these NFS feature types:
 Plugins classified as **no-features** were exported with \`rhdh-cli >= 1.11.3\` but don't
 have standard Module Federation exports that the CLI can detect.
 
-Plugins classified as **baked-in** ship inside the RHDH container image and are not
-published as separate OCI artifacts.
+#### Reading the counts
 
-Plugins classified as **external-registry** are hosted on a non-GHCR registry
-(e.g., \`quay.io\`) and cannot be inspected by this report.
+Only **nfs-ready** and **no-features** are informative here. **mixed** and
+**legacy-only** require \`backstage.features\` to be non-empty while containing no NFS
+type — but the CLI populates that field *from* the Module Federation entry points it
+detects, so a plugin with no NFS entry point ends up with an empty field and lands in
+**no-features** instead. A \`mixed: 0 / legacy-only: 0\` line therefore is not evidence
+of anything; it is the expected output shape. Read **no-features** as "not migrated".
+
+**no-features** also merges two states worth telling apart, which this report cannot
+distinguish on its own: a package that ships no Module Federation bundle at all, and a
+package that ships a servable remote whose exposed modules simply are not NFS feature
+types (\`@roadiehq/backstage-plugin-{argo-cd,datadog,github-insights}\` expose an
+\`alpha\` module in their MF manifest but declare no features). The second group is much
+closer to ready than the first. \`smoke-tests-native\` reports that distinction per
+package as \`frontend.bundles[].mf\` in its \`results.json\`.
 
 EOF
 fi

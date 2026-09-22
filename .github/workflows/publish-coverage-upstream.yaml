@@ -69,10 +69,10 @@ on:
       pinned-only:
         description: >-
           Upload only to the pinned repo-ref, not to the source repo's
-          default-branch HEAD. NOTE: a report uploaded to a historical commit
-          has not been observed to change that commit's report, so this does
-          NOT give you a copy to review before publishing — see the flag's
-          comment in scripts/upload-coverage-upstream.sh.
+          default-branch HEAD. The upload lands either way — what this withholds
+          is the copy that makes the flag reachable from the default branch, so
+          it publishes where nobody is looking rather than previewing what the
+          visible copy will say.
         type: boolean
         required: false
         default: false
@@ -113,12 +113,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Node
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
 
@@ -154,6 +154,16 @@ jobs:
           TARGETS: ${{ steps.resolve.outputs.targets }}
           INPUT_DRY_RUN: ${{ inputs.dry-run }}
           INPUT_PINNED_ONLY: ${{ inputs.pinned-only }}
+          # Pinned here rather than left to the script's defaults, because this
+          # job carries `timeout-minutes: 30` and the checks poll. Worst case is
+          # 4 x 15s for each of the two upload targets' session checks, plus one
+          # more 4 x 15s for the flag-visibility check that runs once per run —
+          # three minutes, still clear of the clone and remap either side of it.
+          # Count the visibility check when changing these: it was added after
+          # this budget was written and the arithmetic silently stopped adding
+          # up.
+          VERIFY_ATTEMPTS: "4"
+          VERIFY_DELAY_SECONDS: "15"
         run: |
           set -euo pipefail
 

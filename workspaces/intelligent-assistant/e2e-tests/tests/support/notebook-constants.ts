@@ -1,3 +1,5 @@
+import fs from "fs";
+import os from "os";
 import path from "path";
 
 export const NOTEBOOK_UNTITLED_GRID_NAME = "Untitled Notebook";
@@ -39,4 +41,14 @@ export function localeNotebookUploadPath(fileName = "en.upload1.json"): {
     absolutePath: path.join(uploadFixturesDir, fileName),
     fileName,
   };
+}
+
+export function localeNotebookUploadCopyAs(asFileName: string): {
+  absolutePath: string;
+  fileName: string;
+} {
+  const { absolutePath: sourcePath } = localeNotebookUploadPath();
+  const absolutePath = path.join(os.tmpdir(), asFileName);
+  fs.copyFileSync(sourcePath, absolutePath);
+  return { absolutePath, fileName: asFileName };
 }

@@ -7,10 +7,6 @@ import yaml from "js-yaml";
 import os from "os";
 import path from "path";
 
-/** Single namespace for all Intelligent Assistant Playwright projects (see playwright.config.ts). */
-export const lightspeedNamespace =
-  process.env.RHDH_NAMESPACE ?? "intelligent-assistant";
-
 function isNightlyMode(): boolean {
   if (process.env.GIT_PR_NUMBER) {
     return false;
@@ -24,17 +20,22 @@ function isNightlyMode(): boolean {
   return process.env.JOB_NAME?.includes("periodic-") ?? false;
 }
 
-export const lightspeedDeployConfig = {
-  auth: "keycloak" as const,
-  version: process.env.RHDH_VERSION ?? "1.11",
-  namespace: lightspeedNamespace,
-  appConfig: "tests/config/app-config-rhdh.yaml",
-  secrets: "tests/config/rhdh-secrets.yaml",
-  valueFile: "tests/config/value_file.yaml",
-  ...(isNightlyMode()
-    ? { dynamicPlugins: "tests/config/dynamic-plugins-nightly.yaml" }
-    : {}),
-};
+function dynamicPluginsFile(): string {
+  return isNightlyMode()
+    ? "tests/config/dynamic-plugins-nightly.yaml"
+    : "tests/config/dynamic-plugins.yaml";
+}
+
+function lightspeedDeployConfig() {
+  return {
+    auth: "keycloak" as const,
+    version: process.env.RHDH_VERSION ?? "1.11",
+    appConfig: "tests/config/app-config-rhdh.yaml",
+    secrets: "tests/config/rhdh-secrets.yaml",
+    valueFile: "tests/config/value_file.yaml",
+    dynamicPlugins: dynamicPluginsFile(),
+  };
+}
 
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const ns = rhdh.deploymentConfig.namespace;
@@ -88,24 +89,21 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
 export async function ensureLightspeedDeployment(
   rhdh: RHDHDeployment,
 ): Promise<void> {
-  await test.runOnce(
-    `intelligent-assistant-deploy-${lightspeedNamespace}`,
-    async () => {
-      await rhdh.configure(lightspeedDeployConfig);
+  const ns = rhdh.deploymentConfig.namespace;
+  await test.runOnce(`intelligent-assistant-deploy-${ns}`, async () => {
+    await rhdh.configure(lightspeedDeployConfig());
 
-      // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-      const ns = rhdh.deploymentConfig.namespace;
-      try {
-        await $`oc get deployment redhat-developer-hub -n ${ns}`;
-        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-      } catch {
-        /* fresh install */
-      }
+    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+    try {
+      await $`oc get deployment redhat-developer-hub -n ${ns}`;
+      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+    } catch {
+      /* fresh install */
+    }
 
-      await rhdh.deploy();
-      await patchOpenAiAllowedModels(rhdh);
-    },
-  );
+    await rhdh.deploy();
+    await patchOpenAiAllowedModels(rhdh);
+  });
 }
 
 /** Opens /intelligent-assistant and waits for any recognizable Intelligent Assistant shell (chat, heading, or empty state). */

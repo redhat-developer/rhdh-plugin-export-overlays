@@ -36,7 +36,6 @@ test.describe("Admin > Extensions", () => {
     uiHelper = u;
     extensions = new ExtensionsPage(page, uiHelper);
     await loginHelper.loginAsKeycloakUser();
-    await uiHelper.openSidebarButton("Administration");
     await uiHelper.openSidebar("Extensions");
     await uiHelper.verifyHeading("Extensions");
   });
@@ -234,7 +233,7 @@ test.describe("Admin > Extensions", () => {
     }) => {
       const plugin = "Adoption Insights for Red Hat Developer Hub";
       const packageName =
-        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
+        "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights";
 
       await extensions.searchExtensions(plugin);
       await extensions.waitForSearchResults(plugin);
@@ -305,10 +304,10 @@ test.describe("Admin > Extensions", () => {
       await expect(page.getByLabel("EditPlugin")).toBeVisible();
       await page.getByTestId("disable-plugin").click();
       await expect(page.getByTestId("enable-plugin")).toBeVisible();
-
-      await expect(page.getByRole("alert")).toContainText(
-        `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
-      );
+      // Following step is commented out due to the bug in nfs https://redhat.atlassian.net/browse/RHDHBUGS-3701
+      // await expect(page.getByRole("alert")).toContainText(
+      //   `The ${plugin} plugin requires a restart of the backend system to finish installing, updating, enabling or disabling.`,
+      // );
     });
   });
 

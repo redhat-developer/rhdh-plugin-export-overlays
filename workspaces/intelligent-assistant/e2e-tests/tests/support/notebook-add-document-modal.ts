@@ -1,21 +1,34 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
+const DROP_ZONE_LABEL = "Drag and drop files here, or click to browse";
+
 export class NotebookAddDocumentModalPage {
   constructor(private readonly page: Page) {}
 
   dialog(): Locator {
     return this.page.getByRole("dialog", {
-      name: "Add a document to Notebook",
+      name: "Add resources",
     });
   }
 
-  browseFilesButton(): Locator {
-    return this.dialog().getByRole("button", { name: "Upload", exact: true });
+  dragAndDropInstructions(): Locator {
+    return this.dialog().getByText(DROP_ZONE_LABEL);
+  }
+
+  supportedFormatsLabel(): Locator {
+    return this.dialog().getByText("Supported formats:", { exact: true });
+  }
+
+  maxFileSizeText(): Locator {
+    return this.dialog().getByText("Maximum file size is 25 MB.", {
+      exact: true,
+    });
   }
 
   addFilesButton(stagedCount: number): Locator {
     return this.dialog().getByRole("button", {
-      name: `Add (${stagedCount})`,
+      name: stagedCount === 0 ? "Add" : `Add (${stagedCount})`,
+      exact: true,
     });
   }
 
@@ -26,22 +39,28 @@ export class NotebookAddDocumentModalPage {
     });
   }
 
+  errorAlert(message: string): Locator {
+    return this.dialog().getByRole("heading", {
+      name: `Danger alert: ${message}`,
+    });
+  }
+
   async expectUploadAreaFullyDescribed(): Promise<void> {
-    await expect(
-      this.dialog().getByText("Drag and drop files here"),
-    ).toBeVisible();
-    await expect(this.dialog().getByText("or", { exact: true })).toBeVisible();
-    await expect(this.browseFilesButton()).toBeVisible();
-    await expect(
-      this.dialog().getByText(
-        "Accepted file types: .md, .txt, .pdf, .json, .yaml, .log",
-        { exact: true },
-      ),
-    ).toBeVisible();
+    await expect(this.dragAndDropInstructions()).toBeVisible();
+    await expect(this.supportedFormatsLabel()).toBeVisible();
+    await expect(this.maxFileSizeText()).toBeVisible();
+  }
+
+  modalTitleAccessibilityRegion(): Locator {
+    return this.page.locator("#add-document-modal-title");
   }
 
   async expectModalTitleBarMatchesAriaSnapshot(): Promise<void> {
-    await expect(this.dialog()).toContainText("Add a document to Notebook");
+    await expect(this.modalTitleAccessibilityRegion()).toMatchAriaSnapshot(`
+      - heading :
+        - heading "Add resources"
+        - button "Close"
+      `);
   }
 
   async expectAddFilesButtonDisabled(stagedCount: number): Promise<void> {
@@ -51,7 +70,7 @@ export class NotebookAddDocumentModalPage {
   async selectFilesViaBrowsePicker(filePaths: string[]): Promise<void> {
     const [fileChooser] = await Promise.all([
       this.page.waitForEvent("filechooser"),
-      this.browseFilesButton().click(),
+      this.dragAndDropInstructions().click(),
     ]);
     await fileChooser.setFiles(filePaths);
   }

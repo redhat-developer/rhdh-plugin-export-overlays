@@ -1,4 +1,8 @@
-base: https://raw.githubusercontent.com/fullsend-ai/agents/4bbe4f50ed8e33c60539eaa30ddc320edf8bcda0/harness/code.yaml#sha256=050382941bb4c4a3dad5f00253de854684c0d22dd8cc1ca0a548079774470aad
+# Pinned to agents@v0.43.0 (commit 7ab05564b), matching the fullsend@v0.43.0
+# CLI our own .github/workflows/fullsend.yaml pins — these are companion
+# releases cut together, so this is the harness content the installed CLI
+# was actually built and tested against.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/7ab05564b3c9c0ab20197e0c8572b5905ffd75ca/harness/code.yaml#sha256=d10044d419789b3b965490a20f3ee58640e8fe3c708afc62b3b7abb3b89224a3
 agent: rhdh/agents/code.md
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/code.yaml
@@ -11,4 +15,3 @@ runner_env:
   CODE_ALLOWED_TARGET_BRANCHES: "main,release-1.9,release-1.10"
 skills:
   - skills/e2e-failure-analysis
-  - skills/playwright-trace

@@ -6,10 +6,11 @@ import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 import { GitLabApiHelper } from "../api/gitlab-api-helper.js";
 import { GitLabScaffolderApi } from "../api/gitlab-scaffolder-api.js";
+import { DeploymentOptions } from "@red-hat-developer-hub/e2e-test-utils/rhdh";
 
 export const GITLAB_SCAFFOLDER_PARENT_GROUP = "rhdh-qe-test";
 
-const GITLAB_SCAFFOLDER_RHDH_CONFIG = {
+const GITLAB_SCAFFOLDER_RHDH_CONFIG: DeploymentOptions = {
   auth: "guest" as const,
   appConfig: "tests/config/gitlab-scaffolder/app-config-rhdh.yaml",
   secrets: "tests/config/gitlab-scaffolder/rhdh-secrets.yaml",

@@ -25,6 +25,7 @@
   "dependencies": {
     "@backstage/backend-plugin-api": "1.9.2",
     "@backstage/backend-test-utils": "1.11.4",
+    "@backstage/plugin-catalog-backend": "3.8.0",
     "@backstage/plugin-scaffolder-backend": "3.3.0",
     "@backstage/plugin-search-backend": "2.1.3",
     "yaml": "2.9.0"
@@ -38,5 +39,10 @@
     "prettier": "3.9.6",
     "typescript": "6.0.3",
     "typescript-eslint": "8.65.0"
+  },
+  "dependenciesMeta": {
+    "better-sqlite3": {
+      "built": true
+    }
   }
 }

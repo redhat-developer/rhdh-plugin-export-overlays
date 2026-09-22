@@ -1,6 +1,8 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
-/** Single project: both specs share one RHDH namespace (`intelligent-assistant`). */
+/**
+ * Intelligent Assistant E2E tests use the current RHDH frontend configuration.
+ */
 export default defineConfig({
   projects: [
     {

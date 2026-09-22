@@ -24,6 +24,10 @@ on:
       rhdh-tag:
         type: string
         required: false
+      publish-run-id:
+        description: Exact /publish workflow run that produced the artifact
+        type: string
+        required: false
 
 jobs:
   resolve:
@@ -42,9 +46,17 @@ jobs:
       target-branch: ${{ inputs.target-branch }}
       rhdh-tag: ${{ inputs.rhdh-tag }}
     steps:
+      - name: Download published-exports artifact from publish run
+        if: inputs.publish-run-id != ''
+        uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4 # v23
+        with:
+          name: published-exports-pr-${{ inputs.pr-number }}
+          run_id: ${{ inputs.publish-run-id }}
+          if_no_artifact_found: fail
+
       - name: Download published-exports artifact for this PR
-        if: inputs.workspace != '' && inputs.pr-number != ''
-        uses: dawidd6/action-download-artifact@b6e2e70617bc3265edd6dab6c906732b2f1ae151 # v21
+        if: inputs.publish-run-id == '' && inputs.workspace != '' && inputs.pr-number != ''
+        uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4 # v23
         with:
           name: published-exports-pr-${{ inputs.pr-number }}
           workflow: pr-actions.yaml
@@ -134,7 +146,7 @@ jobs:
       missing-metadata-plugins: ${{ steps.build-dynamic-plugins.outputs.missing-metadata-plugins }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.overlay-branch }}
           repository: ${{ needs.resolve.outputs.overlay-repo }}

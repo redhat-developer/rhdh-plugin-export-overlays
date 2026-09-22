@@ -4,9 +4,9 @@
  * Licensed under the Apache License, Version 2.0.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -19,18 +19,7 @@ import {
   type WorkspaceGroup,
 } from "./support";
 import type { PackageEntry } from "./workspace";
-
-// Every mkdtempSync here would otherwise leak: the suite left 26 directories in
-// $TMPDIR per run, unbounded on a developer machine and on any long-lived runner.
-const TEMP_DIRS: string[] = [];
-function tempDir(prefix: string): string {
-  const dir = mkdtempSync(prefix);
-  TEMP_DIRS.push(dir);
-  return dir;
-}
-after(() => {
-  for (const dir of TEMP_DIRS) rmSync(dir, { recursive: true, force: true });
-});
+import { tempDir } from "./test-support";
 
 const repoRoot = tempDir(join(tmpdir(), "support-test-"));
 
@@ -118,6 +107,7 @@ test("groupByWorkspace sorts regardless of the order it is handed", () => {
     support: "community",
     role: "backend-plugin",
     artifact: "oci://ghcr.io/example/x:tag",
+    frontendConfigKeys: [],
   });
   const groups = groupByWorkspace([
     entry("zebra", "z-frontend.yaml"),
@@ -159,6 +149,7 @@ function group(workspace: string, count: number): WorkspaceGroup {
     support: "community",
     role: "backend-plugin",
     artifact: `oci://ghcr.io/example/${workspace}-${i}:tag`,
+    frontendConfigKeys: [],
   }));
   return { workspace, packages };
 }

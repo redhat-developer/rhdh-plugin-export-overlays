@@ -30,6 +30,10 @@ from plugin_utils import (
     log_info,
     log_warn,
     log_error,
+    # Moved to plugin_utils so validateCatalogIndex.py can share it rather than growing
+    # another container-reference parser. Still used throughout this module, and still
+    # importable from here, which is where its tests and callers look for it.
+    parse_image_reference,
     set_debug,
 )
 
@@ -76,7 +80,6 @@ def is_registry_rarc() -> bool:
     return REGISTRY_BASE.startswith("registry.access.redhat.com")
 
 
-
 def get_query_registry_reference(registry_reference: str) -> str:
     """
     Get the registry reference to use for querying.
@@ -98,45 +101,6 @@ def get_ghcr_token(repository: str) -> str | None:
     except Exception as e:
         log_debug(f"Failed to get ghcr.io token for {repository}: {e}")
         return None
-
-
-def parse_image_reference(registry_reference: str) -> tuple[str, str, str]:
-    """Split a container image reference into its name, tag, and digest components.
-
-    Handles all combinations of tag and digest presence, including references
-    with both (tag + digest), tag only, digest only, or empty string input.
-    Tag separators vary by registry: ghcr.io uses ``bs_{bsver}__{pluginver}``
-    while quay.io/rhdh uses ``{rhdhver}--{pluginver}``.
-
-    Args:
-        registry_reference: A container image reference string, e.g.
-            ``"quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123"``.
-
-    Returns:
-        A 3-tuple of ``(image_name, tag, digest)`` where any component may
-        be an empty string if not present in the input.
-
-    Examples:
-        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4@sha256:abc123")
-        ('quay.io/rhdh/plugin', '1.11--1.5.4', 'sha256:abc123')
-        >>> parse_image_reference("quay.io/rhdh/plugin:1.11--1.5.4")
-        ('quay.io/rhdh/plugin', '1.11--1.5.4', '')
-        >>> parse_image_reference("quay.io/rhdh/plugin@sha256:abc123")
-        ('quay.io/rhdh/plugin', '', 'sha256:abc123')
-        >>> parse_image_reference("")
-        ('', '', '')
-    """
-    if not registry_reference:
-        return "", "", ""
-
-    name_with_tag, sep, digest = registry_reference.partition('@')
-
-    last_slash = name_with_tag.rfind('/')
-    last_colon = name_with_tag.rfind(':')
-    if last_colon > last_slash:
-        return name_with_tag[:last_colon], name_with_tag[last_colon + 1 :], digest if sep else ""
-
-    return name_with_tag, "", digest if sep else ""
 
 
 TAG_COMMENT_RE = re.compile(r'^\s*# Tag: ([^,]+), Build date: (\S+)\s*$')
@@ -908,7 +872,6 @@ def update_package_files(output_dir: Path, index_data: dict[str, dict], found_pl
             log_debug("dynamic-plugins.default.yaml not present, skipping DPDY updates")
 
 
-
 def regenerate_all_yaml_files(output_dir: Path) -> None:
     """Regenerate all.yaml files in plugins/ and packages/ directories"""
     extensions_dir = output_dir / "catalog-entities" / "extensions"
@@ -953,7 +916,6 @@ def _support_label_color(label: str) -> str:
         'dev-preview': Colors.ORANGE,
     }
     return colors.get(label, Colors.RED)
-
 
 
 def main():

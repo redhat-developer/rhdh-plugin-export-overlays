@@ -1,4 +1,4 @@
-"""Shared helpers for driving the coverage shell scripts from pytest.
+"""Shared helpers for driving the repo's shell scripts from pytest.
 
 The scripts are exercised as subprocesses rather than sourced, because their
 contract with CI *is* the exit code and the stdout/stderr they emit — that is
@@ -9,6 +9,7 @@ Seams keep the runs hermetic (no network, no shared /tmp state):
   CODECOV_BIN            - path to a stub standing in for the Codecov CLI
   UPSTREAM_CHECKOUT_DIR  - a local checkout instead of a shallow clone
   REMAP_BIN              - a stub instead of an npm-installing remap
+  REPO_ROOT              - a fixture tree instead of the real workspaces/ (nfs-readiness)
 """
 
 import os
@@ -19,6 +20,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 
 UPLOAD_SCRIPT = SCRIPTS_DIR / "upload-coverage.sh"
 SEED_SCRIPT = SCRIPTS_DIR / "seed-main-coverage.sh"
+NFS_SCRIPT = SCRIPTS_DIR / "nfs-readiness-report.sh"
 
 # A real-looking 40-char SHA. upload-coverage.sh rejects anything else, so the
 # tests must not use a short or placeholder value.
@@ -150,7 +152,7 @@ def build_fake_repo(tmp_path: Path, workspaces, extra_snapshots=()) -> Path:
 
 
 def run_script(script: Path, *args, env=None, cwd=None):
-    """Run one of the coverage scripts with a controlled environment.
+    """Run one of the repo's shell scripts with a controlled environment.
 
     The environment is built from scratch rather than inherited so a developer's
     real CODECOV_TOKEN or a stale /tmp/codecov cannot change the outcome.

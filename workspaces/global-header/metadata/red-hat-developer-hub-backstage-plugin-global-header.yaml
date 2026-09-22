@@ -15,19 +15,36 @@ metadata:
     backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-header
   tags: []
 spec:
-  packageName: '@red-hat-developer-hub/backstage-plugin-global-header'
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.52.0__2.0.0
-  version: 2.0.0
+  packageName: "@red-hat-developer-hub/backstage-plugin-global-header"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.6__3.1.0
+  version: 3.1.0
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.6
   author: Red Hat
   support: generally-available
   lifecycle: active
   partOf:
     - global-header
   appConfigExamples:
-    - title: Default configuration
+    # v3+ default module is NFS-only; Scalprum Legacy exposedModules were removed.
+    # Keep this example first — smoke/e2e inject appConfigExamples[0] into pluginConfig.
+    # NFS app.extensions live in e2e app-config-rhdh.yaml (and RHDH app-config), not here.
+    - title: Default configuration (NFS)
+      content:
+        dynamicPlugins:
+          frontend:
+            default.main-menu-items:
+              menuItems:
+                default.create:
+                  title: ''
+                default.admin:
+                  title: Administration
+                  textKey: menuItem.administration
+                  icon: admin
+    # OFS / Scalprum Legacy mount points — only for Old Frontend System hosts that
+    # still resolve module: Legacy. Not used by NFS e2e (examples[0] above).
+    - title: Old frontend system (Legacy / OFS)
       content:
         app:
           sidebar:
@@ -39,7 +56,7 @@ spec:
             default.main-menu-items:
               menuItems:
                 default.create:
-                  title: ''
+                  title: ""
                 default.admin:
                   title: Administration
                   textKey: menuItem.administration

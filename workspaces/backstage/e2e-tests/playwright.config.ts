@@ -50,6 +50,10 @@ export default playwrightDefineConfig({
       testMatch: /tests\/specs\/notifications-email\.spec\.ts/,
     },
     {
+      name: "backstage-signals",
+      testMatch: /tests\/specs\/signals\.spec\.ts/,
+    },
+    {
       name: "backstage-techdocs",
       testMatch: /tests\/specs\/techdocs\.spec\.ts/,
       // ReportIssue depends on shadow-DOM text selection timing; allow one CI retry.
@@ -62,6 +66,14 @@ export default playwrightDefineConfig({
     {
       name: "backstage-auth",
       testMatch: /tests\/specs\/auth\.spec\.ts/,
+    },
+    {
+      name: "backstage-microsoft-auth",
+      testMatch: /tests\/specs\/microsoft-auth\.spec\.ts/,
+    },
+    {
+      name: "backstage-gitlab-auth",
+      testMatch: /tests\/specs\/gitlab-auth\.spec\.ts/,
     },
   ],
 });

@@ -1,4 +1,8 @@
-base: https://raw.githubusercontent.com/fullsend-ai/agents/4bbe4f50ed8e33c60539eaa30ddc320edf8bcda0/harness/fix.yaml#sha256=f966f0b8cd9b58289f19b446cfc4fd343c9079d9c9acee0260824b57e896e068
+# Pinned to agents@v0.43.0 (commit 7ab05564b), matching the fullsend@v0.43.0
+# CLI our own .github/workflows/fullsend.yaml pins — these are companion
+# releases cut together, so this is the harness content the installed CLI
+# was actually built and tested against.
+base: https://raw.githubusercontent.com/fullsend-ai/agents/7ab05564b3c9c0ab20197e0c8572b5905ffd75ca/harness/fix.yaml#sha256=a9429da216d4d3b82dd94f8225776e7a9581c2d3eeccd02829f94c74c7e70aee
 agent: rhdh/agents/fix.md
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/code.yaml
@@ -9,4 +13,3 @@ host_files:
     dest: /sandbox/workspace/.env.d/yarn-proxy.env
 skills:
   - skills/e2e-failure-analysis
-  - skills/playwright-trace

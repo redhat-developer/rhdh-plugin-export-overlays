@@ -34,7 +34,7 @@ rhdh-plugin-export-overlays/
 ├── versions.json              # Target versions (Backstage, Node, CLI)
 ├── workspace-discovery-include # Auto-discovery scope patterns
 ├── workspace-discovery-exclude # Workspaces excluded from auto-discovery
-├── workspaces/                # One folder per source workspace
+├── workspaces/                # One folder per source workspace (overlay export)
 │   └── [workspace-name]/
 │       ├── source.json        # Source repository reference
 │       ├── plugins-list.yaml  # Plugin paths + export args
@@ -48,8 +48,16 @@ rhdh-plugin-export-overlays/
 │       └── smoke-tests/       # Smoke test configuration (optional)
 │           ├── test.env
 │           └── app-config.test.yaml
+├── catalog-entities/          # Catalog Plugin / Collection entities
+│   └── extensions/
+│       ├── plugins/           # Marketplace/catalog Plugin YAML (all models)
+│       └── collections/
 └── .github/workflows/         # CI/CD automation
 ```
+
+> Package entities live in `workspaces/*/metadata/`, not under `catalog-entities/`. A `packages/` directory appears only in **catalog-index pipeline output** (see [07 - Plugin Catalog Index](./07-plugin-catalog-index.md)).
+>
+> Some plugins only contribute a Plugin YAML under `catalog-entities/extensions/plugins/` and are **not** exported via `workspaces/` (OCI is built externally). See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
 ---
 
@@ -60,6 +68,8 @@ rhdh-plugin-export-overlays/
 A **workspace** maps to a source repository (or a workspace within a monorepo). Each workspace folder contains all configuration needed to build and publish plugins from that source.
 
 **Example:** `workspaces/backstage/` maps to `https://github.com/backstage/backstage`
+
+Workspaces require a **public** `https://github.com/...` source URL that CI can clone. Overlay export does not currently support private source repositories — for those cases, use catalog-only Plugin metadata (see link above).
 
 ### source.json
 
@@ -259,17 +269,42 @@ Manual PRs should be reserved for situations where automatic discovery does not 
 
    Create one YAML file per plugin following the Package schema.
 
-5. **Open PR against `main`**
+5. **Add a CODEOWNERS entry:**
 
-   **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the **Supported Plugins** catalog or the curated **Optional Extras** catalog. 
-   
+   Add an entry for your workspace in [`.github/CODEOWNERS`](../.github/CODEOWNERS) so that PRs touching the workspace require review from the right team or individuals. The list is alphabetically ordered.
+
+   ```
+   /workspaces/your-plugin                                                @your-team @your-username
+   ```
+
+6. **Open PR against `main`**
+
+   **Optional — catalog inclusion:** Workspace Package metadata alone does not advertise the plugin in the **Supported Plugins** catalog or the curated **Optional Extras** catalog.
+
    That requires RHDH PM approval (and a tracking RHDHPLAN feature JIRA), plus Plugin entity YAML under `catalog-entities/extensions/plugins/` (listed in `all.yaml`), the matching package-list file (`rhdh-community-packages.txt` for Optional Extras, or `rhdh-supported-packages.txt` for Supported Plugins).
-   
-   For GA only with PM approval, an `enabled:` or `disabled:` entry in `default.packages.yaml` is also required. 
-   
-   Collection membership under `catalog-entities/extensions/collections/` is a further optional step when PM approves it. 
-   
+
+   For GA only with PM approval, an `enabled:` or `disabled:` entry in `default.packages.yaml` is also required.
+
+   Collection membership under `catalog-entities/extensions/collections/` is a further optional step when PM approves it.
+
    See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#1-keep-plugin-metadata-and-catalog-curation-files-up-to-date).
+
+### Catalog-only plugins (external OCI build)
+
+If the plugin OCI image is built and published outside this repository, do **not** add a `workspaces/` entry unless you are also moving export into overlays with a public cloneable source.
+
+**Model B is listing-only in the catalog index today** — Plugin YAML alone does not produce installable Package entities or overlay-resolved OCI. See [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository) and [07 - Plugin Catalog Index](./07-plugin-catalog-index.md).
+
+Instead:
+
+1. Add or update the Plugin entity under `catalog-entities/extensions/plugins/`
+2. Reference it from `catalog-entities/extensions/plugins/all.yaml` (required for the Location to pick it up)
+3. Keep title, description, support level, links, and configuration / external-install guidance accurate
+4. Treat the catalog entry as **listing-only** (omit `packages:` unless you are linking to Package entities that already exist via Model A). Do not assume Plugin YAML alone makes an external OCI image installable from Extensions
+5. **Optional — curated catalogs:** If RHDH PM approves Supported Plugins / Optional Extras inclusion (tracking RHDHPLAN feature JIRA), also update the matching package-list / collection / `default.packages.yaml` entries **when Package entities exist** (Model A or hybrid). Listing-only Model B with no workspace Package metadata skips package-list maintenance
+6. Open a PR against `main`
+
+Owner obligations for that path are documented in [03 - Plugin Owner Responsibilities](./03-plugin-owner-responsibilities.md#two-ways-a-plugin-can-appear-in-this-repository).
 
 ---
 
