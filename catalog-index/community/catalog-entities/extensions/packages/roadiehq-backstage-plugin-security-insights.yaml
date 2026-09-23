@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@roadiehq/backstage-plugin-security-insights"
   # Tag: bs_1.54.6__3.3.1
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-security-insights@sha256:cec237b7809c40abe90cfa627c4afa83c248be1ee33368938e9b768db3987003"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-security-insights@sha256:300ec1719fab88ca529f599a00ed7865f3b8a1724809afb4d45026b184b1246d"
   version: 3.3.1
   backstage:
     role: frontend-plugin
