@@ -27,11 +27,6 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        dynamicPlugins:
-          frontend:
-            backstage-community.plugin-analytics-module-newrelic-browser:
-              apiFactories:
-                - importName: newRelicAnalyticsApi
         app:
           analytics:
             newRelic:
