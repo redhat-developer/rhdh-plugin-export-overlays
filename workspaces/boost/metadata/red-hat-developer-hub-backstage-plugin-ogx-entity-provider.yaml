@@ -17,8 +17,8 @@ metadata:
     - ai
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-ogx-entity-provider"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ogx-entity-provider:bs_1.54.6__0.6.0
-  version: 0.6.0
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ogx-entity-provider:bs_1.54.6__1.0.0
+  version: 1.0.0
   backstage:
     role: backend-plugin-module
     supportedVersions: 1.54.6
@@ -32,6 +32,7 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
-        catalog:
-          providers:
-            ogx: {}
+        ai-catalog:
+          entityProviders:
+            ogx:
+              baseUrl: http://localhost:8321
