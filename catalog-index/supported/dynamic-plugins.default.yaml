@@ -458,7 +458,6 @@ plugins:
             translationResources:
               - importName: extensionsTranslations
                 ref: extensionsTranslationRef
-                module: Alpha
             appIcons:
               - name: pluginsIcon
                 importName: PluginsIcon
@@ -684,7 +683,6 @@ plugins:
             translationResources:
               - importName: rbacTranslations
                 ref: rbacTranslationRef
-                module: Alpha
             appIcons:
               - name: rbacIcon
                 importName: RbacIcon
@@ -740,7 +738,7 @@ plugins:
     pluginConfig:
       techRadar:
         url: ${TECH_RADAR_DATA_URL}
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:5a552ac735fa62ea04ff32a453848fa22a99ae98d6404280a3d0b7a6896452e0
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology@sha256:d333d6a29052e5ced973d58483998ffca89f86c9f7525785ab8388bc46909e47
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # disabled: true
@@ -1025,7 +1023,6 @@ plugins:
           red-hat-developer-hub.backstage-plugin-bulk-import:
             translationResources:
               - importName: bulkImportTranslations
-                module: Alpha
                 ref: bulkImportTranslationRef
             appIcons:
               - name: bulkImportIcon

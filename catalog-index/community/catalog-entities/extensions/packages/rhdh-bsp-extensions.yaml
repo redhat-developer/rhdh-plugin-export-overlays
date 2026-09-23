@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: '@red-hat-developer-hub/backstage-plugin-extensions'
   dynamicArtifact: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-extensions
-  version: 0.17.1
+  version: 0.17.2
   backstage:
     role: frontend-plugin
     supportedVersions: 1.49.4
@@ -35,7 +35,6 @@ spec:
               translationResources:
                 - importName: extensionsTranslations
                   ref: extensionsTranslationRef
-                  module: Alpha
               appIcons:
                 - name: pluginsIcon
                   importName: PluginsIcon
