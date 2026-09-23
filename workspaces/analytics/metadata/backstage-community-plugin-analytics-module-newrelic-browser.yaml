@@ -29,9 +29,7 @@ spec:
       content:
         dynamicPlugins:
           frontend:
-            backstage-community.plugin-analytics-module-newrelic-browser:
-              apiFactories:
-                - importName: newRelicAnalyticsApi
+            backstage-community.plugin-analytics-module-newrelic-browser: {}
         app:
           analytics:
             newRelic:
