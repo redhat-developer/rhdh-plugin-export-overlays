@@ -24,6 +24,11 @@ export const AVAILABLE_WIDGETS = [
   "Top visited",
 ] as const;
 
+const WIDGET_DIALOG_LABELS = new Map<string, string>([
+  ["Onboarding Section", "Onboarding section"],
+  ["Entity Section", "Entity section"],
+]);
+
 const COMMON = ["Explore Your Software Catalog"];
 const ADMIN_ONLY = ["Explore Templates", "Quick Access"];
 const DEVELOPER_ONLY = ["Recently Visited", "Top Visited"];
@@ -131,6 +136,11 @@ export class DynamicHomePagePo {
     this.page.getByText("Restore defaults");
   private readonly addWidgetButton = () =>
     this.page.getByRole("button", { name: "Add widget" });
+  private readonly widgetDialogOption = (widgetType: string) =>
+    this.page.getByRole("dialog").getByRole("button", {
+      name: WIDGET_DIALOG_LABELS.get(widgetType) ?? widgetType,
+      exact: true,
+    });
   private readonly resizeHandles = () =>
     this.page.locator(".react-resizable-handle");
   private readonly deleteButtons = () =>
@@ -283,7 +293,7 @@ export class DynamicHomePagePo {
     await this.ui.clickButton("Add widget");
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
-    await this.page.getByRole("button", { name: widgetType }).click();
+    await this.widgetDialogOption(widgetType).click();
     // eslint-disable-next-line playwright/no-wait-for-timeout -- widget mount
     await this.page.waitForTimeout(1000);
   }
@@ -315,9 +325,7 @@ export class DynamicHomePagePo {
     // eslint-disable-next-line playwright/no-wait-for-timeout -- dialog open
     await this.page.waitForTimeout(1000);
     for (const widget of AVAILABLE_WIDGETS) {
-      await expect(
-        this.page.getByRole("button", { name: widget }),
-      ).toBeVisible();
+      await expect(this.widgetDialogOption(widget)).toBeVisible();
     }
     await this.page.keyboard.press("Escape");
   }
