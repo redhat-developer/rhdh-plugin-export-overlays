@@ -508,7 +508,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e41c450b5fa26563d212b7bf8d817a3d0ace8b83b4918cb12513fe5f7b1421bb"
+          "digest": "sha256:e41c450b5fa26563d212b7bf8d817a3d0ace8b83b4918cb12513fe5f7b1421bb",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__2.0.3",
+          "resolvedTag": "bs_1.54.6__2.0.2"
         }
       },
       "package": "@backstage-community/plugin-jfrog-artifactory",
