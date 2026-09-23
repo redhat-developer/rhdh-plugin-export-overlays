@@ -34,7 +34,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c6941b3308c8b8d1e12e1ba5e98181d28d5658ec846d0d3a574e978603fba6c5"
+          "digest": "sha256:46fd3973c4584d25c36d1df9fea8b0ad4482f4b70683864f5644fdf47f90cac6"
         },
         "dpdy": {
           "status": "skip"
@@ -52,14 +52,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.49.4__2.8.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.49.4__2.8.1"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a359632458c901e6b22019b161c45ec3d45398f74ad0c4dccfdf46974b9152a7",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__2.8.1",
-          "resolvedTag": "bs_1.49.4__2.8.0"
+          "digest": "sha256:fb31371b81e8d3631c21458f0a0ac0cacc220d2a9195a2571f23b1accdf923f1"
         },
         "dpdy": {
           "status": "skip"
@@ -69,7 +66,7 @@
         }
       },
       "package": "@backstage-community/plugin-argocd",
-      "version": "2.8.0",
+      "version": "2.8.1",
       "workspace": "argocd",
       "overall": "pass"
     },
@@ -851,7 +848,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:061d31f1cf18b2b2f5463b2f4bd47dab8e96dba52e11806116861acd879d96ac"
+          "digest": "sha256:1918e3a334520054da0ed5704255d47e071c5f0eaaa38b7d2ef59a1ffa4de55c"
         },
         "dpdy": {
           "status": "skip"
@@ -873,7 +870,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1c7d309ecd040b553f8f27d4626a9f5368c946424c38491ac7fea7a4ec977c63"
+          "digest": "sha256:77d09187208f07d18727d6285e9c090e7d9e1c5896a94402ba65479108134fd2"
         },
         "dpdy": {
           "status": "skip"
@@ -895,7 +892,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a05c235d399c0446d68aa9dbc8e69b53d20ef7e5976c200f06616cb154251c42"
+          "digest": "sha256:f6b455ece700a9aba651183b83dd37edf8c03893759aaf8ad1a5c94dbd51a2cc"
         },
         "dpdy": {
           "status": "skip"
@@ -917,7 +914,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3817b08344565daed4e3d803ef19030446c47874ae9281e1c6e5fbe90a24fbc1"
+          "digest": "sha256:0362b52fe81a658c6c2a2d3afa72488b56532d655f943a5e87f925a8d8cc5ce9"
         },
         "dpdy": {
           "status": "skip"
@@ -939,7 +936,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e1fae882ad78831ade68a719bef571df25c9d798621a3d059a2bd92a133067a3"
+          "digest": "sha256:31840f422cccfc3ad025e6817f516d7462b9a01b110d2b25d093c330c25afb7b"
         },
         "dpdy": {
           "status": "skip"
@@ -961,7 +958,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4c2a3617b7eb1f7b2b61b0e0d2470735d946ec1abbd58d82eda51b2f7f608a50"
+          "digest": "sha256:e3662beed3bd96d5343e58c213e45819ea0827a3a3466ce896db4d7dceff6e8f"
         },
         "dpdy": {
           "status": "skip"
@@ -983,7 +980,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b4d96391c4312184a390a96ddfe498a98a48970fde6c93219e06da47b4b665d2"
+          "digest": "sha256:36cd738458d0793a0723c5ac912ae4badc8cfd80109a272fd532bbb3e5259ac7"
         },
         "dpdy": {
           "status": "skip"
@@ -1005,7 +1002,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6dc51a24b672dac6ffc54b217c049a005204c27ba41f246ccac48c9fbe1d35b7"
+          "digest": "sha256:2a232387a99ed965f2c07e07c4c0f8825cdd698cb7c5a26d1dabdf8022e0047c"
         },
         "dpdy": {
           "status": "skip"
