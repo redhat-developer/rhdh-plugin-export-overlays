@@ -24,6 +24,7 @@ pingidentity/plugins/auth-backend-module-pingfederate-provider
 backstage/plugins/catalog-backend-module-github
 backstage/plugins/catalog-backend-module-github-org
 backstage/plugins/catalog-backend-module-ldap
+backstage/plugins/kubernetes
 backstage/plugins/kubernetes-backend
 backstage/plugins/notifications
 backstage/plugins/notifications-backend
@@ -76,8 +77,6 @@ tech-radar/plugins/tech-radar-backend
 bulk-import/plugins/bulk-import
 bulk-import/plugins/bulk-import-backend
 
-# currently TP but moving to GA in 1.10
-backstage/plugins/kubernetes
 
 backstage/plugins/notifications-backend-module-email
 backstage/plugins/scaffolder-backend-module-github
