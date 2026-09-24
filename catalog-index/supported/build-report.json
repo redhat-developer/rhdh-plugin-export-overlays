@@ -536,14 +536,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend:bs_1.49.4__7.3.6"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import-backend:bs_1.49.4__7.3.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f5d93860c4b1f8ece2ae179fc0f5905419fd577db163d5c5d8d6a445124e92d8",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__7.3.8",
-          "resolvedTag": "bs_1.49.4__7.3.6"
+          "digest": "sha256:fa1dd2412ac11ba91406e6e8cf980f41f8cfc318824daec4b0abf8125722c4b9"
         },
         "dpdy": {
           "status": "pass"
@@ -553,7 +550,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import-backend",
-      "version": "7.3.6",
+      "version": "7.3.8",
       "workspace": "bulk-import",
       "overall": "pass"
     },
@@ -561,14 +558,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import:bs_1.49.4__7.3.6"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import:bs_1.49.4__7.3.8"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:9c501b39d20ec21d36833c803e57100c7b20657d6b0dc54e6657cd175d78f2f2",
-          "fallback": true,
-          "requestedTag": "bs_1.49.4__7.3.8",
-          "resolvedTag": "bs_1.49.4__7.3.6"
+          "digest": "sha256:39c30220c85e758242cb2cb9866371e61532f4a518baf2d37a092802bf2c6cb9"
         },
         "dpdy": {
           "status": "pass"
@@ -578,7 +572,7 @@
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-bulk-import",
-      "version": "7.3.6",
+      "version": "7.3.8",
       "workspace": "bulk-import",
       "overall": "pass"
     },
@@ -700,7 +694,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6b8fa61d6616b991472c836e6d0229e940ca0bc9fa0fe0e8b7192163e5fdd7a8"
+          "digest": "sha256:6b8fa61d6616b991472c836e6d0229e940ca0bc9fa0fe0e8b7192163e5fdd7a8",
+          "fallback": true,
+          "requestedTag": "bs_1.49.4__1.13.5",
+          "resolvedTag": "bs_1.49.4__1.13.4"
         },
         "dpdy": {
           "status": "pass"
