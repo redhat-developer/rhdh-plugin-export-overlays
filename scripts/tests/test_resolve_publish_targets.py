@@ -35,7 +35,7 @@ pytestmark = pytest.mark.skipif(
 
 BOT = "rhdh-test-bot"
 ARTIFACTS = (
-    "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results"
+    "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results-public"
     "/pr-logs/pull/redhat-developer_rhdh-plugin-export-overlays/3241/job/1"
 )
 

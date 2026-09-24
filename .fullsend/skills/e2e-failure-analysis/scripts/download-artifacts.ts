@@ -6,7 +6,7 @@ import { gunzipSync } from "node:zlib";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-const BUCKET = "test-platform-results";
+const BUCKET = "test-platform-results-public";
 const API_URL = `https://storage.googleapis.com/storage/v1/b/${BUCKET}/o`;
 const DL_URL = `https://storage.googleapis.com/${BUCKET}`;
 const MAX_CONCURRENCY = 8;
