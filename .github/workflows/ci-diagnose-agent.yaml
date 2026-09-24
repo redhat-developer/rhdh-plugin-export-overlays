@@ -7,7 +7,7 @@
 #
 # Flow:
 #   check_suite/status completes → this workflow
-#     ├─ resolve the PR for the event's commit (skip forks, stale commits)
+#     ├─ resolve the PR for the event's commit (including fork heads)
 #     ├─ settle-gate: if any curated check is still pending/running, exit —
 #     │  diagnose once, when the LAST curated check settles, with the full set
 #     ├─ compute the RED curated checks from the PR's live rollup
@@ -125,9 +125,18 @@ jobs:
               exit 1
             fi
           else
-            # Map the commit → its open PR in this repo.
+            # Map the commit → its open PR in this repo. The commit association
+            # endpoint does not return PRs whose head commit exists only in a
+            # fork, so fall back to matching the live head SHA across open PRs.
             PR_NUMBER=$(gh api "repos/${REPO}/commits/${EVENT_SHA}/pulls" \
               --jq '[.[] | select(.state=="open") | .number] | first // empty' 2>/dev/null || true)
+            if [[ -z "${PR_NUMBER:-}" ]]; then
+              PR_NUMBER=$(gh api --paginate \
+                "repos/${REPO}/pulls?state=open&per_page=100" 2>/dev/null \
+                | jq -rs --arg event_sha "${EVENT_SHA}" \
+                  '[.[][] | select(.head.sha == $event_sha) | .number] | first // empty' \
+                || true)
+            fi
           fi
 
           if [[ -z "${PR_NUMBER:-}" ]]; then

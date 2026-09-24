@@ -1,0 +1,87 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-backstage-plugin-scorecard-backend-module-dora
+  namespace: rhdh
+  title: "Scorecard Backend Module for DORA"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-dora
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-dora
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.6__0.2.1
+  version: 0.2.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - scorecard
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        scorecard:
+          plugins:
+            dora:
+              productionEnvironments:
+                - production
+              collectors:
+                deployments:
+                  id: github:doraDeployments
+                deploymentPullRequests:
+                  id: github:doraDeploymentPullRequests
+                incidents:
+                  id: jira:doraIncidents
+    - title: Deployment frequency threshold customization
+      content:
+        scorecard:
+          plugins:
+            dora:
+              productionEnvironments:
+                - production
+              collectors:
+                deployments:
+                  id: github:doraDeployments
+                deploymentPullRequests:
+                  id: github:doraDeploymentPullRequests
+                incidents:
+                  id: jira:doraIncidents
+          metricProviders:
+            dora:
+              deploymentFrequency:
+                thresholds:
+                  rules:
+                    - key: elite
+                      expression: ">=5"
+                    - key: medium
+                      expression: "1-5"
+                    - key: low
+                      expression: "<1"
+    - title: Data retention and collector refresh tuning
+      content:
+        scorecard:
+          plugins:
+            dora:
+              dataRetentionDays: 365
+              staleAfterMs: 60000
+              deploymentLookbackMs: 172800000
+              incidentLookbackMs: 300000
+              productionEnvironments:
+                - production
+              collectors:
+                deployments:
+                  id: github:doraDeployments
+                deploymentPullRequests:
+                  id: github:doraDeploymentPullRequests
+                incidents:
+                  id: jira:doraIncidents

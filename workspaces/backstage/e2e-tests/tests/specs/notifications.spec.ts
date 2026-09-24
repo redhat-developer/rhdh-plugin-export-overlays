@@ -15,7 +15,6 @@ test.describe("Backstage Notifications Plugin", () => {
       valueFile: `${configBase}/value-file.yaml`,
       dynamicPlugins: `${configBase}/dynamic-plugins.yaml`,
       auth: "keycloak",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });

@@ -1,0 +1,119 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-backstage-plugin-scorecard-backend-module-catalog
+  namespace: rhdh
+  title: "Scorecard Backend Module for Catalog"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-catalog
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/scorecard/plugins/scorecard-backend-module-catalog
+  tags:
+    - analytics
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-catalog"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-catalog:bs_1.54.6__0.1.3
+  version: 0.1.3
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  partOf:
+    - scorecard
+  appConfigExamples:
+    - title: Required attribute metric
+      content:
+        scorecard:
+          metricProviders:
+            catalog:
+              requiredAttributes:
+                options:
+                  filter:
+                    kind: Component
+                  metrics:
+                    title:
+                      title: Title is required
+                      description: Every component should have a human-readable title.
+                      field: metadata.title
+    - title: Value whitelist metric
+      content:
+        scorecard:
+          metricProviders:
+            catalog:
+              requiredAttributes:
+                options:
+                  filter:
+                    kind: Component
+                  metrics:
+                    lifecycle:
+                      title: Lifecycle must be a known value
+                      description: The spec.lifecycle field should be prod, stage, test, or dev.
+                      field: spec.lifecycle
+                      statusMapping:
+                        exists: invalid
+                        values:
+                          prod: ok
+                          stage: ok
+                          test: ok
+                          dev: ok
+    - title: Schedule and per-metric thresholds
+      content:
+        scorecard:
+          metricProviders:
+            catalog:
+              requiredAttributes:
+                schedule:
+                  frequency:
+                    cron: "0 */2 * * *"
+                  timeout:
+                    minutes: 10
+                  initialDelay:
+                    seconds: 30
+                options:
+                  filter:
+                    kind: Component
+                  statusMapping:
+                    exists: found
+                    missed: missed
+                  metrics:
+                    title:
+                      title: Title is required
+                      description: Every component should have a human-readable title.
+                      field: metadata.title
+                    lifecycle:
+                      title: Lifecycle must be valid
+                      description: The spec.lifecycle field should be one of the accepted values.
+                      field: spec.lifecycle
+                      statusMapping:
+                        exists: invalid
+                        values:
+                          production: ok
+                          experimental: warning
+                          deprecated: warning
+                metrics:
+                  lifecycle:
+                    thresholds:
+                      rules:
+                        - key: ok
+                          expression: "==0"
+                          color: success.main
+                          icon: scorecardSuccessStatusIcon
+                        - key: warning
+                          expression: "==1"
+                          color: warning.main
+                          icon: scorecardWarningStatusIcon
+                        - key: invalid
+                          expression: "==2"
+                          color: error.main
+                          icon: scorecardErrorStatusIcon
+                        - key: missed
+                          expression: "==3"
+                          color: error.main
+                          icon: scorecardErrorStatusIcon
