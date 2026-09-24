@@ -9,8 +9,8 @@
     "yarn": ">=4"
   },
   "packageManager": "yarn@4.17.1",
+  "bin": "src/validate.ts",
   "scripts": {
-    "validate": "node src/validate.ts",
     "test": "node --test src/*.test.ts",
     "tsc:check": "tsc --noEmit",
     "check": "yarn tsc:check && yarn lint:check && yarn prettier:check && yarn test",

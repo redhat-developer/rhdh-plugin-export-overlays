@@ -17,22 +17,23 @@ opt-in via `--check-undeclared-keys` and only ever reports.
 
 ## Usage
 
+After `yarn install`:
+
 ```bash
 # structural only — the whole tree
-yarn validate
-# or: node src/validate.ts
+yarn validate-app-config-examples
 
 # structural only — just what a PR touched
-yarn validate -- --since "$BASE_SHA"
+yarn validate-app-config-examples --since "$BASE_SHA"
 
 # add schema validation, failing on mismatch
-yarn validate -- --since "$BASE_SHA" --check-schemas
+yarn validate-app-config-examples --since "$BASE_SHA" --check-schemas
 
 # add schema validation, reporting without failing
-yarn validate -- --check-schemas --warn-only
+yarn validate-app-config-examples --check-schemas --warn-only
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-yarn validate -- --check-schemas --check-undeclared-keys
+yarn validate-app-config-examples --check-schemas --check-undeclared-keys
 ```
 
 The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a

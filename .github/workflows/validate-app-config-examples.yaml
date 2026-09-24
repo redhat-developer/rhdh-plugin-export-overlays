@@ -99,7 +99,7 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          node src/validate.ts --check-schemas --warn-only --since "${sha}~1"
+          yarn validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
@@ -138,7 +138,7 @@ jobs:
               args+=(--warn-only)
             fi
           fi
-          node src/validate.ts "${args[@]}"
+          yarn validate-app-config-examples "${args[@]}"
 
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
@@ -147,4 +147,4 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node src/validate.ts --since "$BASE_SHA" --check-schemas
+        run: yarn validate-app-config-examples --since "$BASE_SHA" --check-schemas
