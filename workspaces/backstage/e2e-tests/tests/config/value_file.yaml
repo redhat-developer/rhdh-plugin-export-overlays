@@ -1,25 +1,3 @@
 # Backstage workspace e2e defaults — not testing Lightspeed; chart 1.11+ enables it by default.
 intelligentAssistant:
   enabled: false
-
-# Allow HTTP egress so RHDH can reach Keycloak's plain-HTTP route (port 80).
-# The chart's default-deny NetworkPolicy only allows 443; without this, OIDC
-# discovery times out.
-extraDeploy:
-  - |
-    apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: {{ include "rhdh.fullname" . }}-allow-http-egress
-      labels:
-        {{- include "rhdh.labels" . | nindent 8 }}
-    spec:
-      podSelector:
-        matchLabels:
-          {{- include "rhdh.selectorLabels" . | nindent 10 }}
-      policyTypes:
-        - Egress
-      egress:
-        - ports:
-            - port: 80
-              protocol: TCP
