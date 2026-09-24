@@ -649,8 +649,8 @@ describe("splitDiffByFile", () => {
 
   it("keeps each section's hunks with it", () => {
     const [first] = splitDiffByFile(patch);
-    expect(first.body).toMatch(/\+new/);
-    expect(first.body.includes("+b\n")).toBeFalsy();
+    expect(first?.body).toMatch(/\+new/);
+    expect(first?.body.includes("+b\n")).toBe(false);
   });
 
   it("returns nothing for a diff with no git header, rather than guessing", () => {

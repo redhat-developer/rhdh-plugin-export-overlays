@@ -159,10 +159,10 @@ describe("examplesWithContent", () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: First\n      content:\n        a: 1\n    - content:\n        b: 2\n`,
     );
-    const examples = examplesWithContent(doc);
-    expect(examples.length).toBe(2);
-    expect(examples[0].title).toBe("First");
-    expect(examples[1].title).toBe("appConfigExamples[1]");
+    expect(examplesWithContent(doc).map((example) => example.title)).toEqual([
+      "First",
+      "appConfigExamples[1]",
+    ]);
   });
 
   it("drops examples with no usable content", () => {
@@ -203,7 +203,9 @@ describe("examplesWithContent edge cases", () => {
     const { doc } = evaluateDocument(
       `${PACKAGE_HEAD}spec:\n  appConfigExamples:\n    - title: ""\n      content:\n        a: 1\n`,
     );
-    expect(examplesWithContent(doc)[0].title).toBe("appConfigExamples[0]");
+    expect(examplesWithContent(doc).map((example) => example.title)).toEqual([
+      "appConfigExamples[0]",
+    ]);
   });
 
   it("drops entries that are not mappings", () => {
