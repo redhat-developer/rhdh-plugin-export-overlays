@@ -14,13 +14,6 @@ import {
   type AdoptionInsightsUiHelperForPanel,
 } from "../utils/adoption-insights";
 
-/** Chart dist wrapper names (see ../metadata `spec.dynamicArtifact` basenames). */
-const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES: string[] = [
-  "red-hat-developer-hub-backstage-plugin-adoption-insights",
-  "red-hat-developer-hub-backstage-plugin-adoption-insights-backend-dynamic",
-  "red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights-dynamic",
-];
-
 test.describe.serial("Test Adoption Insights", () => {
   let context: BrowserContext | undefined;
   let page: Page;
@@ -28,9 +21,10 @@ test.describe.serial("Test Adoption Insights", () => {
   let testHelper: TestHelper;
 
   test.beforeAll(async ({ browser, rhdh }) => {
+    // Do not set disablePlugins: it marks OCI entries from dynamic-plugins.yaml
+    // as disabled: true, so NFS extensions never mount the plugin.
     await rhdh.configure({
       auth: "keycloak",
-      disablePlugins: ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES,
     });
     await rhdh.deploy();
 
