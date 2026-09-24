@@ -10,14 +10,14 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { byCodepoint } from "./json.js";
+import { byCodepoint } from "./json.ts";
 import {
   exitCodeFor,
   main,
   printReport,
   type Row,
   type SchemaTally,
-} from "./validate.js";
+} from "./validate.ts";
 
 const NO_SCHEMAS: SchemaTally = {
   validated: 0,

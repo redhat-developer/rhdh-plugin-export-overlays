@@ -52,7 +52,7 @@ import {
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
 import type { JsonObject } from "@backstage/types";
-import { byCodepoint, errorProperty, isPlainObject } from "./json.js";
+import { byCodepoint, errorProperty, isPlainObject } from "./json.ts";
 
 const execFileAsync = promisify(execFile);
 

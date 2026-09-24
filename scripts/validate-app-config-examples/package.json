@@ -10,9 +10,8 @@
   },
   "packageManager": "yarn@4.17.1",
   "scripts": {
-    "build": "esbuild src/validate.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/validate.mjs",
-    "validate": "yarn build && node dist/validate.mjs",
-    "test": "esbuild src/*.test.ts --bundle --platform=node --format=esm --packages=external --outdir=dist-tests --out-extension:.js=.mjs && node --test \"dist-tests/*.test.mjs\"",
+    "validate": "node src/validate.ts",
+    "test": "node --test src/*.test.ts",
     "tsc:check": "tsc --noEmit",
     "check": "yarn tsc:check && yarn lint:check && yarn prettier:check && yarn test",
     "lint:check": "eslint .",
@@ -28,7 +27,6 @@
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.13.2",
-    "esbuild": "0.28.1",
     "eslint": "10.8.0",
     "prettier": "3.9.6",
     "typescript": "6.0.3",

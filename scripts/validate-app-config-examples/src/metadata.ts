@@ -13,7 +13,7 @@
 
 import { readFile } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
-import { errorProperty, isPlainObject } from "./json.js";
+import { errorProperty, isPlainObject } from "./json.ts";
 
 export type Status = "PASS" | "FAIL" | "SKIP";
 

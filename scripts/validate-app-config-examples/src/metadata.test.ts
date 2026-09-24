@@ -17,7 +17,7 @@ import {
   isEmptyContent,
   isMetadataPath,
   packageCoordinates,
-} from "./metadata.js";
+} from "./metadata.ts";
 
 const PACKAGE_HEAD =
   "apiVersion: extensions.backstage.io/v1alpha1\nkind: Package\n";

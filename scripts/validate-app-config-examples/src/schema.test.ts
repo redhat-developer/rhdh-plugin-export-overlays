@@ -36,7 +36,7 @@ import {
   substitutePlaceholders,
   validateExample,
   type SchemaSource,
-} from "./schema.js";
+} from "./schema.ts";
 
 const PKG = { name: "@scope/plugin", version: "1.0.0" };
 

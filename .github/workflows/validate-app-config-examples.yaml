@@ -70,14 +70,10 @@ jobs:
           cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
 
       # skip-build keeps dependency lifecycle scripts from running at install
-      # time. Nothing here needs them — esbuild ships its platform binary as an
-      # optional dependency rather than fetching one in a postinstall — and
-      # .yarnrc.yml sets enableScripts: false so local installs match.
+      # time. Nothing here needs them, and .yarnrc.yml sets enableScripts:
+      # false so local installs match.
       - name: Install dependencies
         run: yarn install --immutable --mode=skip-build
-
-      - name: Build
-        run: yarn build
 
       - name: Check types and unit tests
         run: yarn check
@@ -103,7 +99,7 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
+          node src/validate.ts --check-schemas --warn-only --since "${sha}~1"
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
@@ -142,7 +138,7 @@ jobs:
               args+=(--warn-only)
             fi
           fi
-          node dist/validate.mjs "${args[@]}"
+          node src/validate.ts "${args[@]}"
 
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
@@ -151,4 +147,4 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node dist/validate.mjs --since "$BASE_SHA" --check-schemas
+        run: node src/validate.ts --since "$BASE_SHA" --check-schemas

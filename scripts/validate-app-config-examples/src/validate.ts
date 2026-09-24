@@ -30,8 +30,8 @@ import {
   isMetadataPath,
   packageCoordinates,
   type Status,
-} from "./metadata.js";
-import { byCodepoint } from "./json.js";
+} from "./metadata.ts";
+import { byCodepoint } from "./json.ts";
 import {
   SchemaResolver,
   findUndeclaredKeys,
@@ -39,7 +39,7 @@ import {
   type SchemaOutcome,
   type SchemaRequest,
   type SchemaSource,
-} from "./schema.js";
+} from "./schema.ts";
 
 export type Row = {
   status: Status;
