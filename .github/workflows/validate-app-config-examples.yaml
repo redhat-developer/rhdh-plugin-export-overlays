@@ -57,26 +57,17 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Before setup-node, so its yarn-cache detection resolves Yarn 4 through
-      # corepack rather than the bundled Yarn 1.
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
-          node-version: 24
-          cache: yarn
-          cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
+          working-directory: scripts/validate-app-config-examples
+          cache: true
 
-      # skip-build keeps dependency lifecycle scripts from running at install
-      # time. Nothing here needs them, and .yarnrc.yml sets enableScripts:
-      # false so local installs match.
-      - name: Install dependencies
-        run: yarn install --immutable --mode=skip-build
+      - name: Check (format, lint, and type-check)
+        run: vp check
 
-      - name: Check types and unit tests
-        run: yarn check
+      - name: Test (unit tests)
+        run: vp test
 
       # The PR step below runs `--since`, which by construction sees no metadata
       # when a PR only touches this directory — so a change to the validator
@@ -99,7 +90,7 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          yarn validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
+          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
@@ -138,7 +129,7 @@ jobs:
               args+=(--warn-only)
             fi
           fi
-          yarn validate-app-config-examples "${args[@]}"
+          vp exec validate-app-config-examples "${args[@]}"
 
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
@@ -147,4 +138,4 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: yarn validate-app-config-examples --since "$BASE_SHA" --check-schemas
+        run: vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas

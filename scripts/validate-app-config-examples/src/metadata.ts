@@ -82,8 +82,7 @@ export function evaluateDocument(text: string): StructuralResult {
       ? { status: "PASS", detail: "opt-out (appConfigNotRequired)", doc }
       : {
           status: "FAIL",
-          detail:
-            "empty appConfigExamples without spec.appConfigNotRequired: true",
+          detail: "empty appConfigExamples without spec.appConfigNotRequired: true",
           doc,
         };
   }
@@ -119,7 +118,7 @@ export async function evaluateFile(path: string): Promise<StructuralResult> {
     if (errorProperty(error, "code") === "ENOENT") {
       return { status: "SKIP", detail: "file not present in the working tree" };
     }
-    return { status: "FAIL", detail: `YAML error: ${error}` };
+    return { status: "FAIL", detail: `YAML error: ${String(error)}` };
   }
   return evaluateDocument(text);
 }

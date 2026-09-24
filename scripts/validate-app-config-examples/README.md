@@ -15,25 +15,39 @@ The structural layer runs always and fails the run. The semantic layer is opt-in
 via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
 opt-in via `--check-undeclared-keys` and only ever reports.
 
+## Toolchain
+
+Uses [Yarn](https://yarnpkg.com/) and [Vite+](https://viteplus.dev/).
+Install the `vp` CLI from the [Vite+ guide](https://viteplus.dev/guide#install-vp-globally);
+the global CLI can download the Node.js and Yarn versions this package expects.
+
+## Development
+
+```bash
+vp install   # install dependencies (via Yarn)
+vp check     # format, lint, and type-check
+vp test      # unit tests
+```
+
 ## Usage
 
-After `yarn install`:
+After `vp install`:
 
 ```bash
 # structural only — the whole tree
-yarn validate-app-config-examples
+vp exec validate-app-config-examples
 
 # structural only — just what a PR touched
-yarn validate-app-config-examples --since "$BASE_SHA"
+vp exec validate-app-config-examples --since "$BASE_SHA"
 
 # add schema validation, failing on mismatch
-yarn validate-app-config-examples --since "$BASE_SHA" --check-schemas
+vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
 
 # add schema validation, reporting without failing
-yarn validate-app-config-examples --check-schemas --warn-only
+vp exec validate-app-config-examples --check-schemas --warn-only
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-yarn validate-app-config-examples --check-schemas --check-undeclared-keys
+vp exec validate-app-config-examples --check-schemas --check-undeclared-keys
 ```
 
 The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
@@ -244,7 +258,7 @@ declared keys at all, so its files are skipped silently.
 | `src/validate.ts` | CLI, reporting, exit codes                           |
 | `src/*.test.ts`   | the unit tests                                       |
 
-`yarn check` runs the type check and the unit tests. The tests never touch the
-network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
-which builds a real Backstage schema in memory, so the suite stays fast and
-deterministic while still testing the actual validator.
+The tests never touch the network: the semantic layer is exercised through
+`loadConfigSchema({ serialized })`, which builds a real Backstage schema in
+memory, so the suite stays fast and deterministic while still testing the
+actual validator.

@@ -2,34 +2,32 @@
   "name": "validate-app-config-examples",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "description": "Validates Package metadata appConfigExamples: structural checks (RHIDP-12590) plus semantic validation against each plugin's published config schema (RHIDP-13509).",
-  "engines": {
-    "node": ">=24",
-    "yarn": ">=4"
-  },
-  "packageManager": "yarn@4.17.1",
   "bin": "src/validate.ts",
-  "scripts": {
-    "test": "node --test src/*.test.ts",
-    "tsc:check": "tsc --noEmit",
-    "check": "yarn tsc:check && yarn lint:check && yarn prettier:check && yarn test",
-    "lint:check": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "prettier:check": "prettier --check .",
-    "prettier:fix": "prettier --write ."
-  },
+  "type": "module",
   "dependencies": {
     "@backstage/config-loader": "1.11.0",
     "@backstage/types": "1.2.2",
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "@types/node": "24.13.2",
-    "eslint": "10.8.0",
-    "prettier": "3.9.6",
-    "typescript": "6.0.3",
-    "typescript-eslint": "8.65.0"
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0-rc.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "yarn",
+      "version": "4.18.0",
+      "onFail": "download"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "24.21.0",
+      "onFail": "download"
+    }
   }
 }
