@@ -15,23 +15,7 @@ The structural layer runs always and fails the run. The semantic layer is opt-in
 via `--check-schemas` and fails unless `--warn-only`. The undeclared-key layer is
 opt-in via `--check-undeclared-keys` and only ever reports.
 
-## Toolchain
-
-Uses [Yarn](https://yarnpkg.com/) and [Vite+](https://viteplus.dev/).
-Install the `vp` CLI from the [Vite+ guide](https://viteplus.dev/guide#install-vp-globally);
-the global CLI can download the Node.js and Yarn versions this package expects.
-
-## Development
-
-```bash
-vp install   # install dependencies (via Yarn)
-vp check     # format, lint, and type-check
-vp test      # unit tests
-```
-
 ## Usage
-
-After `vp install`:
 
 ```bash
 # structural only — the whole tree

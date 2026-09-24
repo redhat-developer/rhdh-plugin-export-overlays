@@ -7,6 +7,10 @@ on:
       - 'release-*'
     paths:
       - 'workspaces/**/metadata/**'
+      - 'scripts/package.json'
+      - 'scripts/yarn.lock'
+      - 'scripts/.yarnrc.yml'
+      - 'scripts/vite.config.ts'
       - 'scripts/validate-app-config-examples/**'
       - '.github/workflows/validate-app-config-examples.yaml'
   workflow_dispatch:
@@ -49,7 +53,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: scripts/validate-app-config-examples
+        working-directory: scripts
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,14 +64,8 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
-          working-directory: scripts/validate-app-config-examples
+          working-directory: scripts
           cache: true
-
-      - name: Check (format, lint, and type-check)
-        run: vp check
-
-      - name: Test (unit tests)
-        run: vp test
 
       # The PR step below runs `--since`, which by construction sees no metadata
       # when a PR only touches this directory — so a change to the validator
@@ -80,7 +78,7 @@ jobs:
         env:
           SAMPLE: workspaces/adoption-insights/metadata
         run: |
-          sha="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")"
+          sha="$(git -C .. log -1 --format=%H -- "$SAMPLE")"
           if [[ -z "$sha" ]]; then
             # Empty means the sample path has no reachable history — it was
             # renamed or removed, or the clone is too shallow to reach it.

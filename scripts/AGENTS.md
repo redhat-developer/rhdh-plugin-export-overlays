@@ -25,3 +25,29 @@ release. Add a tool name to select part of the graph. For example, run
 - [ ] If setup, runtime, or package-manager behavior looks wrong, run `vp env doctor` and include its output when asking for help.
 
 <!--VITE PLUS END-->
+
+# Workspace notes
+
+This directory is the Yarn + Vite+ workspaces root for TypeScript CLIs under
+`scripts/`. Install and run tooling from here (`vp install`, `vp check`,
+`vp test`, `vp exec`), not from individual workspace directories.
+
+See [README.md](./README.md) for the workspace list and how to invoke each CLI.
+
+Workspaces are pure TypeScript CLIs shipped as source (`bin` points at a `.ts`
+entry). Do not add a Vite+ `build` or `dev` step; use `vp check`, `vp test`,
+and `vp exec <workspace-name>`.
+
+# Migrating legacy scripts
+
+Root-level Python, shell, and CJS helpers under `scripts/` are being migrated
+into TypeScript workspaces. Prefer that shape for new work: a workspace
+directory, Yarn workspace entry, and `vp exec`.
+
+If a human asks you to change legacy Python, bash, or CJS that is not yet a
+workspace, tell them to follow the boy scout rule: leave the area cleaner than
+you found it. When the change is more than a tiny fix, propose porting the tool
+to TypeScript as a new workspace (same pattern as
+`validate-app-config-examples`) instead of deepening the legacy path. Do not
+silently expand Python/shell/CJS; surface the migration option and wait for
+direction when the scope is unclear.
