@@ -667,41 +667,41 @@ describe("stripLevelFor", () => {
   });
 });
 
+/** A package directory holding one config.d.ts with `body`. */
+async function packageWith(
+  body: string,
+  // Null rather than undefined: passing `undefined` explicitly would trigger
+  // the default and quietly test the opposite of what the caller asked for.
+  configSchema: string | null = "config.d.ts",
+): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "patch-apply-"));
+  await writeFile(join(dir, "config.d.ts"), body);
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify(configSchema === null ? {} : { configSchema }),
+  );
+  return dir;
+}
+
+/** A patch file rewriting config.d.ts from `from` to `to`. */
+async function patchFile(dir: string, target: string, from: string, to: string): Promise<string> {
+  const path = join(dir, "1-rewrite.patch");
+  await writeFile(
+    path,
+    [
+      `diff --git a/${target} b/${target}`,
+      `--- a/${target}`,
+      `+++ b/${target}`,
+      "@@ -1 +1 @@",
+      `-${from}`,
+      `+${to}`,
+      "",
+    ].join("\n"),
+  );
+  return path;
+}
+
 describe("applyConfigSchemaPatches", () => {
-  /** A package directory holding one config.d.ts with `body`. */
-  async function packageWith(
-    body: string,
-    // Null rather than undefined: passing `undefined` explicitly would trigger
-    // the default and quietly test the opposite of what the caller asked for.
-    configSchema: string | null = "config.d.ts",
-  ): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "patch-apply-"));
-    await writeFile(join(dir, "config.d.ts"), body);
-    await writeFile(
-      join(dir, "package.json"),
-      JSON.stringify(configSchema === null ? {} : { configSchema }),
-    );
-    return dir;
-  }
-
-  /** A patch file rewriting config.d.ts from `from` to `to`. */
-  async function patchFile(dir: string, target: string, from: string, to: string): Promise<string> {
-    const path = join(dir, "1-rewrite.patch");
-    await writeFile(
-      path,
-      [
-        `diff --git a/${target} b/${target}`,
-        `--- a/${target}`,
-        `+++ b/${target}`,
-        "@@ -1 +1 @@",
-        `-${from}`,
-        `+${to}`,
-        "",
-      ].join("\n"),
-    );
-    return path;
-  }
-
   it("rewrites the package's config.d.ts the way the export does", async () => {
     const dir = await packageWith("export type Config = { a: string };\n");
     try {
@@ -811,13 +811,13 @@ describe("splitDiffByFile with added and removed files", () => {
   });
 });
 
-describe("declaredConfigSchemaPath", () => {
-  async function packageJson(contents: string): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "declared-schema-"));
-    await writeFile(join(dir, "package.json"), contents);
-    return dir;
-  }
+async function packageJson(contents: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "declared-schema-"));
+  await writeFile(join(dir, "package.json"), contents);
+  return dir;
+}
 
+describe("declaredConfigSchemaPath", () => {
   it("returns a nested path as declared", async () => {
     const dir = await packageJson('{"configSchema":"dist/config.schema.json"}');
     try {
@@ -1221,55 +1221,55 @@ describe("rejectUndeclaredKeys", () => {
   });
 });
 
-describe("findUndeclaredKeys and alternative-shape unions", () => {
-  /** The dynatrace shape: array items are a union of *complete* alternatives. */
-  async function sourceWithAlternatives(): Promise<SchemaSource> {
-    const schema = await loadConfigSchema({
-      serialized: {
-        backstageConfigSchemaVersion: 1,
-        schemas: [
-          {
-            path: "plugin/config.d.ts",
-            value: {
-              type: "object",
-              properties: {
-                acme: {
-                  type: "object",
-                  properties: {
-                    envs: {
-                      type: "array",
-                      items: {
-                        anyOf: [
-                          {
-                            type: "object",
-                            required: ["url", "clientId"],
-                            properties: {
-                              url: { type: "string" },
-                              clientId: { type: "string" },
-                            },
+/** The dynatrace shape: array items are a union of *complete* alternatives. */
+async function sourceWithAlternatives(): Promise<SchemaSource> {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: {
+            type: "object",
+            properties: {
+              acme: {
+                type: "object",
+                properties: {
+                  envs: {
+                    type: "array",
+                    items: {
+                      anyOf: [
+                        {
+                          type: "object",
+                          required: ["url", "clientId"],
+                          properties: {
+                            url: { type: "string" },
+                            clientId: { type: "string" },
                           },
-                          {
-                            type: "object",
-                            required: ["url", "token"],
-                            properties: {
-                              url: { type: "string" },
-                              token: { type: "string" },
-                            },
+                        },
+                        {
+                          type: "object",
+                          required: ["url", "token"],
+                          properties: {
+                            url: { type: "string" },
+                            token: { type: "string" },
                           },
-                        ],
-                      },
+                        },
+                      ],
                     },
                   },
                 },
               },
             },
           },
-        ],
-      },
-    });
-    return { resolve: async () => ({ kind: "schema", schema }) };
-  }
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema", schema }) };
+}
 
+describe("findUndeclaredKeys and alternative-shape unions", () => {
   it("accepts a document matching one alternative", async () => {
     // Each branch enumerates its own complete key set, so closing them is safe —
     // unlike branches that enumerate nothing and lean on a shared parent.

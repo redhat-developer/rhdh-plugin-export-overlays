@@ -236,7 +236,7 @@ describe("byCodepoint", () => {
     // The property localeCompare would break: several locales sort
     // case-insensitively, which would reorder the report and break the
     // byte-identical parity with the script this replaced.
-    expect(["b", "A", "a", "B"].sort(byCodepoint)).toEqual(["A", "B", "a", "b"]);
+    expect(["b", "A", "a", "B"].toSorted(byCodepoint)).toEqual(["A", "B", "a", "b"]);
   });
 
   it("is 0 for equal strings, so sorts stay stable", () => {

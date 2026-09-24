@@ -53,7 +53,7 @@ export function evaluateDocument(text: string): StructuralResult {
   } catch (error) {
     // Parse errors carry a multi-line caret frame; the table has one line per
     // file, so keep the headline only.
-    const headline = String(error).split("\n")[0]?.trim() ?? String(error);
+    const headline = String(error).split("\n").at(0)?.trim();
     return { status: "FAIL", detail: `YAML error: ${headline}` };
   }
 

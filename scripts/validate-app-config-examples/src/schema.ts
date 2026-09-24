@@ -37,7 +37,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
-import type { JsonObject } from "@backstage/types";
+import type { JsonObject, JsonValue } from "@backstage/types";
 import { byCodepoint, errorProperty, isPlainObject } from "./json.ts";
 
 const execFileAsync = promisify(execFile);
@@ -334,7 +334,7 @@ export async function applyConfigSchemaPatches(
 
   // Sorted because the numbered filename prefix is how this repo orders patch
   // application, and a later patch may build on an earlier one's result.
-  for (const patchPath of [...patches].sort(byCodepoint)) {
+  for (const patchPath of patches.toSorted(byCodepoint)) {
     let patch: string;
     try {
       patch = await readFile(patchPath, "utf8");
@@ -458,7 +458,7 @@ export async function findPackageRoot(dir: string, spec: string): Promise<string
   const candidates = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort(conventionalFirst);
+    .toSorted(conventionalFirst);
 
   for (const candidate of candidates) {
     const root = join(dir, candidate);
@@ -794,9 +794,11 @@ const SCHEMA_LISTS = ["anyOf", "oneOf", "allOf"] as const;
  * object, so a config key that happens to be named `properties` is not mistaken
  * for a schema node.
  */
-export function rejectUndeclaredKeys<T>(document: T): T {
+export function rejectUndeclaredKeys(document: JsonObject): JsonObject;
+export function rejectUndeclaredKeys(document: JsonValue): JsonValue;
+export function rejectUndeclaredKeys(document: JsonValue): JsonValue {
   if (Array.isArray(document)) {
-    return document.map(rejectUndeclaredKeys) as T;
+    return document.map(rejectUndeclaredKeys);
   }
   if (!isPlainObject(document)) {
     return document;
@@ -807,29 +809,44 @@ export function rejectUndeclaredKeys<T>(document: T): T {
   for (const keyword of SCHEMA_MAPS) {
     const value = node[keyword];
     if (isPlainObject(value)) {
-      node[keyword] = Object.fromEntries(
-        Object.entries(value).map(([name, sub]) => [name, rejectUndeclaredKeys(sub)]),
-      );
+      const next: JsonObject = {};
+      for (const [name, sub] of Object.entries(value)) {
+        if (sub === undefined) {
+          continue;
+        }
+        next[name] = rejectUndeclaredKeys(sub);
+      }
+      node[keyword] = next;
     }
   }
   for (const keyword of SCHEMA_LISTS) {
     const value = node[keyword];
     if (Array.isArray(value)) {
-      node[keyword] = value.map(rejectUndeclaredKeys);
+      node[keyword] = value.map((item) => rejectUndeclaredKeys(item));
     }
   }
   for (const keyword of SCHEMA_VALUED) {
-    if (keyword in node) {
-      node[keyword] = rejectUndeclaredKeys(node[keyword]);
+    if (!(keyword in node)) {
+      continue;
     }
+    const value = node[keyword];
+    if (value === undefined) {
+      continue;
+    }
+    node[keyword] = rejectUndeclaredKeys(value);
   }
   // The wrapper config-loader serializes into: each entry's `value` is a schema.
   if (Array.isArray(node.schemas)) {
-    node.schemas = node.schemas.map((entry) =>
-      isPlainObject(entry) && "value" in entry
-        ? { ...entry, value: rejectUndeclaredKeys(entry.value) }
-        : entry,
-    );
+    node.schemas = node.schemas.map((entry) => {
+      if (!isPlainObject(entry) || !("value" in entry)) {
+        return entry;
+      }
+      const { value } = entry;
+      if (value === undefined) {
+        return entry;
+      }
+      return { ...entry, value: rejectUndeclaredKeys(value) };
+    });
   }
 
   const { properties } = node;
@@ -840,7 +857,7 @@ export function rejectUndeclaredKeys<T>(document: T): T {
   ) {
     node.additionalProperties = false;
   }
-  return node as T;
+  return node;
 }
 
 /**
@@ -866,7 +883,7 @@ export function declaredTopLevelKeys(serialized: unknown): string[] {
       }
     }
   }
-  return [...keys].sort(byCodepoint);
+  return [...keys].toSorted(byCodepoint);
 }
 
 /** The part of `content` whose top-level keys the plugin declares. */

@@ -370,7 +370,7 @@ async function changedMetadataPaths(since: string, repoRoot: string): Promise<st
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "" && isMetadataPath(line))
-    .sort(byCodepoint);
+    .toSorted(byCodepoint);
 }
 
 /**
@@ -406,7 +406,7 @@ async function globPatches(repoRoot: string, workspace: string): Promise<string[
   })) {
     found.push(join(repoRoot, entry));
   }
-  return found.sort(byCodepoint);
+  return found.toSorted(byCodepoint);
 }
 
 async function collectAllMetadata(repoRoot: string): Promise<string[]> {
@@ -416,7 +416,7 @@ async function collectAllMetadata(repoRoot: string): Promise<string[]> {
   })) {
     found.push(entry);
   }
-  return found.sort(byCodepoint);
+  return found.toSorted(byCodepoint);
 }
 
 /** The run's exit code: 1 when any row failed, 0 otherwise. */
