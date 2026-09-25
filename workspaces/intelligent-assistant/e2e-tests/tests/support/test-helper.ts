@@ -29,7 +29,7 @@ function dynamicPluginsFile(): string {
 function lightspeedDeployConfig() {
   return {
     auth: "keycloak" as const,
-    version: process.env.RHDH_VERSION ?? "2.1",
+    version: process.env.RHDH_VERSION ?? "1.11",
     appConfig: "tests/config/app-config-rhdh.yaml",
     secrets: "tests/config/rhdh-secrets.yaml",
     valueFile: "tests/config/value_file.yaml",

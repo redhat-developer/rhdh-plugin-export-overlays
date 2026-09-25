@@ -33,7 +33,7 @@ export async function deployRhdh(
 ): Promise<void> {
   await rhdh.configure({
     auth: "keycloak",
-    version: process.env.RHDH_VERSION ?? "2.1",
+    version: process.env.RHDH_VERSION ?? "2.0",
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     dynamicPlugins: options.dynamicPlugins,
     disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
