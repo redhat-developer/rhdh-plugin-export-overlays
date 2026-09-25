@@ -16,6 +16,11 @@ const setupScript = path.join(
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 

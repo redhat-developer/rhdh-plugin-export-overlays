@@ -11,6 +11,11 @@ import { fillFormFields } from "../../support/utils/fill-template-form";
 import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   const repositoryParametersGitHub: RepositoryParameters =
     defaultGitHubRepositoryParameters();
 
