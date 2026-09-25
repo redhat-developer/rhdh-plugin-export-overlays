@@ -23,15 +23,14 @@ export function isPlainObject(value: unknown): value is JsonObject {
  *
  * Node and its libraries hang useful detail off Error instances — `code` on
  * filesystem errors, `stderr` on exec failures, `messages` on config-loader's
- * validation errors — none of which is on the `Error` type. Narrowing that away
- * needs an assertion somewhere; keeping it here means one place to get right
- * rather than one per call site.
+ * validation errors — none of which is on the `Error` type. Keeping the
+ * property read here means one place to get right rather than one per call site.
  */
 export function errorProperty(error: unknown, key: string): unknown {
   if (typeof error !== "object" || error === null || !(key in error)) {
     return undefined;
   }
-  return (error as Record<string, unknown>)[key];
+  return Reflect.get(error, key);
 }
 
 /**

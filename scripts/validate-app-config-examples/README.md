@@ -18,22 +18,20 @@ opt-in via `--check-undeclared-keys` and only ever reports.
 ## Usage
 
 ```bash
-yarn build
-
 # structural only — the whole tree
-yarn node dist/validate.mjs
+vp exec validate-app-config-examples
 
 # structural only — just what a PR touched
-yarn node dist/validate.mjs --since "$BASE_SHA"
+vp exec validate-app-config-examples --since "$BASE_SHA"
 
 # add schema validation, failing on mismatch
-yarn node dist/validate.mjs --since "$BASE_SHA" --check-schemas
+vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas
 
 # add schema validation, reporting without failing
-yarn node dist/validate.mjs --check-schemas --warn-only
+vp exec validate-app-config-examples --check-schemas --warn-only
 
 # the full-tree sweep CI runs weekly and on workflow_dispatch
-yarn node dist/validate.mjs --check-schemas --check-undeclared-keys
+vp exec validate-app-config-examples --check-schemas --check-undeclared-keys
 ```
 
 The full-tree sweep reports `mismatched: 0` as of RHIDP-15903, so it fails on a
@@ -244,7 +242,7 @@ declared keys at all, so its files are skipped silently.
 | `src/validate.ts` | CLI, reporting, exit codes                           |
 | `src/*.test.ts`   | the unit tests                                       |
 
-`yarn check` runs the type check and the unit tests. The tests never touch the
-network: the semantic layer is exercised through `loadConfigSchema({ serialized })`,
-which builds a real Backstage schema in memory, so the suite stays fast and
-deterministic while still testing the actual validator.
+The tests never touch the network: the semantic layer is exercised through
+`loadConfigSchema({ serialized })`, which builds a real Backstage schema in
+memory, so the suite stays fast and deterministic while still testing the
+actual validator.
