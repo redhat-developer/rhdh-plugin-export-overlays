@@ -5,7 +5,7 @@ version: 1
 # forked-from: rhdh/policies/e2e-triage.yaml
 #
 # Same shape as e2e-triage — the agent is read-only inside the sandbox and
-# all GitHub writes (the sticky PR comment) happen in the post-script.
+# all GitHub writes (the diagnosis comment) happen in the post-script.
 #
 #   - github_api is read-only: the agent reads the PR check rollup, PR diff,
 #     GH Actions run logs (via gh/api), and existing comments for reconcile.
