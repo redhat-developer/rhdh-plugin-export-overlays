@@ -80,7 +80,7 @@ test.describe("Test ArgoCD plugin", () => {
   }) => {
     await uiHelper.verifyText("Resources");
 
-    await uiHelper.clickButtonByLabel("rows");
+    await page.getByRole("combobox", { name: "rows" }).click();
     await page.getByRole("option", { name: "10 rows" }).click();
 
     await uiHelper.verifyColumnHeading([
