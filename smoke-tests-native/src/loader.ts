@@ -274,36 +274,11 @@ export type ConfigSchemaState =
    */
   | "invalid";
 
-/** Which host reads a given schema file, and therefore whether its absence matters here. */
-export type ConfigSchemaConsumer =
-  /**
-   * What RHDH's own `schemaLocator` resolves to for this package's role. RHDH overrides
-   * the upstream default in `packages/backend/src/index.ts`:
-   *
-   * ```ts
-   * return path.join(platform === "node" ? "dist" : "dist-scalprum", "configSchema.json");
-   * ```
-   *
-   * The locator is keyed on the package's ROLE, so the path differs by half:
-   * `getRoleInfo("frontend-plugin").platform` is `"web"` and gives
-   * `dist-scalprum/configSchema.json`, while both backend roles are `"node"` and give
-   * `dist/configSchema.json` (verified by executing `@backstage/cli-node`, not inferred).
-   * Whichever it resolves to, that is the file whose absence drops the plugin's config, so
-   * it is the only one failed on.
-   */
-  | "rhdh"
-  /**
-   * `dist/.config-schema.json`, the default locator in
-   * `@backstage/backend-dynamic-feature-service`. RHDH's override means it is never the
-   * file RHDH reads, for either half — a backend package ships it beside RHDH's own
-   * `dist/configSchema.json`, in the same directory and under a different name. It is
-   * reported for a plain-Backstage host's benefit and never failed on: failing it would
-   * reject an artifact over a file this platform ignores.
-   */
-  | "upstream-default";
+/** RHDH and the upstream service both read the supported schema path. */
+export type ConfigSchemaConsumer = "rhdh";
 
 export type ConfigSchemaFile = {
-  /** Bundle-relative path, e.g. `dist-scalprum/configSchema.json`. */
+  /** Bundle-relative path, e.g. `dist/.config-schema.json`. */
   path: string;
   consumer: ConfigSchemaConsumer;
   state: ConfigSchemaState;
@@ -757,16 +732,8 @@ function findScalprumProblems(fields: ScalprumFields): string[] {
  * so the exhaustive Record still forces a message for any state added later without
  * carrying a string for the one case that never reaches it.
  */
-/** What RHDH's `schemaLocator` resolves to for a `frontend-plugin` role (platform "web"). */
-const RHDH_FRONTEND_SCHEMA = "dist-scalprum/configSchema.json";
-/**
- * The same locator for `backend-plugin` and `backend-plugin-module` (both platform
- * "node"). Note it is NOT the upstream default below: they sit in the same directory and
- * differ only by filename, which is exactly the pair a reader is likely to conflate.
- */
-const RHDH_BACKEND_SCHEMA = "dist/configSchema.json";
-/** The default locator in @backstage/backend-dynamic-feature-service, which RHDH overrides. */
-const UPSTREAM_DEFAULT_SCHEMA = "dist/.config-schema.json";
+/** The sole supported schema path for every dynamic plugin role. */
+const RHDH_SCHEMA = "dist/.config-schema.json";
 
 const CONFIG_SCHEMA_FAULTS: Record<Exclude<ConfigSchemaState, "ok">, string> = {
   missing: "is not in the bundle",
@@ -849,11 +816,8 @@ function readConfigSchemaFile(
 /**
  * Check that a bundle declaring configuration actually ships a schema for it.
  *
- * `rhdhSchema` is the path RHDH's own `schemaLocator` resolves to for this package's
- * role — see {@link ConfigSchemaConsumer}. It is the caller's job because the role lives
- * on the PluginEntry and this function only ever sees a directory; passing the wrong one
- * would check a file the host never reads, which is the failure mode the frontend half
- * shipped with and had to fix.
+ * RHDH's schema locator and the upstream default both use
+ * `dist/.config-schema.json`, regardless of the package role.
  *
  * The messages are worded so a reader cannot mistake one case for the other: a package
  * that declares nothing is not a finding at all and produces no message, while a package
@@ -861,10 +825,7 @@ function readConfigSchemaFile(
  * the export's schema collection resolves dependencies inside an empty `catch {}`, so a
  * declaration it fails to resolve is dropped with no error anywhere.
  */
-function inspectConfigSchema(
-  pluginPath: string,
-  rhdhSchema: string,
-): {
+function inspectConfigSchema(pluginPath: string): {
   configSchema: ConfigSchemaInfo;
   error: string | null;
 } {
@@ -885,27 +846,11 @@ function inspectConfigSchema(
     readError = `could not read package.json for configSchema (${errorMessage(err)})`;
   }
 
-  // RHDH's file is NOT gated on its directory existing. That gate mirrored the export CLI
-  // and left the failure this check exists for wide open: an NFS-only bundle ships no
-  // dist-scalprum/ at all, so the gate skipped the very file RHDH looks for, and a package
-  // declaring configSchema passed while RHDH dropped its config in silence — RHDHBUGS-1157
-  // on the NFS lane. Absence of RHDH's file IS the fault, so it is always read.
+  // The schema path is never gated on its directory existing: absence of the
+  // supported file is the fault this check reports.
   const files: ConfigSchemaFile[] = [
-    readConfigSchemaFile(pluginPath, rhdhSchema, "rhdh"),
+    readConfigSchemaFile(pluginPath, RHDH_SCHEMA, "rhdh"),
   ];
-  // The upstream default is only meaningful when a dist/ exists to hold it, and is
-  // reported rather than failed — see ConfigSchemaConsumer. For a backend package that
-  // dist/ is the same directory RHDH's own file lives in, so both entries are present
-  // and differ only by filename.
-  if (existsSync(join(pluginPath, "dist"))) {
-    files.push(
-      readConfigSchemaFile(
-        pluginPath,
-        UPSTREAM_DEFAULT_SCHEMA,
-        "upstream-default",
-      ),
-    );
-  }
   const configSchema: ConfigSchemaInfo = {
     declared,
     declaredError: readError,
@@ -918,10 +863,8 @@ function inspectConfigSchema(
   // rather than on the schema alone.
   if (!declared) return { configSchema, error: null };
 
-  // Only RHDH's own path can fail. Failing the upstream-default copy would reject an
-  // artifact over a file this platform never reads.
   const problems = files.flatMap((file) =>
-    file.consumer !== "rhdh" || file.state === "ok"
+    file.state === "ok"
       ? []
       : [`${file.path} ${CONFIG_SCHEMA_FAULTS[file.state]}`],
   );
@@ -942,8 +885,7 @@ function inspectConfigSchema(
  * `require()`s, still exposes its BackendFeature and still starts — RHDH just drops every
  * app-config key the plugin declares, so it runs on its defaults while the operator's
  * settings look applied. That is RHDHBUGS-1157, and nothing about it is frontend-specific:
- * `export-dynamic-plugin` writes the schema for backend roles too, and RHDH's
- * `schemaLocator` reads `dist/configSchema.json` for them.
+ * RHDH reads `dist/.config-schema.json` for every dynamic plugin role.
  *
  * The bundle is not loaded here. This runs over every DISCOVERED backend plugin, including
  * ones a boot exclusion keeps out of {@link loadBackendPlugins} — the exclusion is about
@@ -952,7 +894,7 @@ function inspectConfigSchema(
 export function validateBackendBundle(
   plugin: PluginEntry,
 ): BackendBundleResult {
-  return inspectConfigSchema(plugin.path, RHDH_BACKEND_SCHEMA);
+  return inspectConfigSchema(plugin.path);
 }
 
 /**
@@ -1039,7 +981,7 @@ export function validateFrontendBundle(
   // Runs regardless of which layouts validated: a bundle that declares configuration and
   // ships no schema for it is a defect on its own, and the app-config keys it silently
   // drops are dropped whether or not anything else about the bundle is wrong.
-  const schema = inspectConfigSchema(plugin.path, RHDH_FRONTEND_SCHEMA);
+  const schema = inspectConfigSchema(plugin.path);
   if (schema.error) problems.push(schema.error);
   const result = { systems, mf, scalprum, configSchema: schema.configSchema };
 

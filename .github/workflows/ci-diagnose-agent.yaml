@@ -11,14 +11,14 @@
 #     ├─ settle-gate: if any curated check is still pending/running, exit —
 #     │  diagnose once, when the LAST curated check settles, with the full set
 #     ├─ compute the RED curated checks from the PR's live rollup
-#     ├─ dedup against the sticky comment's <!-- ci-diagnose-state --> marker
+#     ├─ dedup against the latest diagnosis comment's state marker
 #     └─ if state changed: cycle the `ci-diagnose` label (remove → add)
 #                                          ↓
 #              fullsend.yaml (pull_request_target: [labeled]) → dispatch
 #                                          ↓
 #              CEL trigger matches → ci-diagnose agent runs (read-only)
 #                                          ↓
-#              post-ci-diagnose.sh upserts ONE sticky diagnostic comment
+#              post-ci-diagnose.sh posts a fresh diagnosis comment
 #              and may request-changes (review App) so the fix agent runs
 #
 # Why cycle (remove → add) instead of just add: re-adding an already-present
@@ -211,11 +211,27 @@ jobs:
           NEW_STATE=$(jq -cn --arg sha "${HEAD_SHA}" --argjson red "${RED_NAMES}" \
             '{sha:$sha, red:$red}' | jq -cS .)
 
-          # -- Read the previous state marker from the sticky comment --------
+          # -- Read previous state from latest parseable diagnosis comment ----
           # Only trust markers from the agent's own identity — otherwise
           # anyone with comment access could forge one to force/suppress a re-fire.
-          PREV_BODY=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
-            --jq '[.[] | select(.user.login == "fullsend-ai-review[bot]" and (.body | contains("<!-- ci-diagnose -->")))] | last | .body // ""' 2>/dev/null || true)
+          PREV_BODY=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" 2>/dev/null \
+            | jq -rs '
+                def state_from_body:
+                  try (capture("<!-- ci-diagnose-state: (?<state>.*) -->").state | fromjson)
+                  catch null;
+                [
+                  .[][]?
+                  | select(.user.login == "fullsend-ai-review[bot]")
+                  | (.body // "") as $body
+                  | select($body | contains("<!-- ci-diagnose -->"))
+                  | ($body | state_from_body) as $state
+                  | select($state != null)
+                  | {body: $body}
+                ]
+                | last
+                | .body // ""
+              ' \
+            || true)
           PREV_STATE=""
           if [[ -n "${PREV_BODY}" ]]; then
             PREV_RAW=$(printf '%s' "${PREV_BODY}" \
