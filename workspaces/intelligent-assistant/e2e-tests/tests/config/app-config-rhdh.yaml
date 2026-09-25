@@ -1,5 +1,5 @@
 # RHDH app config merged at deploy. Do not use lightspeed.servers (Road-Core era).
-# LCS + Llama Stack run as the lightspeed-core sidecar when global.lightspeed.enabled is true.
+# LCS + Llama Stack run as the lightspeed-core sidecar when intelligentAssistant.enabled is true.
 #
 # Drawer must wrap the FAB so Lightspeed context nests correctly.
 app:
