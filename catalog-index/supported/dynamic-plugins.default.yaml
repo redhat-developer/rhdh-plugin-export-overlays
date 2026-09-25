@@ -174,7 +174,7 @@ plugins:
     pluginConfig:
       extensions:
         directory: ${RHDH_EXTENSIONS_DIRECTORY}
-  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page@sha256:6b8fa61d6616b991472c836e6d0229e940ca0bc9fa0fe0e8b7192163e5fdd7a8
+  # - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-dynamic-home-page@sha256:f56f666bed2c6dc44d2ab712dddf041e7a360b552327976e175818874c06d5d5
   # new approach using oci images: to switch to the new approach, uncomment
   # the 'package' line above and remove the next two lines, keeping the pluginConfig.
   # disabled: true
@@ -1042,7 +1042,7 @@ plugins:
     pluginConfig:
       bulkImport:
         importAPI: open-pull-requests
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:0c013a4b628066587d7f2245425f549a8236aaf77d8bdfe5096eeb6acbca8020
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-homepage-backend@sha256:9307be2d4c958ae2b1b8d2927eedeea10d4db093aa20346f699b475adbc66984
     disabled: true
     pluginConfig:
       homepage:
@@ -1056,7 +1056,7 @@ plugins:
           - id: rhdh-template-section
             props:
               title: Template section
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:011b6ab94cb5f03a272d2cc82fa5018430ff240d504a4564d0e18ef3033ff786
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed@sha256:25b77f97aca1e62677761a6d30932ad0faba735c0cd3b6a33c24a941a88a3e3f
     disabled: true
     pluginConfig:
       lightspeed:
@@ -1070,7 +1070,6 @@ plugins:
           red-hat-developer-hub.backstage-plugin-lightspeed:
             translationResources:
               - importName: lightspeedTranslations
-                module: Alpha
                 ref: lightspeedTranslationRef
             dynamicRoutes:
               - path: /lightspeed
@@ -1089,7 +1088,7 @@ plugins:
                 config:
                   id: lightspeed
                   priority: 100
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:d09d5c5448ffd8c111812913ce77cc5677d70c83779b29e3b2c1b0f6004b976e
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-lightspeed-backend@sha256:2e3efa5c588e797a9aa286d221363d76906605d5deb87625f302aaadd210838c
     disabled: true
     pluginConfig:
       lightspeed:
