@@ -9,11 +9,10 @@
 // `serialized` overload that builds a real ConfigSchema in memory, so these
 // exercise the actual Backstage validator rather than a stand-in for it.
 
-import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vite-plus/test";
 import { loadConfigSchema } from "@backstage/config-loader";
 import type { JsonObject } from "@backstage/types";
 import {
@@ -36,7 +35,7 @@ import {
   substitutePlaceholders,
   validateExample,
   type SchemaSource,
-} from "./schema.js";
+} from "./schema.ts";
 
 const PKG = { name: "@scope/plugin", version: "1.0.0" };
 
@@ -93,106 +92,64 @@ async function sourceWithSchema(): Promise<SchemaSource> {
 
 describe("validateExample", () => {
   it("accepts an example that satisfies the schema", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "https://example.test", retries: 3 } },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "https://example.test", retries: 3 },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("rejects wrong nesting on a declared key", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        acme: { baseUrl: "https://example.test", hosts: "not-a-list" },
-      },
-    );
-    assert.equal(outcome.kind, "invalid");
-    assert.equal(outcome.kind === "invalid" && outcome.errors.length, 1);
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors[0] : "",
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "https://example.test", hosts: "not-a-list" },
+    });
+    expect(outcome.kind).toBe("invalid");
+    expect(outcome.kind === "invalid" && outcome.errors.length).toBe(1);
+    expect(outcome.kind === "invalid" ? outcome.errors[0] : "").toMatch(
       /must be array .* at \/acme\/hosts/,
     );
   });
 
   it("rejects a missing required property", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        acme: { retries: 1 },
-      },
-    );
-    assert.equal(outcome.kind, "invalid");
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
-      /baseUrl/,
-    );
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { retries: 1 },
+    });
+    expect(outcome.kind).toBe("invalid");
+    expect(outcome.kind === "invalid" ? outcome.errors.join(" ") : "").toMatch(/baseUrl/);
   });
 
   it("rejects a value outside a declared enum", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        acme: { baseUrl: "x", mode: "sideways" },
-      },
-    );
-    assert.equal(outcome.kind, "invalid");
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", mode: "sideways" },
+    });
+    expect(outcome.kind).toBe("invalid");
   });
 
   it('accepts a coercible scalar — Ajv runs with coerceTypes, so "3" passes for a number', async () => {
     // Pins a real limit of the check rather than an aspiration: this is why the
     // docs promise non-coercible scalars, not all type mismatches.
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        acme: { baseUrl: "x", retries: "3" },
-      },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", retries: "3" },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("rejects a scalar that cannot be coerced to the declared type", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        acme: { baseUrl: "x", retries: "many" },
-      },
-    );
-    assert.equal(outcome.kind, "invalid");
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", retries: "many" },
+    });
+    expect(outcome.kind).toBe("invalid");
   });
 
   it("tolerates undeclared keys — examples carry RHDH wiring no plugin schema owns", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      {
-        dynamicPlugins: { frontend: {} },
-      },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      dynamicPlugins: { frontend: {} },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("reports non-mapping content as invalid rather than throwing", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      ["a"],
-    );
-    assert.deepEqual(outcome, {
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", ["a"]);
+    expect(outcome).toEqual({
       kind: "invalid",
       errors: ["app-config content must be a mapping"],
     });
@@ -202,7 +159,7 @@ describe("validateExample", () => {
     const source: SchemaSource = {
       resolve: async () => ({ kind: "no-schema" }),
     };
-    assert.deepEqual(await validateExample(source, PKG, "label", "garbage"), {
+    expect(await validateExample(source, PKG, "label", "garbage")).toEqual({
       kind: "no-schema",
     });
   });
@@ -211,7 +168,7 @@ describe("validateExample", () => {
     const source: SchemaSource = {
       resolve: async () => ({ kind: "unavailable", reason: "HTTP 404" }),
     };
-    assert.deepEqual(await validateExample(source, PKG, "label", "garbage"), {
+    expect(await validateExample(source, PKG, "label", "garbage")).toEqual({
       kind: "unavailable",
       reason: "HTTP 404",
       patchFailure: undefined,
@@ -228,7 +185,7 @@ describe("validateExample", () => {
         patchFailure: true,
       }),
     };
-    assert.deepEqual(await validateExample(source, PKG, "label", {}), {
+    expect(await validateExample(source, PKG, "label", {})).toEqual({
       kind: "unavailable",
       reason: "patch does not apply",
       patchFailure: true,
@@ -238,57 +195,50 @@ describe("validateExample", () => {
 
 describe("hasPlaceholder", () => {
   it("matches a substitution", () => {
-    assert.equal(hasPlaceholder("${SEGMENT_TEST_MODE}"), true);
-    assert.equal(hasPlaceholder("https://${HOST}/api"), true);
+    expect(hasPlaceholder("${SEGMENT_TEST_MODE}")).toBe(true);
+    expect(hasPlaceholder("https://${HOST}/api")).toBe(true);
   });
 
   it("does not match plain text or a bare dollar", () => {
-    assert.equal(hasPlaceholder("true"), false);
-    assert.equal(hasPlaceholder("$HOME"), false);
-    assert.equal(hasPlaceholder("costs $5 {maybe}"), false);
+    expect(hasPlaceholder("true")).toBe(false);
+    expect(hasPlaceholder("$HOME")).toBe(false);
+    expect(hasPlaceholder("costs $5 {maybe}")).toBe(false);
   });
 
   it("does not match Backstage's $${ escape for a literal brace", () => {
-    assert.equal(hasPlaceholder("$${NOT_SUBSTITUTED}"), false);
+    expect(hasPlaceholder("$${NOT_SUBSTITUTED}")).toBe(false);
   });
 });
 
 describe("containsPlaceholder", () => {
   it("finds a placeholder at any depth, including inside arrays", () => {
-    assert.equal(containsPlaceholder({ a: { b: ["x", "${TOKEN}"] } }), true);
+    expect(containsPlaceholder({ a: { b: ["x", "${TOKEN}"] } })).toBe(true);
   });
 
   it("is false for a document with no placeholder", () => {
-    assert.equal(
-      containsPlaceholder({ a: { b: ["x"] }, n: 1, t: true }),
-      false,
-    );
+    expect(containsPlaceholder({ a: { b: ["x"] }, n: 1, t: true })).toBe(false);
   });
 });
 
 describe("substitutePlaceholders", () => {
   it("replaces placeholder leaves and leaves everything else alone", () => {
-    assert.deepEqual(
+    expect(
       substitutePlaceholders(
         { keep: "plain", swap: "${A}", nested: { list: ["${B}", 7, false] } },
         "true",
       ),
-      { keep: "plain", swap: "true", nested: { list: ["true", 7, false] } },
-    );
+    ).toEqual({ keep: "plain", swap: "true", nested: { list: ["true", 7, false] } });
   });
 
   it("replaces only the placeholder span within a longer string", () => {
-    assert.deepEqual(
-      substitutePlaceholders(
-        { url: "https://${HOST}/api", both: "${A}-${B}" },
-        "x",
-      ),
-      { url: "https://x/api", both: "x-x" },
-    );
+    expect(substitutePlaceholders({ url: "https://${HOST}/api", both: "${A}-${B}" }, "x")).toEqual({
+      url: "https://x/api",
+      both: "x-x",
+    });
   });
 
   it("leaves an escaped $${ alone", () => {
-    assert.deepEqual(substitutePlaceholders({ a: "$${KEEP}" }, "x"), {
+    expect(substitutePlaceholders({ a: "$${KEEP}" }, "x")).toEqual({
       a: "$${KEEP}",
     });
   });
@@ -296,7 +246,7 @@ describe("substitutePlaceholders", () => {
   it("does not modify the input", () => {
     const original = { swap: "${A}" };
     substitutePlaceholders(original, "true");
-    assert.deepEqual(original, { swap: "${A}" });
+    expect(original).toEqual({ swap: "${A}" });
   });
 });
 
@@ -380,47 +330,34 @@ describe("validateExample with environment placeholders", () => {
   it("accepts a placeholder on a field declaring a boolean literal", async () => {
     // The RHIDP-15903 segment finding. Backstage substitutes before it
     // validates, so the raw `${...}` text never reaches a schema at runtime.
-    const outcome = await validateExample(
-      await sourceWithBooleanLiteralUnion(),
-      PKG,
-      "label",
-      { acme: { segment: { writeKey: "${KEY}", testMode: "${TEST_MODE}" } } },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithBooleanLiteralUnion(), PKG, "label", {
+      acme: { segment: { writeKey: "${KEY}", testMode: "${TEST_MODE}" } },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("accepts a placeholder on a declared string", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "${BASE_URL}" } },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "${BASE_URL}" },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("accepts a placeholder on a declared number", async () => {
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "x", retries: "${RETRIES}" } },
-    );
-    assert.deepEqual(outcome, { kind: "ok" });
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", retries: "${RETRIES}" },
+    });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it("still reports a placeholder where an object is declared", async () => {
     // Substitution can only ever yield a string, so this one is a genuine
     // defect however the variable is set — the leniency must not swallow it.
-    const outcome = await validateExample(
-      await sourceWithBooleanLiteralUnion(),
-      PKG,
-      "label",
-      { acme: { segment: { writeKey: "k" }, home: "${HOME_PAGE}" } },
-    );
-    assert.equal(outcome.kind, "invalid");
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+    const outcome = await validateExample(await sourceWithBooleanLiteralUnion(), PKG, "label", {
+      acme: { segment: { writeKey: "k" }, home: "${HOME_PAGE}" },
+    });
+    expect(outcome.kind).toBe("invalid");
+    expect(outcome.kind === "invalid" ? outcome.errors.join(" ") : "").toMatch(
       /must be object .* at \/acme\/home/,
     );
   });
@@ -428,15 +365,11 @@ describe("validateExample with environment placeholders", () => {
   it("still reports a structural mismatch that has nothing to do with placeholders", async () => {
     // The RHIDP-15903 dynatrace finding in miniature: every leaf is a
     // placeholder, but the shape is wrong whatever they hold.
-    const outcome = await validateExample(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "${URL}", hosts: "${HOSTS}" } },
-    );
-    assert.equal(outcome.kind, "invalid");
-    assert.match(
-      outcome.kind === "invalid" ? outcome.errors.join(" ") : "",
+    const outcome = await validateExample(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "${URL}", hosts: "${HOSTS}" },
+    });
+    expect(outcome.kind).toBe("invalid");
+    expect(outcome.kind === "invalid" ? outcome.errors.join(" ") : "").toMatch(
       /must be array .* at \/acme\/hosts/,
     );
   });
@@ -466,12 +399,12 @@ describe("validateExample with environment placeholders", () => {
       },
     );
     const errors = errorsOf(outcome);
-    assert.equal(errors.length, 3, `got: ${errors.join(" | ")}`);
+    expect(errors.length, `got: ${errors.join(" | ")}`).toBe(3);
     for (const path of ["/acme/baseUrl", "/acme/retries", "/acme/hosts"]) {
-      assert.ok(
+      expect(
         errors.some((error) => error.includes(`at ${path}`)),
         `expected an error at ${path}, got: ${errors.join(" | ")}`,
-      );
+      ).toBeTruthy();
     }
   });
 
@@ -482,7 +415,7 @@ describe("validateExample with environment placeholders", () => {
     const outcome = await validateExample(source, PKG, "label", {
       acme: { url: "https://${HOST}/api" },
     });
-    assert.deepEqual(outcome, { kind: "ok" });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 });
 
@@ -490,99 +423,83 @@ describe("declaredTopLevelKeys", () => {
   it("collects the properties a schema declares", async () => {
     const source = await sourceWithSchema();
     const resolved = await source.resolve(PKG);
-    assert.equal(resolved.kind, "schema");
-    assert.deepEqual(
-      resolved.kind === "schema"
-        ? declaredTopLevelKeys(resolved.schema.serialize())
-        : [],
-      ["acme"],
-    );
+    expect(resolved.kind).toBe("schema");
+    expect(
+      resolved.kind === "schema" ? declaredTopLevelKeys(resolved.schema.serialize()) : [],
+    ).toEqual(["acme"]);
   });
 
   it("is empty for anything that is not a serialized schema", () => {
-    assert.deepEqual(declaredTopLevelKeys(undefined), []);
-    assert.deepEqual(declaredTopLevelKeys({ schemas: "nope" }), []);
-    assert.deepEqual(declaredTopLevelKeys({ schemas: [] }), []);
+    expect(declaredTopLevelKeys(undefined)).toEqual([]);
+    expect(declaredTopLevelKeys({ schemas: "nope" })).toEqual([]);
+    expect(declaredTopLevelKeys({ schemas: [] })).toEqual([]);
   });
 });
 
 describe("projectOntoKeys", () => {
   it("keeps only the declared keys", () => {
-    assert.deepEqual(
-      projectOntoKeys({ acme: { a: 1 }, dynamicPlugins: {}, proxy: {} }, [
-        "acme",
-      ]),
-      { acme: { a: 1 } },
-    );
+    expect(projectOntoKeys({ acme: { a: 1 }, dynamicPlugins: {}, proxy: {} }, ["acme"])).toEqual({
+      acme: { a: 1 },
+    });
   });
 
   it("is empty when the example touches nothing the plugin declares", () => {
-    assert.deepEqual(projectOntoKeys({ dynamicPlugins: {} }, ["acme"]), {});
+    expect(projectOntoKeys({ dynamicPlugins: {} }, ["acme"])).toEqual({});
   });
 });
 
 describe("findUndeclaredKeys", () => {
   it("reports a typo inside a subtree the plugin owns", async () => {
-    const outcome = await findUndeclaredKeys(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "x", retires: 3 } },
-    );
-    assert.equal(outcome.ownsSubtree, true);
-    assert.equal(outcome.findings.length, 1);
-    assert.match(outcome.findings[0], /retires/);
+    const outcome = await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", retires: 3 },
+    });
+    expect(outcome.ownsSubtree).toBe(true);
+    expect(outcome.findings.length).toBe(1);
+    expect(outcome.findings[0]).toMatch(/retires/);
   });
 
   it("ignores keys outside the subtrees the plugin owns", async () => {
     // The whole reason noUndeclaredProperties cannot be switched on wholesale:
     // examples carry the dynamicPlugins wrapper and core Backstage blocks that
     // belong to no plugin schema.
-    const outcome = await findUndeclaredKeys(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "x" }, dynamicPlugins: { frontend: {} }, proxy: {} },
-    );
-    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+    const outcome = await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x" },
+      dynamicPlugins: { frontend: {} },
+      proxy: {},
+    });
+    expect(outcome).toEqual({ ownsSubtree: true, findings: [] });
   });
 
   it("reports nothing to inspect when the plugin owns none of the example", async () => {
-    const outcome = await findUndeclaredKeys(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { dynamicPlugins: { frontend: {} } },
-    );
-    assert.deepEqual(outcome, { ownsSubtree: false, findings: [] });
+    const outcome = await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", {
+      dynamicPlugins: { frontend: {} },
+    });
+    expect(outcome).toEqual({ ownsSubtree: false, findings: [] });
   });
 
   it("does not repeat a type error validateExample already reports", async () => {
     // Findings are the difference between the strict and lenient runs, so an
     // error both produce belongs to the schema layer and not to this one.
-    const outcome = await findUndeclaredKeys(
-      await sourceWithSchema(),
-      PKG,
-      "label",
-      { acme: { baseUrl: "x", hosts: "not-a-list" } },
-    );
+    const outcome = await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", {
+      acme: { baseUrl: "x", hosts: "not-a-list" },
+    });
     // Full shape, not just an empty list: asserting only `findings` would also
     // pass if the projection broke and nothing was ever inspected.
-    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+    expect(outcome).toEqual({ ownsSubtree: true, findings: [] });
   });
 
   it("reports nothing to inspect when the content is not a mapping", async () => {
-    assert.deepEqual(
-      await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", ["a"]),
-      { ownsSubtree: false, findings: [] },
-    );
+    expect(await findUndeclaredKeys(await sourceWithSchema(), PKG, "label", ["a"])).toEqual({
+      ownsSubtree: false,
+      findings: [],
+    });
   });
 
   it("reports nothing when the schema could not be resolved", async () => {
     const source: SchemaSource = {
       resolve: async () => ({ kind: "unavailable", reason: "HTTP 404" }),
     };
-    assert.deepEqual(await findUndeclaredKeys(source, PKG, "label", {}), {
+    expect(await findUndeclaredKeys(source, PKG, "label", {})).toEqual({
       ownsSubtree: false,
       findings: [],
     });
@@ -594,25 +511,22 @@ describe("hasConstraints", () => {
     const empty = await loadConfigSchema({
       serialized: { backstageConfigSchemaVersion: 1, schemas: [] },
     });
-    assert.equal(hasConstraints(empty.serialize()), false);
+    expect(hasConstraints(empty.serialize())).toBe(false);
   });
 
   it("is true once a schema is present", async () => {
     const schema = await sourceWithSchema();
     const resolved = await schema.resolve(PKG);
-    assert.equal(resolved.kind, "schema");
-    assert.equal(
-      hasConstraints(
-        resolved.kind === "schema" ? resolved.schema.serialize() : undefined,
-      ),
-      true,
-    );
+    expect(resolved.kind).toBe("schema");
+    expect(
+      hasConstraints(resolved.kind === "schema" ? resolved.schema.serialize() : undefined),
+    ).toBe(true);
   });
 
   it("is false for values that are not schema documents", () => {
-    assert.equal(hasConstraints(null), false);
-    assert.equal(hasConstraints([]), false);
-    assert.equal(hasConstraints("nope"), false);
+    expect(hasConstraints(null)).toBe(false);
+    expect(hasConstraints([])).toBe(false);
+    expect(hasConstraints("nope")).toBe(false);
   });
 });
 
@@ -621,7 +535,7 @@ describe("splitSchemaErrors", () => {
     const error = Object.assign(new Error("Config validation failed, a; b"), {
       messages: ["a", "b"],
     });
-    assert.deepEqual(splitSchemaErrors(error), ["a", "b"]);
+    expect(splitSchemaErrors(error)).toEqual(["a", "b"]);
   });
 
   it("splits the flattened message when no structured messages are attached", () => {
@@ -630,14 +544,11 @@ describe("splitSchemaErrors", () => {
     const error = new Error(
       "Config validation failed, must be number at /a; must be boolean at /b",
     );
-    assert.deepEqual(splitSchemaErrors(error), [
-      "must be number at /a",
-      "must be boolean at /b",
-    ]);
+    expect(splitSchemaErrors(error)).toEqual(["must be number at /a", "must be boolean at /b"]);
   });
 
   it("falls back to the raw value for anything else", () => {
-    assert.deepEqual(splitSchemaErrors("boom"), ["boom"]);
+    expect(splitSchemaErrors("boom")).toEqual(["boom"]);
   });
 });
 
@@ -649,40 +560,37 @@ describe("describeError", () => {
       "Invalid TypeScript configuration schema:\nconfig.d.ts(17,67): error TS2307: Cannot find module",
     );
     const described = describeError(error);
-    assert.match(described, /TS2307/);
+    expect(described).toMatch(/TS2307/);
   });
 
   it("includes stderr for exec failures, where npm puts the real complaint", () => {
     const error = Object.assign(new Error("Command failed: npm pack"), {
       stderr: "npm error code E404\nnpm error 404 Not Found",
     });
-    assert.match(describeError(error), /E404/);
+    expect(describeError(error)).toMatch(/E404/);
   });
 
   it("stringifies non-errors", () => {
-    assert.equal(describeError("plain"), "plain");
+    expect(describeError("plain")).toBe("plain");
   });
 });
 
 describe("isSafePackageSpec", () => {
   it("accepts ordinary scoped and unscoped names", () => {
-    assert.equal(isSafePackageSpec("@scope/plugin-name", "1.2.3"), true);
-    assert.equal(isSafePackageSpec("plugin", "0.1.0-rc.1"), true);
+    expect(isSafePackageSpec("@scope/plugin-name", "1.2.3")).toBe(true);
+    expect(isSafePackageSpec("plugin", "0.1.0-rc.1")).toBe(true);
   });
 
   it("rejects a name npm would read as a flag", () => {
     // Metadata comes from fork pull requests, and this value becomes argv for
     // `npm pack` — a leading dash could redirect the fetch to another registry.
-    assert.equal(
-      isSafePackageSpec("--registry=http://evil.test", "1.0.0"),
-      false,
-    );
-    assert.equal(isSafePackageSpec("-rf", "1.0.0"), false);
+    expect(isSafePackageSpec("--registry=http://evil.test", "1.0.0")).toBe(false);
+    expect(isSafePackageSpec("-rf", "1.0.0")).toBe(false);
   });
 
   it("rejects a version that is not version-shaped", () => {
-    assert.equal(isSafePackageSpec("plugin", "--force"), false);
-    assert.equal(isSafePackageSpec("plugin", "latest"), false);
+    expect(isSafePackageSpec("plugin", "--force")).toBe(false);
+    expect(isSafePackageSpec("plugin", "latest")).toBe(false);
   });
 });
 
@@ -694,7 +602,7 @@ describe("findPackageRoot", () => {
       await writeFile(join(dir, "package", "package.json"), "{}");
       await mkdir(join(dir, "other"));
       await writeFile(join(dir, "other", "package.json"), "{}");
-      assert.equal(await findPackageRoot(dir, "spec"), join(dir, "package"));
+      expect(await findPackageRoot(dir, "spec")).toBe(join(dir, "package"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -707,10 +615,7 @@ describe("findPackageRoot", () => {
     const dir = await mkdtemp(join(tmpdir(), "find-root-"));
     try {
       await mkdir(join(dir, "not-a-package"));
-      await assert.rejects(
-        () => findPackageRoot(dir, "spec"),
-        /no unpacked package/,
-      );
+      await expect(findPackageRoot(dir, "spec")).rejects.toThrow(/no unpacked package/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -736,75 +641,67 @@ describe("splitDiffByFile", () => {
 
   it("returns one section per target file, with the post-image path", () => {
     const sections = splitDiffByFile(patch);
-    assert.deepEqual(
-      sections.map((section) => section.target),
-      ["b/plugins/dql-backend/config.d.ts", "b/plugins/dql-backend/index.ts"],
-    );
+    expect(sections.map((section) => section.target)).toEqual([
+      "b/plugins/dql-backend/config.d.ts",
+      "b/plugins/dql-backend/index.ts",
+    ]);
   });
 
   it("keeps each section's hunks with it", () => {
     const [first] = splitDiffByFile(patch);
-    assert.match(first.body, /\+new/);
-    assert.ok(!first.body.includes("+b\n"));
+    expect(first?.body).toMatch(/\+new/);
+    expect(first?.body.includes("+b\n")).toBe(false);
   });
 
   it("returns nothing for a diff with no git header, rather than guessing", () => {
     // A headerless diff leaves the strip level unknowable, and applying a hunk
     // at a guessed level is worse than not applying it.
-    assert.deepEqual(
-      splitDiffByFile("--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n"),
-      [],
-    );
+    expect(splitDiffByFile("--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n")).toEqual([]);
   });
 });
 
 describe("stripLevelFor", () => {
   it("strips down to the bare filename", () => {
-    assert.equal(stripLevelFor("b/plugins/dql-backend/config.d.ts"), 3);
-    assert.equal(stripLevelFor("b/config.d.ts"), 1);
+    expect(stripLevelFor("b/plugins/dql-backend/config.d.ts")).toBe(3);
+    expect(stripLevelFor("b/config.d.ts")).toBe(1);
   });
 });
 
+/** A package directory holding one config.d.ts with `body`. */
+async function packageWith(
+  body: string,
+  // Null rather than undefined: passing `undefined` explicitly would trigger
+  // the default and quietly test the opposite of what the caller asked for.
+  configSchema: string | null = "config.d.ts",
+): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "patch-apply-"));
+  await writeFile(join(dir, "config.d.ts"), body);
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify(configSchema === null ? {} : { configSchema }),
+  );
+  return dir;
+}
+
+/** A patch file rewriting config.d.ts from `from` to `to`. */
+async function patchFile(dir: string, target: string, from: string, to: string): Promise<string> {
+  const path = join(dir, "1-rewrite.patch");
+  await writeFile(
+    path,
+    [
+      `diff --git a/${target} b/${target}`,
+      `--- a/${target}`,
+      `+++ b/${target}`,
+      "@@ -1 +1 @@",
+      `-${from}`,
+      `+${to}`,
+      "",
+    ].join("\n"),
+  );
+  return path;
+}
+
 describe("applyConfigSchemaPatches", () => {
-  /** A package directory holding one config.d.ts with `body`. */
-  async function packageWith(
-    body: string,
-    // Null rather than undefined: passing `undefined` explicitly would trigger
-    // the default and quietly test the opposite of what the caller asked for.
-    configSchema: string | null = "config.d.ts",
-  ): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "patch-apply-"));
-    await writeFile(join(dir, "config.d.ts"), body);
-    await writeFile(
-      join(dir, "package.json"),
-      JSON.stringify(configSchema === null ? {} : { configSchema }),
-    );
-    return dir;
-  }
-
-  /** A patch file rewriting config.d.ts from `from` to `to`. */
-  async function patchFile(
-    dir: string,
-    target: string,
-    from: string,
-    to: string,
-  ): Promise<string> {
-    const path = join(dir, "1-rewrite.patch");
-    await writeFile(
-      path,
-      [
-        `diff --git a/${target} b/${target}`,
-        `--- a/${target}`,
-        `+++ b/${target}`,
-        "@@ -1 +1 @@",
-        `-${from}`,
-        `+${to}`,
-        "",
-      ].join("\n"),
-    );
-    return path;
-  }
-
   it("rewrites the package's config.d.ts the way the export does", async () => {
     const dir = await packageWith("export type Config = { a: string };\n");
     try {
@@ -815,8 +712,7 @@ describe("applyConfigSchemaPatches", () => {
         "export type Config = { a: number };",
       );
       await applyConfigSchemaPatches(dir, [patch]);
-      assert.equal(
-        await readFile(join(dir, "config.d.ts"), "utf8"),
+      expect(await readFile(join(dir, "config.d.ts"), "utf8")).toBe(
         "export type Config = { a: number };\n",
       );
     } finally {
@@ -838,7 +734,7 @@ describe("applyConfigSchemaPatches", () => {
         "export type Config = { a: number };",
       );
       await applyConfigSchemaPatches(dir, [patch]);
-      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+      expect(await readFile(join(dir, "config.d.ts"), "utf8")).toBe(original);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -850,7 +746,7 @@ describe("applyConfigSchemaPatches", () => {
     try {
       const patch = await patchFile(dir, "plugins/x/index.ts", "a", "b");
       await applyConfigSchemaPatches(dir, [patch]);
-      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+      expect(await readFile(join(dir, "config.d.ts"), "utf8")).toBe(original);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -867,10 +763,7 @@ describe("applyConfigSchemaPatches", () => {
         "export type Config = { a: string };",
         "export type Config = { a: number };",
       );
-      await assert.rejects(
-        () => applyConfigSchemaPatches(dir, [patch]),
-        /does not apply/,
-      );
+      await expect(applyConfigSchemaPatches(dir, [patch])).rejects.toThrow(/does not apply/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -881,7 +774,7 @@ describe("applyConfigSchemaPatches", () => {
     const dir = await packageWith(original);
     try {
       await applyConfigSchemaPatches(dir, []);
-      assert.equal(await readFile(join(dir, "config.d.ts"), "utf8"), original);
+      expect(await readFile(join(dir, "config.d.ts"), "utf8")).toBe(original);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -901,10 +794,7 @@ describe("splitDiffByFile with added and removed files", () => {
         "-gone",
       ].join("\n"),
     );
-    assert.deepEqual(
-      sections.map((section) => section.target),
-      ["a/plugins/x/config.d.ts"],
-    );
+    expect(sections.map((section) => section.target)).toEqual(["a/plugins/x/config.d.ts"]);
   });
 
   it("uses the post-image path when the file is added", () => {
@@ -917,27 +807,21 @@ describe("splitDiffByFile with added and removed files", () => {
         "+added",
       ].join("\n"),
     );
-    assert.deepEqual(
-      sections.map((section) => section.target),
-      ["b/plugins/x/config.d.ts"],
-    );
+    expect(sections.map((section) => section.target)).toEqual(["b/plugins/x/config.d.ts"]);
   });
 });
 
-describe("declaredConfigSchemaPath", () => {
-  async function packageJson(contents: string): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "declared-schema-"));
-    await writeFile(join(dir, "package.json"), contents);
-    return dir;
-  }
+async function packageJson(contents: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "declared-schema-"));
+  await writeFile(join(dir, "package.json"), contents);
+  return dir;
+}
 
+describe("declaredConfigSchemaPath", () => {
   it("returns a nested path as declared", async () => {
     const dir = await packageJson('{"configSchema":"dist/config.schema.json"}');
     try {
-      assert.equal(
-        await declaredConfigSchemaPath(dir),
-        "dist/config.schema.json",
-      );
+      expect(await declaredConfigSchemaPath(dir)).toBe("dist/config.schema.json");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -947,7 +831,7 @@ describe("declaredConfigSchemaPath", () => {
     // config-loader accepts one, but there is no file for a patch to rewrite.
     const dir = await packageJson('{"configSchema":{"type":"object"}}');
     try {
-      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+      expect(await declaredConfigSchemaPath(dir)).toBe(undefined);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -956,13 +840,13 @@ describe("declaredConfigSchemaPath", () => {
   it("is undefined when the field is missing or the manifest unreadable", async () => {
     const dir = await packageJson("{}");
     try {
-      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+      expect(await declaredConfigSchemaPath(dir)).toBe(undefined);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
     const broken = await packageJson("{not json");
     try {
-      assert.equal(await declaredConfigSchemaPath(broken), undefined);
+      expect(await declaredConfigSchemaPath(broken)).toBe(undefined);
     } finally {
       await rm(broken, { recursive: true, force: true });
     }
@@ -972,11 +856,9 @@ describe("declaredConfigSchemaPath", () => {
     // The value comes from a third-party tarball, and `join` resolves `../`
     // rather than rejecting it — so an unchecked path would steer the scratch
     // file write and delete in applySection anywhere on the runner.
-    const dir = await packageJson(
-      '{"configSchema":"../../../../etc/config.d.ts"}',
-    );
+    const dir = await packageJson('{"configSchema":"../../../../etc/config.d.ts"}');
     try {
-      assert.equal(await declaredConfigSchemaPath(dir), undefined);
+      expect(await declaredConfigSchemaPath(dir)).toBe(undefined);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -985,14 +867,14 @@ describe("declaredConfigSchemaPath", () => {
 
 describe("isInside", () => {
   it("accepts a path under the root", () => {
-    assert.equal(isInside("/a/b", "config.d.ts"), true);
-    assert.equal(isInside("/a/b", "dist/config.schema.json"), true);
+    expect(isInside("/a/b", "config.d.ts")).toBe(true);
+    expect(isInside("/a/b", "dist/config.schema.json")).toBe(true);
   });
 
   it("rejects traversal, absolute paths and the root itself", () => {
-    assert.equal(isInside("/a/b", "../c"), false);
-    assert.equal(isInside("/a/b", "/etc/passwd"), false);
-    assert.equal(isInside("/a/b", "."), false);
+    expect(isInside("/a/b", "../c")).toBe(false);
+    expect(isInside("/a/b", "/etc/passwd")).toBe(false);
+    expect(isInside("/a/b", ".")).toBe(false);
   });
 });
 
@@ -1004,10 +886,7 @@ describe("applyConfigSchemaPatches with an ambiguous patch", () => {
     const dir = await mkdtemp(join(tmpdir(), "ambiguous-patch-"));
     try {
       await writeFile(join(dir, "config.d.ts"), "export type Config = {};\n");
-      await writeFile(
-        join(dir, "package.json"),
-        JSON.stringify({ configSchema: "config.d.ts" }),
-      );
+      await writeFile(join(dir, "package.json"), JSON.stringify({ configSchema: "config.d.ts" }));
       const patch = join(dir, "1-two-plugins.patch");
       await writeFile(
         patch,
@@ -1027,8 +906,7 @@ describe("applyConfigSchemaPatches with an ambiguous patch", () => {
           "",
         ].join("\n"),
       );
-      await assert.rejects(
-        () => applyConfigSchemaPatches(dir, [patch]),
+      await expect(applyConfigSchemaPatches(dir, [patch])).rejects.toThrow(
         /cannot tell which belongs to this package/,
       );
     } finally {
@@ -1042,7 +920,7 @@ describe("splitDiffByFile and sections with no hunks", () => {
     // Deliberate: a rename carries no `---`/`+++` lines, so there is nothing to
     // derive a strip level from. No workspace patch renames a config schema; if
     // one ever does, it will be skipped rather than misapplied.
-    assert.deepEqual(
+    expect(
       splitDiffByFile(
         [
           "diff --git a/plugins/x/config.d.ts b/plugins/y/config.d.ts",
@@ -1051,8 +929,7 @@ describe("splitDiffByFile and sections with no hunks", () => {
           "rename to plugins/y/config.d.ts",
         ].join("\n"),
       ),
-      [],
-    );
+    ).toEqual([]);
   });
 });
 
@@ -1075,7 +952,7 @@ describe("each placeholder candidate earns its place", () => {
       "label",
       { acme: { token: "${TOKEN}" } },
     );
-    assert.deepEqual(outcome, { kind: "ok" });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it('pins "true": a field declaring the literal true, which "false" cannot rescue', async () => {
@@ -1096,7 +973,7 @@ describe("each placeholder candidate earns its place", () => {
       "label",
       { acme: { segment: { testMode: "${TEST_MODE}" } } },
     );
-    assert.deepEqual(outcome, { kind: "ok" });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it('pins "false": a field declaring the literal false', async () => {
@@ -1116,7 +993,7 @@ describe("each placeholder candidate earns its place", () => {
       "label",
       { acme: { segment: { testMode: "${TEST_MODE}" } } },
     );
-    assert.deepEqual(outcome, { kind: "ok" });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 
   it('pins "0": a declared number, which no word-shaped candidate coerces to', async () => {
@@ -1128,7 +1005,7 @@ describe("each placeholder candidate earns its place", () => {
       "label",
       { acme: { retries: "${RETRIES}" } },
     );
-    assert.deepEqual(outcome, { kind: "ok" });
+    expect(outcome).toEqual({ kind: "ok" });
   });
 });
 
@@ -1136,8 +1013,8 @@ describe("the placeholder pattern tracks config-loader's own", () => {
   it("excludes a nested brace, as upstream's [^{}] does", () => {
     // Upstream leaves `${A{B}` untouched. A looser class here would excuse a
     // schema violation on a value that is never substituted.
-    assert.equal(hasPlaceholder("${A{B}"), false);
-    assert.equal(hasPlaceholder("${AB}"), true);
+    expect(hasPlaceholder("${A{B}")).toBe(false);
+    expect(hasPlaceholder("${AB}")).toBe(true);
   });
 });
 
@@ -1178,27 +1055,21 @@ describe("findUndeclaredKeys and union branches", () => {
     // Strictness rewrites the branches, so the strict run emits `required` and
     // `oneOf` errors about a document that is fine. Reporting those as
     // undeclared keys would be a flatly false statement.
-    const outcome = await findUndeclaredKeys(
-      await sourceWithObjectUnion(),
-      PKG,
-      "label",
-      { acme: { a: "x" } },
-    );
-    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+    const outcome = await findUndeclaredKeys(await sourceWithObjectUnion(), PKG, "label", {
+      acme: { a: "x" },
+    });
+    expect(outcome).toEqual({ ownsSubtree: true, findings: [] });
   });
 
   it("reports a real undeclared key once, not once per union branch", async () => {
-    const outcome = await findUndeclaredKeys(
-      await sourceWithObjectUnion(),
-      PKG,
-      "label",
-      { acme: { a: "x", tpyo: 1 } },
-    );
-    assert.equal(outcome.ownsSubtree, true);
+    const outcome = await findUndeclaredKeys(await sourceWithObjectUnion(), PKG, "label", {
+      acme: { a: "x", tpyo: 1 },
+    });
+    expect(outcome.ownsSubtree).toBe(true);
     // Exactly one: the raw strict run repeats the key once per branch it was
     // reached through, and only the dedup keeps that out of the report.
-    assert.equal(outcome.findings.length, 1);
-    assert.match(outcome.findings[0], /additionalProperty=tpyo/);
+    expect(outcome.findings.length).toBe(1);
+    expect(outcome.findings[0]).toMatch(/additionalProperty=tpyo/);
   });
 });
 
@@ -1224,19 +1095,17 @@ describe("config-loader's undeclared-property message format", () => {
       },
       noUndeclaredProperties: true,
     });
-    assert.throws(
-      () =>
-        strict.process([{ data: { acme: { tpyo: 1 } }, context: "label" }], {
-          ignoreSchemaErrors: false,
-        }),
-      /additionalProperty=tpyo/,
-    );
+    expect(() =>
+      strict.process([{ data: { acme: { tpyo: 1 } }, context: "label" }], {
+        ignoreSchemaErrors: false,
+      }),
+    ).toThrow(/additionalProperty=tpyo/);
   });
 });
 
 describe("declaredTopLevelKeys across several schema entries", () => {
   it("merges, deduplicates and sorts", () => {
-    assert.deepEqual(
+    expect(
       declaredTopLevelKeys({
         backstageConfigSchemaVersion: 1,
         schemas: [
@@ -1250,32 +1119,31 @@ describe("declaredTopLevelKeys across several schema entries", () => {
           },
         ],
       }),
-      ["a", "b", "c"],
-    );
+    ).toEqual(["a", "b", "c"]);
   });
 
   it("skips entries with no usable properties rather than throwing", () => {
-    assert.deepEqual(
+    expect(
       declaredTopLevelKeys({
         schemas: [{}, { value: {} }, { value: { properties: "nope" } }],
       }),
-      [],
-    );
+    ).toEqual([]);
   });
 });
 
 describe("rejectUndeclaredKeys", () => {
   it("closes a node that enumerates its properties", () => {
-    assert.deepEqual(
-      rejectUndeclaredKeys({ type: "object", properties: { a: {} } }),
-      { type: "object", properties: { a: {} }, additionalProperties: false },
-    );
+    expect(rejectUndeclaredKeys({ type: "object", properties: { a: {} } })).toEqual({
+      type: "object",
+      properties: { a: {} },
+      additionalProperties: false,
+    });
   });
 
   it("leaves union branches that enumerate nothing open", () => {
     // Closing them is what made config-loader's own option report valid
     // documents: each branch would reject the other branch's key.
-    assert.deepEqual(
+    expect(
       rejectUndeclaredKeys({
         type: "object",
         properties: { a: {}, b: {} },
@@ -1284,31 +1152,29 @@ describe("rejectUndeclaredKeys", () => {
           { type: "object", required: ["b"] },
         ],
       }),
-      {
-        type: "object",
-        properties: { a: {}, b: {} },
-        additionalProperties: false,
-        oneOf: [
-          { type: "object", required: ["a"] },
-          { type: "object", required: ["b"] },
-        ],
-      },
-    );
+    ).toEqual({
+      type: "object",
+      properties: { a: {}, b: {} },
+      additionalProperties: false,
+      oneOf: [
+        { type: "object", required: ["a"] },
+        { type: "object", required: ["b"] },
+      ],
+    });
   });
 
   it("keeps whatever the plugin already chose", () => {
-    assert.deepEqual(
+    expect(
       rejectUndeclaredKeys({
         type: "object",
         properties: { a: {} },
         additionalProperties: { type: "string" },
       }),
-      {
-        type: "object",
-        properties: { a: {} },
-        additionalProperties: { type: "string" },
-      },
-    );
+    ).toEqual({
+      type: "object",
+      properties: { a: {} },
+      additionalProperties: { type: "string" },
+    });
   });
 
   it("closes nested schemas reached through properties and items", () => {
@@ -1323,11 +1189,10 @@ describe("rejectUndeclaredKeys", () => {
         },
       },
     });
-    assert.equal(
+    expect(
       // @ts-expect-error — walking a literal for the assertion
       closed.properties.outer.properties.inner.items.additionalProperties,
-      false,
-    );
+    ).toBe(false);
   });
 
   it("does not mistake a config key named `properties` for a schema node", () => {
@@ -1337,7 +1202,7 @@ describe("rejectUndeclaredKeys", () => {
       type: "object",
       properties: { properties: { type: "string" } },
     });
-    assert.deepEqual(closed, {
+    expect(closed).toEqual({
       type: "object",
       properties: { properties: { type: "string" } },
       additionalProperties: false,
@@ -1347,87 +1212,78 @@ describe("rejectUndeclaredKeys", () => {
   it("walks the serialized wrapper config-loader hands back", () => {
     const closed = rejectUndeclaredKeys({
       backstageConfigSchemaVersion: 1,
-      schemas: [
-        { path: "a", value: { type: "object", properties: { a: {} } } },
-      ],
+      schemas: [{ path: "a", value: { type: "object", properties: { a: {} } } }],
     });
-    assert.equal(
+    expect(
       // @ts-expect-error — walking a literal for the assertion
       closed.schemas[0].value.additionalProperties,
-      false,
-    );
+    ).toBe(false);
   });
 });
 
-describe("findUndeclaredKeys and alternative-shape unions", () => {
-  /** The dynatrace shape: array items are a union of *complete* alternatives. */
-  async function sourceWithAlternatives(): Promise<SchemaSource> {
-    const schema = await loadConfigSchema({
-      serialized: {
-        backstageConfigSchemaVersion: 1,
-        schemas: [
-          {
-            path: "plugin/config.d.ts",
-            value: {
-              type: "object",
-              properties: {
-                acme: {
-                  type: "object",
-                  properties: {
-                    envs: {
-                      type: "array",
-                      items: {
-                        anyOf: [
-                          {
-                            type: "object",
-                            required: ["url", "clientId"],
-                            properties: {
-                              url: { type: "string" },
-                              clientId: { type: "string" },
-                            },
+/** The dynatrace shape: array items are a union of *complete* alternatives. */
+async function sourceWithAlternatives(): Promise<SchemaSource> {
+  const schema = await loadConfigSchema({
+    serialized: {
+      backstageConfigSchemaVersion: 1,
+      schemas: [
+        {
+          path: "plugin/config.d.ts",
+          value: {
+            type: "object",
+            properties: {
+              acme: {
+                type: "object",
+                properties: {
+                  envs: {
+                    type: "array",
+                    items: {
+                      anyOf: [
+                        {
+                          type: "object",
+                          required: ["url", "clientId"],
+                          properties: {
+                            url: { type: "string" },
+                            clientId: { type: "string" },
                           },
-                          {
-                            type: "object",
-                            required: ["url", "token"],
-                            properties: {
-                              url: { type: "string" },
-                              token: { type: "string" },
-                            },
+                        },
+                        {
+                          type: "object",
+                          required: ["url", "token"],
+                          properties: {
+                            url: { type: "string" },
+                            token: { type: "string" },
                           },
-                        ],
-                      },
+                        },
+                      ],
                     },
                   },
                 },
               },
             },
           },
-        ],
-      },
-    });
-    return { resolve: async () => ({ kind: "schema", schema }) };
-  }
+        },
+      ],
+    },
+  });
+  return { resolve: async () => ({ kind: "schema", schema }) };
+}
 
+describe("findUndeclaredKeys and alternative-shape unions", () => {
   it("accepts a document matching one alternative", async () => {
     // Each branch enumerates its own complete key set, so closing them is safe —
     // unlike branches that enumerate nothing and lean on a shared parent.
-    const outcome = await findUndeclaredKeys(
-      await sourceWithAlternatives(),
-      PKG,
-      "label",
-      { acme: { envs: [{ url: "u", clientId: "c" }] } },
-    );
-    assert.deepEqual(outcome, { ownsSubtree: true, findings: [] });
+    const outcome = await findUndeclaredKeys(await sourceWithAlternatives(), PKG, "label", {
+      acme: { envs: [{ url: "u", clientId: "c" }] },
+    });
+    expect(outcome).toEqual({ ownsSubtree: true, findings: [] });
   });
 
   it("reports a typo inside the chosen alternative", async () => {
-    const outcome = await findUndeclaredKeys(
-      await sourceWithAlternatives(),
-      PKG,
-      "label",
-      { acme: { envs: [{ url: "u", clientId: "c", tpyo: 1 }] } },
-    );
-    assert.match(outcome.findings.join(" "), /tpyo/);
+    const outcome = await findUndeclaredKeys(await sourceWithAlternatives(), PKG, "label", {
+      acme: { envs: [{ url: "u", clientId: "c", tpyo: 1 }] },
+    });
+    expect(outcome.findings.join(" ")).toMatch(/tpyo/);
   });
 });
 
@@ -1435,10 +1291,9 @@ describe("rejectUndeclaredKeys and keywords it deliberately skips", () => {
   it("leaves a node under `not` open", () => {
     // Tightening inside a negation loosens the negation, so closing here could
     // manufacture a finding rather than catch one.
-    assert.deepEqual(
-      rejectUndeclaredKeys({ not: { type: "object", properties: { a: {} } } }),
-      { not: { type: "object", properties: { a: {} } } },
-    );
+    expect(rejectUndeclaredKeys({ not: { type: "object", properties: { a: {} } } })).toEqual({
+      not: { type: "object", properties: { a: {} } },
+    });
   });
 
   it("leaves nodes under unhandled keywords open, under-reporting rather than over-", () => {
@@ -1446,7 +1301,7 @@ describe("rejectUndeclaredKeys and keywords it deliberately skips", () => {
       if: { type: "object", properties: { a: {} } },
       contains: { type: "object", properties: { b: {} } },
     });
-    assert.deepEqual(closed, {
+    expect(closed).toEqual({
       if: { type: "object", properties: { a: {} } },
       contains: { type: "object", properties: { b: {} } },
     });

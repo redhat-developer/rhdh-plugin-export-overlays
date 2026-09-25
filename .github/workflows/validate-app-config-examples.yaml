@@ -7,6 +7,10 @@ on:
       - 'release-*'
     paths:
       - 'workspaces/**/metadata/**'
+      - 'scripts/package.json'
+      - 'scripts/yarn.lock'
+      - 'scripts/.yarnrc.yml'
+      - 'scripts/vite.config.ts'
       - 'scripts/validate-app-config-examples/**'
       - '.github/workflows/validate-app-config-examples.yaml'
   workflow_dispatch:
@@ -49,7 +53,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: scripts/validate-app-config-examples
+        working-directory: scripts
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,30 +61,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Before setup-node, so its yarn-cache detection resolves Yarn 4 through
-      # corepack rather than the bundled Yarn 1.
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
-          node-version: 24
-          cache: yarn
-          cache-dependency-path: scripts/validate-app-config-examples/yarn.lock
-
-      # skip-build keeps dependency lifecycle scripts from running at install
-      # time. Nothing here needs them — esbuild ships its platform binary as an
-      # optional dependency rather than fetching one in a postinstall — and
-      # .yarnrc.yml sets enableScripts: false so local installs match.
-      - name: Install dependencies
-        run: yarn install --immutable --mode=skip-build
-
-      - name: Build
-        run: yarn build
-
-      - name: Check types and unit tests
-        run: yarn check
+          working-directory: scripts
+          cache: true
 
       # The PR step below runs `--since`, which by construction sees no metadata
       # when a PR only touches this directory — so a change to the validator
@@ -93,7 +78,7 @@ jobs:
         env:
           SAMPLE: workspaces/adoption-insights/metadata
         run: |
-          sha="$(git -C ../.. log -1 --format=%H -- "$SAMPLE")"
+          sha="$(git -C .. log -1 --format=%H -- "$SAMPLE")"
           if [[ -z "$sha" ]]; then
             # Empty means the sample path has no reachable history — it was
             # renamed or removed, or the clone is too shallow to reach it.
@@ -103,7 +88,7 @@ jobs:
             exit 1
           fi
           echo "Exercising the schema path against $SAMPLE since ${sha}~1"
-          node dist/validate.mjs --check-schemas --warn-only --since "${sha}~1"
+          vp exec validate-app-config-examples --check-schemas --warn-only --since "${sha}~1"
 
       # The sweep used to run --warn-only because the tree carried metadata
       # written before this check existed. That backlog is now clear
@@ -142,7 +127,7 @@ jobs:
               args+=(--warn-only)
             fi
           fi
-          node dist/validate.mjs "${args[@]}"
+          vp exec validate-app-config-examples "${args[@]}"
 
       # On a PR only the metadata the author just touched is validated, so a
       # mismatch here is something they introduced and can act on. Blocking is
@@ -151,4 +136,4 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node dist/validate.mjs --since "$BASE_SHA" --check-schemas
+        run: vp exec validate-app-config-examples --since "$BASE_SHA" --check-schemas

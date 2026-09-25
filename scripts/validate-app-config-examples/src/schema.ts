@@ -32,27 +32,13 @@
 // rather than hidden — see the outcome tally in validate.ts.
 
 import { execFile } from "node:child_process";
-import {
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import {
-  basename,
-  dirname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-} from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { loadConfigSchema } from "@backstage/config-loader";
-import type { JsonObject } from "@backstage/types";
-import { byCodepoint, errorProperty, isPlainObject } from "./json.js";
+import type { JsonObject, JsonValue } from "@backstage/types";
+import { byCodepoint, errorProperty, isPlainObject } from "./json.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -163,11 +149,7 @@ export class SchemaResolver implements SchemaSource {
   private readonly cache = new Map<string, Promise<ResolvedSchema>>();
   private readonly tempDirs: string[] = [];
 
-  async resolve({
-    name,
-    version,
-    patches = [],
-  }: SchemaRequest): Promise<ResolvedSchema> {
+  async resolve({ name, version, patches = [] }: SchemaRequest): Promise<ResolvedSchema> {
     if (!isSafePackageSpec(name, version)) {
       return {
         kind: "unavailable",
@@ -194,22 +176,17 @@ export class SchemaResolver implements SchemaSource {
 
   /** Removes every temp directory this resolver created. */
   async cleanup(): Promise<void> {
-    await Promise.all(
-      this.tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
-    );
+    await Promise.all(this.tempDirs.map((dir) => rm(dir, { recursive: true, force: true })));
     this.tempDirs.length = 0;
   }
 
-  private async load(
-    spec: string,
-    patches: readonly string[],
-  ): Promise<ResolvedSchema> {
+  private async load(spec: string, patches: readonly string[]): Promise<ResolvedSchema> {
     let dir: string;
     try {
       dir = await mkdtemp(join(tmpdir(), "app-config-schema-"));
       this.tempDirs.push(dir);
     } catch (error) {
-      return { kind: "unavailable", reason: `temp dir failed: ${error}` };
+      return { kind: "unavailable", reason: `temp dir failed: ${describeError(error)}` };
     }
 
     let packageDir: string;
@@ -357,7 +334,7 @@ export async function applyConfigSchemaPatches(
 
   // Sorted because the numbered filename prefix is how this repo orders patch
   // application, and a later patch may build on an earlier one's result.
-  for (const patchPath of [...patches].sort(byCodepoint)) {
+  for (const patchPath of patches.toSorted(byCodepoint)) {
     let patch: string;
     try {
       patch = await readFile(patchPath, "utf8");
@@ -396,14 +373,10 @@ export async function applyConfigSchemaPatches(
  * `../` rather than rejecting it, so an unchecked `configSchema` would let a
  * published package steer a file write and delete anywhere on the runner.
  */
-export async function declaredConfigSchemaPath(
-  packageDir: string,
-): Promise<string | undefined> {
+export async function declaredConfigSchemaPath(packageDir: string): Promise<string | undefined> {
   let manifest: unknown;
   try {
-    manifest = JSON.parse(
-      await readFile(join(packageDir, "package.json"), "utf8"),
-    );
+    manifest = JSON.parse(await readFile(join(packageDir, "package.json"), "utf8"));
   } catch {
     return undefined;
   }
@@ -435,11 +408,9 @@ async function applySection(
   const sectionFile = join(schemaDir, ".config-schema-patch.diff");
   try {
     await writeFile(sectionFile, section.body, "utf8");
-    await execFileAsync(
-      "git",
-      ["apply", `-p${stripLevelFor(section.target)}`, sectionFile],
-      { cwd: schemaDir },
-    );
+    await execFileAsync("git", ["apply", `-p${stripLevelFor(section.target)}`, sectionFile], {
+      cwd: schemaDir,
+    });
   } catch (error) {
     throw new Error(
       `workspace patch ${basename(patchPath)} does not apply to ${section.target}: ${describeError(error)}`,
@@ -482,15 +453,12 @@ async function extractPackage(spec: string, dir: string): Promise<string> {
  * configSchema", a vacuous pass. Requiring a package.json makes a surprising
  * layout fail loudly instead.
  */
-export async function findPackageRoot(
-  dir: string,
-  spec: string,
-): Promise<string> {
+export async function findPackageRoot(dir: string, spec: string): Promise<string> {
   const entries = await readdir(dir, { withFileTypes: true });
   const candidates = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort(conventionalFirst);
+    .toSorted(conventionalFirst);
 
   for (const candidate of candidates) {
     const root = join(dir, candidate);
@@ -562,9 +530,7 @@ export function describeError(error: unknown): string {
   // the table — but say when there is more, rather than truncating silently.
   const shown = parts.slice(0, DIAGNOSTIC_LINES);
   const dropped = parts.length - shown.length;
-  return dropped > 0
-    ? `${shown.join("; ")} (+${dropped} more)`
-    : shown.join("; ");
+  return dropped > 0 ? `${shown.join("; ")} (+${dropped} more)` : shown.join("; ");
 }
 
 /**
@@ -648,18 +614,9 @@ export function containsPlaceholder(value: unknown): boolean {
  * Returns a copy because it is a pure transform, not because anything downstream
  * mutates — config-loader deep-clones before validating.
  */
-export function substitutePlaceholders(
-  value: JsonObject,
-  replacement: string,
-): JsonObject;
-export function substitutePlaceholders(
-  value: unknown,
-  replacement: string,
-): unknown;
-export function substitutePlaceholders(
-  value: unknown,
-  replacement: string,
-): unknown {
+export function substitutePlaceholders(value: JsonObject, replacement: string): JsonObject;
+export function substitutePlaceholders(value: unknown, replacement: string): unknown;
+export function substitutePlaceholders(value: unknown, replacement: string): unknown {
   if (typeof value === "string") {
     // Function form: a `$` in the replacement would otherwise be read as a
     // capture reference. No candidate contains one today; this keeps that from
@@ -671,21 +628,14 @@ export function substitutePlaceholders(
   }
   if (isPlainObject(value)) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        key,
-        substitutePlaceholders(item, replacement),
-      ]),
+      Object.entries(value).map(([key, item]) => [key, substitutePlaceholders(item, replacement)]),
     );
   }
   return value;
 }
 
 /** Runs the schema over one document. Returns the errors, or undefined if clean. */
-function runSchema(
-  schema: LoadedSchema,
-  data: JsonObject,
-  label: string,
-): string[] | undefined {
+function runSchema(schema: LoadedSchema, data: JsonObject, label: string): string[] | undefined {
   try {
     schema.process(
       // Cloned defensively, not because Ajv mutates: config-loader reads through
@@ -788,14 +738,9 @@ export async function validateExample(
  * package would re-run the TypeScript compiler — by far the most expensive part
  * of a sweep — to arrive at the same document.
  */
-const strictSchemas = new WeakMap<
-  LoadedSchema,
-  Promise<LoadedSchema | undefined>
->();
+const strictSchemas = new WeakMap<LoadedSchema, Promise<LoadedSchema | undefined>>();
 
-function strictVariant(
-  schema: LoadedSchema,
-): Promise<LoadedSchema | undefined> {
+function strictVariant(schema: LoadedSchema): Promise<LoadedSchema | undefined> {
   let pending = strictSchemas.get(schema);
   if (!pending) {
     // Cloned because `serialize()` hands out the live `schemas` array rather
@@ -827,12 +772,7 @@ function strictVariant(
  */
 const SCHEMA_VALUED = ["items", "additionalProperties"] as const;
 /** Keywords holding a map of name to schema. */
-const SCHEMA_MAPS = [
-  "properties",
-  "patternProperties",
-  "definitions",
-  "$defs",
-] as const;
+const SCHEMA_MAPS = ["properties", "patternProperties", "definitions", "$defs"] as const;
 /** Keywords holding a list of schemas. */
 const SCHEMA_LISTS = ["anyOf", "oneOf", "allOf"] as const;
 
@@ -854,9 +794,11 @@ const SCHEMA_LISTS = ["anyOf", "oneOf", "allOf"] as const;
  * object, so a config key that happens to be named `properties` is not mistaken
  * for a schema node.
  */
-export function rejectUndeclaredKeys<T>(document: T): T {
+export function rejectUndeclaredKeys(document: JsonObject): JsonObject;
+export function rejectUndeclaredKeys(document: JsonValue): JsonValue;
+export function rejectUndeclaredKeys(document: JsonValue): JsonValue {
   if (Array.isArray(document)) {
-    return document.map(rejectUndeclaredKeys) as T;
+    return document.map(rejectUndeclaredKeys);
   }
   if (!isPlainObject(document)) {
     return document;
@@ -867,32 +809,44 @@ export function rejectUndeclaredKeys<T>(document: T): T {
   for (const keyword of SCHEMA_MAPS) {
     const value = node[keyword];
     if (isPlainObject(value)) {
-      node[keyword] = Object.fromEntries(
-        Object.entries(value).map(([name, sub]) => [
-          name,
-          rejectUndeclaredKeys(sub),
-        ]),
-      );
+      const next: JsonObject = {};
+      for (const [name, sub] of Object.entries(value)) {
+        if (sub === undefined) {
+          continue;
+        }
+        next[name] = rejectUndeclaredKeys(sub);
+      }
+      node[keyword] = next;
     }
   }
   for (const keyword of SCHEMA_LISTS) {
     const value = node[keyword];
     if (Array.isArray(value)) {
-      node[keyword] = value.map(rejectUndeclaredKeys);
+      node[keyword] = value.map((item) => rejectUndeclaredKeys(item));
     }
   }
   for (const keyword of SCHEMA_VALUED) {
-    if (keyword in node) {
-      node[keyword] = rejectUndeclaredKeys(node[keyword]);
+    if (!(keyword in node)) {
+      continue;
     }
+    const value = node[keyword];
+    if (value === undefined) {
+      continue;
+    }
+    node[keyword] = rejectUndeclaredKeys(value);
   }
   // The wrapper config-loader serializes into: each entry's `value` is a schema.
   if (Array.isArray(node.schemas)) {
-    node.schemas = node.schemas.map((entry) =>
-      isPlainObject(entry) && "value" in entry
-        ? { ...entry, value: rejectUndeclaredKeys(entry.value) }
-        : entry,
-    );
+    node.schemas = node.schemas.map((entry) => {
+      if (!isPlainObject(entry) || !("value" in entry)) {
+        return entry;
+      }
+      const { value } = entry;
+      if (value === undefined) {
+        return entry;
+      }
+      return { ...entry, value: rejectUndeclaredKeys(value) };
+    });
   }
 
   const { properties } = node;
@@ -903,7 +857,7 @@ export function rejectUndeclaredKeys<T>(document: T): T {
   ) {
     node.additionalProperties = false;
   }
-  return node as T;
+  return node;
 }
 
 /**
@@ -929,18 +883,13 @@ export function declaredTopLevelKeys(serialized: unknown): string[] {
       }
     }
   }
-  return [...keys].sort(byCodepoint);
+  return [...keys].toSorted(byCodepoint);
 }
 
 /** The part of `content` whose top-level keys the plugin declares. */
-export function projectOntoKeys(
-  content: JsonObject,
-  keys: readonly string[],
-): JsonObject {
+export function projectOntoKeys(content: JsonObject, keys: readonly string[]): JsonObject {
   const wanted = new Set(keys);
-  return Object.fromEntries(
-    Object.entries(content).filter(([key]) => wanted.has(key)),
-  );
+  return Object.fromEntries(Object.entries(content).filter(([key]) => wanted.has(key)));
 }
 
 /**
@@ -993,9 +942,7 @@ export async function findUndeclaredKeys(
     // can be found here, and saying otherwise would overstate the coverage.
     return { ownsSubtree: false, findings: [] };
   }
-  const lenientErrors = new Set(
-    runSchema(resolved.schema, projected, label) ?? [],
-  );
+  const lenientErrors = new Set(runSchema(resolved.schema, projected, label) ?? []);
   // Deduplicated: one undeclared key reached through several union branches is
   // one finding, and the raw list repeats it once per branch.
   const strictErrors = new Set(runSchema(strict, projected, label) ?? []);
@@ -1021,10 +968,7 @@ export function splitSchemaErrors(error: unknown): string[] {
     if (Array.isArray(messages) && messages.length > 0) {
       return messages.map(String);
     }
-    const flattened = error.message.replace(
-      /^Config validation failed,\s*/,
-      "",
-    );
+    const flattened = error.message.replace(/^Config validation failed,\s*/, "");
     const parts = flattened
       .split(/[;\n]/)
       .map((part) => part.trim())

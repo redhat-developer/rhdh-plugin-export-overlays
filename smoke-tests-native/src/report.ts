@@ -139,10 +139,8 @@ export type BackendBundleInfo = {
   version: string;
   /**
    * Read `configSchema.declared` first, and `configSchema.declaredError` beside it — same
-   * contract as the frontend half, and for the same reason. The path that can fail differs:
-   * RHDH's `schemaLocator` is keyed on the package's role, so it resolves to
-   * `dist/configSchema.json` for a backend package where a frontend one gets
-   * `dist-scalprum/configSchema.json`.
+   * contract as the frontend half, and for the same reason. Every supported dynamic
+   * plugin role uses RHDH's `dist/.config-schema.json` schema path.
    */
   configSchema: ConfigSchemaInfo;
 };
