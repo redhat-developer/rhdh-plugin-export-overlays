@@ -63,6 +63,10 @@ test.describe("Test Keycloak plugin", () => {
     page: Page;
     uiHelper: UIhelper;
   }) => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument",
+    );
     const keycloakUsers = await keycloakHelper.getUsers(keycloakRealm);
     const backStageUsersLocator = CatalogUsersPO.getListOfUsers(page);
     await uiHelper.waitForLoad();
