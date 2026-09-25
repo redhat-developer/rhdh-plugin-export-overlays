@@ -43,8 +43,11 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-export RHDH_VERSION="2.0"             # RHDH version to deploy (e.g., "1.10", "next")
-export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
+# TODO: revert to "2.0" once release-2.0 branch exists in rhdh-operator (RHDH_VERSION="2.0"
+# resolves to that branch and 404s on install-rhdh-catalog-source.sh; highest available is release-1.10)
+export RHDH_VERSION="next"
+# TODO: revert to "${INSTALLATION_METHOD:-helm}" once operator subscription support is validated in CI
+export INSTALLATION_METHOD="operator" # "helm" or "operator"
 
 # Playwright
 export CI="${CI:-true}"                                  # Enables CI mode (forbidOnly, teardown)

@@ -1,0 +1,15 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: developer-hub
+spec:
+  deployment:
+    patch:
+      spec:
+        template:
+          metadata:
+            labels:
+              backstage.io/kubernetes-id: developer-hub
+          spec:
+            serviceAccountName: default
+            automountServiceAccountToken: true

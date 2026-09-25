@@ -1,0 +1,11 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: developer-hub
+spec:
+  application:
+    extraEnvs:
+      secrets:
+        - name: rhdh-secrets
+          containers:
+            - lightspeed-core

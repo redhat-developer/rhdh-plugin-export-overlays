@@ -1,4 +1,4 @@
-/** Static catalog token from tests/config/gitlab-auth/value-file.yaml */
+/** Static catalog token from tests/config/gitlab-auth/app-config-rhdh.yaml */
 export const GITLAB_AUTH_CATALOG_TOKEN = "gitlab-auth-e2e-token";
 
 /** Display names expected after GitLab org ingestion (core auth-providers suite). */

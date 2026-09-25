@@ -18,7 +18,7 @@ import {
   groupHasRelation,
 } from "../../support/api/catalog-query-helpers.js";
 
-/** Static token from tests/config/microsoft/value-file.yaml */
+/** Static token from tests/config/microsoft/app-config-rhdh.yaml */
 const CATALOG_TOKEN = "microsoft-e2e-token";
 const APP_CONFIG_PATH = "tests/config/microsoft/app-config-rhdh.yaml";
 const HOMEPAGE_WRAPPER_DIST_NAME =
@@ -145,7 +145,6 @@ test.describe(
           appConfig: APP_CONFIG_PATH,
           secrets: "tests/config/microsoft/rhdh-secrets.yaml",
           dynamicPlugins: "tests/config/microsoft/dynamic-plugins.yaml",
-          valueFile: "tests/config/microsoft/value-file.yaml",
           disablePlugins: [HOMEPAGE_WRAPPER_DIST_NAME],
         });
       });

@@ -21,7 +21,6 @@ test.describe("Test Keycloak plugin", () => {
   test.beforeAll(async ({ rhdh }: { rhdh: RHDHDeployment }) => {
     await rhdh.configure({
       auth: "keycloak",
-      valueFile: "tests/config/value_file.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
     await rhdh.deploy();
@@ -134,26 +133,25 @@ test.describe("Test Keycloak plugin metrics", () => {
     const namespace = rhdh.deploymentConfig.namespace;
     const result = await $({
       stdio: ["pipe", "pipe", "pipe"],
-    })`kubectl get svc -n ${namespace} -o json`;
-    const servicesJson = result.stdout ?? "";
-    const services = JSON.parse(servicesJson) as {
+    })`kubectl get pods -n ${namespace} --field-selector=status.phase=Running -o json`;
+    const pods = JSON.parse(result.stdout ?? "") as {
       items?: Array<{
         metadata?: { name?: string };
-        spec?: {
-          ports?: Array<{ port?: number; targetPort?: number | string }>;
-        };
       }>;
     };
-    const hasPort9464 = (p: { port?: number; targetPort?: number | string }) =>
-      Number(p.port) === 9464 || Number(p.targetPort) === 9464;
-    const metricsSvc = services.items?.find((svc) =>
-      svc.spec?.ports?.some(hasPort9464),
-    );
-    const serviceName = metricsSvc?.metadata?.name;
-    if (!serviceName) {
+    const rhdhPod = pods.items?.find((pod) => {
+      const name = pod.metadata?.name ?? "";
+      return (
+        (name.includes("backstage") || name.includes("developer-hub")) &&
+        !name.includes("postgresql") &&
+        !name.includes("psql")
+      );
+    });
+    const podName = rhdhPod?.metadata?.name;
+    if (!podName) {
       throw new Error(
-        `No RHDH metrics service (port 9464) found in namespace ${namespace}. ` +
-          `List services with: kubectl get svc -n ${namespace}`,
+        `No RHDH pod found in namespace ${namespace}. ` +
+          `List pods with: kubectl get pods -n ${namespace}`,
       );
     }
 
@@ -161,7 +159,7 @@ test.describe("Test Keycloak plugin metrics", () => {
       process.env.K8S_CLUSTER_TOKEN && process.env.K8S_CLUSTER_URL
         ? `oc login --token="${process.env.K8S_CLUSTER_TOKEN}" --server="${process.env.K8S_CLUSTER_URL}" --insecure-skip-tls-verify=true && `
         : "";
-    const cmd = `${login}kubectl config set-context --current --namespace="${namespace}" 2>/dev/null; kubectl port-forward service/${serviceName} 9464:9464 --namespace="${namespace}"`;
+    const cmd = `${login}kubectl config set-context --current --namespace="${namespace}" 2>/dev/null; kubectl port-forward pod/${podName} 9464:9464 --namespace="${namespace}"`;
     portForward = spawn("/bin/sh", ["-c", cmd]);
 
     await new Promise<void>((resolve, reject) => {

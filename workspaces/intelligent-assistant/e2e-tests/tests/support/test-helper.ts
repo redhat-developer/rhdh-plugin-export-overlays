@@ -77,12 +77,16 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const tmp = path.join(os.tmpdir(), `${ns}-llama-stack-config.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
   await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, "config.yaml");
-  await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
+  const resource =
+    rhdh.deploymentConfig.method === "operator"
+      ? "statefulset/backstage-developer-hub"
+      : "deployment/redhat-developer-hub";
+  await $`oc rollout restart ${resource} -n ${ns}`;
   // waitUntilReady() only checks that currently-existing pods are Ready, which is
   // trivially true while the old pod is still serving. Gate on the rollout itself:
   // lightspeed-core is a sidecar in this pod and its vector stores are EmptyDir-backed,
   // so a mid-suite pod swap silently orphans every notebook created before it.
-  await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
+  await $`oc rollout status ${resource} -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
 }
 
@@ -93,12 +97,14 @@ export async function ensureLightspeedDeployment(
   await test.runOnce(`intelligent-assistant-deploy-${ns}`, async () => {
     await rhdh.configure(lightspeedDeployConfig());
 
-    // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
-    try {
-      await $`oc get deployment redhat-developer-hub -n ${ns}`;
-      await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
-    } catch {
-      /* fresh install */
+    if (rhdh.deploymentConfig.method === "helm") {
+      // e2e-test-utils scaleDownAndRestart breaks on helm upgrade (label selector + bash).
+      try {
+        await $`oc get deployment redhat-developer-hub -n ${ns}`;
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* fresh install */
+      }
     }
 
     await rhdh.deploy();

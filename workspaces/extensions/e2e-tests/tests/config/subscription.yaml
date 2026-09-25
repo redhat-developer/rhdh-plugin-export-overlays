@@ -1,0 +1,16 @@
+apiVersion: rhdh.redhat.com/v1alpha5
+kind: Backstage
+metadata:
+  name: developer-hub
+spec:
+  application:
+    extraEnvs:
+      envs:
+        - name: NODE_ENV
+          value: development
+          containers:
+            - backstage-backend
+        - name: RHDH_EXTENSIONS_INSTALL_EXPORT_PATH
+          value: /opt/app-root/src/dynamic-plugins-root/extensions-install-state.yaml
+          containers:
+            - backstage-backend
