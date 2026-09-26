@@ -1,0 +1,7 @@
+# disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+# remove this file afterwards
+plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider:bs_1.52.0__0.2.20
+    enabled: true
