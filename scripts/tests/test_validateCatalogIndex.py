@@ -15,6 +15,7 @@ import pytest
 import yaml
 
 from validateCatalogIndex import (
+    DYNAMIC_PACKAGES_ANNOTATION,
     ERROR,
     RULES,
     RULES_NEEDING_BUILDS,
@@ -22,6 +23,7 @@ from validateCatalogIndex import (
     AllowlistEntry,
     Finding,
     apply_allowlist,
+    check_version_regression,
     load_allowlist,
     load_dpdy_entries,
     load_plugin_builds,
@@ -31,6 +33,7 @@ from validateCatalogIndex import (
     render,
     to_json,
     validate,
+    version_less_than,
     ValidationResult,
 )
 from plugin_utils import BuildReport
@@ -86,6 +89,7 @@ def resolved(image, digest=DIGEST, **extra):
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
         "digest": digest,
+        DYNAMIC_PACKAGES_ANNOTATION: "present",
         **extra,
     }
 
@@ -96,7 +100,8 @@ SHIPPED_ALLOWLIST = (
 
 
 def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
-        registries=None, has_build_metadata=True):
+        registries=None, has_build_metadata=True,
+        default_packages_file=None, previous_index_dpdy=None, report_file=None):
     output_dir, plugin_builds_dir = write_index(
         tmp_path, packages, builds=builds, index_json=index_json
     )
@@ -106,6 +111,9 @@ def run(tmp_path, packages, builds=None, index_json=None, allowlist=None,
         registries or {REGISTRY},
         allowlist or [],
         has_build_metadata=has_build_metadata,
+        default_packages_file=default_packages_file,
+        previous_index_dpdy=previous_index_dpdy,
+        report_file=report_file,
     )
 
 
@@ -985,3 +993,194 @@ class TestShippedAllowlist:
         for entry in load_allowlist(SHIPPED_ALLOWLIST):
             assert entry.rule in RULES, entry.pattern_source
             assert entry.ticket, entry.pattern_source
+
+
+# ---------------------------------------------------------------------------
+# Publication policy rules (RHIDP-15725, RHIDP-16251, RHIDP-16252)
+# ---------------------------------------------------------------------------
+class TestPolicyRules:
+    def test_missing_annotation_is_always_an_error(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(image="plugin-a", **{DYNAMIC_PACKAGES_ANNOTATION: ""})
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert DYNAMIC_PACKAGES_ANNOTATION in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):
+        """A swap-one-for-another has the same length and must still fail."""
+        default_packages = tmp_path / "default.packages.yaml"
+        default_packages.write_text(
+            yaml.safe_dump(
+                {
+                    "packages": {
+                        "enabled": [{"package": "@scope/plugin-a"}],
+                        "disabled": [{"package": "@scope/plugin-b"}],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/scope-plugin-a@{DIGEST}"}],
+            builds={"scope-plugin-a": resolved("scope-plugin-a")},
+            default_packages_file=default_packages,
+        )
+        missing = [f for f in result.findings if f.rule == "dpdy-missing-package"]
+        assert len(missing) == 1
+        assert missing[0].severity == ERROR
+        assert "plugin-b" in missing[0].message
+        assert missing[0].image == "scope-plugin-b"
+
+    def test_dpdy_completeness_does_not_treat_a_prefix_as_identity(self, tmp_path):
+        """A backend image must not cover the frontend package whose name it prefixes.
+
+        ``backstage-plugin-techdocs`` is a substring of
+        ``backstage-plugin-techdocs-backend``. Matching on containment would
+        swallow the missing frontend and publish anyway.
+        """
+        default_packages = tmp_path / "default.packages.yaml"
+        default_packages.write_text(
+            yaml.safe_dump(
+                {
+                    "packages": {
+                        "enabled": [
+                            {"package": "@backstage/plugin-techdocs"},
+                            {"package": "@backstage/plugin-techdocs-backend"},
+                        ],
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": (
+                        f"oci://{REGISTRY}/backstage-plugin-techdocs-backend@{DIGEST}"
+                    )
+                }
+            ],
+            builds={
+                "backstage-plugin-techdocs-backend": resolved(
+                    "backstage-plugin-techdocs-backend"
+                )
+            },
+            default_packages_file=default_packages,
+        )
+        missing = [f for f in result.findings if f.rule == "dpdy-missing-package"]
+        assert len(missing) == 1
+        assert missing[0].severity == ERROR
+        assert missing[0].message.startswith("'@backstage/plugin-techdocs'")
+        assert missing[0].image == "backstage-plugin-techdocs"
+
+    def test_version_regression_rhdhbugs_3503_shape(self):
+        assert version_less_than("5.4.1", "5.7.12")
+        findings = check_version_regression(
+            {"orchestrator-dynamic": "5.4.1", "other": "1.0.0"},
+            {"orchestrator-dynamic": "5.7.12", "other": "1.0.0"},
+        )
+        assert len(findings) == 1
+        assert findings[0].rule == "version-regression"
+        assert findings[0].severity == WARNING
+        assert "5.7.12" in findings[0].message
+        assert "5.4.1" in findings[0].message
+
+    def test_regression_skips_new_plugins(self):
+        assert check_version_regression(
+            {"old-plugin": "2.1.0", "new-plugin": "1.0.0"},
+            {"old-plugin": "2.0.0"},
+        ) == []
+
+    def test_previous_dpdy_regression(self, tmp_path):
+        previous = tmp_path / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.7.12",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            previous_index_dpdy=previous,
+        )
+        regressions = [f for f in result.findings if f.rule == "version-regression"]
+        assert len(regressions) == 1
+        assert to_json(result, strict=False)["status"] == "pass"
+        assert to_json(result, strict=True)["status"] == "fail"
+
+    def test_backstage_mismatch_from_report(self, tmp_path):
+        report_file = tmp_path / "build-report.json"
+        report_file.write_text(
+            json.dumps(
+                {
+                    "plugins": {
+                        "plugin-a": {
+                            "stages": {
+                                "bootstrap": {
+                                    "bs_version_mismatch": True,
+                                    "expected_version": "1.52.0",
+                                    "found_version": "1.49.4",
+                                }
+                            }
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={"plugin-a": resolved("plugin-a")},
+            report_file=report_file,
+        )
+        mismatch = [f for f in result.findings if f.rule == "backstage-version-mismatch"]
+        assert len(mismatch) == 1
+        assert mismatch[0].severity == WARNING
+        assert to_json(result, strict=True)["status"] == "fail"
+
+    def test_community_without_dpdy_still_flags_unresolved(self, tmp_path):
+        output_dir = tmp_path / "catalog-index"
+        output_dir.mkdir()
+        builds_dir = tmp_path / "plugin_builds" / "ws"
+        builds_dir.mkdir(parents=True)
+        (builds_dir / "plugin-a.json").write_text(
+            json.dumps(
+                {
+                    "plugin-a": {
+                        "registryReference": f"{REGISTRY}/plugin-a:1.0",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = validate(
+            output_dir,
+            tmp_path / "plugin_builds",
+            {REGISTRY},
+            [],
+            has_build_metadata=True,
+        )
+        assert "unresolved-image" in rules_of(result)

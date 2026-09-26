@@ -171,11 +171,31 @@ def run_update_index(root, *args, bindir=None):
     )
 
 
+def write_extract_stub(root, exit_code, stderr_line):
+    """A stand-in for extractCatalogIndex.sh that records the contract, not a pull.
+
+    update-index.sh only cares about the extractor's exit code: 0 hands a DPDY to
+    Step 5, 1 skips version-regression, >=2 fails the build. The real script's
+    toolchain and layer-walk live in test_extract_catalog_index.py.
+    """
+    dest = root / "scripts" / "extractCatalogIndex.sh"
+    dest.write_text(
+        "#!/usr/bin/env bash\n"
+        'printf "%s\\n" "$@" >> "$(dirname "$0")/../extract.calls"\n'
+        f'echo "{stderr_line}" >&2\n'
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    dest.chmod(0o755)
+    return dest
+
+
 def resolved(image, digest=DIGEST, **extra):
     return {
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
         "digest": digest,
+        "io.backstage.dynamic-packages": "present",
         **extra,
     }
 
@@ -266,6 +286,19 @@ class TestValidateMode:
         assert "Invalid --validate-mode: gates" in result.stderr
         assert not (clean_repo / "steps.calls").exists()
 
+    def test_strict_fails_the_build_on_warnings(self, tmp_path):
+        """--strict is passed through to validateCatalogIndex.py (one meaning)."""
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(root, "--strict")
+        assert result.returncode == 1
+        assert "fallback-tag" in result.stdout
+
 
 class TestValidationOutputs:
     def test_validation_json_is_written(self, broken_repo, tmp_path):
@@ -323,9 +356,9 @@ class TestPathContainment:
             pytest.param("--validation-json", "/tmp/escaped.json", id="json_absolute"),
             pytest.param("--output-dir", "../elsewhere", id="output_dir_escape"),
             pytest.param("--plugin-builds-dir", "/etc", id="builds_dir_absolute"),
-            pytest.param(
-                "--validate-allowlist", "/etc/passwd", id="allowlist_absolute"
-            ),
+            pytest.param("--validate-allowlist", "/etc/passwd", id="allowlist_absolute"),
+            pytest.param("--report-file", "../escaped.json", id="report_relative_escape"),
+            pytest.param("--report-file", "/tmp/escaped.json", id="report_absolute"),
         ],
     )
     def test_a_path_escaping_the_working_directory_is_refused(
@@ -479,3 +512,66 @@ class TestSanityCheck:
         )
         assert result.returncode == 1
         assert not argv_log.exists(), "yarn should never have been invoked"
+
+
+class TestPreviousIndexRef:
+    """How update-index.sh turns extractCatalogIndex.sh's exit into a build outcome.
+
+    A missing previous image is skip+warn (ADR). A missing extractor toolchain is
+    not: treating it as "not found" would skip version-regression and publish.
+    """
+
+    OCI_REF = "quay.io/rhdh-community/plugin-catalog-index:1.10-bs_1.49.4"
+
+    def test_a_missing_extractor_toolchain_fails_the_build(self, clean_repo):
+        write_extract_stub(
+            clean_repo, 2, "extractCatalogIndex.sh needs skopeo on PATH"
+        )
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression cannot run" in result.stderr
+        assert "skipping version-regression" not in result.stderr
+        assert (clean_repo / "extract.calls").read_text().split()[0] == self.OCI_REF
+
+    def test_a_missing_previous_image_skips_version_regression(self, clean_repo):
+        write_extract_stub(
+            clean_repo, 1, "dynamic-plugins.default.yaml not found in image"
+        )
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "skipping version-regression" in result.stderr
+        assert "version-regression cannot run" not in result.stderr
+
+    def test_a_local_previous_dpdy_does_not_call_the_extractor(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[
+                {"package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1"}
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+        )
+        previous = root / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.7.12",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        write_extract_stub(root, 2, "extractor should not have been invoked")
+        result = run_update_index(
+            root, "--previous-index-ref", str(previous), "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression" in result.stdout
+        assert not (root / "extract.calls").exists()

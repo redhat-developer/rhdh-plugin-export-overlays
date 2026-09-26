@@ -928,6 +928,9 @@ def _record_image_metadata_report(report: BuildReport, data: dict) -> None:
             resolved_version = _version_from_registry_tag(resolved_ref)
             if resolved_version:
                 report.add_plugin(pname, version=resolved_version)
+        annotation = pdata.get(DYNAMIC_PACKAGES_ANNOTATION)
+        if not annotation:
+            stage_kwargs["missing_dynamic_packages_annotation"] = True
         report.set_stage(pname, "image-metadata-fetch", "pass", **stage_kwargs)
         resolved_ref = pdata.get("registryReference", "")
         if resolved_ref:
