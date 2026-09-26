@@ -3,6 +3,11 @@ import { NotificationPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import { RhdhNotificationsApi } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("Default Global Header", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     // Do not set disablePlugins for global-header: it marks the OCI entry from
     // dynamic-plugins.yaml as disabled: true, so NFS extensions never mount a plugin.

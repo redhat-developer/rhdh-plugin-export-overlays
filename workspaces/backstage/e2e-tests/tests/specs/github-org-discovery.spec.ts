@@ -2,6 +2,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   const verifyAppearanceInCatalog = async (
     uiHelper: UIhelper,
     kind: "Group" | "User",

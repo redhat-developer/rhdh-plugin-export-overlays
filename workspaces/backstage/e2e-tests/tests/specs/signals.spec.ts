@@ -23,6 +23,11 @@ const SIGNALS_WRAPPER_DIST_NAMES: string[] = [
  * is covered by the notifications suite (useSignal('notifications')).
  */
 test.describe("Backstage Signals Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

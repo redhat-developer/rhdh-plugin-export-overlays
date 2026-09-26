@@ -88,6 +88,11 @@ async function createNotificationWhenCatalogReady(
 }
 
 test.describe("Notifications email processor", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   let mailpitApi: MailpitApiHelper;
 
   test.beforeAll(async ({ rhdh }) => {

@@ -7,6 +7,11 @@ const ENTITY_POLL_TIMEOUT_MS = 120_000;
 const ENTITY_POLL_INTERVAL_MS = 3_000;
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {

@@ -118,6 +118,11 @@ test.describe(
   "Microsoft auth and MS Graph ingestion",
   { tag: "@auth-tests" },
   () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+    );
+
     let rhdhDeployment: RHDHDeployment;
     let baseUrl: string;
     let redirectUrl: string;

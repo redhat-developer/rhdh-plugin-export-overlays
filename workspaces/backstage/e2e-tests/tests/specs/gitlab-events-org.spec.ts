@@ -9,6 +9,11 @@ import {
 import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe("GitLab Events - Org Data", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   let testPrefix: string;
   let parentGroupId: number;
   let testGroupId: number;

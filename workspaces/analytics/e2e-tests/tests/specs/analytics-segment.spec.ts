@@ -36,6 +36,11 @@ const SEGMENT_SETTINGS_RESPONSE = {
 /* eslint-enable @typescript-eslint/naming-convention */
 
 test.describe("Test Segment Analytics Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();

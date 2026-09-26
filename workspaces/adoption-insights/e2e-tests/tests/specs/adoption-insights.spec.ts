@@ -20,6 +20,11 @@ const ADOPTION_INSIGHTS_WRAPPER_DIST_NAMES: string[] = [
 ];
 
 test.describe.serial("Test Adoption Insights", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "lightspeed-core sidecar crashes with unrecognized --synthesized-config-output argument (Helm chart 2.0-91-CI)",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let uiHelper: UIhelper;
