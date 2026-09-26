@@ -1,3 +1,15 @@
+# Disable Lightspeed/IA sidecar — chart 2.0-90-CI uses intelligentAssistant.enabled
+# (global.lightspeed is ignored). Default enabled:true starts lightspeed-core with
+# --synthesized-config-output which CrashLoops. See RHDHBUGS-3145.
+intelligentAssistant:
+  enabled: false
+
+# Allow Red Hat PostgreSQL image under Bitnami chart image verification
+# (quay.io/rhdh/chart:2.0-90-CI+). See bitnami/charts#30850 / rhdh#5490.
+global:
+  security:
+    allowInsecureImages: true
+
 upstream:
   # Run the hub as the namespace default SA so the in-cluster token matches RBAC
   serviceAccount:
