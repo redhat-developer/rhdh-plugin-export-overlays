@@ -1,0 +1,266 @@
+workspace/3scale:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/3scale/**']
+
+workspace/acr:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/acr/**']
+
+workspace/acs:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/acs/**']
+
+workspace/adoption-insights:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/adoption-insights/**']
+
+workspace/adr:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/adr/**']
+
+workspace/ai-integrations:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/ai-integrations/**']
+
+workspace/analytics:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/analytics/**']
+
+workspace/announcements:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/announcements/**']
+
+workspace/apiconnect:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/apiconnect/**']
+
+workspace/argocd:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/argocd/**']
+
+workspace/aws-codebuild:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/aws-codebuild/**']
+
+workspace/aws-ecs:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/aws-ecs/**']
+
+workspace/azure-devops:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/azure-devops/**']
+
+workspace/backstage:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/backstage/**']
+
+workspace/bookmarks:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/bookmarks/**']
+
+workspace/bulk-import:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/bulk-import/**']
+
+workspace/config-viewer:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/config-viewer/**']
+
+workspace/cost-management:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/cost-management/**']
+
+workspace/dynatrace:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/dynatrace/**']
+
+workspace/dynatrace-dql:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/dynatrace-dql/**']
+
+workspace/env-viewer:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/env-viewer/**']
+
+workspace/extensions:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/extensions/**']
+
+workspace/github-actions:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/github-actions/**']
+
+workspace/github-issues:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/github-issues/**']
+
+workspace/github-notifications:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/github-notifications/**']
+
+workspace/github-pull-requests-board:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/github-pull-requests-board/**']
+
+workspace/gitlab:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/gitlab/**']
+
+workspace/global-floating-action-button:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/global-floating-action-button/**']
+
+workspace/global-header:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/global-header/**']
+
+workspace/homepage:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/homepage/**']
+
+workspace/icon-viewer:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/icon-viewer/**']
+
+workspace/jenkins:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/jenkins/**']
+
+workspace/jfrog-artifactory:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/jfrog-artifactory/**']
+
+workspace/keycloak:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/keycloak/**']
+
+workspace/kiali:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/kiali/**']
+
+workspace/konflux:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/konflux/**']
+
+workspace/lighthouse:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/lighthouse/**']
+
+workspace/lightspeed:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/lightspeed/**']
+
+workspace/mcp-chat:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/mcp-chat/**']
+
+workspace/mcp-integrations:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/mcp-integrations/**']
+
+workspace/mta:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/mta/**']
+
+workspace/nexus-repository-manager:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/nexus-repository-manager/**']
+
+workspace/npm:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/npm/**']
+
+workspace/orchestrator:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/orchestrator/**']
+
+workspace/pagerduty:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/pagerduty/**']
+
+workspace/pingidentity:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/pingidentity/**']
+
+workspace/quay:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/quay/**']
+
+workspace/quickstart:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/quickstart/**']
+
+workspace/rbac:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/rbac/**']
+
+workspace/roadie-backstage-plugins:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/roadie-backstage-plugins/**']
+
+workspace/scaffolder-backend-module-kubernetes:
+  - changed-files:
+      - any-glob-to-any-file:
+          ['workspaces/scaffolder-backend-module-kubernetes/**']
+
+workspace/scaffolder-backend-module-regex:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/scaffolder-backend-module-regex/**']
+
+workspace/scaffolder-backend-module-servicenow:
+  - changed-files:
+      - any-glob-to-any-file:
+          ['workspaces/scaffolder-backend-module-servicenow/**']
+
+workspace/scaffolder-backend-module-sonarqube:
+  - changed-files:
+      - any-glob-to-any-file:
+          ['workspaces/scaffolder-backend-module-sonarqube/**']
+
+workspace/scaffolder-relation-processor:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/scaffolder-relation-processor/**']
+
+workspace/scorecard:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/scorecard/**']
+
+workspace/servicenow:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/servicenow/**']
+
+workspace/sonarqube:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/sonarqube/**']
+
+workspace/tech-insights:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/tech-insights/**']
+
+workspace/tech-radar:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/tech-radar/**']
+
+workspace/tekton:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/tekton/**']
+
+workspace/theme:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/theme/**']
+
+workspace/todo:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/todo/**']
+
+workspace/topology:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/topology/**']
+
+workspace/translations:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/translations/**']
+
+workspace/x2a:
+  - changed-files:
+      - any-glob-to-any-file: ['workspaces/x2a/**']
