@@ -1,4 +1,25 @@
 # Auth provider metadata exists for publish, but E2E keeps the standard OIDC path
-# (e2e-test-utils keycloak auth profile) until RHIDP-11651. An empty list here
-# prevents metadata auto-generation from enabling the auth provider plugin.
-plugins: []
+# (e2e-test-utils keycloak auth profile) until RHIDP-11651. Disable the auth
+# provider plugin while keeping the catalog backend module enabled for metrics.
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          keycloakOrg:
+            default:
+              baseUrl: ${KEYCLOAK_BASE_URL}
+              loginRealm: ${KEYCLOAK_LOGIN_REALM}
+              realm: ${KEYCLOAK_REALM}
+              clientId: ${KEYCLOAK_CLIENT_ID}
+              clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+              schedule:
+                frequency:
+                  minutes: 1
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 1
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-auth-backend-module-keycloak-provider
+    disabled: true
