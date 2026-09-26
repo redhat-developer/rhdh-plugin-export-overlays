@@ -24,6 +24,7 @@ test.describe("Check default RBAC permissions", () => {
         "tests/config/app-config-rhdh-default-permissions-overlay.yaml",
       valueFile: "tests/config/values.yaml",
       dynamicPlugins: "tests/config/dynamic-plugins.yaml",
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
@@ -52,7 +53,7 @@ test.describe("Check default RBAC permissions", () => {
     await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
 
     rbacPO = new RbacPO(page, uiHelper);
-    await uiHelper.openSidebar("Catalog");
+    await uiHelper.goToPageUrl("/catalog");
     await uiHelper.waitForLoad();
     await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
   });

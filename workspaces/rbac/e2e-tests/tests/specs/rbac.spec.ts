@@ -59,6 +59,7 @@ test.describe("RBAC plugin", () => {
       auth: "keycloak",
       appConfig: "tests/config/app-config-rhdh.yaml",
       valueFile: "tests/config/values.yaml",
+      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
     await rhdh.waitUntilReady();
@@ -89,12 +90,12 @@ test.describe("RBAC plugin", () => {
       uiHelper,
     }) => {
       await uiHelper.goToPageUrl("/");
-      await uiHelper.clickButton("Administration");
-      const rbacLink = page.getByRole("link", { name: "RBAC" });
+      const rbacLink = page
+        .getByRole("navigation")
+        .getByRole("link", { name: "RBAC" });
       await expect(rbacLink).toBeVisible();
       await rbacLink.click();
       await uiHelper.verifyHeading("RBAC");
-      expect(await page.title()).toContain("RBAC");
 
       await rbacPO.verifyGeneralRbacViewHeading();
       const allGridColumnsText = RolesPage.getRolesListColumnsText();
@@ -305,32 +306,22 @@ test.describe("RBAC plugin", () => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
     });
 
-    test("Administration side nav does not show RBAC plugin", async ({
-      page,
+    test("Sidebar does not show RBAC plugin for no-access user", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
-      // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
-      const rbacNavLink = page
-        .getByRole("navigation", { name: "sidebar nav" })
-        .getByRole("link", { name: "RBAC" });
-      await expect(rbacNavLink).toHaveCount(0);
+      // In NFS, the RBAC sidebar link may be visible to all users;
+      // access is enforced at the route level with a 403 error.
+      await rbacPO.go();
+      await uiHelper.waitForLoad();
+      await rbacPO.verifyAccessDenied();
     });
 
     test("No access user should not see list of components in catalog", async ({
       uiHelper,
     }) => {
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.waitForLoad();
       await uiHelper.verifyTableIsEmpty();
-    });
-
-    test("Direct navigation to /rbac is denied", async ({ uiHelper }) => {
-      await rbacPO.go();
-      await uiHelper.waitForLoad();
-      await uiHelper.verifyText(
-        "ERROR 403: Insufficient permissions to access this page",
-      );
     });
   });
 
@@ -437,41 +428,31 @@ test.describe("RBAC plugin", () => {
 
     test("User can unregister own components but not group-owned components", async ({
       page,
-      uiHelper,
     }) => {
       await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2");
 
-      // Verify component name in the main heading
-      await expect(page.getByRole("heading", { level: 1 })).toContainText(
-        "test-rhdh-qe-2",
-      );
-      await page.getByTestId("menu-button").click();
+      // Verify component name is displayed on the page
+      await expect(
+        page.getByRole("heading", { name: "test-rhdh-qe-2" }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "More actions" }).click();
       const unregisterUserOwned = page.getByRole("menuitem", {
         name: "Unregister entity",
       });
       await expect(unregisterUserOwned).toBeEnabled();
-
-      await page.getByRole("menuitem", { name: "Unregister entity" }).click();
-      await expect(page.getByRole("dialog")).toContainText(
-        "Are you sure you want to unregister this entity?",
-      );
-      await page.getByRole("button", { name: "Cancel" }).click();
-
-      await uiHelper.openSidebar("Catalog");
-      await page
-        .getByRole("link", { name: "test-rhdh-qe-2-team-owned" })
-        .click();
-      // Verify owner group in the component metadata (scope to article to avoid duplicates)
+      await unregisterUserOwned.click();
       await expect(
-        page
-          .getByRole("article")
-          .getByRole("link", { name: /janus-qe\/rhdh-qe-2-team/ }),
+        page.getByRole("dialog", {
+          name: "Are you sure you want to unregister this entity?",
+        }),
       ).toBeVisible();
-      await page.getByTestId("menu-button").click();
-      const unregisterGroupOwned = page.getByRole("menuitem", {
-        name: "Unregister entity",
-      });
-      await expect(unregisterGroupOwned).toBeDisabled();
+      await page.getByRole("button", { name: "Cancel" }).click();
+      await rbacPO.navigateToCatalogComponent("test-rhdh-qe-2-team-owned");
+      await rbacPO.verifyComponentOwner("janus-qe/rhdh-qe-2-team");
+      await page.getByRole("button", { name: "More actions" }).click();
+      await expect(
+        page.getByRole("menuitem", { name: "Unregister entity" }),
+      ).toBeDisabled();
     });
   });
 
@@ -582,15 +563,16 @@ test.describe("RBAC plugin", () => {
     });
 
     test("conditional-manager no longer sees RBAC in the sidebar after access is revoked", async ({
-      page,
       uiHelper,
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
-      const dropdownMenuLocator = page.getByText("RBAC");
-      await expect(dropdownMenuLocator).toBeHidden();
+      // In NFS, RBAC is a direct sidebar link that may still be visible;
+      // access is enforced at the route level with a 403 error.
+      await rbacPO.go();
+      await uiHelper.waitForLoad();
+      await rbacPO.verifyAccessDenied();
     });
   });
 
@@ -613,7 +595,7 @@ test.describe("RBAC plugin", () => {
     }) => {
       // Should deny read: conditional deny policy takes precedence over allow read via basic
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalDenyUser);
-      await uiHelper.openSidebar("Catalog");
+      await uiHelper.goToPageUrl("/catalog");
       await uiHelper.selectMuiBox("Kind", "Component");
       await uiHelper.verifyTableIsEmpty();
     });

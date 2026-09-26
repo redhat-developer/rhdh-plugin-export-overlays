@@ -1,26 +1,5 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-community-plugin-rbac
     enabled: true
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          backstage-community.plugin-rbac:
-            translationResources:
-              - importName: rbacTranslations
-                ref: rbacTranslationRef
-            appIcons:
-              - name: rbacIcon
-                importName: RbacIcon
-                module: Legacy
-            dynamicRoutes:
-              - path: /rbac
-                importName: RbacPage
-                module: Legacy
-                menuItem:
-                  icon: rbacIcon
-                  text: RBAC
-                  textKey: menuItem.rbac
-            menuItems:
-              rbac:
-                parent: default.admin
-                icon: rbacIcon
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
+    disabled: false
