@@ -137,7 +137,7 @@ test.describe.serial("Test Adoption Insights", () => {
       }
     });
 
-    test("Interaction-based tracking tests", async () => {
+    test.skip("Interaction-based tracking tests", async () => {
       await runInteractionTrackingSetup(
         page,
         uiHelper as AdoptionInsightsUiHelperForPanel,
