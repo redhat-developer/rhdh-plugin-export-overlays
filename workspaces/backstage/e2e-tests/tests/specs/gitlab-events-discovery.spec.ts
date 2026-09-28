@@ -9,6 +9,11 @@ import {
 import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe.serial("GitLab Events - Discovery", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let testPrefix: string;
   let parentGroupPath: string;
   let parentGroupId: number;

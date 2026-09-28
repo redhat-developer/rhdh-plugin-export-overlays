@@ -55,6 +55,11 @@ async function runScaffolderTemplate(
 }
 
 test.describe.serial("GitLab Scaffolder Actions", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let sharedState: GitLabScaffolderSharedState;
   let playwrightProjectName: string;
 

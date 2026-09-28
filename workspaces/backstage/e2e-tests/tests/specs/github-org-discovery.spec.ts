@@ -2,6 +2,11 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { type UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 test.describe("GitHub Integration Org", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   const verifyAppearanceInCatalog = async (
     uiHelper: UIhelper,
     kind: "Group" | "User",

@@ -118,6 +118,11 @@ test.describe(
   "Microsoft auth and MS Graph ingestion",
   { tag: "@auth-tests" },
   () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+    );
+
     let rhdhDeployment: RHDHDeployment;
     let baseUrl: string;
     let redirectUrl: string;

@@ -23,6 +23,11 @@ const HOMEPAGE_WRAPPER_DIST_NAME =
 test.describe.configure({ mode: "serial" });
 
 test.describe("GitLab auth and org ingestion", { tag: "@auth-tests" }, () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let baseUrl: string;
   let oauthHelper: GitLabOAuthHelper;
   let oauthAppId: number | null = null;

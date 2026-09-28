@@ -2,6 +2,11 @@ import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.describe("gitlab discovery UI tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     requireEnv("VAULT_GITLAB_TOKEN_DECODED");
 

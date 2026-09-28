@@ -13,6 +13,11 @@ import { GitHubEventsHelper } from "../../support/api/github-events";
 import { GitHubApiHelper } from "../../support/api/github-api-helper";
 
 test.describe("GitHub Events Module", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let githubEventsHelper: GitHubEventsHelper;
   let staticToken: string;
   let rhdhBaseUrl: string;

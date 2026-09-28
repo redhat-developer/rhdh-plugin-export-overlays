@@ -1,6 +1,11 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Auth plugin", { tag: "@auth-tests" }, () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({
       auth: "guest",

@@ -7,6 +7,11 @@ const ENTITY_POLL_TIMEOUT_MS = 120_000;
 const ENTITY_POLL_INTERVAL_MS = 3_000;
 
 test.describe("Github Discovery Catalog", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let catalogPage: CatalogPage;
 
   test.beforeAll(async ({ rhdh }) => {

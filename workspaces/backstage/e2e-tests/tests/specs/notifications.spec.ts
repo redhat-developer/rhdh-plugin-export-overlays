@@ -4,6 +4,11 @@ import * as path from "node:path";
 import { createNotification } from "../../support/api/notifications-helper";
 
 test.describe("Backstage Notifications Plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "catalog-index OCI images with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let notificationPage: NotificationPage;
 
   test.beforeAll(async ({ rhdh }) => {
