@@ -43,8 +43,8 @@ test.describe("Admin > Extensions", () => {
   test.describe("Extensions > Catalog", () => {
     // eslint-disable-next-line playwright/expect-expect -- uiHelper.verifyHeading asserts internally
     test("Verify search bar in extensions", async ({ page }) => {
-      await extensions.searchExtensions("Dynatrace");
-      await uiHelper.verifyHeading("DynaTrace");
+      await extensions.searchExtensions("Topology");
+      await uiHelper.verifyHeading("Application Topology for Kubernetes");
       await page
         .getByRole("button", {
           name: "Clear Search",
