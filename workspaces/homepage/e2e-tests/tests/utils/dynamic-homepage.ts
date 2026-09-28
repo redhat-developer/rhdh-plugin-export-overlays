@@ -80,7 +80,7 @@ export async function loginAsKeycloakUser(
   const popup = await popupPromise;
   await helper.logintoKeycloak(popup, username, password);
   await page
-    .locator("nav a")
+    .locator('nav[aria-label="sidebar nav"] a')
     .first()
     .waitFor({ state: "visible", timeout: 60_000 });
 }
