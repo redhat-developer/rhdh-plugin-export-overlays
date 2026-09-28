@@ -15,13 +15,13 @@ metadata:
     backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/adoption-insights
   tags: []
 spec:
-  packageName: '@red-hat-developer-hub/backstage-plugin-adoption-insights'
-  # Tag: bs_1.52.0__0.9.1, Build date: 2026-06-03T21:17:56Z
+  packageName: "@red-hat-developer-hub/backstage-plugin-adoption-insights"
+  # Tag: bs_1.54.6__1.0.2, Build date: 2026-06-03T21:17:56Z
   dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:0b661d2b66e6687a9558cb1bbe272c5f646607018bbe3babd7797aace73accdc"
-  version: 0.9.1
+  version: 1.0.2
   backstage:
     role: frontend-plugin
-    supportedVersions: 1.52.0
+    supportedVersions: 1.54.6
   author: Red Hat
   support: generally-available
   lifecycle: active
