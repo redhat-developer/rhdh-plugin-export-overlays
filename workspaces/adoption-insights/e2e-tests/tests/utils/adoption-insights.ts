@@ -146,7 +146,9 @@ export class TestHelper {
       await uiHelper.clickLink("Red Hat Developer Hub");
       // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay
       await this.page.waitForTimeout(5000);
-      await expect(this.page.getByText("Red Hat Developer Hub")).toBeVisible();
+      await expect(
+        this.page.getByRole("heading", { name: "Red Hat Developer Hub" }),
+      ).toBeVisible();
     }
 
     await clickAdoptionInsightsSidebarLink(this.page);
