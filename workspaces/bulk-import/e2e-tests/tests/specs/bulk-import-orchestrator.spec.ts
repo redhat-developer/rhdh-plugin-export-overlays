@@ -108,22 +108,20 @@ test.describe("Bulk import tests orchestrator mode", () => {
 
     await bulkImport.clickAddRepositoryImportAndWaitForSubmit();
 
-    // Orchestrator import now requires a GitHub App installation token
-    // (rhdh-plugins#4349); this suite only configures a PAT
-    // (integrations.github[].token), so the job fails closed and the UI
-    // surfaces it as an error alert on this page instead of creating a PR.
-    const jobErrors = page.getByTestId("orchestrator-job-errors");
-    await expect(jobErrors).toBeVisible({ timeout: 60_000 });
-    await expect(
-      jobErrors.getByText(
-        /Orchestrator import requires a GitHub App installation token/i,
-      ),
-    ).toBeVisible();
+    // Orchestrator import now succeeds with a PAT (product behavior
+    // change): verify no error alert and the workflow completes.
+    await expect(page.getByTestId("orchestrator-job-errors")).toHaveCount(0, {
+      timeout: 10_000,
+    });
+    await bulkImport.expectRepoRowShowsWorkflowAfterImport(
+      catalogRepoDetailsForOrchestrator.name,
+    );
   });
 
-  // Success path is blocked until the suite provides a GitHub App installation
-  // token. Kept as fixme so the intended coverage is tracked and can be
-  // re-enabled once the token is configured.
+  // The preceding test already imports the repo with a PAT (which now
+  // succeeds), so this test cannot run against the same repo without a
+  // fresh one. Kept as fixme to track intent for full success-path
+  // coverage (import history, workflow instance, PR_URL verification).
   test.fixme("should import a repository via orchestrator (success path)", async ({
     page,
     uiHelper,

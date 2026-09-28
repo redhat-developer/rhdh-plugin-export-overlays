@@ -72,12 +72,12 @@ export async function dismissBulkImportLoginDialogIfPresent(
   await expect(loginDialog).toBeHidden({ timeout: 60_000 });
 }
 
-/** GitHub sign-in + Self-service navigation for scaffolder template tests. */
+/** GitHub sign-in + Create page navigation for scaffolder template tests. */
 export async function signInForScaffolderTemplateTests(
   loginHelper: LoginHelper,
   uiHelper: UIhelper,
 ): Promise<void> {
   await loginHelper.loginAsGithubUser();
   await uiHelper.goToPageUrl("/create");
-  await uiHelper.verifyHeading("Self-service");
+  await uiHelper.verifyHeading("Create");
 }
