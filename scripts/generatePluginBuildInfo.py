@@ -783,7 +783,7 @@ def print_fallback_rebuild_cta(
         print(
             f"\n\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
             f"   Metadata already requests newer tags, but Quay images are built "
-            f"from midstream workspaces/ folders. If package.json versions are still "
+            f"from midstream workspaces/ folders. If package.json versions are "
             f"older, Konflux will re-publish to the old tag, so must sync before "
             f"updating, then running PLRs:\n\n"
             f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n\n"
