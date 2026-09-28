@@ -79,7 +79,7 @@ export class TestHelper {
       // (RHDHBUGS-3676); a link named "Create" is ambiguous with other UI.
       await this.page.goto("/create");
       await expect(
-        this.page.getByRole("heading", { name: "Create" }),
+        this.page.getByRole("heading", { name: "Create", exact: true }),
       ).toBeVisible({ timeout: 20_000 });
       const templateHeading = this.page
         .getByRole("heading", { name: "Create a tekton CI Pipeline" })
@@ -111,7 +111,7 @@ export class TestHelper {
           await this.page.waitForTimeout(5000);
           await this.page.goto("/create");
           await expect(
-            this.page.getByRole("heading", { name: "Create" }),
+            this.page.getByRole("heading", { name: "Create", exact: true }),
           ).toBeVisible({ timeout: 20_000 });
           templateAvailable = await templateHeading
             .isVisible({ timeout: 10000 })
