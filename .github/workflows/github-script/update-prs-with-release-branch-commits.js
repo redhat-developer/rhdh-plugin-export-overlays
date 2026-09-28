@@ -122,11 +122,12 @@ ${sourceContent}
         continue;
       }
 
-      const prFiles = (await Promise.all((await github.rest.pulls.listCommits({
+      const prFiles = (await Promise.all((await github.paginate(github.rest.pulls.listCommits, {
         owner: context.repo.owner,
         repo: context.repo.repo,
-        pull_number: pr.number
-      })).data.filter(c => 
+        pull_number: pr.number,
+        per_page: 100,
+      })).filter(c => 
           c.author?.login !== 'github-actions[bot]'
       ).map(c => github.rest.repos.getCommit({
           owner: context.repo.owner,

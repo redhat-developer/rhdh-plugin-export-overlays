@@ -53,12 +53,13 @@ jobs:
               workspace = `workspaces/${matches[1]}`;
             } else {
               // Detect modified workspaces from PR files
-              const prFiles = await github.rest.pulls.listFiles({
+              const prFiles = await github.paginate(github.rest.pulls.listFiles, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: prNumber
+                pull_number: prNumber,
+                per_page: 100,
               });
-              const workspaces = [ ... new Set(prFiles.data
+              const workspaces = [ ... new Set(prFiles
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
                 .filter(match => match)
                 .map(match => match[1])
@@ -180,18 +181,19 @@ jobs:
         with:
           script: |
             const prNumber = Number(core.getInput('pr_number'));
-            const prFiles = await github.rest.pulls.listFiles({
+            const prFiles = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
+              per_page: 100,
             });
             const workspace = core.getInput('workspace');
             const metadataPrefix = `${workspace}/metadata/`;
             const e2eTestsPrefix = `${workspace}/e2e-tests/`;
-            const onlyMetadata = prFiles.data.length > 0 &&
-              prFiles.data.every(f => f.filename.startsWith(metadataPrefix));
-            const onlyE2eTests = prFiles.data.length > 0 &&
-              prFiles.data.every(f => f.filename.startsWith(e2eTestsPrefix));
+            const onlyMetadata = prFiles.length > 0 &&
+              prFiles.every(f => f.filename.startsWith(metadataPrefix));
+            const onlyE2eTests = prFiles.length > 0 &&
+              prFiles.every(f => f.filename.startsWith(e2eTestsPrefix));
             core.setOutput('only-metadata-changed', String(onlyMetadata));
             core.setOutput('only-e2e-tests-changed', String(onlyE2eTests));
             core.info(`Only metadata changed: ${onlyMetadata}`);
