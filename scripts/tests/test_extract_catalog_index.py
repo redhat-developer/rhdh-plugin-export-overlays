@@ -27,6 +27,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 EXTRACT_SCRIPT = SCRIPTS_DIR / "extractCatalogIndex.sh"
 
 DPDY = "dynamic-plugins.default.yaml"
+INDEX_JSON = "index.json"
 
 
 def tar_layer(files: dict[str, str], gzipped: bool = False) -> bytes:
@@ -75,6 +76,19 @@ def stub_skopeo(bindir: Path, image_dir: Path) -> None:
     shim.chmod(0o755)
 
 
+def failing_skopeo(bindir: Path, stderr: str, exit_code: int = 1) -> None:
+    """A `skopeo` that fails the copy the way a real registry error does."""
+    bindir.mkdir(parents=True, exist_ok=True)
+    shim = bindir / "skopeo"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        f'echo "{stderr}" >&2\n'
+        f"exit {exit_code}\n",
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+
+
 def missing_tool_bindir(bindir: Path, missing: str) -> None:
     """A PATH that has everything the script needs except `missing`.
 
@@ -94,12 +108,14 @@ def missing_tool_bindir(bindir: Path, missing: str) -> None:
 
 
 
-def run_extract(tmp_path, layers, dest_name="out.yaml"):
+def run_extract(tmp_path, layers, dest_name="out.yaml", dest_is_dir=False):
     image_dir = tmp_path / "image"
     build_image_dir(image_dir, layers)
     bindir = tmp_path / "bin"
     stub_skopeo(bindir, image_dir)
     dest = tmp_path / dest_name
+    if dest_is_dir:
+        dest.mkdir(parents=True, exist_ok=True)
     env = {
         "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
         "HOME": os.environ.get("HOME", "/tmp"),
@@ -165,19 +181,114 @@ class TestExtraction:
         assert result.returncode == 0, result.stderr
         assert dest.is_file()
 
+    def test_directory_dest_extracts_both_files_from_the_topmost_layer(self, tmp_path):
+        result, dest = run_extract(
+            tmp_path,
+            [
+                tar_layer({DPDY: "stale-dpdy\n", INDEX_JSON: '{"stale": true}\n'}),
+                tar_layer({DPDY: "current-dpdy\n", INDEX_JSON: '{"current": true}\n'}),
+            ],
+            dest_name="previous-index",
+            dest_is_dir=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (dest / DPDY).read_text() == "current-dpdy\n"
+        assert json.loads((dest / INDEX_JSON).read_text()) == {"current": True}
+
+    def test_directory_dest_takes_each_file_from_its_own_topmost_layer(self, tmp_path):
+        result, dest = run_extract(
+            tmp_path,
+            [
+                tar_layer({DPDY: "older-dpdy\n", INDEX_JSON: '{"old": true}\n'}),
+                tar_layer({INDEX_JSON: '{"new": true}\n'}),
+            ],
+            dest_name="previous-index",
+            dest_is_dir=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (dest / DPDY).read_text() == "older-dpdy\n"
+        assert json.loads((dest / INDEX_JSON).read_text()) == {"new": True}
+
+    def test_directory_dest_succeeds_with_only_index_json(self, tmp_path):
+        result, dest = run_extract(
+            tmp_path,
+            [tar_layer({INDEX_JSON: '{"a": {}}\n'})],
+            dest_name="previous-index",
+            dest_is_dir=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert (dest / INDEX_JSON).is_file()
+        assert not (dest / DPDY).exists()
+
 
 class TestFailures:
     def test_a_file_that_is_in_no_layer_fails(self, tmp_path):
-        # Silence here would hand the sanity check an empty file and report a clean run
+        # The image was pulled, so this is not "image missing" (exit 1). Silence
+        # here would hand the sanity check an empty file and report a clean run
         # over zero packages.
-        result, dest = run_extract(tmp_path, [tar_layer({"index.json": "{}"})])
-        assert result.returncode == 1
+        result, dest = run_extract(tmp_path, [tar_layer({INDEX_JSON: "{}"})])
+        assert result.returncode == 3
         assert f"{DPDY} not found" in result.stderr
         assert not dest.exists()
 
     def test_an_empty_copy_is_not_accepted(self, tmp_path):
         result, _ = run_extract(tmp_path, [tar_layer({DPDY: ""})])
+        assert result.returncode == 3
+
+    def test_directory_dest_with_neither_file_fails_closed(self, tmp_path):
+        result, dest = run_extract(
+            tmp_path,
+            [tar_layer({"other.txt": "nope\n"})],
+            dest_name="previous-index",
+            dest_is_dir=True,
+        )
+        assert result.returncode == 3
+        assert "not found" in result.stderr
+        assert not (dest / DPDY).exists()
+        assert not (dest / INDEX_JSON).exists()
+
+    def test_a_missing_image_exits_one(self, tmp_path):
+        bindir = tmp_path / "bin"
+        failing_skopeo(
+            bindir,
+            "Error reading manifest next: manifest unknown: manifest unknown",
+        )
+        result = subprocess.run(
+            [
+                str(EXTRACT_SCRIPT),
+                "quay.io/rhdh/missing:next",
+                str(tmp_path / "out.yaml"),
+            ],
+            env={
+                "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+                "HOME": os.environ.get("HOME", "/tmp"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         assert result.returncode == 1
+        assert "image not found" in result.stderr
+
+    def test_an_unauthorized_copy_exits_three(self, tmp_path):
+        bindir = tmp_path / "bin"
+        failing_skopeo(bindir, "unauthorized: authentication required")
+        result = subprocess.run(
+            [
+                str(EXTRACT_SCRIPT),
+                "quay.io/rhdh/private:next",
+                str(tmp_path / "out.yaml"),
+            ],
+            env={
+                "PATH": f"{bindir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+                "HOME": os.environ.get("HOME", "/tmp"),
+            },
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 3
+        assert "failed to copy" in result.stderr
 
     @pytest.mark.parametrize(
         "args", [pytest.param([], id="no_args"), pytest.param(["image"], id="no_dest")]

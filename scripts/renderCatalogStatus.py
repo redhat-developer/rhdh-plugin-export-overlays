@@ -17,6 +17,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
@@ -46,7 +47,13 @@ REASON_ANCHORS = {
     "[index-ref-mismatch]": "validation-index-ref-mismatch",
     "[missing-annotation]": "validation-missing-annotation",
     "[dpdy-missing-package]": "validation-dpdy-missing-package",
+    "[version-regression]": "validation-version-regression",
 }
+
+VERSION_REGRESSION_PREFIX = "[version-regression]"
+VERSION_REGRESSION_RE = re.compile(
+    r"version regressed from (?P<previous>\S+) to (?P<current>\S+)"
+)
 
 
 def reason_to_link(
@@ -71,6 +78,15 @@ def reason_to_link(
             return f"{error_link}: {oci_ref_to_link(remainder, ghcr_version_ids)}"
         return error_link
     return reason
+
+
+def version_regression_warning(plugin: dict) -> str | None:
+    """The validate-stage warning string, or None when the plugin did not regress."""
+    warnings = plugin.get("stages", {}).get("validate", {}).get("warnings") or []
+    for warning in warnings:
+        if isinstance(warning, str) and warning.startswith(VERSION_REGRESSION_PREFIX):
+            return warning
+    return None
 
 
 def load_report(path: str) -> dict:
@@ -271,9 +287,13 @@ def render_tier(
         k: v for k, v in all_passed.items()
         if v.get("stages", {}).get("bootstrap", {}).get("bs_version_mismatch")
     }
+    version_regression = {
+        k: v for k, v in all_passed.items()
+        if version_regression_warning(v)
+    }
     passed = {
         k: v for k, v in all_passed.items()
-        if k not in fallback and k not in bs_mismatch
+        if k not in fallback and k not in bs_mismatch and k not in version_regression
     }
 
     lines.append(f"## {tier_name} Catalog")
@@ -356,6 +376,38 @@ def render_tier(
             name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
             oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
             lines.append(f"| {name_link} | `{pkg}` | `{requested}` | `{resolved}` | {oci_link} |")
+        lines.append("")
+
+    if version_regression:
+        if troubleshooting_content:
+            lines.append(
+                f"### ⚠️ [Version regression](#validation-version-regression) "
+                f"({len(version_regression)})"
+            )
+        else:
+            lines.append(f"### ⚠️ Version regression ({len(version_regression)})")
+        lines.append("")
+        lines.append(
+            "> These plugins resolved to a lower version than the previous published "
+            "catalog index. On `main` this is a warning; on `release-*` it fails the build."
+        )
+        lines.append("")
+        lines.append("| Plugin | Package | Previous | Current | OCI Reference |")
+        lines.append("|--------|---------|----------|---------|---------------|")
+        for name in sorted(version_regression):
+            p = version_regression[name]
+            ws = p.get("workspace", "")
+            pkg = p.get("package", "")
+            oci_ref = p.get("stages", {}).get("bootstrap", {}).get("oci_ref", "")
+            warning = version_regression_warning(p) or ""
+            matched = VERSION_REGRESSION_RE.search(warning)
+            previous = matched.group("previous") if matched else ""
+            current = matched.group("current") if matched else p.get("version", "")
+            name_link = plugin_metadata_link(source_repo, branch, ws, name) if ws else f"`{name}`"
+            oci_link = oci_ref_to_link(oci_ref, ghcr_version_ids)
+            lines.append(
+                f"| {name_link} | `{pkg}` | `{previous}` | `{current}` | {oci_link} |"
+            )
         lines.append("")
 
     if passed:

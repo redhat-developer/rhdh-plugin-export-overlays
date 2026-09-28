@@ -9,20 +9,22 @@ Common issues reported on the status page and how to resolve them.
 **Always fails (every branch):**
 
 - [Image not found in registry](#image-not-found-in-registry) — no exact tag and no fallback.
-- Missing or empty `io.backstage.dynamic-packages` on any plugin image.
+- Missing, empty, or unreadable `io.backstage.dynamic-packages` on any plugin image.
 - `dynamic-plugins.default.yaml` does not list every package from `default.packages.yaml`.
 
 **Fails only on `release-*` (`--strict`):**
 
 - [Plugin marked as outdated](#plugin-marked-as-outdated) (version fallback).
 - [Backstage version mismatch](#backstage-version-mismatch).
-- Plugin version regressed vs the previous published catalog index (see below).
+- Plugin version regressed vs the previous published catalog index (see below). `strict: false` on a release line opts only this check out.
 
-**What to do:** Fix the underlying issue (publish the plugin, restore the annotation, bump the workspace). On `main`, fallback and mismatch issues are warnings and the catalog still publishes.
+**What to do:** Fix the underlying issue (publish the plugin, restore the annotation, bump the workspace). On `main`, fallback, mismatch, and version-regression issues are warnings and the catalog still publishes. Those warnings appear on the generated status page.
+
+<a id="validation-version-regression"></a>
 
 ### Plugin version regressed vs previous release
 
-**What it means:** The supported catalog resolved a plugin to an **older npm/plugin version** than the last published catalog index for this RHDH version — even though the OCI image exists and installed cleanly.
+**What it means:** The supported catalog resolved a plugin to an **older npm/plugin version** than the last published catalog index for this RHDH version — even though the OCI image exists and installed cleanly. On `main` the status page lists these under Version regression; on `release-*` the build fails unless `strict: false` was used for an emergency rollback.
 
 **Common cause:** Metadata was bumped before the new plugin image was published; the pipeline fell back to an older tag and nobody rebuilt the index after publish.
 
@@ -170,9 +172,9 @@ current.
 
 #### missing-annotation
 
-The OCI image exists but lacks the `io.backstage.dynamic-packages` manifest annotation
-required for dynamic plugin installation (RHIDP-16251 / RHDHBUGS-2530). This always
-**fails** the build.
+The OCI image exists but lacks a usable `io.backstage.dynamic-packages` annotation:
+missing, empty, or present but not readable Base64/JSON (RHIDP-16251 / RHDHBUGS-2530).
+This always **fails** the build.
 
 **Fix:** re-export and publish the plugin with `@red-hat-developer-hub/cli plugin package`
 so the annotation is set. Verify with `skopeo inspect` on the image manifest.
@@ -193,7 +195,8 @@ remove it from `default.packages.yaml` if it should not ship.
 `fallback-tag` means the requested build was missing and an older tag was substituted —
 the index ships a stale build. `backstage-version-mismatch` means the workspace targets
 an older Backstage minor than this branch. `version-regression` means the plugin version
-is lower than the previous published catalog index (RHDHBUGS-3503).
+is lower than the previous published catalog index (RHIDP-16252); the status page
+renders these from `stages.validate.warnings`.
 `not-digest-pinned` means a reference carries a tag rather than a digest, so what it
 resolves to can change under the index. `index-missing-entry` means a resolved package
 is missing from `index.json`, so the Extensions UI will not list it.

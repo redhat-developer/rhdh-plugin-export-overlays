@@ -11,6 +11,7 @@ and the `catalog-index/` and `plugin_builds/` trees are written directly, as if 
 steps had produced them. Only Step 5 runs for real.
 """
 
+import base64
 import json
 import os
 import subprocess
@@ -29,6 +30,10 @@ REGISTRY = "quay.io/rhdh"
 COMMUNITY_REGISTRY = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 DIGEST = "sha256:" + "a" * 64
 
+
+def encoded_packages(packages):
+    return base64.b64encode(json.dumps(packages).encode()).decode()
+
 # The scripts update-index.sh calls that reach a container registry. Replaced with
 # no-ops so the wiring can be exercised offline.
 STUBBED = ("bootstrapPluginBuilds.py", "generateCatalogIndex.py")
@@ -37,6 +42,8 @@ STUBBED = ("bootstrapPluginBuilds.py", "generateCatalogIndex.py")
 # the fallback-rebuild CTA, so the stub has to satisfy that import as well as being
 # runnable as a script.
 GENERATE_PLUGIN_BUILD_INFO_STUB = """
+import base64
+import json
 import sys
 
 
@@ -46,6 +53,17 @@ def collect_fallback_entries(plugin_builds_dir):
 
 def print_fallback_rebuild_cta(entries):
     pass
+
+
+def decode_dynamic_packages(annotation):
+    if not annotation:
+        return []
+    try:
+        decoded = base64.b64decode("".join(annotation.split()), validate=True)
+        packages = json.loads(decoded)
+    except ValueError:
+        return None
+    return packages if isinstance(packages, list) else None
 
 
 if __name__ == "__main__":
@@ -174,9 +192,9 @@ def run_update_index(root, *args, bindir=None):
 def write_extract_stub(root, exit_code, stderr_line):
     """A stand-in for extractCatalogIndex.sh that records the contract, not a pull.
 
-    update-index.sh only cares about the extractor's exit code: 0 hands a DPDY to
-    Step 5, 1 skips version-regression, >=2 fails the build. The real script's
-    toolchain and layer-walk live in test_extract_catalog_index.py.
+    update-index.sh only cares about the extractor's exit code: 0 hands a
+    directory to Step 5, 1 skips version-regression, >=2 fails the build. The
+    real script's toolchain and layer-walk live in test_extract_catalog_index.py.
     """
     dest = root / "scripts" / "extractCatalogIndex.sh"
     dest.write_text(
@@ -191,11 +209,13 @@ def write_extract_stub(root, exit_code, stderr_line):
 
 
 def resolved(image, digest=DIGEST, **extra):
+    extra.setdefault(
+        "io.backstage.dynamic-packages", encoded_packages([f"@scope/{image}"])
+    )
     return {
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
         "digest": digest,
-        "io.backstage.dynamic-packages": "present",
         **extra,
     }
 
@@ -296,6 +316,34 @@ class TestValidateMode:
             },
         )
         result = run_update_index(root, "--strict")
+        assert result.returncode == 1
+        assert "fallback-tag" in result.stdout
+
+    def test_allow_warnings_keeps_named_warnings_non_fatal(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(
+            root, "--strict", "--allow-warnings", "fallback-tag"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "fallback-tag" in result.stdout
+
+    def test_allow_warnings_does_not_drop_other_strict_warnings(self, tmp_path):
+        root = build_stub_repo(
+            tmp_path,
+            packages=[{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0"),
+            },
+        )
+        result = run_update_index(
+            root, "--strict", "--allow-warnings", "version-regression"
+        )
         assert result.returncode == 1
         assert "fallback-tag" in result.stdout
 
@@ -537,7 +585,7 @@ class TestPreviousIndexRef:
 
     def test_a_missing_previous_image_skips_version_regression(self, clean_repo):
         write_extract_stub(
-            clean_repo, 1, "dynamic-plugins.default.yaml not found in image"
+            clean_repo, 1, "image not found: quay.io/rhdh-community/plugin-catalog-index"
         )
         result = run_update_index(
             clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
@@ -545,6 +593,15 @@ class TestPreviousIndexRef:
         assert result.returncode == 0, result.stderr
         assert "skipping version-regression" in result.stderr
         assert "version-regression cannot run" not in result.stderr
+
+    def test_a_copy_failure_fails_the_build(self, clean_repo):
+        write_extract_stub(clean_repo, 3, "failed to copy: unauthorized")
+        result = run_update_index(
+            clean_repo, "--previous-index-ref", self.OCI_REF, "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression cannot run" in result.stderr
+        assert "skipping version-regression" not in result.stderr
 
     def test_a_local_previous_dpdy_does_not_call_the_extractor(self, tmp_path):
         root = build_stub_repo(
@@ -564,6 +621,53 @@ class TestPreviousIndexRef:
                             "enabled": False,
                         }
                     ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        write_extract_stub(root, 2, "extractor should not have been invoked")
+        result = run_update_index(
+            root, "--previous-index-ref", str(previous), "--strict"
+        )
+        assert result.returncode == 1
+        assert "version-regression" in result.stdout
+        assert not (root / "extract.calls").exists()
+
+    def test_a_local_previous_directory_prefers_index_json_tags(self, tmp_path):
+        """Published layout: digest-only DPDY, tags in index.json imageTag."""
+        root = build_stub_repo(
+            tmp_path,
+            packages=[
+                {
+                    "package": (
+                        f"oci://{REGISTRY}/orchestrator-dynamic:1.10--5.4.1@{DIGEST}"
+                    )
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+        )
+        previous = root / "previous-index"
+        previous.mkdir()
+        (previous / "dynamic-plugins.default.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (previous / "index.json").write_text(
+            json.dumps(
+                {
+                    "orchestrator-dynamic": {
+                        "imageTag": "1.10--5.7.12",
+                        "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    }
                 }
             ),
             encoding="utf-8",

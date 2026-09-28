@@ -27,7 +27,7 @@ on:
         type: string
         default: ''
       strict:
-        description: 'Policy strictness: auto (release-* only), true, or false'
+        description: 'Policy strictness: auto (release-* only), true, or false (on release-* still strict except version-regression)'
         required: false
         type: choice
         options:
@@ -154,9 +154,19 @@ jobs:
           STRICT_INPUT: ${{ inputs.strict || 'auto' }}
         run: |
           USE_STRICT=false
+          ALLOW_WARNINGS=""
           case "${STRICT_INPUT}" in
             true) USE_STRICT=true ;;
-            false) USE_STRICT=false ;;
+            false)
+              if [[ "${SOURCE_BRANCH}" == release-* ]]; then
+                # Keep fallback-tag and backstage-version-mismatch fatal (RHIDP-15725).
+                # Only version-regression is the emergency-rollback exception.
+                USE_STRICT=true
+                ALLOW_WARNINGS=version-regression
+              else
+                USE_STRICT=false
+              fi
+              ;;
             auto|*)
               if [[ "${SOURCE_BRANCH}" == release-* ]]; then
                 USE_STRICT=true
@@ -164,7 +174,8 @@ jobs:
               ;;
           esac
           echo "use-strict=${USE_STRICT}" >> "$GITHUB_OUTPUT"
-          echo "Policy strict mode: ${USE_STRICT} (input=${STRICT_INPUT}, branch=${SOURCE_BRANCH})"
+          echo "allow-warnings=${ALLOW_WARNINGS}" >> "$GITHUB_OUTPUT"
+          echo "Policy strict mode: ${USE_STRICT} allow-warnings=${ALLOW_WARNINGS:-<none>} (input=${STRICT_INPUT}, branch=${SOURCE_BRANCH})"
 
       - name: Generate supported catalog
         id: gen-supported
@@ -172,6 +183,7 @@ jobs:
           RHDH_VERSION: ${{ steps.versions.outputs.rhdh-version }}
           BS_VERSION: ${{ steps.versions.outputs.backstage-version }}
           USE_STRICT: ${{ steps.policy.outputs.use-strict }}
+          ALLOW_WARNINGS: ${{ steps.policy.outputs.allow-warnings }}
         run: |
           RHDH_VERSION_ARG=""
           if [[ -n "$RHDH_VERSION" ]]; then
@@ -181,6 +193,9 @@ jobs:
           STRICT_ARGS=()
           if [[ "${USE_STRICT}" == "true" ]]; then
             STRICT_ARGS+=(--strict)
+          fi
+          if [[ -n "${ALLOW_WARNINGS}" ]]; then
+            STRICT_ARGS+=(--allow-warnings "${ALLOW_WARNINGS}")
           fi
           PREV_ARGS=()
           if [[ -n "$RHDH_VERSION" && -n "$BS_VERSION" ]]; then
@@ -223,10 +238,14 @@ jobs:
         id: gen-community
         env:
           USE_STRICT: ${{ steps.policy.outputs.use-strict }}
+          ALLOW_WARNINGS: ${{ steps.policy.outputs.allow-warnings }}
         run: |
           STRICT_ARGS=()
           if [[ "${USE_STRICT}" == "true" ]]; then
             STRICT_ARGS+=(--strict)
+          fi
+          if [[ -n "${ALLOW_WARNINGS}" ]]; then
+            STRICT_ARGS+=(--allow-warnings "${ALLOW_WARNINGS}")
           fi
 
           if scripts/update-index.sh \

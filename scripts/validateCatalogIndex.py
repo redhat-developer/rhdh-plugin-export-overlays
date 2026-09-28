@@ -27,6 +27,7 @@ from typing import NamedTuple
 
 import yaml
 
+from generatePluginBuildInfo import decode_dynamic_packages
 from plugin_utils import (
     BuildReport,
     Colors,
@@ -119,8 +120,8 @@ RULES: dict[str, Rule] = {
     ),
     "missing-annotation": Rule(
         ERROR,
-        "the image exists but lacks io.backstage.dynamic-packages "
-        " — always fails the build",
+        "the image exists but lacks a usable io.backstage.dynamic-packages "
+        "annotation (missing, empty, or unreadable) — always fails the build",
         needs_builds=True,
     ),
     "backstage-version-mismatch": Rule(
@@ -632,18 +633,38 @@ def _check_ref(
             )
         )
 
-    if digest and not build.get(DYNAMIC_PACKAGES_ANNOTATION):
-        findings.append(_annotation_finding(ref.image))
+    if digest:
+        finding = _annotation_finding(ref.image, build)
+        if finding:
+            findings.append(finding)
 
     return findings
 
 
-def _annotation_finding(image: str) -> Finding:
-    return Finding(
-        rule="missing-annotation",
-        message=f"'{image}' is missing or empty {DYNAMIC_PACKAGES_ANNOTATION}",
-        image=image,
-    )
+def _annotation_finding(image: str, build: dict) -> Finding | None:
+    """Fail when the annotation is missing, empty, or not a readable package list.
+
+    plugin_builds/ stores the raw string even when decode fails, so a truthy
+    value is not enough: an invalid Base64/JSON blob or an encoded empty list
+    installs as a no-op, same as a missing annotation.
+    """
+    packages = decode_dynamic_packages(build.get(DYNAMIC_PACKAGES_ANNOTATION))
+    if packages is None:
+        return Finding(
+            rule="missing-annotation",
+            message=(
+                f"'{image}' has an unreadable {DYNAMIC_PACKAGES_ANNOTATION} "
+                "annotation"
+            ),
+            image=image,
+        )
+    if not packages:
+        return Finding(
+            rule="missing-annotation",
+            message=f"'{image}' is missing or empty {DYNAMIC_PACKAGES_ANNOTATION}",
+            image=image,
+        )
+    return None
 
 
 def npm_to_image_name(package_name: str) -> str:
@@ -680,7 +701,13 @@ def parse_version_tuple(version: str) -> tuple[int, ...]:
 
 
 def version_less_than(left: str, right: str) -> bool:
-    return parse_version_tuple(left) < parse_version_tuple(right)
+    """Numeric comparison that treats missing components as zero: 1.2 == 1.2.0."""
+    a = parse_version_tuple(left)
+    b = parse_version_tuple(right)
+    width = max(len(a), len(b), 3)
+    a += (0,) * (width - len(a))
+    b += (0,) * (width - len(b))
+    return a < b
 
 
 def expected_packages_from_default(default_packages_file: Path) -> list[str]:
@@ -751,8 +778,9 @@ def check_builds_outside_dpdy(
                 )
             )
             continue
-        if not build.get(DYNAMIC_PACKAGES_ANNOTATION):
-            findings.append(_annotation_finding(image))
+        finding = _annotation_finding(image, build)
+        if finding:
+            findings.append(finding)
         if build.get("fallback"):
             findings.append(
                 Finding(
@@ -841,23 +869,32 @@ def check_version_regression(
     return findings
 
 
+def _versions_from_index_path(path: Path) -> dict[str, str]:
+    index = load_index_json(path)
+    return versions_from_index_json(index) if index else {}
+
+
 def load_previous_versions(previous_index_dpdy: Path | None) -> dict[str, str]:
     if previous_index_dpdy is None:
         return {}
-    if previous_index_dpdy.is_file() and previous_index_dpdy.name.endswith(
-        (".yaml", ".yml")
-    ):
-        return versions_from_dpdy_entries(load_dpdy_entries(previous_index_dpdy))
-    if previous_index_dpdy.is_file() and previous_index_dpdy.name == INDEX_JSON_FILENAME:
-        index = load_index_json(previous_index_dpdy)
-        return versions_from_index_json(index) if index else {}
-    if previous_index_dpdy.is_dir():
-        dpdy = previous_index_dpdy / DPDY_FILENAME
-        if dpdy.is_file():
-            return versions_from_dpdy_entries(load_dpdy_entries(dpdy))
-        index_path = previous_index_dpdy / INDEX_JSON_FILENAME
-        index = load_index_json(index_path)
-        return versions_from_index_json(index) if index else {}
+    if previous_index_dpdy.is_file():
+        if previous_index_dpdy.name.endswith((".yaml", ".yml")):
+            return versions_from_dpdy_entries(load_dpdy_entries(previous_index_dpdy))
+        if previous_index_dpdy.name == INDEX_JSON_FILENAME:
+            return _versions_from_index_path(previous_index_dpdy)
+        return {}
+    if not previous_index_dpdy.is_dir():
+        return {}
+    # Published catalogs pin DPDY refs to digests; tags live in index.json
+    # imageTag. Prefer that map, and only fall back to DPDY when it has none.
+    index_path = previous_index_dpdy / INDEX_JSON_FILENAME
+    if index_path.is_file():
+        versions = _versions_from_index_path(index_path)
+        if versions:
+            return versions
+    dpdy = previous_index_dpdy / DPDY_FILENAME
+    if dpdy.is_file():
+        return versions_from_dpdy_entries(load_dpdy_entries(dpdy))
     return {}
 
 
@@ -1088,10 +1125,15 @@ def render(result: ValidationResult) -> str:
     return "\n".join(lines)
 
 
-def to_json(result: ValidationResult, strict: bool) -> dict:
+def to_json(
+    result: ValidationResult,
+    strict: bool,
+    allowed_warnings: set[str] | None = None,
+) -> dict:
     """The machine-readable shape a workflow step or a status page can consume."""
+    allowed = allowed_warnings or set()
     return {
-        "status": "fail" if _failed(result, strict) else "pass",
+        "status": "fail" if _failed(result, strict, allowed) else "pass",
         "strict": strict,
         "stats": result.stats,
         "skippedRules": result.skipped_rules,
@@ -1117,8 +1159,18 @@ def to_json(result: ValidationResult, strict: bool) -> dict:
     }
 
 
-def _failed(result: ValidationResult, strict: bool) -> bool:
-    return bool(result.errors) or (strict and bool(result.warnings))
+def _failed(
+    result: ValidationResult,
+    strict: bool,
+    allowed_warnings: set[str] | None = None,
+) -> bool:
+    """Errors always fail. Under --strict, warnings fail unless --allow-warnings named them."""
+    if result.errors:
+        return True
+    if not strict:
+        return False
+    allowed = allowed_warnings or set()
+    return any(finding.rule not in allowed for finding in result.warnings)
 
 
 def record_in_report(result: ValidationResult, report: BuildReport) -> None:
@@ -1190,7 +1242,7 @@ Usage: python3 validateCatalogIndex.py \\
     -r|--registry BASE \\
     [-cr|--community-registry BASE] \\
     [-a|--allowlist FILE] \\
-    [--report-file FILE] [--json FILE] [--strict] \\
+    [--report-file FILE] [--json FILE] [--strict] [--allow-warnings RULE] \\
     [--default-packages-file FILE] \\
     [--previous-index-dpdy FILE] [--list-rules] [--debug]
 
@@ -1263,14 +1315,19 @@ Examples:
              "version-regression, not-digest-pinned, index-missing-entry)",
     )
     parser.add_argument(
+        "--allow-warnings", action="append", default=[], metavar="RULE",
+        help="Keep this warning rule non-fatal even under --strict. Repeatable. "
+             "Used for a release-* emergency rollback of version-regression.",
+    )
+    parser.add_argument(
         "--default-packages-file", type=str, metavar="FILE",
         help="default.packages.yaml for dpdy-missing-package identity check",
     )
     parser.add_argument(
         "--previous-index-dpdy", type=str, metavar="FILE",
-        help="Previous catalog index DPDY (or directory / index.json) for "
-             "version-regression. Extract an OCI ref with extractCatalogIndex.sh "
-             "first — this validator does not touch the network.",
+        help="Previous catalog index DPDY, index.json, or directory (index.json "
+             "preferred for tags) for version-regression. Extract an OCI ref with "
+             "extractCatalogIndex.sh first — this validator does not touch the network.",
     )
     parser.add_argument(
         "--no-build-metadata", action="store_true",
@@ -1296,6 +1353,19 @@ Examples:
 
     if not args.registry:
         parser.error("--registry is required")
+
+    allowed_warnings = set(args.allow_warnings or [])
+    unknown = sorted(allowed_warnings - set(RULES))
+    if unknown:
+        parser.error(f"unknown --allow-warnings rule: {', '.join(unknown)}")
+    not_warnings = sorted(
+        rule for rule in allowed_warnings if RULES[rule].severity != WARNING
+    )
+    if not_warnings:
+        parser.error(
+            "--allow-warnings only applies to warning rules: "
+            + ", ".join(not_warnings)
+        )
 
     try:
         output_dir, plugin_builds_dir, allowlist_path, json_out = _resolve_paths(args)
@@ -1361,14 +1431,18 @@ def _emit(
     if json_out:
         json_out.parent.mkdir(parents=True, exist_ok=True)
         with open(json_out, "w", encoding="utf-8") as f:
-            json.dump(to_json(result, args.strict), f, indent=2)
+            json.dump(
+                to_json(result, args.strict, set(args.allow_warnings or [])),
+                f,
+                indent=2,
+            )
             f.write("\n")
         log_debug(f"Wrote {json_out}")
 
     if report_file:
         record_in_report(result, BuildReport(str(report_file)))
 
-    if _failed(result, args.strict):
+    if _failed(result, args.strict, set(args.allow_warnings or [])):
         log_error(
             f"Catalog index validation failed: {len(result.errors)} error(s), "
             f"{len(result.warnings)} warning(s)"

@@ -7,6 +7,7 @@ reports everything is as useless as one that reports nothing, and only the negat
 tests catch the over-broad rule.
 """
 
+import base64
 import json
 import re
 from pathlib import Path
@@ -42,6 +43,11 @@ REGISTRY = "quay.io/rhdh"
 COMMUNITY_REGISTRY = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays"
 DIGEST = "sha256:" + "a" * 64
 OTHER_DIGEST = "sha256:" + "b" * 64
+
+
+def encoded_packages(packages):
+    """plugin_builds stores the raw Base64 annotation, not a placeholder string."""
+    return base64.b64encode(json.dumps(packages).encode()).decode()
 
 
 # ---------------------------------------------------------------------------
@@ -85,11 +91,13 @@ def write_index(
 
 def resolved(image, digest=DIGEST, **extra):
     """A plugin_builds entry for an image whose registry lookup succeeded."""
+    extra.setdefault(
+        DYNAMIC_PACKAGES_ANNOTATION, encoded_packages([f"@scope/{image}"])
+    )
     return {
         "workspacePath": f"ws/plugins/{image}",
         "registryReference": f"{REGISTRY}/{image}@{digest}",
         "digest": digest,
-        DYNAMIC_PACKAGES_ANNOTATION: "present",
         **extra,
     }
 
@@ -1010,6 +1018,39 @@ class TestPolicyRules:
         finding = next(f for f in result.findings if f.rule == "missing-annotation")
         assert finding.severity == ERROR
         assert DYNAMIC_PACKAGES_ANNOTATION in finding.message
+        assert "missing or empty" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_empty_decoded_annotation_is_missing_annotation(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(
+                    image="plugin-a",
+                    **{DYNAMIC_PACKAGES_ANNOTATION: encoded_packages([])},
+                )
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert "missing or empty" in finding.message
+        assert to_json(result, strict=False)["status"] == "fail"
+
+    def test_unreadable_annotation_is_missing_annotation(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved(
+                    image="plugin-a",
+                    **{DYNAMIC_PACKAGES_ANNOTATION: "!!!not-base64!!!"},
+                )
+            },
+        )
+        finding = next(f for f in result.findings if f.rule == "missing-annotation")
+        assert finding.severity == ERROR
+        assert "unreadable" in finding.message
         assert to_json(result, strict=False)["status"] == "fail"
 
     def test_dpdy_completeness_is_by_package_identity_not_count(self, tmp_path):
@@ -1081,6 +1122,14 @@ class TestPolicyRules:
         assert missing[0].message.startswith("'@backstage/plugin-techdocs'")
         assert missing[0].image == "backstage-plugin-techdocs"
 
+    def test_two_and_three_component_versions_are_equivalent(self):
+        """VERSION_SUFFIX_RE accepts 1.2 and 1.2.0; they must not report a regression."""
+        assert not version_less_than("1.2", "1.2.0")
+        assert not version_less_than("1.2.0", "1.2")
+        assert version_less_than("1.2", "1.2.1")
+        assert not version_less_than("1.2.1", "1.2")
+        assert version_less_than("5.4.1", "5.7.12")
+
     def test_version_regression_rhdhbugs_3503_shape(self):
         assert version_less_than("5.4.1", "5.7.12")
         findings = check_version_regression(
@@ -1129,6 +1178,111 @@ class TestPolicyRules:
         assert len(regressions) == 1
         assert to_json(result, strict=False)["status"] == "pass"
         assert to_json(result, strict=True)["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"version-regression"}
+        )["status"] == "pass"
+
+    def test_published_previous_index_json_tags_detect_regression(self, tmp_path):
+        """Published catalogs pin DPDY refs to digests; tags live in index.json imageTag."""
+        previous = tmp_path / "previous-index"
+        previous.mkdir()
+        (previous / "dynamic-plugins.default.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (previous / "index.json").write_text(
+            json.dumps(
+                {
+                    "orchestrator-dynamic": {
+                        "imageTag": "1.10--5.7.12",
+                        "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            index_json={
+                "orchestrator-dynamic": {
+                    "imageTag": "1.10--5.4.1",
+                    "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                }
+            },
+            previous_index_dpdy=previous,
+        )
+        regressions = [f for f in result.findings if f.rule == "version-regression"]
+        assert len(regressions) == 1
+        assert "5.7.12" in regressions[0].message
+        assert "5.4.1" in regressions[0].message
+        assert to_json(result, strict=True)["status"] == "fail"
+
+    def test_digest_only_previous_dpdy_file_skips_regression(self, tmp_path):
+        previous = tmp_path / "previous-dpdy.yaml"
+        previous.write_text(
+            yaml.safe_dump(
+                {
+                    "plugins": [
+                        {
+                            "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                            "enabled": False,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        result = run(
+            tmp_path,
+            [
+                {
+                    "package": f"oci://{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                    "enabled": False,
+                }
+            ],
+            builds={"orchestrator-dynamic": resolved("orchestrator-dynamic")},
+            index_json={
+                "orchestrator-dynamic": {
+                    "imageTag": "1.10--5.4.1",
+                    "registryReference": f"{REGISTRY}/orchestrator-dynamic@{DIGEST}",
+                }
+            },
+            previous_index_dpdy=previous,
+        )
+        assert "version-regression" not in rules_of(result)
+
+    def test_allow_warnings_does_not_drop_other_strict_warnings(self, tmp_path):
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a@{DIGEST}"}],
+            builds={
+                "plugin-a": resolved("plugin-a", fallback=True, requestedTag="2.0")
+            },
+        )
+        assert "fallback-tag" in rules_of(result)
+        assert to_json(result, strict=True)["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"version-regression"}
+        )["status"] == "fail"
+        assert to_json(
+            result, strict=True, allowed_warnings={"fallback-tag"}
+        )["status"] == "pass"
 
     def test_backstage_mismatch_from_report(self, tmp_path):
         report_file = tmp_path / "build-report.json"
