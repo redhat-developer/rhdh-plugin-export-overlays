@@ -2,7 +2,6 @@ import { expect, type Page, type Locator } from "@playwright/test";
 
 /** Minimal UI helper interface used by populateMissingPanelData (matches e2e-test-utils fixture). */
 export interface AdoptionInsightsUiHelperForPanel {
-  openSidebarButton(name: string): Promise<void>;
   clickLink(name: string): Promise<void>;
   fillTextInputByLabel(label: string, text: string): Promise<void>;
   clickButton(
@@ -135,7 +134,7 @@ export class TestHelper {
         - button "DOCS , Opens in a new window"
         - img "no Build"
         `);
-      await uiHelper.openSidebarButton("Administration");
+      await clickAdoptionInsightsSidebarLink(this.page);
     }
   }
 
@@ -191,28 +190,27 @@ async function waitUntilApiCallSucceeds(
   expect(response.status()).toBe(200);
 }
 
-/** Navigate to Adoption Insights page and wait for panels. */
-export async function goToAdoptionInsights(
-  uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
-    clickLink: (n: string) => Promise<void>;
-  },
+/** Click the "Adoption Insights" direct sidebar link (RHDH 2.0+). */
+export async function clickAdoptionInsightsSidebarLink(
   page: Page,
 ): Promise<void> {
-  await uiHelper.openSidebarButton("Administration");
-  await uiHelper.clickLink("Adoption Insights");
+  const navLink = page
+    .locator("nav a")
+    .filter({ hasText: "Adoption Insights" })
+    .first();
+  await navLink.waitFor({ state: "visible", timeout: 15_000 });
+  await navLink.click();
+}
+
+/** Navigate to Adoption Insights page and wait for panels. */
+export async function goToAdoptionInsights(page: Page): Promise<void> {
+  await clickAdoptionInsightsSidebarLink(page);
   await waitForPanelApiCalls(page);
 }
 
 /** Navigate to Adoption Insights and select "Today" date range. */
-export async function goToAdoptionInsightsWithToday(
-  uiHelper: {
-    openSidebarButton: (n: string) => Promise<void>;
-    clickLink: (n: string) => Promise<void>;
-  },
-  page: Page,
-): Promise<void> {
-  await goToAdoptionInsights(uiHelper, page);
+export async function goToAdoptionInsightsWithToday(page: Page): Promise<void> {
+  await goToAdoptionInsights(page);
   await selectDateRangeToday(page);
 }
 
@@ -265,5 +263,5 @@ export async function runInteractionTrackingSetup(
   await uiHelper.clickLink("Catalog");
   await page.reload();
   await testHelper.waitUntilApiCallSucceeds(page);
-  await goToAdoptionInsightsWithToday(uiHelper, page);
+  await goToAdoptionInsightsWithToday(page);
 }

@@ -6,6 +6,7 @@ import {
 import type { BrowserContext, Page } from "@playwright/test";
 import {
   goToAdoptionInsights,
+  clickAdoptionInsightsSidebarLink,
   waitForPanelApiCalls,
   runInteractionTrackingSetup,
   TestHelper,
@@ -55,7 +56,7 @@ test.describe.serial("Test Adoption Insights", () => {
     let techdocsFirstEntry: string[] = [];
 
     test("Check UI navigation by nav bar when adoption-insights is enabled", async () => {
-      await goToAdoptionInsights(uiHelper, page);
+      await goToAdoptionInsights(page);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- intentional delay for UI stabilization
       await page.waitForTimeout(5000);
       await uiHelper.verifyHeading("Adoption Insights");
@@ -211,8 +212,7 @@ test.describe.serial("Test Adoption Insights", () => {
 
         await page.reload();
         await testHelper.waitUntilApiCallSucceeds(page);
-        await uiHelper.openSidebarButton("Administration");
-        await uiHelper.clickLink("Adoption Insights");
+        await clickAdoptionInsightsSidebarLink(page);
         await testHelper.clickByText("Last 28 days");
         await Promise.all([
           waitForPanelApiCalls(page),
