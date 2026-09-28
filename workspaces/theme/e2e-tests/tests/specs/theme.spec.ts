@@ -37,7 +37,9 @@ test.describe("Theme Plugin tests", () => {
 
   test("Verify that RHDH CompanyLogo is theme-aware", async ({ page }) => {
     await themeVerifier.setTheme("Light");
-    const logo = page.getByTestId("home-logo");
+    const logo = page
+      .locator('nav[aria-label="sidebar nav"]')
+      .getByTestId("home-logo");
     await expect(logo).toBeVisible();
     await expect(logo).toHaveAttribute("src", /^data:image\/svg\+xml/);
     const lightSrc = await logo.evaluate((el) => (el as HTMLImageElement).src);
@@ -48,11 +50,13 @@ test.describe("Theme Plugin tests", () => {
   });
 
   test("Verify logo link", async ({ page }) => {
-    await expect(
-      page.getByTestId("global-header-company-logo").locator("a"),
-    ).toHaveAttribute("href", "/");
-    await page.getByTestId("global-header-company-logo").click();
-    await expect(page).toHaveURL("/");
+    const homeLink = page
+      .locator('nav[aria-label="sidebar nav"]')
+      .getByRole("link", { name: "Home" })
+      .first();
+    await expect(homeLink).toHaveAttribute("href", "/");
+    await homeLink.click();
+    await expect(page).toHaveURL(/\/$/);
   });
 
   test("Verify that title for Backstage can be customized", async ({
