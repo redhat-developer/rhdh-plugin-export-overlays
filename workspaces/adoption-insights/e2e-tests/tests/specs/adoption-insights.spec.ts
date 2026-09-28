@@ -183,7 +183,6 @@ test.describe.serial("Test Adoption Insights", () => {
           if (title === "techdocs") {
             headerTxt = techdocsFirstEntry[0];
             state[title].initialViewsCount = Number(techdocsFirstEntry[1]);
-            if (headerTxt === "docs") headerTxt = "Documentation";
             await testHelper.clickAndVerifyText(firstEntry, headerTxt);
           } else if (title === "catalog entities") {
             headerTxt = "Red Hat Developer Hub";

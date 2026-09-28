@@ -81,13 +81,13 @@ export class TestHelper {
       await expect(
         this.page.getByRole("heading", { name: "Create", exact: true }),
       ).toBeVisible({ timeout: 20_000 });
+      await this.page.waitForTimeout(5000);
       const templateHeading = this.page
         .getByRole("heading", { name: "Create a tekton CI Pipeline" })
         .first();
       let templateAvailable = await templateHeading
         .isVisible({ timeout: 10000 })
         .catch(() => false);
-      await this.page.waitForTimeout(5000);
       if (!templateAvailable) {
         const importButton = this.page.getByRole("button", {
           name: "Import an existing Git repository",
@@ -120,7 +120,10 @@ export class TestHelper {
       }
 
       if (templateAvailable) {
-        const pipelineCard = templateHeading.locator("..").locator("..");
+        const pipelineCard = templateHeading
+          .locator("..")
+          .locator("..")
+          .first();
         await pipelineCard.getByRole("button", { name: "Choose" }).click();
 
         const inputText = "reallyUniqueName";
