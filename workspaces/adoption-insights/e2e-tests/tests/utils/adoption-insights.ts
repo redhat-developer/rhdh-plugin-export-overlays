@@ -75,9 +75,12 @@ export class TestHelper {
     techdocsFirstLast: string[],
   ): Promise<void> {
     if (templatesFirstLast.length === 0) {
-      // TODO: revert to "Self-service" once fixed: https://redhat.atlassian.net/browse/RHDHBUGS-3676
-      // await this.page.getByRole("link", { name: "Self-service" }).click();
-      await this.page.getByRole("link", { name: "Create" }).click();
+      // Prefer /create over nav link — Self-service was renamed to Create
+      // (RHDHBUGS-3676); a link named "Create" is ambiguous with other UI.
+      await this.page.goto("/create");
+      await expect(
+        this.page.getByRole("heading", { name: "Create" }),
+      ).toBeVisible({ timeout: 20_000 });
       const templateHeading = this.page
         .getByRole("heading", { name: "Create a tekton CI Pipeline" })
         .first();
@@ -104,11 +107,12 @@ export class TestHelper {
           // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time after Import
           await this.page.waitForTimeout(2000);
           await this.page.getByRole("button", { name: "Register" }).click();
-          // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time before Create
+          // eslint-disable-next-line playwright/no-wait-for-timeout -- template wizard needs fixed settle time before Create page
           await this.page.waitForTimeout(5000);
-          // TODO: revert to "Self-service" once fixed: https://redhat.atlassian.net/browse/RHDHBUGS-3676
-          // await this.page.getByRole("link", { name: "Self-service" }).click();
-          await this.page.getByRole("link", { name: "Create" }).click();
+          await this.page.goto("/create");
+          await expect(
+            this.page.getByRole("heading", { name: "Create" }),
+          ).toBeVisible({ timeout: 20_000 });
           templateAvailable = await templateHeading
             .isVisible({ timeout: 10000 })
             .catch(() => false);
