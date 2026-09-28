@@ -15,7 +15,7 @@
 | Review | Auto-triggers on PR open/update | Automatic for `workspaces/backstage-plugins-for-aws/` PRs |
 | Fix | `/fs-fix` slash command, or `changes_requested` review | Post on a PR, or request changes on a fullsend PR |
 | E2E Triage | Auto-triggers nightly via `e2e-triage` label | Discovers failed nightly E2E runs, classifies per workspace, creates issues for the code agent |
-| CI Diagnose | Auto-triggers via `ci-diagnose` label when curated PR checks go red, or `/fs-diagnose` slash command | Diagnoses failing PR checks (Prow, GitHub Actions, comment-command statuses) and posts a read-only sticky diagnostic comment |
+| CI Diagnose | Auto-triggers via `ci-diagnose` label when curated PR checks go red, or `/fs-diagnose` slash command | Diagnoses failing PR checks (Prow, GitHub Actions, comment-command statuses) and posts a read-only diagnosis comment |
 
 ### Auto-trigger vs. manual trigger
 
@@ -26,7 +26,7 @@
 | Review | **Auto-triggers on `workspaces/backstage-plugins-for-aws/` PRs.** Scoped via `paths` filter. | `/fs-review` on any PR (auth-gated) |
 | Fix | Only auto-fires from bot reviews, not from human reviews. Includes the ci-diagnose `CHANGES_REQUESTED` hand-off on bot-authored PRs. | `/fs-fix` on a PR, `/fs-fix-stop` to disable |
 | E2E Triage | **Auto-triggers nightly.** `e2e-triage-agent.yaml` discovers failed nightly runs, creates a labeled issue → fullsend dispatch routes to `e2e-triage` agent → agent classifies failures → post-script creates per-workspace issues with `ready-to-code` → code agent picks up each issue. | Manually run `e2e-triage-agent.yaml` workflow |
-| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script upserts one sticky comment on the PR. On **bot-authored** PRs with `pr_regression` failures, the post-script then requests changes as `fullsend-ai-review[bot]` so the existing fix on-ramp runs (see [Automated ci-diagnose → fix hand-off](#automated-ci-diagnose--fix-hand-off)). `pre_existing` failures are linked to an open PR when one already addresses them. | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
+| CI Diagnose | **Auto-triggers on PR CI completion.** `ci-diagnose-agent.yaml` reacts to `check_suite`/`status` events, recomputes the live red curated-check set, and cycles the `ci-diagnose` label → fullsend dispatch routes to `ci-diagnose` agent → agent diagnoses each red check → post-script posts a fresh diagnosis comment on the PR. Once all curated checks for a commit settle, one diagnosis comment is posted; another appears only if the diagnosed red-check set changes or `/fs-diagnose` is run manually. On **bot-authored** PRs with `pr_regression` failures, the post-script then requests changes as `fullsend-ai-review[bot]` so the existing fix on-ramp runs (see [Automated ci-diagnose → fix hand-off](#automated-ci-diagnose--fix-hand-off)). `pre_existing` failures are linked to an open PR when one already addresses them. | `/fs-diagnose` on a PR (auth-gated), or manually run `ci-diagnose-agent.yaml` workflow with a `pr_number` input |
 
 ### Scope details
 
@@ -51,7 +51,7 @@ to type `/fs-fix` by hand. This lives in `post-ci-diagnose.sh` — no extra
 workflow and no PAT.
 
 **Flow:** the ci-diagnose agent writes `agent-result.json` → `post-ci-diagnose.sh`
-upserts the sticky comment, then (if guards pass) submits a `CHANGES_REQUESTED`
+posts a fresh diagnosis comment, then (if guards pass) submits a `CHANGES_REQUESTED`
 review as `fullsend-ai-review[bot]` (the same review App that minted the
 diagnose token) → `fullsend.yaml`'s `pull_request_review` path dispatches the
 inlined fix job. Frozen `fix.md` already reads the last `CHANGES_REQUESTED`
@@ -88,7 +88,7 @@ hit, the post-script posts a one-time note and stops. The fix agent's built-in
 `FIX_ITERATION` cap still applies as a coarser backstop.
 
 **Fixable set** = `pr_regression` only (this PR caused it). `pre_existing` is
-still diagnosed and, when another open PR already addresses it, the sticky
+still diagnosed and, when another open PR already addresses it, the diagnosis
 comment links that PR — it is **not** handed to auto-fix. `flake` /
 `config_env` / `product_bug` / `needs_human` are **not** handed off.
 

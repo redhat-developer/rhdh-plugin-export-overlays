@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ci-diagnose-result.schema.json",
   "title": "CI Diagnose Agent Result",
-  "description": "Structured output from the ci-diagnose agent. Diagnoses failing PR checks (GitHub Actions + OpenShift CI/Prow), classifies each, and renders the sticky PR comment the post-script upserts.",
+  "description": "Structured output from the ci-diagnose agent. Diagnoses failing PR checks (GitHub Actions + OpenShift CI/Prow), classifies each, and renders the diagnosis body that the post-script posts as a fresh PR comment.",
   "type": "object",
   "additionalProperties": false,
   "required": ["pr_number", "head_sha", "verdict", "summary", "checks", "comment_body"],
@@ -40,7 +40,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 65536,
-      "description": "Fully rendered markdown for the sticky PR comment. MUST contain the sticky marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
+      "description": "Fully rendered markdown for a fresh diagnosis PR comment. MUST contain the diagnosis marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
     }
   },
   "$defs": {

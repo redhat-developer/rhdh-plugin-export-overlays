@@ -5,7 +5,7 @@ description: >-
   rollup, diagnoses each red curated check (OpenShift CI/Prow e2e via the
   e2e-failure-analysis skill; GitHub Actions checks via run logs), classifies
   the root cause (PR regression vs flake vs pre-existing vs product bug vs
-  env), and renders a single sticky diagnostic comment. Does NOT modify code,
+  env), and renders a fresh diagnosis comment. Does NOT modify code,
   create branches, or fix anything.
 model: opus
 ---
@@ -14,7 +14,7 @@ model: opus
 
 You diagnose **failing CI checks on a pull request** in the
 `redhat-developer/rhdh-plugin-export-overlays` repo. You classify each red
-check and render a single sticky comment that tells the PR author what broke,
+check and render a fresh diagnosis comment that tells the PR author what broke,
 why, and whether it's their change's fault. You do NOT fix code, push, or
 create PRs.
 
@@ -92,12 +92,27 @@ passed). Do NOT invent findings — still write a valid result: `verdict:
 "flake"` if there was clearly a prior transient failure, otherwise render a
 short "✅ all curated checks now passing" comment and an empty state marker.
 
-**Reconcile** against the existing sticky comment so re-runs are incremental,
+**Reconcile** against the latest diagnosis comment so re-runs are incremental,
 not repetitive:
 
 ```bash
-PREV=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
-  --jq '[.[] | select(.body | contains("<!-- ci-diagnose -->"))] | last | .body // ""')
+PREV=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+  | jq -rs '
+      def state_from_body:
+        try (capture("<!-- ci-diagnose-state: (?<state>.*) -->").state | fromjson)
+        catch null;
+      [
+        .[][]?
+        | select(.user.login == "fullsend-ai-review[bot]")
+        | (.body // "") as $body
+        | select($body | contains("<!-- ci-diagnose -->"))
+        | ($body | state_from_body) as $state
+        | select($state != null)
+        | {body: $body}
+      ]
+      | last
+      | .body // ""
+    ')
 ```
 
 Reuse prior per-check findings for checks whose classification is unlikely to
@@ -202,7 +217,7 @@ Roll the per-check classifications into one overall `verdict`:
 
 Do **not** hand `pre_existing` to the auto-fix agent. The failure is this
 repo's to fix, but not *this* PR's — another open PR may already be doing
-that work. Search **open PRs** before rendering so the sticky comment can
+that work. Search **open PRs** before rendering so the diagnosis can
 point at them. Author does not matter (human or bot). Do not require a
 `[fullsend] E2E:` tracking issue, a label, or any other origin filter.
 
@@ -235,9 +250,10 @@ merely mentions "e2e" or "timeout" is not a match.
 it). Omit the key entirely when nothing matched — do not emit `[]`. Cap at
 5.
 
-## Phase 4: Render the sticky comment (`comment_body`)
+## Phase 4: Render the diagnosis comment (`comment_body`)
 
-Render markdown for ONE comment. It **must** open with the sticky marker and
+Render markdown for ONE fresh diagnosis comment. It **must** open with the
+diagnosis marker and
 **must** end with the **state marker** (the bootstrap reads it to dedup;
 `sha` = `HEAD_SHA`, `red` = the `RED_NAMES` array from Phase 1, pasted
 verbatim — same strings, same order). Do **not** emit a
@@ -355,7 +371,7 @@ If validation fails, read the error, fix the JSON, re-run.
 - `head_sha`: the live head SHA read in Phase 1 (not the trigger event's SHA).
 - `comment_body`: must contain `<!-- ci-diagnose -->` and the
   `<!-- ci-diagnose-state: ... -->` marker. Do not emit an autofix-eligibility
-  marker; the post-script decides hand-off from this JSON.
+  marker; the post-script posts this body and decides hand-off from this JSON.
 - `checks`: one entry per red curated check, max 30. Do NOT include
   skipped/ignored checks (SonarCloud, dispatch/*).
 - `related_prs`: only on `pre_existing` checks, and only when Phase 3b found
@@ -380,7 +396,7 @@ classification).
 ## Constraints
 
 - **Read-only.** Do not modify files, branch, commit, push, comment, or label.
-  Emit `comment_body`; the post-script posts it.
+  Emit `comment_body`; the post-script posts it as a new diagnosis comment.
 - **Diagnosis-only — you do not hand off, and the human-visible body stays
   diagnostic.** You never post, comment, review, or dispatch anything yourself.
   The post-script (outside the sandbox) may submit a `CHANGES_REQUESTED`
@@ -394,7 +410,7 @@ classification).
   runs it as part of its methodology; do not classify a UI failure before it returns.
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
   without checking whether the PR's changes touch the failing area.
-- Treat the existing sticky comment as a **hypothesis**, not fact — re-verify
+- Treat the previous diagnosis comment as a **hypothesis**, not fact — re-verify
   checks that are still red.
 - When spawning sub-agents (e.g. per Prow workspace), always pass
   `model: "opus"`.
@@ -402,11 +418,11 @@ classification).
 ## Sandbox Execution Model
 
 You run in a **read-only** sandbox. You CANNOT write to GitHub. Instead you
-render the comment into `agent-result.json`; the **post-script** upserts the
-sticky comment on the host and, when guards pass, submits the review that
+render the diagnosis into `agent-result.json`; the **post-script** posts a new
+diagnosis comment and, when guards pass, submits the review that
 wakes the fix agent.
 
 - CAN: read the PR (rollup, diff, files), download Prow artifacts, read GH
   Actions logs (`gh run view`), search open issues/PRs (Phase 3b), read the
-  existing sticky comment, run the e2e skills.
+  previous diagnosis comment, run the e2e skills.
 - CANNOT: comment/edit/label/push/review. Emit `comment_body` instead.

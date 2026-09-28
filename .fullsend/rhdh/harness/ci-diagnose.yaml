@@ -5,16 +5,15 @@
 #   agent       : reads the PR's current check rollup, diagnoses each red
 #                 curated check (Prow e2e via skills, GH Actions via run logs),
 #                 classifies (pr_regression / flake / pre_existing / ...),
-#                 and renders the sticky PR comment body.
-#   post_script : upserts ONE sticky comment on the PR (edit-in-place via a
-#                 hidden marker), so re-runs update rather than spam. For
+#                 and renders the diagnosis body.
+#   post_script : posts a fresh diagnosis comment for each completed run. For
 #                 bot-authored same-repo PRs with pr_regression findings it
 #                 also submits CHANGES_REQUESTED as this review App, which is
 #                 the built-in bot→fix on-ramp in reusable-dispatch.yml.
 #
 # The ci-diagnose agent does NOT modify code, push branches, or create PRs.
-# It only reads CI artifacts/logs and writes a diagnostic comment. The
-# post-script is the only GitHub writer (sticky comment + optional review).
+# It only reads CI artifacts/logs and renders a diagnostic body. The
+# post-script posts that body and may submit the optional review hand-off.
 #
 # Trigger: either (a) a `ci-diagnose` label applied by the bootstrap workflow
 # (.github/workflows/ci-diagnose-agent.yaml), which reacts to CI-completion
