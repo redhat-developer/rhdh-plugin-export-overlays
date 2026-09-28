@@ -13,7 +13,6 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     await rhdh.configure({
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-pull-requests/app-config-rhdh.yaml`,
-      dynamicPlugins: `${WorkspacePaths.configDir}/github-pull-requests/dynamic-plugins.yaml`,
       secrets: `${WorkspacePaths.configDir}/github-pull-requests/rhdh-secrets.yaml`,
     });
     await rhdh.deploy();
@@ -35,7 +34,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
     expect(page.url()).toContain(expectedPath);
 
-    await uiHelper.waitForTitle("Red Hat Developer Hub");
+    await uiHelper.verifyHeading("Red Hat Developer Hub");
 
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 60000 },
