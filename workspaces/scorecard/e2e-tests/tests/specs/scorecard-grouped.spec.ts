@@ -8,6 +8,11 @@ import {
 } from "../utils/setup";
 
 test.describe.serial("Scorecard Grouped Metrics", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "OCI images on quay.io/rhdh with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let context: BrowserContext | undefined;
   let page: Page;
   let catalog: CatalogPage;

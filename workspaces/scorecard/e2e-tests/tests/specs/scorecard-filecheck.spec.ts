@@ -10,6 +10,11 @@ import {
 import { FILECHECK_METRICS } from "../utils/scorecard";
 
 test.describe.serial("Scorecard Filecheck Tests", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "OCI images on quay.io/rhdh with 2.0.0-- tags missing io.backstage.dynamic-packages annotation",
+  );
+
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
   let scorecard: ScorecardHelpers;
