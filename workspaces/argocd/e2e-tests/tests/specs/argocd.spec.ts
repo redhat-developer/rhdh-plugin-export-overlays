@@ -16,6 +16,11 @@ const setupScript = path.join(
 const $pipe = $({ stdio: "pipe" });
 
 test.describe("Test ArgoCD plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "ArgoCD plugin v2.8.0 lacks alpha module export required by RHDH 2.0 new frontend system — CD tab not rendered",
+  );
+
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(900_000);
 
