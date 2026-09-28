@@ -98,7 +98,9 @@ export class RbacPO {
     await this.switchToOverView();
     await this.uiHelper.verifyText("About");
 
-    await this.uiHelper.verifyText(description);
+    if (description) {
+      await this.uiHelper.verifyText(description);
+    }
 
     for (const heading of headings) {
       await this.uiHelper.verifyHeading(heading);

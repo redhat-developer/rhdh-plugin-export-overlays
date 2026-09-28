@@ -84,15 +84,13 @@ test.describe("RBAC plugin", () => {
       await setupAdminSession({ page, uiHelper, loginHelper });
     });
 
-    test("Check Administration side nav has RBAC plugin", async ({
-      page,
-      uiHelper,
-    }) => {
+    test("Check side nav has RBAC plugin", async ({ page, uiHelper }) => {
       await uiHelper.goToPageUrl("/");
-      await uiHelper.clickButton("Administration");
-      const rbacLink = page.getByRole("link", { name: "RBAC" });
-      await expect(rbacLink).toBeVisible();
-      await rbacLink.click();
+      const rbacNavLink = page
+        .getByRole("navigation", { name: "sidebar nav" })
+        .getByRole("link", { name: "RBAC" });
+      await expect(rbacNavLink).toBeVisible();
+      await rbacNavLink.click();
       await uiHelper.verifyHeading("RBAC");
       expect(await page.title()).toContain("RBAC");
 
@@ -305,12 +303,10 @@ test.describe("RBAC plugin", () => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.noAccess);
     });
 
-    test("Administration side nav does not show RBAC plugin", async ({
+    test("Side nav does not show RBAC plugin for unauthorized user", async ({
       page,
-      uiHelper,
     }) => {
-      await uiHelper.openSidebarButton("Administration");
-      // Check specifically for RBAC link in sidebar navigation, not anywhere on the page
+      await page.goto("/");
       const rbacNavLink = page
         .getByRole("navigation", { name: "sidebar nav" })
         .getByRole("link", { name: "RBAC" });
@@ -583,14 +579,15 @@ test.describe("RBAC plugin", () => {
 
     test("conditional-manager no longer sees RBAC in the sidebar after access is revoked", async ({
       page,
-      uiHelper,
       loginHelper,
     }) => {
       await loginAs(loginHelper, RBAC_DESCRIPTIVE_USERS.conditionalManager);
 
-      await uiHelper.openSidebarButton("Administration");
-      const dropdownMenuLocator = page.getByText("RBAC");
-      await expect(dropdownMenuLocator).toBeHidden();
+      await page.goto("/");
+      const rbacNavLink = page
+        .getByRole("navigation", { name: "sidebar nav" })
+        .getByRole("link", { name: "RBAC" });
+      await expect(rbacNavLink).toHaveCount(0);
     });
   });
 
