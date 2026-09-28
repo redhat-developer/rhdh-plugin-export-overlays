@@ -449,14 +449,17 @@ class TestRules:
         assert "unresolved-image" in rules_of(result)
         assert next(f for f in result.findings if f.rule == "unresolved-image").severity == ERROR
 
-    def test_a_tag_only_ref_is_a_warning_not_an_error(self, tmp_path):
+    def test_a_tag_only_ref_is_an_error(self, tmp_path):
+        """A leftover tag ships the manifest list (RHDHBUGS-3815) and must fail
+        --validate-mode gate on every branch, not only under --strict."""
         result = run(
             tmp_path,
             [{"package": f"oci://{REGISTRY}/plugin-a:2.0.0--1.2.3"}],
             builds={"plugin-a": resolved("plugin-a")},
         )
         finding = next(f for f in result.findings if f.rule == "not-digest-pinned")
-        assert finding.severity == WARNING
+        assert finding.severity == ERROR
+        assert to_json(result, strict=False)["status"] == "fail"
 
     def test_a_substituted_older_build_is_a_warning(self, tmp_path):
         result = run(
@@ -676,11 +679,20 @@ class TestOutputs:
     def test_errors_and_warnings_are_partitioned(self, tmp_path):
         result = run(
             tmp_path,
-            [{"package": f"oci://{REGISTRY}/plugin-a:1.0"}],
-            builds={"plugin-a": {"registryReference": f"{REGISTRY}/plugin-a:1.0"}},
+            [
+                {"package": f"oci://{REGISTRY}/plugin-a:1.0"},
+                {"package": f"oci://{REGISTRY}/plugin-b@{DIGEST}"},
+            ],
+            builds={
+                "plugin-a": {"registryReference": f"{REGISTRY}/plugin-a:1.0"},
+                "plugin-b": resolved(
+                    "plugin-b", fallback=True, requestedTag="2.0"
+                ),
+            },
         )
-        assert [f.rule for f in result.errors] == ["unresolved-image"]
-        assert [f.rule for f in result.warnings] == ["not-digest-pinned"]
+        assert "unresolved-image" in [f.rule for f in result.errors]
+        assert "not-digest-pinned" in [f.rule for f in result.errors]
+        assert [f.rule for f in result.warnings] == ["fallback-tag"]
 
     def test_render_names_every_finding_and_the_allowlist_ticket(self, tmp_path):
         allowlist_file = tmp_path / "allowlist.txt"
@@ -1007,6 +1019,23 @@ class TestShippedAllowlist:
 # Publication policy rules (RHIDP-15725, RHIDP-16251, RHIDP-16252)
 # ---------------------------------------------------------------------------
 class TestPolicyRules:
+    def test_a_tag_only_dpdy_ref_fails_without_strict(self, tmp_path):
+        """not-digest-pinned is an always-on error (RHDHBUGS-3815), not --strict.
+
+        The live defect: plugin_builds/ has a digest but DPDY still carries the
+        tag, so unresolved-image does not fire and --strict used to be the only
+        thing that failed the build. On main that meant the catalog shipped.
+        """
+        result = run(
+            tmp_path,
+            [{"package": f"oci://{REGISTRY}/plugin-a:2.0.0--1.2.3"}],
+            builds={"plugin-a": resolved("plugin-a")},
+        )
+        finding = next(f for f in result.findings if f.rule == "not-digest-pinned")
+        assert finding.severity == ERROR
+        assert "unresolved-image" not in rules_of(result)
+        assert to_json(result, strict=False)["status"] == "fail"
+
     def test_missing_annotation_is_always_an_error(self, tmp_path):
         result = run(
             tmp_path,

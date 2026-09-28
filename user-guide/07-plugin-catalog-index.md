@@ -157,12 +157,14 @@ Inputs:
 - `workspaces/*/metadata/*.yaml` — `spec.appConfigExamples[0].content` provides the `pluginConfig` for each plugin
 - `plugin_builds/*.json` — provides tag and build-date metadata for comment injection
 
-Output structure (truncated):
+Output structure after Step 4 pins each `package:` line to a child-manifest digest
+(truncated). `# Tag:` comments remain for traceability; they are not what the
+installer pulls.
 
 ```yaml
 plugins:
   # Tag: 1.10--0.8.2, Build date: 2026-05-20T13:45:25Z
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights:1.10--0.8.2
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-adoption-insights@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -170,7 +172,7 @@ plugins:
           red-hat-developer-hub.backstage-plugin-adoption-insights:
             # ... frontend wiring config
   # Tag: 1.10--1.2.0, Build date: 2026-05-19T09:12:00Z
-  - package: oci://quay.io/rhdh/backstage-community-plugin-acr:1.10--1.2.0
+  - package: oci://quay.io/rhdh/backstage-community-plugin-acr@sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
     enabled: false
 ```
 
@@ -209,10 +211,10 @@ that matter most:
 | `digest-mismatch`      | error    | A digest-pinned ref does not match the digest `plugin_builds/` recorded.                                  |
 | `registry-not-allowed` | error    | A ref points at a registry this index is not built against (the `ghcr.io`-into-`quay.io/rhdh` leak).      |
 | `duplicate-ref`        | error    | The same ref appears twice; the later entry silently shadows the earlier one's `pluginConfig`.             |
+| `not-digest-pinned`    | error    | A ref carries a tag rather than a digest — the tag points at the manifest list, which lacks `io.backstage.dynamic-packages` (RHDHBUGS-3815). Always fails. |
 | `fallback-tag`         | warning  | The requested build was missing and an older tag was substituted — the index ships a stale build.          |
 | `backstage-version-mismatch` | warning | Workspace Backstage minor is older than this branch expects.                                      |
 | `version-regression`   | warning  | Plugin version is lower than the previous published catalog index (RHIDP-16252).                           |
-| `not-digest-pinned`    | warning  | A ref carries a tag rather than a digest, so what it resolves to can change under the index.               |
 | `index-missing-entry`  | warning  | A resolved package is in the DPDY but absent from `index.json`, so the Extensions UI will not list it.     |
 
 **Modes.** `--validate-mode` controls what a finding does to the build:
@@ -239,9 +241,10 @@ accumulated. Patterns are matched against the OCI **image name**
 (`backstage-community-plugin-quay`).
 
 Findings are also recorded per plugin in `build-report.json` as a `validate` stage, so
-they reach the generated status page. Only errors set that stage to `fail` — a stale tag
-or a version regression should not turn a plugin red and drown the ones that really are
-broken. `version-regression` warnings are rendered as their own status-page section.
+they reach the generated status page. Only errors set that stage to `fail` — a
+`fallback-tag` or a version regression should not turn a plugin red and drown the ones
+that really are broken. A tag-only DPDY ref (`not-digest-pinned`) is an error and does.
+`version-regression` warnings are rendered as their own status-page section.
 
 **Community without a DPDY.** Step 3 generates `dynamic-plugins.default.yaml` only when
 a `default.packages.yaml` is among the `--packages-file` arguments. The community tier
@@ -374,6 +377,7 @@ RHIDP-16252. There is no second policy process.
 | Image missing entirely (no tag, no fallback) | **Fail** — no OCI publish | **Fail** |
 | Missing `io.backstage.dynamic-packages` | **Fail** | **Fail** |
 | DPDY missing a `default.packages.yaml` entry (by name) | **Fail** | **Fail** |
+| DPDY ref is a tag, not a digest | **Fail** | **Fail** |
 | Version fallback (older plugin tag used) | Warn, publish | **Fail** |
 | Backstage version mismatch (workspace outdated) | Warn, publish | **Fail** |
 | Plugin version lower than previous published index | Warn, publish (supported only) | **Fail** |
@@ -382,7 +386,7 @@ On `release-*` branches the GitHub workflow sets `--strict` automatically. For a
 deliberate emergency rollback on a release line, run the workflow manually with
 `strict: false` — this keeps fallback and Backstage-mismatch checks fatal and only
 relaxes `version-regression`. Structural errors (`unresolved-image`,
-`missing-annotation`, incomplete DPDY) still fail.
+`missing-annotation`, incomplete DPDY, `not-digest-pinned`) still fail.
 
 `--previous-index-ref` is an OCI ref or a local DPDY / `index.json` / directory.
 `update-index.sh` extracts an OCI ref with `extractCatalogIndex.sh` into a directory

@@ -363,9 +363,14 @@ class TestValidationOutputs:
         assert payload["findings"]
 
     def test_a_custom_allowlist_suppresses_the_finding(self, broken_repo, tmp_path):
+        """A tag-only unresolved package fires both unresolved-image and
+        not-digest-pinned; the allowlist has to name each rule or gate still fails."""
         allowlist = broken_repo / "allowlist.txt"
         allowlist.write_text(
-            "# TODO(RHIDP-1): tracked\nunresolved-image ^plugin-a$\n", encoding="utf-8"
+            "# TODO(RHIDP-1): tracked\n"
+            "unresolved-image ^plugin-a$\n"
+            "not-digest-pinned ^plugin-a$\n",
+            encoding="utf-8",
         )
         result = run_update_index(
             broken_repo,

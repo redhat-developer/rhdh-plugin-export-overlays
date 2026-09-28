@@ -95,9 +95,9 @@ RULES: dict[str, Rule] = {
         needs_builds=True,
     ),
     "not-digest-pinned": Rule(
-        WARNING,
-        "an oci:// ref carries a tag rather than a digest, so what it resolves to "
-        "can change under the index",
+        ERROR,
+        "an oci:// ref carries a tag rather than a digest — the tag points at the "
+        "manifest list, which lacks io.backstage.dynamic-packages, so install fails",
     ),
     "fallback-tag": Rule(
         WARNING,
@@ -1177,7 +1177,8 @@ def record_in_report(result: ValidationResult, report: BuildReport) -> None:
     """Write a per-plugin `validate` stage into build-report.json.
 
     Only an ERROR fails the stage: BuildReport.save() derives overall status from the
-    worst stage, so a stale tag would otherwise turn a plugin red.
+    worst stage, so a fallback-tag or version-regression warning must not turn a plugin
+    red. A tag-only DPDY ref (not-digest-pinned) is an error and should.
 
     Findings about an image with no plugin row are skipped — `set_stage` upserts, so
     writing one would fabricate a plugin, inflate `summary.total` and flip the run to
@@ -1312,7 +1313,7 @@ Examples:
     parser.add_argument(
         "--strict", action="store_true",
         help="Treat warnings as errors (fallback-tag, backstage-version-mismatch, "
-             "version-regression, not-digest-pinned, index-missing-entry)",
+             "version-regression, index-missing-entry)",
     )
     parser.add_argument(
         "--allow-warnings", action="append", default=[], metavar="RULE",

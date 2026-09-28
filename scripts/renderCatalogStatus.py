@@ -47,6 +47,7 @@ REASON_ANCHORS = {
     "[index-ref-mismatch]": "validation-index-ref-mismatch",
     "[missing-annotation]": "validation-missing-annotation",
     "[dpdy-missing-package]": "validation-dpdy-missing-package",
+    "[not-digest-pinned]": "validation-not-digest-pinned",
     "[version-regression]": "validation-version-regression",
 }
 

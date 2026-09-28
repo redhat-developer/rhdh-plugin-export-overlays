@@ -11,6 +11,7 @@ Common issues reported on the status page and how to resolve them.
 - [Image not found in registry](#image-not-found-in-registry) — no exact tag and no fallback.
 - Missing, empty, or unreadable `io.backstage.dynamic-packages` on any plugin image.
 - `dynamic-plugins.default.yaml` does not list every package from `default.packages.yaml`.
+- [DPDY `package:` is a tag, not a digest](#validation-not-digest-pinned) — the tag points at the manifest list.
 
 **Fails only on `release-*` (`--strict`):**
 
@@ -190,6 +191,22 @@ same count still fails.
 **Fix:** restore the missing package in metadata so DPDY generation includes it, or
 remove it from `default.packages.yaml` if it should not ship.
 
+<a id="validation-not-digest-pinned"></a>
+
+#### not-digest-pinned
+
+A `plugins[].package` value is an `oci://` tag (`:2.1.0--4.2.5`) rather than a
+child-manifest digest (`@sha256:…`). Tags resolve to the OCI index / manifest list,
+which does not carry `io.backstage.dynamic-packages`, so `install-dynamic-plugins`
+fails with `InstallException: No plugins found` (RHDHBUGS-3815). This **always
+fails** the build on every branch.
+
+Typical cause: the plugin image was not in the registry yet when the catalog index
+was generated, so Step 4 never rewrote the tag copied from metadata.
+
+**Fix:** publish the plugin image, then re-run catalog index generation. Do not
+allowlist a missing digest — a tag-only DPDY entry is not installable.
+
 ### Warnings that do not fail the stage
 
 `fallback-tag` means the requested build was missing and an older tag was substituted —
@@ -197,8 +214,7 @@ the index ships a stale build. `backstage-version-mismatch` means the workspace 
 an older Backstage minor than this branch. `version-regression` means the plugin version
 is lower than the previous published catalog index (RHIDP-16252); the status page
 renders these from `stages.validate.warnings`.
-`not-digest-pinned` means a reference carries a tag rather than a digest, so what it
-resolves to can change under the index. `index-missing-entry` means a resolved package
+`index-missing-entry` means a resolved package
 is missing from `index.json`, so the Extensions UI will not list it.
 
 None of these fail the plugin's `validate` stage, but `--strict` (release branches)
