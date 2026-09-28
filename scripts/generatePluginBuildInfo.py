@@ -793,7 +793,7 @@ def print_fallback_rebuild_cta(
         step += 1
 
     print(
-        f"\n\n{Colors.YELLOW}{step}) Trigger Konflux rebuilds:{Colors.NORM}\n"
+        f"\n\n{Colors.YELLOW}{step}) Update Konflux PLRs, then run rebuilds:{Colors.NORM}\n"
         f"   .tekton/generatePipelineRunsForPlugins.sh --trigger "
         f"-p '{package_filter}' {version_args}"
     )
