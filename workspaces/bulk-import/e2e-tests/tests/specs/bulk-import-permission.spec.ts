@@ -22,8 +22,8 @@ test.describe("Bulk Import permission", () => {
     );
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
-    await signInAsGuestForPermissionTest(loginHelper, uiHelper);
+  test.beforeEach(async ({ page, loginHelper }) => {
+    await signInAsGuestForPermissionTest(page, loginHelper);
   });
 
   test("Bulk Import - Verify users without permission cannot access", async ({
