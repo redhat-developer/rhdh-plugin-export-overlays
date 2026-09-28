@@ -87,7 +87,7 @@ export class TestHelper {
       let templateAvailable = await templateHeading
         .isVisible({ timeout: 10000 })
         .catch(() => false);
-
+      await this.page.waitForTimeout(5000);
       if (!templateAvailable) {
         const importButton = this.page.getByRole("button", {
           name: "Import an existing Git repository",
