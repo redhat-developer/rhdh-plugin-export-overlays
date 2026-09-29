@@ -1,0 +1,17 @@
+# Disable Lightspeed/IA sidecar — chart 2.0-90-CI uses intelligentAssistant.enabled
+# (global.lightspeed is ignored). Default enabled:true starts lightspeed-core with
+# --synthesized-config-output which CrashLoops. See RHDHBUGS-3145.
+intelligentAssistant:
+  enabled: false
+
+# Allow Red Hat PostgreSQL image under Bitnami chart image verification
+# (quay.io/rhdh/chart:2.0-90-CI+). See bitnami/charts#30850 / rhdh#5490.
+#
+# Disable Lightspeed sidecar — chart 2.0-90-CI starts lightspeed-core with
+# --synthesized-config-output which the bundled LCS image rejects (CrashLoopBackOff).
+# See also RHDHBUGS-3145 / topology e2e value_file.
+global:
+  security:
+    allowInsecureImages: true
+  lightspeed:
+    enabled: false

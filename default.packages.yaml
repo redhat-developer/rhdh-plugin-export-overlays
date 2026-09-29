@@ -1,121 +1,157 @@
-# MANUALLY maintained list of "core plugins"
+# MANUALLY maintained list of "core plugins", which over time will become the same list as the GA plugins in the catalog
+# 
+# eventually this file can be generated from the catalog, setting "enabled" for those plugins with no required configuration, 
+# and "disabled" for those plugins that require configuration to run
 #
 # Do not add packages to this list without prior agreement from PM
 #
-# New packages *status* should only be "tech-preview" or "generally-available"
-#    16 are tech-preview, and should be promoted via a PM-sponsored Feature to generally-available at some point
-#    06 are community, and should be removed over time
+# Package support level should ONLY be "generally-available" as of 2.1, except for notable exceptions for core functionality like the extension system, and git support
+#    Community plugins have been removed https://redhat.atlassian.net/browse/RHIDP-13262
 packages:
-  enabled: # should only include GA (or TP with a path to GA) content here
+  # should only include GA (or TP with a path to GA) content here
+  enabled: 
   - package: '@backstage-community/plugin-analytics-provider-segment'
-    status: "generally-available"
+    support: "generally-available"
   - package: '@backstage-community/plugin-scaffolder-backend-module-regex'
-    status: "generally-available"
+    support: "generally-available"
   - package: '@backstage/plugin-techdocs'
-    status: "generally-available"
+    support: "generally-available"
   - package: '@backstage/plugin-techdocs-backend'
-    status: "generally-available"
+    support: "generally-available"
   - package: '@backstage/plugin-techdocs-module-addons-contrib'
-    status: "generally-available"
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights'
-    status: "generally-available"
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-adoption-insights-backend'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-analytics-module-adoption-insights'
+    support: "generally-available"
+  # NFS OOTB shell/auth prerequisites (RHIDP-15482 / RHIDP-15944 / RHDHPLAN-846 / RHIDP-17113).
+  - package: '@red-hat-developer-hub/backstage-plugin-app-auth'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-app-defaults'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-app-integrations'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-catalog-backend-module-extensions'
-    status: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-dynamic-home-page'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-global-header'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-extensions'
-    status: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-extensions-backend'
-    status: "tech-preview"
-  - package: "@red-hat-developer-hub/backstage-plugin-lightspeed"
-    status: "generally-available"
-  - package: "@red-hat-developer-hub/backstage-plugin-lightspeed-backend"
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-quickstart'
-    status: "generally-available"
-
-  disabled: # should ideally contain no community content; TODO: remove some community or TP stuff in 2.1?
-  - package: '@backstage-community/plugin-acr'
-    status: "tech-preview"
-  - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
-    status: "generally-available"
-  - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
-    status: "tech-preview"
-  - package: '@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor'
-    status: "tech-preview"
-  - package: '@backstage-community/plugin-rbac'
-    status: "generally-available"
-  - package: '@backstage-community/plugin-scaffolder-backend-module-kubernetes'
-    status: "generally-available"
-  - package: '@backstage-community/plugin-tech-radar'
-    status: "generally-available"
-  - package: '@backstage-community/plugin-tech-radar-backend'
-    status: "generally-available"
-  - package: '@backstage-community/plugin-topology'
-    status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-github'
-    status: generally-available
-  - package: '@backstage/plugin-catalog-backend-module-github-org'
-    status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-gitlab'
-    status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-gitlab-org'
-    status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-ldap'
-    status: "generally-available"
-  - package: '@backstage/plugin-catalog-backend-module-msgraph'
-    status: "generally-available"
-  - package: '@backstage/plugin-events-backend-module-github'
-    status: "tech-preview"
-  - package: '@backstage/plugin-kubernetes'
-    status: "tech-preview"
-  - package: '@backstage/plugin-kubernetes-backend'
-    status: "generally-available"
-  - package: '@backstage/plugin-notifications'
-    status: "tech-preview"
-  - package: '@backstage/plugin-notifications-backend'
-    status: "tech-preview"
-  - package: '@backstage/plugin-notifications-backend-module-email'
-    status: "tech-preview"
-  - package: '@backstage/plugin-scaffolder-backend-module-github'
-    status: generally-available
-  - package: '@backstage/plugin-scaffolder-backend-module-gitlab'
-    status: "tech-preview"
-  - package: '@backstage/plugin-signals'
-    status: "tech-preview"
-  - package: '@backstage/plugin-signals-backend'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-bulk-import'
-    status: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-bulk-import-backend'
-    status: "tech-preview"
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-homepage'
+    support: "generally-available"
   - package: '@red-hat-developer-hub/backstage-plugin-homepage-backend'
-    status: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
-    status: "tech-preview"
-  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets'
-    status: "generally-available"
-  - package: '@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator'
-    status: "generally-available"
-  - package: '@roadiehq/scaffolder-backend-module-http-request'
-    status: "generally-available"
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-global-header'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-extensions'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-extensions-backend'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-quickstart'
+    support: "generally-available"
 
-  # these community supported plugins do not have a downstream analogue in overlays repo's rhdh-supported-packages.txt
-  - package: '@backstage-community/plugin-quay'
-    status: "community"
-  - package: '@backstage-community/plugin-quay-backend'
-    status: "community"
-  - package: '@backstage-community/plugin-scaffolder-backend-module-quay'
-    status: "community"
-  - package: '@backstage-community/plugin-tekton'
-    status: "community"
-  - package: '@roadiehq/backstage-plugin-argo-cd-backend' # TODO: replace with RH Argo CD plugin when it's ready
-    status: "community"
-  - package: '@roadiehq/scaffolder-backend-argocd' # TODO: replace with RH Argo CD plugin when it's ready
-    status: "community"
+  # should only include GA (or TP with a path to GA) content here
+  disabled: 
+  - package: '@backstage/plugin-auth-backend-module-github-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-gitlab-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-guest-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-microsoft-provider'
+    support: "generally-available"
+  - package: '@backstage/plugin-auth-backend-module-oidc-provider'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-auth-backend-module-keycloak-provider'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-auth-backend-module-pingfederate-provider'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-catalog-backend-module-keycloak'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-catalog-backend-module-pingidentity'
+    support: "tech-preview"
+  - package: '@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor'
+    support: "tech-preview"
+  - package: '@backstage-community/plugin-rbac'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-scaffolder-backend-module-kubernetes'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-tech-radar'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-tech-radar-backend'
+    support: "generally-available"
+  - package: '@backstage-community/plugin-topology'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-github'
+    support: generally-available
+  - package: '@backstage/plugin-catalog-backend-module-github-org'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-gitlab'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-gitlab-org'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-ldap'
+    support: "generally-available"
+  - package: '@backstage/plugin-catalog-backend-module-msgraph'
+    support: "generally-available"
+  - package: '@backstage/plugin-events-backend-module-github'
+    support: "tech-preview"
+  - package: '@backstage/plugin-kubernetes'
+    support: "generally-available"
+  - package: '@backstage/plugin-kubernetes-backend'
+    support: "generally-available"
+  - package: '@backstage/plugin-notifications'
+    support: "tech-preview"
+  - package: '@backstage/plugin-notifications-backend'
+    support: "tech-preview"
+  - package: '@backstage/plugin-notifications-backend-module-email'
+    support: "tech-preview"
+  - package: '@backstage/plugin-org'
+    support: "generally-available"
+  - package: '@backstage/plugin-scaffolder-backend-module-github'
+    support: generally-available
+  - package: '@backstage/plugin-scaffolder-backend-module-gitlab'
+    support: "tech-preview"
+  - package: '@backstage/plugin-signals'
+    support: "generally-available"
+  - package: '@backstage/plugin-signals-backend'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-bulk-import'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-bulk-import-backend'
+    support: "generally-available"
+
+
+  - package: '@red-hat-developer-hub/backstage-plugin-intelligent-assistant'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-intelligent-assistant-backend'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-backend-module-loki'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets'
+    support: "generally-available"
+  - package: '@red-hat-developer-hub/backstage-plugin-scaffolder-backend-module-orchestrator'
+    support: "generally-available"
+  - package: '@roadiehq/scaffolder-backend-module-http-request'
+    support: "generally-available"
+
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-sonarqube'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-openssf'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-jira'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-github'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-filecheck'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot'
+    support: "tech-preview"
+  - package: '@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora'
+    support: "tech-preview"

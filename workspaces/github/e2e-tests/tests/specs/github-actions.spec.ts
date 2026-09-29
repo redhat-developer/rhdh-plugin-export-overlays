@@ -28,7 +28,6 @@ test.describe("Test github-actions", () => {
     await uiHelper.searchInputPlaceholder(component);
     await uiHelper.clickLink(component);
 
-    await page.locator("a").getByText("CI", { exact: true }).first().click();
     await page.getByRole("button", { name: "Log in" }).click();
     await loginHelper.checkAndReauthorizeGithubApp();
 
@@ -38,6 +37,8 @@ test.describe("Test github-actions", () => {
     );
     const json = await response.json();
     const workflowRuns = json.workflow_runs;
+
+    await page.locator("a").getByText("Github Actions").first().click();
 
     for (const workflowRun of workflowRuns.slice(0, 5)) {
       await uiHelper.verifyText(workflowRun.id);

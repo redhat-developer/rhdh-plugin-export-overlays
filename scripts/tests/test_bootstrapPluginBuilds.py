@@ -1,11 +1,14 @@
 """Tests for bootstrapPluginBuilds module."""
 
 import json
+from pathlib import Path
 
 import pytest
 
 from bootstrapPluginBuilds import (
+    construct_registry_reference,
     get_outdated_workspaces,
+    remove_stale_plugin_builds,
     versions_match_minor,
 )
 
@@ -125,3 +128,70 @@ class TestGetOutdatedWorkspaces:
         result = get_outdated_workspaces([ws_dir], "1.49.4")
         assert "broken" in result
         assert result["broken"]["found"] == "missing"
+
+
+# ---------------------------------------------------------------------------
+# remove_stale_plugin_builds
+# ---------------------------------------------------------------------------
+
+class TestRemoveStalePluginBuilds:
+    def test_removes_json_not_in_expected_set(self, tmp_path):
+        keep_dir = tmp_path / "intelligent-assistant"
+        keep_dir.mkdir()
+        (keep_dir / "keep.json").write_text("{}")
+
+        stale_dir = tmp_path / "lightspeed"
+        stale_dir.mkdir()
+        (stale_dir / "stale.json").write_text("{}")
+
+        deleted = remove_stale_plugin_builds(
+            tmp_path,
+            {Path("intelligent-assistant") / "keep.json"},
+        )
+        assert deleted == 1
+        assert (keep_dir / "keep.json").exists()
+        assert not (stale_dir / "stale.json").exists()
+        assert not stale_dir.exists()
+
+    def test_noop_when_all_expected(self, tmp_path):
+        ws = tmp_path / "backstage"
+        ws.mkdir()
+        (ws / "plugin.json").write_text("{}")
+        deleted = remove_stale_plugin_builds(
+            tmp_path,
+            {Path("backstage") / "plugin.json"},
+        )
+        assert deleted == 0
+        assert (ws / "plugin.json").exists()
+
+    def test_missing_plugin_builds_dir(self, tmp_path):
+        assert remove_stale_plugin_builds(tmp_path / "missing", set()) == 0
+
+
+# ---------------------------------------------------------------------------
+# construct_registry_reference
+# ---------------------------------------------------------------------------
+
+class TestConstructRegistryReference:
+    def test_ghcr_uses_given_backstage_version_in_tag(self):
+        ref = construct_registry_reference(
+            "ghcr.io/redhat-developer/rhdh-plugin-export-overlays",
+            "backstage-community-plugin-foo",
+            "2.0.0",
+            "1.45.3",
+            "",
+            "",
+        )
+        assert ref.endswith(":bs_1.45.3__2.0.0")
+        assert "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-foo" in ref
+
+    def test_quay_uses_rhdh_version_not_backstage(self):
+        ref = construct_registry_reference(
+            "quay.io/rhdh",
+            "red-hat-developer-hub-backstage-plugin-bar",
+            "1.5.4",
+            "1.52.0",
+            "1.11",
+            "",
+        )
+        assert ref.endswith(":1.11--1.5.4")

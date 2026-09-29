@@ -33,9 +33,10 @@ export async function deployRhdh(
 ): Promise<void> {
   await rhdh.configure({
     auth: "keycloak",
-    version: process.env.RHDH_VERSION ?? "1.10",
+    version: process.env.RHDH_VERSION ?? "2.0",
     ...(options.appConfig ? { appConfig: options.appConfig } : {}),
     dynamicPlugins: options.dynamicPlugins,
+    disablePlugins: ["red-hat-developer-hub-backstage-plugin-global-header"],
   });
   await rhdh.deploy();
 }
@@ -55,6 +56,6 @@ export async function createScorecardContext(
   const scorecard = scorecardHelpers(page, uiHelper);
   const aggregated = aggregatedScorecardHelpers(page);
   await new LoginHelper(page).loginAsKeycloakUser();
-  await uiHelper.goToPageUrl("/", "Welcome back!");
+  await uiHelper.goToPageUrl("/catalog", "Catalog");
   return { context, page, catalog, scorecard, aggregated };
 }
