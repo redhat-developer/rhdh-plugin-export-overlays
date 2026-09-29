@@ -61,7 +61,12 @@ export type PackageEntry = {
 };
 
 /** One configured `dynamicPlugins.frontend` key, with the metadata file that sets it. */
-export type ConfiguredFrontendKey = { key: string; source: string };
+export type ConfiguredFrontendKey = {
+  key: string;
+  source: string;
+  /** npm name of the package whose metadata configures the key. */
+  packageName?: string;
+};
 
 export type WorkspaceRefs = {
   /** oci:// refs to install and validate. */
@@ -83,6 +88,11 @@ export type WorkspaceRefs = {
    * defect. The check would go red precisely on the runs that validate less.
    */
   frontendConfigKeys: ConfiguredFrontendKey[];
+  /**
+   * Out-of-scope host plugins added to `refs` so an in-scope module can boot — see
+   * hostPackagesFor. Empty outside a `support`-filtered run.
+   */
+  hosts: string[];
 };
 
 export type WorkspaceRefsOptions = {
@@ -210,11 +220,13 @@ export function collectWorkspaceRefs(
   const skipped: string[] = [];
   const excluded: ExclusionRecord[] = [];
   const frontendConfigKeys: ConfiguredFrontendKey[] = [];
+  const outOfScopePackages: PackageEntry[] = [];
   let outOfScope = 0;
 
   for (const pkg of packages) {
     if (options.support && pkg.support !== options.support) {
       outOfScope += 1;
+      outOfScopePackages.push(pkg);
       continue;
     }
     const exclusion = options.installExcluded?.(pkg.packageName);
@@ -232,7 +244,11 @@ export function collectWorkspaceRefs(
       // inside the RHDH image, so nothing is installed for it and its keys have no
       // bundle to match.
       for (const key of pkg.frontendConfigKeys) {
-        frontendConfigKeys.push({ key, source: pkg.file });
+        frontendConfigKeys.push({
+          key,
+          source: pkg.file,
+          packageName: pkg.packageName,
+        });
       }
     } else {
       skipped.push(pkg.file);
@@ -243,6 +259,7 @@ export function collectWorkspaceRefs(
     }
   }
 
+  // Checked before hosts are added: a run whose only refs are hosts validates nothing.
   if (refs.length === 0) {
     throw new Error(
       emptyRefsMessage(workspace, packages.length, {
@@ -252,7 +269,57 @@ export function collectWorkspaceRefs(
       }),
     );
   }
-  return { refs, skipped, excluded, outOfScope, frontendConfigKeys };
+  const hosts = hostPackagesFor(
+    packages.filter((p) => !outOfScopePackages.includes(p)),
+    outOfScopePackages,
+  ).filter((host) => {
+    if (!host.artifact.startsWith("oci://") || refs.includes(host.artifact))
+      return false;
+    return !options.installExcluded?.(host.packageName);
+  });
+  for (const host of hosts) {
+    refs.push(host.artifact);
+    console.log(
+      `▶ ${workspace}/${host.file}: '${host.packageName}' (${host.support}) ` +
+        `installed as the host of an in-scope module`,
+    );
+  }
+  return {
+    refs,
+    skipped,
+    excluded,
+    outOfScope,
+    frontendConfigKeys,
+    hosts: hosts.map((h) => h.packageName),
+  };
+}
+
+const MODULE_SUFFIX_RE = /-module-[^/]+$/;
+
+/**
+ * Out-of-scope backend plugins that an in-scope module of the same workspace attaches
+ * to, by Backstage's package naming convention (`<host>-module-<name>`).
+ *
+ * The sweep runs one support tier at a time, and a workspace can split a module and its
+ * host across tiers: scorecard's dev-preview modules attach to the tech-preview
+ * scorecard-backend. Booted alone, such a module fails on a missing extension point,
+ * which says nothing about the module (RHIDP-17310). Metadata carries no plugin id, so
+ * the name is the only link available; a module whose host is named differently just
+ * gets no host, which is the behaviour before this.
+ */
+export function hostPackagesFor(
+  inScope: PackageEntry[],
+  outOfScope: PackageEntry[],
+): PackageEntry[] {
+  const wanted = new Set(
+    inScope
+      .filter((p) => p.role === "backend-plugin-module")
+      .map((p) => p.packageName.replace(MODULE_SUFFIX_RE, ""))
+      .filter((name) => name !== ""),
+  );
+  return outOfScope.filter(
+    (p) => p.role === "backend-plugin" && wanted.has(p.packageName),
+  );
 }
 
 /**

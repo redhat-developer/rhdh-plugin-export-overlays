@@ -66,9 +66,18 @@ import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import catalogPlugin from "@backstage/plugin-catalog-backend";
 import scaffolderPlugin from "@backstage/plugin-scaffolder-backend";
 import searchPlugin from "@backstage/plugin-search-backend";
+import authPlugin from "@backstage/plugin-auth-backend";
+import notificationsPlugin from "@backstage/plugin-notifications-backend";
+import eventsPlugin from "@backstage/plugin-events-backend";
+import {
+  createServiceFactory,
+  type BackendFeature,
+} from "@backstage/backend-plugin-api";
+import { dynamicPluginsServiceRef } from "@backstage/backend-dynamic-feature-service";
 import type { JsonObject } from "@backstage/types";
 import {
   discoverPlugins,
+  declaredScalprumName,
   loadBackendPlugins,
   validateBackendBundle,
   validateFrontendBundle,
@@ -81,12 +90,19 @@ import {
   computeStatus,
   describeConfigKeyMismatch,
   describeInstallShortfall,
+  configKeysNotApplicable,
   describeNfsShortfall,
+  expandFeatureLoaders,
+  featureTargets,
   findConfigKeyMismatches,
+  missingHostPluginIds,
   partitionBootable,
   type ShortfallOptions,
 } from "./harness-logic";
-import { patchModuleResolution } from "./module-resolution";
+import {
+  patchDynamicPackageJsonResolution,
+  patchModuleResolution,
+} from "./module-resolution";
 import { resolveContained } from "./paths";
 import { errorMessage, isRecord, lastErrorLine } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
@@ -163,6 +179,37 @@ const CLI_BIN = join(
 // that wrong. Without it, a module attaching to the catalog's extension points cannot be
 // loaded at all, so a wiring failure in one shipped as "installed, artifact valid".
 const coreFeatures = [catalogPlugin, scaffolderPlugin, searchPlugin];
+
+// Host plugins booted only when a loaded module attaches to them and nothing else in the
+// run provides them (RHIDP-17310). Not core features: notifications ships as a dynamic
+// plugin too, and a second copy of a plugin id fails startup. auth and events are
+// static in RHDH and never exported, so in practice they are always added when one of
+// their modules loads.
+const HOST_FALLBACKS: Record<string, BackendFeature> = {
+  auth: authPlugin,
+  events: eventsPlugin,
+  notifications: notificationsPlugin,
+};
+// `core.dynamicplugins`, which RHDH's backend provides through
+// @backstage/backend-dynamic-feature-service and the extensions plugins depend on. The
+// harness loads plugins itself, so there is no manager to expose: this reports none,
+// which is enough for a plugin to start (RHIDP-17310).
+const emptyDynamicPluginsService = createServiceFactory({
+  service: dynamicPluginsServiceRef,
+  deps: {},
+  factory: () => ({
+    plugins: () => [],
+    backendPlugins: () => [],
+    frontendPlugins: () => [],
+    getScannedPackage: () => {
+      throw new Error("no scanned packages in the native smoke harness");
+    },
+  }),
+});
+
+const CORE_PLUGIN_IDS = coreFeatures.flatMap((f) =>
+  featureTargets(f).map((t) => t.pluginId),
+);
 
 // execFileSync (args array, no shell) so workspace names / OCI refs can never be
 // interpolated into a shell command as this grows beyond a single fixed plugin.
@@ -248,7 +295,7 @@ async function materializeWorkspaceConfig(
   support: string | undefined,
   exclusions: Exclusion[],
 ): Promise<MaterializedSource> {
-  const { refs, skipped, excluded, outOfScope, frontendConfigKeys } =
+  const { refs, skipped, excluded, outOfScope, frontendConfigKeys, hosts } =
     collectWorkspaceRefs(REPO_ROOT, workspace, {
       support,
       installExcluded: excluderFor(exclusions, "install"),
@@ -269,6 +316,7 @@ async function materializeWorkspaceConfig(
       skippedMetadata: skipped,
       support,
       outOfScope: support ? outOfScope : undefined,
+      hosts: hosts.length ? hosts : undefined,
     },
     excluded,
   };
@@ -618,15 +666,33 @@ async function startBackend(
     // Inject a root config (dummy values for plugins that validate config at boot,
     // overridden by the caller's --app-config layer when provided).
     const config = buildMergedConfig(loaded, appConfig);
+    // Loaders first — see expandFeatureLoaders.
+    const features = (await expandFeatureLoaders(
+      loaded.map((p) => p.feature),
+    )) as BackendFeature[];
+    const hostPlugins = missingHostPluginIds(
+      features.flatMap((f) => featureTargets(f)),
+      CORE_PLUGIN_IDS,
+    ).filter((id) => id in HOST_FALLBACKS);
+    if (hostPlugins.length > 0) {
+      console.log(
+        `▶ host plugin(s) added for loaded modules: ${hostPlugins.join(", ")}`,
+      );
+    }
     const backend = await startTestBackend({
       features: [
         ...coreFeatures,
-        ...loaded.map((p) => p.feature),
+        emptyDynamicPluginsService,
+        ...hostPlugins.map((id) => HOST_FALLBACKS[id]),
+        ...features,
         mockServices.rootConfig.factory({ data: config }),
       ],
     });
     await backend.stop();
-    return { ok: true };
+    return {
+      ok: true,
+      hostPlugins: hostPlugins.length ? hostPlugins : undefined,
+    };
   } catch (err) {
     return {
       ok: false,
@@ -754,6 +820,9 @@ async function main(): Promise<number> {
 
     // Let extracted plugins (under a temp dir) resolve their @backstage/* peers here.
     patchModuleResolution(HARNESS_NODE_MODULES);
+    // What RHDH's dynamic plugin loader does for resolvePackagePath() — see
+    // dynamicPackageJsonPath.
+    patchDynamicPackageJsonResolution(manifest.backend);
 
     const { skipped, excluded, bootable } = partitionBootable(
       manifest.backend,
@@ -778,18 +847,38 @@ async function main(): Promise<number> {
     // bundleNamesAreComplete. Undefined, not [], which is the same distinction the other
     // modes make: "not checked here" is not "checked and clean".
     // Workspace mode only: the others have no metadata to read keys from.
-    const configKeyMismatches =
+    const keysCheckable =
       materialized.frontendConfigKeys &&
-      bundleNamesAreComplete(installShortfall, frontend.errors)
-        ? findConfigKeyMismatches(
-            materialized.frontendConfigKeys,
-            frontend.bundles.flatMap((b) =>
-              b.scalprum?.name ? [b.scalprum.name] : [],
-            ),
-          )
-        : undefined;
+      bundleNamesAreComplete(installShortfall, frontend.errors);
+    // Frontend bundles that ship no dist-scalprum/ — see configKeysNotApplicable.
+    const mfOnlyPlugins = manifest.frontend.filter(
+      (_, i) => !frontend.bundles[i]?.scalprum,
+    );
+    const configKeysNotApplicableHere = keysCheckable
+      ? configKeysNotApplicable(materialized.frontendConfigKeys ?? [], {
+          npmNames: mfOnlyPlugins.map((p) => p.name),
+          scalprumNames: mfOnlyPlugins.flatMap(
+            (p) => declaredScalprumName(p.path) ?? [],
+          ),
+        })
+      : undefined;
+    const configKeyMismatches = keysCheckable
+      ? findConfigKeyMismatches(
+          materialized.frontendConfigKeys ?? [],
+          frontend.bundles.flatMap((b) =>
+            b.scalprum?.name ? [b.scalprum.name] : [],
+          ),
+          configKeysNotApplicableHere,
+        )
+      : undefined;
     for (const mismatch of configKeyMismatches ?? []) {
       console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
+    }
+    if (configKeysNotApplicableHere?.length) {
+      console.warn(
+        `⚠ dynamicPlugins.frontend key(s) configure MF-only bundles, which RHDH's ` +
+          `NFS app does not read — not checked: ${configKeysNotApplicableHere.join(", ")}`,
+      );
     }
     for (const { plugin, error } of backendBundles.errors) {
       console.error(`✗ backend '${plugin.name}': ${error}`);
@@ -816,6 +905,7 @@ async function main(): Promise<number> {
         errors: frontend.errors,
         bundles: frontend.bundles,
         configKeyMismatches,
+        configKeysNotApplicable: configKeysNotApplicableHere,
       },
       exclusions: [...materialized.excluded, ...excluded],
       installShortfall: installShortfall ?? undefined,

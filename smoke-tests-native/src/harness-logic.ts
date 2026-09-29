@@ -73,14 +73,19 @@ const RHDH_BUILTIN_FRONTEND_KEYS = new Set(["default.main-menu-items"]);
 export function findConfigKeyMismatches(
   configured: ConfiguredFrontendKey[],
   bundleNames: string[],
+  notApplicableKeys: string[] = [],
 ): ConfigKeyMismatch[] {
   const names = new Set(bundleNames);
+  const notApplicable = new Set(notApplicableKeys);
   // Sorted once: every mismatch reports the same list, and it does not depend on the key.
   const reported = [...names].sort(compareStrings);
   const seen = new Set<string>();
   const mismatches: ConfigKeyMismatch[] = [];
   for (const { key, source } of configured) {
     if (names.has(key) || RHDH_BUILTIN_FRONTEND_KEYS.has(key)) continue;
+    // Configures an MF-only bundle (see configKeysNotApplicable): RHDH's NFS app never
+    // reads the key, so there is no Scalprum name to hold it to.
+    if (notApplicable.has(key)) continue;
     // A key repeated across metadata files is one finding, not one per file: the reader
     // fixes the bundle name or the key once.
     if (seen.has(key)) continue;
@@ -235,4 +240,157 @@ export function describeNfsShortfall(mf: MfRemoteInfo | null): string | null {
     );
   }
   return null;
+}
+
+/** What a loaded BackendFeature registers: a plugin, or a module attached to one. */
+export type FeatureTarget = { kind: "plugin" | "module"; pluginId: string };
+
+/**
+ * Read a feature's registrations without starting it.
+ *
+ * Uses the same `getRegistrations()` that backend-app-api calls at startup; it only
+ * runs the feature's `register` callback, which records deps and extension points.
+ * Anything that does not look like a registrations feature (a feature loader, a
+ * service factory) contributes nothing rather than throwing: this is a best-effort
+ * hint for adding host plugins, and a wrong guess only costs that hint.
+ */
+export function featureTargets(feature: unknown): FeatureTarget[] {
+  const f = feature as {
+    $$type?: unknown;
+    featureType?: unknown;
+    getRegistrations?: unknown;
+  } | null;
+  if (
+    !f ||
+    f.$$type !== "@backstage/BackendFeature" ||
+    f.featureType !== "registrations" ||
+    typeof f.getRegistrations !== "function"
+  ) {
+    return [];
+  }
+  let registrations: unknown;
+  try {
+    registrations = (f.getRegistrations as () => unknown)();
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(registrations)) return [];
+  return registrations.flatMap(
+    (r: { type?: unknown; pluginId?: unknown }): FeatureTarget[] => {
+      if (typeof r?.pluginId !== "string" || typeof r.type !== "string") {
+        return [];
+      }
+      // `plugin` / `module-v1.1` today; matched by prefix so a new version suffix
+      // does not silently turn every host into "missing".
+      if (r.type.startsWith("plugin"))
+        return [{ kind: "plugin", pluginId: r.pluginId }];
+      if (r.type.startsWith("module"))
+        return [{ kind: "module", pluginId: r.pluginId }];
+      return [];
+    },
+  );
+}
+
+/**
+ * Plugin ids that loaded modules attach to but nothing in the run provides.
+ *
+ * RHDH ships some host plugins statically (auth) and loads others as dynamic plugins
+ * that may sit in another support tier (notifications). A module whose host is absent
+ * fails startup on a missing extension point, which says nothing about the module. The
+ * caller adds a static copy of the host for the ids it has one for.
+ */
+export function missingHostPluginIds(
+  targets: FeatureTarget[],
+  providedPluginIds: Iterable<string>,
+): string[] {
+  const provided = new Set(providedPluginIds);
+  for (const t of targets) if (t.kind === "plugin") provided.add(t.pluginId);
+  const missing = new Set<string>();
+  for (const t of targets) {
+    if (t.kind === "module" && !provided.has(t.pluginId))
+      missing.add(t.pluginId);
+  }
+  return [...missing].sort(compareStrings);
+}
+
+/**
+ * Configured keys that belong to an MF-only bundle.
+ *
+ * Main is the NFS-only line: packages/app no longer reads `dynamicPlugins.frontend`,
+ * and an rhdh-cli 2.1 export ships module federation only. Those keys are dead config
+ * rather than a naming defect, so the cross-check sets them aside instead of failing
+ * every migrated workspace (RHIDP-17311). A key is set aside when either
+ *
+ * - the package whose metadata configures it installed as an MF-only bundle (its npm
+ *   name, or the `-dynamic` export of it) — newer exports drop `scalprum` from
+ *   package.json entirely, so this is the only link for them; or
+ * - it equals the `scalprum.name` an MF-only bundle's package.json still declares.
+ *
+ * A key tied to neither is still checked, and fails when nothing answers to it.
+ */
+export function configKeysNotApplicable(
+  configured: ConfiguredFrontendKey[],
+  mfOnly: { npmNames: string[]; scalprumNames: string[] },
+): string[] {
+  const npm = new Set(mfOnly.npmNames);
+  const names = new Set(mfOnly.scalprumNames);
+  const belongsToMfOnly = (c: ConfiguredFrontendKey) =>
+    names.has(c.key) ||
+    (c.packageName !== undefined &&
+      (npm.has(c.packageName) || npm.has(`${c.packageName}-dynamic`)));
+  return [
+    ...new Set(configured.filter(belongsToMfOnly).map((c) => c.key)),
+  ].sort(compareStrings);
+}
+
+type FeatureLoaderLike = {
+  $$type?: unknown;
+  featureType?: unknown;
+  deps?: Record<string, unknown>;
+  loader?: (deps: Record<string, unknown>) => Promise<unknown[]>;
+};
+
+/**
+ * A loader that yields `import('./x.cjs.js')` hands back the CJS `module.exports`
+ * (`{ default: feature }`), one level above the feature, because import() of CommonJS
+ * wraps it again. The backend unwraps it; so must anything reading the list before it.
+ */
+function unwrapDefault(item: unknown): unknown {
+  const i = item as { $$type?: unknown; default?: unknown } | null;
+  if (i && i.$$type === undefined && i.default !== undefined) {
+    return unwrapDefault(i.default);
+  }
+  return item;
+}
+
+/**
+ * Replace every dependency-free feature loader with the features it yields.
+ *
+ * startTestBackend adds an empty placeholder plugin for each module whose plugin is
+ * not in the feature list, and a plugin that arrives through a loader is invisible to
+ * it. So scorecard-backend (a loader yielding scorecardPlugin) plus any scorecard module
+ * failed with "Plugin 'scorecard' is already registered". RHDH boots the same pair
+ * fine. Expanding loaders up front shows startTestBackend the real plugin. A loader that
+ * needs services is kept as is: resolving those deps is the backend's job.
+ */
+export async function expandFeatureLoaders(
+  features: unknown[],
+  depth = 0,
+): Promise<unknown[]> {
+  const out: unknown[] = [];
+  for (const feature of features) {
+    const f = feature as FeatureLoaderLike | null;
+    const isLoader =
+      f?.$$type === "@backstage/BackendFeature" &&
+      f.featureType === "loader" &&
+      typeof f.loader === "function";
+    const needsDeps = f?.deps !== undefined && Object.keys(f.deps).length > 0;
+    if (!isLoader || needsDeps || depth > 5) {
+      out.push(feature);
+      continue;
+    }
+    const yielded = (await f.loader!({})).map(unwrapDefault);
+    out.push(...(await expandFeatureLoaders(yielded, depth + 1)));
+  }
+  return out;
 }
