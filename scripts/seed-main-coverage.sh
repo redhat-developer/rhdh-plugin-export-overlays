@@ -37,6 +37,7 @@ set -euo pipefail
 # Without a token, upload-coverage.sh warns and exits 0 for every workspace, so
 # the job would go green while uploading nothing. Fail fast on the
 # misconfiguration instead — for this upload-only job a missing token is a red X.
+# (CODECOV_UPLOAD_STRICT below closes the same hole for a failed upload.)
 if [[ -z "${CODECOV_TOKEN:-}" && -z "${VAULT_CODECOV_TOKEN:-}" ]]; then
   echo "ERROR: no Codecov token (CODECOV_TOKEN / VAULT_CODECOV_TOKEN) — the seed would upload nothing. Set the CODECOV_TOKEN secret." >&2
   exit 1
@@ -55,24 +56,78 @@ if [[ ${#snapshots[@]} -eq 0 ]]; then
   exit 0
 fi
 
-echo "=== Seeding ${#snapshots[@]} coverage snapshot(s) to the current main commit ==="
-FAILED=0
+# Each snapshot's basename is the workspace name and becomes the Codecov flag.
+#
+# upload-coverage.sh rejects a workspace with no workspaces/<ws>/ directory, so a
+# snapshot left behind by a renamed or deleted workspace would fail its upload —
+# and under the any-failure-is-red rule below that means this job goes
+# permanently red with the real cause buried in one workspace's log. Catch it
+# here instead: once, up front, naming the fix.
+WORKSPACES=()
+ORPHANED=()
 for snapshot in "${snapshots[@]}"; do
-  # The snapshot basename must equal a workspaces/<dir> name — it becomes the
-  # Codecov flag (e2e-<ws>) and upload-coverage.sh validates the directory.
   ws="$(basename "$snapshot" .lcov)"
-  echo ""
-  echo "--- $ws (e2e-$ws) ---"
-  if ! "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
-    echo "[WARN] Seed failed for $ws (non-fatal)"
-    FAILED=$((FAILED + 1))
+  if [[ -d "$REPO_ROOT/workspaces/$ws" ]]; then
+    WORKSPACES+=("$ws")
+  else
+    ORPHANED+=("$ws")
   fi
 done
 
+# Reported now, but the run continues: an orphan is one workspace's bookkeeping
+# problem, and aborting here would hold every OTHER workspace's flag at its last
+# value until someone cleans up — punishing flags that have nothing wrong with
+# them. Seed the healthy ones, then fail at the end so the orphan still gets
+# noticed. (Safe only because the loop below derives each snapshot path from its
+# workspace name; skipping entries would desync a parallel array.)
+if [[ ${#ORPHANED[@]} -gt 0 ]]; then
+  echo "[WARN] snapshot(s) with no matching workspaces/<name>/ directory: ${ORPHANED[*]}" >&2
+  echo "       The workspace was renamed or removed — delete or rename the matching coverage-snapshots/<name>.lcov." >&2
+  echo "       Seeding the remaining workspace(s); this run will still fail." >&2
+fi
+
+if [[ ${#WORKSPACES[@]} -eq 0 ]]; then
+  echo "ERROR: every snapshot is orphaned — nothing to seed." >&2
+  exit 1
+fi
+
+echo "=== Seeding ${#WORKSPACES[@]} coverage snapshot(s) to the current main commit ==="
+# Declared empty so `${#FAILED_WS[@]}` is safe under `set -u` when nothing fails.
+FAILED_WS=()
+for ws in "${WORKSPACES[@]}"; do
+  # Derived from the workspace name rather than read from a parallel array. The
+  # orphan check above filters entries out, so index alignment between two lists
+  # would already be broken here — a parallel array would silently diverge, sending
+  # one workspace's lcov up under another's flag. Deriving the path cannot drift.
+  snapshot="$SNAPSHOT_DIR/$ws.lcov"
+  echo ""
+  echo "--- $ws (e2e-$ws) ---"
+  # Uploading IS this job — a Codecov-side failure is a real failure here, not the
+  # incidental side-effect it is for a caller that also does something else. Without
+  # strict, upload-coverage.sh returns 0 on a failed upload and every snapshot
+  # reports as seeded while Codecov received nothing. Set per call rather than
+  # exported so the scope is visible right where it applies.
+  if ! CODECOV_UPLOAD_STRICT=true "$SCRIPT_DIR/upload-coverage.sh" "$ws" "$snapshot"; then
+    echo "ERROR: Seed failed for $ws" >&2
+    FAILED_WS+=("$ws")
+  fi
+done
+
+FAILED="${#FAILED_WS[@]}"
 echo ""
-echo "=== Done: $(( ${#snapshots[@]} - FAILED ))/${#snapshots[@]} seeded ==="
-# A green run here means "dashboard updated". If every seed failed (e.g. all
-# snapshots point at renamed/removed workspaces), that's a misconfiguration
-# worth a red X, not a buried WARN.
-[[ "$FAILED" -eq "${#snapshots[@]}" ]] && exit 1
+echo "=== Done: $(( ${#WORKSPACES[@]} - FAILED ))/${#WORKSPACES[@]} seeded ==="
+# A green run here means "dashboard updated" — so ANY failed seed is a red X, not
+# just an all-fail. Each workspace is an independent flag: 6/7 green would leave
+# the 7th showing a stale carried-forward number with nothing to indicate it was
+# never refreshed, which is precisely the silent staleness this job exists to
+# prevent. The seed is idempotent and re-runs on schedule, so a re-run is the fix.
+# An orphaned snapshot counts the same way: nothing was uploaded for it either.
+if [[ "$FAILED" -gt 0 ]]; then
+  echo "ERROR: Not seeded: ${FAILED_WS[*]}" >&2
+  exit 1
+fi
+if [[ ${#ORPHANED[@]} -gt 0 ]]; then
+  echo "ERROR: orphaned snapshot(s) still present: ${ORPHANED[*]}" >&2
+  exit 1
+fi
 exit 0

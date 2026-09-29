@@ -1,0 +1,20 @@
+# disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+# remove this file afterwards
+plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.27.0
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          backstage-community.plugin-acr:
+            mountPoints:
+              - mountPoint: entity.page.image-registry/cards
+                importName: AcrImagesEntityContent
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                  if:
+                    anyOf:
+                      - isAcrAvailable

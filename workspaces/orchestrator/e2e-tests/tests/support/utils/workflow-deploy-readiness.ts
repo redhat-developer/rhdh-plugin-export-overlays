@@ -165,6 +165,26 @@ function knativeServingCrdPresent(deps: WorkflowOcDeps): boolean {
   }
 }
 
+function ocErrorText(err: unknown): string {
+  if (!err || typeof err !== "object") {
+    return String(err);
+  }
+  const e = err as {
+    message?: string;
+    stderr?: Buffer | string;
+    stdout?: Buffer | string;
+  };
+  const stdio = (value: Buffer | string | undefined): string => {
+    if (value == null) {
+      return "";
+    }
+    return typeof value === "string" ? value : value.toString("utf-8");
+  };
+  return [e.message, stdio(e.stderr), stdio(e.stdout)]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function applyKnativeServingManifest(deps: WorkflowOcDeps): void {
   const manifestPath = join("/tmp", `knative-serving-${process.pid}.yaml`);
   writeFileSync(
@@ -179,6 +199,15 @@ metadata:
   );
   try {
     deps.runOc(["apply", "-f", manifestPath], 60_000);
+  } catch (err) {
+    // Parallel Playwright projects race on this cluster-scoped CR.
+    if (ocErrorText(err).includes("AlreadyExists")) {
+      console.warn(
+        "[deploy-sonataflow] KnativeServing already exists; continuing",
+      );
+      return;
+    }
+    throw err;
   } finally {
     try {
       unlinkSync(manifestPath);
