@@ -177,7 +177,7 @@ REPO="redhat-developer/rhdh-plugin-export-overlays"
 
 # 1. Search for any open issue mentioning this workspace
 EXISTING=$(gh api -X GET search/issues \
-  -f q="repo:${REPO} is:issue state:open \"fullsend-tracking: workspace=${WORKSPACE}\" in:body" \
+  -f q="repo:${REPO} is:issue state:open \"fullsend-tracking: workspace=${WORKSPACE}\" \"fullsend-tracking: branch=${TARGET_BRANCH}\" in:body" \
   --jq '[.items[] | {number, title, url: .html_url}]')
 
 # 2. If found, check if it has an OPEN linked PR.
@@ -209,7 +209,7 @@ umbrella issue:
 ```bash
 ROOT_CAUSE_SLUG="<slug>"
 gh api -X GET search/issues \
-  -f q="repo:${REPO} is:issue state:open \"fullsend-tracking: root-cause=${ROOT_CAUSE_SLUG}\" in:body" \
+  -f q="repo:${REPO} is:issue state:open \"fullsend-tracking: root-cause=${ROOT_CAUSE_SLUG}\" \"fullsend-tracking: branch=${TARGET_BRANCH}\" in:body" \
   --jq '[.items[] | {number, title, url: .html_url}]'
 ```
 

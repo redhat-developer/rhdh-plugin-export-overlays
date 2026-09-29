@@ -43,8 +43,7 @@ cd "$SCRIPT_DIR"
 # These use defaults that can be overridden via environment variables.
 
 # RHDH deployment
-# TODO: Revert this pin to "2.0" after https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3907 merges.
-export RHDH_VERSION="2.0-86-CI"             # RHDH version to deploy (e.g., "1.10", "next")
+export RHDH_VERSION="2.0-91-CI"       # RHDH version to deploy (e.g., "1.10", "next")
 export INSTALLATION_METHOD="${INSTALLATION_METHOD:-helm}" # "helm" or "operator"
 
 # Playwright

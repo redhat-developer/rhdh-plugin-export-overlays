@@ -288,8 +288,15 @@ THIS_PR="${PR_NUMBER}"
 CANDIDATES=$(gh api -X GET search/issues \
   -f q="repo:${REPO} is:pr state:open ${SEARCH_KEY}" \
   --jq '[.items[] | {number, title, url: .html_url}]')
-echo "${CANDIDATES}" | jq --argjson this "${THIS_PR}" \
-  '[.[] | select(.number != $this)] | .[:5]'
+FILTERED=$(echo "${CANDIDATES}" | jq --argjson this "${THIS_PR}" \
+  '[.[] | select(.number != $this)] | .[:5]')
+
+# Enrich each candidate with its base branch (search API doesn't include it)
+for PR_NUM in $(echo "${FILTERED}" | jq -r '.[].number'); do
+  BASE=$(gh api "repos/${REPO}/pulls/${PR_NUM}" --jq '.base.ref')
+  FILTERED=$(echo "${FILTERED}" | jq --argjson n "${PR_NUM}" --arg b "${BASE}" \
+    '[.[] | if .number == $n then . + {base_branch: $b} else . end]')
+done
 ```
 
 **What counts as a match:** an open PR (not this one) that clearly addresses
@@ -333,7 +340,7 @@ request-changes. `pre_existing` is reported with any `related_prs` instead
 **Root cause:** <mechanism, not symptom>
 **Evidence:** <key log/trace lines>
 **Suggested fix:** <file:line, or "already being fixed">
-**Open PR:** <#3480 — title> (omit this line when `related_prs` is absent)
+**Open PR:** <#3480 — title> (omit this line when `related_prs` is absent; append `(targets <branch>)` when the related PR's base branch differs from this PR's base branch)
 [logs](<url>)
 </details>
 
@@ -357,10 +364,12 @@ three classifications point at something actionable, so `suggestion` is
 - **`pre_existing` — point at existing work, then the file.** The failure
   isn't this PR's fault and is **not** auto-fixed on this PR. After Phase 3b:
   if `related_prs` is set, `suggestion` must name those PRs first
-  (`Already being fixed in #3480.`) and may add the file:line as context; if
-  none matched, name the file:line a human (or a new PR) would change, and
-  say no open PR was found. Never tell the author to wait on auto-fix for
-  `pre_existing`.
+  (`Already being fixed in #3480.`) and may add the file:line as context.
+  When a related PR targets a different base branch than this PR, say so
+  (`Already being fixed in #3480, but that PR targets main — a separate fix
+  may be needed for release-1.10.`). If none matched, name the file:line a
+  human (or a new PR) would change, and say no open PR was found. Never tell
+  the author to wait on auto-fix for `pre_existing`.
 - **`flake` — give the author something beyond "re-run it".** State what was
   actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
   change would reduce the recurrence (a longer timeout, a more specific wait
@@ -410,7 +419,8 @@ key when Phase 3b found nothing):
   {
     "number": 3480,
     "url": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3480",
-    "title": "<optional>"
+    "title": "<optional>",
+    "base_branch": "main"
   }
 ]
 ```
