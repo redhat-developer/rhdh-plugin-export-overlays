@@ -1,9 +1,7 @@
 type ThemeInfo = {
-  name: "Light" | "Dark" | "RHDH Plugins QE Light" | "RHDH Plugins QE Dark";
+  name: string;
   primaryColor: string;
-  headerColor1: string;
-  headerColor2: string;
-  navigationIndicatorColor: string;
+  appBarBackgroundColor: string;
 };
 
 export class ThemeConstants {
@@ -11,35 +9,27 @@ export class ThemeConstants {
     const light: ThemeInfo = {
       name: "Light",
       primaryColor: "#2A61A7",
-      headerColor1: "rgb(216, 98, 208)",
-      headerColor2: "rgb(216, 164, 98)",
-      navigationIndicatorColor: "rgb(98, 216, 105)",
+      appBarBackgroundColor: "rgb(216, 98, 208)",
     };
 
     const dark: ThemeInfo = {
       name: "Dark",
       primaryColor: "#DC6ED9",
-      headerColor1: "rgb(190, 122, 45)",
-      headerColor2: "rgb(45, 190, 50)",
-      navigationIndicatorColor: "rgb(45, 113, 190)",
+      appBarBackgroundColor: "rgb(190, 122, 45)",
     };
 
-    const lightDynamic: ThemeInfo = {
+    const qeLight: ThemeInfo = {
       name: "RHDH Plugins QE Light",
       primaryColor: "rgb(255, 95, 21)",
-      headerColor1: "rgb(248, 248, 248)",
-      headerColor2: "rgb(248, 248, 248)",
-      navigationIndicatorColor: "rgb(255, 95, 21)",
+      appBarBackgroundColor: "",
     };
 
-    const darkDynamic: ThemeInfo = {
+    const qeDark: ThemeInfo = {
       name: "RHDH Plugins QE Dark",
       primaryColor: "#ab75cf",
-      headerColor1: "rgb(0, 0, 208)",
-      headerColor2: "rgb(255, 246, 140)",
-      navigationIndicatorColor: "rgb(244, 238, 169)",
+      appBarBackgroundColor: "",
     };
 
-    return [light, dark, lightDynamic, darkDynamic];
+    return [light, dark, qeLight, qeDark];
   }
 }

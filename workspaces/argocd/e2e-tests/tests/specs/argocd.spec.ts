@@ -48,7 +48,10 @@ test.describe("Test ArgoCD plugin", () => {
   test.beforeEach(async ({ page, loginHelper, uiHelper }) => {
     await loginHelper.loginAsKeycloakUser();
     await navigateToComponent(page, uiHelper);
-    await uiHelper.clickTab("CD");
+    await uiHelper.clickButtonByLabel("Deployment");
+    await page
+      .getByRole("menuitemradio", { name: "Deployment Lifecycle" })
+      .click();
     await uiHelper.clickByDataTestId("test-argocd-app-card");
   });
 
@@ -57,7 +60,6 @@ test.describe("Test ArgoCD plugin", () => {
     uiHelper,
   }) => {
     await uiHelper.clickButtonByLabel("Close the drawer");
-
     const card = page.getByTestId("test-argocd-app-card");
     await expect(card).toBeVisible();
     await expect(card).toContainText("test-argocd-app");
@@ -80,7 +82,7 @@ test.describe("Test ArgoCD plugin", () => {
   }) => {
     await uiHelper.verifyText("Resources");
 
-    await uiHelper.clickButtonByLabel("rows");
+    await page.getByRole("combobox", { name: "rows" }).click();
     await page.getByRole("option", { name: "10 rows" }).click();
 
     await uiHelper.verifyColumnHeading([
@@ -177,7 +179,7 @@ test.describe("Test ArgoCD plugin", () => {
     await uiHelper.clickByDataTestId("health-status-toggle");
   });
 
-  test("Verify deployment lifecycle on CD tab shows revisions", async ({
+  test("Verify deployment lifecycle on Deployment tab shows revisions", async ({
     uiHelper,
   }) => {
     await uiHelper.verifyText(/Revision \d+/);

@@ -14,13 +14,13 @@ metadata:
   tags: []
 spec:
   packageName: "apic-backstage"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage:bs_1.49.4__1.0.3!apic-backstage
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/apic-backstage:bs_1.49.4__1.0.3
   version: 1.0.3
   backstage:
     role: backend-plugin
     supportedVersions: 1.49.4
   author: IBM
-  support: generally-available
+  support: community
   lifecycle: active
   partOf:
     - apic-backstage

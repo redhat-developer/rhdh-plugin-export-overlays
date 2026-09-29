@@ -1,0 +1,8 @@
+# Microsoft auth and MS Graph catalog modules are disabled in default.packages.yaml,
+# so {{inherit}} fails at install. Use explicit overlays tags until published on quay.io/rhdh.
+plugins:
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-microsoft-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-microsoft-provider:bs_1.52.0__0.3.16
+    disabled: false
+  - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-msgraph-dynamic
+    disabled: false

@@ -1,8 +1,7 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /**
- * Keycloak catalog integration e2e test configuration.
- * Extends the base config from e2e-test-utils.
+ * Keycloak catalog integration E2E test configuration using the current RHDH frontend.
  */
 export default defineConfig({
   projects: [
