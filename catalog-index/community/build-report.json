@@ -56,32 +56,6 @@
       "workspace": "argocd",
       "overall": "pass"
     },
-    "backstage-community-plugin-argocd": {
-      "stages": {
-        "bootstrap": {
-          "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.54.6__3.1.3"
-        },
-        "registry-enrich": {
-          "status": "pass",
-          "digest": "sha256:356c0505db35715bf23d8963418f49318b07be08fd4e4419a673ac1ee92f5689"
-        },
-        "dpdy": {
-          "status": "skip"
-        },
-        "catalog-index": {
-          "status": "pass"
-        },
-        "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:9255ff50afa343be84debbd15a90c8ecbf2f727a968f01859373be7b077c278c"
-        }
-      },
-      "package": "@backstage-community/plugin-argocd",
-      "version": "3.1.3",
-      "workspace": "argocd",
-      "overall": "pass"
-    },
     "backstage-community-plugin-azure-devops-backend": {
       "stages": {
         "bootstrap": {
@@ -204,7 +178,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:91ba1db9938bb960fd1c07594238e964916498a652e3f7d2a19e7d39cfd404a0"
+          "digest": "sha256:ef04be491543b40b32bfacdcb16d532a20057ac03b11c97a1376dee40ad70c1e"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-azure",
@@ -230,7 +204,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:893b6e9a6b69736f2b40f5082ec7949ded95109a6a2451eb830c75490771f384"
+          "digest": "sha256:00a8fcff3d6fe9139ea2730d3bbcdab472e4adc72b4e44d965cbc584fb84a661"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-cloud",
@@ -256,7 +230,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c55ed308b545779a88ab4bad0422a8cb4729e4ed49e8f1fc979e5c8ee649f7ba"
+          "digest": "sha256:93ebb3de34902dee274f09db01f7de5fd3dd191555fe01a7bec3a51a6603ed26"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
@@ -706,58 +680,6 @@
       "workspace": "roadie-backstage-plugins",
       "overall": "pass"
     },
-    "roadiehq-backstage-plugin-jira": {
-      "stages": {
-        "bootstrap": {
-          "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-jira:bs_1.54.6__2.14.0"
-        },
-        "registry-enrich": {
-          "status": "pass",
-          "digest": "sha256:4d28b9c56e88504bb0c9ed49071a080c0681f80677939ce868bbaf5dd8fdb620"
-        },
-        "dpdy": {
-          "status": "skip"
-        },
-        "catalog-index": {
-          "status": "pass"
-        },
-        "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:54032619bd96965e049700ab30ef29818931ee244d0af8357251ab130e2d2a50"
-        }
-      },
-      "package": "@roadiehq/backstage-plugin-jira",
-      "version": "2.14.0",
-      "workspace": "roadie-backstage-plugins",
-      "overall": "pass"
-    },
-    "roadiehq-backstage-plugin-security-insights": {
-      "stages": {
-        "bootstrap": {
-          "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-security-insights:bs_1.54.6__3.3.1"
-        },
-        "registry-enrich": {
-          "status": "pass",
-          "digest": "sha256:2027a8252b6b047b332f28b45214f522b88379c69cb2e8f5fcf71ba3f00cba26"
-        },
-        "dpdy": {
-          "status": "skip"
-        },
-        "catalog-index": {
-          "status": "pass"
-        },
-        "image-metadata-fetch": {
-          "status": "pass",
-          "digest": "sha256:2c2d82c2615eae59b9aad89819f27dd813b92879411b8f9573201b05221ab6e3"
-        }
-      },
-      "package": "@roadiehq/backstage-plugin-security-insights",
-      "version": "3.3.1",
-      "workspace": "roadie-backstage-plugins",
-      "overall": "pass"
-    },
     "roadiehq-scaffolder-backend-argocd": {
       "stages": {
         "bootstrap": {
@@ -990,8 +912,8 @@
     }
   },
   "summary": {
-    "total": 38,
-    "succeeded": 38,
+    "total": 35,
+    "succeeded": 35,
     "failed": 0
   },
   "status": "success"
