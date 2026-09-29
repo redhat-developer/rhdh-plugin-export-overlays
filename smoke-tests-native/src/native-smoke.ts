@@ -74,6 +74,9 @@ import {
   createServiceFactory,
   type BackendFeature,
 } from "@backstage/backend-plugin-api";
+// A real dependency, not just a source for one ServiceRef: the extensions plugins
+// require() this package at load time, so a locally declared ref with the same id lets
+// them start but not load (RHIDP-17310).
 import { dynamicPluginsServiceRef } from "@backstage/backend-dynamic-feature-service";
 import type { JsonObject } from "@backstage/types";
 import {
