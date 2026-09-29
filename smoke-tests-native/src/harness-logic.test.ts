@@ -7,12 +7,25 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
 import {
+  createBackendFeatureLoader,
+  createBackendModule,
+  createBackendPlugin,
+  createExtensionPoint,
+  createServiceFactory,
+  createServiceRef,
+  coreServices,
+} from "@backstage/backend-plugin-api";
+import {
   bundleNamesAreComplete,
   computeStatus,
+  configKeysNotApplicable,
   describeConfigKeyMismatch,
   describeInstallShortfall,
   describeNfsShortfall,
+  expandFeatureLoaders,
+  featureTargets,
   findConfigKeyMismatches,
+  missingHostPluginIds,
   partitionBootable,
 } from "./harness-logic";
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
@@ -330,19 +343,6 @@ test("the config-key check is skipped when the bundle names are incomplete", () 
 // ---------------------------------------------------------------------------
 // Host plugins for loaded modules (RHIDP-17310)
 // ---------------------------------------------------------------------------
-import {
-  configKeysNotApplicable,
-  expandFeatureLoaders,
-  featureTargets,
-  findConfigKeyMismatches as findMismatches,
-  missingHostPluginIds,
-} from "./harness-logic";
-import {
-  createBackendModule,
-  createBackendPlugin,
-  createExtensionPoint,
-} from "@backstage/backend-plugin-api";
-
 const providersPoint = createExtensionPoint<object>({ id: "auth.providers" });
 
 const authModule = createBackendModule({
@@ -414,7 +414,7 @@ test("a key naming an MF-only bundle is set aside, not reported", () => {
   };
   const notApplicable = configKeysNotApplicable(configured, mfOnly);
   assert.deepEqual(notApplicable, ["backstage-community.plugin-tekton"]);
-  const mismatches = findMismatches(configured, [], notApplicable);
+  const mismatches = findConfigKeyMismatches(configured, [], notApplicable);
   assert.deepEqual(
     mismatches.map((m) => m.key),
     ["backstage-community.plugin-typo"],
@@ -424,7 +424,7 @@ test("a key naming an MF-only bundle is set aside, not reported", () => {
 test("without MF-only names the check behaves as before", () => {
   const configured = [{ key: "a.b", source: "x.yaml" }];
   assert.deepEqual(
-    findMismatches(configured, []).map((m) => m.key),
+    findConfigKeyMismatches(configured, []).map((m) => m.key),
     ["a.b"],
   );
   assert.deepEqual(
@@ -454,7 +454,7 @@ test("a key is set aside when its own package installed MF-only", () => {
     "red-hat-developer-hub.backstage-plugin-adoption-insights",
   ]);
   assert.deepEqual(
-    findMismatches(configured, [], notApplicable).map((m) => m.key),
+    findConfigKeyMismatches(configured, [], notApplicable).map((m) => m.key),
     ["someone.else"],
   );
 });
@@ -462,14 +462,15 @@ test("a key is set aside when its own package installed MF-only", () => {
 test("expandFeatureLoaders shows startTestBackend the plugin a loader yields", async () => {
   // scorecard-backend's default export is a loader; left as is, startTestBackend adds a
   // placeholder 'scorecard' plugin for each scorecard module and the real one collides.
-  const { createBackendFeatureLoader } =
-    await import("@backstage/backend-plugin-api");
   const loader = createBackendFeatureLoader({
     *loader() {
       yield catalogLike;
     },
   });
-  const expanded = await expandFeatureLoaders([loader, authModule]);
+  const { features: expanded } = await expandFeatureLoaders([
+    loader,
+    authModule,
+  ]);
   assert.deepEqual(expanded, [catalogLike, authModule]);
   assert.deepEqual(
     expanded.flatMap((f) => featureTargets(f)),
@@ -481,26 +482,73 @@ test("expandFeatureLoaders shows startTestBackend the plugin a loader yields", a
 });
 
 test("expandFeatureLoaders keeps a loader that needs services", async () => {
-  const { createBackendFeatureLoader, coreServices } =
-    await import("@backstage/backend-plugin-api");
   const loader = createBackendFeatureLoader({
     deps: { config: coreServices.rootConfig },
     *loader() {
       yield catalogLike;
     },
   });
-  assert.deepEqual(await expandFeatureLoaders([loader]), [loader]);
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [loader]);
 });
 
 test("expandFeatureLoaders unwraps the module.exports an import() of CJS yields", async () => {
   // events-backend-module-gitlab's loader returns import('./x.cjs.js') promises.
-  const { createBackendFeatureLoader } =
-    await import("@backstage/backend-plugin-api");
   const loader = createBackendFeatureLoader({
     // The type forbids the extra level; the runtime shape is exactly this.
     loader: (() => [
       Promise.resolve({ default: { default: authModule } }),
     ]) as unknown as () => [],
   });
-  assert.deepEqual(await expandFeatureLoaders([loader]), [authModule]);
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [
+    authModule,
+  ]);
+});
+
+test("expandFeatureLoaders expands a loader that yields another loader", async () => {
+  const inner = createBackendFeatureLoader({
+    *loader() {
+      yield catalogLike;
+    },
+  });
+  const outer = createBackendFeatureLoader({
+    *loader() {
+      yield inner;
+    },
+  });
+  assert.deepEqual((await expandFeatureLoaders([outer])).features, [
+    catalogLike,
+  ]);
+});
+
+test("expandFeatureLoaders keeps a loader's service factories apart", async () => {
+  // The backend skips a loader's factory for a service already provided; flattened in,
+  // the same factory becomes an explicit duplicate and fails startup.
+  const ref = createServiceRef<object>({ id: "test.loaded", scope: "root" });
+  const factory = createServiceFactory({
+    service: ref,
+    deps: {},
+    factory: () => ({}),
+  });
+  const loader = createBackendFeatureLoader({
+    *loader() {
+      yield catalogLike;
+      yield factory;
+    },
+  });
+  assert.deepEqual(await expandFeatureLoaders([loader, factory]), {
+    features: [catalogLike, factory],
+    loaderServiceFactories: [factory],
+  });
+});
+
+test("a failing loader is reported with its description", async () => {
+  const loader = createBackendFeatureLoader({
+    loader() {
+      throw new Error("boom");
+    },
+  });
+  await assert.rejects(
+    expandFeatureLoaders([loader]),
+    /^Error: Feature loader created at '.*' failed: boom$/,
+  );
 });

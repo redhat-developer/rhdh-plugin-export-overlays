@@ -455,7 +455,7 @@ test("a module's host from another tier is installed alongside it", () => {
     "oci://ghcr.io/example/sc-backend:tag",
   ]);
   assert.deepEqual(hosts, ["@x/plugin-sc-backend"]);
-  // Still out of scope: the host is installed, not validated in this tier.
+  // Still counted out of scope, though it is installed and booted in this run.
   assert.equal(outOfScope, 2);
 });
 
@@ -485,5 +485,39 @@ test("an excluded host is not installed", () => {
     support: "dev-preview",
     installExcluded: excluderFor(exclusions, "install"),
   });
+  assert.deepEqual(hosts, []);
+});
+
+test("an excluded module pulls in no host", () => {
+  // The module is not installed, so nothing in the run needs its host.
+  const root = makeWorkspace(freshRepo(), "sc2", {
+    "backend.yaml": pkgYaml(
+      "@x/plugin-sc-backend",
+      "backend-plugin",
+      "tech-preview",
+      "sc-backend",
+    ),
+    "module.yaml": pkgYaml(
+      "@x/plugin-sc-backend-module-catalog",
+      "backend-plugin-module",
+      "dev-preview",
+      "sc-module",
+    ),
+    "peer.yaml": pkgYaml(
+      "@x/plugin-peer-backend",
+      "backend-plugin",
+      "dev-preview",
+      "peer",
+    ),
+  });
+  const exclusions = parseExclusions(
+    "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend-module-catalog$\n",
+    "test-excludes.txt",
+  );
+  const { refs, hosts } = collectWorkspaceRefs(root, "sc2", {
+    support: "dev-preview",
+    installExcluded: excluderFor(exclusions, "install"),
+  });
+  assert.deepEqual(refs, ["oci://ghcr.io/example/peer:tag"]);
   assert.deepEqual(hosts, []);
 });

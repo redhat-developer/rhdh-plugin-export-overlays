@@ -13,7 +13,7 @@
 import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { ConfigKeyMismatch, Status } from "./report";
 import type { ConfiguredFrontendKey } from "./workspace";
-import { compareStrings } from "./util";
+import { compareStrings, errorMessage } from "./util";
 
 /**
  * The harness's verdict, most specific failure first.
@@ -347,6 +347,7 @@ type FeatureLoaderLike = {
   $$type?: unknown;
   featureType?: unknown;
   deps?: Record<string, unknown>;
+  description?: unknown;
   loader?: (deps: Record<string, unknown>) => Promise<unknown[]>;
 };
 
@@ -363,6 +364,18 @@ function unwrapDefault(item: unknown): unknown {
   return item;
 }
 
+// Loaders yielding loaders is legal but shallow in practice; the cap only stops a loader
+// that yields itself from recursing forever. Past it the loader is left to the backend.
+const MAX_LOADER_NESTING = 5;
+
+/** What expandFeatureLoaders hands back; see there for why services stay apart. */
+export type ExpandedFeatures = {
+  /** Every feature, with dependency-free loaders replaced by what they yield. */
+  features: unknown[];
+  /** Service factories those loaders yielded, still owed loader semantics. */
+  loaderServiceFactories: unknown[];
+};
+
 /**
  * Replace every dependency-free feature loader with the features it yields.
  *
@@ -372,25 +385,72 @@ function unwrapDefault(item: unknown): unknown {
  * failed with "Plugin 'scorecard' is already registered". RHDH boots the same pair
  * fine. Expanding loaders up front shows startTestBackend the real plugin. A loader that
  * needs services is kept as is: resolving those deps is the backend's job.
+ *
+ * Service factories a loader yields are returned apart, not flattened in: the backend
+ * skips a loader's factory when the service is already provided, but rejects an
+ * explicit duplicate. The caller hands them back inside a loader to keep that rule.
+ *
+ * A loader that throws is reported with its description, as the backend does.
  */
 export async function expandFeatureLoaders(
   features: unknown[],
-  depth = 0,
-): Promise<unknown[]> {
-  const out: unknown[] = [];
+): Promise<ExpandedFeatures> {
+  const expanded: ExpandedFeatures = {
+    features: [],
+    loaderServiceFactories: [],
+  };
+  await expandInto(features, 0, false, expanded);
+  return expanded;
+}
+
+async function expandInto(
+  features: unknown[],
+  depth: number,
+  fromLoader: boolean,
+  into: ExpandedFeatures,
+): Promise<void> {
   for (const feature of features) {
     const f = feature as FeatureLoaderLike | null;
-    const isLoader =
-      f?.$$type === "@backstage/BackendFeature" &&
-      f.featureType === "loader" &&
-      typeof f.loader === "function";
-    const needsDeps = f?.deps !== undefined && Object.keys(f.deps).length > 0;
-    if (!isLoader || needsDeps || depth > 5) {
-      out.push(feature);
+    if (fromLoader && isServiceFactory(f)) {
+      into.loaderServiceFactories.push(feature);
       continue;
     }
-    const yielded = (await f.loader!({})).map(unwrapDefault);
-    out.push(...(await expandFeatureLoaders(yielded, depth + 1)));
+    const loader = expandableLoader(f, depth);
+    if (!loader) {
+      into.features.push(feature);
+      continue;
+    }
+    let yielded: unknown[];
+    try {
+      yielded = (await loader({})).map(unwrapDefault);
+    } catch (err) {
+      throw new Error(
+        `Feature loader ${String(f?.description ?? "(no description)")} failed: ${errorMessage(err)}`,
+        { cause: err },
+      );
+    }
+    await expandInto(yielded, depth + 1, true, into);
   }
-  return out;
+}
+
+function isServiceFactory(f: FeatureLoaderLike | null): boolean {
+  return (
+    f?.$$type === "@backstage/BackendFeature" && f.featureType === "service"
+  );
+}
+
+/** The loader function of a feature this module may expand, or undefined. */
+function expandableLoader(
+  f: FeatureLoaderLike | null,
+  depth: number,
+): FeatureLoaderLike["loader"] {
+  if (
+    f?.$$type !== "@backstage/BackendFeature" ||
+    f.featureType !== "loader" ||
+    typeof f.loader !== "function"
+  ) {
+    return undefined;
+  }
+  const needsDeps = f.deps !== undefined && Object.keys(f.deps).length > 0;
+  return needsDeps || depth > MAX_LOADER_NESTING ? undefined : f.loader;
 }

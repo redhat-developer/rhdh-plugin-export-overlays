@@ -168,7 +168,8 @@ export type WorkspaceInfo = {
   outOfScope?: number;
   /**
    * Out-of-scope host plugins installed only so an in-scope module can boot. Counted
-   * in `refCount` because they are installed; still validated in their own tier.
+   * in `refCount` because they are installed, and loaded and booted here like any other
+   * ref: a defect in a host fails this run as well as its own tier's.
    */
   hosts?: string[];
 };

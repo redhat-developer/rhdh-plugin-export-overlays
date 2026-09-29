@@ -70,6 +70,7 @@ import authPlugin from "@backstage/plugin-auth-backend";
 import notificationsPlugin from "@backstage/plugin-notifications-backend";
 import eventsPlugin from "@backstage/plugin-events-backend";
 import {
+  createBackendFeatureLoader,
   createServiceFactory,
   type BackendFeature,
 } from "@backstage/backend-plugin-api";
@@ -185,11 +186,11 @@ const coreFeatures = [catalogPlugin, scaffolderPlugin, searchPlugin];
 // plugin too, and a second copy of a plugin id fails startup. auth and events are
 // static in RHDH and never exported, so in practice they are always added when one of
 // their modules loads.
-const HOST_FALLBACKS: Record<string, BackendFeature> = {
-  auth: authPlugin,
-  events: eventsPlugin,
-  notifications: notificationsPlugin,
-};
+const HOST_FALLBACKS = new Map<string, BackendFeature>([
+  ["auth", authPlugin],
+  ["events", eventsPlugin],
+  ["notifications", notificationsPlugin],
+]);
 // `core.dynamicplugins`, which RHDH's backend provides through
 // @backstage/backend-dynamic-feature-service and the extensions plugins depend on. The
 // harness loads plugins itself, so there is no manager to expose: this reports none,
@@ -662,18 +663,21 @@ async function startBackend(
   // No backend plugins (e.g. a frontend-only workspace) — boot wasn't attempted, not a
   // failure. Flag it so results.json doesn't read like the backend crashed.
   if (loaded.length === 0) return { ok: true, skipped: true };
+  // Outside the try: a boot that fails on an injected host must still say it was there.
+  let hostPlugins: string[] = [];
   try {
     // Inject a root config (dummy values for plugins that validate config at boot,
     // overridden by the caller's --app-config layer when provided).
     const config = buildMergedConfig(loaded, appConfig);
     // Loaders first — see expandFeatureLoaders.
-    const features = (await expandFeatureLoaders(
-      loaded.map((p) => p.feature),
-    )) as BackendFeature[];
-    const hostPlugins = missingHostPluginIds(
+    const expanded = await expandFeatureLoaders(loaded.map((p) => p.feature));
+    const features = expanded.features as BackendFeature[];
+    const loaderServiceFactories =
+      expanded.loaderServiceFactories as BackendFeature[];
+    hostPlugins = missingHostPluginIds(
       features.flatMap((f) => featureTargets(f)),
       CORE_PLUGIN_IDS,
-    ).filter((id) => id in HOST_FALLBACKS);
+    ).filter((id) => HOST_FALLBACKS.has(id));
     if (hostPlugins.length > 0) {
       console.log(
         `▶ host plugin(s) added for loaded modules: ${hostPlugins.join(", ")}`,
@@ -683,8 +687,16 @@ async function startBackend(
       features: [
         ...coreFeatures,
         emptyDynamicPluginsService,
-        ...hostPlugins.map((id) => HOST_FALLBACKS[id]),
+        ...hostPlugins.flatMap((id) => HOST_FALLBACKS.get(id) ?? []),
         ...features,
+        // Back inside a loader, so a service already provided is skipped, not duplicated.
+        ...(loaderServiceFactories.length > 0
+          ? [
+              createBackendFeatureLoader({
+                loader: () => loaderServiceFactories,
+              }),
+            ]
+          : []),
         mockServices.rootConfig.factory({ data: config }),
       ],
     });
@@ -697,6 +709,7 @@ async function startBackend(
     return {
       ok: false,
       error: errorMessage(err),
+      hostPlugins: hostPlugins.length ? hostPlugins : undefined,
     };
   }
 }
@@ -851,8 +864,11 @@ async function main(): Promise<number> {
       materialized.frontendConfigKeys &&
       bundleNamesAreComplete(installShortfall, frontend.errors);
     // Frontend bundles that ship no dist-scalprum/ — see configKeysNotApplicable.
-    const mfOnlyPlugins = manifest.frontend.filter(
-      (_, i) => !frontend.bundles[i]?.scalprum,
+    const mfOnlyNames = new Set(
+      frontend.bundles.filter((b) => !b.scalprum).map((b) => b.name),
+    );
+    const mfOnlyPlugins = manifest.frontend.filter((p) =>
+      mfOnlyNames.has(p.name),
     );
     const configKeysNotApplicableHere = keysCheckable
       ? configKeysNotApplicable(materialized.frontendConfigKeys ?? [], {

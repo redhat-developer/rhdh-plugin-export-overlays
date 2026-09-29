@@ -93,11 +93,12 @@ export function dynamicPackageJsonPath(
 
 /**
  * Install the `<pkg>/package.json` redirect for the given plugins. Tried only after
- * Node's own resolution fails, so anything resolvable normally is untouched.
+ * Node's own resolution fails, so anything resolvable normally is untouched. Returns a
+ * function that removes the patch (the harness never does; tests must).
  */
 export function patchDynamicPackageJsonResolution(
   plugins: DynamicPackage[],
-): void {
+): () => void {
   const nodeModule = Module as unknown as {
     _resolveFilename: (
       request: string,
@@ -114,5 +115,8 @@ export function patchDynamicPackageJsonResolution(
       if (redirected) return redirected;
       throw err;
     }
+  };
+  return () => {
+    nodeModule._resolveFilename = original;
   };
 }

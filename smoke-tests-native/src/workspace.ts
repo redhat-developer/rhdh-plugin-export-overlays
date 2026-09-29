@@ -221,11 +221,10 @@ export function collectWorkspaceRefs(
   const excluded: ExclusionRecord[] = [];
   const frontendConfigKeys: ConfiguredFrontendKey[] = [];
   const outOfScopePackages: PackageEntry[] = [];
-  let outOfScope = 0;
+  const installed: PackageEntry[] = [];
 
   for (const pkg of packages) {
     if (options.support && pkg.support !== options.support) {
-      outOfScope += 1;
       outOfScopePackages.push(pkg);
       continue;
     }
@@ -240,6 +239,7 @@ export function collectWorkspaceRefs(
     }
     if (pkg.artifact.startsWith("oci://")) {
       refs.push(pkg.artifact);
+      installed.push(pkg);
       // Only here: a package whose artifact is a local ./dynamic-plugins/dist path ships
       // inside the RHDH image, so nothing is installed for it and its keys have no
       // bundle to match.
@@ -259,6 +259,7 @@ export function collectWorkspaceRefs(
     }
   }
 
+  const outOfScope = outOfScopePackages.length;
   // Checked before hosts are added: a run whose only refs are hosts validates nothing.
   if (refs.length === 0) {
     throw new Error(
@@ -269,14 +270,15 @@ export function collectWorkspaceRefs(
       }),
     );
   }
-  const hosts = hostPackagesFor(
-    packages.filter((p) => !outOfScopePackages.includes(p)),
-    outOfScopePackages,
-  ).filter((host) => {
-    if (!host.artifact.startsWith("oci://") || refs.includes(host.artifact))
-      return false;
-    return !options.installExcluded?.(host.packageName);
-  });
+  // Only modules actually installed: an excluded or non-OCI module boots nothing that
+  // needs a host, and its host would be booted here for no reason.
+  const hosts = hostPackagesFor(installed, outOfScopePackages).filter(
+    (host) => {
+      if (!host.artifact.startsWith("oci://") || refs.includes(host.artifact))
+        return false;
+      return !options.installExcluded?.(host.packageName);
+    },
+  );
   for (const host of hosts) {
     refs.push(host.artifact);
     console.log(

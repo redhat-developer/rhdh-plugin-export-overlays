@@ -560,6 +560,8 @@ The harness also reproduces the parts of RHDH's backend loader that plugins depe
 - **Hosts from another tier.** In a `--support` run, an out-of-scope backend plugin named
   `<x>` is installed when an in-scope module is named `<x>-module-*`
   (`workspace.hosts`). Scorecard's dev-preview modules attach to its tech-preview backend.
+  The host is loaded and booted like any other ref, so a defect in it fails this run too.
+  `workspace.hosts` lists npm package names; `backendStart.hostPlugins` lists plugin ids.
 
 ## Benchmark: native vs Docker (real run)
 

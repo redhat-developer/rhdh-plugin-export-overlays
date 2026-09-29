@@ -31,7 +31,9 @@ export const KNOWN_FAILURES = new Set<string>([
 // plugin's: a plugin that reads them (e.g. mta, to build its own URLs) fails startup
 // validation with no plugin-specific key to attach a dummy to.
 // `backend.database` is always set in RHDH; x2a reads it directly at startup
-// (RHIDP-17310). startTestBackend's mock database service ignores it.
+// (RHIDP-17310). startTestBackend's database service does read it; the value is the one
+// it falls back to without the key, so boot is unchanged. A caller's --app-config that
+// sets only `backend.database.client` still inherits this `connection`.
 const baseConfig: JsonObject = {
   app: { baseUrl: "http://localhost:3000" },
   backend: {
@@ -77,7 +79,7 @@ const configOverrides: Record<string, JsonObject> = {
   "backstage-community-plugin-lighthouse-backend": {
     lighthouse: { baseUrl: "http://localhost:3003" },
   },
-  // RHIDP-17310: the four below failed only startup config validation in the
+  // RHIDP-17310: the six below failed only startup config validation in the
   // 2026-09 sweeps. Shapes copied from each workspace's appConfigExamples.
   "backstage-plugin-notifications-backend-module-email": {
     notifications: {
