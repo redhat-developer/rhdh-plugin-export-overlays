@@ -1,14 +1,13 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
+/**
+ * Global Header plugin e2e — single project running the NFS (Backstage app) shell.
+ */
 export default defineConfig({
   projects: [
     {
-      name: "global-header-default",
+      name: "global-header",
       testMatch: "**/tests/specs/default-global-header.spec.ts",
-    },
-    {
-      name: "global-header-header-mount-points",
-      testMatch: "**/tests/specs/header-mount-points.spec.ts",
     },
   ],
 });

@@ -1,12 +1,12 @@
 import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { CatalogApiHelper } from "../../support/api/catalog-api-helper.js";
+import { CatalogApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { GitLabApiHelper } from "../../support/api/gitlab-api-helper.js";
 import {
   bootstrapGitLabEventsApiClient,
   deployGitLabEventsHub,
   prepareGitLabEventsParentGroup,
-  runGitLabEventsCleanupSafely,
-} from "../../support/gitlab-events-test-setup.js";
+} from "../../support/gitlab/events-test-setup.js";
+import { runGitLabCleanupSafely } from "../../support/gitlab/common-test-setup.js";
 
 test.describe("GitLab Events - Org Data", () => {
   let testPrefix: string;
@@ -31,7 +31,7 @@ test.describe("GitLab Events - Org Data", () => {
   });
 
   test.afterAll(async () => {
-    await runGitLabEventsCleanupSafely(async () => {
+    await runGitLabCleanupSafely(async () => {
       if (testUserId) {
         await GitLabApiHelper.deleteUser(testUserId, true);
       }

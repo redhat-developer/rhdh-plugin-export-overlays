@@ -6,7 +6,7 @@ catalog:
     - allow: [Component]
   locations:
     - type: url
-      target: https://github.com/PatAKnight/rhdh-plugin-export-overlays/blob/scaffolder-kubernetes-migration/workspaces/scaffolder-backend-module-kubernetes/e2e-tests/tests/config/template.yaml
+      target: https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/workspaces/scaffolder-backend-module-kubernetes/e2e-tests/tests/config/template.yaml
       rules:
         - allow: [Template]
 scaffolder:

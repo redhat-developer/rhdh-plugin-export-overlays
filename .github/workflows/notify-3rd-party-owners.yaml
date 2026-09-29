@@ -1,0 +1,46 @@
+name: Notify 3rd party plugin owners
+
+on:
+  workflow_dispatch:
+    inputs:
+      rhdh-version:
+        description: >
+          RHDH version to notify about. Must exactly match a "rhdh-version"
+          entry in release-schedule.yaml (e.g. "2.1.0").
+          If empty, uses the next upcoming release from release-schedule.yaml.
+        type: string
+        required: false
+        default: ""
+      dry-run:
+        description: "List what would be notified without creating issues"
+        type: boolean
+        required: false
+        default: false
+
+  schedule:
+    # Check every Monday at 9:00 UTC — only creates issues when today falls
+    # within a release's notification window (13-19 days before feature-freeze).
+    - cron: "0 9 * * 1"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install js-yaml
+        run: npm install --ignore-scripts js-yaml@4.3.1
+
+      - name: Notify 3rd party owners
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_RHDH_VERSION: ${{ inputs.rhdh-version }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        with:
+          script: |
+            const run = require('./scripts/notify-3rd-party-owners.js');
+            await run({ github, context });
