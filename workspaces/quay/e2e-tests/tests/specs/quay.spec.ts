@@ -29,7 +29,7 @@ test.describe("Test Quay.io plugin", () => {
       await uiHelper.openCatalogSidebar("Component");
       await uiHelper.searchInputPlaceholder("Developer Hub");
       await uiHelper.clickLink("Red Hat Developer Hub");
-      await uiHelper.clickTab("Image Registry");
+      await uiHelper.clickLink("Quay");
     });
 
     test("Check if Image Registry is present", async ({ page, uiHelper }) => {
@@ -63,8 +63,8 @@ test.describe("Test Quay.io plugin", () => {
 
     test.beforeEach(async ({ uiHelper }) => {
       await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.clickButton("Self-service");
-      await uiHelper.verifyHeading("Self-service");
+      await uiHelper.clickLink("Self-service");
+      await uiHelper.verifyHeading("Templates");
     });
 
     test.afterEach(async () => {
