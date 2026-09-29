@@ -27,6 +27,7 @@ const FILE_MAP = {
   'user-guide/05-version-updates.md': 'Version-Updates',
   'user-guide/06-patch-management.md': 'Patch-Management',
   'user-guide/07-plugin-catalog-index.md': 'Plugin-Catalog-Index-Generation',
+  'user-guide/08-creating-release-branches.md': 'Creating-Release-Branches',
 };
 
 // Link transformations for wiki format
@@ -39,6 +40,7 @@ const LINK_TRANSFORMS = [
   { from: /\[([^\]]+)\]\(\.\/05-version-updates\.md(#[^\)]+)?\)/g, to: '[$1](Version-Updates$2)' },
   { from: /\[([^\]]+)\]\(\.\/06-patch-management\.md(#[^\)]+)?\)/g, to: '[$1](Patch-Management$2)' },
   { from: /\[([^\]]+)\]\(\.\/07-plugin-catalog-index\.md(#[^\)]+)?\)/g, to: '[$1](Plugin-Catalog-Index-Generation$2)' },
+  { from: /\[([^\]]+)\]\(\.\/08-creating-release-branches\.md(#[^\)]+)?\)/g, to: '[$1](Creating-Release-Branches$2)' },
 ];
 
 // Source repository metadata
@@ -232,6 +234,7 @@ function generateSidebar(workspaceStats, reportPages, catalogStatusPages) {
 * [Plugin Owner Guide](Plugin-Owner-Guide)
 * [Metadata Synchronization](Metadata-Synchronization)
 * [Version Updates](Version-Updates)
+* [Creating Release Branches](Creating-Release-Branches)
 * [Patch Management](Patch-Management)
 * [Plugin Catalog Index](Plugin-Catalog-Index-Generation)
 
