@@ -107,6 +107,11 @@
               "title": {
                 "type": "string",
                 "maxLength": 256
+              },
+              "base_branch": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "The base branch the related PR targets (e.g. 'main', 'release-1.10'). Used to flag when a fix exists but targets a different branch."
               }
             }
           },

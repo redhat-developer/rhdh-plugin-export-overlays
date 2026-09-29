@@ -22,7 +22,7 @@ Checks on this repo surface three ways — you must handle all three:
 
 | Type (`type`) | Examples | Where the logs are |
 |---------------|----------|--------------------|
-| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-helm-nightly` | gcsweb/GCS → use `/e2e-failure-analysis` |
+| `prow` — OpenShift CI StatusContext | `ci/prow/e2e-ocp-helm`, `ci/prow/e2e-ocp-helm-nightly` | gcsweb/GCS → use the `/e2e-failure-analysis` skill |
 | `gha_check` — GitHub Actions CheckRun | `E2E Code Quality`, `appConfigExamples coverage`, `Python unit tests`, `smoke` | `gh run view --log-failed` |
 | `status` — comment-command StatusContext | `publish`, `smoketest` | `targetUrl` → GH Actions run log |
 
@@ -115,33 +115,69 @@ PREV=$(gh api --paginate "repos/${REPO}/issues/${PR_NUMBER}/comments" \
     ')
 ```
 
-Reuse prior per-check findings for checks whose classification is unlikely to
-have changed; focus fresh analysis on checks newly red since the last run.
+Treat the previous diagnosis as a **hypothesis, not fact** — it may have
+been produced with incomplete evidence. Always re-verify checks that are
+still red using primary evidence (artifacts, logs). The previous comment is
+useful only for: (a) identifying checks that are *newly* red since the last
+run (prioritize those), and (b) providing cross-run context (e.g. a failure
+that persists across multiple SHAs is less likely to be a flake).
 
 ## Phase 2: Diagnose each red check
 
 ### Prow (`ci/prow/*`)
 
-The rollup `url` is the Prow/gcsweb URL. Diagnose with the skills — artifacts,
-traces, cluster logs — exactly as the nightly e2e-triage agent does:
+The rollup `url` is the Prow/gcsweb URL. Invoke the `/e2e-failure-analysis`
+skill with it — same delegation the e2e-triage agent uses. The skill owns artifact
+download (Step 0, skip-if-already-downloaded), diagnostics (Step 1),
+per-workspace grouping, and subagent fan-out (Step 3): each subagent gets a
+local `$ARTIFACTS`/`$BUILD_LOG` path, never a URL, and returns per-test
+**evidence only** — never a classification, since classification needs
+cross-check context (PR diff, other checks, cross-workspace patterns) that
+subagents lack. Do not hand-roll the download/diagnostics commands or the
+subagent fan-out yourself — the skill already does both, and doing them again
+here just duplicates work the skill will redo internally.
 
-```bash
-SKILL_DIR="${SKILL_DIR:-.claude/skills/e2e-failure-analysis}"
-ARTIFACTS=$(node --experimental-strip-types "$SKILL_DIR/scripts/download-artifacts.ts" "${PROW_URL}")
-node --experimental-strip-types "$SKILL_DIR/scripts/diagnostics.ts" "$ARTIFACTS"
-```
+**Hard requirement — no artifacts, no diagnosis.** The skill's Step 0 must
+succeed (non-empty `$ARTIFACTS`) before you classify ANY Prow check.
 
-Then invoke `/e2e-failure-analysis` — trace inspection for UI failures is
-built into the skill's methodology (tiered: quick check first, full
-timeline when ambiguous). Check cluster logs (`pods.txt`, `events.txt`,
-`backstage-backend.log`) for deployment failures. **If the skill fails to
-invoke, stop and report it** — do not guess a classification without it.
+**Retry once on a transient-looking network error before giving up.** DNS
+resolution failures, connection timeouts, and connection resets can be a
+brief blip in the sandbox's network layer rather than a hard block — even
+against an already-allowlisted host. If the first attempt fails with one of
+these, wait ~10 seconds and retry the download exactly once. If the retry
+also fails with the same class of error, treat it as real and stop — do not
+retry more than once.
 
-**Multiple red checks are independent — diagnose them in parallel.** When two
-or more curated checks are red (e.g. two Prow lanes, or a Prow lane plus a
-GHA check), dispatch one sub-agent per check concurrently rather than working
-through them one at a time. Each check's evidence, artifacts, and
-classification are self-contained, so there's nothing to serialize on.
+If it still fails after the retry:
+
+1. Report the **exact error** from both attempts (not a guess like "network
+   blocked").
+2. Classify the check as `needs_human` with evidence
+   `"artifact download failed after retry: <actual error output>"`.
+3. Do NOT fall back to PR comment data, bot summaries, or GitHub API for
+   Prow diagnosis — those sources lack the cluster logs, traces, and test
+   output needed to distinguish `pr_regression` from `pre_existing`.
+
+**Never fabricate an infrastructure excuse.** If a command errors, report
+the literal output. Do not infer "network policy" or "sandbox restriction"
+without evidence — run the command and let it speak for itself.
+
+**If the skill fails to invoke, stop and report it** — do not guess a
+classification without it. Trace inspection for UI failures and cluster log
+checks (`pods.txt`, `events.txt`, `backstage-backend.log`) for deployment
+failures are built into the skill's methodology (tiered: quick check first,
+full timeline when ambiguous) — do not duplicate them here.
+
+If a subagent the skill spawned fails or returns unusable output, analyze
+that workspace inline as a fallback — do not silently drop it.
+
+**Multiple red Prow checks:** invoke the skill once per check URL,
+sequentially — they share a download cache directory.
+
+**Multiple check types in parallel.** When both Prow and non-Prow checks
+are red, you may diagnose non-Prow checks (GHA/status) concurrently with
+Prow analysis — those use `gh run view`, not artifact downloads. But for a
+given Prow check, artifact download always happens first, via the skill.
 
 ### GitHub Actions (`gha_check`) and comment-command (`status`)
 
@@ -158,10 +194,12 @@ The full log can run tens of KB and get truncated to a file, costing a
 second read — grep for the `##[error]` annotation lines (with context)
 first; only fall back to a raw tail if nothing matches.
 
-If the `gh run view` command itself errors (network/policy issue, not a
-real log absence), fall back to `gh api
-repos/${REPO}/check-runs/<id>/annotations` — lower detail, but usually
-enough to classify.
+If the `gh run view` command itself errors, fall back to `gh api
+repos/${REPO}/check-runs/<id>/annotations` — lower detail, but still
+primary evidence (it comes from the CI system, not from PR comments). If
+**both** fail, classify as `needs_human` with the exact errors from both
+attempts. Do NOT fall back to PR comments or bot summaries as a substitute
+for actual CI logs.
 
 Read the actual assertion/compiler/validator error — not just "step failed".
 For `E2E Code Quality` (eslint/prettier/tsc), `appConfigExamples coverage`,
@@ -209,6 +247,18 @@ or a test/config change would prevent the failure, it is `pr_regression` or
 **mechanism** ("the h1 wait raced a background waitForEvent while the OAuth
 refresh 401'd").
 
+**Mixed root causes within a single check.** A Prow check can contain
+dozens of failing tests with different root causes (e.g. 1 `pr_regression`
+among 40 `pre_existing`). Use the most severe classification for the check:
+`pr_regression` > `pre_existing` > `product_bug` > `flake` > `config_env`.
+List all distinct root causes in the `root_cause` field so none are hidden.
+
+**Coordinator cross-check.** Before writing the final classification,
+verify each `pre_existing` or `flake` finding against the PR diff. If the
+PR touches files in the same workspace or area as a failure classified
+`pre_existing` or `flake`, re-examine — the PR may have caused or exposed
+it.
+
 Roll the per-check classifications into one overall `verdict`:
 - all `pr_regression` → `pr_regression`; all `flake` → `flake`; etc.
 - more than one distinct classification → `mixed`.
@@ -238,8 +288,15 @@ THIS_PR="${PR_NUMBER}"
 CANDIDATES=$(gh api -X GET search/issues \
   -f q="repo:${REPO} is:pr state:open ${SEARCH_KEY}" \
   --jq '[.items[] | {number, title, url: .html_url}]')
-echo "${CANDIDATES}" | jq --argjson this "${THIS_PR}" \
-  '[.[] | select(.number != $this)] | .[:5]'
+FILTERED=$(echo "${CANDIDATES}" | jq --argjson this "${THIS_PR}" \
+  '[.[] | select(.number != $this)] | .[:5]')
+
+# Enrich each candidate with its base branch (search API doesn't include it)
+for PR_NUM in $(echo "${FILTERED}" | jq -r '.[].number'); do
+  BASE=$(gh api "repos/${REPO}/pulls/${PR_NUM}" --jq '.base.ref')
+  FILTERED=$(echo "${FILTERED}" | jq --argjson n "${PR_NUM}" --arg b "${BASE}" \
+    '[.[] | if .number == $n then . + {base_branch: $b} else . end]')
+done
 ```
 
 **What counts as a match:** an open PR (not this one) that clearly addresses
@@ -283,7 +340,7 @@ request-changes. `pre_existing` is reported with any `related_prs` instead
 **Root cause:** <mechanism, not symptom>
 **Evidence:** <key log/trace lines>
 **Suggested fix:** <file:line, or "already being fixed">
-**Open PR:** <#3480 — title> (omit this line when `related_prs` is absent)
+**Open PR:** <#3480 — title> (omit this line when `related_prs` is absent; append `(targets <branch>)` when the related PR's base branch differs from this PR's base branch)
 [logs](<url>)
 </details>
 
@@ -307,10 +364,12 @@ three classifications point at something actionable, so `suggestion` is
 - **`pre_existing` — point at existing work, then the file.** The failure
   isn't this PR's fault and is **not** auto-fixed on this PR. After Phase 3b:
   if `related_prs` is set, `suggestion` must name those PRs first
-  (`Already being fixed in #3480.`) and may add the file:line as context; if
-  none matched, name the file:line a human (or a new PR) would change, and
-  say no open PR was found. Never tell the author to wait on auto-fix for
-  `pre_existing`.
+  (`Already being fixed in #3480.`) and may add the file:line as context.
+  When a related PR targets a different base branch than this PR, say so
+  (`Already being fixed in #3480, but that PR targets main — a separate fix
+  may be needed for release-1.10.`). If none matched, name the file:line a
+  human (or a new PR) would change, and say no open PR was found. Never tell
+  the author to wait on auto-fix for `pre_existing`.
 - **`flake` — give the author something beyond "re-run it".** State what was
   actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
   change would reduce the recurrence (a longer timeout, a more specific wait
@@ -360,7 +419,8 @@ key when Phase 3b found nothing):
   {
     "number": 3480,
     "url": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3480",
-    "title": "<optional>"
+    "title": "<optional>",
+    "base_branch": "main"
   }
 ]
 ```
@@ -406,21 +466,49 @@ classification).
   per-check "run `/fs-fix`" prompts and do NOT tailor the prose by PR author.
   The single footer line already explains the automatic hand-off and the
   human controls; anything more is duplication.
-- **Trace inspection is mandatory for Prow UI failures** — `/e2e-failure-analysis`
-  runs it as part of its methodology; do not classify a UI failure before it returns.
+- **Trace inspection is mandatory for Prow UI failures** — the
+  `/e2e-failure-analysis` skill runs it as part of its methodology; do not
+  classify a UI failure before it returns.
 - **Correlate with the diff.** Never call something `pre_existing` or `flake`
   without checking whether the PR's changes touch the failing area.
-- Treat the previous diagnosis comment as a **hypothesis**, not fact — re-verify
-  checks that are still red.
-- When spawning sub-agents (e.g. per Prow workspace), always pass
-  `model: "opus"`.
+- **Sub-agent type.** The `/e2e-failure-analysis` skill owns Prow subagent fan-out
+  (per-workspace evidence gathering) and already pins `model: "opus"` —
+  don't re-dispatch those yourself. If you spawn a sub-agent directly for
+  anything else (e.g. a manual fallback when the skill fails to invoke, or
+  parallel GHA/status diagnosis), always pass `model: "opus"` and
+  `subagent_type: "ci-diagnose"` so it inherits the full ci-diagnose
+  methodology and skill access instead of improvising around missing data.
+- **No diagnosis without primary evidence.** Every check type has a primary
+  evidence source — the actual CI output that shows what failed and why:
+
+  | Check type | Primary evidence |
+  |------------|-----------------|
+  | `prow` | Downloaded artifacts (test output, cluster logs, traces) |
+  | `gha_check` | `gh run view --log-failed` or `check-runs/<id>/annotations` |
+  | `status` | `gh run view --log-failed` via the `targetUrl` run ID |
+
+  PR comments, bot summaries, and prior diagnosis comments are **secondary**
+  sources — they can inform (e.g. cross-run trend, known issue context) but
+  never substitute for primary evidence. If primary evidence cannot be
+  obtained for any check type, classify that check as `needs_human` with the
+  exact retrieval error. Never produce a diagnosis from secondary sources
+  alone and present it as if primary evidence was reviewed.
+- **Never fabricate infrastructure errors.** This applies to every command
+  you run — artifact downloads, `gh run view`, `gh api`, skill invocations.
+  If you did not run a command, do not claim it failed. If you ran it and it
+  errored, quote the actual error output. Claiming "network blocked",
+  "sandbox restriction", or "access denied" without running the command and
+  observing that specific error is a fabrication — it masks the real issue
+  (the command was never attempted) and leads to incorrect diagnoses.
 
 ## Sandbox Execution Model
 
-You run in a **read-only** sandbox. You CANNOT write to GitHub. Instead you
-render the diagnosis into `agent-result.json`; the **post-script** posts a new
-diagnosis comment and, when guards pass, submits the review that
-wakes the fix agent.
+You have **read-only access to GitHub** — not a network-restricted sandbox.
+Artifact downloads, `gh run view`, and other outbound commands work; run
+them and report the real result instead of assuming "read-only" means
+blocked. All GitHub writes go through the **post-script** on the host,
+driven by your `agent-result.json` — it posts the diagnosis comment and,
+when guards pass, submits the review that wakes the fix agent.
 
 - CAN: read the PR (rollup, diff, files), download Prow artifacts, read GH
   Actions logs (`gh run view`), search open issues/PRs (Phase 3b), read the
