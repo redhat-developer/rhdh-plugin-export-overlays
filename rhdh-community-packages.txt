@@ -23,8 +23,9 @@ roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
 
 # confirmed Community @ 11/07 meeting
 # @immobiliarelabs/backstage-plugin-gitlab*
-gitlab/packages/gitlab
-gitlab/packages/gitlab-backend
+# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
+# gitlab/packages/gitlab
+# gitlab/packages/gitlab-backend
 
 # confirmed Community @ 11/07 meeting; the commercial ones are NOT exported from this repo (only in catalog entities by 3rd party vendor!)
 dynatrace/plugins/dynatrace
@@ -60,6 +61,8 @@ tekton/plugins/tekton
 acr/plugins/acr
 
 # moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
-apiconnect/plugins/apic-backstage
-dynatrace-dql/plugins/dql
-dynatrace-dql/plugins/dql-backend
+# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
+# apiconnect/plugins/apic-backstage
+# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
+# dynatrace-dql/plugins/dql
+# dynatrace-dql/plugins/dql-backend
