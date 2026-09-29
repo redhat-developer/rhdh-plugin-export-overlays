@@ -18,8 +18,11 @@ pagerduty/plugins/backstage-plugin-backend
 scaffolder-backend-module-servicenow/plugins/scaffolder-backend-module-servicenow
 scaffolder-backend-module-sonarqube/plugins/scaffolder-backend-module-sonarqube
 roadie-backstage-plugins/plugins/frontend/backstage-plugin-datadog
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
-roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
+
+# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# roadie-backstage-plugins/plugins/frontend/backstage-plugin-jira
+# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# roadie-backstage-plugins/plugins/frontend/backstage-plugin-security-insights
 
 # confirmed Community @ 11/07 meeting
 # @immobiliarelabs/backstage-plugin-gitlab*
@@ -45,7 +48,8 @@ nexus-repository-manager/plugins/nexus-repository-manager
 roadie-backstage-plugins/plugins/scaffolder-actions/scaffolder-backend-module-utils
 
 # confirmed Community @ 12/05 meeting - both Roadie and RH are to be community supported
-argocd/plugins/argocd
+# 09/29 not compatible with NFS in BS 1.54, so removed https://redhat.atlassian.net/browse/RHIDP-16853
+# argocd/plugins/argocd
 argocd/plugins/argocd-backend
 
 # continue to use wrappers in 1.9; moving to Commmunity in 1.10 (per PM/Eng sync meeting 01/12; on 01/28 PM decided to move these in 1.10, not 1.11)

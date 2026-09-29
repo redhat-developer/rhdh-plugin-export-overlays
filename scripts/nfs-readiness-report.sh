@@ -336,8 +336,8 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     }' >> "$RESULTS_FILE"
 done
 
-# Convert JSONL to JSON array
-RESULTS=$(jq -s '.' "$RESULTS_FILE")
+# Convert JSONL to JSON array; keep only supported and community tiers
+RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
 
 if [[ "$OUTPUT_JSON" == "true" ]]; then
   echo "$RESULTS" | jq .
@@ -375,11 +375,12 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 
 EOF
 
-  for tier in supported community other; do
+  # do not show the "other" tier as we don't care about unsupported plugins
+  for tier in supported community; do # other
     case "$tier" in
       supported) tier_label="Red Hat Supported (GA + Tech Preview)" ;;
       community) tier_label="Community" ;;
-      other)     tier_label="Other" ;;
+      # other)     tier_label="Other" ;;
       *)         tier_label="$tier" ;;
     esac
     tier_frontend=$(echo "$RESULTS" | jq --arg t "$tier" '[.[] | select(.supportTier == $t and .frontend)] | length')
