@@ -161,17 +161,6 @@ spec:
     - ./red-hat-developer-hub-backstage-plugin-x2a-mcp-extras.yaml
     - ./red-hat-developer-hub-backstage-plugin-x2a-scaffolder-module.yaml
     - ./red-hat-developer-hub-backstage-plugin-x2a.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-catalog.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-code-coverage.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-dependabot.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-dora.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-filecheck.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-github.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-jira.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-openssf.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend-module-sonarqube.yaml
-    - ./rhdh-backstage-plugin-scorecard-backend.yaml
-    - ./rhdh-backstage-plugin-scorecard.yaml
     - ./rhdh-bs-plugin-catalog-backend-module-ai-model-server.yaml
     - ./rhdh-bs-plugin-catalog-backend-module-ai-resource-agent.yaml
     - ./rhdh-bs-plugin-catalog-backend-module-ai-resource-extensions.yaml
@@ -193,6 +182,17 @@ spec:
     - ./rhdh-bsp-orchestrator.yaml
     - ./rhdh-bsp-quickstart.yaml
     - ./rhdh-bsp-scaffolder-backend-mod-orchestrator.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-code-coverage.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-ctlg.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-dependabot.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-dora.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-filecheck.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-github.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-jira.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-openssf.yaml
+    - ./rhdh-bsp-scorecard-backend-mod-sonarqube.yaml
+    - ./rhdh-bsp-scorecard-backend.yaml
+    - ./rhdh-bsp-scorecard.yaml
     - ./roadiehq-backstage-plugin-argo-cd-backend.yaml
     - ./roadiehq-backstage-plugin-argo-cd.yaml
     - ./roadiehq-backstage-plugin-datadog.yaml

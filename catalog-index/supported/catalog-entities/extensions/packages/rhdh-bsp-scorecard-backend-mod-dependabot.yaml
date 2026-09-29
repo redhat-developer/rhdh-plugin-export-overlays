@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: rhdh-backstage-plugin-scorecard-backend-module-dependabot
+  name: rhdh-bsp-scorecard-backend-mod-dependabot
   namespace: rhdh
   title: "Scorecard Backend Module for Dependabot"
   links:
@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dependabot"
   # Tag: bs_1.54.6__1.1.3
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot@sha256:a645d38685377d80c2eecfb94c3e32f607d11128b343d5a77fd319ae8560e308"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot@sha256:f4881fa4da1a9f39b48590491e617b579d42c9d803ee20abf72499887af9c580"
   version: 1.1.3
   backstage:
     role: backend-plugin-module

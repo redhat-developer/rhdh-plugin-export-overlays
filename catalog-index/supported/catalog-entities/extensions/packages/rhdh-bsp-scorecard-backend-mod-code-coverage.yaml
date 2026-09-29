@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: rhdh-backstage-plugin-scorecard-backend-module-code-coverage
+  name: rhdh-bsp-scorecard-backend-mod-code-coverage
   namespace: rhdh
   title: "Scorecard Backend Module for Code Coverage"
   links:
@@ -17,7 +17,8 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-code-coverage"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-code-coverage:bs_1.54.6__0.1.3
+  # Tag: bs_1.54.6__0.1.3
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-code-coverage@sha256:7508b68938b77b50be4b034e227331961ea0df42f99bf62050b58f64266987b5"
   version: 0.1.3
   backstage:
     role: backend-plugin-module

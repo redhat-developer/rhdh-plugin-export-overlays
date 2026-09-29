@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: rhdh-backstage-plugin-scorecard-backend-module-dora
+  name: rhdh-bsp-scorecard-backend-mod-dora
   namespace: rhdh
   title: "Scorecard Backend Module for DORA"
   links:
@@ -17,7 +17,8 @@ metadata:
     - analytics
 spec:
   packageName: "@red-hat-developer-hub/backstage-plugin-scorecard-backend-module-dora"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora:bs_1.54.6__0.2.1
+  # Tag: bs_1.54.6__0.2.1
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora@sha256:69396ddbda940afb412ec6ecdf2049d79998d9fe74e624e43c4bdec3d9048803"
   version: 0.2.1
   backstage:
     role: backend-plugin-module
