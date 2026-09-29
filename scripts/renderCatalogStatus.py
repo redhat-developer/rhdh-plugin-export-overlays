@@ -502,11 +502,15 @@ def render_status_page(
 
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     short_sha = source_commit[:7] if source_commit else ""
-    commit_link = f"[{source_branch} @ {short_sha}]({source_repo}/tree/{source_branch})" if source_repo else f"{source_branch} @ {short_sha}"
+    source_label = f"{source_branch} @ {short_sha}" if source_commit else source_branch
+    source_link = (
+        f"[{source_label}]({source_repo}/commit/{source_commit})"
+        if source_repo and source_commit else source_label
+    )
     run_link = f"[View run]({workflow_run_url})" if workflow_run_url else ""
 
     lines.append(f"**Build date:** {build_date}  ")
-    lines.append(f"**Source:** {commit_link}  ")
+    lines.append(f"**Source:** {source_link}  ")
     if backstage_version or rhdh_version:
         version_parts = []
         if backstage_version:

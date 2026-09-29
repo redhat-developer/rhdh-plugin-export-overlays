@@ -1,6 +1,29 @@
 """Tests for renderCatalogStatus.py — the generated catalog-index status page."""
 
-from renderCatalogStatus import render_tier, version_regression_warning
+from renderCatalogStatus import render_status_page, render_tier, version_regression_warning
+
+
+def test_source_links_to_exact_commit():
+    sha = "dd328e13fb0412de1914c5398a33c1d2c839f44c"
+    text = render_status_page(
+        {}, {}, "https://github.com/org/repo", "main", sha, "", "", "", "catalog-index-main"
+    )
+
+    assert (
+        f"**Source:** [main @ dd328e1](https://github.com/org/repo/commit/{sha})"
+        in text
+    )
+    assert (
+        "**Catalog index branch:** "
+        "[catalog-index-main](https://github.com/org/repo/tree/catalog-index-main)"
+        in text
+    )
+
+
+def test_source_without_commit_is_not_linked_to_mutable_branch():
+    text = render_status_page({}, {}, "https://github.com/org/repo", "main", "", "", "", "")
+
+    assert "**Source:** main  " in text
 
 
 def _plugin(name, *, warnings=None, overall="pass", **extra):
