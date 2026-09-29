@@ -11,7 +11,6 @@ test.describe("Test github-actions", () => {
       auth: "github",
       appConfig: `${WorkspacePaths.configDir}/github-actions/app-config-rhdh.yaml`,
       dynamicPlugins: `${WorkspacePaths.configDir}/github-actions/dynamic-plugins.yaml`,
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });

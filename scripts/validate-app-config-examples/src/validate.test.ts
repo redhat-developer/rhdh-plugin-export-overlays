@@ -8,16 +8,9 @@
 // The CLI's reporting and exit-code policy. `report` takes writers rather than
 // touching process.stdout so these can assert on the exact output CI shows.
 
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { byCodepoint } from "./json.js";
-import {
-  exitCodeFor,
-  main,
-  printReport,
-  type Row,
-  type SchemaTally,
-} from "./validate.js";
+import { describe, expect, it } from "vite-plus/test";
+import { byCodepoint } from "./json.ts";
+import { exitCodeFor, main, printReport, type Row, type SchemaTally } from "./validate.ts";
 
 const NO_SCHEMAS: SchemaTally = {
   validated: 0,
@@ -52,17 +45,17 @@ const passing: Row = {
 
 describe("exitCodeFor", () => {
   it("is 0 when nothing failed", () => {
-    assert.equal(exitCodeFor([passing]), 0);
+    expect(exitCodeFor([passing])).toBe(0);
   });
 
   it("is 1 when any row failed", () => {
-    assert.equal(exitCodeFor([passing, { ...passing, status: "FAIL" }]), 1);
+    expect(exitCodeFor([passing, { ...passing, status: "FAIL" }])).toBe(1);
   });
 
   it("ignores a mismatch tally — only a failed row sets the code", () => {
     // The workflow_dispatch sweep runs --warn-only precisely so the pre-existing
     // backlog reports without wedging the run. Mismatches must not reach here.
-    assert.equal(exitCodeFor([passing]), 0);
+    expect(exitCodeFor([passing])).toBe(0);
   });
 });
 
@@ -76,19 +69,13 @@ describe("printReport", () => {
       io.write,
       io.writeError,
     );
-    assert.match(io.stderr, /Validation failed/);
+    expect(io.stderr).toMatch(/Validation failed/);
   });
 
   it("stays quiet on stderr when everything passed", () => {
     const io = capture();
-    printReport(
-      [passing],
-      NO_SCHEMAS,
-      { checked: false },
-      io.write,
-      io.writeError,
-    );
-    assert.equal(io.stderr, "");
+    printReport([passing], NO_SCHEMAS, { checked: false }, io.write, io.writeError);
+    expect(io.stderr).toBe("");
   });
 });
 
@@ -102,8 +89,8 @@ describe("report output", () => {
       io.write,
       io.writeError,
     );
-    assert.ok(!io.stdout.includes("# has non-empty first example content"));
-    assert.match(io.stdout, /FAIL\s+b\.yaml\s+# why/);
+    expect(io.stdout.includes("# has non-empty first example content")).toBeFalsy();
+    expect(io.stdout).toMatch(/FAIL\s+b\.yaml\s+# why/);
   });
 
   it("indents notes beneath their row", () => {
@@ -115,19 +102,13 @@ describe("report output", () => {
       io.write,
       io.writeError,
     );
-    assert.match(io.stdout, /\n\s{4,}- schema unavailable: HTTP 404\n/);
+    expect(io.stdout).toMatch(/\n\s{4,}- schema unavailable: HTTP 404\n/);
   });
 
   it("omits the schema line entirely when schemas were not checked", () => {
     const io = capture();
-    printReport(
-      [passing],
-      NO_SCHEMAS,
-      { checked: false },
-      io.write,
-      io.writeError,
-    );
-    assert.ok(!io.stdout.includes("Schemas —"));
+    printReport([passing], NO_SCHEMAS, { checked: false }, io.write, io.writeError);
+    expect(io.stdout.includes("Schemas —")).toBeFalsy();
   });
 
   it("warns loudly when a schema run validated nothing", () => {
@@ -136,43 +117,43 @@ describe("report output", () => {
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, noSchema: 1, unavailable: 5 };
     printReport([passing], tally, { checked: true }, io.write, io.writeError);
-    assert.match(io.stdout, /no example was checked against a schema/);
+    expect(io.stdout).toMatch(/no example was checked against a schema/);
   });
 
   it("does not warn when at least one example was validated", () => {
     const io = capture();
     const tally: SchemaTally = { ...NO_SCHEMAS, validated: 1 };
     printReport([passing], tally, { checked: true }, io.write, io.writeError);
-    assert.ok(!io.stdout.includes("no example was checked"));
+    expect(io.stdout.includes("no example was checked")).toBeFalsy();
   });
 
   it("prints a header even with no rows at all", () => {
     const io = capture();
     printReport([], NO_SCHEMAS, { checked: false }, io.write, io.writeError);
-    assert.match(io.stdout, /^STATUS {2}FILE\n/);
-    assert.match(io.stdout, /Total: 0 {2}PASS: 0 {2}FAIL: 0/);
+    expect(io.stdout).toMatch(/^STATUS {2}FILE\n/);
+    expect(io.stdout).toMatch(/Total: 0 {2}PASS: 0 {2}FAIL: 0/);
   });
 });
 
 describe("main argument handling", () => {
   it("prints usage and exits 0 for --help", async () => {
     const io = capture();
-    assert.equal(await main(["--help"], io.write, io.writeError), 0);
-    assert.match(io.stdout, /Usage: validate-app-config-examples/);
+    expect(await main(["--help"], io.write, io.writeError)).toBe(0);
+    expect(io.stdout).toMatch(/Usage: validate-app-config-examples/);
   });
 
   it("rejects an empty --since instead of silently scanning the whole tree", async () => {
     // A blank value is falsy, so this would otherwise fall through to a
     // full-tree run — with --check-schemas, that is 178 package downloads.
     const io = capture();
-    assert.equal(await main(["--since", ""], io.write, io.writeError), 2);
-    assert.match(io.stderr, /--since needs a commit-ish/);
+    expect(await main(["--since", ""], io.write, io.writeError)).toBe(2);
+    expect(io.stderr).toMatch(/--since needs a commit-ish/);
   });
 
   it("exits 0 with an explanation when the range touches no metadata", async () => {
     const io = capture();
-    assert.equal(await main(["--since", "HEAD"], io.write, io.writeError), 0);
-    assert.match(io.stdout, /nothing to validate/);
+    expect(await main(["--since", "HEAD"], io.write, io.writeError)).toBe(0);
+    expect(io.stdout).toMatch(/nothing to validate/);
   });
 });
 
@@ -181,14 +162,8 @@ describe("undeclared-key reporting", () => {
 
   it("omits the undeclared line entirely when the layer did not run", () => {
     const io = capture();
-    printReport(
-      [passing],
-      NO_SCHEMAS,
-      { checked: true },
-      io.write,
-      io.writeError,
-    );
-    assert.ok(!io.stdout.includes("Undeclared keys"));
+    printReport([passing], NO_SCHEMAS, { checked: true }, io.write, io.writeError);
+    expect(io.stdout.includes("Undeclared keys")).toBeFalsy();
   });
 
   it("prints the tally when the layer ran", () => {
@@ -200,10 +175,7 @@ describe("undeclared-key reporting", () => {
       io.write,
       io.writeError,
     );
-    assert.match(
-      io.stdout,
-      /Undeclared keys — plugin-owned subtrees: 32 {2}with findings: 7/,
-    );
+    expect(io.stdout).toMatch(/Undeclared keys — plugin-owned subtrees: 32 {2}with findings: 7/);
   });
 
   it("says so when no example had a subtree its plugin owns", () => {
@@ -217,7 +189,7 @@ describe("undeclared-key reporting", () => {
       io.write,
       io.writeError,
     );
-    assert.match(io.stdout, /no undeclared key could have been found/);
+    expect(io.stdout).toMatch(/no undeclared key could have been found/);
   });
 
   it("stays quiet about advisories when there is nothing to advise on", () => {
@@ -229,8 +201,8 @@ describe("undeclared-key reporting", () => {
       io.write,
       io.writeError,
     );
-    assert.ok(!io.stdout.includes("reported, never failed"));
-    assert.ok(!io.stdout.includes("could have been found"));
+    expect(io.stdout.includes("reported, never failed")).toBeFalsy();
+    expect(io.stdout.includes("could have been found")).toBeFalsy();
   });
 
   it("explains that findings are advisory once there are any", () => {
@@ -242,7 +214,7 @@ describe("undeclared-key reporting", () => {
       io.write,
       io.writeError,
     );
-    assert.match(io.stdout, /reported, never failed/);
+    expect(io.stdout).toMatch(/reported, never failed/);
   });
 
   it("never sets a failing exit code, however many findings a row carries", () => {
@@ -255,7 +227,7 @@ describe("undeclared-key reporting", () => {
         'undeclared key in "Default configuration": Config must NOT have additional properties { additionalProperty=oops } at /acme',
       ],
     };
-    assert.equal(exitCodeFor([withFindings]), 0);
+    expect(exitCodeFor([withFindings])).toBe(0);
   });
 });
 
@@ -264,16 +236,11 @@ describe("byCodepoint", () => {
     // The property localeCompare would break: several locales sort
     // case-insensitively, which would reorder the report and break the
     // byte-identical parity with the script this replaced.
-    assert.deepEqual(["b", "A", "a", "B"].sort(byCodepoint), [
-      "A",
-      "B",
-      "a",
-      "b",
-    ]);
+    expect(["b", "A", "a", "B"].toSorted(byCodepoint)).toEqual(["A", "B", "a", "b"]);
   });
 
   it("is 0 for equal strings, so sorts stay stable", () => {
-    assert.equal(byCodepoint("x", "x"), 0);
+    expect(byCodepoint("x", "x")).toBe(0);
   });
 });
 
@@ -288,7 +255,7 @@ describe("a workspace patch that stops applying", () => {
       detail: "has non-empty first example content",
       notes: ["schema unavailable: workspace patch 1-x.patch does not apply"],
     };
-    assert.equal(exitCodeFor([row]), 0);
-    assert.equal(exitCodeFor([{ ...row, status: "FAIL" }]), 1);
+    expect(exitCodeFor([row])).toBe(0);
+    expect(exitCodeFor([{ ...row, status: "FAIL" }])).toBe(1);
   });
 });

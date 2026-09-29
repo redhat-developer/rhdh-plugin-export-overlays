@@ -1,18 +1,13 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /**
- * scaffolder-backend-module-kubernetes plugin e2e test configuration.
- *
- * Projects:
- * - scaffolder-k8s-app-next — abbreviated name to stay within the 63-char OpenShift Route
- *   hostname limit (redhat-developer-hub-<namespace> would exceed with the full name).
- *   The -app-next suffix triggers e2e-test-utils to merge NFS secrets and default
- *   app-auth / app-integrations automatically.
+ * scaffolder-backend-module-kubernetes E2E configuration. The abbreviated
+ * project name keeps the OpenShift Route hostname within its 63-character limit.
  */
 export default defineConfig({
   projects: [
     {
-      name: "scaffolder-k8s-app-next",
+      name: "scaffolder-k8s",
     },
   ],
 });

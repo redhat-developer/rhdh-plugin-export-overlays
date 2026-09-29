@@ -1,14 +1,11 @@
-global:
-  lightspeed:
-    enabled: false
+intelligentAssistant:
+  enabled: false
 
-upstream:
-  backstage:
-    appConfig:
-      backend:
-        auth:
-          externalAccess:
-            - type: static
-              options:
-                token: test-token
-                subject: test-subject
+appConfig:
+  backend:
+    auth:
+      externalAccess:
+        - type: static
+          options:
+            token: test-token
+            subject: test-subject

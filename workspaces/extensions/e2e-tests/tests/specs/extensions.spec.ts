@@ -28,7 +28,6 @@ test.describe("Admin > Extensions", () => {
     test.setTimeout(300_000);
     await rhdh.configure({
       auth: "keycloak",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });

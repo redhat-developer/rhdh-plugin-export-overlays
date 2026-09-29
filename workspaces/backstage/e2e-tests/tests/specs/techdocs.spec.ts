@@ -91,7 +91,6 @@ test.describe("TechDocs", () => {
       dynamicPlugins: "tests/config/techdocs/dynamic-plugins.yaml",
       secrets: "tests/config/techdocs/rhdh-secrets.yaml",
       disablePlugins: TECHDOCS_WRAPPER_DIST_NAMES,
-      useNewFrontendSystem: true,
     });
 
     await rhdh.deploy();

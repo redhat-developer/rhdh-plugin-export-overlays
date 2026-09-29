@@ -22,14 +22,23 @@ test.describe("Bulk Import permission", () => {
     );
   });
 
-  test.beforeEach(async ({ loginHelper, uiHelper }) => {
-    await signInAsGuestForPermissionTest(loginHelper, uiHelper);
+  test.beforeEach(async ({ page, loginHelper }) => {
+    await signInAsGuestForPermissionTest(page, loginHelper);
   });
 
   test("Bulk Import - Verify users without permission cannot access", async ({
+    page,
     uiHelper,
   }) => {
-    await uiHelper.verifyText("Permission required");
+    // Guests are denied access: either the legacy in-app "Permission required"
+    // message, or a 404 when the route is not registered for unauthorized users.
+    const permissionRequired = page.getByText("Permission required", {
+      exact: true,
+    });
+    const notFound = page.getByText("ERROR 404: PAGE NOT FOUND");
+    await expect(permissionRequired.or(notFound)).toBeVisible({
+      timeout: 15_000,
+    });
     expect(await uiHelper.isBtnVisible("Import")).toBeFalsy();
   });
 });

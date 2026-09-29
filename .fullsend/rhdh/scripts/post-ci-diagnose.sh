@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# Post-script: upsert ONE sticky CI-diagnose comment on the PR.
+# Post-script: post a fresh CI-diagnose comment on the PR.
 #
 # Runs on the GitHub Actions runner AFTER the sandbox is destroyed.
 # The ci-diagnose agent runs read-only and cannot write to GitHub. It renders
-# the comment markdown into agent-result.json (`comment_body`); this script
-# posts it — editing the existing sticky comment in place when one exists, so
-# re-runs UPDATE the comment rather than spamming a new one per check.
+# the diagnosis markdown into agent-result.json (`comment_body`); this script
+# posts it as a new comment for every completed diagnosis. This keeps the
+# latest analysis at the point where the workflow finished instead of editing
+# one old comment in place.
 #
 # This script does NOT:
 #   - Push branches, create PRs, or create issues (ci-diagnose is diagnose-only)
 #   - Add or remove labels (the bootstrap workflow owns the ci-diagnose label)
 #   - Perform any classification (the agent does that in-sandbox)
+#   - Update an earlier diagnosis comment
 #
-# After the sticky upsert, for bot-authored same-repo PRs with pr_regression
+# After posting the diagnosis, for bot-authored same-repo PRs with pr_regression
 # findings, it may submit a CHANGES_REQUESTED review as the review App
 # (fullsend-ai-review[bot]). That is the built-in bot→fix on-ramp in
 # reusable-dispatch.yml — no PAT, no slash-command impersonation.
@@ -23,9 +25,8 @@
 #   3. Resolve the PR number (from the result, falling back to GITHUB_ISSUE_URL)
 #   4. If the PR advanced past the analyzed head_sha while the agent ran,
 #      swap in a stale notice instead of the (now outdated) diagnosis
-#   5. Find the existing sticky comment via the `<!-- ci-diagnose -->` marker
-#   6. PATCH it in place if found, else create a new comment
-#   7. Maybe request-changes so the fix agent picks up pr_regression findings
+#   5. Post a new diagnosis comment
+#   6. Maybe request-changes so the fix agent picks up pr_regression findings
 #
 # Required environment variables:
 #   GH_TOKEN          — GitHub token with pull-requests/issues write
@@ -42,7 +43,7 @@ set -euo pipefail
 GITLEAKS_VERSION="8.30.1"
 GITLEAKS_SHA256="551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
-STICKY_MARKER="<!-- ci-diagnose -->"
+DIAGNOSIS_MARKER="<!-- ci-diagnose -->"
 AUTOFIX_MARKER_PREFIX="<!-- ci-diagnose-autofix:"
 EXHAUSTED_MARKER="<!-- ci-diagnose-autofix-exhausted -->"
 CODER_BOT_LOGIN="fullsend-ai-coder[bot]"
@@ -102,7 +103,7 @@ fetch_json_array() {
 
 # Submit CHANGES_REQUESTED for pr_regression findings so fullsend's inlined
 # fix job runs (review-bot path). Always return 0: a hand-off miss must not
-# fail the sticky comment we already posted. API errors skip (fail closed).
+# fail the diagnosis hand-off we already prepared. API errors skip (fail closed).
 maybe_handoff_to_fix() {
   if [[ "${STALE}" == "true" ]]; then
     skip_handoff "Stale diagnosis — not requesting changes"
@@ -357,9 +358,10 @@ if [[ ! -s "${BODY_FILE}" ]]; then
   exit 1
 fi
 
-# Guard: the body must carry the sticky marker so future runs can find it.
-if ! grep -qF "${STICKY_MARKER}" "${BODY_FILE}"; then
-  echo "::error::comment_body is missing the sticky marker '${STICKY_MARKER}' — refusing to post"
+# Guard: the body must carry the diagnosis marker so the bootstrap can find
+# the latest diagnosis state.
+if ! grep -qF "${DIAGNOSIS_MARKER}" "${BODY_FILE}"; then
+  echo "::error::comment_body is missing the diagnosis marker '${DIAGNOSIS_MARKER}' — refusing to post"
   rm -f "${BODY_FILE}"
   exit 1
 fi
@@ -383,7 +385,6 @@ if [[ -n "${RECORDED_HEAD}" ]]; then
     STALE="true"
     echo "::warning::Analyzed head $(sanitize_for_gha "${RECORDED_HEAD}") is stale (current head $(sanitize_for_gha "${CURRENT_HEAD}")) — posting a stale notice instead"
     {
-      echo "${STICKY_MARKER}"
       echo "### 🔍 CI Diagnosis"
       echo ""
       echo "This PR advanced before the diagnosis finished, so the result below is outdated and was not posted."
@@ -397,45 +398,26 @@ if [[ -n "${RECORDED_HEAD}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Find the existing sticky comment
+# 5. Post a new diagnosis comment
 # ---------------------------------------------------------------------------
-EXISTING_ID="$(gh api "repos/${REPO_FULL_NAME}/issues/${PR_NUMBER}/comments" --paginate \
-  --jq "[.[] | select(.body | contains(\"${STICKY_MARKER}\"))] | last | .id // empty" 2>/dev/null || true)"
-
-# ---------------------------------------------------------------------------
-# 6. Upsert the comment
-# ---------------------------------------------------------------------------
-if [[ -n "${EXISTING_ID}" ]]; then
-  echo "Editing existing sticky comment #${EXISTING_ID}..."
-  patch_stderr="$(mktemp)"
-  if jq -n --rawfile body "${BODY_FILE}" '{body: $body}' \
-    | gh api "repos/${REPO_FULL_NAME}/issues/comments/${EXISTING_ID}" \
-        -X PATCH --input - --silent 2>"${patch_stderr}"; then
-    echo "Updated sticky comment #${EXISTING_ID} on PR #${PR_NUMBER}"
-  else
-    echo "::error::Failed to edit comment #${EXISTING_ID}: $(sanitize_for_gha "$(cat "${patch_stderr}")")"
-    rm -f "${patch_stderr}" "${BODY_FILE}"
-    exit 1
-  fi
-  rm -f "${patch_stderr}"
+# Always create a new comment. The hidden marker remains only as a state
+# marker for the bootstrap and agent reconciliation; it is not used to
+# update old comments.
+create_stderr="$(mktemp)"
+if gh pr comment "${PR_NUMBER}" --repo "${REPO_FULL_NAME}" \
+    --body-file "${BODY_FILE}" 2>"${create_stderr}"; then
+  echo "Created a new CI diagnosis comment on PR #${PR_NUMBER}"
 else
-  echo "No existing sticky comment — creating a new one..."
-  create_stderr="$(mktemp)"
-  if gh pr comment "${PR_NUMBER}" --repo "${REPO_FULL_NAME}" \
-      --body-file "${BODY_FILE}" 2>"${create_stderr}"; then
-    echo "Created sticky comment on PR #${PR_NUMBER}"
-  else
-    echo "::error::Failed to create comment on PR #${PR_NUMBER}: $(sanitize_for_gha "$(cat "${create_stderr}")")"
-    rm -f "${create_stderr}" "${BODY_FILE}"
-    exit 1
-  fi
-  rm -f "${create_stderr}"
+  echo "::error::Failed to create diagnosis comment on PR #${PR_NUMBER}: $(sanitize_for_gha "$(cat "${create_stderr}")")"
+  rm -f "${create_stderr}" "${BODY_FILE}"
+  exit 1
 fi
+rm -f "${create_stderr}"
 
 rm -f "${BODY_FILE}"
 
 # ---------------------------------------------------------------------------
-# 7. Maybe hand off pr_regression findings to the fix agent
+# 6. Maybe hand off pr_regression findings to the fix agent
 # ---------------------------------------------------------------------------
 if ! maybe_handoff_to_fix; then
   echo "::warning::Fix hand-off failed unexpectedly"
