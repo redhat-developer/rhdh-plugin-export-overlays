@@ -190,26 +190,30 @@ async function probeRegistry(ref: string): Promise<ProbeResult> {
         ? { ok: false, error: problem, retry: false }
         : { ok: true };
     } catch (err) {
-      // No skopeo at all says nothing about any ref. Recorded per ref it would read as
-      // every package in the index being broken, so it fails the run as what it is.
-      if (isRecord(err) && err.code === "ENOENT") {
-        throw new Error(
-          "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
-          { cause: err },
-        );
-      }
       // Name each image only when there were two, and keep both reasons: the primary
       // registry's answer matters as much as the fallback's. With one, the ref already
       // says which image it was.
-      // A kill leaves stderr empty and a message that only echoes the command line.
-      const error =
-        isRecord(err) && err.killed
-          ? `no answer within ${PROBE_TIMEOUT_MS / 1000}s`
-          : lastErrorLine(err);
+      const error = probeErrorLine(err);
       errors.push(candidates.length > 1 ? `${image}: ${error}` : error);
     }
   }
   return { ok: false, error: errors.join("; ") };
+}
+
+// One skopeo failure as one line of the report entry.
+function probeErrorLine(err: unknown): string {
+  if (!isRecord(err)) return lastErrorLine(err);
+  // No skopeo at all says nothing about any ref. Recorded per ref it would read as
+  // every package in the index being broken, so it fails the run as what it is.
+  if (err.code === "ENOENT") {
+    throw new Error(
+      "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
+      { cause: err },
+    );
+  }
+  // A kill leaves stderr empty and a message that only echoes the command line.
+  if (err.killed) return `no answer within ${PROBE_TIMEOUT_MS / 1000}s`;
+  return lastErrorLine(err);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
