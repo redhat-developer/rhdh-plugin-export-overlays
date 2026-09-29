@@ -38,6 +38,8 @@ Each plugin set is organized in a dedicated folder that represents a workspaceâ€
   - They are created from `main` when a new RHDH release is released (or about to be released).
   - After creation, they only receive pull requests for updates to existing plugins. No new workspace will be automatically added to a release branch.
 
+Repo admins create a new release branch with the [Create Release Branch](https://github.com/redhat-developer/rhdh-plugin-export-overlays/actions/workflows/create-release-branch.yaml) workflow (`create-release-branch.yaml`). Before running it, review the pre-flight wiki reports described in [08 - Creating Release Branches](./user-guide/08-creating-release-branches.md).
+
 ## Backstage Compatibility
 
 Ensuring plugin compatibility with the version of Backstage bundled in RHDH is crucial. This repository has automated checks and processes for this.
