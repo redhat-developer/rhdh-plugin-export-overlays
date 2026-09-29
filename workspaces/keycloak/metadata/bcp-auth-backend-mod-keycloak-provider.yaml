@@ -1,7 +1,7 @@
 apiVersion: extensions.backstage.io/v1alpha1
 kind: Package
 metadata:
-  name: backstage-community-plugin-auth-backend-module-keycloak-provider
+  name: bcp-auth-backend-mod-keycloak-provider
   namespace: rhdh
   title: "Auth Backend Module Keycloak Provider"
   links:
@@ -26,7 +26,7 @@ spec:
   support: generally-available
   lifecycle: active
   partOf:
-    - backstage-community-plugin-auth-backend-module-keycloak-provider
+    - bcp-auth-backend-mod-keycloak-provider
   appConfigExamples:
     - title: Default configuration
       content:
