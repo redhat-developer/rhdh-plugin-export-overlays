@@ -160,8 +160,9 @@ jobs:
         # Exits non-zero on any plugin that fails to install, load, boot or ship a valid
         # bundle. A ref the install CLI would refuse (image missing, no plugin declared)
         # is one of those failures, but is probed for and left out first, so it no
-        # longer aborts the install of every other package. skip-build so no dependency runs an install script; better-sqlite3 is
-        # rebuilt by name because startTestBackend needs its native binding.
+        # longer aborts the install of every other package. skip-build so no dependency
+        # runs an install script; better-sqlite3 is rebuilt by name because
+        # startTestBackend needs its native binding.
         run: |
           set -euo pipefail
           yarn install --immutable --mode=skip-build
@@ -188,10 +189,10 @@ jobs:
                 "- frontend bundles: \(.frontend.valid)/\(.frontend.total) valid"
               ' smoke-tests-native/results-catalog-index.json
               echo
-              # `.plugin` is a PluginEntry object, not a name — the `//` never falls
-              # through and jq would dump the whole object.
               jq -r '.catalogIndex.unresolved[]? | "- ✗ `\(.ref)` is not installable: \(.error)"' \
                 smoke-tests-native/results-catalog-index.json || true
+              # `.plugin` is a PluginEntry object, not a name — the `//` never falls
+              # through and jq would dump the whole object.
               jq -r '.backend.errors[]? , .frontend.errors[]? | "- ✗ \(.plugin.name // "?"): \(.error // "?")"' \
                 smoke-tests-native/results-catalog-index.json || true
             else

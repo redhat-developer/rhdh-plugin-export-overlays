@@ -116,8 +116,8 @@ import {
 import {
   partitionResolvable,
   pluginPathProblem,
+  probeCandidates,
   readCatalogIndexRefs,
-  registryRefFromOciRef,
   writeCatalogIndexConfig,
   type ProbeResult,
 } from "./catalog-index";
@@ -171,23 +171,40 @@ function run(file: string, args: string[]): string {
 // Ask the registry for a ref's manifest and run the plugin-path check on it — the two
 // things the install CLI does first, and aborts on, for every package. `--raw` fetches
 // only the manifest, so ~100 of these cost seconds. Found on PATH exactly as the
-// install CLI finds it; there is no bundled copy to point at.
+// install CLI finds it; there is no bundled copy to point at. Each candidate is tried
+// in turn, the way the CLI falls back from the productized registry to quay.
 async function probeRegistry(ref: string): Promise<ProbeResult> {
-  let manifest: string;
-  try {
-    ({ stdout: manifest } = await execFileAsync(
-      "skopeo",
-      ["inspect", "--raw", `docker://${registryRefFromOciRef(ref)}`],
-      { timeout: PROBE_TIMEOUT_MS },
-    ));
-  } catch (err) {
-    const stderr = (err as { stderr?: unknown }).stderr;
-    const detail =
-      typeof stderr === "string" && stderr.trim() ? stderr : errorMessage(err);
-    return { ok: false, error: detail.trim().split("\n").at(-1) ?? detail };
+  const candidates = probeCandidates(ref);
+  let failure: ProbeResult = { ok: false, error: "not probed" };
+  for (const image of candidates) {
+    try {
+      const { stdout: manifest } = await execFileAsync(
+        "skopeo",
+        ["inspect", "--raw", `docker://${image}`],
+        { timeout: PROBE_TIMEOUT_MS },
+      );
+      const problem = pluginPathProblem(ref, manifest);
+      return problem
+        ? { ok: false, error: problem, retry: false }
+        : { ok: true };
+    } catch (err) {
+      // Name the image only when there were two: the ref alone already says which.
+      const error = lastErrorLine(err);
+      failure = {
+        ok: false,
+        error: candidates.length > 1 ? `${image}: ${error}` : error,
+      };
+    }
   }
-  const problem = pluginPathProblem(ref, manifest);
-  return problem ? { ok: false, error: problem, retry: false } : { ok: true };
+  return failure;
+}
+
+// skopeo's own error is the last line of its stderr; everything above it is context.
+function lastErrorLine(err: unknown): string {
+  const stderr = (err as { stderr?: unknown }).stderr;
+  const detail =
+    typeof stderr === "string" && stderr.trim() ? stderr : errorMessage(err);
+  return detail.trim().split("\n").at(-1) ?? detail;
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -554,8 +571,8 @@ async function extractPlugins(
   }
 }
 
-// Nothing left to install when every declared ref was unresolved. The report still
-// fails the run on them; there is just nothing for the CLI to do.
+// No CLI run for an empty config. In catalog-index mode that is every declared ref
+// unresolved: the report still fails the run on them, there is just nothing to install.
 async function installSource(
   root: string,
   materialized: MaterializedSource,

@@ -16,6 +16,7 @@ import {
   imageNameFromRef,
   partitionResolvable,
   pluginPathProblem,
+  probeCandidates,
   readCatalogIndexRefs,
   registryRefFromOciRef,
   writeCatalogIndexConfig,
@@ -337,6 +338,28 @@ test("registryRefFromOciRef hands skopeo the image reference and nothing else", 
     `${REGISTRY}/plugin-a@${DIGEST}`,
   );
   assert.throws(() => registryRefFromOciRef("./dynamic-plugins/dist/x"));
+});
+
+test("probeCandidates follows the install CLI's fallback to quay", () => {
+  // An RC index names registry.access.redhat.com images before they are released;
+  // the CLI pulls them from quay.io/rhdh, so the probe must not call them missing.
+  assert.deepEqual(
+    probeCandidates(
+      "oci://registry.access.redhat.com/rhdh/plugin-a:1.10.0--0.7.8!plugin-a",
+    ),
+    [
+      "registry.access.redhat.com/rhdh/plugin-a:1.10.0--0.7.8",
+      "quay.io/rhdh/plugin-a:1.10.0--0.7.8",
+    ],
+  );
+  assert.deepEqual(probeCandidates(ociRef("plugin-a")), [
+    `${REGISTRY}/plugin-a@${DIGEST}`,
+  ]);
+  // Only the productized rhdh namespace falls back, as in the CLI.
+  assert.deepEqual(
+    probeCandidates("oci://registry.access.redhat.com/other/plugin-a:1"),
+    ["registry.access.redhat.com/other/plugin-a:1"],
+  );
 });
 
 const MISSING = `oci://${REGISTRY}/backstage-plugin-org:2.1.0--0.7.8`;

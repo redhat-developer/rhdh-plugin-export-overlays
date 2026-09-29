@@ -264,6 +264,24 @@ export function registryRefFromOciRef(ref: string): string {
   return ref.slice(OCI_PREFIX.length).split("!")[0];
 }
 
+// The install CLI's registry fallback (resolveImage in cli-module-install-dynamic-plugins):
+// an image under the productized registry that is not there yet is pulled from quay
+// instead. An RC index points at exactly such images, so a probe that skipped this
+// would leave out packages the CLI installs without complaint.
+const RHDH_REGISTRY = "registry.access.redhat.com/rhdh/";
+const RHDH_FALLBACK = "quay.io/rhdh/";
+
+/**
+ * The image references to probe for a ref, in the order the install CLI tries them:
+ * the one it names, then the quay fallback when it names the productized registry.
+ */
+export function probeCandidates(ref: string): string[] {
+  const primary = registryRefFromOciRef(ref);
+  return primary.startsWith(RHDH_REGISTRY)
+    ? [primary, RHDH_FALLBACK + primary.slice(RHDH_REGISTRY.length)]
+    : [primary];
+}
+
 const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
 
 /**
