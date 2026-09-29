@@ -1,0 +1,39 @@
+# RHDH 1.11-CI catalog index is on quay.io; e2e-test-utils 2.1.8 still emits
+# registry.access.redhat.com {{inherit}} for keycloak. inherit only matches
+# the same image registry/repo, so remap keycloak to quay and disable the
+# RHEC inherit. Homepage 1.11.0--1.17.0 is not on Quay (manifest unknown).
+#
+# app-defaults provides the host drawer used by the Intelligent Assistant FAB.
+# Keycloak OIDC auth plugins come from e2e-test-utils (2.1.10+).
+plugins:
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-homepage:1.11.0--1.17.0
+    disabled: true
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-quickstart:{{inherit}}
+    disabled: true
+  - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
+    disabled: true
+  - package: oci://quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
+    disabled: false
+    pluginConfig:
+      catalog:
+        providers:
+          keycloakOrg:
+            default:
+              baseUrl: ${KEYCLOAK_BASE_URL}
+              loginRealm: ${KEYCLOAK_LOGIN_REALM}
+              realm: ${KEYCLOAK_REALM}
+              clientId: ${KEYCLOAK_CLIENT_ID}
+              clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+              schedule:
+                frequency:
+                  minutes: 1
+                initialDelay:
+                  seconds: 15
+                timeout:
+                  minutes: 1
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant:bs_1.52.0__4.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend:bs_1.52.0__4.0.0!red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend
+    disabled: false
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.52.0__0.0.3
+    enabled: true

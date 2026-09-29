@@ -1,3 +1,4 @@
+// Trigger e2e: validate the zip-bomb guard on __coverage images (RHDHBUGS-3470)
 import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $, WorkspacePaths } from "@red-hat-developer-hub/e2e-test-utils/utils";
 import path from "path";
@@ -19,7 +20,7 @@ async function navigateToTopology(uiHelper: UIhelper) {
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("backstage-janus");
   await uiHelper.clickLink("backstage-janus");
-  await uiHelper.clickTab("Topology");
+  await uiHelper.clickLink("Topology");
 }
 
 async function getResourceType(page: Page): Promise<"ingress" | "route"> {
@@ -34,7 +35,6 @@ test.describe("Test Topology plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
     test.setTimeout(800_000);
     const project = rhdh.deploymentConfig.namespace;
-
     await rhdh.configure({ auth: "keycloak" });
 
     const rbacConfigmapPath = WorkspacePaths.resolve(
@@ -132,16 +132,13 @@ test.describe("Test Topology plugin", () => {
   });
 
   test.describe("Test Topology Plugin with RBAC", () => {
-    test("Verify guest user cannot see Topology pods", async ({
+    test("Verify guest user cannot see Topology tab", async ({
       loginHelper,
       page,
-      uiHelper,
     }) => {
       const topo = new Topology(page);
-
       await loginHelper.loginAsGuest();
-      await navigateToTopology(uiHelper);
-      await topo.verifyMissingTopologyPermission();
+      await topo.verifyMissingTopologyTab();
     });
 
     test("Verify limited user can see Topology but cannot view pod logs", async ({

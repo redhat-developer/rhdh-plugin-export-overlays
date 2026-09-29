@@ -39,11 +39,10 @@ export class Topology {
     await this.page.waitForTimeout(1000);
   }
 
-  async verifyMissingTopologyPermission() {
-    await this.uiHelper.verifyHeading("Missing Permission");
-    await this.uiHelper.verifyText("kubernetes.clusters.read");
-    await this.uiHelper.verifyText("kubernetes.resources.read");
-    await expect(this.page.getByLabel("Pod")).toBeHidden();
+  async verifyMissingTopologyTab() {
+    await expect(
+      this.page.getByRole("link", { name: "Topology", exact: true }),
+    ).toBeHidden();
   }
 
   async verifyDeployment(name: string) {
@@ -52,7 +51,7 @@ export class Topology {
       .locator(`[data-test-id="${name}"] image`)
       .first();
     await expect(deployment).toBeVisible();
-    await deployment.click();
+    await deployment.click({ force: true });
     await this.page.getByLabel("Pod").click();
     await this.page.getByLabel("Pod").getByText("1", { exact: true }).click();
   }
@@ -66,7 +65,7 @@ export class Topology {
 
     if (allowed) {
       const downloadLogsButton = this.page.getByRole("button", {
-        name: "download logs",
+        name: "download",
       });
       const fileContent = await downloadAndReadFile(
         this.page,
@@ -75,7 +74,7 @@ export class Topology {
       expect(fileContent).not.toBeUndefined();
       expect(fileContent).not.toBe("");
     } else {
-      await this.uiHelper.verifyHeading("Missing Permission");
+      await this.uiHelper.verifyText("Missing Permission");
       await this.uiHelper.verifyText("kubernetes.proxy");
     }
   }

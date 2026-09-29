@@ -88,8 +88,8 @@ test.describe("RBAC plugin", () => {
       page,
       uiHelper,
     }) => {
-      await uiHelper.goToPageUrl("/", "Welcome back!");
-      await uiHelper.openSidebarButton("Administration");
+      await uiHelper.goToPageUrl("/");
+      await uiHelper.clickButton("Administration");
       const rbacLink = page.getByRole("link", { name: "RBAC" });
       await expect(rbacLink).toBeVisible();
       await rbacLink.click();

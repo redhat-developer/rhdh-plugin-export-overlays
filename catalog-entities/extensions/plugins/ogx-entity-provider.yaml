@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: ogx-entity-provider
+  namespace: rhdh
+  title: OGX Entity Provider
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHPAI
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/boost/plugins/ogx-entity-provider
+  tags:
+    - ai
+    - kubernetes
+    - developer-tools
+  description: |
+    Backend plugin that pulls data from the /v1/models endpoint of OGX
+    servers and creates a Kubernetes informer for serving.kserve.io
+    to import AiModelServerAPI catalog entities.
+spec:
+  author: Red Hat
+  support: dev-preview
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Software Catalog
+    - Kubernetes
+
+  highlights:
+    - Pulls model data from the /v1/models endpoint of OGX servers
+    - Imports AiModelServerAPI entities with discovered model lists
+    - Optional standalone provider — depends only on the AI Model Server catalog module
+
+  description: |
+    # OGX Entity Provider
+
+    A Backstage backend plugin that discovers AI model servers by
+    querying the `/v1/models` endpoint of OGX servers.
+    KServe `InferenceService` resources on Kubernetes clusters.
+
+    ### How it works
+
+    The OGX entity provider performs two complementary discovery tasks:
+
+    1. **OGX server polling** — queries the `/v1/models` endpoint of
+       configured OGX servers to retrieve the list of available models.
+
+    For each OGX server, the provider imports an `AiModelServerAPI`
+    catalog entity whose model list includes the models returned from
+    the `/v1/models` endpoint.
+
+    ### Standalone design
+
+    The OGX entity provider is optional and depends only on the
+    AI Model Server catalog module
+    (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-ai-model-server`).
+    It does not integrate with the model-catalog or TechDocs plugins,
+    making it a lightweight alternative for environments that only need
+    OGX-based model server discovery.
+
+    ### Companion plugin
+
+    - **AI Model Server catalog module** — registers the
+      `AiModelServerAPI` kind so the catalog accepts the entities
+      emitted by this provider. Must be installed alongside the OGX
+      entity provider.
+
+    ## Support
+
+    - **Source code**: [ogx-entity-provider](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/boost/plugins/ogx-entity-provider)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+  packages:
+    - red-hat-developer-hub-backstage-plugin-ogx-entity-provider
+
+  installation: |
+    ## Installation
+
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+    Add the following to your dynamic plugin configuration. The
+    AI Model Server catalog module must also be installed so the
+    catalog accepts `AiModelServerAPI` entities:
+
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-ogx-entity-provider:bs_1.54.6__0.5.0
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-ai-model-server:bs_1.54.4__0.3.1
+        enabled: true
+    ```
+
+    ## RHDH Configuration
+
+    Configure the OGX server endpoint and allow `AiModelServerAPI`
+    entities in the catalog:
+
+    ```yaml
+    ai-catalog:
+      entityProviders:
+        ogx:
+          baseUrl: https://your-ogx-url
+    catalog:
+      rules:
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+            ]
+    ```

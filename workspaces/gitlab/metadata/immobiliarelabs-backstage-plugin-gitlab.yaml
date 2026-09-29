@@ -16,7 +16,7 @@ metadata:
   tags: []
 spec:
   packageName: "@immobiliarelabs/backstage-plugin-gitlab"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.52.0__7.0.3!immobiliarelabs-backstage-plugin-gitlab
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/immobiliarelabs-backstage-plugin-gitlab:bs_1.52.0__7.0.3
   version: 7.0.3
   backstage:
     role: frontend-plugin
