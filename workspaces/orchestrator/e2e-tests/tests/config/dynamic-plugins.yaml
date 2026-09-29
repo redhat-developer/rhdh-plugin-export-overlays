@@ -1,0 +1,15 @@
+# Temporary: disable orchestrator Loki module until CI MinIO/Loki install works
+# (MinIO ImagePullBackOff). Re-enable by deleting this file (auto-gen from metadata)
+# or setting disabled: false, uncommenting workflowLogProvider in app-config-rhdh.yaml,
+# and restoring configureOrchestratorLoki() in orchestrator.spec.ts.
+plugins:
+  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki
+    disabled: true
+  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-backend
+    disabled: false
+  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets
+    disabled: false
+  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator
+    disabled: false
+  - package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator
+    disabled: false
