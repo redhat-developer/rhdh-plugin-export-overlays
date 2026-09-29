@@ -1,6 +1,6 @@
 # NFS (Backstage app) dynamic plugins for homepage e2e.
-# Upstream @backstage/plugin-home provides page:home / visits / layout blueprints;
-# the RHDH homepage alpha module extends pluginId "home" and requires this OCI.
+# Upstream @backstage/plugin-home provides visits APIs (page:home is disabled in
+# app-config-rhdh.yaml). RH homepage owns page:homepage.
 #
 # homepage.defaultWidgets (homepage-backend) is not supported on NFS yet. NFS tests seed widgets via
 # the UI until then.
