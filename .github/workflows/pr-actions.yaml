@@ -223,12 +223,13 @@ jobs:
             if (matches && matches.length == 2) {
               workspace = `workspaces/${matches[1]}`;
             } else {
-              const prFiles = await github.rest.pulls.listFiles({
+              const prFiles = await github.paginate(github.rest.pulls.listFiles, {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                pull_number: prNumber
+                pull_number: prNumber,
+                per_page: 100,
               });
-              const workspaces = [ ... new Set(prFiles.data
+              const workspaces = [ ... new Set(prFiles
                 .map(f => f.filename.match(/^workspaces\/([^\/]+)\/.*/))
                 .filter(match => match)
                 .map(match => match[1])
@@ -313,6 +314,7 @@ jobs:
                 'pr-number': String(${{ needs.prepare.outputs.pr-number }}),
                 'target-branch': '${{ needs.prepare.outputs.target-branch }}',
                 'rhdh-tag': '${{ needs.prepare.outputs.rhdh-tag }}',
+                'publish-run-id': '${{ needs.parse.outputs.command-name == 'publish' && github.run_id || '' }}',
               },
             });
 
@@ -464,7 +466,7 @@ jobs:
             });
             const success = jobs.data.jobs
               .filter(j => j.name.startsWith('Update versions on PR'))
-              .every(j => j.conclusion === 'success');
+              .every(j => j.conclusion === 'success' || j.conclusion === 'skipped');
 
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
@@ -579,7 +581,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Override Backstage compatibility
         id: override

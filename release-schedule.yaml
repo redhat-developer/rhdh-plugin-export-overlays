@@ -1,0 +1,24 @@
+# Release schedule for RHDH
+#
+# Used by .github/workflows/notify-3rd-party-owners.yaml to determine
+# when to send Backstage version bump notifications to 3rd party plugin owners.
+#
+# Update this file when a new RHDH release is planned.
+# Dates are in ISO 8601 format (YYYY-MM-DD).
+#
+# Fields:
+#   rhdh-version       — RHDH release number (e.g. "1.11")
+#   backstage-version  — Target Backstage version for that release
+#   feature-freeze     — Date of feature freeze. Notification issues are
+#                        created for the workspace's notification window,
+#                        computed as 13-19 days before this date, so the
+#                        weekly scheduled workflow run always catches it.
+
+releases:
+  - rhdh-version: "2.1.0"
+    backstage-version: "1.54.0"
+    feature-freeze: "2026-09-22"
+
+  - rhdh-version: "2.2.0"
+    backstage-version: "1.58.0"
+    feature-freeze: "2027-01-05"

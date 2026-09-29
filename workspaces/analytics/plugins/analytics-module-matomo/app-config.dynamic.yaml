@@ -1,5 +1,0 @@
-dynamicPlugins:
-  frontend:
-    backstage-community.plugin-analytics-module-matomo:
-      apiFactories:
-        - importName: matomoAnalyticsApi

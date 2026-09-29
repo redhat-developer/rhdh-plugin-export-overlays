@@ -1,15 +1,23 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-    disabled: false
-  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-    disabled: false
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes-backend:{{inherit}}
+    enabled: true
+  - package: oci://quay.io/rhdh/backstage-plugin-kubernetes:{{inherit}}
+    enabled: true
   - package: ./dynamic-plugins/dist/backstage-community-plugin-tekton
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           backstage-community.plugin-tekton:
             mountPoints:
+              - mountPoint: entity.page.tekton/cards
+                importName: TektonContent
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                  if:
+                    allOf:
+                      - isTektonAvailable
               - mountPoint: entity.page.ci/cards
                 importName: TektonCI
                 config:
@@ -18,3 +26,6 @@ plugins:
                   if:
                     allOf:
                       - isTektonCIAvailable
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false

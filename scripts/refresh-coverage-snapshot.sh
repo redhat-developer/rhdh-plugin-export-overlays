@@ -20,7 +20,9 @@
 # only needs refreshing when a workspace's coverage actually changes (i.e. when
 # a PR touches that workspace and re-runs its e2e).
 #
-# Requires: node, npm, nyc (npx), and the workspace's coverage-anchors/ present.
+# Requires: node, npm, nyc (npx), jq, and the workspace's coverage-anchors/
+# present. jq is only needed when SOURCE is a URL, to tell a coverage map from
+# an error page.
 
 set -euo pipefail
 
@@ -40,31 +42,20 @@ REPORT_DIR=""
 cleanup() { rm -rf ${DOWNLOAD_DIR:+"$DOWNLOAD_DIR"} ${REPORT_DIR:+"$REPORT_DIR"}; }
 trap cleanup EXIT
 
+# A URL is downloaded by the shared helper (which distinguishes a genuine fetch
+# failure from a valid-but-empty coverage dir); a local path is used as-is.
 JSON_DIR=""
 if [[ "$SOURCE" =~ ^https?:// ]]; then
   DOWNLOAD_DIR="$(mktemp -d)"
   JSON_DIR="$DOWNLOAD_DIR"
-  echo "[INFO] Downloading coverage JSONs from $SOURCE"
-  files=$(curl -sf "$SOURCE" | grep -oE '[a-f0-9-]+\.json' | sort -u || true)
-  if [[ -z "$files" ]]; then
-    echo "ERROR: no coverage JSON files found at $SOURCE" >&2
-    exit 1
-  fi
-  # -f so a 404/HTML error page fails loudly instead of being written as a
-  # bogus .json that would silently skew the snapshot.
-  for f in $files; do
-    curl -sf -o "$JSON_DIR/$f" "${SOURCE%/}/$f" || {
-      echo "ERROR: failed to download $f from $SOURCE" >&2
-      exit 1
-    }
-  done
+  "$SCRIPT_DIR/download-coverage-json.sh" "$SOURCE" "$DOWNLOAD_DIR"
 else
   JSON_DIR="$SOURCE"
 fi
 
 if ! compgen -G "$JSON_DIR/*.json" >/dev/null; then
-  echo "ERROR: no *.json coverage files in $JSON_DIR" >&2
-  exit 1
+  echo "[INFO] No *.json coverage files in $JSON_DIR — nothing to snapshot."
+  exit 0
 fi
 
 REPORT_DIR="$(mktemp -d)"
@@ -72,11 +63,14 @@ REPORT_DIR="$(mktemp -d)"
 
 mkdir -p "$REPO_ROOT/coverage-snapshots"
 if [[ ! -f "$REPORT_DIR/$WORKSPACE/lcov.info" ]]; then
-  echo "ERROR: remap produced no lcov for workspace '$WORKSPACE' — wrong coverage source?" >&2
-  exit 1
+  # The run had coverage, but none mapped to this workspace's anchors (a
+  # backend-only run, or the wrong coverage source for a manual invocation).
+  # Either way there is nothing to snapshot — non-fatal.
+  echo "[INFO] No coverage mapped to workspace '$WORKSPACE' — nothing to snapshot."
+  exit 0
 fi
 
 cp "$REPORT_DIR/$WORKSPACE/lcov.info" "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov"
-anchors=$(grep -c '^SF:' "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov")
+anchors=$(grep -c '^SF:' "$REPO_ROOT/coverage-snapshots/$WORKSPACE.lcov" || true)
 
 echo "[OK] Wrote coverage-snapshots/$WORKSPACE.lcov ($anchors plugin anchor(s)). Commit it."

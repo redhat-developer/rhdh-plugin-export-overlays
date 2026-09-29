@@ -9,8 +9,8 @@ import {
   globalWorkflowPolicies,
   type PolicySpec,
   waitForLokiWorkflowLogs,
+  createOrchestratorPO,
 } from "../support/utils/test-helpers.js";
-import { OrchestratorPO } from "../support/pages/orchestrator-po.js";
 
 const ensureDataIndexOrSkip = createDataIndexGuard();
 
@@ -59,8 +59,8 @@ export function registerUiPropsTestWorkflowTests(): void {
 
     test("ui:props test workflow", async ({ page, uiHelper }) => {
       test.setTimeout(300_000);
-      const orchestratorPo = new OrchestratorPO(page, uiHelper);
-      await uiHelper.openSidebar("Orchestrator");
+      const orchestratorPo = createOrchestratorPO(page, uiHelper);
+      await orchestratorPo.openOrchestratorFromSidebar();
       await expect(
         page.getByRole("cell", { name: "Test Object Type Support" }),
       ).toBeVisible();
@@ -102,7 +102,9 @@ export function registerUiPropsTestWorkflowTests(): void {
       ).toBeVisible();
       const runId = await orchestratorPo.getCurrentRunId();
       await waitForLokiWorkflowLogs(runId);
-      const logsDialog = await orchestratorPo.openRunLogsDialog();
+      const logsDialog = await orchestratorPo.openRunLogsDialog(
+        "Test Object Type Support in ui:props",
+      );
       await expect(
         logsDialog.getByText(/No logs available for this workflow run/i),
       ).toBeHidden();

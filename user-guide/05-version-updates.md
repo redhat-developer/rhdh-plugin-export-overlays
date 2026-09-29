@@ -19,6 +19,8 @@ The version of Backstage that the target platform is built on. Defined in `versi
 }
 ```
 
+If an open PR targets a release branch and `versions.json` on the PR branch is behind the base branch, you can align it by commenting **`/update-versions`** on the PR (see [PR Commands](./02-export-tools.md#pr-commands) in the export tools guide).
+
 ### Supported Versions (in metadata)
 
 The Backstage version your plugin is compatible with:
@@ -199,7 +201,7 @@ Comment on your workspace PR:
 | Before | After |
 |--------|-------|
 | No `backstage.json` | `backstage.json` with `{"version": "1.49.4"}` |
-| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1!...` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1!...` |
+| `dynamicArtifact: oci://...:bs_1.48.3__7.0.1` | `dynamicArtifact: oci://...:bs_1.49.4__7.0.1` |
 
 > **Note:** Metadata files with local paths (e.g., `./dynamic-plugins/dist/...`) are left unchanged.
 
