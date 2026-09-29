@@ -4,14 +4,14 @@
 # Orchestrator plugins are also disabled by default and must be enabled.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets
-    disabled: false
+    enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator-dynamic
-    disabled: false
+    enabled: true

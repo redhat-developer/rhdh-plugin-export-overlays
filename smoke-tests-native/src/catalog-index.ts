@@ -222,7 +222,7 @@ export async function writeCatalogIndexConfig(
   await writeFile(
     path,
     stringify({
-      plugins: refs.map((pkg) => ({ package: pkg, disabled: false })),
+      plugins: refs.map((pkg) => ({ package: pkg, enabled: true })),
     }),
   );
   return path;

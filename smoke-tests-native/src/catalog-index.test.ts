@@ -285,12 +285,12 @@ test("writeCatalogIndexConfig produces a config that enables every ref", async (
   {
     const path = await writeCatalogIndexConfig(refs, dest);
     const doc = parse(readFileSync(path, "utf8")) as {
-      plugins: Array<{ package: string; disabled: boolean }>;
+      plugins: Array<{ package: string; enabled: boolean }>;
       includes?: unknown;
     };
     assert.deepEqual(
       doc.plugins,
-      refs.map((pkg) => ({ package: pkg, disabled: false })),
+      refs.map((pkg) => ({ package: pkg, enabled: true })),
     );
     // No `includes:` — it would re-import the defaults this mode overrides.
     assert.equal(doc.includes, undefined);
