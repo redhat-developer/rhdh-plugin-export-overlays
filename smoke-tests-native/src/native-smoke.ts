@@ -554,6 +554,28 @@ async function extractPlugins(
   }
 }
 
+// Nothing left to install when every declared ref was unresolved. The report still
+// fails the run on them; there is just nothing for the CLI to do.
+async function installSource(
+  root: string,
+  materialized: MaterializedSource,
+): Promise<void> {
+  if (materialized.refCount === 0) return;
+  await extractPlugins(root, materialized.path);
+}
+
+// An unresolved ref is a package that could not be installed at all, which is what
+// fail-install already means — just caught before the CLI instead of after.
+function installFailed(
+  installShortfall: string | null,
+  materialized: MaterializedSource,
+): boolean {
+  return (
+    Boolean(installShortfall) ||
+    (materialized.catalogIndex?.unresolved.length ?? 0) > 0
+  );
+}
+
 // Boot the loaded backend features in-process to confirm they integrate.
 async function startBackend(
   loaded: LoadedPlugin[],
@@ -676,11 +698,7 @@ async function main(): Promise<number> {
       tempDir,
       inputs,
     );
-    // Nothing left to install when every declared ref was unresolved. The report
-    // below still fails the run on them; there is just nothing for the CLI to do.
-    if (materialized.refCount !== 0) {
-      await extractPlugins(root, materialized.path);
-    }
+    await installSource(root, materialized);
 
     const manifest = discoverPlugins(root);
     console.log(
@@ -767,18 +785,15 @@ async function main(): Promise<number> {
       },
       exclusions: [...materialized.excluded, ...excluded],
       installShortfall: installShortfall ?? undefined,
-      // An unresolved ref is a package that could not be installed at all, which is
-      // what fail-install already means — just caught before the CLI instead of after.
-      status:
-        installShortfall || materialized.catalogIndex?.unresolved.length
-          ? "fail-install"
-          : computeStatus(
-              loadErrors,
-              start.ok,
-              loaded.length,
-              [...frontend.errors, ...backendBundles.errors],
-              configKeyMismatches?.length ?? 0,
-            ),
+      status: installFailed(installShortfall, materialized)
+        ? "fail-install"
+        : computeStatus(
+            loadErrors,
+            start.ok,
+            loaded.length,
+            [...frontend.errors, ...backendBundles.errors],
+            configKeyMismatches?.length ?? 0,
+          ),
     };
 
     await writeFile(out, JSON.stringify(report, null, 2));
