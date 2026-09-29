@@ -32,7 +32,7 @@ import { setTimeout } from "node:timers/promises";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
 import type { UnresolvedRef } from "./report";
-import { compareStrings } from "./util";
+import { compareStrings, errorMessage, isRecord } from "./util";
 
 const OCI_PREFIX = "oci://";
 const IN_IMAGE_PREFIX = "./dynamic-plugins/dist/";
@@ -70,7 +70,7 @@ type IndexEntry = {
  */
 export function imageNameFromRef(ref: string): string | undefined {
   if (!ref.startsWith(OCI_PREFIX)) return undefined;
-  const body = ref.slice(OCI_PREFIX.length).split("!")[0];
+  const body = registryRefFromOciRef(ref);
   // The last `/` segment is what makes a registry with a port work — and what would
   // let `oci://plugin-a` pass with the host as the image name. Require a separator.
   if (!body.includes("/")) return undefined;
@@ -303,11 +303,12 @@ export function pluginPathProblem(
   try {
     manifest = JSON.parse(manifestJson);
   } catch (err) {
-    return `manifest is not JSON: ${err instanceof Error ? err.message : String(err)}`;
+    return `manifest is not JSON: ${errorMessage(err)}`;
   }
-  const annotation = (
-    manifest as { annotations?: Record<string, unknown> } | null
-  )?.annotations?.[DYNAMIC_PACKAGES_ANNOTATION];
+  const annotations = isRecord(manifest) ? manifest.annotations : undefined;
+  const annotation = isRecord(annotations)
+    ? annotations[DYNAMIC_PACKAGES_ANNOTATION]
+    : undefined;
   if (typeof annotation !== "string" || annotation === "") {
     return `no plugins declared: the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation is missing or empty`;
   }

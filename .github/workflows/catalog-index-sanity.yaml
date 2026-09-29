@@ -189,7 +189,7 @@ jobs:
                 "- frontend bundles: \(.frontend.valid)/\(.frontend.total) valid"
               ' smoke-tests-native/results-catalog-index.json
               echo
-              jq -r '.catalogIndex.unresolved[]? | "- ✗ `\(.ref)` is not installable: \(.error)"' \
+              jq -r '.catalogIndex.unresolved[]? | "- ✗ `\(.ref // "?")` is not installable: \(.error // "?")"' \
                 smoke-tests-native/results-catalog-index.json || true
               # `.plugin` is a PluginEntry object, not a name — the `//` never falls
               # through and jq would dump the whole object.

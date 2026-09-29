@@ -88,7 +88,7 @@ import {
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
 import { resolveContained } from "./paths";
-import { errorMessage } from "./util";
+import { errorMessage, isRecord, lastErrorLine } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -136,8 +136,10 @@ const INSTALL_ATTEMPTS = 3;
 const INSTALL_RETRY_BASE_MS = 2000;
 
 // A manifest fetch is one small request; a registry that has not answered in this long
-// is not going to, and the retry in partitionResolvable covers a slow moment.
-const PROBE_TIMEOUT_MS = 60_000;
+// is not going to, and the retry in partitionResolvable covers a slow moment. Kept short
+// because it multiplies: 2 candidates x 3 attempts per ref during an outage, and the
+// job's 60-minute limit cancels the run rather than failing it.
+const PROBE_TIMEOUT_MS = 30_000;
 const execFileAsync = promisify(execFile);
 
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
@@ -175,7 +177,7 @@ function run(file: string, args: string[]): string {
 // in turn, the way the CLI falls back from the productized registry to quay.
 async function probeRegistry(ref: string): Promise<ProbeResult> {
   const candidates = probeCandidates(ref);
-  let failure: ProbeResult = { ok: false, error: "not probed" };
+  const errors: string[] = [];
   for (const image of candidates) {
     try {
       const { stdout: manifest } = await execFileAsync(
@@ -188,23 +190,26 @@ async function probeRegistry(ref: string): Promise<ProbeResult> {
         ? { ok: false, error: problem, retry: false }
         : { ok: true };
     } catch (err) {
-      // Name the image only when there were two: the ref alone already says which.
-      const error = lastErrorLine(err);
-      failure = {
-        ok: false,
-        error: candidates.length > 1 ? `${image}: ${error}` : error,
-      };
+      // No skopeo at all says nothing about any ref. Recorded per ref it would read as
+      // every package in the index being broken, so it fails the run as what it is.
+      if (isRecord(err) && err.code === "ENOENT") {
+        throw new Error(
+          "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
+          { cause: err },
+        );
+      }
+      // Name each image only when there were two, and keep both reasons: the primary
+      // registry's answer matters as much as the fallback's. With one, the ref already
+      // says which image it was.
+      // A kill leaves stderr empty and a message that only echoes the command line.
+      const error =
+        isRecord(err) && err.killed
+          ? `no answer within ${PROBE_TIMEOUT_MS / 1000}s`
+          : lastErrorLine(err);
+      errors.push(candidates.length > 1 ? `${image}: ${error}` : error);
     }
   }
-  return failure;
-}
-
-// skopeo's own error is the last line of its stderr; everything above it is context.
-function lastErrorLine(err: unknown): string {
-  const stderr = (err as { stderr?: unknown }).stderr;
-  const detail =
-    typeof stderr === "string" && stderr.trim() ? stderr : errorMessage(err);
-  return detail.trim().split("\n").at(-1) ?? detail;
+  return { ok: false, error: errors.join("; ") };
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -349,10 +354,14 @@ async function writeErrorReport(
   out: string,
   cliVersion: string,
   message: string,
+  catalogIndex?: CatalogIndexInfo,
 ): Promise<void> {
   const report: Report = {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion,
+    // The refs already refused are still true when a later step throws, and they are
+    // what the job summary and the triage issue list first.
+    catalogIndex,
     backend: {
       total: 0,
       loaded: 0,
@@ -697,6 +706,9 @@ async function main(): Promise<number> {
   // Declared outside the try so the catch/finally can see them even if setup fails.
   let cliVersion = "unknown";
   let tempDir: string | undefined;
+  // Outside too, so a failure after the probe keeps the refs it refused — see
+  // writeErrorReport.
+  let catalogIndex: CatalogIndexInfo | undefined;
 
   try {
     // Everything fallible lives in the try, so any failure still writes a results.json
@@ -715,6 +727,7 @@ async function main(): Promise<number> {
       tempDir,
       inputs,
     );
+    catalogIndex = materialized.catalogIndex;
     await installSource(root, materialized);
 
     const manifest = discoverPlugins(root);
@@ -825,8 +838,8 @@ async function main(): Promise<number> {
     );
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
-    // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(out, cliVersion, errorMessage(err));
+    // e.g. the install CLI failing on a ref the probe let through — see writeErrorReport.
+    await writeErrorReport(out, cliVersion, errorMessage(err), catalogIndex);
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
