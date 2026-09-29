@@ -1,6 +1,6 @@
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-dynamic
-    disabled: false
+    enabled: true
     pluginConfig:
       catalog:
         providers:
@@ -16,7 +16,7 @@ plugins:
                 timeout:
                   minutes: 3
   - package: ./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-gitlab-org-dynamic
-    disabled: false
+    enabled: true
     pluginConfig:
       catalog:
         providers:
@@ -33,7 +33,7 @@ plugins:
                 timeout:
                   minutes: 3
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-events-backend-module-gitlab:bs_1.49.4__0.3.10
-    disabled: false
+    enabled: true
     pluginConfig:
       events:
         http:
