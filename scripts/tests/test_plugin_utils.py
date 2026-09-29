@@ -348,55 +348,105 @@ class TestBuildReport:
         data = json.loads(report_path.read_text())
         assert data["status"] == "partial"
 
-    def test_overall_outdated(self, tmp_path):
+    def test_bs_version_mismatch_passes_overall(self, tmp_path):
         report_path = tmp_path / "report.json"
         report = BuildReport(str(report_path))
         report.add_plugin("p1")
-        report.set_stage("p1", "bootstrap", "outdated",
-                         expected_version="1.49.4", found_version="1.45.3")
+        report.set_stage(
+            "p1",
+            "bootstrap",
+            "pass",
+            bs_version_mismatch=True,
+            reason="Backstage version mismatch",
+            expected_version="1.49.4",
+            found_version="1.45.3",
+        )
         report.save()
 
         data = json.loads(report_path.read_text())
-        assert data["plugins"]["p1"]["overall"] == "outdated"
+        assert data["plugins"]["p1"]["overall"] == "pass"
+        assert "outdated" not in data["summary"]
 
-    def test_summary_includes_outdated_count(self, tmp_path):
+    def test_bs_version_mismatch_counts_as_succeeded(self, tmp_path):
         report_path = tmp_path / "report.json"
         report = BuildReport(str(report_path))
         report.add_plugin("p1")
         report.set_stage("p1", "bootstrap", "pass")
         report.add_plugin("p2")
-        report.set_stage("p2", "bootstrap", "outdated")
+        report.set_stage(
+            "p2",
+            "bootstrap",
+            "pass",
+            bs_version_mismatch=True,
+        )
         report.add_plugin("p3")
         report.set_stage("p3", "bootstrap", "fail")
         report.save()
 
         data = json.loads(report_path.read_text())
         assert data["summary"]["total"] == 3
-        assert data["summary"]["succeeded"] == 1
+        assert data["summary"]["succeeded"] == 2
         assert data["summary"]["failed"] == 1
-        assert data["summary"]["outdated"] == 1
 
-    def test_outdated_does_not_count_as_failed(self, tmp_path):
+    def test_bs_version_mismatch_does_not_count_as_failed(self, tmp_path):
         report_path = tmp_path / "report.json"
         report = BuildReport(str(report_path))
         report.add_plugin("p1")
         report.set_stage("p1", "bootstrap", "pass")
         report.add_plugin("p2")
-        report.set_stage("p2", "bootstrap", "outdated")
+        report.set_stage("p2", "bootstrap", "pass", bs_version_mismatch=True)
         report.save()
 
         data = json.loads(report_path.read_text())
         assert data["summary"]["failed"] == 0
-        assert data["summary"]["outdated"] == 1
+        assert data["summary"]["succeeded"] == 2
 
-    def test_status_partial_when_outdated(self, tmp_path):
+    def test_status_success_when_bs_version_mismatch_only(self, tmp_path):
         report_path = tmp_path / "report.json"
         report = BuildReport(str(report_path))
         report.add_plugin("p1")
         report.set_stage("p1", "bootstrap", "pass")
         report.add_plugin("p2")
-        report.set_stage("p2", "bootstrap", "outdated")
+        report.set_stage("p2", "bootstrap", "pass", bs_version_mismatch=True)
         report.save()
 
         data = json.loads(report_path.read_text())
-        assert data["status"] == "partial"
+        assert data["status"] == "success"
+
+    def test_remove_stale_plugins_drops_renamed_entries(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("red-hat-developer-hub-backstage-plugin-lightspeed")
+        report.set_stage(
+            "red-hat-developer-hub-backstage-plugin-lightspeed",
+            "bootstrap",
+            "pass",
+            oci_ref="registry.access.redhat.com/rhdh/lightspeed:old",
+        )
+        report.add_plugin("red-hat-developer-hub-backstage-plugin-intelligent-assistant")
+        report.set_stage(
+            "red-hat-developer-hub-backstage-plugin-intelligent-assistant",
+            "bootstrap",
+            "pass",
+        )
+        removed = report.remove_stale_plugins(
+            {"red-hat-developer-hub-backstage-plugin-intelligent-assistant"}
+        )
+        report.save()
+
+        assert removed == ["red-hat-developer-hub-backstage-plugin-lightspeed"]
+        data = json.loads(report_path.read_text())
+        assert "red-hat-developer-hub-backstage-plugin-lightspeed" not in data["plugins"]
+        assert "red-hat-developer-hub-backstage-plugin-intelligent-assistant" in data["plugins"]
+        assert data["summary"]["total"] == 1
+
+    def test_remove_stale_plugins_noop_when_expected(self, tmp_path):
+        report_path = tmp_path / "report.json"
+        report = BuildReport(str(report_path))
+        report.add_plugin("plugin-a")
+        report.set_stage("plugin-a", "bootstrap", "pass")
+        assert report.remove_stale_plugins({"plugin-a"}) == []
+
+    def test_remove_stale_plugins_disabled_report(self):
+        report = BuildReport(None)
+        assert report.remove_stale_plugins({"anything"}) == []

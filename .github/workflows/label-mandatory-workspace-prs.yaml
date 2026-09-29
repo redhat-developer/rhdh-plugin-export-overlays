@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Label PRs based on workspace changes
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -150,10 +150,11 @@ jobs:
                 );
                 
                 // Analyze PR files to know what changes this PR contains
-                const prFiles = await github.rest.pulls.listFiles({
+                const prFiles = await github.paginate(github.rest.pulls.listFiles, {
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  pull_number: pr.number
+                  pull_number: pr.number,
+                  per_page: 100,
                 });
                 
                 // Categorize files
@@ -161,7 +162,7 @@ jobs:
                 const nonWorkspaceFiles = [];
                 const allAffectedWorkspaces = new Set();
                 
-                for (const file of prFiles.data) {
+                for (const file of prFiles) {
                   const workspaceMatch = file.filename.match(/^workspaces\/([^\/]+)\/.*/);
                   if (workspaceMatch) {
                     const workspace = workspaceMatch[1];

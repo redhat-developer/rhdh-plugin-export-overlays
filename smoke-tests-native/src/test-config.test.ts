@@ -6,12 +6,13 @@
 
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadAppConfig, loadEnvFile } from "./test-config";
+import { tempDir } from "./test-support";
 
-const dir = mkdtempSync(join(tmpdir(), "test-config-"));
+const dir = tempDir(join(tmpdir(), "test-config-"));
 
 function file(name: string, content: string): string {
   const path = join(dir, name);
@@ -22,7 +23,7 @@ function file(name: string, content: string): string {
 test("loadEnvFile applies KEY=VALUE lines, strips quotes, skips comments", () => {
   const path = file(
     "basic.env",
-    '# comment\nTC_FOO=bar\nTC_QUOTED="q v"\n\nTC_SINGLE=\'s v\'\n',
+    "# comment\nTC_FOO=bar\nTC_QUOTED=\"q v\"\n\nTC_SINGLE='s v'\n",
   );
   const applied = loadEnvFile(path);
   assert.deepEqual(applied.sort(), ["TC_FOO", "TC_QUOTED", "TC_SINGLE"]);

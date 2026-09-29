@@ -11,3 +11,5 @@ data:
 
     g, user:development/guest, role:default/topology-viewer
     p, role:default/topology-viewer, catalog-entity, read, allow
+    p, role:default/topology-viewer, kubernetes.clusters.read, read, allow
+    p, role:default/topology-viewer, kubernetes.resources.read, read, allow

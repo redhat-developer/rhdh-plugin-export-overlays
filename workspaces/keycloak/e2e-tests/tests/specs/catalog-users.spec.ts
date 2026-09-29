@@ -22,6 +22,7 @@ test.describe("Test Keycloak plugin", () => {
     await rhdh.configure({
       auth: "keycloak",
       valueFile: "tests/config/value_file.yaml",
+      dynamicPlugins: "tests/config/dynamic-plugins.yaml",
     });
     await rhdh.deploy();
 
@@ -40,8 +41,17 @@ test.describe("Test Keycloak plugin", () => {
   });
 
   test.beforeEach(
-    async ({ page, loginHelper }: { page: Page; loginHelper: LoginHelper }) => {
+    async ({
+      page,
+      loginHelper,
+      uiHelper,
+    }: {
+      page: Page;
+      loginHelper: LoginHelper;
+      uiHelper: UIhelper;
+    }) => {
       await loginHelper.loginAsKeycloakUser();
+      await uiHelper.dismissQuickstartIfVisible();
       await CatalogUsersPO.visitBaseURL(page);
     },
   );

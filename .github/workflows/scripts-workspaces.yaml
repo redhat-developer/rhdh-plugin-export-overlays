@@ -1,0 +1,43 @@
+name: Scripts workspaces
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/scripts-workspaces.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: scripts-workspaces-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
+        with:
+          working-directory: scripts
+          cache: true
+
+      - name: Check (format, lint, and type-check)
+        run: vp check
+
+      - name: Test (unit tests)
+        run: vp test
