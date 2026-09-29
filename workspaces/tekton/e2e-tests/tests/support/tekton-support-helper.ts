@@ -17,7 +17,7 @@ export class TektonSupportHelper {
   }
 
   async clickTab(tabName: string): Promise<void> {
-    const tabLocator = this.page.getByRole("tab", {
+    const tabLocator = this.page.getByRole("link", {
       name: tabName,
       exact: true,
     });
@@ -31,7 +31,7 @@ export class TektonSupportHelper {
 
   async goToBackstageJanusProjectCITab(): Promise<void> {
     await this.goToBackstageJanusProject();
-    await this.clickTab("CI");
+    await this.clickTab("Tekton");
     await this.waitForPipelineRunsOrKubernetesError();
   }
 
@@ -52,6 +52,7 @@ export class TektonSupportHelper {
     await this.page
       .getByRole("row")
       .filter({ hasText: runName })
+      .first()
       .getByRole("button", { name: "expand row" })
       .click();
   }
