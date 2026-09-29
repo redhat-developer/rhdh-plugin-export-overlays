@@ -312,10 +312,10 @@ for i in $(seq 0 $((ISSUE_COUNT - 1))); do
       # 4. Handle cycle_ready_to_code
       # ---------------------------------------------------------------
       # Only cycle for auto-fixable causes. ready-to-code wakes the code agent;
-      # cycling it on an environment cause (or an umbrella tracking a
-      # cluster-wide outage) would aim a code-fix run at something no code
-      # change can fix. The agent should already gate the flag this way — this
-      # is a defensive backstop.
+      # cycling it on an environment or upstream_test_utils cause (or an umbrella
+      # tracking a cluster-wide outage) would aim a code-fix run at something no
+      # code change in this repo can fix. The agent should already gate the flag
+      # this way — this is a defensive backstop.
       if [[ "${CYCLE}" == "true" && ( "${FIX_CAT}" == "test_fix" || "${FIX_CAT}" == "product_bug" ) ]]; then
         echo "  Cycling ready-to-code label on #${ISSUE_NUMBER}..."
         if remove_label "${REPO_FULL_NAME}" "${ISSUE_NUMBER}" "ready-to-code"; then
@@ -356,13 +356,13 @@ if [[ -n "${TRIGGER_ISSUE_NUMBER}" ]]; then
   TARGET_BRANCH="$(jq -r '.target_branch // "main"' "${RESULT_FILE}")"
 
   # Category breakdown for the headline. test_fix + product_bug are handed to
-  # the code agent automatically; environment needs a human; infra_flake is
-  # transient (no issue).
+  # the code agent automatically; environment + upstream_test_utils need a
+  # human (fix belongs elsewhere); infra_flake is transient (no issue).
   AUTO_FIX=0; NEEDS_HUMAN=0; FLAKE=0; OTHER=0
   for c in "${CATEGORIES[@]:-}"; do
     case "${c}" in
       test_fix|product_bug) AUTO_FIX=$((AUTO_FIX + 1)) ;;
-      environment)          NEEDS_HUMAN=$((NEEDS_HUMAN + 1)) ;;
+      environment|upstream_test_utils) NEEDS_HUMAN=$((NEEDS_HUMAN + 1)) ;;
       infra_flake)          FLAKE=$((FLAKE + 1)) ;;
       *)
         OTHER=$((OTHER + 1))

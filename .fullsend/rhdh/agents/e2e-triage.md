@@ -130,12 +130,14 @@ workspace, assign a `fix_category`:
 | `test_fix` | Test code, config, or deployment config needs updating |
 | `product_bug` | Bug in plugin source code (not in this repo) |
 | `environment` | CI env problem (expired creds, missing secrets, quota) |
+| `upstream_test_utils` | Bug in `@red-hat-developer-hub/e2e-test-utils` (fixtures, helpers, deployment logic, page objects) — fix belongs in [rhdh-e2e-test-utils](https://github.com/redhat-developer/rhdh-e2e-test-utils), not this repo |
 
 **Decision guide:**
 - If the test assertion is wrong or outdated → `test_fix`
 - If the test config is missing/wrong (paths, secrets, plugins) → `test_fix`
 - If the test setup script has a bug (missing wait, race condition) → `test_fix`
 - If the plugin itself is broken (API changed, component missing) → `product_bug`
+- If the bug is in a shared helper/fixture/page object from `@red-hat-developer-hub/e2e-test-utils` (e.g. `UIhelper`, `LoginHelper`, `RHDHDeployment`, page objects, `runOnce`) → `upstream_test_utils`
 - If pods crashed with OOM/ImagePull/network errors → `infra_flake`
 - If vault secrets or CI variables are missing → `environment`
 
@@ -157,7 +159,7 @@ help.
 - If failures share a root cause (e.g., beforeAll failed, serial tests
   cascaded), classify once for the group.
 - If failures have different root causes, pick the dominant category:
-  `test_fix` > `product_bug` > `environment` > `infra_flake`.
+  `test_fix` > `product_bug` > `upstream_test_utils` > `environment` > `infra_flake`.
 - The issue body will list all failing tests regardless.
 
 Also assign a `root_cause_slug` — a short kebab-case identifier for the
@@ -197,7 +199,7 @@ cross-run dedup.
 
 Carry one `fix_category` and one `root_cause_slug` per cause. **If the grouped
 members were classified differently, pick the most actionable category by this
-precedence:** `test_fix` > `product_bug` > `environment` > `infra_flake`. A real
+precedence:** `test_fix` > `product_bug` > `upstream_test_utils` > `environment` > `infra_flake`. A real
 fix should still be filed rather than the cause being written off as a flake.
 (If the categories differ *a lot*, that is a hint the mechanisms differ and you
 may have over-grouped — reconsider the split.)
@@ -306,9 +308,9 @@ HAS_OPEN_PR=$(echo "${LINKED_PRS}" | jq 'any(.[]; .state == "open")')
 
 **Only set `cycle_ready_to_code: true` for `test_fix` and `product_bug`.**
 Cycling the label re-triggers the code agent, which can only help a cause a code
-change can fix. For `environment` (and any umbrella tracking a cluster-wide
-outage), leave it `false` — it needs a human. (The post-script also enforces
-this, but set it correctly here.)
+change can fix. For `environment`, `upstream_test_utils`, and `infra_flake`,
+leave it `false` — they need a human or belong in a different repo. (The
+post-script also enforces this, but set it correctly here.)
 
 **When commenting, reconcile the affected set** — don't just re-dump analysis.
 Compare tonight's affected workspaces against what the issue currently lists and
@@ -331,6 +333,7 @@ or several. You author the full body yourself — there is no downstream merging
 |----------|--------|-----------------|-------|
 | `test_fix` | `e2e-failure` | Yes | Create |
 | `product_bug` | `e2e-failure` | Yes | Create |
+| `upstream_test_utils` | `e2e-failure` | No | Create |
 | `environment` | `e2e-failure` | No | Create |
 | `infra_flake` | — | — | None (summary only) |
 
@@ -404,6 +407,16 @@ no per-workspace nesting needed.
 
       test.skip(!!process.env.E2E_NIGHTLY_MODE, "<root cause summary>");
 
+- **For `upstream_test_utils`** — the fix belongs in
+  [rhdh-e2e-test-utils](https://github.com/redhat-developer/rhdh-e2e-test-utils),
+  not this repo. That repo follows the same branching strategy
+  (`main`, `release-x.y`), so the target branch is the same
+  `TARGET_BRANCH` detected from the Prow job. Remediation should
+  state: the repo, the target branch, the broken export path (e.g.
+  `e2e-test-utils/helpers`, `e2e-test-utils/rhdh`), the function/class,
+  and what needs to change. Do NOT instruct the code agent to modify
+  workspace test files as a workaround.
+
 ---
 
 ## Phase 5: Structured Output
@@ -434,7 +447,7 @@ accumulates stale files across reruns).
 cat > "$OUTPUT_DIR/cause-results/cause-01.json" << 'WS_EOF'
 {
   "affected_workspaces": ["<name-1>", "<name-2>"],
-  "fix_category": "<infra_flake|test_fix|product_bug|environment>",
+  "fix_category": "<infra_flake|test_fix|product_bug|environment|upstream_test_utils>",
   "tests": [
     { "workspace": "<name>", "name": "<test title>", "error": "<error message>" }
   ],

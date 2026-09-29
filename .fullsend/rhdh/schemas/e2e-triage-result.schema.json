@@ -46,7 +46,7 @@
         },
         "fix_category": {
           "type": "string",
-          "enum": ["infra_flake", "test_fix", "product_bug", "environment"],
+          "enum": ["infra_flake", "test_fix", "product_bug", "environment", "upstream_test_utils"],
           "description": "Classification for this cause (one category per cause)."
         },
         "tests": {

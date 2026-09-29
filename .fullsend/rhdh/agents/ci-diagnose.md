@@ -263,19 +263,23 @@ Roll the per-check classifications into one overall `verdict`:
 - all `pr_regression` → `pr_regression`; all `flake` → `flake`; etc.
 - more than one distinct classification → `mixed`.
 
-## Phase 3b: For `pre_existing`, look up an open PR that already fixes it
+## Phase 3b: For `pre_existing`, look up open PRs and issues that already track it
 
 Do **not** hand `pre_existing` to the auto-fix agent. The failure is this
 repo's to fix, but not *this* PR's — another open PR may already be doing
-that work. Search **open PRs** before rendering so the diagnosis can
-point at them. Author does not matter (human or bot). Do not require a
-`[fullsend] E2E:` tracking issue, a label, or any other origin filter.
+that work, or a tracking issue may already exist. Search **open PRs and
+issues** before rendering so the diagnosis can point at them.
 
 Skip this phase when no check is `pre_existing`.
 
 For each `pre_existing` check, derive a short search key from the evidence
 (workspace directory, failing spec/file, check name, or a distinctive error
 token). Never use the current PR number as a match.
+
+### Search open PRs
+
+Author does not matter (human or bot). Do not require a label or origin
+filter.
 
 ```bash
 REPO="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
@@ -306,6 +310,40 @@ merely mentions "e2e" or "timeout" is not a match.
 **Populate `related_prs`** on that check (number + url; title if you have
 it). Omit the key entirely when nothing matched — do not emit `[]`. Cap at
 5.
+
+### Search open issues (last 15 days only)
+
+Search for tracking issues that already describe this failure — typically
+`[fullsend] E2E:` issues created by nightly triage. Use the same search
+key derived above. **Only include issues updated within the last 15 days**
+— older issues are likely stale (created but never closed) and linking to
+them gives the PR author false confidence that the problem is being worked.
+
+```bash
+# Compute the cutoff date (15 days ago, ISO 8601).
+CUTOFF=$(date -u -d '15 days ago' '+%Y-%m-%d' 2>/dev/null \
+  || date -u -v-15d '+%Y-%m-%d')
+
+# Open tracking issues (label:e2e-failure) updated since CUTOFF whose
+# title/body mention the workspace, failing spec, or a distinctive error
+# token. Use label:e2e-failure to match per-cause tracking issues created
+# by nightly triage — not the umbrella trigger issues (label:e2e-triage).
+ISSUE_CANDIDATES=$(gh api -X GET search/issues \
+  -f q="repo:${REPO} is:issue state:open label:e2e-failure updated:>=${CUTOFF} ${SEARCH_KEY}" \
+  --jq '[.items[] | {number, title, url: .html_url, labels: [.labels[].name]}]')
+ISSUE_FILTERED=$(echo "${ISSUE_CANDIDATES}" | jq '.[:5]')
+```
+
+**What counts as a match:** an open issue updated in the last 15 days that
+tracks the same failure — same workspace and same root cause (e.g. matching
+`root_cause_slug` in the issue body, or title naming the same spec/helper).
+`[fullsend] E2E:` issues are strong matches when their title references the
+same workspace or error signature. Do not match generic issues that merely
+mention the workspace.
+
+**Populate `related_issues`** on that check (number + url; title and labels
+if available). Omit the key entirely when nothing matched — do not emit
+`[]`. Cap at 5.
 
 ## Phase 4: Render the diagnosis comment (`comment_body`)
 
@@ -341,11 +379,12 @@ request-changes. `pre_existing` is reported with any `related_prs` instead
 **Evidence:** <key log/trace lines>
 **Suggested fix:** <file:line, or "already being fixed">
 **Open PR:** <#3480 — title> (omit this line when `related_prs` is absent; append `(targets <branch>)` when the related PR's base branch differs from this PR's base branch)
+**Tracked in:** <#4100 — [fullsend] E2E: login-nav-hidden> (omit this line when `related_issues` is absent)
 [logs](<url>)
 </details>
 
 ---
-<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
+<sub>Automated CI diagnosis · updates as checks complete · not a substitute for review. For bot-authored PRs, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR or tracking issue when one already exists. A maintainer can take over any time with `/fs-fix <instruction>`, or stop auto-fix with `/fs-fix-stop` — see the [fix agent docs](https://github.com/fullsend-ai/fullsend/blob/main/docs/agents/fix.md).</sub>
 <!-- ci-diagnose-state: {"sha":"<HEAD_SHA>","red":["appConfigExamples coverage","ci/prow/e2e-ocp-helm"]} -->
 ```
 
@@ -367,9 +406,13 @@ three classifications point at something actionable, so `suggestion` is
   (`Already being fixed in #3480.`) and may add the file:line as context.
   When a related PR targets a different base branch than this PR, say so
   (`Already being fixed in #3480, but that PR targets main — a separate fix
-  may be needed for release-1.10.`). If none matched, name the file:line a
-  human (or a new PR) would change, and say no open PR was found. Never tell
-  the author to wait on auto-fix for `pre_existing`.
+  may be needed for release-1.10.`). If `related_issues` is set (but no
+  `related_prs`), reference the tracking issue (`Tracked in #4100.`) and
+  note where the fix belongs if the issue body indicates an external repo
+  (e.g. `Fix belongs in rhdh-e2e-test-utils, not this repo.`). If neither
+  matched, name the file:line a human (or a new PR) would change, and say
+  no open PR or issue was found. Never tell the author to wait on auto-fix
+  for `pre_existing`.
 - **`flake` — give the author something beyond "re-run it".** State what was
   actually flaky (the mechanism, from Phase 2's evidence) and, if a concrete
   change would reduce the recurrence (a longer timeout, a more specific wait
@@ -411,8 +454,8 @@ RESULT_EOF
 fullsend-check-output "$OUTPUT_DIR/agent-result.json"
 ```
 
-On a `pre_existing` check, add `related_prs` to that check object (omit the
-key when Phase 3b found nothing):
+On a `pre_existing` check, add `related_prs` and/or `related_issues` to
+that check object (omit each key when Phase 3b found nothing for it):
 
 ```json
 "related_prs": [
@@ -421,6 +464,14 @@ key when Phase 3b found nothing):
     "url": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/pull/3480",
     "title": "<optional>",
     "base_branch": "main"
+  }
+],
+"related_issues": [
+  {
+    "number": 4100,
+    "url": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/issues/4100",
+    "title": "[fullsend] E2E: login-nav-hidden — LoginHelper nav selector broken",
+    "labels": ["e2e-failure"]
   }
 ]
 ```
@@ -435,7 +486,9 @@ If validation fails, read the error, fix the JSON, re-run.
 - `checks`: one entry per red curated check, max 30. Do NOT include
   skipped/ignored checks (SonarCloud, dispatch/*).
 - `related_prs`: only on `pre_existing` checks, and only when Phase 3b found
-  a match. Omit the key otherwise (do not emit `[]`). Never include this PR.
+  a matching PR. Omit the key otherwise (do not emit `[]`). Never include this PR.
+- `related_issues`: only on `pre_existing` checks, and only when Phase 3b
+  found a matching issue. Omit the key otherwise (do not emit `[]`).
 - Do NOT add keys — the schema is `additionalProperties: false`.
 
 **Length limits** (full schema:

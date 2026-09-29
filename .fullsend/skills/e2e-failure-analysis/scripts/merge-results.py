@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-FIX_CATEGORIES = ["infra_flake", "test_fix", "product_bug", "environment"]
+FIX_CATEGORIES = ["infra_flake", "test_fix", "product_bug", "environment", "upstream_test_utils"]
 VALID_CATEGORIES = set(FIX_CATEGORIES)
 VALID_ACTIONS = {"create", "comment", "skip"}
 
