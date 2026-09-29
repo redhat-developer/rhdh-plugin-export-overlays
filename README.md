@@ -112,7 +112,6 @@ Sometimes, additional configuration is required in the PR:
 
 - **Frontend plugins** may need:
    - `app-config.dynamic.yaml` (Eg: [techdocs plugin](./workspaces/backstage/plugins/techdocs/app-config.dynamic.yaml))
-   - `scalprum-config.json` (Eg: [api-docs-module-protoc-gen-doc plugin](./workspaces/backstage/plugins/api-docs-module-protoc-gen-doc/scalprum-config.json))
 
 - **Any plugin** may need:
    - Overlay source files in an `overlay` directory
