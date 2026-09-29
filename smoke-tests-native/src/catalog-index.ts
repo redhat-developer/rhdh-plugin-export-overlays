@@ -28,8 +28,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout } from "node:timers/promises";
 import { parse, stringify } from "yaml";
 import type { ExclusionRecord } from "./exclusions";
+import type { UnresolvedRef } from "./report";
 import { compareStrings } from "./util";
 
 const OCI_PREFIX = "oci://";
@@ -226,4 +228,145 @@ export async function writeCatalogIndexConfig(
     }),
   );
   return path;
+}
+
+/**
+ * Whether the install CLI could take a ref; `error` says why not. `retry` false marks
+ * an answer that will not change on a second ask — a manifest that was served and is
+ * wrong.
+ */
+export type ProbeResult =
+  { ok: true } | { ok: false; error: string; retry?: boolean };
+
+export type ResolvableRefs = {
+  resolvable: string[];
+  unresolved: UnresolvedRef[];
+};
+
+export type PartitionOptions = {
+  /** Probes per ref before it is recorded as unresolved. */
+  attempts?: number;
+  /** Base backoff between probes of one ref, doubled per attempt. */
+  retryDelayMs?: number;
+  /** Refs probed at once — ~100 of them otherwise take minutes one by one. */
+  concurrency?: number;
+};
+
+/**
+ * The `registry/repo[:tag][@digest]` a ref names, as skopeo takes it after
+ * `docker://`. The `!plugin-path` selector is dropped: it picks a plugin inside the
+ * image and is not part of the image reference.
+ */
+export function registryRefFromOciRef(ref: string): string {
+  if (!ref.startsWith(OCI_PREFIX)) {
+    throw new Error(`not an ${OCI_PREFIX} ref: ${ref}`);
+  }
+  return ref.slice(OCI_PREFIX.length).split("!")[0];
+}
+
+const DYNAMIC_PACKAGES_ANNOTATION = "io.backstage.dynamic-packages";
+
+/**
+ * Why the install CLI would refuse this manifest, or undefined when it would not.
+ *
+ * Mirrors the CLI's plugin-path auto-detection (`getPluginPaths` / `ociPluginKey` in
+ * cli-module-install-dynamic-plugins): a ref with no `!plugin-path` selector needs the
+ * `io.backstage.dynamic-packages` annotation to name exactly one plugin, and anything
+ * else is an InstallException that aborts the whole install. The `next` index shipped
+ * a scorecard module whose annotation was the empty string — the image exists, and
+ * nothing can be installed from it.
+ */
+export function pluginPathProblem(
+  ref: string,
+  manifestJson: string,
+): string | undefined {
+  if (ref.includes("!")) return undefined;
+  let manifest: unknown;
+  try {
+    manifest = JSON.parse(manifestJson);
+  } catch (err) {
+    return `manifest is not JSON: ${err instanceof Error ? err.message : String(err)}`;
+  }
+  const annotation = (
+    manifest as { annotations?: Record<string, unknown> } | null
+  )?.annotations?.[DYNAMIC_PACKAGES_ANNOTATION];
+  if (typeof annotation !== "string" || annotation === "") {
+    return `no plugins declared: the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation is missing or empty`;
+  }
+  let entries: unknown;
+  try {
+    entries = JSON.parse(Buffer.from(annotation, "base64").toString("utf8"));
+  } catch {
+    return `the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation is not base64-encoded JSON`;
+  }
+  const paths = Array.isArray(entries)
+    ? entries.flatMap((entry: unknown) =>
+        entry && typeof entry === "object" ? Object.keys(entry) : [],
+      )
+    : [];
+  if (paths.length === 0) {
+    return `no plugins declared: the '${DYNAMIC_PACKAGES_ANNOTATION}' annotation lists none`;
+  }
+  if (paths.length > 1) {
+    return `${paths.length} plugins in the image and no '!plugin-path' selector to pick one`;
+  }
+  return undefined;
+}
+
+/**
+ * Split refs into the ones the install CLI can take and the ones it cannot.
+ *
+ * Why this exists: the install CLI treats the whole config as one unit, so a single
+ * ref naming an image that was never published aborts the install, and the run
+ * reports 0/0 with every other package unvalidated. The `next` index carried such a
+ * ref — a tag-only fallback to an unpublished `2.1.0--` build — for weeks, and each
+ * one fixed only uncovered the next. Probing first turns "nothing was checked" into
+ * "this one package is missing, and everything else was checked".
+ *
+ * A probe failing for any reason, after retries, counts as unresolved: a transient
+ * registry error would have aborted the install just the same, and dropping one
+ * package costs far less than losing the whole run. Order is preserved.
+ */
+export async function partitionResolvable(
+  refs: string[],
+  probe: (ref: string) => Promise<ProbeResult>,
+  options: PartitionOptions = {},
+): Promise<ResolvableRefs> {
+  const attempts = options.attempts ?? 3;
+  const retryDelayMs = options.retryDelayMs ?? 2000;
+  const concurrency = Math.max(1, options.concurrency ?? 8);
+
+  const probeWithRetry = async (ref: string): Promise<ProbeResult> => {
+    let result: ProbeResult = { ok: false, error: "not probed" };
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      result = await probe(ref);
+      if (result.ok || result.retry === false) return result;
+      if (attempt < attempts) {
+        await setTimeout(retryDelayMs * 2 ** (attempt - 1));
+      }
+    }
+    return result;
+  };
+
+  const results: ProbeResult[] = new Array(refs.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < refs.length) {
+      const index = next;
+      next += 1;
+      results[index] = await probeWithRetry(refs[index]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, refs.length) }, worker),
+  );
+
+  const resolvable: string[] = [];
+  const unresolved: UnresolvedRef[] = [];
+  for (const [index, ref] of refs.entries()) {
+    const result = results[index];
+    if (result.ok) resolvable.push(ref);
+    else unresolved.push({ ref, error: result.error });
+  }
+  return { resolvable, unresolved };
 }

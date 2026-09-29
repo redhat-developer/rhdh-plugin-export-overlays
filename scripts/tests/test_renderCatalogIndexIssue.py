@@ -81,6 +81,32 @@ def test_body_lists_failures_from_every_section():
     assert "Failing packages (4)" in body
 
 
+def test_an_uninstallable_ref_is_named_first():
+    # One such ref used to abort the whole install; the issue then said only
+    # "Command failed" and never which image.
+    doc = report(
+        status="fail-install",
+        catalogIndex={
+            "unresolved": [
+                {
+                    "ref": "oci://quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8",
+                    "error": "manifest unknown",
+                }
+            ]
+        },
+        backend={
+            "errors": [plugin_error("@s/loadfail", "No default export")],
+            "bundleErrors": [],
+        },
+    )
+    failures = renderer.collect_failures(doc)
+    assert failures[0] == (
+        "oci://quay.io/rhdh/backstage-plugin-org:2.1.0--0.7.8: "
+        "not installable — manifest unknown"
+    )
+    assert "Failing packages (2)" in renderer.render_body(doc, IMAGE, "", RUN)
+
+
 def test_body_caps_the_list_and_says_how_many_are_left():
     # A wholly broken index fails dozens at once. Sixty identical lines at the top of an
     # issue is read by nobody, so the body has to say what it left out.
