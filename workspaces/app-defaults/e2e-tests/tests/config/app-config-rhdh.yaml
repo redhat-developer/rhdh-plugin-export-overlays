@@ -1,3 +1,7 @@
+app:
+  extensions:
+    - nav-content:app: false
+
 auth:
   providers:
     github:
