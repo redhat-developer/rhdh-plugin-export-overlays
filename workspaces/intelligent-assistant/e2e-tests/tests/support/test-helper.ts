@@ -7,6 +7,7 @@ import fs from "fs";
 import yaml from "js-yaml";
 import os from "os";
 import path from "path";
+import { openChatDrawer } from "./sidebar";
 
 function isNightlyMode(): boolean {
   if (process.env.GIT_PR_NUMBER) {
@@ -133,16 +134,92 @@ async function waitForAuthSettled(page: Page, timeout = 60_000): Promise<void> {
     .waitFor({ state: "visible", timeout });
 }
 
+async function waitForLoggedInChrome(
+  page: Page,
+  timeout = 60_000,
+): Promise<void> {
+  await expect(
+    page
+      .getByRole("navigation", { name: "sidebar nav" })
+      .or(page.getByRole("button", { name: "Settings" }))
+      .first(),
+  ).toBeVisible({ timeout });
+}
+
+async function fillKeycloakFormIfPresent(
+  page: Page,
+  userid: string,
+  password: string,
+): Promise<void> {
+  const username = page.locator("#username");
+  if (!(await username.isVisible())) {
+    return;
+  }
+  await username.fill(userid);
+  await page.locator("#password").fill(password);
+  await page.locator("#kc-login").click();
+}
+
 /**
  * Re-auth when navigation lands on OIDC Sign In (in-memory hub sessions).
- * Uses LoginHelper.loginAsKeycloakUser (goto `/` + Keycloak popup).
+ *
+ * Do not use LoginHelper.loginAsKeycloakUser here: it always goto("/") and
+ * only waits for a Keycloak popup. Mid-suite Sign In often completes in-page
+ * via SSO (no popup), which hangs that helper and leaves the suite on Home
+ * with IA closed.
  */
 export async function ensureKeycloakSession(page: Page): Promise<void> {
   await waitForAuthSettled(page);
   if (!(await isSignInPage(page))) {
     return;
   }
-  await new LoginHelper(page).loginAsKeycloakUser();
+
+  const login = new LoginHelper(page);
+  const signInMethod = page.getByRole("heading", {
+    name: "Select a sign-in method",
+  });
+  const keycloakProviderBtn = page.getByRole("button", {
+    name: /sign in using keycloak/i,
+  });
+  const signInBtn = page.getByRole("button", { name: "Sign In" });
+  const userid = process.env.TEST_USERNAME ?? "test1";
+  const password = process.env.TEST_PASSWORD ?? "test1@123";
+
+  const popupPromise = page
+    .waitForEvent("popup", { timeout: 20_000 })
+    .then((popup) => ({ type: "popup" as const, popup }))
+    .catch(() => null);
+  const ssoPromise = Promise.race([
+    signInMethod
+      .waitFor({ state: "hidden", timeout: 20_000 })
+      .then(() => ({ type: "sso" as const })),
+    page
+      .getByRole("navigation", { name: "sidebar nav" })
+      .waitFor({ state: "visible", timeout: 20_000 })
+      .then(() => ({ type: "sso" as const })),
+  ]).catch(() => null);
+
+  if (await keycloakProviderBtn.isVisible()) {
+    await keycloakProviderBtn.click();
+  } else {
+    await signInBtn.click();
+  }
+
+  const result = await Promise.race([popupPromise, ssoPromise]);
+  if (result === null) {
+    throw new Error(
+      "Keycloak re-login failed: neither sidebar nor popup appeared after Sign In",
+    );
+  }
+  if (result.type === "popup") {
+    await login.logintoKeycloak(result.popup, userid, password);
+  } else {
+    await fillKeycloakFormIfPresent(page, userid, password);
+  }
+  await waitForLoggedInChrome(page);
+  await expect(
+    page.getByRole("heading", { name: "Select a sign-in method" }),
+  ).toBeHidden();
 }
 
 /** Navigate to /catalog; prefer sidebar link when already authenticated. */
@@ -240,4 +317,8 @@ export async function reloadLightspeedAuthenticated(page: Page): Promise<void> {
   await page.reload({ waitUntil: "domcontentloaded" });
   await ensureKeycloakSession(page);
   await openLightspeed(page);
+  const drawerOpen = page.getByRole("button", { name: "Close drawer panel" });
+  if (!(await drawerOpen.isVisible())) {
+    await openChatDrawer(page);
+  }
 }
