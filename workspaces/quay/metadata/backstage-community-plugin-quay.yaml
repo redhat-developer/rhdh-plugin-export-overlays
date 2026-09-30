@@ -16,8 +16,8 @@ metadata:
   tags: []
 spec:
   packageName: "@backstage-community/plugin-quay"
-  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.54.6__1.38.1
-  version: 1.38.1
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-quay:bs_1.54.6__1.38.3
+  version: 1.38.3
   backstage:
     role: frontend-plugin
     supportedVersions: 1.54.6
@@ -29,18 +29,13 @@ spec:
   appConfigExamples:
     - title: Default configuration
       content:
+        # NFS auto-discovers createFrontendPlugin from the package default export
+        # (title "Quay", group development). Do not wire legacy
+        # entity.page.image-registry / QuayPage mountPoints — they do not render
+        # tabs on RHDH 2.1 NFS.
         dynamicPlugins:
           frontend:
-            backstage-community.plugin-quay:
-              mountPoints:
-                - mountPoint: entity.page.image-registry/cards
-                  importName: QuayPage
-                  config:
-                    layout:
-                      gridColumn: 1 / -1
-                    if:
-                      anyOf:
-                        - isQuayAvailable
+            backstage-community.plugin-quay: {}
         # Proxy-only setup: used when the quay *backend* plugin is not installed.
         # Installing @backstage-community/plugin-quay-backend sets quay.apiUrl,
         # which takes precedence and bypasses this endpoint entirely.
