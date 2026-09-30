@@ -35,7 +35,9 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
     expect(page.url()).toContain(expectedPath);
 
-    await uiHelper.waitForTitle("Red Hat Developer Hub");
+    await expect(
+      page.getByRole("heading", { name: "Red Hat Developer Hub", exact: true }),
+    ).toBeVisible();
 
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 60000 },
@@ -64,8 +66,11 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.describe("Pull/Merge Requests tab", () => {
-    test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.clickTab("Pull/Merge Requests");
+    test.beforeEach(async ({ page }) => {
+      await page.getByRole("link", { name: "Pull/Merge Requests" }).click();
+      await expect(page).toHaveURL(
+        "**/catalog/default/component/red-hat-developer-hub/pull-requests",
+      );
     });
 
     test("Verify that the Pull/Merge Requests tab renders the 5 most recently updated Open Pull Requests", async ({
