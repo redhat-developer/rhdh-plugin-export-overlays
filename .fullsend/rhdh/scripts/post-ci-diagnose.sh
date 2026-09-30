@@ -25,6 +25,7 @@
 #   3. Resolve the PR number (from the result, falling back to GITHUB_ISSUE_URL)
 #   4. If the PR advanced past the analyzed head_sha while the agent ran,
 #      swap in a stale notice instead of the (now outdated) diagnosis
+#  4b. Append footer to non-stale diagnoses
 #   5. Post a new diagnosis comment
 #   6. Maybe request-changes so the fix agent picks up pr_regression findings
 #
@@ -48,6 +49,7 @@ AUTOFIX_MARKER_PREFIX="<!-- ci-diagnose-autofix:"
 EXHAUSTED_MARKER="<!-- ci-diagnose-autofix-exhausted -->"
 CODER_BOT_LOGIN="fullsend-ai-coder[bot]"
 MAX_AUTOFIX_ATTEMPTS=2
+COMMENT_LINK_PLACEHOLDER="{{COMMENT_LINK}}"
 REPO_FULL_NAME="${REPO_FULL_NAME:-redhat-developer/rhdh-plugin-export-overlays}"
 
 : "${GH_TOKEN:?GH_TOKEN is required}"
@@ -398,21 +400,56 @@ if [[ -n "${RECORDED_HEAD}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 4b. Append footer to non-stale diagnoses
+# ---------------------------------------------------------------------------
+# The footer is appended here rather than in the agent prompt so it stays in
+# one place and the agent can focus on diagnosis content.
+if [[ "${STALE}" != "true" ]]; then
+  CI_DIAGNOSE_FOOTER='<sub>Automated CI diagnosis · runs once after all checks settle. For PRs opened by the code agent, `pr_regression` failures are handed to the fix agent automatically (up to 2 attempts). `pre_existing` failures are linked to an open PR or tracking issue when one already exists. The fix agent only runs on PRs branched from this repo, not forks. Take over with `/fs-fix` [this diagnosis]({{COMMENT_LINK}}) or `/fs-fix <instructions>`, stop with `/fs-fix-stop`.</sub>'
+  # Insert footer before the state marker.
+  state_marker="$(grep '<!-- ci-diagnose-state:' "${BODY_FILE}")"
+  sed '/<!-- ci-diagnose-state:/d' "${BODY_FILE}" > "${BODY_FILE}.tmp"
+  mv "${BODY_FILE}.tmp" "${BODY_FILE}"
+  printf '%s\n%s\n' "${CI_DIAGNOSE_FOOTER}" "${state_marker}" >> "${BODY_FILE}"
+fi
+
+# ---------------------------------------------------------------------------
 # 5. Post a new diagnosis comment
 # ---------------------------------------------------------------------------
 # Always create a new comment. The hidden marker remains only as a state
 # marker for the bootstrap and agent reconciliation; it is not used to
 # update old comments.
+create_response="$(mktemp)"
 create_stderr="$(mktemp)"
-if gh pr comment "${PR_NUMBER}" --repo "${REPO_FULL_NAME}" \
-    --body-file "${BODY_FILE}" 2>"${create_stderr}"; then
+if gh api "repos/${REPO_FULL_NAME}/issues/${PR_NUMBER}/comments" \
+    --method POST \
+    --field body=@"${BODY_FILE}" \
+    > "${create_response}" 2>"${create_stderr}"; then
   echo "Created a new CI diagnosis comment on PR #${PR_NUMBER}"
 else
   echo "::error::Failed to create diagnosis comment on PR #${PR_NUMBER}: $(sanitize_for_gha "$(cat "${create_stderr}")")"
-  rm -f "${create_stderr}" "${BODY_FILE}"
+  rm -f "${create_response}" "${create_stderr}" "${BODY_FILE}"
   exit 1
 fi
 rm -f "${create_stderr}"
+
+# Patch the comment to replace {{COMMENT_LINK}} with the actual link.
+comment_id="$(jq -r '.id // empty' "${create_response}")"
+comment_url="$(jq -r '.html_url // empty' "${create_response}")"
+rm -f "${create_response}"
+
+if [[ -n "${comment_id}" && -n "${comment_url}" ]] \
+    && grep -qF "${COMMENT_LINK_PLACEHOLDER}" "${BODY_FILE}"; then
+  sed "s|${COMMENT_LINK_PLACEHOLDER}|${comment_url}|g" "${BODY_FILE}" > "${BODY_FILE}.patched"
+  if gh api "repos/${REPO_FULL_NAME}/issues/comments/${comment_id}" \
+      --method PATCH \
+      --field body=@"${BODY_FILE}.patched" >/dev/null 2>&1; then
+    echo "Patched comment with self-link: ${comment_url}"
+  else
+    echo "::warning::Failed to patch comment with self-link (non-fatal)"
+  fi
+  rm -f "${BODY_FILE}.patched"
+fi
 
 rm -f "${BODY_FILE}"
 
