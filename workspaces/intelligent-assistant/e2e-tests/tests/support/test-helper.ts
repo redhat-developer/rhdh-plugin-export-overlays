@@ -103,87 +103,25 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
   // waitUntilReady() is true while old+new hub pods are both Ready (plus Postgres),
   // which races Keycloak sessions across pods (in-memory session store). Gate on
-  // rollout completion and a single Ready backstage pod before login/tests.
+  // rollout completion and Ready backstage pods before login/tests.
   // lightspeed-core EmptyDir vector stores are also orphaned by a mid-suite swap.
   await $`oc rollout status deployment/redhat-developer-hub -n ${ns} --timeout=300s`;
-  await waitForSingleReadyBackstagePod(ns);
+  await $`oc wait --for=condition=Ready pod -l app.kubernetes.io/component=backstage -n ${ns} --timeout=300s`;
   await rhdh.waitUntilReady();
-}
-
-/** Wait until exactly one non-terminating Ready backstage pod remains after a restart. */
-async function waitForSingleReadyBackstagePod(
-  ns: string,
-  timeoutMs = 300_000,
-): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const result = await $({
-      stdio: ["pipe", "pipe", "pipe"],
-    })`oc get pods -n ${ns} -l app.kubernetes.io/component=backstage -o json`;
-    const items =
-      (
-        JSON.parse(result.stdout) as {
-          items?: Array<{
-            metadata?: { deletionTimestamp?: string };
-            status?: {
-              phase?: string;
-              containerStatuses?: Array<{ ready?: boolean }>;
-            };
-          }>;
-        }
-      ).items ?? [];
-
-    // Ignore pods still draining — they can stay Ready briefly and keep
-    // serving cookies that vanish when the endpoint is removed.
-    const active = items.filter((pod) => !pod.metadata?.deletionTimestamp);
-    const ready = active.filter(
-      (pod) =>
-        pod.status?.phase === "Running" &&
-        (pod.status.containerStatuses?.length ?? 0) > 0 &&
-        pod.status.containerStatuses?.every((c) => c.ready),
-    );
-
-    if (ready.length === 1 && active.length === 1 && items.length === 1) {
-      return;
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 2_000);
-    });
-  }
-
-  throw new Error(
-    `Timed out waiting for a single Ready backstage pod in namespace ${ns}`,
-  );
 }
 
 async function isSignInPage(page: Page): Promise<boolean> {
   return page
     .getByRole("heading", { name: "Select a sign-in method" })
-    .isVisible()
-    .catch(() => false);
+    .isVisible();
 }
 
 async function isLoggedIn(page: Page): Promise<boolean> {
-  const chrome = page
+  return page
     .getByRole("navigation", { name: "sidebar nav" })
-    .or(page.getByRole("button", { name: "Settings" }));
-  return chrome
+    .or(page.getByRole("button", { name: "Settings" }))
     .first()
-    .isVisible()
-    .catch(() => false);
-}
-
-async function waitForLoggedInChrome(
-  page: Page,
-  timeout = 60_000,
-): Promise<void> {
-  await expect(
-    page
-      .getByRole("navigation", { name: "sidebar nav" })
-      .or(page.getByRole("button", { name: "Settings" }))
-      .first(),
-  ).toBeVisible({ timeout });
+    .isVisible();
 }
 
 async function waitForAuthSettled(page: Page, timeout = 60_000): Promise<void> {
@@ -195,73 +133,16 @@ async function waitForAuthSettled(page: Page, timeout = 60_000): Promise<void> {
     .waitFor({ state: "visible", timeout });
 }
 
-async function fillKeycloakFormIfPresent(
-  page: Page,
-  userid: string,
-  password: string,
-): Promise<void> {
-  const username = page.locator("#username");
-  if (!(await username.isVisible().catch(() => false))) {
-    return;
-  }
-  await username.fill(userid);
-  await page.locator("#password").fill(password);
-  await page.locator("#kc-login").click();
-}
-
-/** Re-auth when navigation lands on OIDC Sign In (in-memory hub sessions). */
+/**
+ * Re-auth when navigation lands on OIDC Sign In (in-memory hub sessions).
+ * Uses LoginHelper.loginAsKeycloakUser (goto `/` + Keycloak popup).
+ */
 export async function ensureKeycloakSession(page: Page): Promise<void> {
   await waitForAuthSettled(page);
   if (!(await isSignInPage(page))) {
     return;
   }
-
-  const login = new LoginHelper(page);
-  const signInMethod = page.getByRole("heading", {
-    name: "Select a sign-in method",
-  });
-  const keycloakProviderBtn = page.getByRole("button", {
-    name: /sign in using keycloak/i,
-  });
-  const signInBtn = page.getByRole("button", { name: "Sign In" });
-  const userid = process.env.TEST_USERNAME ?? "test1";
-  const password = process.env.TEST_PASSWORD ?? "test1@123";
-
-  const popupPromise = page
-    .waitForEvent("popup", { timeout: 20_000 })
-    .then((popup) => ({ type: "popup" as const, popup }))
-    .catch(() => null);
-  const ssoPromise = Promise.race([
-    signInMethod
-      .waitFor({ state: "hidden", timeout: 20_000 })
-      .then(() => ({ type: "sso" as const })),
-    page
-      .getByRole("navigation", { name: "sidebar nav" })
-      .waitFor({ state: "visible", timeout: 20_000 })
-      .then(() => ({ type: "sso" as const })),
-  ]).catch(() => null);
-
-  if (await keycloakProviderBtn.isVisible().catch(() => false)) {
-    await keycloakProviderBtn.click();
-  } else {
-    await signInBtn.click();
-  }
-
-  const result = await Promise.race([popupPromise, ssoPromise]);
-  if (result === null) {
-    throw new Error(
-      "Keycloak re-login failed: neither sidebar nor popup appeared after Sign In",
-    );
-  }
-  if (result.type === "popup") {
-    await login.logintoKeycloak(result.popup, userid, password);
-  } else {
-    await fillKeycloakFormIfPresent(page, userid, password);
-  }
-  await waitForLoggedInChrome(page);
-  await expect(
-    page.getByRole("heading", { name: "Select a sign-in method" }),
-  ).toBeHidden();
+  await new LoginHelper(page).loginAsKeycloakUser();
 }
 
 /** Navigate to /catalog; prefer sidebar link when already authenticated. */
@@ -278,7 +159,7 @@ export async function gotoCatalogAuthenticated(page: Page): Promise<void> {
     const catalogLink = page
       .getByRole("navigation", { name: "sidebar nav" })
       .getByRole("link", { name: "Catalog", exact: true });
-    if (await catalogLink.isVisible().catch(() => false)) {
+    if (await catalogLink.isVisible()) {
       await catalogLink.click();
       await expect(page).toHaveURL(/\/catalog/, { timeout: 30_000 });
       return;
@@ -329,10 +210,7 @@ export async function openLightspeed(page: Page): Promise<void> {
     /\/intelligent-assistant/.test(page.url()) &&
     (await isLoggedIn(page)) &&
     !(await isSignInPage(page)) &&
-    (await chatUi
-      .first()
-      .isVisible()
-      .catch(() => false))
+    (await chatUi.first().isVisible())
   ) {
     return;
   }
