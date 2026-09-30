@@ -2,6 +2,21 @@ import { expect, Locator, Page } from "@playwright/test";
 import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import fs from "fs";
 
+const BACKSTAGE_JANUS_COMPONENT = "backstage-janus";
+const BACKSTAGE_JANUS_PATH = `/catalog/default/component/${BACKSTAGE_JANUS_COMPONENT}`;
+
+/**
+ * Locator for the Topology entity tab.
+ * NFS / BUI uses Content navigation links; match the `/topology` path so the
+ * locator stays valid if the tab title is translated later.
+ * Mirrors community-plugins topologyHelper.topologyEntityTab (nfs mode).
+ */
+export function topologyEntityTab(page: Page) {
+  return page
+    .getByRole("navigation", { name: "Content navigation" })
+    .locator('a[href$="/topology"]');
+}
+
 async function downloadAndReadFile(
   page: Page,
   locator: Locator,
@@ -39,10 +54,29 @@ export class Topology {
     await this.page.waitForTimeout(1000);
   }
 
+  /**
+   * Opens the entity page and asserts the Topology tab is hidden when the user
+   * lacks kubernetes.clusters.read / kubernetes.resources.read (NFS permission gate).
+   */
   async verifyMissingTopologyTab() {
+    await this.page.goto(BACKSTAGE_JANUS_PATH);
     await expect(
-      this.page.getByRole("link", { name: "Topology", exact: true }),
-    ).toBeHidden();
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(topologyEntityTab(this.page)).toBeHidden();
+  }
+
+  /**
+   * Opens the Topology workload view via the entity URL so NFS permission
+   * predicates are evaluated for that path (community-plugins navigateToTopologyView).
+   */
+  async navigateToTopologyView() {
+    await this.page.goto(`${BACKSTAGE_JANUS_PATH}/topology`);
+    await this.page.waitForURL((url) =>
+      url.pathname.includes(`/component/${BACKSTAGE_JANUS_COMPONENT}`),
+    );
+    await expect(topologyEntityTab(this.page)).toBeVisible({ timeout: 30_000 });
+    await this.uiHelper.verifyHeading(BACKSTAGE_JANUS_COMPONENT);
   }
 
   async verifyDeployment(name: string) {
