@@ -22,12 +22,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:94340a3d611fde152f47e76649acabc72246bf485eea94053423fb4e21ee0759"
+          "digest": "sha256:aad793a5a8b9e895be78fec19c03d07cf1fbd0e4ddc8f30cae4b1e5773b728ed"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-adoption-insights-backend' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-adoption-insights-backend' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -54,12 +54,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5388868c33afa05734136b3dd2c2ea8e2a66e04bb4c73a42cf349284d58ffd72"
+          "digest": "sha256:c6f71fe6716d127ac05276d1ae2c230cb88a2cf22a48ab7c59161ef8bdc2a957"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-adoption-insights' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-adoption-insights' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -86,12 +86,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:732affa4267f50a57dccace9a509b36383561ee463f8c881326bcddc0abd027b"
+          "digest": "sha256:11f558eff22cb51b76d5d562df0c2c7d92a25868fcae36e3649e12e1b805fdc8"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-analytics-module-adoption-insights' resolved to bs_1.54.6__1.0.2 after bs_1.54.6__1.0.4 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -118,12 +118,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b4e713a87119ba4bc71f74478cabc0f0b88590db8bca5b665c97d94d16926aaa"
+          "digest": "sha256:bf146685bd3824b50fb85871eb18d61feddfed111e686d92b0c76a9a816ef11a"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-community-plugin-analytics-provider-segment' resolved to bs_1.54.6__1.31.1 after bs_1.54.6__2.0.0 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-community-plugin-analytics-provider-segment' resolved to bs_1.54.6__1.31.1 after bs_1.54.6__2.0.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -150,7 +150,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a01fd949b2c6e51f5a342eb3fd6ba6015739423cb30488d374b9e619e70682d2"
+          "digest": "sha256:6f99d3fd831a838cd85852fd38862e2eedee9e6da53e8a50751e44867c2db45f"
         },
         "validate": {
           "status": "pass",
@@ -182,7 +182,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cfc0fb9aa97d5fdb2e0a58958d39f9cb8f2ef37c8601decd8d65e20d83cfb9b9"
+          "digest": "sha256:56af8176d60d170c829199141332ad06b83e4e96496fb1c87cce60503dc83cf6"
         },
         "validate": {
           "status": "pass",
@@ -214,7 +214,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7fee5913b7499c5df6744b2c356dcf092aee1aff9a623ab19bc02ae6bb59ead2"
+          "digest": "sha256:43708eb6a1534e8f7587649a73bdaa41b85124c8916606fb38a8bd59156ccd78"
         },
         "validate": {
           "status": "pass",
@@ -246,7 +246,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b96fd159b1a054998be52e7a3b7f05d80535487a3f46bd5ab3b6a1fee23a11a6"
+          "digest": "sha256:ed29c2c4275359ea8bc61382f26c01e0d374828213eccd479dc64e06ec657df8"
         },
         "validate": {
           "status": "pass",
@@ -278,7 +278,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1f5c9353c73e742ca6f42ab139b6d4880470c30d341785870525561af47e1897"
+          "digest": "sha256:955cd65a938ce762fce575ed8ac7ad42e5d5d45a667d3665a46084aeec368f6c"
         },
         "validate": {
           "status": "pass",
@@ -310,7 +310,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5288ea447909056ac6cef55c3b978e981dc706c70eee98d81b1a2496da6bca86"
+          "digest": "sha256:cc0cd4cd7a167891b69432e9d322cf0ec3b97b891095cc90103e00870f941be9"
         },
         "validate": {
           "status": "pass",
@@ -342,7 +342,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:442cd21a88e45b8af4e5ab4cf27791dea6cdbbb372a7f3355d5e7e20f4fd6443"
+          "digest": "sha256:df08bb1b868930848937f1153ed81760c2d71e8490f77b1abdf537beccfa68a6"
         },
         "validate": {
           "status": "pass",
@@ -374,7 +374,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e3c4ec9dbc13be7b62e8382b9f392eaf2c937eab74d5b2dd363534b78d0d04ef"
+          "digest": "sha256:35da91792e638af468f7374e8a763a62956cecb94960bdf7aaf363b63e7048cc"
         }
       },
       "package": "@backstage/plugin-events-backend-module-gitlab",
@@ -400,7 +400,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c6f41231a74b5133b9a6f76fa740de0c52deabcc4388e6c5ce771cb16a2ce680"
+          "digest": "sha256:016152e7f6c3e31fe72e4f9f90b73f874beff64193797e934b6ad077d09ed7f5"
         },
         "validate": {
           "status": "pass",
@@ -432,7 +432,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ca6e54f3885ba89d37aee07da1e4f6856a57ee38ca1cb06b533640999ee29fa8"
+          "digest": "sha256:05fe82f5a0e9dfc4a296163bb649b878d7799fb4ff51268242d48c02239e778b"
         },
         "validate": {
           "status": "pass",
@@ -464,7 +464,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:420d1794b0ad7f644e837d78df68f0632fda956a46fb05a2518239546ad2f4d3"
+          "digest": "sha256:b04321940e551b6e87081b42a269dcd80939958e4cd04ca1d415a89c9adcddc5"
         },
         "validate": {
           "status": "pass",
@@ -496,7 +496,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:1ad433549a5c29685c2edb71d8c2960c25e5bc244c72a5181aa83dba31c7edc9"
+          "digest": "sha256:98ca90870959bad049d55d55004f62b503ba1c17493b5f0faa23569f28eea386"
         },
         "validate": {
           "status": "pass",
@@ -528,7 +528,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f50e1d7c1e19d2c88abd305de6d96a2a6a2fdb6c86977ee1d7ad4651d847db2d"
+          "digest": "sha256:7e6d65c1e8fb958fc9fdbd70c30f44d48f5892cb5ce85518ec066b237c656b23"
         },
         "validate": {
           "status": "pass",
@@ -560,7 +560,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:72b03f8499c5600de29a7a93ea7a7351cfa5230e54014e1ccf719b02acb89ac6"
+          "digest": "sha256:b2d06e26ec0688491cc84ad2587eab49954b54c9ee71235d5032dc26ca2421e4"
         },
         "validate": {
           "status": "pass",
@@ -592,7 +592,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:04f5edadb09aebdbd1bf03c4d0aaf1034abbcb025b6dc993a68411151f3aa521"
+          "digest": "sha256:179d6da533304df30acc85e0b2f106c9844172cf854e54a3061803ec5de3a9ef"
         },
         "validate": {
           "status": "pass",
@@ -624,7 +624,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:62a31932bfdd64849f7369ec82bc75996f31f393bff3fc5caa573508348ce0f0"
+          "digest": "sha256:70d5cbb2f821d05ebd8892a68a3d1f55e32484af9b336f8b2c8291b4fc4b2a1c"
         },
         "validate": {
           "status": "pass",
@@ -656,7 +656,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:38bcd71e313cc7d261264fc386365f3913010e43fb6e14c21ba4a1c1c709ad85"
+          "digest": "sha256:7c2fa0298a57608537f3563f3607fa30886b59b6d5f4890cd2e5f6629b9be05a"
         },
         "validate": {
           "status": "pass",
@@ -688,7 +688,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e42849e079c935f6f10253d00a3663fb2618c4f24a7d2de2b2f653bc867a8007"
+          "digest": "sha256:f6331117a3fb0707990d5657c75c7df2f7d48d3c84479c567c25d3ac4d24827d"
         },
         "validate": {
           "status": "pass",
@@ -720,7 +720,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c7d7d5833f8329c01fb0f334a8651bc9bf689b3fd41afbf063c4d19b2b612105"
+          "digest": "sha256:39aff8f4f17131796b2129a678eeadec535c129e37bb7da81301bde9f7dfaa20"
         },
         "validate": {
           "status": "pass",
@@ -752,7 +752,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:42331adcc356e3385067b6a2f61c90cf5c5a5599a79cd224b43943dd58fb117e"
+          "digest": "sha256:15ea28b5bb6676db9f0002f060bc00fa001cdf7f2e0738354dc5e8b676dbb620"
         },
         "validate": {
           "status": "pass",
@@ -784,12 +784,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:955f46b8ed805de25ed4afb405d55cf337e89a2c069ee990d2d0465b4dbc56b8"
+          "digest": "sha256:4f69b14ca88ba0734a03a6d6d5c4708405de5654a64e79617ba30af068787d39"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend' resolved to bs_1.54.6__9.0.1 after bs_1.54.6__9.1.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import-backend' resolved to bs_1.54.6__9.0.1 after bs_1.54.6__9.1.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -816,12 +816,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b0e58e2da782de65e507c59fb33cc9b017d23fb2d1d1b4193131f14982dcb19f"
+          "digest": "sha256:c533d137dd118330bbf81ca1e8652b8d535b7cea1b6e0e8ceecacca56a4d34fb"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import' resolved to bs_1.54.6__9.0.1 after bs_1.54.6__9.1.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-bulk-import' resolved to bs_1.54.6__9.0.1 after bs_1.54.6__9.1.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -848,12 +848,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e9a617f8cdbf4e71ca1494c6fb326336b34e16f838ef4a3fa3ae8e56e04b13e6"
+          "digest": "sha256:6538bc3a7e0cbd78bc29d845668d142ad9c924e575f87602267b45d441426049"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-catalog-backend-module-extensions' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -880,12 +880,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:56e92cd3d44e8a3723653fde4f25af2eccb535c3fa7cc3ab4eef45baf489c180"
+          "digest": "sha256:f9868855cd54e10d02ddd94d00d1627eccaf89b605e3df7f5bff9186f642bfbe"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions-backend' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions-backend' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -912,12 +912,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:39a91a01b7e8c13bf29e7f6fe92d72098a0121eba05e972cbef8c3baa9967853"
+          "digest": "sha256:9163d1e01593df8542d510cc3e2c6c0b8d078e3241814ed1c14480747dbf5352"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-extensions' resolved to bs_1.54.6__0.20.0 after bs_1.54.6__1.0.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -944,12 +944,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f718099e59d19b8b89a893a381d09f1bf78bbe6a05a85dbd526bd0b5b8ff7d53"
+          "digest": "sha256:0ac480cd99e43c469820ab60fa67dd0204ae815b955f39b827daaf38276cfbf1"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-global-header' resolved to bs_1.54.6__2.0.1 after bs_1.54.6__3.1.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-global-header' resolved to bs_1.54.6__2.0.1 after bs_1.54.6__3.1.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -976,7 +976,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:26741b13c4e8c2ef322ff129e3a703d7ff249a0d955f0f0cb472ffc5cc9641d4"
+          "digest": "sha256:4e7904ab615417c68c827e92b44148cd09443caa724d6db5a7e9324003db1706"
         },
         "validate": {
           "status": "pass",
@@ -1008,7 +1008,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:2bc27c0cbf95526166ba03064998d17fcc334cd2e3aca3446794dfd0126bd3a8"
+          "digest": "sha256:890dc86adf2d83e956851417b27d6b6c565bcc798f23c058c8d19835bbabb033"
         },
         "validate": {
           "status": "pass",
@@ -1040,12 +1040,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c2781e7d3308141980f6bfc962a968f6bc1f4697c2859e1874ea47508c36fdca"
+          "digest": "sha256:decfd5f1b839efc01d7042a809f46c554463c571949f28abf71cfdbad575b407"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.6__1.5.0 after bs_1.54.6__1.5.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki' resolved to bs_1.54.6__1.5.0 after bs_1.54.6__1.5.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1072,12 +1072,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:b57b7617846208918c6ee4eb4f70d36461a3fecfedd3bf38651dc8189289da56"
+          "digest": "sha256:760227558e7de389ee33bebd4fb1c6e6f962165fad713e8ae4294d3387c76d5c"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.6__8.13.0 after bs_1.54.6__8.13.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-backend' resolved to bs_1.54.6__8.13.0 after bs_1.54.6__8.13.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1104,12 +1104,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:a7931e4e61c8a84c6904829bcbad747e3e2ed09012573b751d5746fefe25beae"
+          "digest": "sha256:7389f75a700fdadd1f888b109eae2ed5df008a2319deb593b4eb66ede8c1bc52"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.6__2.1.0 after bs_1.54.6__2.2.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets' resolved to bs_1.54.6__2.1.0 after bs_1.54.6__2.2.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1136,12 +1136,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:648d463e0d9b5729505cdde4b26698350d25a3c4f203927e55fb49d5d6164cbd"
+          "digest": "sha256:f41b3b663dea8e977ac8288a78bc825a6b2fce10701b7c1ce79ff5afd4705376"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.6__6.1.0 after bs_1.54.6__6.2.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-orchestrator' resolved to bs_1.54.6__6.1.0 after bs_1.54.6__6.2.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1168,12 +1168,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d3b1efb4d5d0d5e2e7492a232cfdcbd923a2f62d7a838709fef9ef6893a06d4f"
+          "digest": "sha256:9ef6f82881136e274d81a6bd51f8536084ad2563faa76c0363abd7c0da2a862c"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.6__1.8.0 after bs_1.54.6__1.8.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator' resolved to bs_1.54.6__1.8.0 after bs_1.54.6__1.8.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1200,7 +1200,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:c33efdb5793894498593b3b56b9e102f8f91bc78d89ef2d95265b9191c150dc8"
+          "digest": "sha256:5efac81fcf76dc7256ae195e74b901f82d76a889220aed8a9f8daa69ee4aff07"
         },
         "validate": {
           "status": "pass",
@@ -1232,12 +1232,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8297ff31859c5e5e984cf0ffba50ea0e5d71320a4043c18876b967a1c2a0d16e"
+          "digest": "sha256:7f177be82e4d47a2db91fdadadca6b598e09bc43a9dbc13c50ef0fc921efdd6a"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-quickstart' resolved to bs_1.54.6__2.1.0 after bs_1.54.6__2.2.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-quickstart' resolved to bs_1.54.6__2.1.0 after bs_1.54.6__2.2.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1264,12 +1264,12 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4f91b5bae4a00bcf23b4e0e000a3ae71e91fc295330676519d31582be1736ad9"
+          "digest": "sha256:4b8bc4239d486c451738851acdfb4ce770e39c26e7a2bbc07eea07d84441d38a"
         },
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-community-plugin-rbac' resolved to bs_1.54.6__2.3.0 after bs_1.54.6__2.3.1 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-community-plugin-rbac' resolved to bs_1.54.6__2.3.0 after bs_1.54.6__2.3.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1296,7 +1296,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:318e4b7487784ee17baadcdd362ab0744ef5b5d069b0bbffb2d0c6986e28edb0"
+          "digest": "sha256:ca496dd7140d6f35494ed2489ec4ac6535d7a40d963b5ef1358c48220e8749bd"
         },
         "validate": {
           "status": "pass",
@@ -1328,7 +1328,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:ffe942e3b9f3fc009a691b60545cb55b4122cc338d2336b8a9ddf7770f2d8c76"
+          "digest": "sha256:a4df45225d10f84aa65b84c4b151d1a76cdf8b86ccf347ab358a61909a64e363"
         },
         "validate": {
           "status": "pass",
@@ -1360,7 +1360,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f1bf0f73278891cfdc3349164f7d610ebe922c2051f8edddf2fa54deef9a9fd0"
+          "digest": "sha256:af7054389750bf2acfb22d201b33bb4913d5992f4e77ae76566de32e874c69ec"
         },
         "validate": {
           "status": "pass",
@@ -1392,7 +1392,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5312690ff3dfcb1cc74f6e9a33b8b5ea53e887e6d155226b27b3f25f054cad56"
+          "digest": "sha256:0b1668fa5869b310865215cc12db39aee8c9420f71b6640de9d7d33d8a691b47"
         },
         "validate": {
           "status": "pass",
@@ -1424,7 +1424,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3b8529acaec3c4f85c6ffd3dbabdcc2e16ed673e8baeb3880f2737ca76371522"
+          "digest": "sha256:5eaa2331af577f2d739e8d7760bb7c08d881e0c1ab6e959ababaafa82e36b77c"
         },
         "validate": {
           "status": "pass",
@@ -1456,7 +1456,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8d9f2e5148f2b05d9570678c3a47dd8ab6d86e334f0591fdc952f2cba569f94c"
+          "digest": "sha256:319ab2462038fea56f0f13c1ec6b7e7b0dbbfcb7b2e6d47dd9a54f1ea9f88fd3"
         },
         "validate": {
           "status": "pass",
@@ -1488,7 +1488,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:64ddfb1f17634007eb93b768b128bb138bf318c0b686b5479010b044a1c6336f"
+          "digest": "sha256:7bfcb07242fa31cdf1ebbcb299e04629cf056e18c6b4ba86145c3e2d5721943e"
         },
         "validate": {
           "status": "pass",
@@ -1510,7 +1510,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3e4036aa36d614c2d40b680dcc9d12213a961964c91d4e0b18fb023c52179916"
+          "digest": "sha256:29bdc6978e1e6ba78a085e42057c26164fc73296c2f8327326a47d9fd90e9d76"
         },
         "dpdy": {
           "status": "pass"
@@ -1538,7 +1538,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:8aeec0006a3cbe8cec7f23265819e32a38f0e6ba33a83d2a8ef607b88943ae86"
+          "digest": "sha256:c18428c7f07c4bcc8698f9848378146b67732091d8beed78cf1df75595ed2c64"
         },
         "dpdy": {
           "status": "pass"
@@ -1549,7 +1549,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__5.1.0 after bs_1.54.6__5.3.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant-backend' resolved to bs_1.54.6__5.1.0 after bs_1.54.6__5.3.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1566,7 +1566,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:74c4386333b1f58669e2da1ee6fb4d594723532b399514ea1fcc0efb9d64d082"
+          "digest": "sha256:c108501773a3aef02b9291e3357c327c2907e8e8427c360a07c5119f5dd2298e"
         },
         "dpdy": {
           "status": "pass"
@@ -1577,7 +1577,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__5.1.0 after bs_1.54.6__5.3.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-intelligent-assistant' resolved to bs_1.54.6__5.1.0 after bs_1.54.6__5.3.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1590,14 +1590,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.54.6__1.1.1"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-auth:bs_1.54.6__1.2.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5ef19c3430c90f6407a969c3b740cb2606ce37b49da714d1e3f9a2cce3db4a02",
-          "fallback": true,
-          "requestedTag": "bs_1.54.6__1.2.0",
-          "resolvedTag": "bs_1.54.6__1.1.1"
+          "digest": "sha256:a4befebd4089e172b8621063dcd56d1aaac5bcb6ff7c88c2117c064d4174470f"
         },
         "dpdy": {
           "status": "pass"
@@ -1608,12 +1605,12 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.6__1.1.1 after bs_1.54.6__1.2.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-auth' resolved to bs_1.54.6__1.1.1 after bs_1.54.6__1.2.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-app-auth",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "workspace": "app-defaults",
       "overall": "pass"
     },
@@ -1625,7 +1622,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:835c6965c91bac6241b0a48ad4b6466818a80abc6f95ae98b7f5637c99fcf6fd"
+          "digest": "sha256:83a9beff01bf93c5657aa6b40a8ce1b28c12fe83a0901368c98048030eafd0f3"
         },
         "dpdy": {
           "status": "pass"
@@ -1636,7 +1633,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.6__1.1.0 after bs_1.54.6__1.1.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-integrations' resolved to bs_1.54.6__1.1.0 after bs_1.54.6__1.1.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1649,14 +1646,11 @@
       "stages": {
         "bootstrap": {
           "status": "pass",
-          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.54.6__1.5.0"
+          "oci_ref": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-app-defaults:bs_1.54.6__1.10.0"
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:af30df51e39ae407f314f5c5347fad4eb93bf5371e2098fc175981f1547f35e5",
-          "fallback": true,
-          "requestedTag": "bs_1.54.6__1.10.0",
-          "resolvedTag": "bs_1.54.6__1.5.0"
+          "digest": "sha256:ff1282872b5fcc87018fab6a4939c7ca968537d00e41760facdaa290171b3b0f"
         },
         "dpdy": {
           "status": "pass"
@@ -1667,12 +1661,12 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.6__1.5.0 after bs_1.54.6__1.10.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-app-defaults' resolved to bs_1.54.6__1.5.0 after bs_1.54.6__1.10.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
       "package": "@red-hat-developer-hub/backstage-plugin-app-defaults",
-      "version": "1.5.0",
+      "version": "1.10.0",
       "workspace": "app-defaults",
       "overall": "pass"
     },
@@ -1684,7 +1678,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:36cab3a6da55a8d9aef14300139a0586bd7557793973957b31419dea5fd4fea1"
+          "digest": "sha256:5befebe916e8ffd42eb109ceb8fc230943d78d39cc3197da9ac0f49ebfe4bf38"
         },
         "dpdy": {
           "status": "pass"
@@ -1695,7 +1689,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot' resolved to bs_1.54.6__1.1.2 after bs_1.54.6__1.1.3 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dependabot' resolved to bs_1.54.6__1.1.2 after bs_1.54.6__1.1.3 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1712,7 +1706,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f318c7b595760a6a37a3e64b9f41d0cfcfaf2d73c2effac64991a654715578fe"
+          "digest": "sha256:2d0722f1bca1931b4c121439af12ff985fafb3be3d6430e49402887c48bdbb20"
         },
         "dpdy": {
           "status": "pass"
@@ -1723,7 +1717,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck' resolved to bs_1.54.6__1.1.2 after bs_1.54.6__1.1.3 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-filecheck' resolved to bs_1.54.6__1.1.2 after bs_1.54.6__1.1.3 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1740,7 +1734,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:f11367ec08198998580671d7e249b6cdf9ff6b25929872e4c06a7766f5b2a072"
+          "digest": "sha256:69a187596b3e09f2deaa0c8b51f0ad99c9b306cff23108e7d7411f794ef3f43c"
         },
         "dpdy": {
           "status": "pass"
@@ -1751,7 +1745,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-github' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1768,7 +1762,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:4da9b1445313fc1c695423fc115643d997d6459ee714033286f212d45505dea3"
+          "digest": "sha256:78c802376a57aad49581fad278396ebf1e26d302bf6a31c7229add55d94c42e0"
         },
         "dpdy": {
           "status": "pass"
@@ -1779,7 +1773,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1796,7 +1790,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5ccdaefaaaee7d820dcca8316d43221158ddd77d5e42c26bff1665ac787509a5"
+          "digest": "sha256:aa5c405221c574dbb2a10e154150ed6ad73629ce3fbd15af45446a43f648fa78"
         },
         "dpdy": {
           "status": "pass"
@@ -1807,7 +1801,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__2.0.0 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-openssf' resolved to bs_1.54.6__1.1.3 after bs_1.54.6__2.0.0 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1824,7 +1818,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3b87c83f133f3d5a92ad941db99c7d8883972246e9b824f4d614255a5a89b552"
+          "digest": "sha256:1016a12e983bda93f25121530da749de5015b470c1315087b029309085623231"
         },
         "dpdy": {
           "status": "pass"
@@ -1835,7 +1829,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-sonarqube' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1852,7 +1846,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3716c14617cbf51fd1e194e98c6ef1d61fcc8551538a3d76bf15dbe923bf4fbc"
+          "digest": "sha256:159a6f562053af9379ae42c7f79cabdf7833d62218191b3ecccf4afa22af9f95"
         },
         "dpdy": {
           "status": "pass"
@@ -1863,7 +1857,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1880,7 +1874,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:afecf9102e65a2933a1a2edbeacd2d0f6ca7677328fa3227cd8d77a65327c4c1"
+          "digest": "sha256:f9014262837459f0b3d0492999f68877e5ab790dda3439e4fb95518c96357705"
         },
         "dpdy": {
           "status": "pass"
@@ -1891,7 +1885,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard' resolved to bs_1.54.6__4.4.0 after bs_1.54.6__4.4.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1908,7 +1902,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:5a7c62ae386a9e0938cdaa69e6043b11f959aa73989459a84a947cea4b4cf862"
+          "digest": "sha256:ae7467c59edcb1eb4dc7f06037e955b4eaab71f2482ea0b6f41fde3c3e0c7b07"
         },
         "dpdy": {
           "status": "pass"
@@ -1919,7 +1913,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora' resolved to bs_1.54.6__0.2.0 after bs_1.54.6__0.2.1 was not found — the index ships an older build"
+            "[fallback-tag] 'red-hat-developer-hub-backstage-plugin-scorecard-backend-module-dora' resolved to bs_1.54.6__0.2.0 after bs_1.54.6__0.2.1 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -1936,7 +1930,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:e651c4602df68a6585630e5cf6f94c5b28691168d5af70671a14796360b51d16"
+          "digest": "sha256:9ad8bc4ef5227cb138cdb79df3ceae1a3aff399055f9e09b33f1a40ad252202e"
         },
         "dpdy": {
           "status": "pass"
@@ -1958,7 +1952,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:30bf7580ed012bc2db82bcb988049f05d3f68f009cf613be59cc4b6353cd156e"
+          "digest": "sha256:841a2cae6fca31ef52b456efa6a5006378453b92e402eed487d651d684a96d64"
         },
         "dpdy": {
           "status": "pass"
@@ -1980,7 +1974,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:47ac71615c3e119078d536f17108302a326d84c1997c566b6826e1a30b3610c4"
+          "digest": "sha256:e70b0eb80c29e7c4bcc04323c4e0fffd75330b99bf7a50f256512729a41e7f8a"
         },
         "dpdy": {
           "status": "pass"
@@ -2002,7 +1996,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:6cd9f1e916678a083cc1e98fcc63eb32daf214e59d48c2d5d1a0786e6f978f64"
+          "digest": "sha256:70d8f5715f369f38139f9a5fc256b05ab21b84c0f702b1d6f852d75833ba8f14"
         },
         "dpdy": {
           "status": "pass"
@@ -2024,7 +2018,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:54975a69ae9d11c16867bc1fa1bda2c76cd107013f441caa2368ad8d52ebaca9"
+          "digest": "sha256:4543fc95f9eb372da8bb0cbc5c6c2ca9d5fed85a0976f65445a2b64e78ca2ad4"
         },
         "dpdy": {
           "status": "pass"
@@ -2046,7 +2040,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:58d18d563eea88c0fa035c924774500447d3f318bbc4bafe0f26a6c62dd35346"
+          "digest": "sha256:772d5a33ef7def3fa2e902f06d6c0be67d707e3e692ebfafc96e65b91f19dedc"
         },
         "dpdy": {
           "status": "pass"
@@ -2068,7 +2062,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:3e93c30c7093194d564c94d1163bf6fe15d2557db54f88798c9850f122e781f5"
+          "digest": "sha256:842d8102a95add040e15ae2947d48d5d322a8a0ba82f082956fe1ecd3e0573bd"
         },
         "dpdy": {
           "status": "pass"
@@ -2090,7 +2084,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:d12464dae3be617d2843629008485ff3a2d25e2029b384cc4f2f355f3d881b65"
+          "digest": "sha256:e2417dec999ca1256b6c36d97587395afa26c741bdbcceccf93df93258fe91a4"
         },
         "dpdy": {
           "status": "pass"
@@ -2101,7 +2095,7 @@
         "validate": {
           "status": "pass",
           "warnings": [
-            "[fallback-tag] 'backstage-plugin-org' resolved to bs_1.54.6__0.7.8 after bs_1.54.6__0.7.9 was not found — the index ships an older build"
+            "[fallback-tag] 'backstage-plugin-org' resolved to bs_1.54.6__0.7.8 after bs_1.54.6__0.7.9 was not found \u2014 the index ships an older build"
           ]
         }
       },
@@ -2118,7 +2112,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:048ae5e5038401d7358001abfc62d2c0ccfb3f9743223ef069ab696fb2923a61"
+          "digest": "sha256:468fdd26ddf72e9eb676844b483ff56544c812275ff48c03c0b7ded1a9670ab0"
         },
         "dpdy": {
           "status": "pass"
@@ -2140,7 +2134,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:7a130b68dfeec776f485cc390f1e694900657dd803905e11e3d60ff0466af779"
+          "digest": "sha256:d357ca3a5cfe8f3f446769c857c9d267298e0b546cac805dd6f76b886482744e"
         },
         "dpdy": {
           "status": "pass"
