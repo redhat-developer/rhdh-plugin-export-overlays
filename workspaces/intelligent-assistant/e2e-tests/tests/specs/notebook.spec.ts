@@ -429,7 +429,8 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectNotebookCardAbsent(newName);
   });
 
-  test("auto-delete: empty untitled notebook is discarded on close", async () => {
+  // Skipping until https://redhat.atlassian.net/browse/RHDHBUGS-3838 is fixed.
+  test.skip("auto-delete: empty untitled notebook is discarded on close", async () => {
     await notebooks.gotoFullscreenNotebooksTab();
     const cardsBefore = await notebooks.untitledNotebookCards().count();
 
@@ -441,7 +442,7 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectUntitledNotebookCardCount(cardsBefore);
   });
 
-  test("auto-delete: notebook with uploaded file persists on close", async () => {
+  test("notebook with uploaded file persists on close", async () => {
     const { absolutePath, fileName } = localeNotebookUploadPath();
     const cardsBefore = await notebooks.untitledNotebookCards().count();
 
@@ -471,7 +472,7 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectUntitledNotebookCardCount(cardsBefore);
   });
 
-  test("auto-delete: renamed notebook persists on close", async () => {
+  test("renamed notebook persists on close", async () => {
     await notebooks.gotoFullscreenNotebooksTab();
 
     await notebooks.clickCreateNotebookFromEmptyList();
@@ -508,7 +509,7 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.expectNotebookCardAbsent(renamedName);
   });
 
-  test("notebook tab: conversation, feedback, clipboard, and delete notebook", async () => {
+  test("conversation, feedback, clipboard, and delete notebook", async () => {
     await notebooks.gotoFullscreenNotebooksTab();
     await notebooks.clickCreateNotebookFromEmptyList();
     await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);

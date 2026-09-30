@@ -30,6 +30,16 @@ export async function assertChatDialogInitialState(page: Page): Promise<void> {
   ).toBeVisible();
   await expect(
     drawerPanel.getByRole("heading", {
+      name: /Saved prompts/,
+    }),
+  ).toBeVisible();
+  await expect(
+    drawerPanel
+      .locator(".lightspeed-saved-prompts-group")
+      .getByRole("menuitem", { name: "No saved prompts yet" }),
+  ).toBeDisabled();
+  await expect(
+    drawerPanel.getByRole("heading", {
       name: "Pinned chats",
       level: 3,
       exact: true,

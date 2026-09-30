@@ -65,8 +65,7 @@ tekton/plugins/tekton
 acr/plugins/acr
 
 # moved from Supported (GA) to Community Optional Extras - https://redhat.atlassian.net/browse/RHIDP-16069
-# 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
-# apiconnect/plugins/apic-backstage
+apiconnect/plugins/apic-backstage
 # 09/29: commented out as not yet compatible with BS 1.54 for RHDH 2.1 - can come back if later updated by plugin owners
 # dynatrace-dql/plugins/dql
 # dynatrace-dql/plugins/dql-backend
