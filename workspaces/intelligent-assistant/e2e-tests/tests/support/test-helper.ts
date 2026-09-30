@@ -37,9 +37,28 @@ function lightspeedDeployConfig() {
   };
 }
 
+type LightspeedStackConfig = {
+  inference?: {
+    providers?: Array<Record<string, unknown>>;
+  };
+};
+
+type OpenAiProvider = {
+  type: string;
+  id?: string;
+  api_key_env?: string;
+  extra?: { allowed_models?: string[] };
+};
+
+/**
+ * RHDH chart 2.1+ (intelligentAssistant) creates
+ * `{release}-ia-stack` with data key `lightspeed-stack.yaml`.
+ * Older chart 2.0 used `{release}-lightspeed-config` / `config.yaml`.
+ */
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const ns = rhdh.deploymentConfig.namespace;
-  const cm = "redhat-developer-hub-lightspeed-config";
+  const cm = "redhat-developer-hub-ia-stack";
+  const dataKey = "lightspeed-stack.yaml";
   const models = yaml.load(
     fs.readFileSync("tests/config/openai-allowed-models.yaml", "utf8"),
   ) as Record<string, string[]>;
@@ -50,33 +69,43 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   })`oc get configmap ${cm} -n ${ns} -o json`;
   const configYaml = (
     JSON.parse(result.stdout) as { data?: Record<string, string> }
-  ).data?.["config.yaml"];
+  ).data?.[dataKey];
   if (!configYaml) {
-    throw new Error(`ConfigMap ${cm} has no config.yaml data key`);
+    throw new Error(`ConfigMap ${cm} has no ${dataKey} data key`);
   }
-  const config = yaml.load(configYaml) as {
-    providers?: { inference?: Record<string, unknown>[] };
-  };
-  const inference = config.providers?.inference;
-  if (!inference) {
-    throw new Error(`ConfigMap ${cm} config.yaml has no providers.inference`);
+  const config = yaml.load(configYaml) as LightspeedStackConfig;
+  if (!config.inference) {
+    config.inference = {};
   }
-  const openai = inference.find((p) => p.provider_type === "remote::openai") as
-    | { config: Record<string, unknown> }
+  if (!config.inference.providers) {
+    config.inference.providers = [];
+  }
+  const providers = config.inference.providers;
+
+  // Chart-bundled stack comments out openai; ensure a live provider for e2e.
+  let openai = providers.find((p) => p.type === "openai") as
+    | OpenAiProvider
     | undefined;
-  if (!openai)
-    throw new Error("OpenAI provider not found in lightspeed config");
-  if (
-    JSON.stringify(openai.config.allowed_models) ===
+  if (!openai) {
+    openai = {
+      type: "openai",
+      id: "openai",
+      api_key_env: "OPENAI_API_KEY",
+      extra: { allowed_models: allowedModels },
+    };
+    providers.push(openai);
+  } else if (
+    JSON.stringify(openai.extra?.allowed_models) ===
     JSON.stringify(allowedModels)
   ) {
     return;
+  } else {
+    openai.extra = { ...openai.extra, allowed_models: allowedModels };
   }
 
-  openai.config.allowed_models = allowedModels;
-  const tmp = path.join(os.tmpdir(), `${ns}-llama-stack-config.yaml`);
+  const tmp = path.join(os.tmpdir(), `${ns}-lightspeed-stack.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
-  await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, "config.yaml");
+  await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, dataKey);
   await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
   // waitUntilReady() only checks that currently-existing pods are Ready, which is
   // trivially true while the old pod is still serving. Gate on the rollout itself:
