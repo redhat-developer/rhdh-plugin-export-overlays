@@ -287,9 +287,15 @@ test.describe("Admin > Extensions", () => {
       await uiHelper.clickButton("Actions");
       await page.getByText("Edit").click();
       await uiHelper.verifyHeading("Application Topology for Kubernetes");
-      await uiHelper.verifyText(
-        "- package: ./dynamic-plugins/dist/backstage-community-plugin-topology",
-      );
+      // Wait for the code editor content to load from backend before asserting
+      await expect(
+        page
+          .getByText(
+            "- package: ./dynamic-plugins/dist/backstage-community-plugin-topology",
+            { exact: true },
+          )
+          .first(),
+      ).toBeVisible({ timeout: 30_000 });
       await uiHelper.verifyText("disabled: false");
       await uiHelper.verifyText("Apply");
       await uiHelper.verifyHeading("Default configuration");
