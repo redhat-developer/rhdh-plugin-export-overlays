@@ -43,13 +43,6 @@ type LightspeedStackConfig = {
   };
 };
 
-type OpenAiProvider = {
-  type: string;
-  id?: string;
-  api_key_env?: string;
-  extra?: { allowed_models?: string[] };
-};
-
 /**
  * RHDH chart 2.1+ (intelligentAssistant) creates
  * `{release}-ia-stack` with data key `lightspeed-stack.yaml`.
@@ -83,24 +76,24 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const providers = config.inference.providers;
 
   // Chart-bundled stack comments out openai; ensure a live provider for e2e.
-  let openai = providers.find((p) => p.type === "openai") as
-    | OpenAiProvider
-    | undefined;
+  // LCORE YAML keys are snake_case (api_key_env, allowed_models).
+  let openai = providers.find((p) => p.type === "openai");
   if (!openai) {
     openai = {
       type: "openai",
       id: "openai",
-      api_key_env: "OPENAI_API_KEY",
-      extra: { allowed_models: allowedModels },
+      ["api_key_env"]: "OPENAI_API_KEY",
+      extra: { ["allowed_models"]: allowedModels },
     };
     providers.push(openai);
-  } else if (
-    JSON.stringify(openai.extra?.allowed_models) ===
-    JSON.stringify(allowedModels)
-  ) {
-    return;
   } else {
-    openai.extra = { ...openai.extra, allowed_models: allowedModels };
+    const extra = (openai.extra ?? {}) as Record<string, unknown>;
+    if (
+      JSON.stringify(extra["allowed_models"]) === JSON.stringify(allowedModels)
+    ) {
+      return;
+    }
+    openai.extra = { ...extra, ["allowed_models"]: allowedModels };
   }
 
   const tmp = path.join(os.tmpdir(), `${ns}-lightspeed-stack.yaml`);
