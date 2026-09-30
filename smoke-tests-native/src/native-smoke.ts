@@ -122,6 +122,7 @@ import {
   type BackendBundleInfo,
   type BackendStartResult,
   type CatalogIndexInfo,
+  type ConfigKeyMismatch,
   type FrontendBundleInfo,
   type Report,
   type WorkspaceInfo,
@@ -767,6 +768,49 @@ function validateFrontends(frontend: PluginEntry[]): {
   return { valid, errors, bundles };
 }
 
+// Cross-check the workspace's dynamicPlugins.frontend keys against the installed bundle
+// names, logging what it finds. Both results are undefined when the check did not run:
+// outside workspace mode (no metadata to read keys from) or when the set of names cannot
+// be trusted (see bundleNamesAreComplete). Undefined, not [], which is the same
+// distinction the other modes make: "not checked here" is not "checked and clean".
+function checkFrontendConfigKeys(
+  configured: ConfiguredFrontendKey[] | undefined,
+  namesComplete: boolean,
+  installed: PluginEntry[],
+  bundles: FrontendBundleInfo[],
+): {
+  configKeyMismatches?: ConfigKeyMismatch[];
+  configKeysNotApplicableHere?: string[];
+} {
+  if (!configured || !namesComplete) return {};
+  // Frontend bundles that ship no dist-scalprum/ — see configKeysNotApplicable.
+  const mfOnlyNames = new Set(
+    bundles.filter((b) => !b.scalprum).map((b) => b.name),
+  );
+  const mfOnlyPlugins = installed.filter((p) => mfOnlyNames.has(p.name));
+  const configKeysNotApplicableHere = configKeysNotApplicable(configured, {
+    npmNames: mfOnlyPlugins.map((p) => p.name),
+    scalprumNames: mfOnlyPlugins.flatMap(
+      (p) => declaredScalprumName(p.path) ?? [],
+    ),
+  });
+  const configKeyMismatches = findConfigKeyMismatches(
+    configured,
+    bundles.flatMap((b) => (b.scalprum?.name ? [b.scalprum.name] : [])),
+    configKeysNotApplicableHere,
+  );
+  for (const mismatch of configKeyMismatches) {
+    console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
+  }
+  if (configKeysNotApplicableHere.length) {
+    console.warn(
+      `⚠ dynamicPlugins.frontend key(s) configure MF-only bundles, which RHDH's ` +
+        `NFS app does not read — not checked: ${configKeysNotApplicableHere.join(", ")}`,
+    );
+  }
+  return { configKeyMismatches, configKeysNotApplicableHere };
+}
+
 async function main(): Promise<number> {
   const inputs = parseCliInputs();
   if (!inputs.out) {
@@ -857,46 +901,13 @@ async function main(): Promise<number> {
     const start = await startBackend(loaded, appConfig);
     const backendBundles = validateBackends(manifest.backend);
     const frontend = validateFrontends(manifest.frontend);
-    // Skipped rather than run on a set of names it cannot trust — see
-    // bundleNamesAreComplete. Undefined, not [], which is the same distinction the other
-    // modes make: "not checked here" is not "checked and clean".
-    // Workspace mode only: the others have no metadata to read keys from.
-    const keysCheckable =
-      materialized.frontendConfigKeys &&
-      bundleNamesAreComplete(installShortfall, frontend.errors);
-    // Frontend bundles that ship no dist-scalprum/ — see configKeysNotApplicable.
-    const mfOnlyNames = new Set(
-      frontend.bundles.filter((b) => !b.scalprum).map((b) => b.name),
-    );
-    const mfOnlyPlugins = manifest.frontend.filter((p) =>
-      mfOnlyNames.has(p.name),
-    );
-    const configKeysNotApplicableHere = keysCheckable
-      ? configKeysNotApplicable(materialized.frontendConfigKeys ?? [], {
-          npmNames: mfOnlyPlugins.map((p) => p.name),
-          scalprumNames: mfOnlyPlugins.flatMap(
-            (p) => declaredScalprumName(p.path) ?? [],
-          ),
-        })
-      : undefined;
-    const configKeyMismatches = keysCheckable
-      ? findConfigKeyMismatches(
-          materialized.frontendConfigKeys ?? [],
-          frontend.bundles.flatMap((b) =>
-            b.scalprum?.name ? [b.scalprum.name] : [],
-          ),
-          configKeysNotApplicableHere,
-        )
-      : undefined;
-    for (const mismatch of configKeyMismatches ?? []) {
-      console.error(`✗ ${describeConfigKeyMismatch(mismatch)}`);
-    }
-    if (configKeysNotApplicableHere?.length) {
-      console.warn(
-        `⚠ dynamicPlugins.frontend key(s) configure MF-only bundles, which RHDH's ` +
-          `NFS app does not read — not checked: ${configKeysNotApplicableHere.join(", ")}`,
+    const { configKeyMismatches, configKeysNotApplicableHere } =
+      checkFrontendConfigKeys(
+        materialized.frontendConfigKeys,
+        bundleNamesAreComplete(installShortfall, frontend.errors),
+        manifest.frontend,
+        frontend.bundles,
       );
-    }
     for (const { plugin, error } of backendBundles.errors) {
       console.error(`✗ backend '${plugin.name}': ${error}`);
     }

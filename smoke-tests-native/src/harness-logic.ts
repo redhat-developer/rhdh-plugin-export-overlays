@@ -265,8 +265,7 @@ export function featureTargets(feature: unknown): FeatureTarget[] {
     getRegistrations?: unknown;
   } | null;
   if (
-    !f ||
-    f.$$type !== "@backstage/BackendFeature" ||
+    f?.$$type !== "@backstage/BackendFeature" ||
     f.featureType !== "registrations" ||
     typeof f.getRegistrations !== "function"
   ) {
@@ -366,7 +365,7 @@ type FeatureLoaderLike = {
  */
 function unwrapDefault(item: unknown): unknown {
   const i = item as { $$type?: unknown; default?: unknown } | null;
-  if (i && i.$$type === undefined && i.default !== undefined) return i.default;
+  if (i?.$$type === undefined && i?.default !== undefined) return i.default;
   return item;
 }
 
@@ -409,34 +408,48 @@ export async function expandFeatureLoaders(
   return expanded;
 }
 
+// Recursive rather than looped, as partitionResolvable is: loaders run one at a time
+// and in list order, as the backend runs them, and the output keeps that order.
 async function expandInto(
   features: unknown[],
   depth: number,
   fromLoader: boolean,
   into: ExpandedFeatures,
+  index = 0,
 ): Promise<void> {
-  for (const feature of features) {
-    const f = feature as FeatureLoaderLike | null;
-    if (fromLoader && isServiceFactory(f)) {
-      into.loaderServiceFactories.push(feature);
-      continue;
-    }
-    const loader = expandableLoader(f, depth);
-    if (!loader) {
-      into.features.push(feature);
-      continue;
-    }
-    let yielded: unknown[];
-    try {
-      yielded = (await loader({})).map(unwrapDefault);
-    } catch (err) {
-      throw new Error(
-        `Feature loader ${String(f?.description ?? "(no description)")} failed: ${errorMessage(err)}`,
-        { cause: err },
-      );
-    }
-    await expandInto(yielded, depth + 1, true, into);
+  if (index >= features.length) return;
+  await expandOne(features[index], depth, fromLoader, into);
+  return expandInto(features, depth, fromLoader, into, index + 1);
+}
+
+async function expandOne(
+  feature: unknown,
+  depth: number,
+  fromLoader: boolean,
+  into: ExpandedFeatures,
+): Promise<void> {
+  const f = feature as FeatureLoaderLike | null;
+  if (fromLoader && isServiceFactory(f)) {
+    into.loaderServiceFactories.push(feature);
+    return;
   }
+  const loader = expandableLoader(f, depth);
+  if (!loader) {
+    into.features.push(feature);
+    return;
+  }
+  let yielded: unknown[];
+  try {
+    yielded = (await loader({})).map(unwrapDefault);
+  } catch (err) {
+    const description =
+      typeof f?.description === "string" ? f.description : "(no description)";
+    throw new Error(
+      `Feature loader ${description} failed: ${errorMessage(err)}`,
+      { cause: err },
+    );
+  }
+  return expandInto(yielded, depth + 1, true, into);
 }
 
 function isServiceFactory(f: FeatureLoaderLike | null): boolean {
