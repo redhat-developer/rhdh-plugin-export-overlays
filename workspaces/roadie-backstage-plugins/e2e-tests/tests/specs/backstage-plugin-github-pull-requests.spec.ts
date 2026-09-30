@@ -20,6 +20,15 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
   });
 
   test.beforeEach(async ({ loginHelper, uiHelper, page }) => {
+    page.on("console", (msg) => {
+      // eslint-disable-next-line no-console
+      console.log(`[BROWSER ${msg.type()}]: ${msg.text()}`);
+    });
+    page.on("pageerror", (err) => {
+      // eslint-disable-next-line no-console
+      console.log(`[BROWSER ERROR]: ${err.message}\n${err.stack}`);
+    });
+
     await page.context().clearCookies();
     await page.goto("/");
 
@@ -35,7 +44,7 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
     expect(page.url()).toContain(expectedPath);
 
-    await uiHelper.waitForTitle("Red Hat Developer Hub");
+    await uiHelper.verifyHeading("Red Hat Developer Hub");
 
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 60000 },

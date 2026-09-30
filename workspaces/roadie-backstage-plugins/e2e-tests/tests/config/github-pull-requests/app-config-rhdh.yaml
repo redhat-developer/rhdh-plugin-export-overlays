@@ -1,5 +1,8 @@
 app:
   title: RHDH Roadie Plugins Test Instance
+  extensions:
+    - entity-card:github-pull-requests/overview: true
+    - entity-content:github-pull-requests: true
 integrations:
   github:
     - host: github.com
