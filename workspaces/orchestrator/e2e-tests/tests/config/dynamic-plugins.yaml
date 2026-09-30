@@ -2,6 +2,11 @@
 # so that keycloak auth works. Use the overlay OCI pin — quay.io/rhdh
 # {{inherit}} resolves to a private tag (2.0.0--0.4.0) that CI cannot pull.
 # Orchestrator plugins are also disabled by default and must be enabled.
+#
+# Temporary: disable Loki module until CI MinIO/Loki install works
+# (MinIO ImagePullBackOff on quay.io/minio/minio). Re-enable by setting
+# enabled: true, uncommenting workflowLogProvider in app-config-rhdh.yaml,
+# and restoring configureOrchestratorLoki() in orchestrator.spec.ts.
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
     enabled: true
@@ -10,7 +15,7 @@ plugins:
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic
-    enabled: true
+    enabled: false
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-scaffolder-backend-module-orchestrator-dynamic
