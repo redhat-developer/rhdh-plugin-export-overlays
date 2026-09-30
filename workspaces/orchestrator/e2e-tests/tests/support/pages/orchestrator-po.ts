@@ -46,9 +46,12 @@ export class OrchestratorPO {
   async openWorkflowsPage(): Promise<void> {
     await this.page.goto("/orchestrator");
     await expect(this.page).toHaveURL("/orchestrator");
-    await expect(
-      ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible({ timeout: 120_000 });
+    const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
+    if (!(await heading.isVisible({ timeout: 60_000 }))) {
+      await this.page.reload();
+      await this.page.waitForLoadState("domcontentloaded");
+    }
+    await expect(heading).toBeVisible({ timeout: 120_000 });
     await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
       timeout: 30_000,
     });
