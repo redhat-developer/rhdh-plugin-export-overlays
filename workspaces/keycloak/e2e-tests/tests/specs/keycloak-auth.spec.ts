@@ -350,8 +350,6 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
   });
 
@@ -377,8 +375,6 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
   });
 
@@ -404,8 +400,6 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
 
     await clearSession(context);
@@ -455,8 +449,6 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
 
     await clearSession(context);
@@ -500,8 +492,6 @@ test.describe("Keycloak auth provider", () => {
     expect(actualDuration).toBeLessThan(threeDays + tolerance);
 
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
   });
 
@@ -535,8 +525,6 @@ test.describe("Keycloak auth provider", () => {
       await page.getByTitle("Sign out from GitHub").click();
 
       await expectProfile(page, uiHelper, displayName);
-      await page.goto("/settings");
-      await uiHelper.waitForLoad();
       await loginHelper.signOut();
     } finally {
       await clearSession(context);
