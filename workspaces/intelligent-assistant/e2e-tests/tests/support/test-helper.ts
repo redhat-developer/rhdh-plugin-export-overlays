@@ -168,10 +168,16 @@ async function isLoggedIn(page: Page): Promise<boolean> {
   const chrome = page
     .getByRole("navigation", { name: "sidebar nav" })
     .or(page.getByRole("button", { name: "Settings" }));
-  return chrome.first().isVisible().catch(() => false);
+  return chrome
+    .first()
+    .isVisible()
+    .catch(() => false);
 }
 
-async function waitForLoggedInChrome(page: Page, timeout = 60_000): Promise<void> {
+async function waitForLoggedInChrome(
+  page: Page,
+  timeout = 60_000,
+): Promise<void> {
   await expect(
     page
       .getByRole("navigation", { name: "sidebar nav" })
@@ -323,7 +329,10 @@ export async function openLightspeed(page: Page): Promise<void> {
     /\/intelligent-assistant/.test(page.url()) &&
     (await isLoggedIn(page)) &&
     !(await isSignInPage(page)) &&
-    (await chatUi.first().isVisible().catch(() => false))
+    (await chatUi
+      .first()
+      .isVisible()
+      .catch(() => false))
   ) {
     return;
   }
@@ -331,8 +340,13 @@ export async function openLightspeed(page: Page): Promise<void> {
   await page.goto("/intelligent-assistant", { waitUntil: "domcontentloaded" });
   await ensureKeycloakSession(page);
 
-  if (!/\/intelligent-assistant/.test(page.url()) || (await isSignInPage(page))) {
-    await page.goto("/intelligent-assistant", { waitUntil: "domcontentloaded" });
+  if (
+    !/\/intelligent-assistant/.test(page.url()) ||
+    (await isSignInPage(page))
+  ) {
+    await page.goto("/intelligent-assistant", {
+      waitUntil: "domcontentloaded",
+    });
     await ensureKeycloakSession(page);
   }
 
