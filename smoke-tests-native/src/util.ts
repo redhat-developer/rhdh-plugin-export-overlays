@@ -40,3 +40,15 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/**
+ * The last line of a failed child process's stderr, or its message when stderr is
+ * empty. A CLI such as skopeo prints its own error last; the lines above it are
+ * context that would bury it in a one-line report entry.
+ */
+export function lastErrorLine(err: unknown): string {
+  const stderr = isRecord(err) ? err.stderr : undefined;
+  const detail =
+    typeof stderr === "string" && stderr.trim() ? stderr : errorMessage(err);
+  return detail.trim().split("\n").at(-1) ?? detail;
+}

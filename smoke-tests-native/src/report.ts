@@ -48,8 +48,9 @@ import type {
  * 8: added `backend.bundles` and `backend.bundleErrors`, extending the configSchema
  *    check of 6 to backend plugins (RHIDP-16689).
  * 9: added `frontend.configKeyMismatches` (RHIDP-16690).
+ * 10: added `catalogIndex.unresolved`, the declared refs the install CLI cannot take.
  */
-export const REPORT_SCHEMA_VERSION = 9;
+export const REPORT_SCHEMA_VERSION = 10;
 
 export type Status =
   | "pass"
@@ -166,6 +167,9 @@ export type WorkspaceInfo = {
  * `refCount` is what the install is measured against (see `installShortfall`);
  * `enabledInIndex` is recorded because it is the number people expect to see and it is
  * deliberately NOT the number this mode validates — see src/catalog-index.ts.
+ * `unresolved` are the refs the install CLI would have refused — missing from the
+ * registry, or naming no plugin — left out so one of them does not stop every other
+ * package from being validated.
  */
 export type CatalogIndexInfo = {
   source: string;
@@ -173,6 +177,13 @@ export type CatalogIndexInfo = {
   refCount: number;
   inImage: number;
   enabledInIndex: number;
+  unresolved: UnresolvedRef[];
+};
+
+/** A declared ref the install CLI would refuse, with the reason. */
+export type UnresolvedRef = {
+  ref: string;
+  error: string;
 };
 
 export type Report = {

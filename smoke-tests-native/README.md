@@ -310,6 +310,16 @@ no artifact to pull. `results.json` records the split in `catalogIndex`
 (`declared` / `refCount` / `inImage` / `enabledInIndex`), so a pass cannot hide that most
 of the index was never installed.
 
+Every remaining ref is probed first with `skopeo inspect --raw` (up to 3 attempts, 8 refs
+at a time, falling back from `registry.access.redhat.com/rhdh/` to `quay.io/rhdh/` as the
+install CLI does), and its manifest gets the same plugin-path check the install CLI runs.
+A ref the CLI would refuse (missing from the registry, an `io.backstage.dynamic-packages`
+annotation that names no plugin, or one naming several with no `!plugin-path` selector) is
+left out of the install and listed in `catalogIndex.unresolved`, and the run ends
+`fail-install`. Without this, the install CLI aborts on the first such ref and the run
+validates none of the other packages. The `next` index spent most of September 2026 in
+that state, one broken ref after another.
+
 Exclusions for this mode live in `catalog-index-sanity-excludes.txt` and are written
 against the **OCI image name** (`backstage-community-plugin-quay`), because a catalog index
 carries no npm names. `candidateNames()` in `src/exclusions.ts` normalizes an installed

@@ -53,14 +53,14 @@
  * when it appears after the script path, exiting 9 if the file is missing.)
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm, mkdir, writeFile, copyFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { setTimeout } from "node:timers/promises";
-import { parseArgs } from "node:util";
+import { parseArgs, promisify } from "node:util";
 import { createRequire } from "node:module";
 import { startTestBackend, mockServices } from "@backstage/backend-test-utils";
 import catalogPlugin from "@backstage/plugin-catalog-backend";
@@ -88,7 +88,7 @@ import {
 } from "./harness-logic";
 import { patchModuleResolution } from "./module-resolution";
 import { resolveContained } from "./paths";
-import { errorMessage } from "./util";
+import { errorMessage, isRecord, lastErrorLine } from "./util";
 import { buildMergedConfig, KNOWN_FAILURES } from "./plugin-config";
 import { loadAppConfig, loadEnvFile } from "./test-config";
 import {
@@ -113,7 +113,14 @@ import {
   writeDynamicPluginsConfig,
   type ConfiguredFrontendKey,
 } from "./workspace";
-import { readCatalogIndexRefs, writeCatalogIndexConfig } from "./catalog-index";
+import {
+  partitionResolvable,
+  pluginPathProblem,
+  probeCandidates,
+  readCatalogIndexRefs,
+  writeCatalogIndexConfig,
+  type ProbeResult,
+} from "./catalog-index";
 
 const HARNESS_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 // This harness's own node_modules — extracted plugins resolve @backstage/* against it.
@@ -127,6 +134,13 @@ const CLI = "@red-hat-developer-hub/cli-module-install-dynamic-plugins";
 // costing three pulls per workspace.
 const INSTALL_ATTEMPTS = 3;
 const INSTALL_RETRY_BASE_MS = 2000;
+
+// A manifest fetch is one small request; a registry that has not answered in this long
+// is not going to, and the retry in partitionResolvable covers a slow moment. Kept short
+// because it multiplies: 2 candidates x 3 attempts per ref during an outage, and the
+// job's 60-minute limit cancels the run rather than failing it.
+const PROBE_TIMEOUT_MS = 30_000;
+const execFileAsync = promisify(execFile);
 
 // Resolve the CLI's bin to an absolute path and invoke it with the absolute Node
 // binary (process.execPath), so the executable is never looked up via PATH (Sonar
@@ -154,6 +168,52 @@ const coreFeatures = [catalogPlugin, scaffolderPlugin, searchPlugin];
 // interpolated into a shell command as this grows beyond a single fixed plugin.
 function run(file: string, args: string[]): string {
   return execFileSync(file, args, { encoding: "utf-8", stdio: "pipe" }).trim();
+}
+
+// Ask the registry for a ref's manifest and run the plugin-path check on it — the two
+// things the install CLI does first, and aborts on, for every package. `--raw` fetches
+// only the manifest, so ~100 of these cost seconds. Found on PATH exactly as the
+// install CLI finds it; there is no bundled copy to point at. Each candidate is tried
+// in turn, the way the CLI falls back from the productized registry to quay.
+async function probeRegistry(ref: string): Promise<ProbeResult> {
+  const candidates = probeCandidates(ref);
+  const errors: string[] = [];
+  for (const image of candidates) {
+    try {
+      const { stdout: manifest } = await execFileAsync(
+        "skopeo",
+        ["inspect", "--raw", `docker://${image}`],
+        { timeout: PROBE_TIMEOUT_MS },
+      );
+      const problem = pluginPathProblem(ref, manifest);
+      return problem
+        ? { ok: false, error: problem, retry: false }
+        : { ok: true };
+    } catch (err) {
+      // Name each image only when there were two, and keep both reasons: the primary
+      // registry's answer matters as much as the fallback's. With one, the ref already
+      // says which image it was.
+      const error = probeErrorLine(err);
+      errors.push(candidates.length > 1 ? `${image}: ${error}` : error);
+    }
+  }
+  return { ok: false, error: errors.join("; ") };
+}
+
+// One skopeo failure as one line of the report entry.
+function probeErrorLine(err: unknown): string {
+  if (!isRecord(err)) return lastErrorLine(err);
+  // No skopeo at all says nothing about any ref. Recorded per ref it would read as
+  // every package in the index being broken, so it fails the run as what it is.
+  if (err.code === "ENOENT") {
+    throw new Error(
+      "skopeo not found on PATH: probing catalog index refs needs it, as the install CLI does",
+      { cause: err },
+    );
+  }
+  // A kill leaves stderr empty and a message that only echoes the command line.
+  if (err.killed) return `no answer within ${PROBE_TIMEOUT_MS / 1000}s`;
+  return lastErrorLine(err);
 }
 
 // Resolve the effective test-config: workspace mode auto-discovers the workspace's
@@ -229,19 +289,27 @@ async function materializeCatalogIndexConfig(
       `declared (${enabledInIndex} enabled by default, ${inImage.length} bundled in ` +
       `the RHDH image, ${excluded.length} excluded)`,
   );
-  const path = await writeCatalogIndexConfig(refs, destDir);
+  const { resolvable, unresolved } = await partitionResolvable(
+    refs,
+    probeRegistry,
+  );
+  for (const { ref, error } of unresolved) {
+    console.error(`✗ not installable, left out: ${ref}\n  ${error}`);
+  }
+  const path = await writeCatalogIndexConfig(resolvable, destDir);
   return {
     path,
-    refCount: refs.length,
+    refCount: resolvable.length,
     // Deduplicated, so a lower bound: workspaces/cost-management/metadata/* already
     // point two packages at one ref, and without allowExtra that would fail a healthy run.
     shortfall: { subject: "catalog index", allowExtra: true },
     catalogIndex: {
       source: indexPath,
       declared,
-      refCount: refs.length,
+      refCount: resolvable.length,
       inImage: inImage.length,
       enabledInIndex,
+      unresolved,
     },
     excluded,
   };
@@ -290,10 +358,14 @@ async function writeErrorReport(
   out: string,
   cliVersion: string,
   message: string,
+  catalogIndex?: CatalogIndexInfo,
 ): Promise<void> {
   const report: Report = {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion,
+    // The refs already refused are still true when a later step throws, and they are
+    // what the job summary and the triage issue list first.
+    catalogIndex,
     backend: {
       total: 0,
       loaded: 0,
@@ -512,6 +584,28 @@ async function extractPlugins(
   }
 }
 
+// No CLI run for an empty config. In catalog-index mode that is every declared ref
+// unresolved: the report still fails the run on them, there is just nothing to install.
+async function installSource(
+  root: string,
+  materialized: MaterializedSource,
+): Promise<void> {
+  if (materialized.refCount === 0) return;
+  await extractPlugins(root, materialized.path);
+}
+
+// An unresolved ref is a package that could not be installed at all, which is what
+// fail-install already means — just caught before the CLI instead of after.
+function installFailed(
+  installShortfall: string | null,
+  materialized: MaterializedSource,
+): boolean {
+  return (
+    Boolean(installShortfall) ||
+    (materialized.catalogIndex?.unresolved.length ?? 0) > 0
+  );
+}
+
 // Boot the loaded backend features in-process to confirm they integrate.
 async function startBackend(
   loaded: LoadedPlugin[],
@@ -616,6 +710,9 @@ async function main(): Promise<number> {
   // Declared outside the try so the catch/finally can see them even if setup fails.
   let cliVersion = "unknown";
   let tempDir: string | undefined;
+  // Outside too, so a failure after the probe keeps the refs it refused — see
+  // writeErrorReport.
+  let catalogIndex: CatalogIndexInfo | undefined;
 
   try {
     // Everything fallible lives in the try, so any failure still writes a results.json
@@ -634,7 +731,8 @@ async function main(): Promise<number> {
       tempDir,
       inputs,
     );
-    await extractPlugins(root, materialized.path);
+    catalogIndex = materialized.catalogIndex;
+    await installSource(root, materialized);
 
     const manifest = discoverPlugins(root);
     console.log(
@@ -721,7 +819,7 @@ async function main(): Promise<number> {
       },
       exclusions: [...materialized.excluded, ...excluded],
       installShortfall: installShortfall ?? undefined,
-      status: installShortfall
+      status: installFailed(installShortfall, materialized)
         ? "fail-install"
         : computeStatus(
             loadErrors,
@@ -744,8 +842,8 @@ async function main(): Promise<number> {
     );
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
-    // e.g. the install CLI failing on a bad OCI ref — see writeErrorReport.
-    await writeErrorReport(out, cliVersion, errorMessage(err));
+    // e.g. the install CLI failing on a ref the probe let through — see writeErrorReport.
+    await writeErrorReport(out, cliVersion, errorMessage(err), catalogIndex);
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });
