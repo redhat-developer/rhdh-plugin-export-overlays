@@ -131,8 +131,7 @@ test.describe("TechDocs", () => {
     await uiHelper.waitForTitle("Getting Started running RHDH", 1);
   });
 
-  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
-  test.skip("Verify that TechDocs Docs page for ReportIssue addon works", async ({
+  test("Verify that TechDocs Docs page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
@@ -142,8 +141,7 @@ test.describe("TechDocs", () => {
     expect(await pollForReportIssueLink(page)).toBe(true);
   });
 
-  // Skip for https://redhat.atlassian.net/browse/RHDHBUGS-3664
-  test.skip("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
+  test("Verify that TechDocs entity tab page for ReportIssue addon works", async ({
     page,
     uiHelper,
   }) => {
