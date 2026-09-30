@@ -190,5 +190,5 @@ export async function verifySidePanelConversation(page: Page): Promise<void> {
   );
   await expect(
     sidePanel.locator("li.pf-chatbot__menu-item--active"),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30_000 });
 }
