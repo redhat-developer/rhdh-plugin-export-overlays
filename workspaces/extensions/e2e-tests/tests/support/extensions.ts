@@ -29,7 +29,7 @@ export class ExtensionsPage {
     this.uiHelper = uiHelper;
   }
 
-  async clickReadMoreByPluginTitle(pluginTitle: string, _badgeText: string) {
+  async clickReadMoreByPluginTitle(pluginTitle: string, badgeText: string) {
     const allCards = this.page.locator(".v5-MuiPaper-outlined");
     const targetCard = allCards.filter({ hasText: pluginTitle });
     await targetCard
@@ -40,6 +40,7 @@ export class ExtensionsPage {
     await expect(
       this.page.getByRole("heading", { name: pluginTitle }),
     ).toBeVisible();
+    await expect(this.page.getByText(badgeText).first()).toBeVisible();
   }
 
   async selectDropdown(name: string) {
