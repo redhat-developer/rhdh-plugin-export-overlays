@@ -1,4 +1,4 @@
-import { expect, test } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.describe("Test ACR plugin", () => {
   const dateRegex =
@@ -22,20 +22,10 @@ test.describe("Test ACR plugin", () => {
     await uiHelper.openCatalogSidebar("Component");
     await uiHelper.clickLink("acr-test-entity");
 
-    // NFS places the tab under the Development entity-content group.
-    const acrImagesLink = page.getByRole("link", { name: "ACR images" });
-    const development = page
-      .getByRole("button", { name: /^Development$/i })
-      .or(page.getByRole("tab", { name: /^Development$/i }))
-      .or(page.getByRole("link", { name: /^Development$/i }))
-      .first();
-    // eslint-disable-next-line playwright/no-conditional-in-test -- top-level vs grouped NFS tab
-    if (!(await acrImagesLink.isVisible().catch(() => false))) {
-      await expect(development).toBeVisible({ timeout: 30_000 });
-      await development.click();
-    }
-    await expect(acrImagesLink).toBeVisible({ timeout: 30_000 });
-    await acrImagesLink.click();
+    // Same pattern as argocd #3478 e2e fix (group button + menuitemradio).
+    // ACR NFS alpha registers title "ACR images", group development.
+    await uiHelper.clickButtonByLabel("Development");
+    await page.getByRole("menuitemradio", { name: "ACR images" }).click();
 
     await uiHelper.verifyHeading(
       "Azure Container Registry Repository: hello-world",
