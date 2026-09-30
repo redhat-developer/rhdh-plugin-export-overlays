@@ -7,11 +7,55 @@
 # (MinIO ImagePullBackOff on quay.io/minio/minio). Re-enable by setting
 # enabled: true, uncommenting workflowLogProvider in app-config-rhdh.yaml,
 # and restoring configureOrchestratorLoki() in orchestrator.spec.ts.
+#
+# Frontend pluginConfig must be explicit here: entityTabs alone leave an empty
+# Workflows tab unless mountPoints use IsOrchestratorCatalogTabAvailable
+# (hasAnnotation in metadata is not enough for the catalog card mount).
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator
     enabled: true
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          red-hat-developer-hub.backstage-plugin-orchestrator:
+            # Legacy exports require `module: Legacy` — they are not available on the default module.
+            translationResources:
+              - importName: orchestratorTranslations
+                module: Legacy
+                ref: orchestratorTranslationRef
+            appIcons:
+              - importName: OrchestratorIcon
+                name: orchestratorIcon
+                module: Legacy
+            dynamicRoutes:
+              - importName: OrchestratorPage
+                module: Legacy
+                menuItem:
+                  icon: orchestratorIcon
+                  text: Orchestrator
+                  textKey: menuItem.orchestrator
+                path: /orchestrator
+            menuItems:
+              orchestrator:
+                parent: default.admin
+                icon: orchestratorIcon
+            entityTabs:
+              - path: /workflows
+                title: Workflows
+                titleKey: catalog.entityPage.workflows.title
+                mountPoint: entity.page.workflows
+            mountPoints:
+              - mountPoint: entity.page.workflows/cards
+                importName: OrchestratorCatalogTab
+                module: Legacy
+                config:
+                  layout:
+                    gridColumn: 1 / -1
+                  if:
+                    anyOf:
+                      - IsOrchestratorCatalogTabAvailable
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic

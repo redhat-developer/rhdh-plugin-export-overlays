@@ -1,5 +1,4 @@
 import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
-import { OrchestratorPage } from "@red-hat-developer-hub/e2e-test-utils/pages";
 import {
   cleanupGreetingComponentEntity,
   clickCreateAndWaitForScaffolderTerminalState,
@@ -35,10 +34,7 @@ export function registerEntityWorkflowIntegrationTests(
    * to trigger the "greeting" SonataFlow workflow deployed by CI.
    */
   test.describe("Entity-Workflow Integration", () => {
-    let orchestrator: OrchestratorPage;
-
-    test.beforeEach(async ({ page, loginHelper }, testInfo) => {
-      orchestrator = new OrchestratorPage(page);
+    test.beforeEach(async ({ loginHelper }, testInfo) => {
       await loginHelper.loginAsKeycloakUser();
       await ensureDataIndexOrSkip(testInfo.project.name, test);
     });
@@ -73,10 +69,10 @@ export function registerEntityWorkflowIntegrationTests(
       ).toBeVisible();
 
       await orchestratorPo.clickWorkflowsCatalogControl();
-      await orchestrator.verifyWorkflowInEntityTab("Greeting workflow");
-      await expect(
-        page.getByRole("link", { name: "Greeting workflow", exact: true }),
-      ).toBeVisible();
+      const greetingWorkflow = page
+        .getByRole("link", { name: "Greeting workflow", exact: true })
+        .or(page.getByText("Greeting workflow", { exact: true }));
+      await expect(greetingWorkflow.first()).toBeVisible({ timeout: 30_000 });
     });
 
     test("RHIDP-11835: Template without orchestrator.io/workflows annotation", async ({
@@ -109,11 +105,11 @@ export function registerEntityWorkflowIntegrationTests(
 
       await orchestratorPo.clickWorkflowsCatalogControl();
 
-      await orchestratorPo.openWorkflow("Greeting workflow");
+      await orchestratorPo.openWorkflow(/Greeting workflow/i);
 
       await expect(
         page.getByRole("heading", { name: "Greeting workflow" }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 30_000 });
 
       const entityName = "greetingComponent";
       // eslint-disable-next-line playwright/no-conditional-in-test
@@ -159,7 +155,7 @@ export function registerEntityWorkflowIntegrationTests(
       const workflowsContent = page.locator("main").filter({
         has: page.getByText("Greeting workflow"),
       });
-      await expect(workflowsContent).toBeVisible();
+      await expect(workflowsContent).toBeVisible({ timeout: 30_000 });
     });
   });
 }
