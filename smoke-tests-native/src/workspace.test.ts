@@ -481,11 +481,16 @@ test("an excluded host is not installed", () => {
     "# TODO(RHIDP-1): test\ninstall ^@x/plugin-sc-backend$\n",
     "test-excludes.txt",
   );
-  const { hosts } = collectWorkspaceRefs(root, "sc", {
+  const { hosts, excluded } = collectWorkspaceRefs(root, "sc", {
     support: "dev-preview",
     installExcluded: excluderFor(exclusions, "install"),
   });
   assert.deepEqual(hosts, []);
+  // The module now boots without its host; the report must say why.
+  assert.deepEqual(
+    excluded.map((e) => e.packageName),
+    ["@x/plugin-sc-backend"],
+  );
 });
 
 test("an excluded module pulls in no host", () => {

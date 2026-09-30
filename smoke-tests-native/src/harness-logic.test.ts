@@ -15,7 +15,9 @@ import {
   createServiceRef,
   coreServices,
 } from "@backstage/backend-plugin-api";
+import { startTestBackend } from "@backstage/backend-test-utils";
 import {
+  bootFeatureList,
   bundleNamesAreComplete,
   computeStatus,
   configKeysNotApplicable,
@@ -539,6 +541,48 @@ test("expandFeatureLoaders keeps a loader's service factories apart", async () =
     features: [catalogLike, factory],
     loaderServiceFactories: [factory],
   });
+});
+
+test("expandFeatureLoaders unwraps one level, as the backend does", async () => {
+  // Two levels are the CJS shape the backend takes off; a third is not, and leaving it
+  // in place makes the boot fail here as it does in RHDH.
+  const loader = createBackendFeatureLoader({
+    loader: (() => [
+      Promise.resolve({ default: { default: { default: authModule } } }),
+    ]) as unknown as () => [],
+  });
+  assert.deepEqual((await expandFeatureLoaders([loader])).features, [
+    { default: authModule },
+  ]);
+});
+
+test("bootFeatureList registers loader services before a loader that depends on them", async () => {
+  // The dependency-free loader is taken apart by expandFeatureLoaders; its service must
+  // still be there when the backend runs the loader that needs it, as it is in RHDH.
+  const ref = createServiceRef<{ id: string }>({
+    id: "test.fromLoader",
+    scope: "root",
+  });
+  const provider = createBackendFeatureLoader({
+    *loader() {
+      yield createServiceFactory({
+        service: ref,
+        deps: {},
+        factory: () => ({ id: "x" }),
+      });
+    },
+  });
+  const dependent = createBackendFeatureLoader({
+    deps: { svc: ref },
+    *loader() {
+      yield catalogLike;
+    },
+  });
+  const expanded = await expandFeatureLoaders([provider, dependent]);
+  const backend = await startTestBackend({
+    features: bootFeatureList(expanded, { head: [], tail: [] }),
+  });
+  await backend.stop();
 });
 
 test("a failing loader is reported with its description", async () => {

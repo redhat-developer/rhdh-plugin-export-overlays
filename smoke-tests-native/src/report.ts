@@ -164,7 +164,10 @@ export type WorkspaceInfo = {
   skippedMetadata: string[];
   /** The `--support` filter applied, when one was. */
   support?: string;
-  /** Packages the filter left out — not a failure, but not validated either. */
+  /**
+   * Packages the filter left out — not a failure, and not validated, except the `hosts`
+   * among them, which are still counted here.
+   */
   outOfScope?: number;
   /**
    * Out-of-scope host plugins installed only so an in-scope module can boot. Counted

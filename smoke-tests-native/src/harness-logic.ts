@@ -14,6 +14,10 @@ import type { MfRemoteInfo, PluginEntry, PluginError } from "./loader";
 import type { ConfigKeyMismatch, Status } from "./report";
 import type { ConfiguredFrontendKey } from "./workspace";
 import { compareStrings, errorMessage } from "./util";
+import {
+  createBackendFeatureLoader,
+  type BackendFeature,
+} from "@backstage/backend-plugin-api";
 
 /**
  * The harness's verdict, most specific failure first.
@@ -355,12 +359,14 @@ type FeatureLoaderLike = {
  * A loader that yields `import('./x.cjs.js')` hands back the CJS `module.exports`
  * (`{ default: feature }`), one level above the feature, because import() of CommonJS
  * wraps it again. The backend unwraps it; so must anything reading the list before it.
+ *
+ * One level, as the backend's own `unwrapFeature` does: the loader returned by
+ * createBackendFeatureLoader has already taken off the first. Deeper nesting is left
+ * as is, so it fails here as it does in RHDH.
  */
 function unwrapDefault(item: unknown): unknown {
   const i = item as { $$type?: unknown; default?: unknown } | null;
-  if (i && i.$$type === undefined && i.default !== undefined) {
-    return unwrapDefault(i.default);
-  }
+  if (i && i.$$type === undefined && i.default !== undefined) return i.default;
   return item;
 }
 
@@ -453,4 +459,31 @@ function expandableLoader(
   }
   const needsDeps = f.deps !== undefined && Object.keys(f.deps).length > 0;
   return needsDeps || depth > MAX_LOADER_NESTING ? undefined : f.loader;
+}
+
+/**
+ * The feature list handed to startTestBackend: `head` (core plugins, services, hosts),
+ * then the loader holding expandFeatureLoaders' service factories, then the loaded
+ * features, then `tail` (the root config).
+ *
+ * The service factories go back inside a loader, so a service already provided is
+ * skipped rather than rejected as a duplicate. That loader comes before every loader
+ * kept in `features`: the backend runs loaders in list order, and one that depends on
+ * a root service must find it registered. In RHDH the loader yielding that service ran
+ * where it was declared; here it was taken apart, and placed last it would leave the
+ * dependent loader failing on a service RHDH provides.
+ */
+export function bootFeatureList(
+  expanded: ExpandedFeatures,
+  { head, tail }: { head: BackendFeature[]; tail: BackendFeature[] },
+): BackendFeature[] {
+  const serviceFactories = expanded.loaderServiceFactories as BackendFeature[];
+  return [
+    ...head,
+    ...(serviceFactories.length > 0
+      ? [createBackendFeatureLoader({ loader: () => serviceFactories })]
+      : []),
+    ...(expanded.features as BackendFeature[]),
+    ...tail,
+  ];
 }

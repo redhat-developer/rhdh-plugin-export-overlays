@@ -70,7 +70,6 @@ import authPlugin from "@backstage/plugin-auth-backend";
 import notificationsPlugin from "@backstage/plugin-notifications-backend";
 import eventsPlugin from "@backstage/plugin-events-backend";
 import {
-  createBackendFeatureLoader,
   createServiceFactory,
   type BackendFeature,
 } from "@backstage/backend-plugin-api";
@@ -91,6 +90,7 @@ import {
 } from "./loader";
 import {
   bundleNamesAreComplete,
+  bootFeatureList,
   computeStatus,
   describeConfigKeyMismatch,
   describeInstallShortfall,
@@ -403,6 +403,9 @@ async function materializeSource(
   }
 }
 
+/** The source's provenance blocks, which an error report keeps. */
+type ReportProvenance = Pick<Report, "workspace" | "catalogIndex">;
+
 // Any failure — bad args, install CLI crash, boot error before the report is built —
 // still produces a results.json (status: error), so a consumer never reads a stale
 // "pass" or finds no report at all.
@@ -410,14 +413,16 @@ async function writeErrorReport(
   out: string,
   cliVersion: string,
   message: string,
-  catalogIndex?: CatalogIndexInfo,
+  provenance: ReportProvenance = {},
 ): Promise<void> {
   const report: Report = {
     schemaVersion: REPORT_SCHEMA_VERSION,
     cliVersion,
-    // The refs already refused are still true when a later step throws, and they are
-    // what the job summary and the triage issue list first.
-    catalogIndex,
+    // Still true when a later step throws. The refs already refused are what the job
+    // summary and the triage issue list first; `workspace.hosts` names the refs from
+    // another tier this run installed, which the install CLI can abort on as well.
+    workspace: provenance.workspace,
+    catalogIndex: provenance.catalogIndex,
     backend: {
       total: 0,
       loaded: 0,
@@ -674,11 +679,8 @@ async function startBackend(
     const config = buildMergedConfig(loaded, appConfig);
     // Loaders first — see expandFeatureLoaders.
     const expanded = await expandFeatureLoaders(loaded.map((p) => p.feature));
-    const features = expanded.features as BackendFeature[];
-    const loaderServiceFactories =
-      expanded.loaderServiceFactories as BackendFeature[];
     hostPlugins = missingHostPluginIds(
-      features.flatMap((f) => featureTargets(f)),
+      expanded.features.flatMap((f) => featureTargets(f)),
       CORE_PLUGIN_IDS,
     ).filter((id) => HOST_FALLBACKS.has(id));
     if (hostPlugins.length > 0) {
@@ -687,21 +689,14 @@ async function startBackend(
       );
     }
     const backend = await startTestBackend({
-      features: [
-        ...coreFeatures,
-        emptyDynamicPluginsService,
-        ...hostPlugins.flatMap((id) => HOST_FALLBACKS.get(id) ?? []),
-        ...features,
-        // Back inside a loader, so a service already provided is skipped, not duplicated.
-        ...(loaderServiceFactories.length > 0
-          ? [
-              createBackendFeatureLoader({
-                loader: () => loaderServiceFactories,
-              }),
-            ]
-          : []),
-        mockServices.rootConfig.factory({ data: config }),
-      ],
+      features: bootFeatureList(expanded, {
+        head: [
+          ...coreFeatures,
+          emptyDynamicPluginsService,
+          ...hostPlugins.flatMap((id) => HOST_FALLBACKS.get(id) ?? []),
+        ],
+        tail: [mockServices.rootConfig.factory({ data: config })],
+      }),
     });
     await backend.stop();
     return {
@@ -792,9 +787,9 @@ async function main(): Promise<number> {
   // Declared outside the try so the catch/finally can see them even if setup fails.
   let cliVersion = "unknown";
   let tempDir: string | undefined;
-  // Outside too, so a failure after the probe keeps the refs it refused — see
+  // Outside too, so a failure after materializing keeps what it established — see
   // writeErrorReport.
-  let catalogIndex: CatalogIndexInfo | undefined;
+  let provenance: ReportProvenance = {};
 
   try {
     // Everything fallible lives in the try, so any failure still writes a results.json
@@ -813,7 +808,10 @@ async function main(): Promise<number> {
       tempDir,
       inputs,
     );
-    catalogIndex = materialized.catalogIndex;
+    provenance = {
+      workspace: materialized.workspace,
+      catalogIndex: materialized.catalogIndex,
+    };
     await installSource(root, materialized);
 
     const manifest = discoverPlugins(root);
@@ -952,7 +950,7 @@ async function main(): Promise<number> {
     return report.status === "pass" ? 0 : 1;
   } catch (err) {
     // e.g. the install CLI failing on a ref the probe let through — see writeErrorReport.
-    await writeErrorReport(out, cliVersion, errorMessage(err), catalogIndex);
+    await writeErrorReport(out, cliVersion, errorMessage(err), provenance);
     return 1;
   } finally {
     if (tempDir) await rm(tempDir, { recursive: true, force: true });

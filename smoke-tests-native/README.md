@@ -551,7 +551,11 @@ The harness also reproduces the parts of RHDH's backend loader that plugins depe
 - **Host plugins RHDH ships statically.** When a loaded module attaches to a plugin id
   nothing in the run provides, the harness adds a static copy for `auth`, `events` and
   `notifications` (`backendStart.hostPlugins`). Auth provider and webhook modules
-  otherwise fail on a missing extension point.
+  otherwise fail on a missing extension point. The static notifications copy brings
+  `@backstage/plugin-notifications-node` and `-common` into the harness's `node_modules`,
+  which RHDH's backend does not ship. An exported plugin that imports them without
+  embedding them now resolves them here and would fail in RHDH, so this harness no longer
+  catches that case.
 - **`core.dynamicplugins`.** The extensions plugins depend on it; the harness provides an
   empty implementation, since it loads plugins itself and has no manager to expose.
 - **Feature loaders are expanded before boot.** `startTestBackend` adds a placeholder
@@ -561,6 +565,9 @@ The harness also reproduces the parts of RHDH's backend loader that plugins depe
   `<x>` is installed when an in-scope module is named `<x>-module-*`
   (`workspace.hosts`). Scorecard's dev-preview modules attach to its tech-preview backend.
   The host is loaded and booted like any other ref, so a defect in it fails this run too.
+  Workspace mode does not probe refs the way catalog-index mode does, so a host the
+  install CLI refuses aborts the whole install; the `status: error` report still carries
+  `workspace.hosts`, so it shows that an out-of-tier ref was part of it.
   `workspace.hosts` lists npm package names; `backendStart.hostPlugins` lists plugin ids.
 
 ## Benchmark: native vs Docker (real run)

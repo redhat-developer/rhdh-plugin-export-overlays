@@ -219,6 +219,17 @@ export function collectWorkspaceRefs(
   const refs: string[] = [];
   const skipped: string[] = [];
   const excluded: ExclusionRecord[] = [];
+  // Records and logs the exclusion, so results.json shows why a package is missing.
+  const recordIfInstallExcluded = (pkg: PackageEntry): boolean => {
+    const exclusion = options.installExcluded?.(pkg.packageName);
+    if (!exclusion) return false;
+    excluded.push(exclusion);
+    console.warn(
+      `⚠ ${workspace}/${pkg.file}: '${pkg.packageName}' excluded from install ` +
+        `by ${exclusion.patternSource} (${exclusion.ticket})`,
+    );
+    return true;
+  };
   const frontendConfigKeys: ConfiguredFrontendKey[] = [];
   const outOfScopePackages: PackageEntry[] = [];
   const installed: PackageEntry[] = [];
@@ -228,15 +239,7 @@ export function collectWorkspaceRefs(
       outOfScopePackages.push(pkg);
       continue;
     }
-    const exclusion = options.installExcluded?.(pkg.packageName);
-    if (exclusion) {
-      excluded.push(exclusion);
-      console.warn(
-        `⚠ ${workspace}/${pkg.file}: '${pkg.packageName}' excluded from install ` +
-          `by ${exclusion.patternSource} (${exclusion.ticket})`,
-      );
-      continue;
-    }
+    if (recordIfInstallExcluded(pkg)) continue;
     if (pkg.artifact.startsWith("oci://")) {
       refs.push(pkg.artifact);
       installed.push(pkg);
@@ -276,7 +279,9 @@ export function collectWorkspaceRefs(
     (host) => {
       if (!host.artifact.startsWith("oci://") || refs.includes(host.artifact))
         return false;
-      return !options.installExcluded?.(host.packageName);
+      // Recorded like any other exclusion: without its host the module fails to boot,
+      // and the report must say what took the host out.
+      return !recordIfInstallExcluded(host);
     },
   );
   for (const host of hosts) {
