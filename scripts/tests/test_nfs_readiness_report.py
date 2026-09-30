@@ -62,17 +62,29 @@ def _metadata(package_name: str, role: str, artifact: str) -> str:
     )
 
 
-def _repo(tmp_path, packages):
+def _repo(tmp_path, packages, tier="community"):
     """Build a minimal REPO_ROOT the script can scan: the two tier files, one workspace.
 
     ``REPO_ROOT`` is the script's own documented seam, so the run stays hermetic — no
     network, and no dependence on how the real workspaces happen to be shaped today. The
     workspace deliberately has no ``source.json``, which is what keeps #3284's source
     inference from reaching out to raw.githubusercontent.com.
+
+    ``tier`` puts the whole workspace in one tier file, through the script's
+    per-workspace fallback. The report keeps only the supported and community tiers
+    (#3990, RHIDP-16853), so a fixture in neither file would be filtered out before any
+    assertion could see it. ``None`` leaves both files empty, which is the "other" tier.
     """
-    (tmp_path / "rhdh-supported-packages.txt").write_text("")
-    (tmp_path / "rhdh-community-packages.txt").write_text("")
-    meta = tmp_path / "workspaces" / "sample" / "metadata"
+    workspace = "sample"
+    # The fallback keys on the text before the first "/", so this must name the workspace.
+    entry = f"{workspace}/plugins/placeholder\n"
+    (tmp_path / "rhdh-supported-packages.txt").write_text(
+        entry if tier == "supported" else ""
+    )
+    (tmp_path / "rhdh-community-packages.txt").write_text(
+        entry if tier == "community" else ""
+    )
+    meta = tmp_path / "workspaces" / workspace / "metadata"
     meta.mkdir(parents=True)
     for name, role, artifact in packages:
         slug = name.replace("@", "").replace("/", "-")
@@ -209,6 +221,29 @@ class TestMarkdownOutput:
         count silently drops by one and the module's row silently vanishes.
         """
         stdout = _markdown(_repo(tmp_path, MIXED))
-        # With both tier files empty every package falls to the "other" tier.
-        assert "#### Other (0/2 frontend plugins NFS-ready — 0%)" in stdout
+        assert "#### Community (0/2 frontend plugins NFS-ready — 0%)" in stdout
         assert "| @scope/plugin-b | sample |" in stdout
+
+    @staticmethod
+    def test_supported_packages_get_their_own_table(tmp_path):
+        """A supported workspace is counted under its own header and under no other."""
+        stdout = _markdown(_repo(tmp_path, MIXED, tier="supported"))
+        assert (
+            "#### Red Hat Supported (GA + Tech Preview) "
+            "(0/2 frontend plugins NFS-ready — 0%)"
+        ) in stdout
+        assert "#### Community" not in stdout
+
+
+class TestTierFilter:
+    """#3990 (RHIDP-16853): packages in neither tier file are left out of the report."""
+
+    @staticmethod
+    def test_a_package_in_no_tier_file_is_not_reported(tmp_path):
+        """Both outputs read the filtered set, so the package vanishes from each."""
+        root = _repo(tmp_path, MIXED, tier=None)
+        assert _classified(root) == {}
+        stdout = _markdown(root)
+        assert "**Frontend plugins:** 0 total" in stdout
+        assert "#### Other" not in stdout
+        assert "@scope/plugin-b" not in stdout

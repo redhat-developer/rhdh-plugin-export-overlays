@@ -6,7 +6,6 @@ test.describe("Auth plugin", { tag: "@auth-tests" }, () => {
       auth: "guest",
       appConfig: "tests/config/auth/app-config-rhdh.yaml",
       dynamicPlugins: "tests/config/auth/dynamic-plugins.yaml",
-      useNewFrontendSystem: true,
     });
     await rhdh.deploy();
   });

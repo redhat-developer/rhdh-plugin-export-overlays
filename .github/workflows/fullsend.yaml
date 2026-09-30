@@ -21,8 +21,9 @@
 name: fullsend
 
 on:
-  # The E2E triage agent is the only issue-label auto-trigger. Keep the
-  # general issue opened/edited triggers disabled (see #3823).
+  # Trigger E2E triage on e2e-triage; trigger the coder only for
+  # ready-to-code issues that also carry e2e-failure.
+  # Keep general issue opened/edited triggers disabled (see #3823).
   issues:
     types: [labeled]
   issue_comment:
@@ -41,7 +42,9 @@ jobs:
        || (startsWith(github.event.comment.body, '/fs-')
            && github.event.comment.user.type != 'Bot'))
       && (github.event_name != 'issues'
-       || github.event.label.name == 'e2e-triage')
+       || github.event.label.name == 'e2e-triage'
+       || (github.event.label.name == 'ready-to-code'
+           && contains(github.event.issue.labels.*.name, 'e2e-failure')))
     permissions:
       actions: write
       id-token: write

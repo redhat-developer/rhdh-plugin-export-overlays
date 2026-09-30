@@ -1,14 +1,12 @@
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 
 /**
- * Orchestrator e2e: NFS only. The old frontend system is gone from RHDH;
- * `-app-next` makes e2e-test-utils merge NFS secrets and default app-auth /
- * app-integrations layers.
+ * Orchestrator E2E configuration using the current RHDH frontend.
  */
 export default defineConfig({
   projects: [
     {
-      name: "orchestrator-app-next",
+      name: "orchestrator",
     },
   ],
 });

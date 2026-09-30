@@ -110,7 +110,6 @@ test.describe("Notifications email processor", () => {
         dynamicPlugins: `${configBase}/dynamic-plugins.yaml`,
         secrets: `${configBase}/rhdh-secrets.yaml`,
         auth: "keycloak",
-        useNewFrontendSystem: true,
       });
       await rhdh.deploy();
     });

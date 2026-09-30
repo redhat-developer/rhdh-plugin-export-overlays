@@ -5,16 +5,15 @@
 #   agent       : reads the PR's current check rollup, diagnoses each red
 #                 curated check (Prow e2e via skills, GH Actions via run logs),
 #                 classifies (pr_regression / flake / pre_existing / ...),
-#                 and renders the sticky PR comment body.
-#   post_script : upserts ONE sticky comment on the PR (edit-in-place via a
-#                 hidden marker), so re-runs update rather than spam. For
+#                 and renders the diagnosis body.
+#   post_script : posts a fresh diagnosis comment for each completed run. For
 #                 bot-authored same-repo PRs with pr_regression findings it
 #                 also submits CHANGES_REQUESTED as this review App, which is
 #                 the built-in bot→fix on-ramp in reusable-dispatch.yml.
 #
 # The ci-diagnose agent does NOT modify code, push branches, or create PRs.
-# It only reads CI artifacts/logs and writes a diagnostic comment. The
-# post-script is the only GitHub writer (sticky comment + optional review).
+# It only reads CI artifacts/logs and renders a diagnostic body. The
+# post-script posts that body and may submit the optional review hand-off.
 #
 # Trigger: either (a) a `ci-diagnose` label applied by the bootstrap workflow
 # (.github/workflows/ci-diagnose-agent.yaml), which reacts to CI-completion
@@ -25,6 +24,16 @@ agent: rhdh/agents/ci-diagnose.md
 model: opus
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/ci-diagnose.yaml
+
+# The SSRF pre-tool hook resolves DNS itself before allowing an outbound
+# request; the sandbox relies on an L7 egress proxy for real resolution, so
+# that in-sandbox lookup can fail even for hosts the network policy already
+# allowlists. On DNS failure the hook only defers to the proxy if the host
+# is also listed here — otherwise it fails closed (fullsend #6582/#6586).
+# Mirror every host in policies/ci-diagnose.yaml's prow_artifacts block.
+security:
+  sandbox_hooks:
+    ssrf_egress_allowlist: "storage.googleapis.com:443,prow.ci.openshift.org:443,gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com:443"
 
 role: review
 slug: fullsend-ai-review

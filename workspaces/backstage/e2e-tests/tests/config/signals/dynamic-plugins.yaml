@@ -3,10 +3,10 @@
 # test does not supply.
 plugins:
   - package: ./dynamic-plugins/dist/backstage-plugin-signals
-    disabled: false
+    enabled: true
     pluginConfig:
       dynamicPlugins:
         frontend:
           backstage.plugin-signals: {}
   - package: ./dynamic-plugins/dist/backstage-plugin-signals-backend-dynamic
-    disabled: false
+    enabled: true

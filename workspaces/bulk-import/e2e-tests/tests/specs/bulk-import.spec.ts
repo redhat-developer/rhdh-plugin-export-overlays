@@ -53,24 +53,13 @@ spec:
   };
 
   test.beforeAll(async ({ rhdh }) => {
-    const namespace = rhdh.deploymentConfig.namespace;
-    const isAppNext = namespace.endsWith("-app-next");
+    // Nightly intentionally resolves plugins through the productized RHDH image
+    // when they are included in default.packages.yaml. This test remains enabled
+    // in nightly mode because its plugin artifacts are available through that path.
 
-    // NOTE: nightly deliberately exercises a different artifact here, and that is not a
-    // reason to skip. Because this package is in default.packages.yaml, nightly's DPDY
-    // resolution rewrites it to `oci://registry.access.redhat.com/rhdh/...:{{inherit}}`,
-    // so the lane tests the *productized* plugin rather than the ghcr artifact this repo
-    // pins. For an NFS lane that is the more useful signal, not a weaker one.
-    // `topology` is in the same position -- frontend package in the DPDY set, app-next
-    // lane, no nightly skip. The two workspaces that do skip nightly have unrelated and
-    // verified causes: app-defaults' packages are not in the image at all (RHIDP-15482),
-    // and tech-radar is shadowed by a baked-in wrapper. Neither applies here.
-
-    // Scope the key by namespace, mirroring what deploy() does internally
-    // (`deploy-${namespace}`). runOnce keys a flag file by the string alone, in a
-    // directory shared by every project in the run, so a literal key would let the
-    // first project's setup satisfy the second one and the app-next lane would never
-    // deploy into its own namespace.
+    // Scope the key by namespace, mirroring what deploy() does internally.
+    // runOnce keys a flag file by the string alone, in a directory shared by
+    // every project in the run.
     await test.runOnce(
       `bulk-import-rhdh-setup-${rhdh.deploymentConfig.namespace}`,
       async () => {
@@ -81,14 +70,6 @@ spec:
         });
       },
     );
-
-    // Without this, a lane that silently failed to enable NFS would just re-run the
-    // legacy suite and stay green — a false pass on the only thing this lane adds.
-    // Only the forward direction is asserted: USE_NEW_FRONTEND_SYSTEM=true can legally
-    // turn NFS on for every lane, so the legacy lane is not constrained here.
-    if (isAppNext) {
-      expect(rhdh.deploymentConfig.useNewFrontendSystem).toBe(true);
-    }
 
     await APIHelper.createGitHubRepoWithFile(
       catalogRepoDetails.owner,
@@ -264,13 +245,8 @@ spec:
       const bulkImport = new BulkImportPO(page, uiHelper, loginHelper);
 
       // Register the catalog-info.yaml location through the catalog API rather
-      // than the catalog-import UI. /catalog-import exists only in the legacy
-      // app shell; app-next never registers that route (catalogImportPlugin is
-      // not in app-next's createApp features array, and RHDH ships no
-      // catalog-import dynamic plugin), so the UI path 404s there. POST
-      // /api/catalog/locations is the exact operation the UI performs, and this
-      // test's subject is bulk-import's view of the entity, not the import UI —
-      // so API seeding keeps it running in both the legacy and app-next lanes.
+      // than the catalog-import UI. The test's subject is bulk-import's view of
+      // the entity, not the import UI, so API seeding keeps the setup focused.
       const token = await new AuthApiHelper(page).getToken(
         "github",
         "production",

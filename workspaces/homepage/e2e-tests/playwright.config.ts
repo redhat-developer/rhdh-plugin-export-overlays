@@ -2,7 +2,7 @@ import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-c
 
 /**
  * Homepage plugin e2e — single project running the NFS (Backstage app) shell.
- * The spec enables NFS via `useNewFrontendSystem: true` in `rhdh.configure()`.
+ * The spec uses the current RHDH frontend configuration.
  */
 export default defineConfig({
   projects: [

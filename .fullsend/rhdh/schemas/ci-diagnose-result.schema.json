@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "ci-diagnose-result.schema.json",
   "title": "CI Diagnose Agent Result",
-  "description": "Structured output from the ci-diagnose agent. Diagnoses failing PR checks (GitHub Actions + OpenShift CI/Prow), classifies each, and renders the sticky PR comment the post-script upserts.",
+  "description": "Structured output from the ci-diagnose agent. Diagnoses failing PR checks (GitHub Actions + OpenShift CI/Prow), classifies each, and renders the diagnosis body that the post-script posts as a fresh PR comment.",
   "type": "object",
   "additionalProperties": false,
   "required": ["pr_number", "head_sha", "verdict", "summary", "checks", "comment_body"],
@@ -40,7 +40,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 65536,
-      "description": "Fully rendered markdown for the sticky PR comment. MUST contain the sticky marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
+      "description": "Fully rendered markdown for a fresh diagnosis PR comment. MUST contain the diagnosis marker '<!-- ci-diagnose -->' and the state marker '<!-- ci-diagnose-state: {\"sha\":...,\"red\":[...]} -->' so the bootstrap can dedup. The post-script reads agent-result.json (not this body) to decide whether to request-changes. pre_existing checks must name any related open PRs in the human-readable body."
     }
   },
   "$defs": {
@@ -107,10 +107,46 @@
               "title": {
                 "type": "string",
                 "maxLength": 256
+              },
+              "base_branch": {
+                "type": "string",
+                "maxLength": 128,
+                "description": "The base branch the related PR targets (e.g. 'main', 'release-1.10'). Used to flag when a fix exists but targets a different branch."
               }
             }
           },
           "description": "Open PRs other than the diagnosed PR that appear to already address this failure. Any author (human or bot). Populate for pre_existing after searching open PRs; omit the key when none found (do not emit an empty array)."
+        },
+        "related_issues": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["number", "url"],
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "url": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "labels": {
+                "type": "array",
+                "maxItems": 10,
+                "items": { "type": "string", "maxLength": 64 },
+                "description": "Labels on the issue (e.g. 'e2e-failure'). Helps the reader gauge triage status."
+              }
+            }
+          },
+          "description": "Open issues updated within the last 15 days that track the same failure. Typically '[fullsend] E2E:' tracking issues created by nightly triage. Populate for pre_existing after searching recent open issues; omit the key when none found (do not emit an empty array)."
         }
       },
       "allOf": [

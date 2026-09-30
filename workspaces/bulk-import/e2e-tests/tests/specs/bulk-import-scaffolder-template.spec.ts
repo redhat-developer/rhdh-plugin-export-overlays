@@ -7,7 +7,10 @@ import {
   defaultGitHubRepositoryParameters,
   defaultGitLabRepositoryParameters,
 } from "../../support/test-data/template-repository-data";
-import { fillFormFields } from "../../support/utils/fill-template-form";
+import {
+  chooseScaffolderTemplate,
+  fillFormFields,
+} from "../../support/utils/fill-template-form";
 import { signInForScaffolderTemplateTests } from "../../support/utils/auth";
 
 test.describe.serial("Bulk Import via Scaffolder Template", () => {
@@ -67,7 +70,7 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
   }) => {
     // templates list
     await uiHelper.verifyHeading("Templates");
-    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await chooseScaffolderTemplate(page, SCAFFOLDER_TEMPLATE_HEADING);
 
     // template detail page
     await expect(page.getByText(SCAFFOLDER_TEMPLATE_HEADING)).toBeVisible();
@@ -81,7 +84,8 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
     page,
     uiHelper,
   }) => {
-    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.verifyHeading("Templates");
+    await chooseScaffolderTemplate(page, SCAFFOLDER_TEMPLATE_HEADING);
     await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
 
     // Repository Details screen
@@ -128,7 +132,8 @@ test.describe.serial("Bulk Import via Scaffolder Template", () => {
   });
 
   test("GitLab form renders correctly", async ({ page, uiHelper }) => {
-    await uiHelper.clickBtnInCard(SCAFFOLDER_TEMPLATE_HEADING, "Choose");
+    await uiHelper.verifyHeading("Templates");
+    await chooseScaffolderTemplate(page, SCAFFOLDER_TEMPLATE_HEADING);
     await uiHelper.waitForTitle(SCAFFOLDER_TEMPLATE_HEADING, 2);
 
     // Repository Details screen

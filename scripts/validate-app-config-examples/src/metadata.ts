@@ -13,7 +13,7 @@
 
 import { readFile } from "node:fs/promises";
 import { parse as parseYaml } from "yaml";
-import { errorProperty, isPlainObject } from "./json.js";
+import { errorProperty, isPlainObject } from "./json.ts";
 
 export type Status = "PASS" | "FAIL" | "SKIP";
 
@@ -53,7 +53,7 @@ export function evaluateDocument(text: string): StructuralResult {
   } catch (error) {
     // Parse errors carry a multi-line caret frame; the table has one line per
     // file, so keep the headline only.
-    const headline = String(error).split("\n")[0].trim();
+    const headline = String(error).split("\n").at(0)?.trim();
     return { status: "FAIL", detail: `YAML error: ${headline}` };
   }
 
@@ -82,8 +82,7 @@ export function evaluateDocument(text: string): StructuralResult {
       ? { status: "PASS", detail: "opt-out (appConfigNotRequired)", doc }
       : {
           status: "FAIL",
-          detail:
-            "empty appConfigExamples without spec.appConfigNotRequired: true",
+          detail: "empty appConfigExamples without spec.appConfigNotRequired: true",
           doc,
         };
   }
@@ -119,7 +118,7 @@ export async function evaluateFile(path: string): Promise<StructuralResult> {
     if (errorProperty(error, "code") === "ENOENT") {
       return { status: "SKIP", detail: "file not present in the working tree" };
     }
-    return { status: "FAIL", detail: `YAML error: ${error}` };
+    return { status: "FAIL", detail: `YAML error: ${String(error)}` };
   }
   return evaluateDocument(text);
 }
