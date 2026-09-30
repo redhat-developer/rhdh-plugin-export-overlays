@@ -8,6 +8,10 @@ catalog:
     - type: url
       target: https://github.com/redhat-developer/rhdh/blob/main/catalog-entities/all.yaml
 
+app:
+  extensions:
+    - addon:techdocs/report-issue
+
 integrations:
   github:
     - host: github.com
