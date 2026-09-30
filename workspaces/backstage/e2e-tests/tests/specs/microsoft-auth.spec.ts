@@ -202,6 +202,10 @@ test.describe(
     }
 
     test("Ingestion of Microsoft users and groups", async () => {
+      test.skip(
+        !!process.env.E2E_NIGHTLY_MODE,
+        "RHDH backend rejects static bearer token with 401 (externalAccess type:static)",
+      );
       test.setTimeout(300_000);
 
       await expect
