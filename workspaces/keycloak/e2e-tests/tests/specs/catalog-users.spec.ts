@@ -15,6 +15,11 @@ import {
 import { CatalogUsersPO } from "../support/page-objects/catalog-users-obj";
 
 test.describe("Test Keycloak plugin", () => {
+  test.skip(
+    !!process.env.E2E_NIGHTLY_MODE,
+    "RHDH frontend token decode failure after OIDC popup auth",
+  );
+
   let keycloakHelper: KeycloakHelper;
   let keycloakRealm: string;
 
