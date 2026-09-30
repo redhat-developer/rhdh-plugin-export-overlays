@@ -37,7 +37,7 @@ test.describe("Theme Plugin tests", () => {
 
   test("Verify that RHDH CompanyLogo is theme-aware", async ({ page }) => {
     await themeVerifier.setTheme("Light");
-    const logo = page.getByTestId("home-logo");
+    const logo = page.locator("nav").getByTestId("home-logo").first();
     await expect(logo).toBeVisible();
     await expect(logo).toHaveAttribute("src", /^data:image\/svg\+xml/);
     const lightSrc = await logo.evaluate((el) => (el as HTMLImageElement).src);
@@ -48,10 +48,9 @@ test.describe("Theme Plugin tests", () => {
   });
 
   test("Verify logo link", async ({ page }) => {
-    await expect(
-      page.getByTestId("global-header-company-logo").locator("a"),
-    ).toHaveAttribute("href", "/");
-    await page.getByTestId("global-header-company-logo").click();
+    const homeLink = page.locator('a[aria-label="Home"]').first();
+    await expect(homeLink).toHaveAttribute("href", "/");
+    await homeLink.click();
     await expect(page).toHaveURL("/");
   });
 
