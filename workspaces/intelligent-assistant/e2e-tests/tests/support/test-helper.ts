@@ -39,7 +39,7 @@ function lightspeedDeployConfig() {
 
 async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   const ns = rhdh.deploymentConfig.namespace;
-  const cm = "redhat-developer-hub-lightspeed-config";
+  const cm = "redhat-developer-hub-ia-stack";
   const models = yaml.load(
     fs.readFileSync("tests/config/openai-allowed-models.yaml", "utf8"),
   ) as Record<string, string[]>;
@@ -50,16 +50,18 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   })`oc get configmap ${cm} -n ${ns} -o json`;
   const configYaml = (
     JSON.parse(result.stdout) as { data?: Record<string, string> }
-  ).data?.["config.yaml"];
+  ).data?.["lightspeed-stack.yaml"];
   if (!configYaml) {
-    throw new Error(`ConfigMap ${cm} has no config.yaml data key`);
+    throw new Error(`ConfigMap ${cm} has no lightspeed-stack.yaml data key`);
   }
   const config = yaml.load(configYaml) as {
     providers?: { inference?: Record<string, unknown>[] };
   };
   const inference = config.providers?.inference;
   if (!inference) {
-    throw new Error(`ConfigMap ${cm} config.yaml has no providers.inference`);
+    throw new Error(
+      `ConfigMap ${cm} lightspeed-stack.yaml has no providers.inference`,
+    );
   }
   const openai = inference.find((p) => p.provider_type === "remote::openai") as
     | { config: Record<string, unknown> }
@@ -76,7 +78,12 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
   openai.config.allowed_models = allowedModels;
   const tmp = path.join(os.tmpdir(), `${ns}-llama-stack-config.yaml`);
   fs.writeFileSync(tmp, yaml.dump(config));
-  await rhdh.k8sClient.createOrUpdateConfigMap(cm, ns, tmp, "config.yaml");
+  await rhdh.k8sClient.createOrUpdateConfigMap(
+    cm,
+    ns,
+    tmp,
+    "lightspeed-stack.yaml",
+  );
   await $`oc rollout restart deployment/redhat-developer-hub -n ${ns}`;
   // waitUntilReady() only checks that currently-existing pods are Ready, which is
   // trivially true while the old pod is still serving. Gate on the rollout itself:
