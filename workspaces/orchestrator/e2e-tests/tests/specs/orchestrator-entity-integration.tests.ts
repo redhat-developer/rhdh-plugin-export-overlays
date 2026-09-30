@@ -62,6 +62,12 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
+      // entity tab click reloads / forces re-auth
+      // https://redhat.atlassian.net/browse/RHDHBUGS-3842
+      test.skip(
+        true,
+        "RHDHBUGS-3842: entity Workflows tab reload/sign-in",
+      );
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
       await expect(
@@ -100,6 +106,12 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
+      // entity tab click reloads / forces re-auth
+      // https://redhat.atlassian.net/browse/RHDHBUGS-3842
+      test.skip(
+        true,
+        "RHDHBUGS-3842: entity Workflows tab reload/sign-in",
+      );
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
@@ -145,6 +157,12 @@ export function registerEntityWorkflowIntegrationTests(
       page,
       uiHelper,
     }) => {
+      // entity tab click reloads / forces re-auth
+      // https://redhat.atlassian.net/browse/RHDHBUGS-3842
+      test.skip(
+        true,
+        "RHDHBUGS-3842: entity Workflows tab reload/sign-in",
+      );
       const orchestratorPo = createOrchestratorPO(page, uiHelper);
       await orchestratorPo.openGreetingTemplateFromCatalog("My Org Catalog");
 
