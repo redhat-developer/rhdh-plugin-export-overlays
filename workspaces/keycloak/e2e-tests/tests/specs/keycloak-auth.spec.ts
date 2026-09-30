@@ -196,8 +196,6 @@ test.describe("Keycloak auth provider", () => {
     const { username, password, displayName } = KEYCLOAK_AUTH_USERS.test1;
     await loginHelper.loginAsKeycloakUser(username, password);
     await expectProfile(page, uiHelper, displayName);
-    await page.goto("/settings");
-    await uiHelper.waitForLoad();
     await loginHelper.signOut();
   });
 
