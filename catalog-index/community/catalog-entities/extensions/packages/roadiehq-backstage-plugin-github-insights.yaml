@@ -17,7 +17,7 @@ metadata:
 spec:
   packageName: "@roadiehq/backstage-plugin-github-insights"
   # Tag: bs_1.54.6__3.5.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights@sha256:479bc538b78de150e773eb2ea0503b66561761a1f8cf08bf766d181994b61afa"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/roadiehq-backstage-plugin-github-insights@sha256:6e5577c0f20ae1fb3aaf3af725f613e6cb3ddc8f33f0703e2f3967afed888141"
   version: 3.5.0
   backstage:
     role: frontend-plugin

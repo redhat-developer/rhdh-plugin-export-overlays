@@ -1,15 +1,13 @@
 {
   "red-hat-developer-hub-backstage-plugin-extensions": {
     "workspacePath": "extensions/plugins/catalog-backend-module-extensions",
-    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions:bs_1.54.6__0.20.0",
-    "fallback": true,
-    "requestedTag": "bs_1.54.6__1.0.1",
-    "digest": "sha256:20b53f0f968cb07fbe655a9466d91eea2963de22643df0da26b9cdd97de74e3b",
+    "registryReference": "ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions:bs_1.54.6__1.0.1",
+    "digest": "sha256:39a91a01b7e8c13bf29e7f6fe92d72098a0121eba05e972cbef8c3baa9967853",
     "build-date": "2026-06-03T21:08:05Z",
     "upstream": "https://github.com/redhat-developer/rhdh-plugin-export-overlays/tree/main @ 710868b6ee9c4a596c5e3b5b5988193f2b8873ec",
     "midstream": "https://gitlab.cee.redhat.com/rhidp/rhdh-plugin-catalog/-/commits/rhdh-1-rhel-9",
     "vcs-ref": "a5810e3bb32611f68947ef4262ed1e6300cac96e",
     "support": "tech-preview",
-    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tZXh0ZW5zaW9ucyI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWV4dGVuc2lvbnMtZHluYW1pYyIsInZlcnNpb24iOiIwLjIwLjAiLCJiYWNrc3RhZ2UiOnsicm9sZSI6ImZyb250ZW5kLXBsdWdpbiIsInBsdWdpbklkIjoiZXh0ZW5zaW9ucyIsInBsdWdpblBhY2thZ2VzIjpbIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1leHRlbnNpb25zIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWV4dGVuc2lvbnMtYmFja2VuZCIsIkByZWQtaGF0LWRldmVsb3Blci1odWIvYmFja3N0YWdlLXBsdWdpbi1leHRlbnNpb25zLWNvbW1vbiJdLCJmZWF0dXJlcyI6eyIuL2FscGhhIjoiQGJhY2tzdGFnZS9Gcm9udGVuZFBsdWdpbiIsIi4vZXh0ZW5zaW9ucy10cmFuc2xhdGlvbnMtbW9kdWxlIjoiQGJhY2tzdGFnZS9Gcm9udGVuZE1vZHVsZSJ9LCJzdXBwb3J0ZWQtdmVyc2lvbnMiOiIxLjU0LjYifSwicmVwb3NpdG9yeSI6eyJ0eXBlIjoiZ2l0IiwidXJsIjoiaHR0cHM6Ly9naXRodWIuY29tL3JlZGhhdC1kZXZlbG9wZXIvcmhkaC1wbHVnaW5zIiwiZGlyZWN0b3J5Ijoid29ya3NwYWNlcy9leHRlbnNpb25zL3BsdWdpbnMvZXh0ZW5zaW9ucyJ9LCJsaWNlbnNlIjoiQXBhY2hlLTIuMCJ9fV0="
+    "io.backstage.dynamic-packages": "W3sicmVkLWhhdC1kZXZlbG9wZXItaHViLWJhY2tzdGFnZS1wbHVnaW4tZXh0ZW5zaW9ucyI6eyJuYW1lIjoiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWV4dGVuc2lvbnMtZHluYW1pYyIsInZlcnNpb24iOiIxLjAuMSIsImJhY2tzdGFnZSI6eyJyb2xlIjoiZnJvbnRlbmQtcGx1Z2luIiwicGx1Z2luSWQiOiJleHRlbnNpb25zIiwicGx1Z2luUGFja2FnZXMiOlsiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWV4dGVuc2lvbnMiLCJAcmVkLWhhdC1kZXZlbG9wZXItaHViL2JhY2tzdGFnZS1wbHVnaW4tZXh0ZW5zaW9ucy1iYWNrZW5kIiwiQHJlZC1oYXQtZGV2ZWxvcGVyLWh1Yi9iYWNrc3RhZ2UtcGx1Z2luLWV4dGVuc2lvbnMtY29tbW9uIl0sImZlYXR1cmVzIjp7Ii4iOiJAYmFja3N0YWdlL0Zyb250ZW5kUGx1Z2luIiwiLi90cmFuc2xhdGlvbnMiOiJAYmFja3N0YWdlL0Zyb250ZW5kTW9kdWxlIn0sInN1cHBvcnRlZC12ZXJzaW9ucyI6IjEuNTQuNiJ9LCJyZXBvc2l0b3J5Ijp7InR5cGUiOiJnaXQiLCJ1cmwiOiJodHRwczovL2dpdGh1Yi5jb20vcmVkaGF0LWRldmVsb3Blci9yaGRoLXBsdWdpbnMiLCJkaXJlY3RvcnkiOiJ3b3Jrc3BhY2VzL2V4dGVuc2lvbnMvcGx1Z2lucy9leHRlbnNpb25zIn0sImxpY2Vuc2UiOiJBcGFjaGUtMi4wIn19XQ=="
   }
 }

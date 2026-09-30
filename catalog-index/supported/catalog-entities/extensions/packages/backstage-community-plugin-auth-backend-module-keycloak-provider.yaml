@@ -18,7 +18,7 @@ metadata:
 spec:
   packageName: "@backstage-community/plugin-auth-backend-module-keycloak-provider"
   # Tag: bs_1.54.6__0.6.0
-  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:7ebc0299fbd70d59dfedfb9b40a1069eed80447467d70e42dca1a9024432a062"
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider@sha256:58d18d563eea88c0fa035c924774500447d3f318bbc4bafe0f26a6c62dd35346"
   version: 0.6.0
   backstage:
     role: backend-plugin-module
