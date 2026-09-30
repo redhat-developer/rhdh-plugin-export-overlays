@@ -572,9 +572,11 @@ test("bootFeatureList registers loader services before a loader that depends on 
       });
     },
   });
+  let received: { id: string } | undefined;
   const dependent = createBackendFeatureLoader({
     deps: { svc: ref },
-    *loader() {
+    *loader({ svc }) {
+      received = svc;
       yield catalogLike;
     },
   });
@@ -583,6 +585,9 @@ test("bootFeatureList registers loader services before a loader that depends on 
     features: bootFeatureList(expanded, { head: [], tail: [] }),
   });
   await backend.stop();
+  // The boot succeeding is not enough on its own: the dependent loader has to have been
+  // handed the service the other loader provided.
+  assert.deepEqual(received, { id: "x" });
 });
 
 test("a failing loader is reported with its description", async () => {
