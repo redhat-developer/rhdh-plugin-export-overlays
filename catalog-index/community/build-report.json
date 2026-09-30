@@ -230,7 +230,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:129b8b365fef2aaafef139d2e1e83fb2e60bf9d49143890d0d1e036781d74b46"
+          "digest": "sha256:057f704044f8f6511ea0b95b138ad86de85c769ed79fc34608facbe9205e3bd8"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-bitbucket-server",
@@ -256,7 +256,7 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:60a183f86ae6223e2a0c4030651be35f16cfee40be017f9449187cd551b94a7e"
+          "digest": "sha256:d3cb38b3857f13fe1eea262a3b6614feb39e3cbb92ee8407d80c7a46eb8b447e"
         }
       },
       "package": "@backstage/plugin-scaffolder-backend-module-gerrit",
@@ -902,7 +902,10 @@
         },
         "image-metadata-fetch": {
           "status": "pass",
-          "digest": "sha256:cc5ac4771b682cf36dde7f295cdf009b9ce5a71ad1715c7dbb9477bad61b5294"
+          "digest": "sha256:cc5ac4771b682cf36dde7f295cdf009b9ce5a71ad1715c7dbb9477bad61b5294",
+          "fallback": true,
+          "requestedTag": "bs_1.54.6__1.28.1",
+          "resolvedTag": "bs_1.54.6__1.28.0"
         },
         "dpdy": {
           "status": "skip"
