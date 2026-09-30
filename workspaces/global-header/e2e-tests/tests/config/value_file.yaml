@@ -1,4 +1,5 @@
 # Static external token for /api/notifications (Helm-injected appConfig).
+# Mirrors PR #2050 notifications e2e.
 appConfig:
   backend:
     auth:
