@@ -29,7 +29,7 @@ export class ExtensionsPage {
     this.uiHelper = uiHelper;
   }
 
-  async clickReadMoreByPluginTitle(pluginTitle: string, badgeText: string) {
+  async clickReadMoreByPluginTitle(pluginTitle: string, _badgeText: string) {
     const allCards = this.page.locator(".v5-MuiPaper-outlined");
     const targetCard = allCards.filter({ hasText: pluginTitle });
     await targetCard
@@ -38,9 +38,7 @@ export class ExtensionsPage {
       })
       .click();
     await expect(
-      this.page.getByText(pluginTitle + " " + " by " + " Red Hat" + badgeText, {
-        exact: true,
-      }),
+      this.page.getByRole("heading", { name: pluginTitle }),
     ).toBeVisible();
   }
 

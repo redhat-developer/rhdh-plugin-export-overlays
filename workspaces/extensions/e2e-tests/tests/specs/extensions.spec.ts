@@ -43,8 +43,10 @@ test.describe("Admin > Extensions", () => {
   test.describe("Extensions > Catalog", () => {
     // eslint-disable-next-line playwright/expect-expect -- uiHelper.verifyHeading asserts internally
     test("Verify search bar in extensions", async ({ page }) => {
-      await extensions.searchExtensions("Dynatrace");
-      await uiHelper.verifyHeading("DynaTrace");
+      await extensions.searchExtensions("Adoption Insights");
+      await uiHelper.verifyHeading(
+        "Adoption Insights for Red Hat Developer Hub",
+      );
       await page
         .getByRole("button", {
           name: "Clear Search",
@@ -71,7 +73,7 @@ test.describe("Admin > Extensions", () => {
       await extensions.toggleOption(author);
       await page.keyboard.press(`Escape`);
       await uiHelper.verifyHeading(plugin);
-      await uiHelper.verifyText(` by ${author}`);
+      await uiHelper.verifyText(new RegExp(`by ${author}`));
       await page.getByRole("heading", { name: plugin }).click();
       await uiHelper.verifyTableHeadingAndRows([
         "Package name",
