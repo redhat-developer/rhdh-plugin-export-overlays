@@ -55,15 +55,15 @@ async function patchOpenAiAllowedModels(rhdh: RHDHDeployment): Promise<void> {
     throw new Error(`ConfigMap ${cm} has no lightspeed-stack.yaml data key`);
   }
   const config = yaml.load(configYaml) as {
-    providers?: { inference?: Record<string, unknown>[] };
+    inference?: { providers?: Record<string, unknown>[] };
   };
-  const inference = config.providers?.inference;
+  const inference = config.inference?.providers;
   if (!inference) {
     throw new Error(
-      `ConfigMap ${cm} lightspeed-stack.yaml has no providers.inference`,
+      `ConfigMap ${cm} lightspeed-stack.yaml has no inference.providers`,
     );
   }
-  const openai = inference.find((p) => p.provider_type === "remote::openai") as
+  const openai = inference.find((p) => p.type === "remote::openai") as
     | { config: Record<string, unknown> }
     | undefined;
   if (!openai)
