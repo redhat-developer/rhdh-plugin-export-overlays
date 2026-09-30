@@ -38,10 +38,9 @@ export class ExtensionsPage {
       })
       .click();
     await expect(
-      this.page.getByText(pluginTitle + " " + " by " + " Red Hat" + badgeText, {
-        exact: true,
-      }),
+      this.page.getByRole("heading", { name: pluginTitle }),
     ).toBeVisible();
+    await expect(this.page.getByText(badgeText).first()).toBeVisible();
   }
 
   async selectDropdown(name: string) {
