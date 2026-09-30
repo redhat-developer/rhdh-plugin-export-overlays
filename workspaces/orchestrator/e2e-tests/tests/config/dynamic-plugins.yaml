@@ -8,9 +8,11 @@
 # enabled: true, uncommenting workflowLogProvider in app-config-rhdh.yaml,
 # and restoring configureOrchestratorLoki() in orchestrator.spec.ts.
 #
-# Frontend pluginConfig must be explicit here: entityTabs alone leave an empty
-# Workflows tab unless mountPoints use IsOrchestratorCatalogTabAvailable
-# (hasAnnotation in metadata is not enough for the catalog card mount).
+# Frontend pluginConfig must be explicit here to override metadata injection:
+# the metadata mountPoints include an `if.anyOf: [IsOrchestratorCatalogTabAvailable]`
+# predicate that is not exported from `module: Legacy`, leaving the entity tab
+# card empty. The explicit config below omits the predicate so the card always
+# renders on the Workflows entity tab (the entityTab itself is unconditional).
 plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-auth-backend-module-keycloak-provider:bs_1.52.0__0.4.0
     enabled: true
@@ -53,9 +55,6 @@ plugins:
                 config:
                   layout:
                     gridColumn: 1 / -1
-                  if:
-                    anyOf:
-                      - IsOrchestratorCatalogTabAvailable
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-dynamic
     enabled: true
   - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-orchestrator-backend-module-loki-dynamic
