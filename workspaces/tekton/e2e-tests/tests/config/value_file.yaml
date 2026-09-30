@@ -10,10 +10,10 @@ global:
   security:
     allowInsecureImages: true
 
-upstream:
-  # Run the hub as the namespace default SA so the in-cluster token matches RBAC
-  serviceAccount:
-    create: false
-    name: default
-  commonLabels:
-    backstage.io/kubernetes-id: developer-hub
+# Chart 2.y ignores upstream.* for these keys — keep at root so the Tekton tab
+# condition (commonLabels) and operator RBAC (default SA) apply.
+serviceAccount:
+  create: false
+  name: default
+commonLabels:
+  backstage.io/kubernetes-id: developer-hub
