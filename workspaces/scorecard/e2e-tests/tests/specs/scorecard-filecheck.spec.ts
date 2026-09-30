@@ -9,6 +9,11 @@ import {
 } from "../utils/setup";
 import { FILECHECK_METRICS } from "../utils/scorecard";
 
+test.skip(
+  !!process.env.E2E_NIGHTLY_MODE,
+  "scorecard OCI image missing dynamic-packages annotation (quay.io)",
+);
+
 test.describe.serial("Scorecard Filecheck Tests", () => {
   let context: BrowserContext | undefined;
   let catalog: CatalogPage;
