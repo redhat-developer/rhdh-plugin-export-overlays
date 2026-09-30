@@ -104,7 +104,8 @@ async function assertRbacScenario(
   scenario: RbacScenario,
 ): Promise<void> {
   const orchestratorPo = createOrchestratorPO(page, uiHelper);
-  await page.reload();
+  await page.goto("/");
+  await page.waitForLoadState("domcontentloaded");
   await orchestratorPo.openWorkflowsPage();
 
   if (!scenario.expectWorkflowVisible) {
