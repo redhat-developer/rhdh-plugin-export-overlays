@@ -52,7 +52,7 @@ test.describe("Theme Plugin tests", () => {
     const link = page
       .getByTestId("sidebar-root")
       .getByRole("link")
-      .filter({ has: logo });
+      .filter({ has: logo, visible: true });
     await expect(link).toHaveAttribute("href", "/");
     await logo.click();
     await expect(page).toHaveURL("/");
