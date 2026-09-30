@@ -20,7 +20,10 @@ import {
   selectEnableScreenContext,
   verifyEnableScreenContextOption,
 } from "../support/screen-context";
-import { ensureLightspeedDeployment } from "../support/test-helper";
+import {
+  ensureLightspeedDeployment,
+  gotoCatalogAuthenticated,
+} from "../support/test-helper";
 
 /**
  * Basic screen-context checks ported from
@@ -41,13 +44,18 @@ test.describe("Intelligent assistant screen context", () => {
     });
     page = await context.newPage();
     await new LoginHelper(page).loginAsKeycloakUser();
+
+    const hideButton = page.getByRole("button", { name: "Hide" });
+    if (await hideButton.isVisible()) {
+      await hideButton.click();
+    }
   });
 
   test.beforeEach(async () => {
-    await page.goto("/catalog");
+    await gotoCatalogAuthenticated(page);
     await expectRhdhContentVisible(page);
     const chatbot = page.getByLabel("Chatbot", { exact: true });
-    if (!(await chatbot.isVisible().catch(() => false))) {
+    if (!(await chatbot.isVisible())) {
       await openChatbot(page);
     }
     await expect(chatbot).toBeVisible({ timeout: 30_000 });
