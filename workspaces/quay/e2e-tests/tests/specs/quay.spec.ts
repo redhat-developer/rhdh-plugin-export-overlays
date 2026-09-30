@@ -62,9 +62,10 @@ test.describe("Test Quay.io plugin", () => {
     const quayClient = new QuayClient();
 
     test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.clickButton("Self-service");
-      await uiHelper.verifyHeading("Self-service");
+      // Prefer /create — Self-service was renamed to Create (RHDHBUGS-3676);
+      // clickButton("Self-service") looks for a button, but the control is a link.
+      await uiHelper.goToPageUrl("/create");
+      await uiHelper.verifyHeading(/^(Create|Templates|Self-service)$/);
     });
 
     test.afterEach(async () => {
