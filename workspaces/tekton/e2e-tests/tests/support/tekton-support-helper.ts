@@ -17,11 +17,18 @@ export class TektonSupportHelper {
   }
 
   async clickTab(tabName: string): Promise<void> {
+    // NFS entity content is under a group menu (argocd #3478 pattern).
+    // Tekton is registered with group "deployment", title "Tekton".
+    if (tabName === "Tekton") {
+      await this.uiHelper.clickButtonByLabel("Deployment");
+      await this.page.getByRole("menuitemradio", { name: "Tekton" }).click();
+      return;
+    }
     const tabLocator = this.page.getByRole("link", {
       name: tabName,
       exact: true,
     });
-    await tabLocator.waitFor({ state: "visible" });
+    await expect(tabLocator).toBeVisible({ timeout: 30_000 });
     await tabLocator.click();
   }
 
