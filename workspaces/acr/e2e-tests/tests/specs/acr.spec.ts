@@ -5,6 +5,11 @@ test.describe("Test ACR plugin", () => {
     /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s\d{1,2},\s\d{4}/gm;
 
   test.beforeAll(async ({ rhdh }) => {
+    // Community plugins publish to ghcr.io; nightly mode resolves {{inherit}} to RHEC by default.
+    const ghcrRegistry = "ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY_MAP = JSON.stringify({
+      [ghcrRegistry]: ["@backstage-community/plugin-acr"],
+    });
     await rhdh.configure({ auth: "guest" });
     await rhdh.deploy();
   });

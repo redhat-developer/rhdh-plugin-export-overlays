@@ -1,9 +1,7 @@
-# disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
-# remove this file afterwards
+# Chart 2.y / current installer honors `enabled` (not legacy `disabled: false`).
+# Use local dist path so PR mode rewrites to pr_* OCI tags.
 plugins:
-  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
-    enabled: false
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-acr:bs_1.52.0__1.27.0
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-acr
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -18,3 +16,6 @@ plugins:
                   if:
                     anyOf:
                       - isAcrAvailable
+  # disable global header until https://redhat.atlassian.net/browse/RHDHBUGS-3603 is fixed
+  - package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}
+    enabled: false
