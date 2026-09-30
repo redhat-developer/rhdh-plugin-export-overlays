@@ -23,8 +23,18 @@ export class OrchestratorPO {
   }
 
   async clickWorkflowsCatalogControl(): Promise<void> {
-    await this.workflowsCatalogControl().click({ timeout: 30_000 });
+    // Prefer the entity tab inside main — a bare "Workflows" link can match
+    // unrelated chrome and leave the catalog card unmounted.
+    const tabInMain = this.page
+      .locator("main")
+      .getByRole("tab", { name: "Workflows" });
+    if (await tabInMain.isVisible().catch(() => false)) {
+      await tabInMain.click({ timeout: 30_000 });
+    } else {
+      await this.workflowsCatalogControl().click({ timeout: 30_000 });
+    }
     await this.page.waitForLoadState("domcontentloaded");
+    await this.page.waitForURL(/\/workflows\/?$/, { timeout: 30_000 });
   }
 
   async verifyWorkflowsCatalogControlVisible(): Promise<void> {
@@ -372,25 +382,42 @@ export class OrchestratorPO {
     await templateLink.click();
     await this.page.waitForLoadState("domcontentloaded");
   }
-  private async clickChooseOnTemplateCard(
-    templateTitle: string,
-  ): Promise<void> {
+  greetingTemplateChooseButton(
+    templateTitle = "Greeting Test Picker",
+  ): Locator {
     // Match hashed MUI classes (css-*-MuiCard-root); exact .MuiCard-root misses them.
-    const chooseButton = this.page
+    return this.page
       .locator('[class*="MuiCard-root"]')
       .filter({ hasText: templateTitle })
       .getByRole("button", { name: /Choose/i })
       .first();
+  }
+
+  private async clickChooseOnTemplateCard(
+    templateTitle: string,
+  ): Promise<void> {
+    const chooseButton = this.greetingTemplateChooseButton(templateTitle);
     await expect(chooseButton).toBeVisible({ timeout: 30_000 });
     await chooseButton.click();
   }
 
-  async openGreetingTemplateFromSelfService(): Promise<void> {
+  async openSelfServiceTemplatesPage(): Promise<void> {
     await this.page.goto("/create");
     await this.page.waitForLoadState("domcontentloaded");
     await expect(
       this.page.getByRole("heading", { name: /Self-service|Create/i }).first(),
     ).toBeVisible({ timeout: 30_000 });
+  }
+
+  async verifyGreetingTemplateChooseDisabled(): Promise<void> {
+    await this.openSelfServiceTemplatesPage();
+    const chooseButton = this.greetingTemplateChooseButton();
+    await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+    await expect(chooseButton).toBeDisabled();
+  }
+
+  async openGreetingTemplateFromSelfService(): Promise<void> {
+    await this.openSelfServiceTemplatesPage();
     // clickBtnInCard can detach under NFS re-renders; click Choose directly.
     await this.clickChooseOnTemplateCard("Greeting Test Picker");
     await this.page.waitForURL(/\/create\/templates\//, { timeout: 30_000 });

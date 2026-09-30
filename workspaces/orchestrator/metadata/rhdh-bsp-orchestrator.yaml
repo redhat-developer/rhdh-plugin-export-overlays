@@ -69,4 +69,5 @@ spec:
                       gridColumn: 1 / -1
                     if:
                       anyOf:
-                        - hasAnnotation: orchestrator.io/workflows
+                        # Prefer the plugin predicate (same as product docs / bulk-import e2e).
+                        - IsOrchestratorCatalogTabAvailable
