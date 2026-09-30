@@ -1,6 +1,31 @@
-import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { test, expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
+import { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { ImageRegistry } from "../utils/image-registry";
 import { QuayClient } from "../utils/quay-client";
+
+/** NFS places Quay under the Development entity-content group (title "Quay"). */
+async function openQuayEntityTab(
+  page: Page,
+  uiHelper: UIhelper,
+): Promise<void> {
+  await uiHelper.openCatalogSidebar("Component");
+  await uiHelper.searchInputPlaceholder("Developer Hub");
+  await uiHelper.clickLink("Red Hat Developer Hub");
+
+  const quayLink = page.getByRole("link", { name: "Quay", exact: true });
+  const development = page
+    .getByRole("button", { name: /^Development$/i })
+    .or(page.getByRole("tab", { name: /^Development$/i }))
+    .or(page.getByRole("link", { name: /^Development$/i }))
+    .first();
+  // eslint-disable-next-line playwright/no-conditional-in-test -- top-level vs grouped NFS tab
+  if (!(await quayLink.isVisible().catch(() => false))) {
+    await expect(development).toBeVisible({ timeout: 30_000 });
+    await development.click();
+  }
+  await expect(quayLink).toBeVisible({ timeout: 30_000 });
+  await quayLink.click();
+}
 
 test.describe("Test Quay.io plugin", () => {
   const quayRepository = "rhdh-community/rhdh";
@@ -24,15 +49,12 @@ test.describe("Test Quay.io plugin", () => {
     await loginHelper.loginAsGuest();
   });
 
-  test.describe("Image Registry tab", () => {
-    test.beforeEach(async ({ uiHelper }) => {
-      await uiHelper.openCatalogSidebar("Component");
-      await uiHelper.searchInputPlaceholder("Developer Hub");
-      await uiHelper.clickLink("Red Hat Developer Hub");
-      await uiHelper.clickTab("Image Registry");
+  test.describe("Quay entity tab", () => {
+    test.beforeEach(async ({ page, uiHelper }) => {
+      await openQuayEntityTab(page, uiHelper);
     });
 
-    test("Check if Image Registry is present", async ({ page, uiHelper }) => {
+    test("Check if Quay tab is present", async ({ page, uiHelper }) => {
       await uiHelper.verifyHeading(quayRepository);
 
       const allGridColumnsText = ImageRegistry.getAllGridColumnsText();
@@ -79,7 +101,14 @@ test.describe("Test Quay.io plugin", () => {
       repository = `quay-actions-create-${Date.now()}`;
       const description =
         "This is just a test repository to test the 'quay:create-repository' template action";
-      await uiHelper.clickBtnInCard("Create a Quay repository", "Choose");
+      // clickBtnInCard can detach under NFS re-renders; click Choose directly.
+      const chooseButton = page
+        .locator('[class*="MuiCard-root"]')
+        .filter({ hasText: "Create a Quay repository" })
+        .getByRole("button", { name: /Choose/i })
+        .first();
+      await expect(chooseButton).toBeVisible({ timeout: 30_000 });
+      await chooseButton.click();
       await uiHelper.waitForTitle("Create a Quay repository", 2);
 
       await uiHelper.fillTextInputByLabel("Repository name", repository);
