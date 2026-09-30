@@ -355,26 +355,29 @@ export async function partitionResolvable(
   const retryDelayMs = options.retryDelayMs ?? 2000;
   const concurrency = Math.max(1, options.concurrency ?? 8);
 
-  const probeWithRetry = async (ref: string): Promise<ProbeResult> => {
-    let result: ProbeResult = { ok: false, error: "not probed" };
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-      result = await probe(ref);
-      if (result.ok || result.retry === false) return result;
-      if (attempt < attempts) {
-        await setTimeout(retryDelayMs * 2 ** (attempt - 1));
-      }
+  // Recursive rather than looped: each attempt has to wait for the one before it, and
+  // each worker for its previous ref — sequential on purpose, which a loop of awaits
+  // expresses less directly.
+  const probeWithRetry = async (
+    ref: string,
+    attempt = 1,
+  ): Promise<ProbeResult> => {
+    const result = await probe(ref);
+    if (result.ok || result.retry === false || attempt >= attempts) {
+      return result;
     }
-    return result;
+    await setTimeout(retryDelayMs * 2 ** (attempt - 1));
+    return probeWithRetry(ref, attempt + 1);
   };
 
   const results: ProbeResult[] = new Array(refs.length);
   let next = 0;
-  const worker = async () => {
-    while (next < refs.length) {
-      const index = next;
-      next += 1;
-      results[index] = await probeWithRetry(refs[index]);
-    }
+  const worker = async (): Promise<void> => {
+    if (next >= refs.length) return;
+    const index = next;
+    next += 1;
+    results[index] = await probeWithRetry(refs[index]);
+    return worker();
   };
   await Promise.all(
     Array.from({ length: Math.min(concurrency, refs.length) }, worker),
