@@ -21,7 +21,17 @@ export class TektonSupportHelper {
       name: tabName,
       exact: true,
     });
-    await tabLocator.waitFor({ state: "visible" });
+    // NFS places Tekton under the Deployment entity-content group.
+    if (!(await tabLocator.isVisible().catch(() => false))) {
+      const deployment = this.page
+        .getByRole("button", { name: /^Deployment$/i })
+        .or(this.page.getByRole("tab", { name: /^Deployment$/i }))
+        .or(this.page.getByRole("link", { name: /^Deployment$/i }))
+        .first();
+      await expect(deployment).toBeVisible({ timeout: 30_000 });
+      await deployment.click();
+    }
+    await expect(tabLocator).toBeVisible({ timeout: 30_000 });
     await tabLocator.click();
   }
 
