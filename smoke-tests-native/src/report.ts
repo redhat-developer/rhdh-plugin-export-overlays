@@ -49,8 +49,10 @@ import type {
  *    check of 6 to backend plugins (RHIDP-16689).
  * 9: added `frontend.configKeyMismatches` (RHIDP-16690).
  * 10: added `catalogIndex.unresolved`, the declared refs the install CLI cannot take.
+ * 11: added `backendStart.hostPlugins`, `workspace.hosts` and
+ *     `frontend.configKeysNotApplicable` (RHIDP-17310, RHIDP-17311).
  */
-export const REPORT_SCHEMA_VERSION = 10;
+export const REPORT_SCHEMA_VERSION = 11;
 
 export type Status =
   | "pass"
@@ -65,6 +67,11 @@ export type BackendStartResult = {
   ok: boolean;
   skipped?: boolean;
   error?: string;
+  /**
+   * Plugin ids booted from a static copy because a loaded module attaches to them and
+   * nothing in the run provided them (see missingHostPluginIds). Not validated here.
+   */
+  hostPlugins?: string[];
 };
 
 /**
@@ -157,8 +164,17 @@ export type WorkspaceInfo = {
   skippedMetadata: string[];
   /** The `--support` filter applied, when one was. */
   support?: string;
-  /** Packages the filter left out — not a failure, but not validated either. */
+  /**
+   * Packages the filter left out — not a failure, and not validated, except the `hosts`
+   * among them, which are still counted here.
+   */
   outOfScope?: number;
+  /**
+   * Out-of-scope host plugins installed only so an in-scope module can boot. Counted
+   * in `refCount` because they are installed, and loaded and booted here like any other
+   * ref: a defect in a host fails this run as well as its own tier's.
+   */
+  hosts?: string[];
 };
 
 /**
@@ -222,6 +238,12 @@ export type Report = {
      * means "not checked here", not "checked and clean".
      */
     configKeyMismatches?: ConfigKeyMismatch[];
+    /**
+     * Configured keys that name an MF-only bundle (rhdh-cli 2.1 export, no
+     * dist-scalprum/). RHDH's NFS app does not read them, so they are set aside rather
+     * than reported as mismatches (RHIDP-17311). Absent where the check did not run.
+     */
+    configKeysNotApplicable?: string[];
   };
   /** Tracked exclusions that fired this run, each with its ticket. */
   exclusions: ExclusionRecord[];
