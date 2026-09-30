@@ -11,20 +11,9 @@ async function openQuayEntityTab(
   await uiHelper.openCatalogSidebar("Component");
   await uiHelper.searchInputPlaceholder("Developer Hub");
   await uiHelper.clickLink("Red Hat Developer Hub");
-
-  const quayLink = page.getByRole("link", { name: "Quay", exact: true });
-  const development = page
-    .getByRole("button", { name: /^Development$/i })
-    .or(page.getByRole("tab", { name: /^Development$/i }))
-    .or(page.getByRole("link", { name: /^Development$/i }))
-    .first();
-  // eslint-disable-next-line playwright/no-conditional-in-test -- top-level vs grouped NFS tab
-  if (!(await quayLink.isVisible().catch(() => false))) {
-    await expect(development).toBeVisible({ timeout: 30_000 });
-    await development.click();
-  }
-  await expect(quayLink).toBeVisible({ timeout: 30_000 });
-  await quayLink.click();
+  // Same pattern as argocd #3478 e2e fix (group button + menuitemradio).
+  await uiHelper.clickButtonByLabel("Development");
+  await page.getByRole("menuitemradio", { name: "Quay" }).click();
 }
 
 test.describe("Test Quay.io plugin", () => {
