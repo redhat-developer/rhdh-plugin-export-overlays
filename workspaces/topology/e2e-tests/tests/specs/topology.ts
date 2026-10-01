@@ -6,15 +6,12 @@ const BACKSTAGE_JANUS_COMPONENT = "backstage-janus";
 const BACKSTAGE_JANUS_PATH = `/catalog/default/component/${BACKSTAGE_JANUS_COMPONENT}`;
 
 /**
- * Locator for the Topology entity tab.
- * NFS / BUI uses Content navigation links; match the `/topology` path so the
- * locator stays valid if the tab title is translated later.
- * Mirrors community-plugins topologyHelper.topologyEntityTab (nfs mode).
+ * Locator for the Topology entity tab inside the "Deployment" dropdown.
+ * The NFS entity page groups tabs by default — topology falls under the
+ * "Deployment" content group (see page:catalog/entity default groups).
  */
 export function topologyEntityTab(page: Page) {
-  return page
-    .getByRole("navigation", { name: "Content navigation" })
-    .locator('a[href$="/topology"]');
+  return page.getByRole("menuitemradio", { name: "Topology" });
 }
 
 async function downloadAndReadFile(
@@ -63,19 +60,22 @@ export class Topology {
     await expect(
       this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
     ).toBeVisible({ timeout: 30_000 });
+    await this.uiHelper.clickButtonByLabel("Deployment");
     await expect(topologyEntityTab(this.page)).toBeHidden();
   }
 
   /**
-   * Opens the Topology workload view via the entity URL so NFS permission
-   * predicates are evaluated for that path (community-plugins navigateToTopologyView).
+   * Navigates to the entity page and selects the Topology view from the
+   * "Deployment" dropdown.
    */
   async navigateToTopologyView() {
-    await this.page.goto(`${BACKSTAGE_JANUS_PATH}/topology`);
-    await this.page.waitForURL((url) =>
-      url.pathname.includes(`/component/${BACKSTAGE_JANUS_COMPONENT}`),
-    );
-    await expect(topologyEntityTab(this.page)).toBeVisible({ timeout: 30_000 });
+    await this.page.goto(BACKSTAGE_JANUS_PATH);
+    await expect(
+      this.page.getByRole("heading", { name: BACKSTAGE_JANUS_COMPONENT }),
+    ).toBeVisible({ timeout: 30_000 });
+    await this.uiHelper.clickButtonByLabel("Deployment");
+    await expect(topologyEntityTab(this.page)).toBeVisible();
+    await topologyEntityTab(this.page).click();
     await this.uiHelper.verifyHeading(BACKSTAGE_JANUS_COMPONENT);
   }
 
