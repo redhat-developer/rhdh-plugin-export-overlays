@@ -1,7 +1,10 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { ScorecardMetric, ThresholdRule } from "./types";
-import { DEFAULT_THRESHOLD_LABELS } from "./constants";
+import {
+  DATA_SOURCES_DIALOG_COLUMNS,
+  DEFAULT_THRESHOLD_LABELS,
+} from "./constants";
 
 export const FILECHECK_METRICS = {
   readme: {
@@ -97,7 +100,7 @@ async function ensureSignedIn(page: Page, expectedLocator: Locator) {
 }
 
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
-  const getScorecardCard = (metric: ScorecardMetric) =>
+  const getScorecardCard = (metric: Pick<ScorecardMetric, "title">) =>
     page
       .locator('[role="article"]')
       .filter({ has: page.getByText(metric.title, { exact: true }) });
@@ -202,9 +205,14 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await page.getByRole("button", { name: "Add widget" }).click();
     },
     async selectWidget(cardName: string, options?: { exact?: boolean }) {
-      await page
-        .getByRole("button", { name: cardName, exact: options?.exact })
-        .click();
+      const widget = page
+        .getByRole("button", {
+          name: cardName,
+          exact: options?.exact,
+        })
+        .first();
+      await widget.scrollIntoViewIfNeeded();
+      await widget.click();
     },
     async expectNoProgressBar() {
       await expect(
@@ -216,7 +224,10 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
     },
     async expectAggregatedScorecardVisible(metricTitle: string) {
       await expect(
-        page.locator('[role="article"]').filter({ hasText: metricTitle }),
+        page
+          .locator('[role="article"]')
+          .filter({ hasText: metricTitle })
+          .first(),
       ).toBeVisible({ timeout: 90_000 });
     },
     async getAggregatedScorecardEntityCount(
@@ -265,6 +276,35 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       await expect(
         section.locator(`[data-testid="${expectedIconTestId}"]`),
       ).toBeVisible({ timeout: 90_000 });
+    },
+    async openDataSourcesDialog(card: Locator): Promise<Locator> {
+      await card.getByRole("button", { name: /more options/i }).click();
+      await page.getByRole("menuitem", { name: /view data sources/i }).click();
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+      return dialog;
+    },
+    async closeDataSourcesDialog(dialog: Locator): Promise<void> {
+      await dialog.getByRole("button", { name: "Close" }).last().click();
+      await expect(dialog).toBeHidden();
+    },
+    async expectDataSourcesDialog(
+      scorecard: Pick<ScorecardMetric, "title">,
+      verifyData?: (locator: Locator) => Promise<void>,
+    ): Promise<void> {
+      const card = getScorecardCard(scorecard);
+      await expect(card).toBeVisible({ timeout: 90_000 });
+
+      const dialog = await this.openDataSourcesDialog(card);
+      await expect(dialog).toContainText(`${scorecard.title} sources`);
+
+      for (const column of DATA_SOURCES_DIALOG_COLUMNS) {
+        await expect(dialog.getByText(column, { exact: true })).toBeVisible();
+      }
+
+      await verifyData?.(dialog);
+
+      await this.closeDataSourcesDialog(dialog);
     },
   };
 }
