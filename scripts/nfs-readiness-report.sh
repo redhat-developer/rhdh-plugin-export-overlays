@@ -402,9 +402,6 @@ cat <<EOF
 
 ### By Support Tier
 
-<details>
-<summary>Front end plugins</summary>
-  
 EOF
 
   for tier in supported community other; do
@@ -421,6 +418,10 @@ EOF
 
     pct=$(( tier_frontend > 0 ? tier_ready * 100 / tier_frontend : 0 ))
     echo "#### $tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)"
+    echo ""
+    echo "<details>"
+    echo "<summary>$tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)</summary>"
+
     echo ""
     echo "| Plugin | Workspace | Status | Features |"
     echo "|--------|-----------|--------|----------|"
@@ -455,8 +456,9 @@ EOF
     ' 2>/dev/null || true
 
     echo ""
+    echo "</details>"
+    echo ""
   done
-  echo "</details>"
 
   # Non-frontend (backend-only) summary
   echo "### Backend-Only Plugins (not applicable)"
