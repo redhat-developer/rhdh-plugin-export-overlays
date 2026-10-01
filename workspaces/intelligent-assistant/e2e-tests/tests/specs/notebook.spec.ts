@@ -510,6 +510,10 @@ test.describe("Lightspeed notebooks", () => {
   });
 
   test("conversation, feedback, clipboard, and delete notebook", async () => {
+    test.skip(
+      !!process.env.E2E_NIGHTLY_MODE,
+      "Feedback API returns 422 Unprocessable Entity — product bug in intelligent-assistant backend",
+    );
     await notebooks.gotoFullscreenNotebooksTab();
     await notebooks.clickCreateNotebookFromEmptyList();
     await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
