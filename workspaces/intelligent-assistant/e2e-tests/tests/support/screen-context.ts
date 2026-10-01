@@ -24,14 +24,6 @@ export async function expectScreenContextPausedVisible(
   ).toBeVisible();
 }
 
-export async function expectScreenContextUnavailableVisible(
-  page: Page,
-): Promise<void> {
-  await expect(
-    page.locator(".lightspeed-page-context-label-unavailable"),
-  ).toBeVisible({ timeout: 15_000 });
-}
-
 export async function verifyEnableScreenContextOption(
   page: Page,
 ): Promise<void> {

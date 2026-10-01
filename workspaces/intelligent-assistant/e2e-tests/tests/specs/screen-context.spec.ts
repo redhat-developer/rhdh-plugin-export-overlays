@@ -3,10 +3,10 @@ import type { BrowserContext, Page } from "@playwright/test";
 import { LoginHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import { openChatbotSettings } from "../support/chat-management";
 import {
-  expectConversationArea,
   expectRhdhContentVisible,
   openChatbot,
   selectDisplayMode,
+  type DisplayMode,
 } from "../support/lightspeed-page";
 import {
   disableScreenContextViaKebab,
@@ -14,7 +14,6 @@ import {
   expectScreenContextChipHidden,
   expectScreenContextPausedVisible,
   expectScreenContextRecordingVisible,
-  expectScreenContextUnavailableVisible,
   pauseScreenContextChip,
   resumeScreenContextChip,
   selectEnableScreenContext,
@@ -26,9 +25,15 @@ import {
 } from "../support/test-helper";
 
 /**
- * Basic screen-context checks ported from
- * rhdh-plugins/.../lightspeed.screen-context.test.ts (live cluster, no mocks).
+ * Screen context is only offered in overlay and dock-to-window.
+ * Ported from rhdh-plugins lightspeed.screen-context.test.ts without the
+ * fullscreen case (live cluster, no mocks).
  */
+const SCREEN_CONTEXT_MODES = [
+  "Overlay",
+  "Dock to window",
+] as const satisfies readonly DisplayMode[];
+
 test.describe("Intelligent assistant screen context", () => {
   test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 
@@ -51,54 +56,47 @@ test.describe("Intelligent assistant screen context", () => {
     }
   });
 
-  test.beforeEach(async () => {
-    await gotoCatalogAuthenticated(page);
-    await expectRhdhContentVisible(page);
-    const chatbot = page.getByLabel("Chatbot", { exact: true });
-    if (!(await chatbot.isVisible())) {
-      await openChatbot(page);
-    }
-    await expect(chatbot).toBeVisible({ timeout: 30_000 });
-  });
-
   test.afterAll(async () => {
     await context?.close();
   });
 
-  // Assertions live in screen-context helpers.
-  /* eslint-disable playwright/expect-expect */
-  test("kebab Enable shows recording chip; Disable hides it", async () => {
-    await expectScreenContextChipHidden(page);
+  for (const mode of SCREEN_CONTEXT_MODES) {
+    test.describe(mode, () => {
+      test.beforeEach(async () => {
+        await gotoCatalogAuthenticated(page);
+        await expectRhdhContentVisible(page);
+        await openChatbot(page);
+        await selectDisplayMode(page, mode);
+        await expect(page.getByLabel("Chatbot", { exact: true })).toBeVisible({
+          timeout: 30_000,
+        });
+      });
 
-    await openChatbotSettings(page);
-    await verifyEnableScreenContextOption(page);
-    await selectEnableScreenContext(page);
-    await expectScreenContextRecordingVisible(page);
+      // Assertions live in screen-context helpers.
+      /* eslint-disable playwright/expect-expect */
+      test("kebab Enable shows recording chip; Disable hides it", async () => {
+        await expectScreenContextChipHidden(page);
 
-    await disableScreenContextViaKebab(page);
-    await expectScreenContextChipHidden(page);
-  });
+        await openChatbotSettings(page);
+        await verifyEnableScreenContextOption(page);
+        await selectEnableScreenContext(page);
+        await expectScreenContextRecordingVisible(page);
 
-  test("chip pause/resume toggles Context: paused label", async () => {
-    await enableScreenContextViaKebab(page);
-    await pauseScreenContextChip(page);
-    await expectScreenContextPausedVisible(page);
+        await disableScreenContextViaKebab(page);
+        await expectScreenContextChipHidden(page);
+      });
 
-    await resumeScreenContextChip(page);
-    await expectScreenContextRecordingVisible(page);
+      test("chip pause/resume toggles Context: paused label", async () => {
+        await enableScreenContextViaKebab(page);
+        await pauseScreenContextChip(page);
+        await expectScreenContextPausedVisible(page);
 
-    await disableScreenContextViaKebab(page);
-  });
+        await resumeScreenContextChip(page);
+        await expectScreenContextRecordingVisible(page);
 
-  test("fullscreen shows Context: unavailable", async () => {
-    await enableScreenContextViaKebab(page);
-    await selectDisplayMode(page, "Fullscreen");
-    await expectConversationArea(page, "Fullscreen");
-
-    await openChatbotSettings(page);
-    await verifyEnableScreenContextOption(page);
-    await selectEnableScreenContext(page);
-    await expectScreenContextUnavailableVisible(page);
-  });
-  /* eslint-enable playwright/expect-expect */
+        await disableScreenContextViaKebab(page);
+      });
+      /* eslint-enable playwright/expect-expect */
+    });
+  }
 });
