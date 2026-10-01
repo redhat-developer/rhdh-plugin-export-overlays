@@ -194,13 +194,22 @@ RESULTS_FILE="$TMPDIR_WORK/results.jsonl"
 touch "$RESULTS_FILE"
 WORKDIR="$TMPDIR_WORK/oci"
 
+cnt=0
+tot=0
 for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
+  (( tot = tot + 1))
+done
+for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
+  (( cnt = cnt + 1 ))
   [[ -f "$yaml_file" ]] || continue
 
   workspace=$(echo "$yaml_file" | sed "s|$REPO_ROOT/workspaces/||;s|/metadata/.*||")
   package_name=$(grep "packageName:" "$yaml_file" | head -1 | sed "s/.*packageName: *['\"]*//" | sed "s/['\"].*//")
   role=$(grep "role:" "$yaml_file" | head -1 | sed 's/.*role: *//' | tr -d '[:space:]')
   oci_ref=$(grep "dynamicArtifact:" "$yaml_file" | head -1 | sed "s/.*dynamicArtifact: *//" | sed 's|^"||;s|"$||' | sed "s|^oci://||" | sed 's|!.*||')
+  
+  # direct this to console error output
+  echo "[$cnt/$tot] $oci_ref" 1>&2
 
   [[ -z "$package_name" ]] && continue
 
@@ -283,6 +292,14 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
     mkdir -p "$subdir"
 
     features_json="{}"
+    if ! oras copy "$oci_ref" --to-oci-layout "$subdir/layout" >/dev/null 2>&1; then
+      # replace bs_x.y.z__ with next__
+      # shellcheck disable=SC2001
+      next_ref=$(echo "$oci_ref" | sed "s/bs_[0-9]\+\.[0-9]\+\.[0-9]\+__/next__/")
+      echo "[$cnt/$tot] [WARN] $oci_ref not found!" >&2
+      echo "[$cnt/$tot] [WARN] $next_ref" >&2
+      oci_ref="$next_ref"
+    fi
     if oras copy "$oci_ref" --to-oci-layout "$subdir/layout" >/dev/null 2>&1; then
       manifest_digest=$(jq -r '.manifests[0].digest' "$subdir/layout/index.json" | sed 's/sha256://')
       layer_digests=$(jq -r '.layers[].digest' "$subdir/layout/blobs/sha256/$manifest_digest" | sed 's/sha256://')
@@ -305,7 +322,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       fi
       status=$(classify_features "$features_json")
     else
-      echo "Warning: failed to pull $oci_ref" >&2
+      echo "[$cnt/$tot] [ERROR] $oci_ref not found!" >&2
       status="unknown"
     fi
     rm -rf "$subdir"
@@ -335,6 +352,7 @@ for yaml_file in "$REPO_ROOT"/workspaces/*/metadata/*.yaml; do
       features: $features
     }' >> "$RESULTS_FILE"
 done
+echo 
 
 # Convert JSONL to JSON array; keep only supported and community tiers
 RESULTS=$(jq -s '[.[] | select(.supportTier == "supported" or .supportTier == "community")]' "$RESULTS_FILE")
@@ -353,7 +371,7 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
   unknown=$(echo "$RESULTS" | jq '[.[] | select(.status == "unknown")] | length')
   backend_only=$(echo "$RESULTS" | jq '[.[] | select(.status == "backend-only")] | length')
 
-  cat <<EOF
+  cat <<EOF > /tmp/nfs-readiness-report.summary.txt
 ## NFS Readiness Report
 
 **Generated:** $(date -u '+%Y-%m-%d %H:%M UTC')
@@ -368,6 +386,10 @@ if [[ "$OUTPUT_MARKDOWN" == "true" ]]; then
 | :red_circle: no-features | $no_features | \`backstage.features\` field absent or empty in OCI artifact |
 | :white_circle: unknown | $unknown | Could not determine status (no \`--oci\` flag or pull failed) |
 | — backend-only | $backend_only | Backend plugin (not applicable) |
+EOF
+cat /tmp/nfs-readiness-report.summary.txt
+
+cat <<EOF
 
 **Frontend plugins:** $total_frontend total — **$nfs_ready** NFS-ready ($(( total_frontend > 0 ? nfs_ready * 100 / total_frontend : 0 ))%)
 
