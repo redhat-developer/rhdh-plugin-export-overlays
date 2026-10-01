@@ -17,7 +17,7 @@ const MCP_SERVERS_LOADING_TEXT = "Loading MCP servers...";
 
 async function openMcpSettings(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Options" }).click();
-  await page.getByRole("menuitem", { name: "MCP settings" }).click();
+  await page.getByRole("menuitem", { name: "MCP and Prompt Settings" }).click();
 }
 
 export async function getMcpServerRow(
