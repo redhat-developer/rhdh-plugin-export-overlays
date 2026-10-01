@@ -333,6 +333,8 @@ This badge shows whether mandatory plugins are compatible with the target versio
 
 ## Release Branch Considerations
 
+To **create** a new `release-x.y` branch from `main`, see [08 - Creating Release Branches](./08-creating-release-branches.md). This section covers how release branches behave and how to **update** them after they exist.
+
 ### main Branch
 
 - Tracks the **next** platform release

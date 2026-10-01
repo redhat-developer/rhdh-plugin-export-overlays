@@ -106,6 +106,23 @@ def _config_key_failures(entries: object) -> list[str]:
     ]
 
 
+def _unresolved_failures(entries: object) -> list[str]:
+    """Declared refs the install CLI would refuse, which the harness left out.
+
+    Listed first: these are defects in the index itself (an image missing from the
+    registry, or one naming no plugin), and before the harness probed for them one such
+    ref aborted the whole install and was the ONLY thing the run could say.
+    """
+    return [
+        _one_line(
+            f"{item.get('ref') or '?'}: not installable — "
+            f"{item.get('error') or '?'}"
+        )
+        for item in entries or []
+        if isinstance(item, dict)
+    ]
+
+
 def collect_failures(report: dict | None) -> list[str]:
     """Every per-package failure the report holds.
 
@@ -122,7 +139,9 @@ def collect_failures(report: dict | None) -> list[str]:
         return []
     backend = _record(report, "backend")
     frontend = _record(report, "frontend")
+    catalog_index = _record(report, "catalogIndex")
     return [
+        *_unresolved_failures(catalog_index.get("unresolved")),
         *_plugin_failures(backend.get("errors")),
         *_plugin_failures(backend.get("bundleErrors")),
         *_plugin_failures(frontend.get("errors")),

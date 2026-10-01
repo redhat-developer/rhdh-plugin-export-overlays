@@ -30,9 +30,16 @@ export const KNOWN_FAILURES = new Set<string>([
 // Config every run starts from. These are core Backstage keys rather than any one
 // plugin's: a plugin that reads them (e.g. mta, to build its own URLs) fails startup
 // validation with no plugin-specific key to attach a dummy to.
+// `backend.database` is always set in RHDH; x2a reads it directly at startup
+// (RHIDP-17310). startTestBackend's database service does read it; the value is the one
+// it falls back to without the key, so boot is unchanged. A caller's --app-config that
+// sets only `backend.database.client` still inherits this `connection`.
 const baseConfig: JsonObject = {
   app: { baseUrl: "http://localhost:3000" },
-  backend: { baseUrl: "http://localhost:7007" },
+  backend: {
+    baseUrl: "http://localhost:7007",
+    database: { client: "better-sqlite3", connection: ":memory:" },
+  },
 };
 
 // Dummy values only — plugins never connect to anything; this satisfies config
@@ -71,6 +78,70 @@ const configOverrides: Record<string, JsonObject> = {
   },
   "backstage-community-plugin-lighthouse-backend": {
     lighthouse: { baseUrl: "http://localhost:3003" },
+  },
+  // RHIDP-17310: the six below failed only startup config validation in the
+  // 2026-09 sweeps. Shapes copied from each workspace's appConfigExamples.
+  "backstage-plugin-notifications-backend-module-email": {
+    notifications: {
+      processors: {
+        email: {
+          transportConfig: {
+            transport: "smtp",
+            hostname: "localhost",
+            port: 587,
+            username: "test",
+            password: "test",
+          },
+          sender: "test@example.com",
+          broadcastConfig: { receiver: "users" },
+        },
+      },
+    },
+  },
+  "red-hat-developer-hub-backstage-plugin-scorecard-backend-module-jira": {
+    jira: {
+      product: "cloud",
+      baseUrl: "http://localhost:8082",
+      token: "test",
+    },
+  },
+  "backstage-community-plugin-tech-radar-backend": {
+    techRadar: { url: "http://localhost:3004/tech-radar.json" },
+  },
+  "apic-backstage": {
+    ibm: {
+      schedule: "* * * * *",
+      apic: [
+        {
+          name: "apic-instance-1",
+          url: "http://localhost:8443",
+          clientId: "test",
+          clientSecret: "test",
+          apiKey: "test",
+        },
+      ],
+    },
+  },
+  "dynatrace-backstage-plugin-dql-backend": {
+    dynatrace: {
+      environments: [
+        {
+          name: "test",
+          url: "http://localhost:8081",
+          tokenUrl: "http://localhost:8081/sso/oauth2/token",
+          accountUrn: "urn:dtaccount:test",
+          clientId: "test",
+          clientSecret: "test",
+        },
+      ],
+    },
+  },
+  "backstage-community-plugin-search-backend-module-github-discussions": {
+    search: {
+      collators: {
+        githubDiscussions: { url: "https://github.com/backstage/backstage" },
+      },
+    },
   },
   "backstage-community-backstage-plugin-mta-backend": {
     mta: {

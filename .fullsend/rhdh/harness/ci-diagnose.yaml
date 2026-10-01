@@ -25,6 +25,16 @@ model: opus
 image: ghcr.io/redhat-developer/rhdh-fullsend-code:latest
 policy: rhdh/policies/ci-diagnose.yaml
 
+# The SSRF pre-tool hook resolves DNS itself before allowing an outbound
+# request; the sandbox relies on an L7 egress proxy for real resolution, so
+# that in-sandbox lookup can fail even for hosts the network policy already
+# allowlists. On DNS failure the hook only defers to the proxy if the host
+# is also listed here — otherwise it fails closed (fullsend #6582/#6586).
+# Mirror every host in policies/ci-diagnose.yaml's prow_artifacts block.
+security:
+  sandbox_hooks:
+    ssrf_egress_allowlist: "storage.googleapis.com:443,prow.ci.openshift.org:443,gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com:443"
+
 role: review
 slug: fullsend-ai-review
 

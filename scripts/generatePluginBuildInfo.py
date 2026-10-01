@@ -781,25 +781,26 @@ def print_fallback_rebuild_cta(
     if workspaces:
         ws_filter = "|".join(sorted(workspaces))
         print(
-            f"\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
-            f"   Metadata already requests newer tags, but Quay builds from "
-            f"midstream workspaces/. If those package.json versions are still "
-            f"older, Konflux will re-publish the old tag — sync before PLRs:\n"
-            f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n"
+            f"\n\n{Colors.YELLOW}{step}) Sync midstream sources first:{Colors.NORM}\n"
+            f"   Metadata already requests newer tags, but Quay images are built "
+            f"from midstream workspaces/ folders. If package.json versions are "
+            f"older, Konflux will re-publish to the old tag, so must sync before "
+            f"updating, then running PLRs:\n\n"
+            f"   ./build/ci/sync-midstream.sh --force-clone '{ws_filter}' --yes\n\n"
             f"   (Or: sync overlays into overlay-repo, then force-clone the "
             f"affected upstream workspace(s) listed above.)"
         )
         step += 1
 
     print(
-        f"\n{Colors.YELLOW}{step}) Trigger Konflux rebuilds:{Colors.NORM}\n"
+        f"\n\n{Colors.YELLOW}{step}) Update Konflux PLRs, then run rebuilds:{Colors.NORM}\n"
         f"   .tekton/generatePipelineRunsForPlugins.sh --trigger "
         f"-p '{package_filter}' {version_args}"
     )
     step += 1
     print(
-        f"\n{Colors.YELLOW}{step}) Re-run the catalog index update:{Colors.NORM}\n"
-        f"   ./build/ci/update-index.sh\n"
+        f"\n\n{Colors.YELLOW}{step}) Re-run the catalog index update:{Colors.NORM}\n"
+        f"   ./build/ci/update-index.sh\n\n"
     )
 
 

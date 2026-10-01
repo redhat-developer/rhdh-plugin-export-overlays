@@ -5,6 +5,7 @@ import {
 import { expect, Page } from "@red-hat-developer-hub/e2e-test-utils/test";
 import {
   BULK_IMPORT_HEADING,
+  BULK_IMPORT_ROUTE,
   LOGIN_REQUIRED_DIALOG_NAME,
   LOGIN_REQUIRED_LOG_IN_BUTTON,
 } from "../constants/bulk-import-selectors";
@@ -22,11 +23,12 @@ export async function signInForBulkImportTests(
 }
 
 export async function signInAsGuestForPermissionTest(
+  page: Page,
   loginHelper: LoginHelper,
-  uiHelper: UIhelper,
 ): Promise<void> {
   await loginHelper.loginAsGuest();
-  await uiHelper.openSidebar(BULK_IMPORT_HEADING);
+  // Guests without bulk.import may not get a sidebar item — open the route directly.
+  await page.goto(BULK_IMPORT_ROUTE);
 }
 
 type GithubLoginHelper = {
@@ -72,12 +74,12 @@ export async function dismissBulkImportLoginDialogIfPresent(
   await expect(loginDialog).toBeHidden({ timeout: 60_000 });
 }
 
-/** GitHub sign-in + Self-service navigation for scaffolder template tests. */
+/** GitHub sign-in + Create page navigation for scaffolder template tests. */
 export async function signInForScaffolderTemplateTests(
   loginHelper: LoginHelper,
   uiHelper: UIhelper,
 ): Promise<void> {
   await loginHelper.loginAsGithubUser();
   await uiHelper.goToPageUrl("/create");
-  await uiHelper.verifyHeading("Self-service");
+  await uiHelper.verifyHeading("Create");
 }

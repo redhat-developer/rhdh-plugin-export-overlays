@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { compareStrings, errorMessage } from "./util";
+import { compareStrings, errorMessage, lastErrorLine } from "./util";
 
 test("errorMessage unwraps an Error and stringifies anything else", () => {
   // String(new Error("x")) is "Error: x" — the prefix would leak into every
@@ -28,4 +28,24 @@ test("compareStrings orders by code unit, not by locale", () => {
     "zebra",
   ]);
   assert.equal(compareStrings("a", "a"), 0);
+});
+
+test("lastErrorLine keeps the error a CLI printed last", () => {
+  // skopeo logs context first and its verdict last; the report entry is one line.
+  const failed = Object.assign(new Error("Command failed: skopeo inspect"), {
+    stderr:
+      'time="..." level=debug msg="retrying"\nError: reading manifest x: manifest unknown\n',
+  });
+  assert.equal(
+    lastErrorLine(failed),
+    "Error: reading manifest x: manifest unknown",
+  );
+  // No stderr (a timeout kill, a spawn error): the message is all there is.
+  assert.equal(
+    lastErrorLine(
+      Object.assign(new Error("spawn skopeo EACCES"), { stderr: "" }),
+    ),
+    "spawn skopeo EACCES",
+  );
+  assert.equal(lastErrorLine("plain"), "plain");
 });
