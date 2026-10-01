@@ -266,7 +266,21 @@ export async function ensureLightspeedDeployment(
       /* fresh install */
     }
 
-    await rhdh.deploy();
+    // A transient lightspeed-core ErrImagePull fails the whole serial file.
+    // The next suite already recovers by deleting the deployment and deploying again.
+    try {
+      await rhdh.deploy();
+    } catch (error) {
+      console.warn(
+        `RHDH deploy failed (${error instanceof Error ? error.message : String(error)}); retrying once`,
+      );
+      try {
+        await $`oc delete deployment redhat-developer-hub -n ${ns} --wait=true`;
+      } catch {
+        /* deployment may already be gone */
+      }
+      await rhdh.deploy();
+    }
     await patchOpenAiAllowedModels(rhdh);
   });
 }

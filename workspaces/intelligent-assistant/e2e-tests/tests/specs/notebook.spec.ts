@@ -478,17 +478,8 @@ test.describe("Lightspeed notebooks", () => {
     await notebooks.clickCreateNotebookFromEmptyList();
     await expect(page).toHaveURL(NOTEBOOK_EDITOR_URL_RE);
 
-    await notebooks.clickSidebarTitle();
-    const sidebarInput = notebooks.inlineRenameInput();
-    await expect(sidebarInput).toBeVisible();
     const renamedName = "Renamed Persists";
-    await sidebarInput.fill(renamedName);
-    const renamePersisted = notebooks.waitForSessionRenamePut();
-    await sidebarInput.press("Enter");
-    await renamePersisted;
-
-    await expect(sidebarInput).toBeHidden();
-    await expect(notebooks.sidebarTitleText()).toContainText(renamedName);
+    await notebooks.renameSidebarNotebook(renamedName);
 
     await notebooks.clickCloseNotebookEditor();
     await expect(notebooks.myNotebooksHeading()).toBeVisible();
