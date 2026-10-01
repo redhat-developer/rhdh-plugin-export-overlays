@@ -22,6 +22,27 @@ export class OrchestratorPO {
     );
   }
 
+  private async isSignInPage(): Promise<boolean> {
+    return this.page
+      .getByRole("button", { name: /sign in/i })
+      .or(this.page.getByRole("heading", { name: /sign-in method/i }))
+      .first()
+      .isVisible()
+      .catch(() => false);
+  }
+
+  private async gotoOrchestratorPreferringUrl(): Promise<void> {
+    // Prefer direct URL over legacy Administration sidebar (NFS has no such group).
+    // Do not soft-recover Sign In here — unexpected session drop should fail the test.
+    await this.page.goto("/orchestrator");
+    await this.page.waitForLoadState("domcontentloaded");
+    if (await this.isSignInPage()) {
+      throw new Error(
+        "Navigating to /orchestrator reached the sign-in page; session was dropped.",
+      );
+    }
+  }
+
   async clickWorkflowsCatalogControl(): Promise<void> {
     // Prefer the entity tab inside main — a bare "Workflows" link can match
     // unrelated chrome and leave the catalog card unmounted.
@@ -44,13 +65,46 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsPage(): Promise<void> {
-    await this.page.goto("/orchestrator");
-    await expect(this.page).toHaveURL("/orchestrator");
     const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
-    if (!(await heading.isVisible({ timeout: 60_000 }))) {
+    const headingVisible = async (timeoutMs: number) =>
+      heading.isVisible({ timeout: timeoutMs }).catch(() => false);
+
+    await this.gotoOrchestratorPreferringUrl();
+
+    // CI flake: bare /orchestrator can paint a 404 shell or leave a stale
+    // route without "Workflows (N)". Prefer URL retry, then sidebar recovery.
+    // Unexpected Sign In fails (no silent re-login). Sidebar expands
+    // Administration only when Orchestrator is not already visible (NFS).
+    if (!(await headingVisible(30_000))) {
+      if (await this.isSignInPage()) {
+        throw new Error(
+          "Orchestrator page lost the session after navigation; sign-in page is visible.",
+        );
+      }
+      const is404 = await this.page
+        .getByText(/PAGE NOT FOUND/i)
+        .isVisible()
+        .catch(() => false);
+      if (is404 || !(await headingVisible(5_000))) {
+        await this.openOrchestratorFromSidebar();
+      } else {
+        await this.gotoOrchestratorPreferringUrl();
+      }
+    }
+
+    if (!(await headingVisible(15_000))) {
       await this.page.reload();
       await this.page.waitForLoadState("domcontentloaded");
+      if (await this.isSignInPage()) {
+        throw new Error(
+          "Orchestrator reload reached the sign-in page; session was dropped.",
+        );
+      }
+      if (!(await headingVisible(5_000))) {
+        await this.openOrchestratorFromSidebar();
+      }
     }
+
     await expect(heading).toBeVisible({ timeout: 120_000 });
     await expect(this.page.getByRole("tablist", { name: "tabs" })).toBeVisible({
       timeout: 30_000,
@@ -58,20 +112,18 @@ export class OrchestratorPO {
   }
 
   async openOrchestratorFromSidebar(): Promise<void> {
-    const adminButton = this.page
-      .getByRole("button", { name: "Administration" })
-      .first();
     const orchestratorLink = this.page
       .locator('nav a:has-text("Orchestrator")')
       .first();
-    if (!(await orchestratorLink.isVisible().catch(() => false))) {
-      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
-      await adminButton.click();
+    // NFS: Orchestrator is often top-level. Administration is legacy-only —
+    // expand it only when the link is not already visible.
+    if (!(await orchestratorLink.isVisible())) {
+      await this.page.getByRole("button", { name: "Administration" }).click();
     }
-    await this.uiHelper.openSidebar("Orchestrator");
+    await orchestratorLink.click();
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 60_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
@@ -640,9 +692,10 @@ export class OrchestratorPO {
     );
     await expect(workFlowRow.locator("td").nth(3)).toHaveText(/^\d+$/);
     await expect(workFlowRow.locator("td").nth(4)).toHaveText(/^\d+%$/);
-    await expect(
-      workFlowRow.getByRole("button", { name: "Run", exact: true }).first(),
-    ).toBeVisible();
+    // Orchestrator ≥6.2.4 omits the accessible name on Run when the row has
+    // run history (product). Fall back to the Actions-cell icon button.
+    const actionsCell = workFlowRow.locator("td").last();
+    await expect(actionsCell.getByRole("button").first()).toBeVisible();
     await expect(
       workFlowRow.getByRole("button", { name: "View runs" }).first(),
     ).toBeVisible();
