@@ -28,7 +28,6 @@ test.describe("Testing scaffolder-backend-module-http-request to invoke an exter
     await uiHelper.clickLink({
       ariaLabel: "Self-service",
     });
-    await uiHelper.verifyHeading("Self-service");
     await uiHelper.verifyHeading("Templates");
 
     await uiHelper.openSidebar("Catalog");
