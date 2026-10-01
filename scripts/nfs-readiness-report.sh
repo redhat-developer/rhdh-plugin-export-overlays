@@ -402,8 +402,8 @@ cat <<EOF
 
 ### By Support Tier
 
-echo "<details>"
-  echo "<summary>Front end plugins</summary>"
+<details>
+<summary>Front end plugins</summary>
   
 EOF
 
