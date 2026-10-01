@@ -47,8 +47,10 @@ test.describe("Theme Plugin tests", () => {
     await expect(logo).not.toHaveAttribute("src", lightSrc);
   });
 
+  //<img width="170" alt="Home logo" data-testid="home-logo" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22160pt%22%20height%3D%2280pt%22%20viewBox%3D%220%200%20160%2080%22%3E%3Cg%20fill%3D%22%23000%22%20style%3D%22text-align%3Astart%3Btext-align-last%3Aauto%22%20letter-spacing%3D%220%22%3E%3Ctext%20font-family%3D%22Red%20Hat%20Display%22%20font-size%3D%2240%22%20font-weight%3D%22700%22%20transform%3D%22translate(-.177%2054.263)%22%20word-spacing%3D%22…/> aka getByRole('link', { name: 'Home' }).first()
+
   test("Verify logo link", async ({ page }) => {
-    const logo = page.getByTestId("home-logo");
+    const logo = page.getByTestId("home-logo").last();
     const link = page
       .getByTestId("sidebar-root")
       .getByRole("link")
