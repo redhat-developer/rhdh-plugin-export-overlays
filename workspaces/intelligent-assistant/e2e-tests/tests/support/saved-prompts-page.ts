@@ -90,14 +90,14 @@ export class SavedPromptsPage {
     await openLightspeed(this.page);
   }
 
-  async openChatHistoryDrawer(): Promise<void> {
+  async openSavedPromptsHistoryDrawer(): Promise<void> {
     await openChatHistoryDrawer(this.page);
     await expect(this.savedPromptsHistoryDrawer()).toBeVisible({
       timeout: 15_000,
     });
   }
 
-  async closeChatHistoryDrawer(): Promise<void> {
+  async closeSavedPromptsHistoryDrawer(): Promise<void> {
     await closeChatHistoryDrawer(this.page);
     await expect(this.savedPromptsHistoryDrawer()).toBeHidden({
       timeout: 15_000,
@@ -115,14 +115,6 @@ export class SavedPromptsPage {
     ).toBeHidden();
   }
 
-  async expectSavedPromptsSidebarEmpty(): Promise<void> {
-    await expect(
-      this.savedPromptsMenu().getByRole("menuitem", {
-        name: "No saved prompts yet",
-      }),
-    ).toBeVisible({ timeout: 15_000 });
-  }
-
   openSavedPromptsSettingsGearButton(): Locator {
     return this.chatbotRegion().getByRole("button", {
       name: "Open saved prompts settings",
@@ -131,7 +123,7 @@ export class SavedPromptsPage {
   }
 
   async openSavedPromptsSettingsFromSidebarGear(): Promise<void> {
-    await this.openChatHistoryDrawer();
+    await this.openSavedPromptsHistoryDrawer();
     await this.savedPromptsHistoryDrawer()
       .getByRole("button", {
         name: /Saved prompts.*Open saved prompts settings/,
@@ -210,19 +202,6 @@ export class SavedPromptsPage {
       .getByRole("button", { name: "Saved prompts", exact: true })
       .click();
     await expect(this.newPromptButton()).toBeVisible();
-  }
-
-  async expectEmptySavedPromptsSettingsVisible(): Promise<void> {
-    const emptyState = this.chatbotRegion().getByTestId(
-      "saved-prompts-empty-state",
-    );
-    await expect(emptyState).toBeVisible({ timeout: 15_000 });
-    await expect(
-      emptyState.getByText("No prompts", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      emptyState.getByRole("button", { name: "+ New prompt" }),
-    ).toBeVisible();
   }
 
   async createSavedPrompt(name: string, content: string): Promise<void> {

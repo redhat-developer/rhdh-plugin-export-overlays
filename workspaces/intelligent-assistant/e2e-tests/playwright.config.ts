@@ -13,6 +13,7 @@ export default defineConfig({
         "notebook.spec.ts",
         "saved-prompts.spec.ts",
         "screen-context.spec.ts",
+        "mcp.spec.ts",
       ],
       timeout: 5 * 60 * 1000,
     },
