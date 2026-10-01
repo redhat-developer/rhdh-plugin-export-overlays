@@ -61,12 +61,11 @@ export class ThemeVerifier {
     expectedColor: string,
   ) {
     const elements = page.locator(selector);
-    const count = await elements.count();
+    const colors = await elements.evaluateAll((els) =>
+      els.map((el) => window.getComputedStyle(el).color),
+    );
 
-    for (let i = 0; i < count; i++) {
-      const color = await elements
-        .nth(i)
-        .evaluate((el) => window.getComputedStyle(el).color);
+    for (const color of colors) {
       expect(color).toBe(expectedColor);
     }
   }
