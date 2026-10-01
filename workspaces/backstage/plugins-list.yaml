@@ -105,9 +105,9 @@ plugins/search-backend-module-techdocs:
 #plugins/search: ==> Added as a static plugin in RHDH
 plugins/signals:
 plugins/signals-backend:
-plugins/techdocs:
+plugins/techdocs: --shared-package @backstage/plugin-techdocs-react
 plugins/techdocs-backend: --embed-package @backstage/plugin-search-backend-module-techdocs --suppress-native-package cpu-features
-plugins/techdocs-module-addons-contrib:
+plugins/techdocs-module-addons-contrib: --shared-package @backstage/plugin-techdocs-react
 plugins/user-settings-backend:
 plugins/user-settings:
 plugins/catalog-backend-module-ai-model:
