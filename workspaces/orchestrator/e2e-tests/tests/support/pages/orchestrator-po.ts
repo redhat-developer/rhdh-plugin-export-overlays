@@ -44,10 +44,26 @@ export class OrchestratorPO {
   }
 
   async openWorkflowsPage(): Promise<void> {
-    await this.page.goto("/orchestrator");
-    await expect(this.page).toHaveURL("/orchestrator");
     const heading = ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page);
-    if (!(await heading.isVisible({ timeout: 60_000 }))) {
+    const headingVisible = async (timeoutMs: number) =>
+      heading.isVisible({ timeout: timeoutMs }).catch(() => false);
+
+    await this.page.goto("/orchestrator");
+    await this.page.waitForLoadState("domcontentloaded");
+
+    // CI flake: bare /orchestrator can paint a 404 shell or leave a stale
+    // workflow-detail route without "Workflows (N)". Recover via sidebar.
+    if (!(await headingVisible(30_000))) {
+      const is404 = await this.page
+        .getByText(/PAGE NOT FOUND/i)
+        .isVisible()
+        .catch(() => false);
+      if (is404 || !(await headingVisible(5_000))) {
+        await this.openOrchestratorFromSidebar();
+      }
+    }
+
+    if (!(await headingVisible(15_000))) {
       await this.page.reload();
       await this.page.waitForLoadState("domcontentloaded");
     }
@@ -64,14 +80,24 @@ export class OrchestratorPO {
     const orchestratorLink = this.page
       .locator('nav a:has-text("Orchestrator")')
       .first();
-    if (!(await orchestratorLink.isVisible().catch(() => false))) {
-      await adminButton.waitFor({ state: "visible", timeout: 120_000 });
+    // Sidebar links are often attached but not "visible" to Playwright.
+    await orchestratorLink
+      .waitFor({ state: "attached", timeout: 60_000 })
+      .catch(async () => {
+        await adminButton.waitFor({ state: "attached", timeout: 30_000 });
+        await adminButton.dispatchEvent("click");
+        await orchestratorLink.waitFor({ state: "attached", timeout: 30_000 });
+      });
+    if (
+      !(await orchestratorLink.isVisible().catch(() => false)) &&
+      (await adminButton.isVisible().catch(() => false))
+    ) {
       await adminButton.click();
     }
-    await this.uiHelper.openSidebar("Orchestrator");
+    await orchestratorLink.dispatchEvent("click");
     await expect(
       ORCHESTRATOR_COMPONENTS.workflowsHeading(this.page),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 60_000 });
   }
 
   async openWorkflow(name: string | RegExp): Promise<void> {
@@ -640,9 +666,10 @@ export class OrchestratorPO {
     );
     await expect(workFlowRow.locator("td").nth(3)).toHaveText(/^\d+$/);
     await expect(workFlowRow.locator("td").nth(4)).toHaveText(/^\d+%$/);
-    await expect(
-      workFlowRow.getByRole("button", { name: "Run", exact: true }).first(),
-    ).toBeVisible();
+    // Orchestrator ≥6.2.4 omits the accessible name on Run when the row has
+    // run history (product). Fall back to the Actions-cell icon button.
+    const actionsCell = workFlowRow.locator("td").last();
+    await expect(actionsCell.getByRole("button").first()).toBeVisible();
     await expect(
       workFlowRow.getByRole("button", { name: "View runs" }).first(),
     ).toBeVisible();

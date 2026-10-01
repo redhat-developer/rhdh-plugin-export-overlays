@@ -101,11 +101,25 @@ const RBAC_SCENARIOS: RbacScenario[] = [
 async function assertRbacScenario(
   page: Page,
   uiHelper: UIhelper,
+  loginHelper: LoginHelper,
   scenario: RbacScenario,
 ): Promise<void> {
   const orchestratorPo = createOrchestratorPO(page, uiHelper);
-  await page.goto("/");
+  // Prefer reload over goto("/"): a full SPA remount triggers OIDC refresh
+  // that intermittently 401s and drops the session (ci-diagnose #3910).
+  await page.reload();
   await page.waitForLoadState("domcontentloaded");
+  // Role churn can still surface Sign In; wait long enough for delayed redirect.
+  if (
+    await page
+      .getByRole("button", { name: /sign in/i })
+      .or(page.getByRole("heading", { name: /sign-in method/i }))
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false)
+  ) {
+    await loginAsKeycloakUserWithRetry(page, loginHelper);
+  }
   await orchestratorPo.openWorkflowsPage();
 
   if (!scenario.expectWorkflowVisible) {
@@ -333,6 +347,9 @@ async function runTemplatePermissionScenario(
 
 export function registerOrchestratorRbacTests(): void {
   test.describe("Orchestrator RBAC", () => {
+    // Scenarios bind roles to the same PRIMARY_USER — must not run in parallel.
+    test.describe.configure({ mode: "serial" });
+
     test.beforeAll(async ({ browser }, testInfo) => {
       await removeBaselineRole(browser, testInfo);
     });
@@ -340,14 +357,13 @@ export function registerOrchestratorRbacTests(): void {
     for (const scenario of RBAC_SCENARIOS) {
       test.describe(`RBAC: ${scenario.name}`, () => {
         let uiHelper: UIhelper;
+        let loginHelper: LoginHelper;
         let page: Page;
         let apiToken: string;
 
         test.beforeAll(async ({ browser }, testInfo) => {
-          ({ page, uiHelper, apiToken } = await setupAuthenticatedPage(
-            browser,
-            testInfo,
-          ));
+          ({ page, uiHelper, loginHelper, apiToken } =
+            await setupAuthenticatedPage(browser, testInfo));
           await createRoleWithPolicies(
             apiToken,
             scenario.roleName,
@@ -375,7 +391,9 @@ export function registerOrchestratorRbacTests(): void {
             scenario.name === "Global Read-Only",
             "product_bug: Global Read-Only leaves Run enabled despite deny on orchestrator.workflow.use",
           );
-          await assertRbacScenario(page, uiHelper, scenario);
+          // openWorkflowsPage may reload / sidebar-recover; keep headroom.
+          test.setTimeout(180_000);
+          await assertRbacScenario(page, uiHelper, loginHelper, scenario);
           await expect(page).toHaveURL(/\/orchestrator/);
         });
       });
