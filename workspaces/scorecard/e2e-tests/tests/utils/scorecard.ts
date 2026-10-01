@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import type { UIhelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 import type { ScorecardMetric, ThresholdRule } from "./types";
 import { DEFAULT_THRESHOLD_LABELS } from "./constants";
@@ -70,6 +70,32 @@ export const DEPENDABOT_METRICS = [
   },
 ] as const;
 
+/**
+ * Temporal fix for https://redhat.atlassian.net/browse/RHDHBUGS-3898.
+ * The entity tab links navigate the document instead of routing client side,
+ * so when opening a tab the sign-in page comes back.
+ */
+async function ensureSignedIn(page: Page, expectedLocator: Locator) {
+  const signIn = page.getByRole("button", { name: "Sign In", exact: true });
+
+  // Wait for whichever renders first - sign in or expected locator
+  const signedOut = await Promise.race([
+    signIn
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => true)
+      .catch(() => null),
+    expectedLocator
+      .waitFor({ state: "visible", timeout: 60_000 })
+      .then(() => false)
+      .catch(() => null),
+  ]);
+  if (!signedOut) return;
+
+  // The Keycloak SSO session is still alive, so this just lands back on the tab when sign in is clicked.
+  await signIn.click();
+  await expect(expectedLocator).toBeVisible({ timeout: 60_000 });
+}
+
 export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
   const getScorecardCard = (metric: ScorecardMetric) =>
     page
@@ -82,6 +108,7 @@ export function scorecardHelpers(page: Page, uiHelper: UIhelper) {
       const tab = page.getByRole("link", { name: "Scorecard" });
       await expect(tab).toBeVisible();
       await tab.click();
+      await ensureSignedIn(page, tab);
     },
     async expectEmptyState() {
       await expect(page.getByText("No scorecards added yet")).toBeVisible();
