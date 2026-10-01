@@ -14,8 +14,6 @@ export class ThemeVerifier {
       name: theme,
       exact: true,
     });
-    await this.goToSettingsPage();
-
     await expect(themeButton).toHaveAttribute("aria-pressed", "true");
   }
 
@@ -40,7 +38,8 @@ export class ThemeVerifier {
       ".MuiSwitch-colorPrimary",
       expectedRgbColor,
     );
-    await this.page.goto("/catalog");
+    await this.uiHelper.clickLink("Catalog");
+    await this.uiHelper.waitForLoad();
     await this.page.waitForLoadState("domcontentloaded");
     await this.checkCssColor(
       this.page,
@@ -53,6 +52,9 @@ export class ThemeVerifier {
     await expect(this.page.getByRole("navigation").first()).toBeVisible();
     await this.uiHelper.openProfileDropdown();
     await this.page.getByRole("menuitem", { name: "Settings" }).click();
+    await this.page
+      .getByText("user:development/guest")
+      .waitFor({ state: "visible" });
   }
 
   private async checkCssColor(
