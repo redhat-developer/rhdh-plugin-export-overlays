@@ -1,0 +1,8 @@
+appConfig:
+  backend:
+    auth:
+      externalAccess:
+        - type: static
+          options:
+            token: ldap-auth-e2e-token
+            subject: ldap-auth-e2e
