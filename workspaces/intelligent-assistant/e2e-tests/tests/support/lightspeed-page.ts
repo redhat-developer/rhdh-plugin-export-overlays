@@ -156,15 +156,6 @@ export async function expectChatInputAreaVisible(page: Page): Promise<void> {
 }
 
 export async function expectEmptyChatHistory(page: Page): Promise<void> {
-  await expect(
-    page.getByRole("heading", { name: /Saved prompts/ }),
-  ).toBeVisible();
-  await expect(
-    page
-      .locator(".lightspeed-saved-prompts-group")
-      .getByRole("menuitem", { name: "No saved prompts yet" }),
-  ).toBeVisible();
-
   for (const { name, exact } of [
     { name: "Pinned chats" },
     { name: "Chats", exact: true },

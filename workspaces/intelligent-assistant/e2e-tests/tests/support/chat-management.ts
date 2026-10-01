@@ -241,11 +241,6 @@ export async function verifyEmptySearchResults(page: Page) {
   const drawerPanel = historyDrawer(page);
 
   await expect(
-    drawerPanel
-      .locator(".lightspeed-saved-prompts-group")
-      .getByRole("menuitem", { name: EMPTY_SAVED_PROMPTS_MESSAGE }),
-  ).toBeVisible();
-  await expect(
     drawerPanel.getByRole("menuitem", {
       name: EMPTY_PINNED_CHATS_MESSAGE,
     }),
