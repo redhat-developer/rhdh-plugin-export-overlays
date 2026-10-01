@@ -13,6 +13,7 @@ import {
 } from "../../support/constants/microsoft.js";
 
 import {
+  catalogQuery,
   checkGroupDisplayNamesInCatalog,
   checkUserDisplayNamesInCatalog,
   groupHasRelation,
@@ -366,6 +367,37 @@ test.describe(
       test.setTimeout(600_000);
 
       await setMicrosoftResolver("emailMatchingUserEntityAnnotation", false);
+
+      // Wait for MS Graph provider to sync the email annotation onto User
+      // entities.  The emailMatchingUserEntityAnnotation resolver matches
+      // against microsoft.com/email; the preceding ingestion test only
+      // verifies display names, which can be present before the email
+      // annotation is populated.
+      await expect
+        .poll(
+          async () => {
+            const users = await catalogQuery(
+              baseUrl,
+              CATALOG_TOKEN,
+              "kind=user",
+            );
+            return users.some((user) => {
+              const annotations = (
+                user as {
+                  metadata?: {
+                    annotations?: Record<string, string>;
+                  };
+                }
+              )?.metadata?.annotations;
+              return (
+                annotations?.["microsoft.com/email"] ===
+                MICROSOFT_TEST_USERS.zeus
+              );
+            });
+          },
+          { timeout: 60_000, intervals: [3_000] },
+        )
+        .toBe(true);
 
       const login = await loginHelper.microsoftAzureLogin(
         MICROSOFT_TEST_USERS.zeus,
