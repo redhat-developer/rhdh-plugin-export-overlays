@@ -35,7 +35,9 @@ test.describe("Backstage Plugin - GitHub Pull Requests", () => {
     });
     expect(page.url()).toContain(expectedPath);
 
-    await uiHelper.waitForTitle("Red Hat Developer Hub");
+    await expect(
+      page.getByRole("heading", { name: "Red Hat Developer Hub" }),
+    ).toBeVisible({ timeout: 10000 });
 
     await expect(page.getByText("GitHub Pull Requests Statistics")).toBeVisible(
       { timeout: 60000 },
