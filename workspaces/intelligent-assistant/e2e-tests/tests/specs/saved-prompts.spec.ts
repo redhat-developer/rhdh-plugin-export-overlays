@@ -49,14 +49,14 @@ test.describe("Intelligent assistant saved prompts", () => {
   });
 
   test("shows saved prompts in the chat history sidebar", async () => {
-    await savedPrompts.openChatHistoryDrawer();
+    await savedPrompts.openSavedPromptsHistoryDrawer();
     await savedPrompts.expectSavedPromptsSidebarLoaded(promptName);
   });
 
   test("applies a saved prompt to the message input from the sidebar", async () => {
-    await savedPrompts.openChatHistoryDrawer();
+    await savedPrompts.openSavedPromptsHistoryDrawer();
     await savedPrompts.applySavedPromptFromSidebar(promptName);
-    await savedPrompts.closeChatHistoryDrawer();
+    await savedPrompts.closeSavedPromptsHistoryDrawer();
     await savedPrompts.expectMessageInputValue(PROMPT_CONTENT);
   });
 
@@ -77,7 +77,7 @@ test.describe("Intelligent assistant saved prompts", () => {
     await savedPrompts.deleteSavedPromptFromKebab(promptName, "settings");
     await savedPrompts.expectSavedPromptHiddenInSettings(promptName);
     await savedPrompts.closeSettingsPanel();
-    await savedPrompts.openChatHistoryDrawer();
+    await savedPrompts.openSavedPromptsHistoryDrawer();
     await expect(savedPrompts.savedPromptSidebarItem(promptName)).toBeHidden({
       timeout: 15_000,
     });
