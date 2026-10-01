@@ -30,7 +30,10 @@ export async function gitlabLogin(
   await popup.locator("#user_login").fill(username, { timeout: 5000 });
   await popup.locator("#user_password").click({ timeout: 5000 });
   await popup.locator("#user_password").fill(password, { timeout: 5000 });
-  await popup.getByTestId("sign-in-button").click({ timeout: 5000 });
+  // GitLab's post-submit OAuth redirect often exceeds the default click nav wait.
+  await popup
+    .getByTestId("sign-in-button")
+    .click({ timeout: 5000, noWaitAfter: true });
 
   await popup
     .waitForLoadState("domcontentloaded", { timeout: 10_000 })
@@ -90,9 +93,13 @@ export async function gitlabLogin(
     .catch(() => undefined);
 
   try {
-    await buttonToClick.click({ timeout: 5000 });
+    await buttonToClick.click({ timeout: 5000, noWaitAfter: true });
   } catch {
-    await buttonToClick.click({ force: true, timeout: 5000 });
+    await buttonToClick.click({
+      force: true,
+      timeout: 5000,
+      noWaitAfter: true,
+    });
   }
 
   try {
