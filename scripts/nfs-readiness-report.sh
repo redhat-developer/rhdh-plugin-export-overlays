@@ -417,10 +417,10 @@ EOF
     [[ "$tier_frontend" -eq 0 ]] && continue
 
     pct=$(( tier_frontend > 0 ? tier_ready * 100 / tier_frontend : 0 ))
-    echo "#### $tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)"
+    echo "#### $tier_label ($pct%)"
     echo ""
     echo "<details>"
-    echo "<summary>$tier_label ($tier_ready/$tier_frontend frontend plugins NFS-ready — $pct%)</summary>"
+    echo "<summary>$tier_ready/$tier_frontend frontend plugins NFS-ready</summary>"
 
     echo ""
     echo "| Plugin | Workspace | Status | Features |"
