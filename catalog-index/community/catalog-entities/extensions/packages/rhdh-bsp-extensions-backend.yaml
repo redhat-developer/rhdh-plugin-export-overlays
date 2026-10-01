@@ -1,0 +1,36 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: rhdh-bsp-extensions-backend
+  namespace: rhdh
+  title: "Extensions Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/extensions
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-extensions-backend"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-extensions-backend:bs_1.54.6__1.0.1
+  version: 1.0.1
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - extensions
+  appConfigExamples:
+    - title: Installation export (disabled by default)
+      content:
+        extensions:
+          installation:
+            enabled: false
+            saveToSingleFile:
+              file: ${RHDH_EXTENSIONS_INSTALL_EXPORT_PATH}

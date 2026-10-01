@@ -1,0 +1,58 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-redhat-argocd
+  namespace: rhdh
+  title: ArgoCD
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/argocd
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-argocd"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-argocd:bs_1.54.6__3.1.3
+  version: 3.1.3
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - redhat-argocd
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-argocd:
+              translationResources:
+                - importName: argocdTranslations
+                  ref: argocdTranslationRef
+              mountPoints:
+                - mountPoint: entity.page.overview/cards
+                  importName: ArgocdDeploymentSummary
+                  module: Legacy
+                  config:
+                    layout:
+                      gridColumnEnd:
+                        lg: span 8
+                        xs: span 12
+                    if:
+                      allOf:
+                        - isArgocdConfigured
+                - mountPoint: entity.page.cd/cards
+                  importName: ArgocdDeploymentLifecycle
+                  module: Legacy
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      allOf:
+                        - isArgocdConfigured

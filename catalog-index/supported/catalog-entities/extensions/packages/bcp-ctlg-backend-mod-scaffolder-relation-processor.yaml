@@ -1,0 +1,32 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: bcp-ctlg-backend-mod-scaffolder-relation-processor
+  namespace: rhdh
+  title: "Catalog Backend Module Scaffolder Relation Processor"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-relation-processor
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/scaffolder-relation-processor
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage-community/plugin-catalog-backend-module-scaffolder-relation-processor"
+  # Tag: bs_1.54.6__2.17.1
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-scaffolder-relation-processor@sha256:e816c2f19e46b516a6260d7b375426eb43c57ec7389314002a2d56bfc4b06905"
+  version: 2.17.1
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - scaffolder-relation-processor-catalog-integration
+  appConfigNotRequired: true
+  appConfigExamples: []

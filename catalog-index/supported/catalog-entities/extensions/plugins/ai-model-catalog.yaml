@@ -1,0 +1,170 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/redhat-developer/rhdh-plugins/refs/heads/main/workspaces/extensions/json-schema/plugins.json
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Plugin
+metadata:
+  name: ai-model-catalog
+  namespace: rhdh
+  title: AI Model Catalog
+  annotations:
+    extensions.backstage.io/pre-installed: 'true'
+  links:
+    - title: Homepage
+      url: https://red.ht/rhdh
+    - title: Bugs
+      url: https://issues.redhat.com/browse/RHDHPAI
+    - title: Documentation for Red Hat Developer Hub
+      url: https://docs.redhat.com/en/documentation/red_hat_developer_hub/latest/html/accelerate_ai_development_with_openshift_ai_connector_for_red_hat_developer_hub/index
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations
+  tags:
+    - rhoai
+    - developer-tools
+    - ai
+    - software-catalog
+    - techdocs
+  description: |
+    Backend plugins that discover AI model servers from Red Hat OpenShift AI
+    and register them as AiModelServerAPI catalog entities, with TechDocs
+    support for model cards sourced from the Kubeflow Model Catalog.
+spec:
+  author: Red Hat
+  support:
+    provider: Red Hat
+    level: community
+  lifecycle: active
+  publisher: Red Hat
+
+  categories:
+    - Software Catalog
+
+  highlights:
+    - Generates AiModelServerAPI catalog entities from KServe InferenceService resources
+    - Provides TechDocs integration for AI model cards from the Kubeflow Model Catalog
+    - Works with the standalone KServe/Kubeflow connector — no sidecar containers required
+
+  description: |
+    # AI Model Catalog
+
+    The AI Model Catalog plugins generate Software Catalog entities and
+    TechDocs content from AI model servers managed by Red Hat OpenShift AI.
+
+    ### How it works
+
+    The model-catalog entity provider calls the KServe/Kubeflow connector
+    plugin through its Backstage REST endpoint. The connector watches
+    KServe `InferenceService` resources on configured Kubernetes clusters
+    and exposes discovered model servers and models through authenticated
+    REST routes. The entity provider converts that data into
+    `AiModelServerAPI` catalog entities.
+
+    The TechDocs URL reader obtains model-card Markdown through the
+    connector's `/modelcard/` route, enabling TechDocs generation for
+    imported AI models when a Kubeflow Model Catalog is available.
+
+    ### Packages
+
+    - **Model Catalog entity provider**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-backend-module-model-catalog`):
+      a catalog entity provider that periodically fetches model data from
+      the connector and emits `AiModelServerAPI` entities.
+    - **TechDocs URL reader**
+      (`@red-hat-developer-hub/backstage-plugin-catalog-techdoc-url-reader-backend`):
+      a URL reader service factory that resolves model-card content through
+      the connector for TechDocs generation.
+
+    ### Companion plugins
+
+    These plugins require the KServe/Kubeflow Connector backend and the
+    AI Model Server catalog module to be installed alongside them:
+
+    - **KServe/Kubeflow Connector** — discovers model servers from
+      Kubernetes clusters and exposes the REST API consumed by the
+      model-catalog provider and TechDocs reader.
+    - **AI Model Server catalog module** — registers the `AiModelServerAPI`
+      kind so the catalog accepts the entities emitted by the provider.
+
+    ### OpenShift AI documentation
+
+    - [OpenShift AI Self-Managed 3.5](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5)
+    - [Manage and govern model catalog sources](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/manage_and_govern_model_catalog_sources/index)
+    - [Deploying models](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/deploying_models/index)
+
+    ## Migration from Developer Preview sidecar deployment
+
+    If you previously used the sidecar-based AI Model Catalog Bridge
+    deployment, follow these steps:
+
+    1. Remove all three sidecar containers and bridge-specific
+       configuration (deployment patches, sidecar environment variables,
+       bridge ServiceAccount and token Secret).
+    2. Install and enable the standalone KServe/Kubeflow Connector backend
+       and companion catalog modules listed above.
+    3. Configure Kubernetes cluster access using either the Backstage
+       Kubernetes plugin reference or direct connection fields (see the
+       KServe/Kubeflow Connector plugin documentation).
+    4. Add `AiModelServerAPI` to your catalog allowed kinds.
+    5. Retain model-catalog and TechDocs configuration only when those
+       capabilities are wanted.
+
+    ## Support
+
+    - **Source code**: [ai-integrations workspace](https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/ai-integrations)
+    - **Issues**: [Jira Issues](https://issues.redhat.com/browse/RHDHBUGS)
+
+  packages:
+    - rhdh-bs-plugin-catalog-backend-module-model-catalog
+    - rhdh-bs-plugin-catalog-techdoc-url-reader-backend
+
+  installation: |
+    ## Installation
+
+    ### Dynamic Plugin Installation for Red Hat Developer Hub
+
+    Add the following to your dynamic plugin configuration. Both the
+    KServe/Kubeflow Connector and the AI Model Server catalog module
+    must also be installed (see their respective plugin entries).
+
+    ```yaml
+    includes:
+      - dynamic-plugins.default.yaml
+    plugins:
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-backend-module-model-catalog:bs_1.54.4__1.0.2
+        enabled: true
+      - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-catalog-techdoc-url-reader-backend:bs_1.54.4__0.6.2
+        enabled: true
+    ```
+
+    ## RHDH Configuration
+
+    The model-catalog entity provider discovers the connector endpoint
+    automatically through Backstage service discovery. Configure the
+    provider schedule and defaults under `catalog.providers.modelCatalog`.
+    Cluster connection is configured on the connector plugin — see the
+    KServe/Kubeflow Connector plugin entry for details.
+
+    Example provider configuration:
+
+    ```yaml
+    catalog:
+      rules:
+        - allow:
+            [
+              Component,
+              System,
+              API,
+              AiModelServerAPI,
+              Resource,
+              Location,
+              User,
+              Group,
+              AiResource,
+            ]
+      providers:
+        modelCatalog:
+          kserve-kubeflow-connector:
+            my-cluster:
+              name: my-k8s-cluster
+              kubernetesPluginRef: my-k8s-cluster
+              default-owner: my-team
+              default-lifecycle: production
+    ```

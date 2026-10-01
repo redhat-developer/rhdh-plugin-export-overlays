@@ -1,0 +1,40 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-tekton
+  namespace: rhdh
+  title: Tekton
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tekton
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tekton
+  tags: []
+spec:
+  packageName: '@backstage-community/plugin-tekton'
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.54.6__4.0.5!backstage-community-plugin-tekton
+  version: 4.0.5
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: community
+  lifecycle: active
+  partOf:
+    - tekton
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        # NFS auto-discovers createFrontendPlugin from the package default export
+        # (title "Tekton", group deployment). Do not wire legacy entity.page.ci
+        # / TektonCI mountPoints — they do not render tabs on RHDH 2.1 NFS.
+        dynamicPlugins:
+          frontend:
+            backstage-community.plugin-tekton:
+              translationResources:
+                - importName: tektonTranslations
+                  ref: tektonTranslationRef

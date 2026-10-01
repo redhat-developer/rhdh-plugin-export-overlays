@@ -1,0 +1,31 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-scaffolder-backend-module-gitlab
+  namespace: rhdh
+  title: "Scaffolder Backend Module GitLab"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/gitlab
+  tags:
+    - software-templates
+spec:
+  packageName: "@backstage/plugin-scaffolder-backend-module-gitlab"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab:bs_1.54.6__0.11.10!backstage-plugin-scaffolder-backend-module-gitlab
+  version: 0.11.10
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: tech-preview
+  lifecycle: active
+  partOf:
+    - gitlab-scaffolder-actions
+  appConfigNotRequired: true
+  appConfigExamples: []

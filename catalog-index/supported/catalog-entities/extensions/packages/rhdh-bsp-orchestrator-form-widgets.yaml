@@ -1,0 +1,38 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: redhat-backstage-plugin-orchestrator-form-widgets
+  namespace: rhdh
+  title: "Orchestrator Form Widgets"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-form-widgets
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator-form-widgets
+  tags:
+    - automation
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator-form-widgets"
+  # Tag: bs_1.54.6__2.2.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator-form-widgets@sha256:59d51b8908ac6a3d10d6d2af297ffca6b36f386d2b2cb448c35d313618b98056"
+  version: 2.2.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - orchestrator
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            # OFS loads BackstagePlugin from Legacy after NFS graduation (PluginRoot is NFS).
+            red-hat-developer-hub.backstage-plugin-orchestrator-form-widgets:
+              pluginModule: Legacy

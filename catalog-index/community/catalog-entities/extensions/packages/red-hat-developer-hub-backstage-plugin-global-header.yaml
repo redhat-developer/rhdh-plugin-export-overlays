@@ -1,0 +1,185 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: red-hat-developer-hub-backstage-plugin-global-header
+  namespace: rhdh
+  title: Global Header
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-header
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/global-header
+  tags: []
+spec:
+  packageName: "@red-hat-developer-hub/backstage-plugin-global-header"
+  dynamicArtifact: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-global-header:bs_1.54.6__3.1.0
+  version: 3.1.0
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - global-header
+  appConfigExamples:
+    # v3+ default module is NFS-only; Scalprum Legacy exposedModules were removed.
+    # Keep this example first — smoke/e2e inject appConfigExamples[0] into pluginConfig.
+    # NFS app.extensions live in e2e app-config-rhdh.yaml (and RHDH app-config), not here.
+    - title: Default configuration (NFS)
+      content:
+        dynamicPlugins:
+          frontend:
+            default.main-menu-items:
+              menuItems:
+                default.create:
+                  title: ''
+                default.admin:
+                  title: Administration
+                  textKey: menuItem.administration
+                  icon: admin
+    # OFS / Scalprum Legacy mount points — only for Old Frontend System hosts that
+    # still resolve module: Legacy. Not used by NFS e2e (examples[0] above).
+    - title: Old frontend system (Legacy / OFS)
+      content:
+        app:
+          sidebar:
+            search: false
+            settings: false
+            logo: false
+        dynamicPlugins:
+          frontend:
+            default.main-menu-items:
+              menuItems:
+                default.create:
+                  title: ""
+                default.admin:
+                  title: Administration
+                  textKey: menuItem.administration
+                  icon: admin
+            red-hat-developer-hub.backstage-plugin-global-header:
+              translationResources:
+                - importName: globalHeaderTranslations
+                  module: Legacy
+                  ref: globalHeaderTranslationRef
+              mountPoints:
+                - mountPoint: application/header
+                  importName: GlobalHeader
+                  module: Legacy
+                  config:
+                    position: above-sidebar
+                - mountPoint: global.header/component
+                  importName: CompanyLogo
+                  module: Legacy
+                  config:
+                    priority: 200
+                    props:
+                      to: /
+                - mountPoint: global.header/component
+                  importName: SearchComponent
+                  module: Legacy
+                  config:
+                    priority: 100
+                - mountPoint: global.header/component
+                  importName: Spacer
+                  module: Legacy
+                  config:
+                    priority: 99
+                    props:
+                      growFactor: 0
+                - mountPoint: global.header/component
+                  importName: HeaderIconButton
+                  module: Legacy
+                  config:
+                    priority: 90
+                    props:
+                      title: Self-service
+                      titleKey: create.title
+                      icon: add
+                      to: create
+                - mountPoint: global.header/component
+                  importName: StarredDropdown
+                  module: Legacy
+                  config:
+                    priority: 85
+                - mountPoint: global.header/component
+                  importName: ApplicationLauncherDropdown
+                  module: Legacy
+                  config:
+                    priority: 82
+                - mountPoint: global.header/application-launcher
+                  importName: MenuItemLink
+                  module: Legacy
+                  config:
+                    section: Documentation
+                    priority: 150
+                    props:
+                      title: Developer Hub
+                      titleKey: applicationLauncher.developerHub
+                      icon: developerHub
+                      link: https://docs.redhat.com/en/documentation/red_hat_developer_hub
+                - mountPoint: global.header/application-launcher
+                  importName: MenuItemLink
+                  module: Legacy
+                  config:
+                    section: Developer Tools
+                    priority: 100
+                    props:
+                      title: RHDH Local
+                      titleKey: applicationLauncher.rhdhLocal
+                      icon: developerHub
+                      link: https://github.com/redhat-developer/rhdh-local
+                - mountPoint: global.header/component
+                  importName: HelpDropdown
+                  module: Legacy
+                  config:
+                    priority: 80
+                - mountPoint: global.header/help
+                  importName: SupportButton
+                  module: Legacy
+                  config:
+                    priority: 10
+                - mountPoint: global.header/component
+                  importName: NotificationButton
+                  module: Legacy
+                  config:
+                    priority: 70
+                - mountPoint: global.header/component
+                  importName: Divider
+                  module: Legacy
+                  config:
+                    priority: 50
+                - mountPoint: global.header/component
+                  importName: ProfileDropdown
+                  module: Legacy
+                  config:
+                    priority: 10
+                - mountPoint: global.header/profile
+                  importName: MenuItemLink
+                  module: Legacy
+                  config:
+                    priority: 100
+                    props:
+                      title: Settings
+                      titleKey: profile.settings
+                      link: /settings
+                      icon: manageAccounts
+                - mountPoint: global.header/profile
+                  importName: MenuItemLink
+                  module: Legacy
+                  config:
+                    priority: 90
+                    props:
+                      title: My profile
+                      titleKey: profile.myProfile
+                      type: myProfile
+                      icon: account
+                - mountPoint: global.header/profile
+                  importName: LogoutButton
+                  module: Legacy
+                  config:
+                    priority: 10

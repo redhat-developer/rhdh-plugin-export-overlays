@@ -1,0 +1,72 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: redhat-backstage-plugin-orchestrator
+  namespace: rhdh
+  title: Orchestrator Frontend
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://issues.redhat.com/browse/RHDHBUGS
+      title: "Report issues here. Note: Customers of Red Hat Developer Hub should raise a Red Hat support case instead."
+    - title: Source Code
+      url: https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
+  annotations:
+    backstage.io/source-location: url:https://github.com/redhat-developer/rhdh-plugins/tree/main/workspaces/orchestrator/plugins/orchestrator
+  tags:
+    - automation
+spec:
+  packageName: '@red-hat-developer-hub/backstage-plugin-orchestrator'
+
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-orchestrator:bs_1.54.6__6.2.1"
+  version: 6.2.1
+  backstage:
+    role: frontend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - orchestrator
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        dynamicPlugins:
+          frontend:
+            red-hat-developer-hub.backstage-plugin-orchestrator:
+              # Legacy exports require `module: Legacy` — they are not available on the default module.
+              translationResources:
+                - importName: orchestratorTranslations
+                  module: Legacy
+                  ref: orchestratorTranslationRef
+              appIcons:
+                - importName: OrchestratorIcon
+                  name: orchestratorIcon
+                  module: Legacy
+              dynamicRoutes:
+                - importName: OrchestratorPage
+                  module: Legacy
+                  menuItem:
+                    icon: orchestratorIcon
+                    text: Orchestrator
+                    textKey: menuItem.orchestrator
+                  path: /orchestrator
+              menuItems:
+                orchestrator:
+                  parent: default.admin
+                  icon: orchestratorIcon
+              entityTabs:
+                - path: /workflows
+                  title: Workflows
+                  titleKey: catalog.entityPage.workflows.title
+                  mountPoint: entity.page.workflows
+              mountPoints:
+                - mountPoint: entity.page.workflows/cards
+                  importName: OrchestratorCatalogTab
+                  module: Legacy
+                  config:
+                    layout:
+                      gridColumn: 1 / -1
+                    if:
+                      anyOf:
+                        - hasAnnotation: orchestrator.io/workflows

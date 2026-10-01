@@ -1,0 +1,42 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-plugin-auth-backend-module-gitlab-provider
+  namespace: rhdh
+  title: "Auth Backend Module GitLab Provider"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/backstage/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-gitlab-provider
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/backstage/tree/master/plugins/auth-backend-module-gitlab-provider
+  tags:
+    - authentication
+spec:
+  packageName: "@backstage/plugin-auth-backend-module-gitlab-provider"
+  # Tag: bs_1.54.6__0.4.6
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-gitlab-provider@sha256:c1322313b474bd7609d41e8e736783a1d6a7b46e1f65ad1a2c36395505d3a195"
+  version: 0.4.6
+  backstage:
+    role: backend-plugin-module
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - backstage-plugin-auth-backend-module-gitlab-provider
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        auth:
+          providers:
+            gitlab:
+              production:
+                clientId: ${GITLAB_CLIENT_ID}
+                clientSecret: ${GITLAB_CLIENT_SECRET}
+                signIn:
+                  resolvers:
+                    - resolver: emailMatchingUserEntityProfileEmail

@@ -1,0 +1,34 @@
+apiVersion: extensions.backstage.io/v1alpha1
+kind: Package
+metadata:
+  name: backstage-community-plugin-tech-radar-backend
+  namespace: rhdh
+  title: "Tech Radar Backend"
+  links:
+    - url: https://red.ht/rhdh
+      title: Homepage
+    - url: https://github.com/backstage/community-plugins/issues
+      title: Bugs
+    - title: Source Code
+      url: https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
+  annotations:
+    backstage.io/source-location: url:https://github.com/backstage/community-plugins/tree/main/workspaces/tech-radar
+  tags: []
+spec:
+  packageName: "@backstage-community/plugin-tech-radar-backend"
+  # Tag: bs_1.54.6__1.21.0
+  dynamicArtifact: "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar-backend@sha256:29e3ecb4985307b932f9d2b8b30e5fcdc1f19e64e95b9baf4d49c68d493fd3b4"
+  version: 1.21.0
+  backstage:
+    role: backend-plugin
+    supportedVersions: 1.54.6
+  author: Red Hat
+  support: generally-available
+  lifecycle: active
+  partOf:
+    - tech-radar
+  appConfigExamples:
+    - title: Default configuration
+      content:
+        techRadar:
+          url: ${TECH_RADAR_DATA_URL}
