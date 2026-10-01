@@ -29,7 +29,7 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-scaffolder-backend-module-regex@sha256:6f6cfa301ec9800929b53ac959956c8704cf7e6af8d444c0b2744e8e99e2c844
     enabled: true
   # Tag: bs_1.54.6__1.18.0, Build date: 2026-06-03T21:12:19Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:bb288d784bde297594b4f44311e0ff069a0792f13de693118fcd8eabe3e0a9c3
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-techdocs@sha256:ef0b139089bda016ffcb95931b177d9980d42bca2be127be804f46237672b8df
     enabled: true
     pluginConfig:
       dynamicPlugins:
@@ -814,14 +814,14 @@ plugins:
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-scaffolder-backend-module-gitlab@sha256:a97a7006939eb97893abc99143882738d43f6e86593eabf2337ef0781da816aa
     enabled: false
   # Tag: bs_1.54.6__0.0.34, Build date: 2026-06-03T21:12:06Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:e95aee5a02177a25148280389148be8acd40988f7c084bdd27be966bcaba105a
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals@sha256:e5d701bbf63a8044feea2e5b174940e8bd9ff3f2a57cd4ed9b3cd2f3b7c61f74
     enabled: false
     pluginConfig:
       dynamicPlugins:
         frontend:
           backstage.plugin-signals: {}
   # Tag: bs_1.54.6__0.3.18, Build date: 2026-05-21T21:25:10Z
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:ee24ed965e8e1e8248a9d25727be023759f391396f73f95c6de2d26d44bd92e7
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-signals-backend@sha256:e4b8f60ea6d9578c6e0ce261ba1e07fd0836ae48fab59344169af44751f3826e
     enabled: false
   # Tag: bs_1.54.6__9.1.1, Build date: 2026-06-03T21:22:55Z
   - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-bulk-import@sha256:4d101b539cac30a883880c41093a77d559c7a0659249d3fdfe1cfd9981e55e67
